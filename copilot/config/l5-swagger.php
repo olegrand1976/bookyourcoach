@@ -6,6 +6,16 @@ return [
         'default' => [
             'api' => [
                 'title' => 'BookYourCoach API Documentation',
+                'description' => 'API REST pour la plateforme de réservation de cours avec coaches',
+                'version' => '1.0.0',
+                'contact' => [
+                    'name' => 'BookYourCoach Team',
+                    'email' => 'support@bookyourcoach.com',
+                ],
+                'license' => [
+                    'name' => 'MIT License',
+                    'url' => 'https://opensource.org/licenses/MIT',
+                ],
             ],
 
             'routes' => [
@@ -13,6 +23,10 @@ return [
                  * Route for accessing api documentation interface
                  */
                 'api' => 'docs',
+                'middleware' => [
+                    'api' => [],
+                    'asset' => [],
+                ],
             ],
             'paths' => [
                 /*
@@ -259,7 +273,7 @@ return [
          * 'method' (sort by HTTP method).
          * Default is the order returned by the server unchanged.
          */
-        'operations_sort' => env('L5_SWAGGER_OPERATIONS_SORT', null),
+        'operations_sort' => env('L5_SWAGGER_OPERATIONS_SORT', 'alpha'),
 
         /*
          * Pass the validatorUrl parameter to SwaggerUi init on the JS side.
@@ -279,7 +293,7 @@ return [
                  * 'full' (expands the tags and operations),
                  * 'none' (expands nothing).
                  */
-                'doc_expansion' => env('L5_SWAGGER_UI_DOC_EXPANSION', 'none'),
+                'doc_expansion' => env('L5_SWAGGER_UI_DOC_EXPANSION', 'list'),
 
                 /**
                  * If set, enables filtering. The top bar will show an edit box that

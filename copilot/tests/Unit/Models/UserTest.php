@@ -77,14 +77,12 @@ class UserTest extends TestCase
     }
 
     /** @test */
-    /*
     public function it_has_profile_relationship()
     {
         $user = User::factory()->create();
 
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasOne::class, $user->profile());
     }
-    */
 
     /** @test */
     public function it_has_teacher_relationship()

@@ -4,7 +4,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\LessonController;
+use App\Http\Controllers\Api\CourseTypeController;
+use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,8 +33,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // User routes
     Route::apiResource('users', UserController::class);
 
+    // Profile routes
+    Route::apiResource('profiles', ProfileController::class);
+
     // Lesson routes  
     Route::apiResource('lessons', LessonController::class);
+
+    // Course Type routes
+    Route::apiResource('course-types', CourseTypeController::class);
+
+    // Location routes
+    Route::apiResource('locations', LocationController::class);
+
+    // Payment routes
+    Route::apiResource('payments', PaymentController::class);
 
     // Teacher routes
     Route::get('/teachers', [UserController::class, 'teachers']);

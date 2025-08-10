@@ -13,6 +13,15 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('lesson_id')->constrained()->onDelete('cascade');
+            $table->decimal('amount', 10, 2);
+            $table->string('currency', 3)->default('EUR');
+            $table->enum('payment_method', ['card', 'bank_transfer', 'cash', 'paypal']);
+            $table->enum('status', ['pending', 'processing', 'succeeded', 'failed', 'canceled'])->default('pending');
+            $table->string('stripe_payment_intent_id')->nullable();
+            $table->string('failure_reason')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamp('processed_at')->nullable();
             $table->timestamps();
         });
     }

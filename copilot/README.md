@@ -1,32 +1,43 @@
 # BookYourCoach - Plateforme de Réservation de Cours
 
-## Description
+## 📝 Description
 
-API REST Laravel pour une plateforme de réservation de cours avec coaches (équestres ou autres). L'application gère trois types d'utilisateurs : Administrateurs, Enseignants et Élèves.
+API REST Laravel pour une plateforme de réservation de cours avec coaches (équestres ou autres). L'application gère trois types d'utilisateurs : Administrateurs, Enseignants et Élèves avec un système complet de gestion des réservations, paiements et facturation.
 
-## Fonctionnalités Principales
+## ✨ Fonctionnalités Principales
 
-### Gestion des Utilisateurs
+### 🔐 Gestion des Utilisateurs
 
--   Authentification multi-rôles (Admin, Teacher, Student)
--   Profils utilisateurs avec informations personnelles
--   Système de permissions RBAC
+- **Authentification multi-rôles** (Admin, Teacher, Student)
+- **Profils utilisateurs** avec informations personnelles complètes
+- **Système RBAC** (Role-Based Access Control)
+- **API d'authentification** avec tokens Sanctum
 
-### Gestion des Cours
+### 📚 Gestion des Cours
 
--   Types de cours personnalisables (dressage, obstacle, cross, western, etc.)
--   Créneaux de disponibilité des enseignants
--   Système de réservation avec verrouillage optimiste
--   Gestion des lieux de cours avec calcul de trajets
+- **Types de cours** personnalisables (dressage, obstacle, cross, western, etc.)
+- **Créneaux de disponibilité** des enseignants
+- **Système de réservation** avec verrouillage optimiste
+- **Gestion des lieux** de cours avec calcul de trajets
+- **API complète** pour la gestion des leçons
 
-### Paiements & Facturation
+### 💳 Paiements & Facturation
 
--   Intégration Stripe pour les paiements
--   Stripe Connect pour les reversements aux enseignants
--   Génération automatique de factures
--   Gestion des abonnements élèves
+- **Intégration Stripe** pour les paiements
+- **Stripe Connect** pour les reversements aux enseignants
+- **Génération automatique** de factures PDF
+- **Gestion des abonnements** élèves
+- **Historique des transactions**
 
-## Installation
+### 🔍 API & Documentation
+
+- **Documentation Swagger** interactive accessible sur `/docs`
+- **API REST** avec conventions standard
+- **Authentification Bearer Token**
+- **Réponses JSON** standardisées
+- **Tests automatisés** complets
+
+## 🚀 Installation
 
 ### Avec Docker (Recommandé)
 
@@ -41,10 +52,11 @@ cd bookyourcoach
 
 L'application sera disponible sur :
 
--   **Application Laravel** : http://localhost:8000
--   **PHPMyAdmin** : http://localhost:8080
-    -   Utilisateur : `bookyourcoach`
-    -   Mot de passe : `password`
+- **Application Laravel** : http://localhost:8081
+- **Documentation API Swagger** : http://localhost:8081/docs
+- **PHPMyAdmin** : http://localhost:8082
+  - Utilisateur : `laravel`
+  - Mot de passe : `laravel_password`
 
 ### Installation manuelle
 
@@ -59,23 +71,32 @@ php artisan key:generate
 # Configurer la base de données
 php artisan migrate
 
+# Générer la documentation API
+php artisan l5-swagger:generate
+
 # Lancer le serveur de développement
 php artisan serve
 ```
 
-## Configuration Docker
+## 🐳 Configuration Docker
 
 ### Services inclus
 
 L'environnement Docker inclut :
 
--   **app** : Application Laravel (PHP 8.2-FPM)
--   **webserver** : Nginx (proxy vers l'application)
--   **db** : MySQL 8.0 avec base de données `bookyourcoach`
--   **redis** : Cache et sessions Redis
--   **phpmyadmin** : Interface web pour MySQL
--   **queue** : Worker pour les tâches en arrière-plan
--   **scheduler** : Tâches cron Laravel
+- **app** : Application Laravel (PHP 8.2-FPM)
+- **webserver** : Nginx (proxy vers l'application)
+- **mysql** : MySQL 8.0 avec base de données `bookyourcoach`
+- **redis** : Cache et sessions Redis
+- **phpmyadmin** : Interface web pour MySQL
+- **queue** : Worker pour les tâches en arrière-plan
+- **scheduler** : Tâches cron Laravel
+
+### URLs de développement
+
+- **Application principale** : http://localhost:8081
+- **Documentation API** : http://localhost:8081/docs
+- **PHPMyAdmin** : http://localhost:8082
 
 ### Commandes Docker Utiles
 
@@ -93,6 +114,9 @@ docker-compose exec app bash
 docker-compose exec app php artisan migrate
 docker-compose exec app php artisan tinker
 
+# Lancer les tests
+./run_tests.sh
+
 # Redémarrer un service
 docker-compose restart app
 
@@ -100,43 +124,185 @@ docker-compose restart app
 docker-compose up -d --build
 ```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 🧪 Tests
 
-## Learning Laravel
+Le projet inclut une suite complète de tests :
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Tests unitaires
+- Tests des modèles (User, Profile, etc.)
+- Tests des relations Eloquent
+- Tests de validation des données
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Tests de fonctionnalité
+- Tests des endpoints API
+- Tests d'authentification
+- Tests des contrôleurs
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Exécution des tests
 
-## Laravel Sponsors
+```bash
+# Tous les tests
+./run_tests.sh
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Tests unitaires uniquement
+docker-compose exec app php artisan test tests/Unit
 
-### Premium Partners
+# Tests de fonctionnalité uniquement
+docker-compose exec app php artisan test tests/Feature
 
--   **[Vehikl](https://vehikl.com)**
--   **[Tighten Co.](https://tighten.co)**
--   **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
--   **[64 Robots](https://64robots.com)**
--   **[Curotec](https://www.curotec.com/services/technologies/laravel)**
--   **[DevSquad](https://devsquad.com/hire-laravel-developers)**
--   **[Redberry](https://redberry.international/laravel-development)**
--   **[Active Logic](https://activelogic.com)**
+# Test spécifique
+docker-compose exec app php artisan test tests/Feature/Api/AuthControllerTest.php
+```
 
-## Contributing
+## 📖 API Documentation
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Endpoints principaux
 
-## Code of Conduct
+#### Authentication
+- `POST /api/auth/register` - Inscription
+- `POST /api/auth/login` - Connexion
+- `POST /api/auth/logout` - Déconnexion
+- `GET /api/auth/user` - Utilisateur actuel
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+#### Users
+- `GET /api/users` - Liste des utilisateurs
+- `GET /api/users/{id}` - Détails d'un utilisateur
+- `PUT /api/users/{id}` - Modifier un utilisateur
+- `DELETE /api/users/{id}` - Supprimer un utilisateur
 
-## Security Vulnerabilities
+#### Profiles
+- `GET /api/profiles` - Liste des profils
+- `POST /api/profiles` - Créer un profil
+- `GET /api/profiles/{id}` - Détails d'un profil
+- `PUT /api/profiles/{id}` - Modifier un profil
+- `DELETE /api/profiles/{id}` - Supprimer un profil
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+#### Lessons
+- `GET /api/lessons` - Liste des cours
+- `POST /api/lessons` - Créer un cours
+- `GET /api/lessons/{id}` - Détails d'un cours
+- `PUT /api/lessons/{id}` - Modifier un cours
+- `DELETE /api/lessons/{id}` - Supprimer un cours
 
-## License
+### Authentification
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Toutes les routes protégées nécessitent un token Bearer :
+
+```bash
+# Exemple d'utilisation
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     http://localhost:8081/api/users
+```
+
+## 🏗️ Architecture
+
+### Modèles principaux
+
+- **User** : Utilisateurs avec rôles (admin/teacher/student)
+- **Profile** : Profils utilisateurs avec informations personnelles
+- **Teacher** : Enseignants avec leurs spécificités
+- **Student** : Élèves avec leurs informations
+- **CourseType** : Types de cours (dressage, obstacle, etc.)
+- **Lesson** : Leçons/cours réservés
+- **Location** : Lieux de cours
+- **Payment** : Paiements via Stripe
+- **Invoice** : Facturation
+- **Subscription** : Abonnements élèves
+- **Availability** : Disponibilités enseignants
+- **TimeBlock** : Blocages de créneaux
+- **Payout** : Reversements aux enseignants
+- **AuditLog** : Journalisation des actions
+
+### Structure des contrôleurs
+
+```
+app/Http/Controllers/Api/
+├── AuthController.php      # Authentification
+├── UserController.php      # Gestion des utilisateurs
+├── ProfileController.php   # Gestion des profils
+└── LessonController.php    # Gestion des cours
+```
+
+## 🔧 Configuration
+
+### Base de données
+
+- **Host** : mysql (dans Docker) / localhost:3307 (depuis l'hôte)
+- **Base de données** : bookyourcoach
+- **Utilisateur** : laravel
+- **Mot de passe** : laravel_password
+
+### Redis
+
+- **Host** : redis (dans Docker) / localhost:6380 (depuis l'hôte)
+- **Port** : 6379 (interne) / 6380 (externe)
+
+### Variables d'environnement importantes
+
+```env
+APP_NAME="BookYourCoach"
+APP_URL=http://localhost:8081
+L5_SWAGGER_CONST_HOST=http://localhost:8081/api
+DB_CONNECTION=mysql
+CACHE_DRIVER=redis
+SESSION_DRIVER=redis
+```
+
+## 🛠️ Développement
+
+### Workflow recommandé
+
+1. **Démarrer l'environnement** : `docker-compose up -d`
+2. **Exécuter les migrations** : `docker-compose exec app php artisan migrate`
+3. **Développer votre application**
+4. **Lancer les tests** : `./run_tests.sh`
+5. **Tester l'API** : http://localhost:8081/docs
+6. **Gérer la base** : http://localhost:8082
+
+### Tâches VS Code disponibles
+
+- **Docker: Start All Services** - Démarre tous les conteneurs
+- **Docker: Stop All Services** - Arrête tous les conteneurs
+- **Laravel: Run Migrations** - Exécute les migrations
+- **Tests: Run All Tests** - Lance tous les tests
+- **Swagger: Generate Documentation** - Régénère la doc API
+
+## 📋 Statut du projet
+
+### ✅ Fonctionnalités implémentées
+
+- ✅ Architecture Laravel complète
+- ✅ Environnement Docker complet
+- ✅ Authentification API avec Sanctum
+- ✅ Modèles et migrations complets
+- ✅ Contrôleurs API (Auth, Users, Profiles)
+- ✅ Documentation Swagger interactive
+- ✅ Suite de tests complète (25 tests)
+- ✅ Base de données MySQL avec PHPMyAdmin
+- ✅ Cache Redis configuré
+- ✅ Système de rôles utilisateurs
+
+### 🚧 À développer
+
+- ⚠️ Implémentation complète du LessonController
+- ⚠️ Contrôleurs pour CourseType, Location, Payment
+- ⚠️ Intégration Stripe pour les paiements
+- ⚠️ Système de notifications
+- ⚠️ Gestion des fichiers et uploads
+- ⚠️ Politiques d'autorisation (Policies)
+- ⚠️ Resources API pour les réponses formatées
+
+## 🤝 Contributing
+
+Les contributions sont les bienvenues ! Merci de suivre ces étapes :
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
+3. Commit les changements (`git commit -m 'Add some AmazingFeature'`)
+4. Push vers la branche (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+## 📄 License
+
+Ce projet est sous licence [MIT License](https://opensource.org/licenses/MIT).
