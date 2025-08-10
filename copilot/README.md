@@ -7,21 +7,24 @@ API REST Laravel pour une plateforme de réservation de cours avec coaches (équ
 ## Fonctionnalités Principales
 
 ### Gestion des Utilisateurs
-- Authentification multi-rôles (Admin, Teacher, Student)
-- Profils utilisateurs avec informations personnelles
-- Système de permissions RBAC
+
+-   Authentification multi-rôles (Admin, Teacher, Student)
+-   Profils utilisateurs avec informations personnelles
+-   Système de permissions RBAC
 
 ### Gestion des Cours
-- Types de cours personnalisables (dressage, obstacle, cross, western, etc.)
-- Créneaux de disponibilité des enseignants
-- Système de réservation avec verrouillage optimiste
-- Gestion des lieux de cours avec calcul de trajets
+
+-   Types de cours personnalisables (dressage, obstacle, cross, western, etc.)
+-   Créneaux de disponibilité des enseignants
+-   Système de réservation avec verrouillage optimiste
+-   Gestion des lieux de cours avec calcul de trajets
 
 ### Paiements & Facturation
-- Intégration Stripe pour les paiements
-- Stripe Connect pour les reversements aux enseignants
-- Génération automatique de factures
-- Gestion des abonnements élèves
+
+-   Intégration Stripe pour les paiements
+-   Stripe Connect pour les reversements aux enseignants
+-   Génération automatique de factures
+-   Gestion des abonnements élèves
 
 ## Installation
 
@@ -37,10 +40,11 @@ cd bookyourcoach
 ```
 
 L'application sera disponible sur :
-- **Application Laravel** : http://localhost:8000
-- **PHPMyAdmin** : http://localhost:8080
-  - Utilisateur : `bookyourcoach`
-  - Mot de passe : `password`
+
+-   **Application Laravel** : http://localhost:8000
+-   **PHPMyAdmin** : http://localhost:8080
+    -   Utilisateur : `bookyourcoach`
+    -   Mot de passe : `password`
 
 ### Installation manuelle
 
@@ -65,13 +69,13 @@ php artisan serve
 
 L'environnement Docker inclut :
 
-- **app** : Application Laravel (PHP 8.2-FPM)
-- **webserver** : Nginx (proxy vers l'application)
-- **db** : MySQL 8.0 avec base de données `bookyourcoach`
-- **redis** : Cache et sessions Redis
-- **phpmyadmin** : Interface web pour MySQL
-- **queue** : Worker pour les tâches en arrière-plan
-- **scheduler** : Tâches cron Laravel
+-   **app** : Application Laravel (PHP 8.2-FPM)
+-   **webserver** : Nginx (proxy vers l'application)
+-   **db** : MySQL 8.0 avec base de données `bookyourcoach`
+-   **redis** : Cache et sessions Redis
+-   **phpmyadmin** : Interface web pour MySQL
+-   **queue** : Worker pour les tâches en arrière-plan
+-   **scheduler** : Tâches cron Laravel
 
 ### Commandes Docker Utiles
 
@@ -112,14 +116,14 @@ We would like to extend our thanks to the following sponsors for funding Laravel
 
 ### Premium Partners
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+-   **[Vehikl](https://vehikl.com)**
+-   **[Tighten Co.](https://tighten.co)**
+-   **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
+-   **[64 Robots](https://64robots.com)**
+-   **[Curotec](https://www.curotec.com/services/technologies/laravel)**
+-   **[DevSquad](https://devsquad.com/hire-laravel-developers)**
+-   **[Redberry](https://redberry.international/laravel-development)**
+-   **[Active Logic](https://activelogic.com)**
 
 ## Contributing
 

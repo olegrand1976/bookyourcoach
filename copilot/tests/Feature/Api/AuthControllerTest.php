@@ -24,17 +24,17 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/register', $userData);
 
         $response->assertStatus(201)
-                ->assertJsonStructure([
-                    'message',
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                        'created_at',
-                        'updated_at',
-                    ],
-                    'token'
-                ]);
+            ->assertJsonStructure([
+                'message',
+                'user' => [
+                    'id',
+                    'name',
+                    'email',
+                    'created_at',
+                    'updated_at',
+                ],
+                'token'
+            ]);
 
         $this->assertDatabaseHas('users', [
             'name' => $userData['name'],
@@ -48,7 +48,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/register', []);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['name', 'email', 'password']);
+            ->assertJsonValidationErrors(['name', 'email', 'password']);
     }
 
     /** @test */
@@ -66,7 +66,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/register', $userData);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['email']);
+            ->assertJsonValidationErrors(['email']);
     }
 
     /** @test */
@@ -82,7 +82,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/register', $userData);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['password']);
+            ->assertJsonValidationErrors(['password']);
     }
 
     /** @test */
@@ -101,15 +101,15 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/login', $loginData);
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'message',
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                    ],
-                    'token'
-                ]);
+            ->assertJsonStructure([
+                'message',
+                'user' => [
+                    'id',
+                    'name',
+                    'email',
+                ],
+                'token'
+            ]);
     }
 
     /** @test */
@@ -128,7 +128,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/login', $loginData);
 
         $response->assertStatus(401)
-                ->assertJson(['message' => 'Invalid credentials']);
+            ->assertJson(['message' => 'Invalid credentials']);
     }
 
     /** @test */
@@ -137,7 +137,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/login', []);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['email', 'password']);
+            ->assertJsonValidationErrors(['email', 'password']);
     }
 
     /** @test */
@@ -151,7 +151,7 @@ class AuthControllerTest extends TestCase
         ])->postJson('/api/auth/logout');
 
         $response->assertStatus(200)
-                ->assertJson(['message' => 'Logout successful']);
+            ->assertJson(['message' => 'Logout successful']);
     }
 
     /** @test */
@@ -165,19 +165,19 @@ class AuthControllerTest extends TestCase
         ])->getJson('/api/auth/user');
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'user' => [
-                        'id',
-                        'name',
-                        'email',
-                    ]
-                ])
-                ->assertJson([
-                    'user' => [
-                        'id' => $user->id,
-                        'email' => $user->email,
-                    ]
-                ]);
+            ->assertJsonStructure([
+                'user' => [
+                    'id',
+                    'name',
+                    'email',
+                ]
+            ])
+            ->assertJson([
+                'user' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                ]
+            ]);
     }
 
     /** @test */

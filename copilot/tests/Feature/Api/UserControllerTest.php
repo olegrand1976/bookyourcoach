@@ -24,18 +24,18 @@ class UserControllerTest extends TestCase
         ])->getJson('/api/users');
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'users' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'email',
-                            'role',
-                            'created_at',
-                            'updated_at',
-                        ]
+            ->assertJsonStructure([
+                'users' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'email',
+                        'role',
+                        'created_at',
+                        'updated_at',
                     ]
-                ]);
+                ]
+            ]);
 
         $responseData = $response->json();
         $this->assertCount(4, $responseData['users']); // 1 utilisateur initial + 3 créés
@@ -65,8 +65,8 @@ class UserControllerTest extends TestCase
         ])->getJson('/api/users');
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'users' => [$user->toArray()]
-                ]);
+            ->assertJson([
+                'users' => [$user->toArray()]
+            ]);
     }
 }

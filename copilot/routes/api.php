@@ -25,17 +25,17 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/user', [AuthController::class, 'user']);
-    
+
     // User routes
     Route::apiResource('users', UserController::class);
-    
+
     // Lesson routes  
     Route::apiResource('lessons', LessonController::class);
-    
+
     // Teacher routes
     Route::get('/teachers', [UserController::class, 'teachers']);
     Route::get('/teachers/{id}/availability', [UserController::class, 'teacherAvailability']);
-    
+
     // Student routes
     Route::get('/students', [UserController::class, 'students']);
     Route::get('/students/{id}/lessons', [LessonController::class, 'studentLessons']);
