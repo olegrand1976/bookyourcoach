@@ -8,17 +8,20 @@ WORKDIR /app
 COPY package*.json ./
 
 # Installer les dépendances
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install && npm cache clean --force
 
 # Copier le code source
 COPY . .
+
+# Construire l'application
+RUN npm run build
 
 # Exposer le port
 EXPOSE 3000
 
 # Variables d'environnement
-ENV NUXT_HOST=0.0.0.0
-ENV NUXT_PORT=3000
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=3000
 
-# Démarrer l'application en mode développement
-CMD ["npm", "run", "dev"]
+# Démarrer l'application en mode production
+CMD ["npm", "run", "preview"]

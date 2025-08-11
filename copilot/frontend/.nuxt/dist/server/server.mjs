@@ -1,0 +1,1 @@
+export { default } from "file:///home/olivier/projets/bookyourcoach/copilot/frontend/node_modules/@nuxt/vite-builder/dist/runtime/vite-node.mjs"
