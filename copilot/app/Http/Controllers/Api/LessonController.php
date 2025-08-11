@@ -5,9 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Notifications\LessonBookedNotification;
+use App\Notifications\LessonCancelledNotification;
+use App\Jobs\SendLessonReminderJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 /**
  * @OA\Tag(
@@ -164,7 +170,7 @@ class LessonController extends Controller
             ]);
 
             // Pour les étudiants, on assigne automatiquement leur student_id
-            if ($user->isStudent()) {
+            if ($user->role === User::ROLE_STUDENT) {
                 $student = $user->student;
                 if (!$student) {
                     return response()->json([
@@ -183,6 +189,15 @@ class LessonController extends Controller
             $validated['status'] = 'pending';
 
             $lesson = Lesson::create($validated);
+
+            // Envoyer les notifications
+            $this->sendBookingNotifications($lesson);
+
+            // Programmer un rappel 24h avant le cours
+            $reminderTime = Carbon::parse($lesson->scheduled_at)->subHours(24);
+            if ($reminderTime->isFuture()) {
+                SendLessonReminderJob::dispatch($lesson)->delay($reminderTime);
+            }
 
             return response()->json([
                 'success' => true,
@@ -517,6 +532,47 @@ class LessonController extends Controller
                 'message' => 'Erreur lors de la récupération des cours',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Envoie les notifications de réservation
+     */
+    private function sendBookingNotifications(Lesson $lesson): void
+    {
+        try {
+            // Notifier l'enseignant
+            if ($lesson->teacher && $lesson->teacher->user) {
+                $lesson->teacher->user->notify(new LessonBookedNotification($lesson));
+            }
+
+            // Notifier l'élève si ce n'est pas lui qui a créé la réservation
+            if ($lesson->student && $lesson->student->user && $lesson->student->user->id !== Auth::id()) {
+                $lesson->student->user->notify(new LessonBookedNotification($lesson));
+            }
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas faire échouer la création de la leçon
+            Log::error("Erreur lors de l'envoi des notifications de réservation: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Envoie les notifications d'annulation
+     */
+    private function sendCancellationNotifications(Lesson $lesson, string $reason = ''): void
+    {
+        try {
+            // Notifier l'enseignant
+            if ($lesson->teacher && $lesson->teacher->user) {
+                $lesson->teacher->user->notify(new LessonCancelledNotification($lesson, $reason));
+            }
+
+            // Notifier l'élève
+            if ($lesson->student && $lesson->student->user) {
+                $lesson->student->user->notify(new LessonCancelledNotification($lesson, $reason));
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de l'envoi des notifications d'annulation: " . $e->getMessage());
         }
     }
 }

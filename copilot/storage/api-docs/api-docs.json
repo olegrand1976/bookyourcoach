@@ -26,6 +26,172 @@
         }
     ],
     "paths": {
+        "/api/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Tableau de bord administrateur",
+                "operationId": "7598e6776e54c718f7bef62bf51b2365",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques du tableau de bord",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "stats": {
+                                                    "properties": {
+                                                        "total_users": {
+                                                            "type": "integer",
+                                                            "example": 125
+                                                        },
+                                                        "total_lessons": {
+                                                            "type": "integer",
+                                                            "example": 89
+                                                        },
+                                                        "total_revenue": {
+                                                            "type": "number",
+                                                            "example": 4567.5
+                                                        },
+                                                        "active_teachers": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "recent_lessons": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "monthly_revenue": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Liste de tous les utilisateurs (admin)",
+                "operationId": "ba6466729f6afa2157fdec13195eeb74",
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "description": "Filtrer par rôle",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "admin",
+                                "teacher",
+                                "student"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filtrer par statut",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "suspended"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des utilisateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{id}/status": {
+            "put": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Modifier le statut d'un utilisateur",
+                "operationId": "a4b8c52959d0bf7c3d9100f22754f700",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "suspended"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut mis à jour"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/app-settings": {
             "get": {
                 "tags": [
@@ -973,6 +1139,173 @@
                     },
                     "404": {
                         "description": "Type de cours non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/avatar": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un avatar utilisateur",
+                "operationId": "8520e3b72dd1f269054b17ed050a9593",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "avatar": {
+                                        "description": "Fichier image pour l'avatar",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Avatar uploadé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avatar uploadé avec succès"
+                                        },
+                                        "path": {
+                                            "type": "string",
+                                            "example": "avatars/user-123.jpg"
+                                        },
+                                        "url": {
+                                            "type": "string",
+                                            "example": "http://localhost:8081/storage/avatars/user-123.jpg"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/logo": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un logo pour le rebranding (admin seulement)",
+                "operationId": "01715d56472721597a4d02a8e255d3aa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "logo": {
+                                        "description": "Fichier logo de l'application",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logo uploadé avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/certificate": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un certificat pour un enseignant",
+                "operationId": "eae178ee830cbd4cc699d08dc6656d2f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "certificate": {
+                                        "description": "Fichier certificat",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "name": {
+                                        "description": "Nom du certificat",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Certificat uploadé avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/{path}": {
+            "delete": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Supprimer un fichier uploadé",
+                "operationId": "af7a3c08675c1bf1186eb04458916c03",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Chemin du fichier à supprimer",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier supprimé avec succès"
                     }
                 },
                 "security": [
@@ -3103,12 +3436,20 @@
     },
     "tags": [
         {
+            "name": "Admin Dashboard",
+            "description": "Tableau de bord administrateur avec statistiques et gestion"
+        },
+        {
             "name": "App Settings",
             "description": "Gestion des paramètres d'application et de rebranding"
         },
         {
             "name": "Course Types",
             "description": "Gestion des types de cours"
+        },
+        {
+            "name": "File Upload",
+            "description": "Gestion des uploads de fichiers (avatars, certificats, logos)"
         },
         {
             "name": "Lessons",

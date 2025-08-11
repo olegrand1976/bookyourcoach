@@ -16,6 +16,27 @@ services:
       - mysql
       - redis
 
+  # Frontend Nuxt.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bookyourcoach_frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - API_BASE_URL=http://app:80/api
+      - NUXT_HOST=0.0.0.0
+      - NUXT_PORT=3000
+    networks:
+      - bookyourcoach_network
+    depends_on:
+      - app
+
   # Serveur web Nginx
   webserver:
     image: nginx:alpine

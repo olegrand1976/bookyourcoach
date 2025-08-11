@@ -8,6 +8,8 @@ use Stripe\Customer;
 use Stripe\Exception\ApiErrorException;
 use App\Models\User;
 use App\Models\Payment;
+use App\Jobs\GenerateInvoiceJob;
+use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Support\Facades\Log;
 
 class StripeService
@@ -183,6 +185,14 @@ class StripeService
             $payment->lesson->update([
                 'payment_status' => 'paid'
             ]);
+
+            // Envoyer une notification de confirmation de paiement
+            if ($payment->lesson && $payment->lesson->student && $payment->lesson->student->user) {
+                $payment->lesson->student->user->notify(new PaymentConfirmedNotification($payment));
+            }
+
+            // Programmer la génération de facture
+            GenerateInvoiceJob::dispatch($payment)->delay(now()->addMinutes(5));
 
             Log::info('Paiement réussi traité', [
                 'payment_id' => $payment->id,

@@ -2,7 +2,7 @@
 
 ## 📝 Description
 
-API REST Laravel pour une plateforme de réservation de cours avec coaches (équestres ou autres). L'application gère trois types d'utilisateurs : Administrateurs, Enseignants et Élèves avec un système complet de gestion des réservations, paiements et facturation.
+Application complète de réservation de cours avec coaches (équestres ou autres). Stack complet avec **Laravel API** (backend) + **NuxtJS** (frontend) pour une expérience utilisateur moderne. L'application gère trois types d'utilisateurs : Administrateurs, Enseignants et Élèves avec un système complet de gestion des réservations, paiements et facturation.
 
 ## ✨ Fonctionnalités Principales
 
@@ -48,24 +48,54 @@ API REST Laravel pour une plateforme de réservation de cours avec coaches (équ
 -   **41 leçons** avec historique réaliste
 -   **Disponibilités** et **paiements** générés
 
-### �🔍 API & Documentation
+### 🎨 Frontend NuxtJS
+
+-   **Vue 3** avec TypeScript
+-   **Tailwind CSS** pour le design
+-   **Pinia Store** pour la gestion d'état
+-   **Authentification JWT** complète
+-   **Interface admin** dédiée
+-   **Design responsive** mobile-first
+-   **SSR** (Server-Side Rendering)
+
+### 🔍 API & Documentation
 
 -   **Documentation Swagger** interactive et personnalisée accessible sur `/docs`
 -   **API REST** avec conventions standard
 -   **Authentification Bearer Token**
 -   **Réponses JSON** standardisées
--   **114 tests automatisés** ✅
+-   **127 tests automatisés** ✅
 
 ## 🚀 Installation
 
-### Avec Docker (Recommandé)
+### Démarrage Rapide (Stack Complète)
 
 ```bash
 # Cloner le repository
 git clone <repo-url>
 cd bookyourcoach
 
-# Démarrer l'environnement complet
+# Démarrer backend + frontend avec Docker
+./start-full-stack.sh
+```
+
+**Accès aux services :**
+-   **Frontend (NuxtJS)** : http://localhost:3000
+-   **API Laravel** : http://localhost:8081
+-   **Documentation API** : http://localhost:8081/api/documentation
+-   **PHPMyAdmin** : http://localhost:8082
+
+### Développement Frontend Uniquement
+
+```bash
+# Mode développement frontend avec hot-reload
+./dev-frontend.sh
+```
+
+### Installation avec Docker (Backend seulement)
+
+```bash
+# Démarrer l'environnement backend
 ./start.sh
 ```
 
@@ -211,11 +241,28 @@ docker-compose exec app php artisan test tests/Feature/Api/AuthControllerTest.ph
 -   `GET /api/lessons` - Liste des cours
 -   `POST /api/lessons` - Réserver un cours
 
-#### Payments & Stripe
+#### Notifications & Communication
 
--   `POST /api/stripe/create-payment-intent` - Créer une intention de paiement
--   `POST /api/stripe/webhook` - Webhook Stripe (public)
--   `GET /api/payments` - Historique des paiements
+-   `POST /api/notifications/send` - Envoyer une notification personnalisée
+-   `GET /api/notifications` - Historique des notifications
+
+#### File Upload & Gestion
+
+-   `POST /api/upload/avatar` - Upload d'avatar utilisateur
+-   `POST /api/upload/certificate` - Upload de certificat enseignant
+-   `POST /api/upload/logo` - Upload de logo application (admin)
+-   `DELETE /api/upload/{path}` - Supprimer un fichier
+
+#### Administration (Admin uniquement)
+
+-   `GET /api/admin/dashboard` - Tableau de bord avec statistiques
+-   `GET /api/admin/users` - Gestion complète des utilisateurs
+-   `PUT /api/admin/users/{id}/status` - Modifier statut utilisateur
+
+#### Stripe Connect & Revenus
+
+-   `POST /api/stripe/connect/account` - Créer compte Connect enseignant
+-   `GET /api/payouts` - Historique des reversements
 
 ### Authentification
 
@@ -247,11 +294,14 @@ curl -H "Authorization: Bearer TOKEN" \
 curl -H "Authorization: Bearer TOKEN" \
      http://localhost:8081/api/locations
 
-# Créer une intention de paiement Stripe
-curl -X POST http://localhost:8081/api/stripe/create-payment-intent \
+# Tester l'upload d'avatar
+curl -X POST http://localhost:8081/api/upload/avatar \
   -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"lesson_id": 1, "return_url": "http://localhost:8081/success"}'
+  -F "avatar=@/path/to/image.jpg"
+
+# Accéder au tableau de bord admin
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
+     http://localhost:8081/api/admin/dashboard
 ```
 
 ## 🏗️ Architecture
@@ -503,17 +553,23 @@ docker-compose logs -f
 -   ✅ **41 leçons de démonstration** avec historique réaliste
 -   ✅ **API de gestion des paiements** avec Stripe
 -   ✅ **Contrôleurs API complets** pour toutes les entités
+-   ✅ **🆕 Système de notifications** (email confirmations, rappels, annulations)
+-   ✅ **🆕 Jobs et queues** (génération factures, rappels automatiques)
+-   ✅ **🆕 Gestion des fichiers** (upload avatars, certificats, logos)
+-   ✅ **🆕 Interface d'administration** (dashboard, statistiques, gestion utilisateurs)
+-   ✅ **🆕 Génération automatique de factures** PDF
+-   ✅ **🆕 Calcul des temps de trajet** pour les enseignants
 
 ### 🚧 Améliorations possibles
 
--   ⚠️ Interface d'administration web (actuellement API uniquement)
--   ⚠️ Système de notifications (email, push, SMS)
--   ⚠️ Gestion avancée des fichiers et uploads
--   ⚠️ Calendrier intégré pour les disponibilités
+-   ⚠️ Application web front-end (React/Vue.js)
+-   ⚠️ Notifications push et SMS
+-   ⚠️ Calendrier intégré avancé pour les disponibilités
 -   ⚠️ Système de rating et reviews
--   ⚠️ Rapports et statistiques avancées
+-   ⚠️ Rapports PDF détaillés
 -   ⚠️ Intégration avec des services de cartographie
 -   ⚠️ Application mobile (React Native / Flutter)
+-   ⚠️ Système de chat en temps réel
 
 ## 🤝 Contributing
 

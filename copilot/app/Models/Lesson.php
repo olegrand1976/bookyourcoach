@@ -36,14 +36,19 @@ class Lesson extends Model
         'course_type_id',
         'location_id',
         'scheduled_at',
+        'start_time',
+        'end_time',
         'duration',
         'price',
         'status',
+        'payment_status',
         'notes'
     ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
         'price' => 'decimal:2',
         'duration' => 'integer'
     ];
