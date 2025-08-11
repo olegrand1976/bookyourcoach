@@ -14,7 +14,7 @@ class LessonTest extends TestCase
     public function it_can_be_instantiated()
     {
         $lesson = new Lesson();
-        
+
         $this->assertInstanceOf(Lesson::class, $lesson);
     }
 
@@ -22,7 +22,7 @@ class LessonTest extends TestCase
     public function it_has_correct_table_name()
     {
         $lesson = new Lesson();
-        
+
         $this->assertEquals('lessons', $lesson->getTable());
     }
 
@@ -30,7 +30,7 @@ class LessonTest extends TestCase
     public function it_uses_timestamps()
     {
         $lesson = new Lesson();
-        
+
         $this->assertTrue($lesson->timestamps);
     }
 }

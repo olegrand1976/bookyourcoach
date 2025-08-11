@@ -14,7 +14,7 @@ class LocationTest extends TestCase
     public function it_can_be_instantiated()
     {
         $location = new Location();
-        
+
         $this->assertInstanceOf(Location::class, $location);
     }
 
@@ -22,7 +22,7 @@ class LocationTest extends TestCase
     public function it_has_correct_table_name()
     {
         $location = new Location();
-        
+
         $this->assertEquals('locations', $location->getTable());
     }
 
@@ -30,7 +30,7 @@ class LocationTest extends TestCase
     public function it_uses_timestamps()
     {
         $location = new Location();
-        
+
         $this->assertTrue($location->timestamps);
     }
 }

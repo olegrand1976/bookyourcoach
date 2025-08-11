@@ -14,7 +14,7 @@ class PayoutTest extends TestCase
     public function it_can_be_instantiated()
     {
         $payout = new Payout();
-        
+
         $this->assertInstanceOf(Payout::class, $payout);
     }
 
@@ -22,7 +22,7 @@ class PayoutTest extends TestCase
     public function it_has_correct_table_name()
     {
         $payout = new Payout();
-        
+
         $this->assertEquals('payouts', $payout->getTable());
     }
 
@@ -30,7 +30,7 @@ class PayoutTest extends TestCase
     public function it_uses_timestamps()
     {
         $payout = new Payout();
-        
+
         $this->assertTrue($payout->timestamps);
     }
 }

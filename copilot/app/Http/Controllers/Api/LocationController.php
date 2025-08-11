@@ -46,7 +46,7 @@ class LocationController extends Controller
     {
         try {
             $locations = Location::all();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $locations

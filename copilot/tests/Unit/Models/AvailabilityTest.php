@@ -14,7 +14,7 @@ class AvailabilityTest extends TestCase
     public function it_can_be_instantiated()
     {
         $availability = new Availability();
-        
+
         $this->assertInstanceOf(Availability::class, $availability);
     }
 
@@ -22,7 +22,7 @@ class AvailabilityTest extends TestCase
     public function it_has_correct_table_name()
     {
         $availability = new Availability();
-        
+
         $this->assertEquals('availabilities', $availability->getTable());
     }
 
@@ -30,7 +30,7 @@ class AvailabilityTest extends TestCase
     public function it_uses_timestamps()
     {
         $availability = new Availability();
-        
+
         $this->assertTrue($availability->timestamps);
     }
 }

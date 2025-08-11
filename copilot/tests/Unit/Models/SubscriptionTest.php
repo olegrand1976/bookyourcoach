@@ -14,7 +14,7 @@ class SubscriptionTest extends TestCase
     public function it_can_be_instantiated()
     {
         $subscription = new Subscription();
-        
+
         $this->assertInstanceOf(Subscription::class, $subscription);
     }
 
@@ -22,7 +22,7 @@ class SubscriptionTest extends TestCase
     public function it_has_correct_table_name()
     {
         $subscription = new Subscription();
-        
+
         $this->assertEquals('subscriptions', $subscription->getTable());
     }
 
@@ -30,7 +30,7 @@ class SubscriptionTest extends TestCase
     public function it_uses_timestamps()
     {
         $subscription = new Subscription();
-        
+
         $this->assertTrue($subscription->timestamps);
     }
 }

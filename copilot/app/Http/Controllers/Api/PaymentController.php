@@ -208,8 +208,8 @@ class PaymentController extends Controller
 
             // Vérifier qu'il n'y a pas déjà un paiement réussi pour cette leçon
             $existingPayment = Payment::where('lesson_id', $validated['lesson_id'])
-                                    ->where('status', 'succeeded')
-                                    ->first();
+                ->where('status', 'succeeded')
+                ->first();
 
             if ($existingPayment) {
                 return response()->json([
@@ -380,7 +380,7 @@ class PaymentController extends Controller
 
         try {
             $payment = Payment::findOrFail($id);
-            
+
             // Ne pas permettre la suppression de paiements réussis
             if ($payment->status === 'succeeded') {
                 return response()->json([

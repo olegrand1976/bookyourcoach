@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('availabilities', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('teacher_id')->constrained()->onDelete('cascade');
+            $table->foreignId('location_id')->constrained()->onDelete('cascade');
+            $table->datetime('start_time');
+            $table->datetime('end_time');
+            $table->boolean('is_available')->default(true);
+            $table->text('notes')->nullable();
             $table->timestamps();
+
+            $table->index(['teacher_id', 'start_time']);
+            $table->index(['location_id', 'start_time']);
         });
     }
 

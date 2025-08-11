@@ -105,7 +105,7 @@ class ProfileControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $token = $user->createToken('test-token')->plainTextToken;
-        
+
         $profile = Profile::factory()->create([
             'user_id' => $user->id,
             'first_name' => 'Jean',
@@ -140,7 +140,7 @@ class ProfileControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $token = $user->createToken('test-token')->plainTextToken;
-        
+
         $profile = Profile::factory()->create([
             'user_id' => $user->id,
             'first_name' => 'Jean',
@@ -184,7 +184,7 @@ class ProfileControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $token = $user->createToken('test-token')->plainTextToken;
-        
+
         $profile = Profile::factory()->create([
             'user_id' => $user->id,
         ]);

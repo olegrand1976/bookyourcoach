@@ -15,7 +15,7 @@ class ProfileTest extends TestCase
     public function it_can_be_created_with_required_fields()
     {
         $user = User::factory()->create();
-        
+
         $profileData = [
             'user_id' => $user->id,
             'first_name' => 'Jean',
@@ -138,7 +138,7 @@ class ProfileTest extends TestCase
     public function it_can_store_optional_fields()
     {
         $user = User::factory()->create();
-        
+
         $profileData = [
             'user_id' => $user->id,
             'first_name' => 'Jean',

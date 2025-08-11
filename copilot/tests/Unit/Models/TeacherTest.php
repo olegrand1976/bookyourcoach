@@ -20,7 +20,7 @@ class TeacherTest extends TestCase
     public function it_can_be_created_with_required_fields()
     {
         $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
-        
+
         $teacherData = [
             'user_id' => $user->id,
             'hourly_rate' => 50.00,
@@ -190,7 +190,7 @@ class TeacherTest extends TestCase
     public function it_can_store_optional_fields()
     {
         $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
-        
+
         $teacherData = [
             'user_id' => $user->id,
             'specialties' => ['dressage', 'obstacle'],

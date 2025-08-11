@@ -46,7 +46,7 @@ class CourseTypeController extends Controller
     {
         try {
             $courseTypes = CourseType::all();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $courseTypes

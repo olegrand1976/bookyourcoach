@@ -14,7 +14,7 @@ class StudentTest extends TestCase
     public function it_can_be_instantiated()
     {
         $student = new Student();
-        
+
         $this->assertInstanceOf(Student::class, $student);
     }
 
@@ -22,7 +22,7 @@ class StudentTest extends TestCase
     public function it_has_correct_table_name()
     {
         $student = new Student();
-        
+
         $this->assertEquals('students', $student->getTable());
     }
 
@@ -30,7 +30,7 @@ class StudentTest extends TestCase
     public function it_uses_timestamps()
     {
         $student = new Student();
-        
+
         $this->assertTrue($student->timestamps);
     }
 }

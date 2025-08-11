@@ -14,7 +14,7 @@ class PaymentTest extends TestCase
     public function it_can_be_instantiated()
     {
         $payment = new Payment();
-        
+
         $this->assertInstanceOf(Payment::class, $payment);
     }
 
@@ -22,7 +22,7 @@ class PaymentTest extends TestCase
     public function it_has_correct_table_name()
     {
         $payment = new Payment();
-        
+
         $this->assertEquals('payments', $payment->getTable());
     }
 
@@ -30,7 +30,7 @@ class PaymentTest extends TestCase
     public function it_uses_timestamps()
     {
         $payment = new Payment();
-        
+
         $this->assertTrue($payment->timestamps);
     }
 }

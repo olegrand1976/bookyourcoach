@@ -18,10 +18,10 @@ class LessonFactory extends Factory
     {
         $startDate = $this->faker->dateTimeBetween('now', '+30 days');
         $startTime = Carbon::parse($startDate);
-        
+
         // Durée par défaut de 60 minutes si pas de CourseType
         $duration = 60;
-        
+
         return [
             'student_id' => Student::factory(),
             'teacher_id' => Teacher::factory(),

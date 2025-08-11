@@ -66,7 +66,7 @@ class Location extends Model
             $this->city,
             $this->country
         ]);
-        
+
         return implode(', ', $parts);
     }
 }

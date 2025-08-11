@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\CourseTypeController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\AppSettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,6 +26,12 @@ use App\Http\Controllers\Api\PaymentController;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// App settings publiques (pour le rebranding frontend)
+Route::get('/app-settings/public', [AppSettingController::class, 'index']);
+
+// Stripe webhook (pas d'authentification nécessaire)
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -47,6 +55,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Payment routes
     Route::apiResource('payments', PaymentController::class);
+    Route::post('/stripe/create-payment-intent', [StripeWebhookController::class, 'createPaymentIntent']);
+
+    // App Settings routes (admin only for write operations)
+    Route::apiResource('app-settings', AppSettingController::class);
+    Route::post('/app-settings/{appSetting}/activate', [AppSettingController::class, 'activate']);
 
     // Teacher routes
     Route::get('/teachers', [UserController::class, 'teachers']);

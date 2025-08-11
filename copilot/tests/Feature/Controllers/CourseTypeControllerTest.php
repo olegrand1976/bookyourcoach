@@ -23,19 +23,19 @@ class CourseTypeControllerTest extends TestCase
         $response = $this->getJson('/api/course-types');
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'data' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'description',
-                            'duration',
-                            'price',
-                            'created_at',
-                            'updated_at'
-                        ]
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'description',
+                        'duration',
+                        'price',
+                        'created_at',
+                        'updated_at'
                     ]
-                ]);
+                ]
+            ]);
     }
 
     /** @test */
@@ -49,15 +49,15 @@ class CourseTypeControllerTest extends TestCase
         $response = $this->getJson("/api/course-types/{$courseType->id}");
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'data' => [
-                        'id' => $courseType->id,
-                        'name' => $courseType->name,
-                        'description' => $courseType->description,
-                        'duration' => $courseType->duration,
-                        'price' => (string) $courseType->price,
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'id' => $courseType->id,
+                    'name' => $courseType->name,
+                    'description' => $courseType->description,
+                    'duration' => $courseType->duration,
+                    'price' => (string) $courseType->price,
+                ]
+            ]);
     }
 
     /** @test */
@@ -76,14 +76,14 @@ class CourseTypeControllerTest extends TestCase
         $response = $this->postJson('/api/course-types', $courseTypeData);
 
         $response->assertStatus(201)
-                ->assertJson([
-                    'data' => [
-                        'name' => 'Dressage Avancé',
-                        'description' => 'Cours de dressage pour cavaliers confirmés',
-                        'duration' => 75,
-                        'price' => '55.00',
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'name' => 'Dressage Avancé',
+                    'description' => 'Cours de dressage pour cavaliers confirmés',
+                    'duration' => 75,
+                    'price' => '55.00',
+                ]
+            ]);
 
         $this->assertDatabaseHas('course_types', $courseTypeData);
     }
@@ -124,15 +124,15 @@ class CourseTypeControllerTest extends TestCase
         $response = $this->putJson("/api/course-types/{$courseType->id}", $updateData);
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'data' => [
-                        'id' => $courseType->id,
-                        'name' => 'Nom mis à jour',
-                        'description' => 'Description mise à jour',
-                        'duration' => 90,
-                        'price' => '65.00',
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'id' => $courseType->id,
+                    'name' => 'Nom mis à jour',
+                    'description' => 'Description mise à jour',
+                    'duration' => 90,
+                    'price' => '65.00',
+                ]
+            ]);
 
         $this->assertDatabaseHas('course_types', array_merge(['id' => $courseType->id], $updateData));
     }
@@ -161,7 +161,7 @@ class CourseTypeControllerTest extends TestCase
         $response = $this->postJson('/api/course-types', []);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['name']);
+            ->assertJsonValidationErrors(['name']);
     }
 
     /** @test */
@@ -176,7 +176,7 @@ class CourseTypeControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['price']);
+            ->assertJsonValidationErrors(['price']);
     }
 
     /** @test */

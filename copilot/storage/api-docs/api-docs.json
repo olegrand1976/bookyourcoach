@@ -2,25 +2,455 @@
     "openapi": "3.0.0",
     "info": {
         "title": "BookYourCoach API",
-        "description": "API REST pour la plateforme de réservation de cours avec coaches équestres ou autres sports. Cette API permet la gestion complète des utilisateurs (admin/enseignants/élèves), des réservations, des paiements et de la facturation.",
+        "description": "API REST complète pour la plateforme de réservation de cours avec coaches équestres.\n *     \n * Cette API permet de :\n * - Gérer les utilisateurs (Administrateurs, Enseignants, Élèves)\n * - Planifier et réserver des cours d'équitation\n * - Traiter les paiements via Stripe\n * - Gérer les lieux et types de cours\n * - Suivre les performances et statistiques\n * \n * ## Authentification\n * L'API utilise l'authentification Bearer Token via Laravel Sanctum.\n * Incluez votre token dans l'header Authorization : `Bearer {token}`\n * \n * ## Rôles utilisateurs\n * - **Admin** : Accès complet à toutes les fonctionnalités\n * - **Teacher** : Gestion de ses cours, disponibilités et élèves\n * - **Student** : Réservation de cours et gestion de son profil\n * \n * ## Environnement de test\n * - URL de base : http://localhost:8081/api\n * - Base de données : MySQL via Docker\n * - Paiements : Stripe en mode test\n * - PHPMyAdmin : http://localhost:8082",
+        "termsOfService": "https://bookyourcoach.com/terms",
         "contact": {
-            "name": "BookYourCoach Support",
+            "name": "Équipe BookYourCoach",
             "url": "https://bookyourcoach.com",
             "email": "support@bookyourcoach.com"
         },
         "license": {
-            "name": "MIT License",
-            "url": "https://opensource.org/licenses/MIT"
+            "name": "Propriétaire - BookYourCoach",
+            "url": "https://bookyourcoach.com/license"
         },
         "version": "1.0.0"
     },
     "servers": [
         {
             "url": "http://localhost:8081/api",
-            "description": "Serveur de développement BookYourCoach"
+            "description": "Serveur de développement"
+        },
+        {
+            "url": "https://api.bookyourcoach.com",
+            "description": "Serveur de production"
         }
     ],
     "paths": {
+        "/api/app-settings": {
+            "get": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Récupérer les paramètres d'application actifs",
+                "description": "Récupère les paramètres d'application actuellement actifs pour le rebranding",
+                "operationId": "getAppSettings",
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Aucun paramètre actif trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Aucun paramètre d'application actif trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Créer de nouveaux paramètres d'application",
+                "description": "Crée de nouveaux paramètres d'application (admin uniquement)",
+                "operationId": "createAppSetting",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AppSetting"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Paramètres d'application créés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application créés avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Erreur de validation"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/app-settings/{id}": {
+            "get": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Récupérer un paramètre d'application spécifique",
+                "description": "Récupère les détails d'un paramètre d'application spécifique (admin uniquement)",
+                "operationId": "getAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètre d'application récupéré avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès non autorisé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Accès non autorisé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Mettre à jour les paramètres d'application",
+                "description": "Met à jour les paramètres d'application existants (admin uniquement)",
+                "operationId": "updateAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AppSetting"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application mis à jour avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Supprimer des paramètres d'application",
+                "description": "Supprime des paramètres d'application (admin uniquement)",
+                "operationId": "deleteAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application supprimés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application supprimés avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Impossible de supprimer le paramètre actif",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Impossible de supprimer les paramètres d'application actifs"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/app-settings/{id}/activate": {
+            "post": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Activer des paramètres d'application",
+                "description": "Active des paramètres d'application spécifiques et désactive les autres (admin uniquement)",
+                "operationId": "activateAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application activés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application activés avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/auth/register": {
             "post": {
                 "tags": [
@@ -1890,6 +2320,118 @@
                 ]
             }
         },
+        "/api/stripe/webhook": {
+            "post": {
+                "tags": [
+                    "Stripe Webhooks"
+                ],
+                "summary": "Webhook Stripe",
+                "description": "Endpoint pour recevoir les notifications de Stripe",
+                "operationId": "stripeWebhook",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "description": "Payload du webhook Stripe",
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Webhook traité avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Webhook invalide"
+                    }
+                }
+            }
+        },
+        "/api/stripe/create-payment-intent": {
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Créer une intention de paiement",
+                "description": "Crée une intention de paiement Stripe pour une leçon",
+                "operationId": "createPaymentIntent",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "lesson_id"
+                                ],
+                                "properties": {
+                                    "lesson_id": {
+                                        "description": "ID de la leçon",
+                                        "type": "integer"
+                                    },
+                                    "payment_method_types": {
+                                        "description": "Types de paiement acceptés",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Intention de paiement créée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "client_secret": {
+                                            "description": "Secret client pour le paiement",
+                                            "type": "string"
+                                        },
+                                        "payment_intent_id": {
+                                            "description": "ID de l'intention de paiement",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -1928,6 +2470,150 @@
     },
     "components": {
         "schemas": {
+            "AppSettingResource": {
+                "title": "App Setting Resource",
+                "description": "Ressource des paramètres d'application",
+                "properties": {
+                    "id": {
+                        "description": "ID unique",
+                        "type": "integer"
+                    },
+                    "app_name": {
+                        "description": "Nom de l'application",
+                        "type": "string"
+                    },
+                    "primary_color": {
+                        "description": "Couleur principale",
+                        "type": "string"
+                    },
+                    "secondary_color": {
+                        "description": "Couleur secondaire",
+                        "type": "string"
+                    },
+                    "accent_color": {
+                        "description": "Couleur d'accent",
+                        "type": "string"
+                    },
+                    "logo_url": {
+                        "description": "URL du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "logo_path": {
+                        "description": "Chemin du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "app_description": {
+                        "description": "Description",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_email": {
+                        "description": "Email de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_phone": {
+                        "description": "Téléphone de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "social_links": {
+                        "description": "Liens réseaux sociaux",
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "description": "Actif",
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "AppSetting": {
+                "title": "Application Settings",
+                "description": "Configuration des paramètres d'apparence de l'application",
+                "required": [
+                    "app_name",
+                    "primary_color",
+                    "secondary_color",
+                    "accent_color"
+                ],
+                "properties": {
+                    "id": {
+                        "description": "ID unique",
+                        "type": "integer"
+                    },
+                    "app_name": {
+                        "description": "Nom de l'application",
+                        "type": "string"
+                    },
+                    "primary_color": {
+                        "description": "Couleur principale (hex)",
+                        "type": "string"
+                    },
+                    "secondary_color": {
+                        "description": "Couleur secondaire (hex)",
+                        "type": "string"
+                    },
+                    "accent_color": {
+                        "description": "Couleur d'accent (hex)",
+                        "type": "string"
+                    },
+                    "logo_url": {
+                        "description": "URL du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "logo_path": {
+                        "description": "Chemin local du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "app_description": {
+                        "description": "Description de l'application",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_email": {
+                        "description": "Email de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_phone": {
+                        "description": "Téléphone de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "social_links": {
+                        "description": "Liens réseaux sociaux",
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "description": "Paramètres actifs",
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
             "CourseType": {
                 "title": "Course Type",
                 "description": "Type de cours disponible sur la plateforme",
@@ -2409,13 +3095,17 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
-                "description": "Authentification par token Bearer. Utilisez le token obtenu via /api/auth/login",
+                "description": "Authentification via Bearer Token (Laravel Sanctum). \n *     \n * Pour utiliser l'authentification :\n * 1. Connectez-vous via POST /auth/login\n * 2. Récupérez le token dans la réponse\n * 3. Incluez-le dans l'header: Authorization: Bearer {token}",
                 "bearerFormat": "JWT",
                 "scheme": "bearer"
             }
         }
     },
     "tags": [
+        {
+            "name": "App Settings",
+            "description": "Gestion des paramètres d'application et de rebranding"
+        },
         {
             "name": "Course Types",
             "description": "Gestion des types de cours"
@@ -2431,6 +3121,10 @@
         {
             "name": "Payments",
             "description": "Gestion des paiements"
+        },
+        {
+            "name": "Stripe Webhooks",
+            "description": "Gestion des webhooks Stripe"
         },
         {
             "name": "Authentication",

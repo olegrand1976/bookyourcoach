@@ -23,23 +23,23 @@ class LocationControllerTest extends TestCase
         $response = $this->getJson('/api/locations');
 
         $response->assertStatus(200)
-                ->assertJsonStructure([
-                    'data' => [
-                        '*' => [
-                            'id',
-                            'name',
-                            'address',
-                            'city',
-                            'postal_code',
-                            'country',
-                            'latitude',
-                            'longitude',
-                            'facilities',
-                            'created_at',
-                            'updated_at'
-                        ]
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'address',
+                        'city',
+                        'postal_code',
+                        'country',
+                        'latitude',
+                        'longitude',
+                        'facilities',
+                        'created_at',
+                        'updated_at'
                     ]
-                ]);
+                ]
+            ]);
     }
 
     /** @test */
@@ -53,16 +53,16 @@ class LocationControllerTest extends TestCase
         $response = $this->getJson("/api/locations/{$location->id}");
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'data' => [
-                        'id' => $location->id,
-                        'name' => $location->name,
-                        'address' => $location->address,
-                        'city' => $location->city,
-                        'postal_code' => $location->postal_code,
-                        'country' => $location->country,
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'id' => $location->id,
+                    'name' => $location->name,
+                    'address' => $location->address,
+                    'city' => $location->city,
+                    'postal_code' => $location->postal_code,
+                    'country' => $location->country,
+                ]
+            ]);
     }
 
     /** @test */
@@ -85,18 +85,18 @@ class LocationControllerTest extends TestCase
         $response = $this->postJson('/api/locations', $locationData);
 
         $response->assertStatus(201)
-                ->assertJson([
-                    'data' => [
-                        'name' => 'Centre Équestre Test',
-                        'address' => '123 Rue Test',
-                        'city' => 'Bruxelles',
-                        'postal_code' => '1000',
-                        'country' => 'Belgique',
-                        'latitude' => 50.8503,
-                        'longitude' => 4.3517,
-                        'facilities' => ['carrière', 'manège', 'parking']
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'name' => 'Centre Équestre Test',
+                    'address' => '123 Rue Test',
+                    'city' => 'Bruxelles',
+                    'postal_code' => '1000',
+                    'country' => 'Belgique',
+                    'latitude' => 50.8503,
+                    'longitude' => 4.3517,
+                    'facilities' => ['carrière', 'manège', 'parking']
+                ]
+            ]);
 
         $this->assertDatabaseHas('locations', [
             'name' => 'Centre Équestre Test',
@@ -148,19 +148,19 @@ class LocationControllerTest extends TestCase
         $response = $this->putJson("/api/locations/{$location->id}", $updateData);
 
         $response->assertStatus(200)
-                ->assertJson([
-                    'data' => [
-                        'id' => $location->id,
-                        'name' => 'Nom mis à jour',
-                        'address' => 'Adresse mise à jour',
-                        'city' => 'Ville mise à jour',
-                        'postal_code' => '9999',
-                        'country' => 'France',
-                        'latitude' => 48.8566,
-                        'longitude' => 2.3522,
-                        'facilities' => ['manège couvert', 'paddock']
-                    ]
-                ]);
+            ->assertJson([
+                'data' => [
+                    'id' => $location->id,
+                    'name' => 'Nom mis à jour',
+                    'address' => 'Adresse mise à jour',
+                    'city' => 'Ville mise à jour',
+                    'postal_code' => '9999',
+                    'country' => 'France',
+                    'latitude' => 48.8566,
+                    'longitude' => 2.3522,
+                    'facilities' => ['manège couvert', 'paddock']
+                ]
+            ]);
     }
 
     /** @test */
@@ -187,7 +187,7 @@ class LocationControllerTest extends TestCase
         $response = $this->postJson('/api/locations', []);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['name', 'address', 'city', 'postal_code', 'country']);
+            ->assertJsonValidationErrors(['name', 'address', 'city', 'postal_code', 'country']);
     }
 
     /** @test */
@@ -207,7 +207,7 @@ class LocationControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['latitude', 'longitude']);
+            ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
     /** @test */
@@ -226,7 +226,7 @@ class LocationControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-                ->assertJsonValidationErrors(['facilities']);
+            ->assertJsonValidationErrors(['facilities']);
     }
 
     /** @test */

@@ -14,7 +14,7 @@ class AuditLogTest extends TestCase
     public function it_can_be_instantiated()
     {
         $auditLog = new AuditLog();
-        
+
         $this->assertInstanceOf(AuditLog::class, $auditLog);
     }
 
@@ -22,7 +22,7 @@ class AuditLogTest extends TestCase
     public function it_has_correct_table_name()
     {
         $auditLog = new AuditLog();
-        
+
         $this->assertEquals('audit_logs', $auditLog->getTable());
     }
 
@@ -30,7 +30,7 @@ class AuditLogTest extends TestCase
     public function it_uses_timestamps()
     {
         $auditLog = new AuditLog();
-        
+
         $this->assertTrue($auditLog->timestamps);
     }
 }

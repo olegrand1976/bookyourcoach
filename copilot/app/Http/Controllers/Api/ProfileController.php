@@ -98,9 +98,16 @@ class ProfileController extends Controller
         $profile = Profile::create([
             'user_id' => $request->user()->id,
             ...$request->only([
-                'first_name', 'last_name', 'phone', 'address', 'city', 
-                'postal_code', 'country', 'date_of_birth', 
-                'emergency_contact_name', 'emergency_contact_phone'
+                'first_name',
+                'last_name',
+                'phone',
+                'address',
+                'city',
+                'postal_code',
+                'country',
+                'date_of_birth',
+                'emergency_contact_name',
+                'emergency_contact_phone'
             ])
         ]);
 
@@ -137,7 +144,7 @@ class ProfileController extends Controller
     public function show(string $id): JsonResponse
     {
         $profile = Profile::with('user')->findOrFail($id);
-        
+
         return response()->json([
             'profile' => $profile
         ]);
@@ -175,7 +182,7 @@ class ProfileController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $profile = Profile::findOrFail($id);
-        
+
         $validator = Validator::make($request->all(), [
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
@@ -197,9 +204,16 @@ class ProfileController extends Controller
         }
 
         $profile->update($request->only([
-            'first_name', 'last_name', 'phone', 'address', 'city', 
-            'postal_code', 'country', 'date_of_birth', 
-            'emergency_contact_name', 'emergency_contact_phone'
+            'first_name',
+            'last_name',
+            'phone',
+            'address',
+            'city',
+            'postal_code',
+            'country',
+            'date_of_birth',
+            'emergency_contact_name',
+            'emergency_contact_phone'
         ]));
 
         return response()->json([

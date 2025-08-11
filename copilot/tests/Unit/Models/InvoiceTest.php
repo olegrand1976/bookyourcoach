@@ -14,7 +14,7 @@ class InvoiceTest extends TestCase
     public function it_can_be_instantiated()
     {
         $invoice = new Invoice();
-        
+
         $this->assertInstanceOf(Invoice::class, $invoice);
     }
 
@@ -22,7 +22,7 @@ class InvoiceTest extends TestCase
     public function it_has_correct_table_name()
     {
         $invoice = new Invoice();
-        
+
         $this->assertEquals('invoices', $invoice->getTable());
     }
 
@@ -30,7 +30,7 @@ class InvoiceTest extends TestCase
     public function it_uses_timestamps()
     {
         $invoice = new Invoice();
-        
+
         $this->assertTrue($invoice->timestamps);
     }
 }

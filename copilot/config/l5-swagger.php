@@ -5,17 +5,72 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'BookYourCoach API Documentation',
-                'description' => 'API REST pour la plateforme de réservation de cours avec coaches',
+                'title' => 'BookYourCoach API',
+                'description' => 'API REST complète pour la plateforme de réservation de cours avec coaches équestres. Cette API permet la gestion des utilisateurs, professeurs, élèves, cours, réservations et paiements.',
                 'version' => '1.0.0',
                 'contact' => [
-                    'name' => 'BookYourCoach Team',
+                    'name' => 'Équipe BookYourCoach',
                     'email' => 'support@bookyourcoach.com',
+                    'url' => 'https://bookyourcoach.com'
                 ],
                 'license' => [
-                    'name' => 'MIT License',
-                    'url' => 'https://opensource.org/licenses/MIT',
+                    'name' => 'Propriétaire - BookYourCoach',
+                    'url' => 'https://bookyourcoach.com/license',
                 ],
+                'servers' => [
+                    [
+                        'url' => env('L5_SWAGGER_CONST_HOST', 'http://localhost:8081/api'),
+                        'description' => 'Serveur de développement',
+                    ],
+                ],
+                'tags' => [
+                    [
+                        'name' => 'Authentication',
+                        'description' => 'Gestion de l\'authentification et des sessions utilisateur'
+                    ],
+                    [
+                        'name' => 'Users',
+                        'description' => 'Gestion des utilisateurs (Admin, Teachers, Students)'
+                    ],
+                    [
+                        'name' => 'Profiles',
+                        'description' => 'Gestion des profils utilisateurs'
+                    ],
+                    [
+                        'name' => 'Course Types',
+                        'description' => 'Types de cours disponibles (Dressage, Obstacle, etc.)'
+                    ],
+                    [
+                        'name' => 'Locations',
+                        'description' => 'Lieux de cours avec géolocalisation'
+                    ],
+                    [
+                        'name' => 'Lessons',
+                        'description' => 'Gestion des leçons et réservations'
+                    ],
+                    [
+                        'name' => 'Payments',
+                        'description' => 'Système de paiement avec intégration Stripe'
+                    ]
+                ],
+                'x-tagGroups' => [
+                    [
+                        'name' => 'Authentification',
+                        'tags' => ['Authentication']
+                    ],
+                    [
+                        'name' => 'Gestion des utilisateurs',
+                        'tags' => ['Users', 'Profiles']
+                    ],
+                    [
+                        'name' => 'Système de réservation',
+                        'tags' => ['Course Types', 'Locations', 'Lessons']
+                    ],
+                    [
+                        'name' => 'Paiements',
+                        'tags' => ['Payments']
+                    ]
+                ]
             ],
 
             'routes' => [

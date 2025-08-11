@@ -14,7 +14,7 @@ class TimeBlockTest extends TestCase
     public function it_can_be_instantiated()
     {
         $timeBlock = new TimeBlock();
-        
+
         $this->assertInstanceOf(TimeBlock::class, $timeBlock);
     }
 
@@ -22,7 +22,7 @@ class TimeBlockTest extends TestCase
     public function it_has_correct_table_name()
     {
         $timeBlock = new TimeBlock();
-        
+
         $this->assertEquals('time_blocks', $timeBlock->getTable());
     }
 
@@ -30,7 +30,7 @@ class TimeBlockTest extends TestCase
     public function it_uses_timestamps()
     {
         $timeBlock = new TimeBlock();
-        
+
         $this->assertTrue($timeBlock->timestamps);
     }
 }
