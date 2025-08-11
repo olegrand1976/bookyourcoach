@@ -87,7 +87,6 @@ class FileUploadController extends Controller
                 'path' => $path,
                 'url' => asset('storage/' . $path)
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -154,7 +153,6 @@ class FileUploadController extends Controller
                 'path' => $path,
                 'url' => asset('storage/' . $path)
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -197,7 +195,7 @@ class FileUploadController extends Controller
     public function uploadCertificate(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
+
         if ($user->role !== User::ROLE_TEACHER && $user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -230,7 +228,6 @@ class FileUploadController extends Controller
                 'url' => asset('storage/' . $path),
                 'name' => $request->name
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -263,7 +260,7 @@ class FileUploadController extends Controller
         try {
             // Décoder le chemin
             $decodedPath = urldecode($path);
-            
+
             // Vérifications de sécurité
             if (!Storage::disk('public')->exists($decodedPath)) {
                 return response()->json([
@@ -287,7 +284,6 @@ class FileUploadController extends Controller
                 'success' => true,
                 'message' => 'Fichier supprimé avec succès'
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

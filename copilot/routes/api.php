@@ -70,15 +70,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Student routes
     Route::get('/students', [UserController::class, 'students']);
     Route::get('/students/{id}/lessons', [LessonController::class, 'studentLessons']);
-    
+
     // Upload de fichiers
     Route::post('/upload/avatar', [FileUploadController::class, 'uploadAvatar'])->name('upload.avatar');
     Route::post('/upload/certificate', [FileUploadController::class, 'uploadCertificate'])->name('upload.certificate');
     Route::delete('/upload/{path}', [FileUploadController::class, 'deleteFile'])->where('path', '.*')->name('upload.delete');
-    
+
     // Upload de logo (admin seulement)
     Route::post('/upload/logo', [FileUploadController::class, 'uploadLogo'])->name('upload.logo');
-    
+
     // Administration (admin seulement)
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/users', [AdminDashboardController::class, 'users'])->name('admin.users');

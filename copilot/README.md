@@ -80,6 +80,7 @@ cd bookyourcoach
 ```
 
 **Accès aux services :**
+
 -   **Frontend (NuxtJS)** : http://localhost:3000
 -   **API Laravel** : http://localhost:8081
 -   **Documentation API** : http://localhost:8081/api/documentation

@@ -26,7 +26,7 @@ class AdminDashboardControllerTest extends TestCase
                 'data' => [
                     'stats' => [
                         'total_users',
-                        'total_teachers', 
+                        'total_teachers',
                         'total_students'
                     ]
                 ]

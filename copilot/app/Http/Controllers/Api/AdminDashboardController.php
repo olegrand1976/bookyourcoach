@@ -50,7 +50,7 @@ class AdminDashboardController extends Controller
     public function dashboard(): JsonResponse
     {
         $user = Auth::user();
-        
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -100,7 +100,7 @@ class AdminDashboardController extends Controller
                     ->whereYear('created_at', $month->year)
                     ->whereMonth('created_at', $month->month)
                     ->sum('amount');
-                
+
                 $monthlyRevenue[] = [
                     'month' => $month->format('Y-m'),
                     'month_name' => $month->translatedFormat('F Y'),
@@ -159,7 +159,6 @@ class AdminDashboardController extends Controller
                     'course_type_stats' => $courseTypeStats,
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -196,7 +195,7 @@ class AdminDashboardController extends Controller
     public function users(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -222,7 +221,6 @@ class AdminDashboardController extends Controller
                 'success' => true,
                 'data' => $users
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -259,7 +257,7 @@ class AdminDashboardController extends Controller
     public function updateUserStatus(Request $request, int $id): JsonResponse
     {
         $user = Auth::user();
-        
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -273,7 +271,7 @@ class AdminDashboardController extends Controller
 
         try {
             $targetUser = User::findOrFail($id);
-            
+
             // Empêcher de modifier son propre statut
             if ($targetUser->id === $user->id) {
                 return response()->json([
@@ -289,7 +287,6 @@ class AdminDashboardController extends Controller
                 'message' => 'Statut utilisateur mis à jour',
                 'data' => $targetUser
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

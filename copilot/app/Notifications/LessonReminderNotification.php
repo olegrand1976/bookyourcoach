@@ -24,7 +24,7 @@ class LessonReminderNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $timeUntil = $this->lesson->start_time->diffForHumans();
-        
+
         return (new MailMessage)
             ->subject('Rappel de cours - BookYourCoach')
             ->greeting("Bonjour {$notifiable->profile->first_name},")

@@ -44,7 +44,6 @@ class CalculateTravelTimeJob implements ShouldQueue
             ]);
 
             Log::info("Travel time calculated for teacher {$this->teacher->id} to location {$this->location->id}: {$travelTime} minutes");
-
         } catch (\Exception $e) {
             Log::error("Failed to calculate travel time: " . $e->getMessage());
         }
