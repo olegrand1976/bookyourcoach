@@ -23,9 +23,6 @@ services:
             dockerfile: Dockerfile
         container_name: bookyourcoach_frontend
         restart: unless-stopped
-        volumes:
-            - ./frontend:/app
-            - /app/node_modules
         ports:
             - "3000:3000"
         environment:
