@@ -29,7 +29,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->text('terms_and_conditions')->nullable();
             $table->timestamps();
-            
+
             $table->index(['city', 'is_active']);
             $table->index('is_active');
         });

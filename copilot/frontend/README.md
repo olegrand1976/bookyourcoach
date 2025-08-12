@@ -39,8 +39,9 @@ Pour tester l'application, utilisez ces comptes de démonstration :
 
 -   **Email** : `admin@bookyourcoach.fr`
 -   **Mot de passe** : `admin123`
--   **Rôle** : Accès complet à l'administration
+-   **Rôle** : Accès complet à l'administration et dashboard général
 -   **Redirection** : `/admin`
+-   **Fonctionnalités** : Statistiques globales, CRUD des données, gestion des clubs
 
 ### 🏇 Coach/Enseignant
 
@@ -55,6 +56,31 @@ Pour tester l'application, utilisez ces comptes de démonstration :
 -   **Mot de passe** : `eleve123`
 -   **Rôle** : Réservation de cours
 -   **Redirection** : `/dashboard`
+
+### 🏠 Club (Nouveau rôle)
+
+-   **Fonctionnalité** : Gestion de plusieurs enseignants et élèves
+-   **Calendrier** : Vue globale des cours de tous les coaches du club
+-   **Administration** : Gestion centralisée des ressources équestres
+
+## 🏢 Gestion des Clubs
+
+### Nouveau modèle de données
+
+Le système intègre maintenant la notion de **Club** :
+
+-   **Clubs** peuvent gérer plusieurs enseignants
+-   **Enseignants** peuvent être affiliés à un club
+-   **Élèves** peuvent être membres d'un club
+-   **Calendrier centralisé** pour les clubs
+-   **Gestionnaires de club** avec différents niveaux d'accès
+
+### Structure de base de données
+
+-   `clubs` table avec informations complètes (nom, contact, adresse, installations)
+-   Relations : `teachers.club_id`, `students.club_id`
+-   Table de liaison `club_managers` pour les gestionnaires
+-   Nouveau rôle `club` dans la table `users`
 
 ## 🎨 Thème équestre
 
