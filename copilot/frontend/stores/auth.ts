@@ -116,7 +116,14 @@ export const useAuthStore = defineStore('auth', {
                 this.isAuthenticated = true
             } catch (error) {
                 // Token invalide, déconnecter
-                this.logout()
+                console.error('Erreur lors de la récupération de l\'utilisateur:', error)
+                this.user = null
+                this.token = null
+                this.isAuthenticated = false
+
+                // Supprimer le token
+                const tokenCookie = useCookie('auth-token')
+                tokenCookie.value = null
             }
         },
 
@@ -124,7 +131,9 @@ export const useAuthStore = defineStore('auth', {
             const tokenCookie = useCookie('auth-token')
             if (tokenCookie.value) {
                 this.token = tokenCookie.value
-                this.fetchUser()
+                // Ne pas appeler fetchUser ici pour éviter les erreurs de contexte
+                // L'utilisateur sera récupéré au premier appel d'API
+                this.isAuthenticated = true
             }
         }
     }

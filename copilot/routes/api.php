@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\AppSettingController;
 use App\Http\Controllers\Api\FileUploadController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\AdminController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +81,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/upload/logo', [FileUploadController::class, 'uploadLogo'])->name('upload.logo');
 
     // Administration (admin seulement)
+    Route::prefix('admin')->middleware('admin')->group(function () {
+        // Dashboard
+        Route::get('/stats', [AdminController::class, 'getStats']);
+        Route::get('/activities', [AdminController::class, 'getActivities']);
+
+        // Users management
+        Route::get('/users', [AdminController::class, 'getUsers']);
+        Route::post('/users', [AdminController::class, 'createUser']);
+        Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+        Route::patch('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
+
+        // Settings management
+        Route::get('/settings', [AdminController::class, 'getAllSettings']);
+        Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
+        Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+
+        // System management
+        Route::get('/system/status', [AdminController::class, 'getSystemStatus']);
+        Route::post('/system/clear-cache', [AdminController::class, 'clearCache']);
+    });
+
+    // Legacy admin routes (to maintain compatibility)
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/users', [AdminDashboardController::class, 'users'])->name('admin.users');
     Route::put('/admin/users/{id}/status', [AdminDashboardController::class, 'updateUserStatus'])->name('admin.users.status');

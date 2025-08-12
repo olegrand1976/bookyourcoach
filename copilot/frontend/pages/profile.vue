@@ -184,9 +184,34 @@ const form = reactive({
 
 // Load user profile data
 const loadProfileData = async () => {
-    if (!authStore.user) return
+    console.log('loadProfileData called, user:', authStore.user)
+
+    if (!authStore.user) {
+        console.log('No user found in authStore, trying to fetch from API')
+
+        // Essayer de récupérer l'utilisateur depuis l'API si on a un token
+        const tokenCookie = useCookie('auth-token')
+        if (tokenCookie.value) {
+            try {
+                const { $api } = useNuxtApp()
+                const response = await $api.get('/auth/user')
+
+                // Mettre à jour l'authStore avec les données utilisateur
+                authStore.user = response.data
+                authStore.isAuthenticated = true
+
+                console.log('User fetched from API:', response.data)
+            } catch (error) {
+                console.error('Erreur lors de la récupération de l\'utilisateur:', error)
+                return
+            }
+        } else {
+            return
+        }
+    }
 
     // Précharger les données utilisateur de base
+    console.log('Preloading user data:', authStore.user.name, authStore.user.email)
     form.name = authStore.user.name || ''
     form.email = authStore.user.email || ''
 
@@ -223,16 +248,19 @@ const loadProfileData = async () => {
     }
 }
 
-// Charger les données au montage si l'utilisateur est déjà disponible
-onMounted(() => {
-    if (authStore.user) {
-        loadProfileData()
-    }
+// Charger les données au montage
+onMounted(async () => {
+    console.log('onMounted - authStore.user:', authStore.user)
+    console.log('onMounted - authStore.isAuthenticated:', authStore.isAuthenticated)
+
+    // Toujours essayer de charger les données
+    await loadProfileData()
 })
 
 // Observer les changements de l'utilisateur pour précharger les données
-watch(() => authStore.user, (newUser) => {
-    if (newUser) {
+watch(() => authStore.user, (newUser, oldUser) => {
+    console.log('Watch triggered - newUser:', newUser, 'oldUser:', oldUser)
+    if (newUser && newUser !== oldUser) {
         loadProfileData()
     }
 }, { immediate: true })
