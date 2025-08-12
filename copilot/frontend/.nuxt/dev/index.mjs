@@ -648,7 +648,7 @@ const _inlineRuntimeConfig = {
     }
   },
   "public": {
-    "apiBase": "http://localhost:8090/api",
+    "apiBase": "http://localhost:8081/api",
     "appName": "BookYourCoach"
   }
 };

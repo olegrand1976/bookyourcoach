@@ -15,7 +15,7 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: process.env.API_BASE_URL || 'http://localhost:8090/api',
+            apiBase: process.env.API_BASE_URL || 'http://localhost:8081/api',
             appName: 'BookYourCoach'
         }
     },
@@ -28,17 +28,32 @@ export default defineNuxtConfig({
                 extend: {
                     colors: {
                         primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
+                            50: '#fdf7f0',
+                            100: '#fbeee0',
+                            200: '#f5d9c1',
+                            300: '#efc19c',
+                            400: '#e8a575',
+                            500: '#d4824a',
+                            600: '#c26d3f',
+                            700: '#a15634',
+                            800: '#814530',
+                            900: '#693829',
+                        },
+                        equestrian: {
+                            brown: '#8B4513',
+                            darkBrown: '#654321',
+                            leather: '#D2691E',
+                            gold: '#DAA520',
+                            cream: '#F5F5DC',
+                            forest: '#228B22'
                         }
+                    },
+                    fontFamily: {
+                        serif: ['Merriweather', 'ui-serif', 'Georgia'],
+                    },
+                    backgroundImage: {
+                        'stable-gradient': 'linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #DAA520 100%)',
+                        'horse-pattern': "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><path d=\"M20 20h60v60H20z\" fill=\"%23f5f5dc\" opacity=\"0.1\"/></svg>')",
                     }
                 }
             }
