@@ -183,44 +183,59 @@ const form = reactive({
 })
 
 // Load user profile data
-onMounted(async () => {
-    if (authStore.user) {
-        form.name = authStore.user.name || ''
-        form.email = authStore.user.email || ''
+const loadProfileData = async () => {
+    if (!authStore.user) return
 
-        // Load additional profile data from API
-        try {
-            const { $api } = useNuxtApp()
-            const response = await $api.get('/profile')
+    // Précharger les données utilisateur de base
+    form.name = authStore.user.name || ''
+    form.email = authStore.user.email || ''
 
-            if (response.data.profile) {
-                const profile = response.data.profile
-                form.phone = profile.phone || ''
-                form.birth_date = profile.birth_date || ''
+    // Load additional profile data from API
+    try {
+        const { $api } = useNuxtApp()
+        const response = await $api.get('/profile')
 
-                // Teacher specific data
-                if (authStore.isTeacher && response.data.teacher) {
-                    const teacher = response.data.teacher
-                    form.specialties = teacher.specialties || ''
-                    form.experience_years = teacher.experience_years || 0
-                    form.certifications = teacher.certifications || ''
-                    form.hourly_rate = teacher.hourly_rate || 0
-                }
+        if (response.data.profile) {
+            const profile = response.data.profile
+            form.phone = profile.phone || ''
+            form.birth_date = profile.birth_date || ''
 
-                // Student specific data
-                if (authStore.isStudent && response.data.student) {
-                    const student = response.data.student
-                    form.riding_level = student.level || ''
-                    form.course_preferences = student.course_preferences || ''
-                    form.emergency_contact = student.emergency_contact || ''
-                }
+            // Teacher specific data
+            if (authStore.isTeacher && response.data.teacher) {
+                const teacher = response.data.teacher
+                form.specialties = teacher.specialties || ''
+                form.experience_years = teacher.experience_years || 0
+                form.certifications = teacher.certifications || ''
+                form.hourly_rate = teacher.hourly_rate || 0
             }
-        } catch (error) {
-            console.error('Erreur lors du chargement du profil:', error)
-            toast.error('Erreur lors du chargement du profil')
+
+            // Student specific data
+            if (authStore.isStudent && response.data.student) {
+                const student = response.data.student
+                form.riding_level = student.level || ''
+                form.course_preferences = student.course_preferences || ''
+                form.emergency_contact = student.emergency_contact || ''
+            }
         }
+    } catch (error) {
+        console.error('Erreur lors du chargement du profil:', error)
+        toast.error('Erreur lors du chargement du profil')
+    }
+}
+
+// Charger les données au montage si l'utilisateur est déjà disponible
+onMounted(() => {
+    if (authStore.user) {
+        loadProfileData()
     }
 })
+
+// Observer les changements de l'utilisateur pour précharger les données
+watch(() => authStore.user, (newUser) => {
+    if (newUser) {
+        loadProfileData()
+    }
+}, { immediate: true })
 
 const updateProfile = async () => {
     loading.value = true
@@ -248,6 +263,8 @@ const resetForm = () => {
     if (authStore.user) {
         form.name = authStore.user.name || ''
         form.email = authStore.user.email || ''
+        // Recharger toutes les données du profil
+        loadProfileData()
     }
 }
 </script>
