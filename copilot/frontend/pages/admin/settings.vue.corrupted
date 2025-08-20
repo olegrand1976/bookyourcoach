@@ -28,8 +28,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Email de contact</label>
-                                <input v-model="generalSettings.contact_email" type="email" class="input-field"
-                                    required>
+                                <input v-model="generalSettings.contact_email" type="email" class="input-field" required>
                             </div>
 
                             <div>

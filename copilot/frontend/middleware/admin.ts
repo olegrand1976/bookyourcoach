@@ -3,7 +3,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     // Si pas de token, rediriger vers login
     if (!authStore.token) {
-        return navigateTo('/auth/login')
+        return navigateTo('/login')
     }
 
     // Vérifier que l'utilisateur est toujours valide côté serveur
@@ -24,7 +24,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
         // Si erreur 401, token expiré
         if (error.response?.status === 401) {
             await authStore.logout()
-            return navigateTo('/auth/login?expired=true')
+            return navigateTo('/login?expired=true')
         }
 
         // Autre erreur, accès refusé

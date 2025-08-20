@@ -399,7 +399,7 @@ class AdminController extends BaseController
                     'contact_email' => 'contact@bookyourcoach.fr',
                     'contact_phone' => '+33 1 23 45 67 89',
                     'timezone' => 'Europe/Brussels',
-                    'company_address' => ''
+                    'company_address' => 'BookYourCoach\nBelgique'
                 ];
 
             case 'booking':
@@ -922,6 +922,63 @@ class AdminController extends BaseController
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Erreur lors du changement de statut',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/upload-logo",
+     *     summary="Upload platform logo",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="logo", type="string", format="binary")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Logo uploaded successfully")
+     * )
+     */
+    public function uploadLogo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $file = $request->file('logo');
+            $filename = 'logo_' . time() . '.' . $file->getClientOriginalExtension();
+
+            // Stocker dans public/storage/logos
+            $path = $file->storeAs('logos', $filename, 'public');
+            $url = '/storage/' . $path;
+
+            // Mettre à jour le paramètre logo_url
+            AppSetting::updateOrCreate(
+                ['key' => 'logo_url'],
+                ['value' => $url, 'type' => 'general']
+            );
+
+            return response()->json([
+                'message' => 'Logo uploadé avec succès',
+                'url' => $url
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de l\'upload',
                 'error' => $e->getMessage()
             ], 500);
         }
