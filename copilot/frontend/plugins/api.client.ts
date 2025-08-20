@@ -25,9 +25,12 @@ export default defineNuxtPlugin(() => {
         (response) => response,
         (error) => {
             if (error.response?.status === 401) {
-                // Token expiré ou invalide
-                const authStore = useAuthStore()
-                authStore.logout()
+                // Token expiré ou invalide - laisser le store gérer cela
+                console.warn('Token invalide détecté par l\'intercepteur API')
+                // Ne pas appeler logout automatiquement, laisser le store gérer
+                // Nettoyer juste le cookie pour éviter les boucles
+                const tokenCookie = useCookie('auth-token')
+                tokenCookie.value = null
             }
             return Promise.reject(error)
         }

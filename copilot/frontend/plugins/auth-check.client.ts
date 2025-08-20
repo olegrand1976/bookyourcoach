@@ -2,7 +2,7 @@ export default defineNuxtPlugin(() => {
     const authStore = useAuthStore()
     const router = useRouter()
 
-    // Vérification périodique du token toutes les 5 minutes
+    // Vérification périodique du token toutes les 10 minutes (moins fréquent)
     let tokenCheckInterval: NodeJS.Timeout | null = null
 
     const startTokenValidation = () => {
@@ -16,10 +16,21 @@ export default defineNuxtPlugin(() => {
                     // Tenter de récupérer les informations utilisateur pour valider le token
                     await authStore.fetchUser()
                 } catch (error: any) {
-                    console.warn('Token invalide détecté, déconnexion automatique')
+                    console.warn('Token invalide détecté lors de la vérification périodique')
 
-                    // Token expiré ou invalide, déconnecter automatiquement
-                    await authStore.logout()
+                    // Token expiré ou invalide, nettoyer les données
+                    authStore.user = null
+                    authStore.token = null
+                    authStore.isAuthenticated = false
+
+                    // Nettoyer les cookies et localStorage
+                    const tokenCookie = useCookie('auth-token')
+                    tokenCookie.value = null
+
+                    if (process.client) {
+                        localStorage.removeItem('auth-token')
+                        localStorage.removeItem('user-data')
+                    }
 
                     // Rediriger vers la page de connexion avec un message
                     const currentRoute = router.currentRoute.value
@@ -28,7 +39,7 @@ export default defineNuxtPlugin(() => {
                     }
                 }
             }
-        }, 5 * 60 * 1000) // 5 minutes
+        }, 10 * 60 * 1000) // 10 minutes au lieu de 5
     }
 
     const stopTokenValidation = () => {

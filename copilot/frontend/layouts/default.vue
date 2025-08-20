@@ -113,7 +113,8 @@
             <ul class="space-y-2 text-equestrian-cream/80">
               <li>📧 {{ settings.settings.contact_email }}</li>
               <li>📞 {{ settings.settings.contact_phone }}</li>
-              <li v-if="settings.settings.company_address">🏠 {{ settings.settings.company_address.split('\n')[0] }}</li>
+              <li v-if="settings.settings.company_address">🏠 {{ settings.settings.company_address.split('\n')[0] }}
+              </li>
             </ul>
           </div>
         </div>
@@ -161,8 +162,8 @@ onMounted(() => {
 })
 
 // Initialiser l'authentification et les paramètres
-onMounted(() => {
-  authStore.initializeAuth()
+onMounted(async () => {
+  await authStore.initializeAuth()
   settings.loadSettings()
 })
 </script>

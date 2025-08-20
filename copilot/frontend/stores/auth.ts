@@ -147,7 +147,7 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        initializeAuth() {
+        async initializeAuth() {
             if (process.client) {
                 const tokenCookie = useCookie('auth-token')
                 if (tokenCookie.value) {
@@ -164,14 +164,19 @@ export const useAuthStore = defineStore('auth', {
                         }
                     }
 
-                    // Vérifier la validité en arrière-plan (sans await)
-                    this.verifyToken().then(isValid => {
+                    // Vérifier la validité du token de manière synchrone
+                    try {
+                        const isValid = await this.verifyToken()
                         if (!isValid) {
                             console.warn('Token invalide lors de la vérification')
+                            // Token invalide, rediriger vers login
+                            await navigateTo('/login')
                         }
-                    }).catch(error => {
+                    } catch (error) {
                         console.error('Erreur lors de la vérification du token:', error)
-                    })
+                        // En cas d'erreur, rediriger vers login
+                        await navigateTo('/login')
+                    }
                 }
             }
         },
@@ -187,7 +192,7 @@ export const useAuthStore = defineStore('auth', {
                 return true
             } catch (error: any) {
                 if (error.response?.status === 401) {
-                    // Juste nettoyer les données, la navigation sera gérée par le composant
+                    // Nettoyer les données d'authentification
                     this.user = null
                     this.token = null
                     this.isAuthenticated = false

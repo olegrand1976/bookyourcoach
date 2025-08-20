@@ -98,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/settings', [AdminController::class, 'getAllSettings']);
         Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
         Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+        Route::post('/upload-logo', [AdminController::class, 'uploadLogo']);
 
         // Clubs management
         Route::get('/clubs', [AdminController::class, 'getClubs']);
