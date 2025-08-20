@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Profile;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class ProfileController extends Controller
 {
@@ -253,6 +255,147 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Profile deleted successfully'
+        ]);
+    }
+
+    /**
+     * Get the current authenticated user's profile
+     */
+    public function currentUserProfile(): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Get or create profile for the user
+        $profile = Profile::where('user_id', $user->id)->first();
+
+        if (!$profile) {
+            $profile = Profile::create([
+                'user_id' => $user->id,
+                'first_name' => $user->name,
+                'last_name' => '',
+                'phone' => $user->phone,
+            ]);
+        }
+
+        $result = [
+            'profile' => $profile,
+            'user' => $user
+        ];
+
+        // Add teacher data if user is a teacher
+        if ($user->role === 'teacher') {
+            $teacher = $user->teacher;
+            $result['teacher'] = $teacher;
+        }
+
+        // Add student data if user is a student
+        if ($user->role === 'student') {
+            $student = $user->student;
+            $result['student'] = $student;
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * Update the current authenticated user's profile
+     */
+    public function updateCurrentUserProfile(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|email|unique:users,email,' . $user->id,
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            // Teacher specific fields
+            'specialties' => 'nullable|string',
+            'experience_years' => 'nullable|integer|min:0',
+            'certifications' => 'nullable|string',
+            'hourly_rate' => 'nullable|numeric|min:0',
+            // Student specific fields
+            'riding_level' => 'nullable|string',
+            'course_preferences' => 'nullable|string',
+            'emergency_contact' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Update user basic info
+        if ($request->has('name')) {
+            $user->name = $request->name;
+        }
+        if ($request->has('email')) {
+            $user->email = $request->email;
+        }
+        if ($request->has('phone')) {
+            $user->phone = $request->phone;
+        }
+        $user->save();
+
+        // Get or create profile
+        $profile = Profile::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'first_name' => $user->name,
+                'last_name' => '',
+            ]
+        );
+
+        // Update profile
+        if ($request->has('birth_date')) {
+            $profile->date_of_birth = $request->birth_date;
+        }
+        if ($request->has('phone')) {
+            $profile->phone = $request->phone;
+        }
+        $profile->save();
+
+        // Update teacher data if user is a teacher
+        if ($user->role === 'teacher' && $user->teacher) {
+            $teacher = $user->teacher;
+            if ($request->has('specialties')) {
+                $teacher->specialties = $request->specialties;
+            }
+            if ($request->has('experience_years')) {
+                $teacher->experience_years = $request->experience_years;
+            }
+            if ($request->has('certifications')) {
+                $teacher->certifications = $request->certifications;
+            }
+            if ($request->has('hourly_rate')) {
+                $teacher->hourly_rate = $request->hourly_rate;
+            }
+            $teacher->save();
+        }
+
+        // Update student data if user is a student
+        if ($user->role === 'student' && $user->student) {
+            $student = $user->student;
+            if ($request->has('riding_level')) {
+                $student->level = $request->riding_level;
+            }
+            if ($request->has('course_preferences')) {
+                $student->course_preferences = $request->course_preferences;
+            }
+            if ($request->has('emergency_contact')) {
+                $student->emergency_contact = $request->emergency_contact;
+            }
+            $student->save();
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'profile' => $profile,
+            'user' => $user->fresh()
         ]);
     }
 }

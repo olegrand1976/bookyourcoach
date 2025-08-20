@@ -211,6 +211,10 @@
                             <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
                             <input v-model="newUser.password" type="password" class="input-field" required>
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+                            <input v-model="newUser.password_confirmation" type="password" class="input-field" required>
+                        </div>
                         <div class="flex justify-end space-x-3">
                             <button type="button" @click="showCreateUserModal = false"
                                 class="btn-outline">Annuler</button>
@@ -291,7 +295,8 @@ const newUser = ref({
     name: '',
     email: '',
     role: 'student',
-    password: ''
+    password: '',
+    password_confirmation: ''
 })
 
 const newClub = ref({
@@ -340,7 +345,7 @@ const fetchStats = async () => {
 const fetchRecentUsers = async () => {
     try {
         const { $api } = useNuxtApp()
-        const response = await $api.get('/admin/users?limit=5')
+        const response = await $api.get('/admin/users?per_page=5')
         recentUsers.value = response.data.data || []
     } catch (error) {
         console.error('Erreur lors du chargement des utilisateurs récents:', error)
@@ -380,7 +385,7 @@ const createUser = async () => {
         })
 
         showCreateUserModal.value = false
-        newUser.value = { name: '', email: '', role: 'student', password: '' }
+        newUser.value = { name: '', email: '', role: 'student', password: '', password_confirmation: '' }
 
         // Actualiser les données
         await fetchStats()

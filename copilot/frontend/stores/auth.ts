@@ -102,6 +102,12 @@ export const useAuthStore = defineStore('auth', {
                 const tokenCookie = useCookie('auth-token')
                 tokenCookie.value = null
 
+                // Nettoyer le localStorage si présent
+                if (process.client) {
+                    localStorage.removeItem('auth-token')
+                    localStorage.removeItem('user-data')
+                }
+
                 await navigateTo('/login')
             }
         },
@@ -112,28 +118,89 @@ export const useAuthStore = defineStore('auth', {
             try {
                 const { $api } = useNuxtApp()
                 const response = await $api.get('/auth/user')
-                this.user = response.data
+                this.user = response.data.user || response.data
                 this.isAuthenticated = true
-            } catch (error) {
-                // Token invalide, déconnecter
-                console.error('Erreur lors de la récupération de l\'utilisateur:', error)
-                this.user = null
-                this.token = null
-                this.isAuthenticated = false
 
-                // Supprimer le token
-                const tokenCookie = useCookie('auth-token')
-                tokenCookie.value = null
+                // Sauvegarder les données utilisateur localement
+                if (process.client) {
+                    localStorage.setItem('user-data', JSON.stringify(this.user))
+                }
+            } catch (error: any) {
+                console.error('Erreur lors de la récupération de l\'utilisateur:', error)
+
+                // Si c'est une erreur 401 (token expiré), déconnecter silencieusement
+                if (error.response?.status === 401) {
+                    this.user = null
+                    this.token = null
+                    this.isAuthenticated = false
+
+                    const tokenCookie = useCookie('auth-token')
+                    tokenCookie.value = null
+
+                    if (process.client) {
+                        localStorage.removeItem('auth-token')
+                        localStorage.removeItem('user-data')
+                    }
+                }
+
+                throw error
             }
         },
 
         initializeAuth() {
-            const tokenCookie = useCookie('auth-token')
-            if (tokenCookie.value) {
-                this.token = tokenCookie.value
-                // Ne pas appeler fetchUser ici pour éviter les erreurs de contexte
-                // L'utilisateur sera récupéré au premier appel d'API
-                this.isAuthenticated = true
+            if (process.client) {
+                const tokenCookie = useCookie('auth-token')
+                if (tokenCookie.value) {
+                    this.token = tokenCookie.value
+
+                    // Essayer de récupérer les données utilisateur depuis localStorage
+                    const userData = localStorage.getItem('user-data')
+                    if (userData) {
+                        try {
+                            this.user = JSON.parse(userData)
+                            this.isAuthenticated = true
+                        } catch (e) {
+                            console.warn('Données utilisateur corrompues dans localStorage')
+                        }
+                    }
+
+                    // Vérifier la validité en arrière-plan (sans await)
+                    this.verifyToken().then(isValid => {
+                        if (!isValid) {
+                            console.warn('Token invalide lors de la vérification')
+                        }
+                    }).catch(error => {
+                        console.error('Erreur lors de la vérification du token:', error)
+                    })
+                }
+            }
+        },
+
+        // Nouvelle méthode pour forcer la vérification du token
+        async verifyToken() {
+            if (!this.token) {
+                return false
+            }
+
+            try {
+                await this.fetchUser()
+                return true
+            } catch (error: any) {
+                if (error.response?.status === 401) {
+                    // Juste nettoyer les données, la navigation sera gérée par le composant
+                    this.user = null
+                    this.token = null
+                    this.isAuthenticated = false
+
+                    const tokenCookie = useCookie('auth-token')
+                    tokenCookie.value = null
+
+                    if (process.client) {
+                        localStorage.removeItem('auth-token')
+                        localStorage.removeItem('user-data')
+                    }
+                }
+                return false
             }
         }
     }

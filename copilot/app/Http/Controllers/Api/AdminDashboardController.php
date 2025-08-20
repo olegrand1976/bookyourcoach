@@ -207,12 +207,20 @@ class AdminDashboardController extends Controller
             $query = User::with(['profile', 'teacher', 'student']);
 
             // Filtres
-            if ($request->has('role')) {
+            if ($request->filled('role')) {
                 $query->where('role', $request->role);
             }
 
-            if ($request->has('status')) {
+            if ($request->filled('status')) {
                 $query->where('status', $request->status);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
             }
 
             $users = $query->orderBy('created_at', 'desc')->get();
@@ -291,6 +299,73 @@ class AdminDashboardController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour du statut',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/upload-logo",
+     *     summary="Upload du logo de la plateforme",
+     *     tags={"Admin Dashboard"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="logo", type="string", format="binary", description="Fichier logo")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Logo uploadé avec succès",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="logo_url", type="string", example="/storage/logo.svg"),
+     *             @OA\Property(property="message", type="string", example="Logo uploadé avec succès")
+     *         )
+     *     )
+     * )
+     */
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        if ($user->role !== User::ROLE_ADMIN) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès refusé. Administrateur requis.'
+            ], 403);
+        }
+
+        $request->validate([
+            'logo' => 'required|file|mimes:svg,png,jpg,jpeg|max:2048', // 2MB max
+        ]);
+
+        try {
+            $file = $request->file('logo');
+
+            // Générer un nom unique pour le fichier
+            $filename = 'logo_' . time() . '.' . $file->getClientOriginalExtension();
+
+            // Stocker le fichier dans public/storage
+            $path = $file->storeAs('logos', $filename, 'public');
+
+            // Générer l'URL publique
+            $logoUrl = '/storage/' . $path;
+
+            return response()->json([
+                'success' => true,
+                'logo_url' => $logoUrl,
+                'message' => 'Logo uploadé avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'upload du logo',
                 'error' => $e->getMessage()
             ], 500);
         }

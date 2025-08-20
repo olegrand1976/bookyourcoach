@@ -41,7 +41,12 @@ class AppSetting extends Model
         'contact_email',
         'contact_phone',
         'social_links',
-        'is_active'
+        'is_active',
+        // Nouveaux champs pour le système clé-valeur
+        'key',
+        'value',
+        'type',
+        'group'
     ];
 
     protected $casts = [

@@ -15,7 +15,7 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: process.env.API_BASE_URL || 'http://localhost:8081/api',
+            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8081/api',
             appName: 'BookYourCoach'
         }
     },
@@ -63,8 +63,18 @@ export default defineNuxtConfig({
     nitro: {
         devProxy: {
             '/api': {
-                target: 'http://app:80/api',
-                changeOrigin: true
+                target: 'http://localhost:8081/api',
+                changeOrigin: true,
+                prependPath: true,
+            }
+        }
+    },
+
+    vite: {
+        server: {
+            hmr: {
+                protocol: 'ws',
+                host: 'localhost',
             }
         }
     }

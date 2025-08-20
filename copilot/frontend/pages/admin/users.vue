@@ -5,7 +5,19 @@
             <div class="mb-8">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                        <h1 class="text-3xl font-bold text-grayconst createUser = async () => {
+    try {
+        const { $api } = useNuxtApp()
+        await $api.post('/admin/users', userForm.value)
+
+        closeModal()
+        await loadUsers()
+        alert('Utilisateur créé avec succès!')
+    } catch (error) {
+        console.error('Erreur lors de la création:', error)
+        alert('Erreur lors de la création de l\'utilisateur')
+    }
+}center">
                             <EquestrianIcon icon="helmet" class="mr-3 text-primary-600" :size="32" />
                             Gestion des Utilisateurs
                         </h1>
@@ -202,6 +214,11 @@
                             <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
                             <input v-model="userForm.password" type="password" class="input-field" required>
                         </div>
+                        <div v-if="!showEditModal">
+                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+                            <input v-model="userForm.password_confirmation" type="password" class="input-field"
+                                required>
+                        </div>
                         <div class="flex justify-end space-x-3">
                             <button type="button" @click="closeModal" class="btn-outline">Annuler</button>
                             <button type="submit" class="btn-primary">
@@ -245,7 +262,8 @@ const userForm = ref({
     name: '',
     email: '',
     role: 'student',
-    password: ''
+    password: '',
+    password_confirmation: ''
 })
 
 // Computed
@@ -287,31 +305,58 @@ const loadUsers = async () => {
     loading.value = true
     try {
         const { $api } = useNuxtApp()
+
+        // Construire les paramètres en filtrant les valeurs vides
         const params = new URLSearchParams({
             page: currentPage.value,
-            per_page: perPage.value,
-            ...filters.value
+            per_page: perPage.value
         })
 
+        // Ajouter seulement les filtres non vides
+        if (filters.value.search && filters.value.search.trim()) {
+            params.append('search', filters.value.search.trim())
+        }
+        if (filters.value.role && filters.value.role.trim()) {
+            params.append('role', filters.value.role.trim())
+        }
+        if (filters.value.status && filters.value.status.trim()) {
+            params.append('status', filters.value.status.trim())
+        }
+
+        console.log('Paramètres envoyés:', params.toString())
         const response = await $api.get(`/admin/users?${params}`)
-        users.value = response.data.data
-        totalUsers.value = response.data.total
-        totalPages.value = Math.ceil(totalUsers.value / perPage.value)
+
+        // Debug: afficher la réponse complète
+        console.log('Response complète:', response)
+        console.log('Response.data:', response.data)
+
+        // Accès aux données selon la structure de la réponse
+        const responseData = response.data || response
+
+        if (responseData.success && responseData.data) {
+            users.value = responseData.data
+            totalUsers.value = responseData.data.length
+            totalPages.value = Math.ceil(totalUsers.value / perPage.value)
+            console.log('Utilisateurs chargés:', users.value.length)
+        } else if (Array.isArray(responseData)) {
+            // Cas où la réponse est directement un tableau
+            users.value = responseData
+            totalUsers.value = responseData.length
+            totalPages.value = Math.ceil(totalUsers.value / perPage.value)
+            console.log('Utilisateurs chargés (tableau direct):', users.value.length)
+        } else {
+            console.warn('Structure de réponse inattendue:', responseData)
+            users.value = []
+            totalUsers.value = 0
+            totalPages.value = 0
+        }
     } catch (error) {
         console.error('Erreur lors du chargement des utilisateurs:', error)
-        // Données de fallback
-        users.value = [
-            {
-                id: 1,
-                name: 'Marie Dubois',
-                email: 'admin@bookyourcoach.fr',
-                role: 'admin',
-                is_active: true,
-                created_at: '2025-08-11T19:13:54.000000Z'
-            }
-        ]
-        totalUsers.value = 1
-        totalPages.value = 1
+        console.error('Détails de l\'erreur:', error.response?.data)
+        // Données de fallback en cas d'erreur
+        users.value = []
+        totalUsers.value = 0
+        totalPages.value = 0
     } finally {
         loading.value = false
     }
@@ -387,7 +432,8 @@ const closeModal = () => {
         name: '',
         email: '',
         role: 'student',
-        password: ''
+        password: '',
+        password_confirmation: ''
     }
 }
 

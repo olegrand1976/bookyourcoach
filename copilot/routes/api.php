@@ -45,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
 
     // Profile routes
+    Route::get('/profile', [ProfileController::class, 'currentUserProfile']);
+    Route::put('/profile', [ProfileController::class, 'updateCurrentUserProfile']);
     Route::apiResource('profiles', ProfileController::class);
 
     // Lesson routes  
@@ -96,6 +98,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/settings', [AdminController::class, 'getAllSettings']);
         Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
         Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+
+        // Clubs management
+        Route::get('/clubs', [AdminController::class, 'getClubs']);
+        Route::post('/clubs', [AdminController::class, 'createClub']);
+        Route::get('/clubs/{id}', [AdminController::class, 'getClub']);
+        Route::put('/clubs/{id}', [AdminController::class, 'updateClub']);
+        Route::delete('/clubs/{id}', [AdminController::class, 'deleteClub']);
+        Route::post('/clubs/{id}/toggle-status', [AdminController::class, 'toggleClubStatus']);
 
         // System management
         Route::get('/system/status', [AdminController::class, 'getSystemStatus']);

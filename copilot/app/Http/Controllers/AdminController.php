@@ -303,17 +303,47 @@ class AdminController extends BaseController
     public function updateSettings(Request $request, $type)
     {
         try {
+            $settings = $request->all();
+
+            // Valider les données selon le type
+            $validator = $this->validateSettings($settings, $type);
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Données invalides',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Sauvegarder chaque paramètre dans la base de données
+            foreach ($settings as $key => $value) {
+                AppSetting::updateOrCreate(
+                    [
+                        'key' => "{$type}.{$key}",
+                        'group' => $type
+                    ],
+                    [
+                        'value' => is_array($value) ? json_encode($value) : (string)$value,
+                        'type' => $this->getValueType($value)
+                    ]
+                );
+            }
+
             // Log de l'action
             AuditLog::create([
                 'user_id' => Auth::id(),
                 'action' => 'settings_updated',
                 'model_type' => 'Settings',
-                'data' => ['type' => $type, 'settings' => $request->all()],
+                'data' => ['type' => $type, 'settings' => $settings],
             ]);
 
-            return response()->json(['message' => 'Paramètres mis à jour avec succès']);
+            return response()->json([
+                'message' => 'Paramètres mis à jour avec succès',
+                'settings' => $settings
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Erreur lors de la mise à jour des paramètres'], 500);
+            return response()->json([
+                'message' => 'Erreur lors de la mise à jour des paramètres: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -322,10 +352,50 @@ class AdminController extends BaseController
      */
     private function getDefaultSettings($type)
     {
+        // Récupérer les paramètres depuis la base de données ou utiliser les valeurs par défaut
+        $defaultSettings = $this->getDefaultSettingsArray($type);
+        $savedSettings = AppSetting::where('group', $type)->get();
+
+        // Fusionner les paramètres sauvegardés avec les valeurs par défaut
+        foreach ($savedSettings as $setting) {
+            $key = str_replace($type . '.', '', $setting->key);
+            $value = $setting->value;
+
+            // Convertir selon le type
+            switch ($setting->type) {
+                case 'boolean':
+                    $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                    break;
+                case 'integer':
+                    $value = (int)$value;
+                    break;
+                case 'array':
+                    $value = json_decode($value, true);
+                    break;
+                case 'float':
+                    $value = (float)$value;
+                    break;
+                default:
+                    // string - garder tel quel
+                    break;
+            }
+
+            $defaultSettings[$key] = $value;
+        }
+
+        return $defaultSettings;
+    }
+
+    /**
+     * Get default settings array by type
+     */
+    private function getDefaultSettingsArray($type)
+    {
         switch ($type) {
             case 'general':
                 return [
                     'platform_name' => 'BookYourCoach',
+                    'logo_url' => '/logo.svg',
                     'contact_email' => 'contact@bookyourcoach.fr',
                     'contact_phone' => '+33 1 23 45 67 89',
                     'timezone' => 'Europe/Brussels',
@@ -365,6 +435,80 @@ class AdminController extends BaseController
 
             default:
                 return [];
+        }
+    }
+
+    /**
+     * Validate settings based on type
+     */
+    private function validateSettings($settings, $type)
+    {
+        $rules = [];
+
+        switch ($type) {
+            case 'general':
+                $rules = [
+                    'platform_name' => 'required|string|max:255',
+                    'contact_email' => 'required|email|max:255',
+                    'contact_phone' => 'nullable|string|max:50',
+                    'timezone' => 'required|string|max:50',
+                    'company_address' => 'nullable|string|max:1000'
+                ];
+                break;
+
+            case 'booking':
+                $rules = [
+                    'min_booking_hours' => 'required|integer|min:1|max:48',
+                    'max_booking_days' => 'required|integer|min:1|max:365',
+                    'cancellation_hours' => 'required|integer|min:1|max:168',
+                    'default_lesson_duration' => 'required|integer|min:15|max:480',
+                    'auto_confirm_bookings' => 'required|boolean',
+                    'send_reminder_emails' => 'required|boolean',
+                    'allow_student_cancellation' => 'required|boolean'
+                ];
+                break;
+
+            case 'payment':
+                $rules = [
+                    'platform_commission' => 'required|numeric|min:0|max:50',
+                    'vat_rate' => 'required|numeric|min:0|max:100',
+                    'default_currency' => 'required|string|size:3',
+                    'payout_delay_days' => 'required|integer|min:1|max:30',
+                    'stripe_enabled' => 'required|boolean',
+                    'auto_payout' => 'required|boolean'
+                ];
+                break;
+
+            case 'notification':
+                $rules = [
+                    'email_new_booking' => 'required|boolean',
+                    'email_booking_cancelled' => 'required|boolean',
+                    'email_payment_received' => 'required|boolean',
+                    'email_lesson_reminder' => 'required|boolean',
+                    'sms_new_booking' => 'required|boolean',
+                    'sms_lesson_reminder' => 'required|boolean'
+                ];
+                break;
+        }
+
+        return Validator::make($settings, $rules);
+    }
+
+    /**
+     * Get value type for database storage
+     */
+    private function getValueType($value)
+    {
+        if (is_bool($value)) {
+            return 'boolean';
+        } elseif (is_int($value)) {
+            return 'integer';
+        } elseif (is_float($value)) {
+            return 'float';
+        } elseif (is_array($value)) {
+            return 'array';
+        } else {
+            return 'string';
         }
     }
 
@@ -479,6 +623,307 @@ class AdminController extends BaseController
             return Storage::disk('public')->exists('') ? 'online' : 'offline';
         } catch (\Exception $e) {
             return 'offline';
+        }
+    }
+
+    // =================================
+    // GESTION DES CLUBS
+    // =================================
+
+    /**
+     * @OA\Get(
+     *     path="/api/admin/clubs",
+     *     summary="Get all clubs",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Response(response=200, description="Clubs retrieved successfully")
+     * )
+     */
+    public function getClubs()
+    {
+        $clubs = Club::with(['users' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.role')
+                ->withPivot('role', 'is_admin', 'joined_at');
+        }])
+            ->withCount(['users', 'teachers', 'students', 'admins'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return response()->json($clubs);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/clubs",
+     *     summary="Create a new club",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"name", "email"},
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="email", type="string", format="email"),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="address", type="string"),
+     *             @OA\Property(property="city", type="string"),
+     *             @OA\Property(property="postal_code", type="string"),
+     *             @OA\Property(property="website", type="string"),
+     *             @OA\Property(property="facilities", type="array", @OA\Items(type="string")),
+     *             @OA\Property(property="disciplines", type="array", @OA\Items(type="string")),
+     *             @OA\Property(property="max_students", type="integer"),
+     *             @OA\Property(property="subscription_price", type="number")
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Club created successfully")
+     * )
+     */
+    public function createClub(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:clubs,email',
+            'phone' => 'nullable|string|max:20',
+            'description' => 'nullable|string',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:10',
+            'country' => 'nullable|string|max:255',
+            'website' => 'nullable|url',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'string|max:255',
+            'disciplines' => 'nullable|array',
+            'disciplines.*' => 'string|max:255',
+            'max_students' => 'nullable|integer|min:1',
+            'subscription_price' => 'nullable|numeric|min:0',
+            'terms_and_conditions' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $club = Club::create($request->all());
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'club_created',
+                'description' => "Club créé: {$club->name}",
+                'model_type' => Club::class,
+                'model_id' => $club->id,
+                'changes' => $club->toArray()
+            ]);
+
+            return response()->json([
+                'message' => 'Club créé avec succès',
+                'club' => $club
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la création du club',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/admin/clubs/{id}",
+     *     summary="Get a specific club",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Club retrieved successfully")
+     * )
+     */
+    public function getClub($id)
+    {
+        $club = Club::with(['users' => function ($query) {
+            $query->select('users.id', 'users.name', 'users.email', 'users.role')
+                ->withPivot('role', 'is_admin', 'joined_at');
+        }])->findOrFail($id);
+
+        return response()->json($club);
+    }
+
+    /**
+     * @OA\Put(
+     *     path="/api/admin/clubs/{id}",
+     *     summary="Update a club",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(ref="#/components/schemas/Club")
+     *     ),
+     *     @OA\Response(response=200, description="Club updated successfully")
+     * )
+     */
+    public function updateClub(Request $request, $id)
+    {
+        $club = Club::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:clubs,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'description' => 'nullable|string',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:10',
+            'country' => 'nullable|string|max:255',
+            'website' => 'nullable|url',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'string|max:255',
+            'disciplines' => 'nullable|array',
+            'disciplines.*' => 'string|max:255',
+            'max_students' => 'nullable|integer|min:1',
+            'subscription_price' => 'nullable|numeric|min:0',
+            'is_active' => 'nullable|boolean',
+            'terms_and_conditions' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $originalData = $club->toArray();
+            $club->update($request->all());
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'club_updated',
+                'description' => "Club modifié: {$club->name}",
+                'model_type' => Club::class,
+                'model_id' => $club->id,
+                'changes' => [
+                    'before' => $originalData,
+                    'after' => $club->fresh()->toArray()
+                ]
+            ]);
+
+            return response()->json([
+                'message' => 'Club mis à jour avec succès',
+                'club' => $club->fresh()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la mise à jour du club',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Delete(
+     *     path="/api/admin/clubs/{id}",
+     *     summary="Delete a club",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Club deleted successfully")
+     * )
+     */
+    public function deleteClub($id)
+    {
+        $club = Club::findOrFail($id);
+
+        try {
+            $clubName = $club->name;
+            $club->delete();
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'club_deleted',
+                'description' => "Club supprimé: {$clubName}",
+                'model_type' => Club::class,
+                'model_id' => $id,
+                'changes' => ['deleted' => $club->toArray()]
+            ]);
+
+            return response()->json([
+                'message' => 'Club supprimé avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la suppression du club',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/clubs/{id}/toggle-status",
+     *     summary="Toggle club active status",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\Response(response=200, description="Club status updated successfully")
+     * )
+     */
+    public function toggleClubStatus($id)
+    {
+        $club = Club::findOrFail($id);
+
+        try {
+            $club->is_active = !$club->is_active;
+            $club->save();
+
+            $status = $club->is_active ? 'activé' : 'désactivé';
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'club_status_changed',
+                'description' => "Club {$status}: {$club->name}",
+                'model_type' => Club::class,
+                'model_id' => $club->id,
+                'changes' => ['is_active' => $club->is_active]
+            ]);
+
+            return response()->json([
+                'message' => "Club {$status} avec succès",
+                'club' => $club
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors du changement de statut',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -4,31 +4,29 @@
     <section class="bg-stable-gradient text-white relative overflow-hidden">
       <!-- Motif de fond -->
       <div class="absolute inset-0 bg-horse-pattern opacity-10"></div>
-      
+
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-10">
         <div class="text-center">
-          <!-- Logo/Icône équestre -->
+          <!-- Logo -->
           <div class="flex justify-center mb-8">
-            <EquestrianIcon name="horse" :size="80" class="text-equestrian-cream" />
+            <div class="bg-white/10 backdrop-blur-sm p-6 rounded-xl">
+              <Logo size="lg" />
+            </div>
           </div>
-          
+
           <h1 class="text-4xl md:text-6xl font-bold mb-6 font-serif">
-            BookYourCoach
+            {{ settings.settings.platform_name }}
           </h1>
           <p class="text-xl md:text-2xl mb-8 text-equestrian-cream">
             Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation
           </p>
           <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <NuxtLink 
-              to="/register" 
-              class="btn-primary bg-equestrian-cream text-equestrian-darkBrown hover:bg-white hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold"
-            >
+            <NuxtLink to="/register"
+              class="btn-primary bg-equestrian-cream text-equestrian-darkBrown hover:bg-white hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold">
               🏇 Commencer l'aventure
             </NuxtLink>
-            <NuxtLink 
-              to="/teachers" 
-              class="btn-secondary border-equestrian-cream text-equestrian-cream hover:bg-equestrian-cream hover:text-equestrian-darkBrown transition-all duration-200 font-semibold"
-            >
+            <NuxtLink to="/teachers"
+              class="btn-secondary border-equestrian-cream text-equestrian-cream hover:bg-equestrian-cream hover:text-equestrian-darkBrown transition-all duration-200 font-semibold">
               🐎 Découvrir les coaches
             </NuxtLink>
           </div>
@@ -41,7 +39,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl md:text-4xl font-bold text-equestrian-darkBrown mb-4 font-serif">
-            Pourquoi choisir BookYourCoach ?
+            Pourquoi choisir {{ settings.settings.platform_name }} ?
           </h2>
           <p class="text-xl text-equestrian-brown max-w-3xl mx-auto">
             La plateforme de référence pour l'équitation moderne
@@ -50,7 +48,8 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div class="text-center bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <div class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
+            <div
+              class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <EquestrianIcon name="trophy" :size="40" class="text-white" />
             </div>
             <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Instructeurs Certifiés</h3>
@@ -60,7 +59,8 @@
           </div>
 
           <div class="text-center bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <div class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
+            <div
+              class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <CalendarIcon class="w-10 h-10 text-white" />
             </div>
             <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Réservation Flexible</h3>
@@ -70,7 +70,8 @@
           </div>
 
           <div class="text-center bg-white rounded-xl p-8 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <div class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
+            <div
+              class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <EquestrianIcon name="helmet" :size="40" class="text-white" />
             </div>
             <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Sécurité Garantie</h3>
@@ -88,7 +89,7 @@
           <h2 class="text-3xl font-bold mb-4 font-serif">Notre Communauté Équestre</h2>
           <EquestrianIcon name="horseshoe" :size="60" class="text-equestrian-gold mx-auto" />
         </div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
           <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <div class="text-4xl font-bold text-equestrian-gold mb-2">{{ platformStats.coaches }}+</div>
@@ -119,28 +120,25 @@
     <!-- CTA Section -->
     <section class="py-24 bg-equestrian-forest text-white relative overflow-hidden">
       <div class="absolute inset-0 bg-horse-pattern opacity-5"></div>
-      
+
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <EquestrianIcon name="jump" :size="80" class="text-equestrian-gold mx-auto mb-8" />
-        
+
         <h2 class="text-3xl md:text-4xl font-bold mb-6 font-serif">
           Prêt à Galoper vers l'Excellence ?
         </h2>
         <p class="text-xl mb-8 text-green-100 max-w-2xl mx-auto">
-          Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs
+          Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs
+          instructeurs
         </p>
-        
+
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink 
-            to="/register" 
-            class="btn-primary bg-equestrian-gold text-equestrian-darkBrown hover:bg-equestrian-cream hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold text-lg px-8 py-4"
-          >
+          <NuxtLink to="/register"
+            class="btn-primary bg-equestrian-gold text-equestrian-darkBrown hover:bg-equestrian-cream hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold text-lg px-8 py-4">
             🏆 S'inscrire Gratuitement
           </NuxtLink>
-          <NuxtLink 
-            to="/about" 
-            class="btn-secondary border-equestrian-gold text-equestrian-gold hover:bg-equestrian-gold hover:text-equestrian-darkBrown transition-all duration-200 font-semibold text-lg px-8 py-4"
-          >
+          <NuxtLink to="/about"
+            class="btn-secondary border-equestrian-gold text-equestrian-gold hover:bg-equestrian-gold hover:text-equestrian-darkBrown transition-all duration-200 font-semibold text-lg px-8 py-4">
             📖 En Savoir Plus
           </NuxtLink>
         </div>
@@ -150,7 +148,7 @@
 </template>
 
 <script setup>
-import { 
+import {
   CalendarIcon
 } from '@heroicons/vue/24/outline'
 
@@ -164,15 +162,22 @@ const platformStats = ref({
 
 // Si l'utilisateur est connecté, rediriger vers le dashboard
 const authStore = useAuthStore()
+const settings = useSettings()
+
 watchEffect(() => {
   if (authStore.isAuthenticated) {
     navigateTo('/dashboard')
   }
 })
 
+// Charger les paramètres au montage
+onMounted(() => {
+  settings.loadSettings()
+})
+
 // SEO
 useHead({
-  title: 'BookYourCoach - Trouvez votre instructeur équestre idéal',
+  title: computed(() => `${settings.settings.platform_name} - Trouvez votre instructeur équestre idéal`),
   meta: [
     {
       name: 'description',

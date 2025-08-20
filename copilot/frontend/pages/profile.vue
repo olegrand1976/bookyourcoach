@@ -223,7 +223,14 @@ const loadProfileData = async () => {
         if (response.data.profile) {
             const profile = response.data.profile
             form.phone = profile.phone || ''
-            form.birth_date = profile.birth_date || ''
+
+            // Format birth_date for input[type="date"] (YYYY-MM-DD)
+            if (profile.date_of_birth) {
+                const date = new Date(profile.date_of_birth)
+                form.birth_date = date.toISOString().split('T')[0]
+            } else {
+                form.birth_date = ''
+            }
 
             // Teacher specific data
             if (authStore.isTeacher && response.data.teacher) {

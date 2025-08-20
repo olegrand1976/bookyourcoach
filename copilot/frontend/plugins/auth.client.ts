@@ -1,7 +1,9 @@
-export default defineNuxtPlugin(async () => {
+import { useAuthStore } from '~/stores/auth'
+
+export default defineNuxtPlugin(() => {
     const authStore = useAuthStore()
 
-    // Initialiser l'authentification dès le chargement de l'application
+    // Initialisation simple sans appel API async
     authStore.initializeAuth()
 
     return {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -67,6 +68,7 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => $request->role ?? 'student', // Valeur par défaut
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -128,12 +130,67 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            // Log des tentatives échouées (si la table existe)
+            try {
+                AuditLog::create([
+                    'action' => 'login_failed',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'data' => json_encode([
+                        'email' => $request->email,
+                        'timestamp' => now()->toISOString()
+                    ])
+                ]);
+            } catch (\Exception $e) {
+                // Table n'existe pas ou autre erreur, continuer silencieusement
+                logger('Failed to log audit: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'message' => 'Invalid credentials'
             ], 401);
         }
 
+        // Vérifier si l'utilisateur est actif
+        if (!$user->is_active) {
+            // Log des tentatives sur compte inactif
+            try {
+                AuditLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'login_blocked_inactive',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'data' => json_encode([
+                        'email' => $request->email,
+                        'timestamp' => now()->toISOString()
+                    ])
+                ]);
+            } catch (\Exception $e) {
+                logger('Failed to log audit: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'message' => 'Account is not active'
+            ], 401);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        // Log des connexions réussies
+        try {
+            AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'login_success',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'data' => json_encode([
+                    'email' => $request->email,
+                    'timestamp' => now()->toISOString()
+                ])
+            ]);
+        } catch (\Exception $e) {
+            logger('Failed to log audit: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Login successful',
@@ -161,6 +218,24 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+
+        // Log de déconnexion
+        try {
+            AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'logout',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'data' => json_encode([
+                    'email' => $user->email,
+                    'timestamp' => now()->toISOString()
+                ])
+            ]);
+        } catch (\Exception $e) {
+            logger('Failed to log audit: ' . $e->getMessage());
+        }
+
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
