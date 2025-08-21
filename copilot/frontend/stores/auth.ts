@@ -113,20 +113,33 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async fetchUser() {
+            console.log('🔍 [FETCH USER] Début fetchUser, token présent:', !!this.token)
             if (!this.token) return
 
             try {
                 const { $api } = useNuxtApp()
+                console.log('🔍 [FETCH USER] Appel API /auth/user...')
                 const response = await $api.get('/auth/user')
+                console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response.data, null, 2))
+
                 this.user = response.data.user || response.data
                 this.isAuthenticated = true
 
+                console.log('🔍 [FETCH USER] User assigné:', {
+                    id: this.user.id,
+                    email: this.user.email,
+                    role: this.user.role,
+                    name: this.user.name
+                })
+
                 // Sauvegarder les données utilisateur localement
                 if (process.client) {
-                    localStorage.setItem('user-data', JSON.stringify(this.user))
+                    const userDataToSave = JSON.stringify(this.user)
+                    localStorage.setItem('user-data', userDataToSave)
+                    console.log('🔍 [FETCH USER] Données sauvées en localStorage:', userDataToSave)
                 }
             } catch (error: any) {
-                console.error('Erreur lors de la récupération de l\'utilisateur:', error)
+                console.error('🔍 [FETCH USER] Erreur lors de la récupération de l\'utilisateur:', error)
 
                 // Si c'est une erreur 401 (token expiré), déconnecter silencieusement
                 if (error.response?.status === 401) {
@@ -148,17 +161,23 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async initializeAuth() {
+            console.log('🔍 [AUTH DEBUG] Début initializeAuth')
             if (process.client) {
                 const tokenCookie = useCookie('auth-token')
+                console.log('🔍 [AUTH DEBUG] Token cookie:', tokenCookie.value ? 'présent' : 'absent')
+
                 if (tokenCookie.value) {
                     this.token = tokenCookie.value
 
                     // Essayer de récupérer les données utilisateur depuis localStorage
                     const userData = localStorage.getItem('user-data')
+                    console.log('🔍 [AUTH DEBUG] User data localStorage:', userData ? 'présent' : 'absent')
+
                     if (userData) {
                         try {
                             this.user = JSON.parse(userData)
                             this.isAuthenticated = true
+                            console.log('🔍 [AUTH DEBUG] User restauré:', this.user.email, 'role:', this.user.role)
                         } catch (e) {
                             console.warn('Données utilisateur corrompues dans localStorage')
                         }
@@ -166,17 +185,24 @@ export const useAuthStore = defineStore('auth', {
 
                     // Vérifier la validité du token de manière synchrone
                     try {
+                        console.log('🔍 [AUTH DEBUG] Début vérification token...')
                         const isValid = await this.verifyToken()
+                        console.log('🔍 [AUTH DEBUG] Token valide:', isValid)
+
                         if (!isValid) {
                             console.warn('Token invalide lors de la vérification')
                             // Token invalide, rediriger vers login
                             await navigateTo('/login')
+                        } else {
+                            console.log('🔍 [AUTH DEBUG] Authentification réussie, user final:', this.user?.email, 'role:', this.user?.role)
                         }
                     } catch (error) {
                         console.error('Erreur lors de la vérification du token:', error)
                         // En cas d'erreur, rediriger vers login
                         await navigateTo('/login')
                     }
+                } else {
+                    console.log('🔍 [AUTH DEBUG] Aucun token trouvé')
                 }
             }
         },
