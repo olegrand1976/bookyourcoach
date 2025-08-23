@@ -1,0 +1,3483 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "BookYourCoach API",
+        "description": "API REST complète pour la plateforme de réservation de cours avec coaches équestres.\n *     \n * Cette API permet de :\n * - Gérer les utilisateurs (Administrateurs, Enseignants, Élèves)\n * - Planifier et réserver des cours d'équitation\n * - Traiter les paiements via Stripe\n * - Gérer les lieux et types de cours\n * - Suivre les performances et statistiques\n * \n * ## Authentification\n * L'API utilise l'authentification Bearer Token via Laravel Sanctum.\n * Incluez votre token dans l'header Authorization : `Bearer {token}`\n * \n * ## Rôles utilisateurs\n * - **Admin** : Accès complet à toutes les fonctionnalités\n * - **Teacher** : Gestion de ses cours, disponibilités et élèves\n * - **Student** : Réservation de cours et gestion de son profil\n * \n * ## Environnement de test\n * - URL de base : http://localhost:8081/api\n * - Base de données : MySQL via Docker\n * - Paiements : Stripe en mode test\n * - PHPMyAdmin : http://localhost:8082",
+        "termsOfService": "https://bookyourcoach.com/terms",
+        "contact": {
+            "name": "Équipe BookYourCoach",
+            "url": "https://bookyourcoach.com",
+            "email": "support@bookyourcoach.com"
+        },
+        "license": {
+            "name": "Propriétaire - BookYourCoach",
+            "url": "https://bookyourcoach.com/license"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8081/api",
+            "description": "Serveur de développement"
+        },
+        {
+            "url": "https://api.bookyourcoach.com",
+            "description": "Serveur de production"
+        }
+    ],
+    "paths": {
+        "/api/admin/dashboard": {
+            "get": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Tableau de bord administrateur",
+                "operationId": "7598e6776e54c718f7bef62bf51b2365",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques du tableau de bord",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "stats": {
+                                                    "properties": {
+                                                        "total_users": {
+                                                            "type": "integer",
+                                                            "example": 125
+                                                        },
+                                                        "total_lessons": {
+                                                            "type": "integer",
+                                                            "example": 89
+                                                        },
+                                                        "total_revenue": {
+                                                            "type": "number",
+                                                            "example": 4567.5
+                                                        },
+                                                        "active_teachers": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "recent_lessons": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "monthly_revenue": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Liste de tous les utilisateurs (admin)",
+                "operationId": "ba6466729f6afa2157fdec13195eeb74",
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "description": "Filtrer par rôle",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "admin",
+                                "teacher",
+                                "student"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filtrer par statut",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "suspended"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des utilisateurs"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{id}/status": {
+            "put": {
+                "tags": [
+                    "Admin Dashboard"
+                ],
+                "summary": "Modifier le statut d'un utilisateur",
+                "operationId": "a4b8c52959d0bf7c3d9100f22754f700",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "suspended"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut mis à jour"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/app-settings": {
+            "get": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Récupérer les paramètres d'application actifs",
+                "description": "Récupère les paramètres d'application actuellement actifs pour le rebranding",
+                "operationId": "getAppSettings",
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Aucun paramètre actif trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Aucun paramètre d'application actif trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Créer de nouveaux paramètres d'application",
+                "description": "Crée de nouveaux paramètres d'application (admin uniquement)",
+                "operationId": "createAppSetting",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AppSetting"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Paramètres d'application créés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application créés avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Erreur de validation"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/app-settings/{id}": {
+            "get": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Récupérer un paramètre d'application spécifique",
+                "description": "Récupère les détails d'un paramètre d'application spécifique (admin uniquement)",
+                "operationId": "getAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètre d'application récupéré avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès non autorisé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Accès non autorisé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Mettre à jour les paramètres d'application",
+                "description": "Met à jour les paramètres d'application existants (admin uniquement)",
+                "operationId": "updateAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AppSetting"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application mis à jour avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Supprimer des paramètres d'application",
+                "description": "Supprime des paramètres d'application (admin uniquement)",
+                "operationId": "deleteAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application supprimés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application supprimés avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paramètre non trouvé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètre d'application non trouvé"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Impossible de supprimer le paramètre actif",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Impossible de supprimer les paramètres d'application actifs"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/app-settings/{id}/activate": {
+            "post": {
+                "tags": [
+                    "App Settings"
+                ],
+                "summary": "Activer des paramètres d'application",
+                "description": "Active des paramètres d'application spécifiques et désactive les autres (admin uniquement)",
+                "operationId": "activateAppSetting",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paramètre d'application",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paramètres d'application activés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paramètres d'application activés avec succès"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/AppSettingResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Inscription d'un nouvel utilisateur",
+                "description": "Crée un nouveau compte utilisateur et retourne un token d'authentification",
+                "operationId": "register",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "John Doe"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "john@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Utilisateur créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User registered successfully"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        },
+                                        "token": {
+                                            "type": "string",
+                                            "example": "1|abcdef..."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Validation failed"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Connexion utilisateur",
+                "description": "Authentifie un utilisateur et retourne un token",
+                "operationId": "login",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "john@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Login successful"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        },
+                                        "token": {
+                                            "type": "string",
+                                            "example": "2|abcdef..."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Identifiants invalides",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid credentials"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Déconnexion utilisateur",
+                "description": "Révoque le token d'authentification actuel",
+                "operationId": "logout",
+                "responses": {
+                    "200": {
+                        "description": "Déconnexion réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Logout successful"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/user": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Récupérer l'utilisateur authentifié",
+                "description": "Retourne les informations de l'utilisateur actuellement connecté",
+                "operationId": "getAuthUser",
+                "responses": {
+                    "200": {
+                        "description": "Informations utilisateur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/course-types": {
+            "get": {
+                "tags": [
+                    "Course Types"
+                ],
+                "summary": "Liste des types de cours",
+                "description": "Récupère la liste complète des types de cours disponibles",
+                "operationId": "getCourseTypes",
+                "responses": {
+                    "200": {
+                        "description": "Liste des types de cours récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CourseType"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Course Types"
+                ],
+                "summary": "Créer un nouveau type de cours",
+                "description": "Crée un nouveau type de cours",
+                "operationId": "createCourseType",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Dressage"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Cours de dressage classique"
+                                    },
+                                    "duration": {
+                                        "type": "integer",
+                                        "example": 60
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 45
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Type de cours créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CourseType"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Type de cours créé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/course-types/{id}": {
+            "get": {
+                "tags": [
+                    "Course Types"
+                ],
+                "summary": "Détails d'un type de cours",
+                "description": "Récupère les détails d'un type de cours spécifique",
+                "operationId": "getCourseType",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du type de cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du type de cours récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CourseType"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Type de cours non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Course Types"
+                ],
+                "summary": "Mettre à jour un type de cours",
+                "description": "Met à jour les informations d'un type de cours",
+                "operationId": "updateCourseType",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du type de cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Dressage Avancé"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Cours de dressage niveau avancé"
+                                    },
+                                    "duration": {
+                                        "type": "integer",
+                                        "example": 90
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 65
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Type de cours mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/CourseType"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Type de cours mis à jour avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Type de cours non trouvé"
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Course Types"
+                ],
+                "summary": "Supprimer un type de cours",
+                "description": "Supprime un type de cours",
+                "operationId": "deleteCourseType",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du type de cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Type de cours supprimé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Type de cours supprimé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Type de cours non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/avatar": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un avatar utilisateur",
+                "operationId": "8520e3b72dd1f269054b17ed050a9593",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "avatar": {
+                                        "description": "Fichier image pour l'avatar",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Avatar uploadé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Avatar uploadé avec succès"
+                                        },
+                                        "path": {
+                                            "type": "string",
+                                            "example": "avatars/user-123.jpg"
+                                        },
+                                        "url": {
+                                            "type": "string",
+                                            "example": "http://localhost:8081/storage/avatars/user-123.jpg"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/logo": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un logo pour le rebranding (admin seulement)",
+                "operationId": "01715d56472721597a4d02a8e255d3aa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "logo": {
+                                        "description": "Fichier logo de l'application",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logo uploadé avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/certificate": {
+            "post": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Upload d'un certificat pour un enseignant",
+                "operationId": "eae178ee830cbd4cc699d08dc6656d2f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "certificate": {
+                                        "description": "Fichier certificat",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "name": {
+                                        "description": "Nom du certificat",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Certificat uploadé avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/upload/{path}": {
+            "delete": {
+                "tags": [
+                    "File Upload"
+                ],
+                "summary": "Supprimer un fichier uploadé",
+                "operationId": "af7a3c08675c1bf1186eb04458916c03",
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "description": "Chemin du fichier à supprimer",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier supprimé avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lessons": {
+            "get": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Liste des cours",
+                "description": "Récupère la liste des cours selon le rôle de l'utilisateur",
+                "operationId": "getLessons",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filtrer par statut",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "confirmed",
+                                "completed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date_from",
+                        "in": "query",
+                        "description": "Date de début de période",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "date_to",
+                        "in": "query",
+                        "description": "Date de fin de période",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des cours récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Lesson"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Créer un nouveau cours",
+                "description": "Crée une nouvelle réservation de cours",
+                "operationId": "createLesson",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "teacher_id",
+                                    "course_type_id",
+                                    "scheduled_at"
+                                ],
+                                "properties": {
+                                    "teacher_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "course_type_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "location_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "scheduled_at": {
+                                        "type": "string",
+                                        "format": "datetime",
+                                        "example": "2025-08-15 14:00:00"
+                                    },
+                                    "duration": {
+                                        "type": "integer",
+                                        "example": 60
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 50
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Premier cours de dressage"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Cours créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Lesson"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cours créé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lessons/{id}": {
+            "get": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Détails d'un cours",
+                "description": "Récupère les détails d'un cours spécifique",
+                "operationId": "getLesson",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du cours récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Lesson"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cours non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Mettre à jour un cours",
+                "description": "Met à jour les informations d'un cours",
+                "operationId": "updateLesson",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "scheduled_at": {
+                                        "type": "string",
+                                        "format": "datetime",
+                                        "example": "2025-08-15 15:00:00"
+                                    },
+                                    "duration": {
+                                        "type": "integer",
+                                        "example": 90
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 60
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "pending",
+                                            "confirmed",
+                                            "completed",
+                                            "cancelled"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Cours reporté à la demande de l'élève"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cours mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Lesson"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cours mis à jour avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cours non trouvé"
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Supprimer un cours",
+                "description": "Supprime un cours (ou l'annule selon le contexte)",
+                "operationId": "deleteLesson",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du cours",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cours supprimé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cours supprimé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cours non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/students/{id}/lessons": {
+            "get": {
+                "tags": [
+                    "Lessons"
+                ],
+                "summary": "Cours d'un étudiant",
+                "description": "Récupère les cours d'un étudiant spécifique",
+                "operationId": "getStudentLessons",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de l'étudiant",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cours de l'étudiant récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Lesson"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Étudiant non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/locations": {
+            "get": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "Liste des lieux",
+                "description": "Récupère la liste complète des lieux de cours disponibles",
+                "operationId": "getLocations",
+                "responses": {
+                    "200": {
+                        "description": "Liste des lieux récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Location"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "Créer un nouveau lieu",
+                "description": "Crée un nouveau lieu de cours",
+                "operationId": "createLocation",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "address",
+                                    "city"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Centre Équestre de Paris"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "123 Rue de la Paix"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Paris"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "75001"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "France"
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 48.8566
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.3522
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Centre équestre moderne avec manèges couverts"
+                                    },
+                                    "facilities": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "manège couvert",
+                                            "carrière",
+                                            "parking"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Lieu créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Location"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Lieu créé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/locations/{id}": {
+            "get": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "Détails d'un lieu",
+                "description": "Récupère les détails d'un lieu spécifique",
+                "operationId": "getLocation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du lieu",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du lieu récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Location"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Lieu non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "Mettre à jour un lieu",
+                "description": "Met à jour les informations d'un lieu",
+                "operationId": "updateLocation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du lieu",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Centre Équestre de Paris Rénové"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "123 Rue de la Paix"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Paris"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "75001"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "France"
+                                    },
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 48.8566
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 2.3522
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Centre équestre moderne avec nouveaux équipements"
+                                    },
+                                    "facilities": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "manège couvert",
+                                            "carrière",
+                                            "parking",
+                                            "douches"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Lieu mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Location"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Lieu mis à jour avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Lieu non trouvé"
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Locations"
+                ],
+                "summary": "Supprimer un lieu",
+                "description": "Supprime un lieu",
+                "operationId": "deleteLocation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du lieu",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lieu supprimé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Lieu supprimé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Lieu non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/payments": {
+            "get": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Liste des paiements",
+                "description": "Récupère la liste des paiements en fonction du rôle de l'utilisateur",
+                "operationId": "getPayments",
+                "responses": {
+                    "200": {
+                        "description": "Liste des paiements récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Payment"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Créer un paiement",
+                "description": "Crée un nouveau paiement pour une leçon",
+                "operationId": "createPayment",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "lesson_id",
+                                    "amount",
+                                    "payment_method"
+                                ],
+                                "properties": {
+                                    "lesson_id": {
+                                        "description": "ID de la leçon",
+                                        "type": "integer"
+                                    },
+                                    "amount": {
+                                        "description": "Montant du paiement",
+                                        "type": "number",
+                                        "format": "float"
+                                    },
+                                    "payment_method": {
+                                        "description": "Méthode de paiement",
+                                        "type": "string",
+                                        "enum": [
+                                            "card",
+                                            "bank_transfer",
+                                            "cash",
+                                            "paypal"
+                                        ]
+                                    },
+                                    "stripe_payment_intent_id": {
+                                        "description": "ID de l'intention de paiement Stripe",
+                                        "type": "string"
+                                    },
+                                    "notes": {
+                                        "description": "Notes sur le paiement",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Paiement créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Payment"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paiement créé avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/payments/{id}": {
+            "get": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Détails d'un paiement",
+                "description": "Récupère les détails d'un paiement spécifique",
+                "operationId": "getPayment",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paiement",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du paiement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Payment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Paiement non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Mettre à jour un paiement",
+                "description": "Met à jour le statut d'un paiement (réservé aux admins et processus automatiques)",
+                "operationId": "updatePayment",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paiement",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "status": {
+                                        "description": "Statut du paiement",
+                                        "type": "string",
+                                        "enum": [
+                                            "pending",
+                                            "processing",
+                                            "succeeded",
+                                            "failed",
+                                            "canceled"
+                                        ]
+                                    },
+                                    "stripe_payment_intent_id": {
+                                        "description": "ID de l'intention de paiement Stripe",
+                                        "type": "string"
+                                    },
+                                    "failure_reason": {
+                                        "description": "Raison de l'échec",
+                                        "type": "string"
+                                    },
+                                    "notes": {
+                                        "description": "Notes sur le paiement",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paiement mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Payment"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Paiement mis à jour avec succès"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    },
+                    "404": {
+                        "description": "Paiement non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Supprimer un paiement",
+                "description": "Supprime un paiement (réservé aux admins)",
+                "operationId": "deletePayment",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du paiement",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Paiement supprimé avec succès"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    },
+                    "404": {
+                        "description": "Paiement non trouvé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profiles": {
+            "get": {
+                "tags": [
+                    "Profiles"
+                ],
+                "summary": "Liste des profils",
+                "description": "Retourne la liste de tous les profils utilisateurs",
+                "operationId": "getProfilesList",
+                "responses": {
+                    "200": {
+                        "description": "Liste des profils récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "profiles": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Profile"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Profiles"
+                ],
+                "summary": "Créer un profil utilisateur",
+                "description": "Crée un nouveau profil pour l'utilisateur authentifié",
+                "operationId": "createProfile",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "last_name"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Dupont"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+33123456789"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "123 Rue de la Paix"
+                                    },
+                                    "city": {
+                                        "type": "string",
+                                        "example": "Paris"
+                                    },
+                                    "postal_code": {
+                                        "type": "string",
+                                        "example": "75001"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "France"
+                                    },
+                                    "date_of_birth": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1990-05-15"
+                                    },
+                                    "emergency_contact_name": {
+                                        "type": "string",
+                                        "example": "Marie Dupont"
+                                    },
+                                    "emergency_contact_phone": {
+                                        "type": "string",
+                                        "example": "+33987654321"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Profil créé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile created successfully"
+                                        },
+                                        "profile": {
+                                            "$ref": "#/components/schemas/Profile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profiles/{id}": {
+            "get": {
+                "tags": [
+                    "Profiles"
+                ],
+                "summary": "Détails d'un profil",
+                "description": "Retourne les détails d'un profil spécifique",
+                "operationId": "getProfile",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du profil",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails du profil",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "profile": {
+                                            "$ref": "#/components/schemas/Profile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Profiles"
+                ],
+                "summary": "Modifier un profil",
+                "description": "Met à jour les informations d'un profil",
+                "operationId": "updateProfile",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du profil",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Profile"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profil mis à jour avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile updated successfully"
+                                        },
+                                        "profile": {
+                                            "$ref": "#/components/schemas/Profile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Profiles"
+                ],
+                "summary": "Supprimer un profil",
+                "description": "Supprime un profil utilisateur",
+                "operationId": "deleteProfile",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du profil",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profil supprimé avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Profile deleted successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/stripe/webhook": {
+            "post": {
+                "tags": [
+                    "Stripe Webhooks"
+                ],
+                "summary": "Webhook Stripe",
+                "description": "Endpoint pour recevoir les notifications de Stripe",
+                "operationId": "stripeWebhook",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "description": "Payload du webhook Stripe",
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Webhook traité avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Webhook invalide"
+                    }
+                }
+            }
+        },
+        "/api/stripe/create-payment-intent": {
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Créer une intention de paiement",
+                "description": "Crée une intention de paiement Stripe pour une leçon",
+                "operationId": "createPaymentIntent",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "lesson_id"
+                                ],
+                                "properties": {
+                                    "lesson_id": {
+                                        "description": "ID de la leçon",
+                                        "type": "integer"
+                                    },
+                                    "payment_method_types": {
+                                        "description": "Types de paiement acceptés",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Intention de paiement créée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "client_secret": {
+                                            "description": "Secret client pour le paiement",
+                                            "type": "string"
+                                        },
+                                        "payment_intent_id": {
+                                            "description": "ID de l'intention de paiement",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Liste des utilisateurs",
+                "description": "Retourne la liste de tous les utilisateurs",
+                "operationId": "getUsersList",
+                "responses": {
+                    "200": {
+                        "description": "Liste des utilisateurs récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "users": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/User"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AppSettingResource": {
+                "title": "App Setting Resource",
+                "description": "Ressource des paramètres d'application",
+                "properties": {
+                    "id": {
+                        "description": "ID unique",
+                        "type": "integer"
+                    },
+                    "app_name": {
+                        "description": "Nom de l'application",
+                        "type": "string"
+                    },
+                    "primary_color": {
+                        "description": "Couleur principale",
+                        "type": "string"
+                    },
+                    "secondary_color": {
+                        "description": "Couleur secondaire",
+                        "type": "string"
+                    },
+                    "accent_color": {
+                        "description": "Couleur d'accent",
+                        "type": "string"
+                    },
+                    "logo_url": {
+                        "description": "URL du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "logo_path": {
+                        "description": "Chemin du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "app_description": {
+                        "description": "Description",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_email": {
+                        "description": "Email de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_phone": {
+                        "description": "Téléphone de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "social_links": {
+                        "description": "Liens réseaux sociaux",
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "description": "Actif",
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "AppSetting": {
+                "title": "Application Settings",
+                "description": "Configuration des paramètres d'apparence de l'application",
+                "required": [
+                    "app_name",
+                    "primary_color",
+                    "secondary_color",
+                    "accent_color"
+                ],
+                "properties": {
+                    "id": {
+                        "description": "ID unique",
+                        "type": "integer"
+                    },
+                    "app_name": {
+                        "description": "Nom de l'application",
+                        "type": "string"
+                    },
+                    "primary_color": {
+                        "description": "Couleur principale (hex)",
+                        "type": "string"
+                    },
+                    "secondary_color": {
+                        "description": "Couleur secondaire (hex)",
+                        "type": "string"
+                    },
+                    "accent_color": {
+                        "description": "Couleur d'accent (hex)",
+                        "type": "string"
+                    },
+                    "logo_url": {
+                        "description": "URL du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "logo_path": {
+                        "description": "Chemin local du logo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "app_description": {
+                        "description": "Description de l'application",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_email": {
+                        "description": "Email de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "contact_phone": {
+                        "description": "Téléphone de contact",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "social_links": {
+                        "description": "Liens réseaux sociaux",
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "description": "Paramètres actifs",
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "CourseType": {
+                "title": "Course Type",
+                "description": "Type de cours disponible sur la plateforme",
+                "properties": {
+                    "id": {
+                        "description": "Identifiant unique du type de cours",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "description": "Nom du type de cours",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "Dressage"
+                    },
+                    "description": {
+                        "description": "Description du type de cours",
+                        "type": "string",
+                        "example": "Cours de dressage classique"
+                    },
+                    "duration": {
+                        "description": "Durée standard en minutes",
+                        "type": "integer",
+                        "example": 60
+                    },
+                    "price": {
+                        "description": "Prix de base",
+                        "type": "number",
+                        "format": "float",
+                        "example": 45
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "datetime"
+                    },
+                    "updated_at": {
+                        "description": "Date de dernière mise à jour",
+                        "type": "string",
+                        "format": "datetime"
+                    }
+                },
+                "type": "object"
+            },
+            "Lesson": {
+                "title": "Lesson",
+                "description": "Cours/leçon réservé sur la plateforme",
+                "properties": {
+                    "id": {
+                        "description": "Identifiant unique du cours",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "teacher_id": {
+                        "description": "ID de l'enseignant",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "student_id": {
+                        "description": "ID de l'élève",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "course_type_id": {
+                        "description": "ID du type de cours",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "location_id": {
+                        "description": "ID du lieu",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "scheduled_at": {
+                        "description": "Date et heure prévues",
+                        "type": "string",
+                        "format": "datetime",
+                        "example": "2025-08-15 14:00:00"
+                    },
+                    "duration": {
+                        "description": "Durée en minutes",
+                        "type": "integer",
+                        "example": 60
+                    },
+                    "price": {
+                        "description": "Prix du cours",
+                        "type": "number",
+                        "format": "float",
+                        "example": 50
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "completed",
+                            "cancelled"
+                        ],
+                        "example": "pending"
+                    },
+                    "notes": {
+                        "description": "Notes sur le cours",
+                        "type": "string",
+                        "example": "Premier cours de dressage"
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "datetime"
+                    },
+                    "updated_at": {
+                        "description": "Date de dernière mise à jour",
+                        "type": "string",
+                        "format": "datetime"
+                    }
+                },
+                "type": "object"
+            },
+            "Location": {
+                "title": "Location",
+                "description": "Lieu de cours sur la plateforme",
+                "properties": {
+                    "id": {
+                        "description": "Identifiant unique du lieu",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "description": "Nom du lieu",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "Centre Équestre de Paris"
+                    },
+                    "address": {
+                        "description": "Adresse complète",
+                        "type": "string",
+                        "maxLength": 500,
+                        "example": "123 Rue de la Paix"
+                    },
+                    "city": {
+                        "description": "Ville",
+                        "type": "string",
+                        "maxLength": 100,
+                        "example": "Paris"
+                    },
+                    "postal_code": {
+                        "description": "Code postal",
+                        "type": "string",
+                        "maxLength": 20,
+                        "example": "75001"
+                    },
+                    "country": {
+                        "description": "Pays",
+                        "type": "string",
+                        "maxLength": 100,
+                        "example": "France"
+                    },
+                    "latitude": {
+                        "description": "Latitude GPS",
+                        "type": "number",
+                        "format": "float",
+                        "example": 48.8566
+                    },
+                    "longitude": {
+                        "description": "Longitude GPS",
+                        "type": "number",
+                        "format": "float",
+                        "example": 2.3522
+                    },
+                    "description": {
+                        "description": "Description du lieu",
+                        "type": "string",
+                        "example": "Centre équestre moderne"
+                    },
+                    "facilities": {
+                        "description": "Équipements disponibles",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "manège couvert",
+                            "carrière",
+                            "parking"
+                        ]
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "datetime"
+                    },
+                    "updated_at": {
+                        "description": "Date de dernière mise à jour",
+                        "type": "string",
+                        "format": "datetime"
+                    }
+                },
+                "type": "object"
+            },
+            "Payment": {
+                "title": "Payment",
+                "description": "Modèle de paiement",
+                "properties": {
+                    "id": {
+                        "description": "ID du paiement",
+                        "type": "integer"
+                    },
+                    "lesson_id": {
+                        "description": "ID de la leçon",
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "description": "Montant du paiement",
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "currency": {
+                        "description": "Devise (EUR, USD, etc.)",
+                        "type": "string"
+                    },
+                    "payment_method": {
+                        "description": "Méthode de paiement",
+                        "type": "string",
+                        "enum": [
+                            "card",
+                            "bank_transfer",
+                            "cash",
+                            "paypal"
+                        ]
+                    },
+                    "status": {
+                        "description": "Statut du paiement",
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "processing",
+                            "succeeded",
+                            "failed",
+                            "canceled"
+                        ]
+                    },
+                    "stripe_payment_intent_id": {
+                        "description": "ID de l'intention de paiement Stripe",
+                        "type": "string"
+                    },
+                    "failure_reason": {
+                        "description": "Raison de l'échec du paiement",
+                        "type": "string"
+                    },
+                    "notes": {
+                        "description": "Notes sur le paiement",
+                        "type": "string"
+                    },
+                    "processed_at": {
+                        "description": "Date de traitement du paiement",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "description": "Date de mise à jour",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "lesson": {
+                        "$ref": "#/components/schemas/Lesson"
+                    }
+                },
+                "type": "object"
+            },
+            "Profile": {
+                "title": "Profile",
+                "description": "Profil utilisateur avec informations personnelles et de contact",
+                "properties": {
+                    "id": {
+                        "description": "Identifiant unique du profil",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "description": "ID de l'utilisateur associé",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "first_name": {
+                        "description": "Prénom",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "Jean"
+                    },
+                    "last_name": {
+                        "description": "Nom de famille",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "Dupont"
+                    },
+                    "phone": {
+                        "description": "Numéro de téléphone",
+                        "type": "string",
+                        "maxLength": 20,
+                        "example": "+33123456789"
+                    },
+                    "address": {
+                        "description": "Adresse complète",
+                        "type": "string",
+                        "example": "123 Rue de la Paix"
+                    },
+                    "city": {
+                        "description": "Ville",
+                        "type": "string",
+                        "maxLength": 100,
+                        "example": "Paris"
+                    },
+                    "postal_code": {
+                        "description": "Code postal",
+                        "type": "string",
+                        "maxLength": 10,
+                        "example": "75001"
+                    },
+                    "country": {
+                        "description": "Pays",
+                        "type": "string",
+                        "maxLength": 100,
+                        "example": "France"
+                    },
+                    "date_of_birth": {
+                        "description": "Date de naissance",
+                        "type": "string",
+                        "format": "date",
+                        "example": "1990-05-15"
+                    },
+                    "emergency_contact_name": {
+                        "description": "Nom du contact d'urgence",
+                        "type": "string",
+                        "maxLength": 255,
+                        "example": "Marie Dupont"
+                    },
+                    "emergency_contact_phone": {
+                        "description": "Téléphone du contact d'urgence",
+                        "type": "string",
+                        "maxLength": 20,
+                        "example": "+33987654321"
+                    },
+                    "medical_notes": {
+                        "description": "Notes médicales",
+                        "type": "string",
+                        "example": "Allergie aux abeilles"
+                    },
+                    "preferences": {
+                        "description": "Préférences utilisateur (JSON)",
+                        "type": "object",
+                        "example": {
+                            "language": "fr",
+                            "notifications": true
+                        }
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "datetime"
+                    },
+                    "updated_at": {
+                        "description": "Date de dernière mise à jour",
+                        "type": "string",
+                        "format": "datetime"
+                    }
+                },
+                "type": "object"
+            },
+            "Student": {
+                "title": "Student",
+                "description": "Profil étudiant sur la plateforme",
+                "properties": {
+                    "id": {
+                        "description": "Identifiant unique de l'étudiant",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "description": "ID de l'utilisateur associé",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "level": {
+                        "description": "Niveau de l'élève",
+                        "type": "string",
+                        "example": "débutant"
+                    },
+                    "goals": {
+                        "description": "Objectifs de l'élève",
+                        "type": "string",
+                        "example": "Apprendre les bases du dressage"
+                    },
+                    "medical_info": {
+                        "description": "Informations médicales",
+                        "type": "string",
+                        "example": "Aucune allergie connue"
+                    },
+                    "emergency_contact": {
+                        "description": "Contact d'urgence",
+                        "type": "string",
+                        "example": "Marie Dupont - 06.12.34.56.78"
+                    },
+                    "created_at": {
+                        "description": "Date de création",
+                        "type": "string",
+                        "format": "datetime"
+                    },
+                    "updated_at": {
+                        "description": "Date de dernière mise à jour",
+                        "type": "string",
+                        "format": "datetime"
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "title": "User",
+                "description": "Modèle utilisateur",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "John Doe"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "john@example.com"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "teacher",
+                            "student"
+                        ],
+                        "example": "student"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+33123456789",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Authentification via Bearer Token (Laravel Sanctum). \n *     \n * Pour utiliser l'authentification :\n * 1. Connectez-vous via POST /auth/login\n * 2. Récupérez le token dans la réponse\n * 3. Incluez-le dans l'header: Authorization: Bearer {token}",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Admin Dashboard",
+            "description": "Tableau de bord administrateur avec statistiques et gestion"
+        },
+        {
+            "name": "App Settings",
+            "description": "Gestion des paramètres d'application et de rebranding"
+        },
+        {
+            "name": "Course Types",
+            "description": "Gestion des types de cours"
+        },
+        {
+            "name": "File Upload",
+            "description": "Gestion des uploads de fichiers (avatars, certificats, logos)"
+        },
+        {
+            "name": "Lessons",
+            "description": "Gestion des cours et réservations"
+        },
+        {
+            "name": "Locations",
+            "description": "Gestion des lieux de cours"
+        },
+        {
+            "name": "Payments",
+            "description": "Gestion des paiements"
+        },
+        {
+            "name": "Stripe Webhooks",
+            "description": "Gestion des webhooks Stripe"
+        },
+        {
+            "name": "Authentication",
+            "description": "Endpoints d'authentification (login, register, logout)"
+        },
+        {
+            "name": "Users",
+            "description": "Gestion des utilisateurs"
+        },
+        {
+            "name": "Profiles",
+            "description": "Gestion des profils utilisateurs"
+        }
+    ]
+}

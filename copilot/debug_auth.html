@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test d'authentification - Debug</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test d'authentification - Debug en temps réel</h1>
+        
+        <div class="step info">
+            <h3>📋 Étape 1: Connexion</h3>
+            <button onclick="doLogin()">Se connecter</button>
+            <div id="login-result" class="log"></div>
+        </div>
+
+        <div class="step info">
+            <h3>🔄 Étape 2: Simulation rafraîchissement</h3>
+            <button onclick="simulateRefresh()">Simuler rafraîchissement</button>
+            <div id="refresh-result" class="log"></div>
+        </div>
+
+        <div class="step info">
+            <h3>🔍 Étape 3: Vérification continue</h3>
+            <button onclick="startContinuousCheck()">Démarrer surveillance</button>
+            <button onclick="stopContinuousCheck()">Arrêter surveillance</button>
+            <div id="continuous-result" class="log"></div>
+        </div>
+
+        <div class="step info">
+            <h3>📊 État actuel</h3>
+            <button onclick="checkCurrentState()">Vérifier état</button>
+            <div id="state-result" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        let currentToken = null;
+        let checkInterval = null;
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollHeight;
+        }
+
+        async function doLogin() {
+            log('login-result', '🔄 Tentative de connexion...', 'info');
+            
+            try {
+                const response = await axios.post(`${API_BASE}/auth/login`, {
+                    email: 'admin.secours@bookyourcoach.com',
+                    password: 'secours123'
+                });
+
+                currentToken = response.data.token;
+                const user = response.data.user;
+
+                // Simuler le stockage comme le fait Nuxt
+                localStorage.setItem('auth-token', currentToken);
+                localStorage.setItem('user-data', JSON.stringify(user));
+                
+                // Simuler le cookie
+                document.cookie = `auth-token=${currentToken}; path=/`;
+
+                log('login-result', `✅ Connexion réussie!
+🔑 Token: ${currentToken.substring(0, 30)}...
+👤 User: ${user.name} (${user.email})
+🎯 Role: ${user.role}
+📦 Stocké dans localStorage et cookie`, 'success');
+
+            } catch (error) {
+                log('login-result', `❌ Erreur de connexion: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateRefresh() {
+            log('refresh-result', '🔄 Simulation du rafraîchissement de page...', 'info');
+            
+            try {
+                // Récupération depuis localStorage (comme initializeAuth)
+                const storedToken = localStorage.getItem('auth-token');
+                const storedUser = localStorage.getItem('user-data');
+
+                if (!storedToken) {
+                    log('refresh-result', '❌ Aucun token trouvé dans localStorage', 'error');
+                    return;
+                }
+
+                const userData = JSON.parse(storedUser);
+                log('refresh-result', `📤 Données récupérées:
+🔑 Token: ${storedToken.substring(0, 30)}...
+👤 User: ${userData.name}
+🎯 Role: ${userData.role}`, 'info');
+
+                // Vérification avec l'API (comme fetchUser)
+                const response = await axios.get(`${API_BASE}/auth/user`, {
+                    headers: {
+                        'Authorization': `Bearer ${storedToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const apiUser = response.data.user || response.data;
+                
+                log('refresh-result', `📥 Réponse API:
+👤 User: ${apiUser.name}
+🎯 Role: ${apiUser.role}
+📊 Comparaison:
+   - LocalStorage: "${userData.role}"
+   - API Response: "${apiUser.role}"
+   - Identique: ${userData.role === apiUser.role ? '✅ OUI' : '❌ NON'}`, 
+                    userData.role === apiUser.role ? 'success' : 'error');
+
+            } catch (error) {
+                log('refresh-result', `❌ Erreur lors de la simulation: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkCurrentState() {
+            log('state-result', '🔍 Vérification de l\'état actuel...', 'info');
+            
+            const token = localStorage.getItem('auth-token');
+            const userData = localStorage.getItem('user-data');
+            const cookies = document.cookie;
+
+            log('state-result', `📊 État actuel:
+🔑 Token localStorage: ${token ? token.substring(0, 30) + '...' : 'ABSENT'}
+📦 User data: ${userData ? 'PRÉSENT' : 'ABSENT'}
+🍪 Cookies: ${cookies}
+
+${userData ? '👤 Données utilisateur:\n' + JSON.stringify(JSON.parse(userData), null, 2) : ''}`, 'info');
+        }
+
+        function startContinuousCheck() {
+            if (checkInterval) clearInterval(checkInterval);
+            
+            log('continuous-result', '▶️ Démarrage de la surveillance continue...', 'info');
+            
+            checkInterval = setInterval(async () => {
+                const token = localStorage.getItem('auth-token');
+                if (!token) return;
+
+                try {
+                    const response = await axios.get(`${API_BASE}/auth/user`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    const user = response.data.user || response.data;
+                    log('continuous-result', `✅ ${new Date().toLocaleTimeString()}: Role = "${user.role}"`, 'success');
+
+                } catch (error) {
+                    log('continuous-result', `❌ ${new Date().toLocaleTimeString()}: Erreur = ${error.message}`, 'error');
+                }
+            }, 2000);
+        }
+
+        function stopContinuousCheck() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+                log('continuous-result', '⏹️ Surveillance arrêtée.', 'info');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -24,10 +24,22 @@
 
                 <div v-if="userMenuOpen"
                   class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-equestrian-gold/20">
+                  <NuxtLink to="/dashboard"
+                    class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
+                    <EquestrianIcon name="dashboard" :size="16" />
+                    <span>Tableau de bord</span>
+                  </NuxtLink>
+
+                  <NuxtLink v-if="authStore.user?.teacher || authStore.isAdmin" to="/teacher/dashboard"
+                    class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
+                    <EquestrianIcon name="saddle" :size="16" />
+                    <span>Espace Enseignant</span>
+                  </NuxtLink>
+
                   <NuxtLink to="/profile"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="helmet" :size="16" />
-                    <span>Mon profil</span>
+                    <span>Mon Profil</span>
                   </NuxtLink>
 
                   <NuxtLink v-if="authStore.isAdmin" to="/admin"
