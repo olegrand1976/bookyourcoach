@@ -128,8 +128,6 @@ services:
             - redis
         restart: unless-stopped
 
-volumes:
-
 networks:
     bookyourcoach_network:
         driver: bridge
