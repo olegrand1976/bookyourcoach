@@ -1,14 +1,25 @@
+# Git
 .git
 .gitignore
-README.md
-.env.example
-.editorconfig
 .gitattributes
 .github
+
+# Documentation
+README.md
+*.md
+
+# Configuration files
+.env.example
+.editorconfig
 Dockerfile
 docker-compose.yml
+docker-compose-new.yml
+
+# Dependencies (will be installed in container)
 /vendor
 /node_modules
+
+# Laravel specific
 /public/hot
 /public/storage
 /storage/*.key
@@ -17,7 +28,41 @@ docker-compose.yml
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
+
+# Node.js
 npm-debug.log
 yarn-error.log
+package-lock.json
+
+# IDE & Editor files
 /.idea
 /.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
+
+# Logs & Debug files
+*.log
+setup-diagnostic.log
+setup.log
+cookies.txt
+debug_auth.html
+
+# Test & Debug scripts
+*.sh
+test_*.js
+test_*.cjs
+test-*.txt
+debug-*.sh
+dev-*.sh
+
+# Copilot workspace copy
+/copilot/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+/public/build

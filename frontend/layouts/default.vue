@@ -30,6 +30,12 @@
                     <span>Tableau de bord</span>
                   </NuxtLink>
 
+                  <NuxtLink v-if="authStore.user?.teacher || authStore.isAdmin" to="/teacher/dashboard"
+                    class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
+                    <EquestrianIcon name="saddle" :size="16" />
+                    <span>Espace Enseignant</span>
+                  </NuxtLink>
+
                   <NuxtLink to="/profile"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="helmet" :size="16" />

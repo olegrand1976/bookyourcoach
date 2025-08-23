@@ -1,24 +1,71 @@
+# Logs
 *.log
+setup-diagnostic.log
+setup.log
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Environment files
 .env
 .env.backup
 .env.production
+
+# IDE & Editor files
 .phpactor.json
-.phpunit.result.cache
 /.fleet
 /.idea
 /.nova
-/.phpunit.cache
 /.vscode
 /.zed
+
+# PHP & Laravel
+.phpunit.result.cache
+/.phpunit.cache
 /auth.json
-/node_modules
+/vendor
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
 Homestead.json
 Homestead.yaml
-Thumbs.db
+
+# Node.js
+/node_modules
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build & Temporary files
+/public/build
+cookies.txt
+debug_auth.html
+
+# Test & Debug scripts
+*.sh
+test_*.js
+test_*.cjs
+test-*.txt
+debug-*.sh
+dev-*.sh
+
+# Documentation temporaire
+*-COMPLETE.md
+*-FIXED.md
+COMPTES-UTILISATEURS.md
+DOCKER.md
+RESOLUTION-COMPLETE.md
+TEST-TEACHER-SYSTEM.md
+TESTS-FRONTEND-COMPLETE.md
+ITERATION-COMPLETE.md
+LOGO-UPLOAD-COMPLETE.md
+Agents.md
+
+# Copilot workspace copy
+/copilot/
+
+# Docker compose variants
+docker-compose-new.yml
