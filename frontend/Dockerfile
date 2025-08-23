@@ -8,13 +8,24 @@ WORKDIR /app
 COPY package*.json ./
 
 # Installer les dépendances avec --legacy-peer-deps pour ignorer les conflits
-RUN npm install --legacy-peer-deps
+# Astuces réseau: augmenter les timeouts et retries pour environnements lents/proxy
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-factor 2 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set fetch-timeout 60000 \
+    && npm install --legacy-peer-deps
 
 # Copier le code source
 COPY . .
 
 # Construire l'application
 RUN npm run build
+
+# Installer les dépendances de prod Nitro côté builder pour éviter un npm install en prod
+WORKDIR /app/.output/server
+# Utiliser ci (plus fiable en build CI) et ignorer les devDeps
+RUN npm ci --omit=dev || npm install --omit=dev
+
 
 # Stage de production
 FROM node:20-alpine AS production
@@ -24,11 +35,10 @@ WORKDIR /app
 
 # Copier seulement les fichiers nécessaires
 COPY --from=builder /app/.output ./.output
+# Copier également les node_modules déjà installés pour le serveur Nitro
+COPY --from=builder /app/.output/server/node_modules ./.output/server/node_modules
 
 # Changer vers le répertoire server pour installer les dépendances
-WORKDIR /app/.output/server
-RUN npm install --omit=dev
-
 # Revenir au répertoire principal pour l'exécution
 WORKDIR /app
 
