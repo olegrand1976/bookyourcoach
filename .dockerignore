@@ -66,3 +66,6 @@ Thumbs.db
 
 # Build files
 /public/build
+
+# Local volumes and data caches (not needed in build context)
+/docker-data

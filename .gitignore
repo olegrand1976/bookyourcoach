@@ -69,3 +69,6 @@ Agents.md
 
 # Docker compose variants
 docker-compose-new.yml
+
+# Docker persisted data
+/docker-data/
