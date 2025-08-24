@@ -33,6 +33,8 @@ export const useAuthStore = defineStore('auth', {
         isAdmin: (state) => state.user?.role === 'admin',
         isTeacher: (state) => state.user?.role === 'teacher',
         isStudent: (state) => state.user?.role === 'student',
+        canActAsTeacher: (state) => state.user?.can_act_as_teacher || false,
+        canActAsStudent: (state) => state.user?.can_act_as_student || false,
         userName: (state) => state.user?.name || 'Utilisateur'
     },
 
