@@ -9,6 +9,9 @@ interface User {
     profile?: any
     teacher?: any
     student?: any
+    can_act_as_teacher?: boolean
+    can_act_as_student?: boolean
+    is_admin?: boolean
 }
 
 interface AuthState {

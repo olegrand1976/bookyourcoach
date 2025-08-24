@@ -192,9 +192,15 @@ class AuthController extends Controller
             logger('Failed to log audit: ' . $e->getMessage());
         }
 
+        // Ajouter les capacités utilisateur
+        $userData = $user->toArray();
+        $userData['can_act_as_teacher'] = $user->canActAsTeacher();
+        $userData['can_act_as_student'] = $user->canActAsStudent();
+        $userData['is_admin'] = $user->isAdmin();
+
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
+            'user' => $userData,
             'token' => $token
         ]);
     }
@@ -262,8 +268,16 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
+        $user = $request->user();
+
+        // Ajouter les capacités utilisateur
+        $userData = $user->toArray();
+        $userData['can_act_as_teacher'] = $user->canActAsTeacher();
+        $userData['can_act_as_student'] = $user->canActAsStudent();
+        $userData['is_admin'] = $user->isAdmin();
+
         return response()->json([
-            'user' => $request->user()
+            'user' => $userData
         ]);
     }
 }
