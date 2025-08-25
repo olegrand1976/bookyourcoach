@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "teacherSpace": "Lærer Område",
+        "profile": "Min Profil",
+        "admin": "Administration",
+        "login": "Log ind",
+        "register": "Tilmeld",
+        "logout": "Log ud"
+    },
+    "auth": {
+        "login": "Log ind",
+        "email": "E-mailadresse",
+        "password": "Adgangskode",
+        "rememberMe": "Husk mig",
+        "forgotPassword": "Glemt adgangskode?",
+        "noAccount": "Har ikke en konto?",
+        "createAccount": "Opret konto",
+        "name": "Fulde navn",
+        "confirmPassword": "Bekræft adgangskode",
+        "alreadyAccount": "Har allerede en konto?",
+        "loginHere": "Log ind her"
+    },
+    "common": {
+        "welcome": "Velkommen",
+        "loading": "Indlæser...",
+        "save": "Gem",
+        "cancel": "Annuller",
+        "delete": "Slet",
+        "edit": "Rediger",
+        "back": "Tilbage",
+        "next": "Næste",
+        "previous": "Forrige",
+        "search": "Søg",
+        "filter": "Filtrer",
+        "sort": "Sorter",
+        "actions": "Handlinger"
+    },
+    "footer": {
+        "description": "Referenceplatformen til at booke dine ridetimer med certificerede instruktører.",
+        "quickLinks": "Hurtige links",
+        "support": "Support",
+        "legal": "Juridisk",
+        "contact": "Kontakt",
+        "about": "Om os",
+        "terms": "Brugsvilkår",
+        "privacy": "Privatlivspolitik"
+    }
+}

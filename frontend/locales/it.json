@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "teacherSpace": "Area Insegnante",
+        "profile": "Il Mio Profilo",
+        "admin": "Amministrazione",
+        "login": "Accedi",
+        "register": "Registrati",
+        "logout": "Esci"
+    },
+    "auth": {
+        "login": "Accesso",
+        "email": "Indirizzo email",
+        "password": "Password",
+        "rememberMe": "Ricordami",
+        "forgotPassword": "Password dimenticata?",
+        "noAccount": "Non hai un account?",
+        "createAccount": "Crea account",
+        "name": "Nome completo",
+        "confirmPassword": "Conferma password",
+        "alreadyAccount": "Hai già un account?",
+        "loginHere": "Accedi qui"
+    },
+    "common": {
+        "welcome": "Benvenuto",
+        "loading": "Caricamento...",
+        "save": "Salva",
+        "cancel": "Annulla",
+        "delete": "Elimina",
+        "edit": "Modifica",
+        "back": "Indietro",
+        "next": "Successivo",
+        "previous": "Precedente",
+        "search": "Cerca",
+        "filter": "Filtra",
+        "sort": "Ordina",
+        "actions": "Azioni"
+    },
+    "footer": {
+        "description": "La piattaforma di riferimento per prenotare le tue lezioni di equitazione con istruttori certificati.",
+        "quickLinks": "Link rapidi",
+        "support": "Supporto",
+        "legal": "Legale",
+        "contact": "Contatto",
+        "about": "Chi siamo",
+        "terms": "Termini di utilizzo",
+        "privacy": "Politica sulla privacy"
+    }
+}

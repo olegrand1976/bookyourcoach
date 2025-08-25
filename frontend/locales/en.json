@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "teacherSpace": "Teacher Space",
+        "profile": "My Profile",
+        "admin": "Administration",
+        "login": "Sign In",
+        "register": "Sign Up",
+        "logout": "Sign Out"
+    },
+    "auth": {
+        "login": "Login",
+        "email": "Email address",
+        "password": "Password",
+        "rememberMe": "Remember me",
+        "forgotPassword": "Forgot password?",
+        "noAccount": "Don't have an account?",
+        "createAccount": "Create account",
+        "name": "Full name",
+        "confirmPassword": "Confirm password",
+        "alreadyAccount": "Already have an account?",
+        "loginHere": "Sign in here"
+    },
+    "common": {
+        "welcome": "Welcome",
+        "loading": "Loading...",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "back": "Back",
+        "next": "Next",
+        "previous": "Previous",
+        "search": "Search",
+        "filter": "Filter",
+        "sort": "Sort",
+        "actions": "Actions"
+    },
+    "footer": {
+        "description": "The reference platform for booking your riding lessons with certified instructors.",
+        "quickLinks": "Quick links",
+        "support": "Support",
+        "legal": "Legal",
+        "contact": "Contact",
+        "about": "About",
+        "terms": "Terms of use",
+        "privacy": "Privacy policy"
+    }
+}

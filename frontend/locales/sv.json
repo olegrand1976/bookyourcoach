@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Instrumentpanel",
+        "teacherSpace": "Lärarutrymme",
+        "profile": "Min Profil",
+        "admin": "Administration",
+        "login": "Logga in",
+        "register": "Registrera",
+        "logout": "Logga ut"
+    },
+    "auth": {
+        "login": "Inloggning",
+        "email": "E-postadress",
+        "password": "Lösenord",
+        "rememberMe": "Kom ihåg mig",
+        "forgotPassword": "Glömt lösenord?",
+        "noAccount": "Har inget konto?",
+        "createAccount": "Skapa konto",
+        "name": "Fullständigt namn",
+        "confirmPassword": "Bekräfta lösenord",
+        "alreadyAccount": "Har redan konto?",
+        "loginHere": "Logga in här"
+    },
+    "common": {
+        "welcome": "Välkommen",
+        "loading": "Laddar...",
+        "save": "Spara",
+        "cancel": "Avbryt",
+        "delete": "Radera",
+        "edit": "Redigera",
+        "back": "Tillbaka",
+        "next": "Nästa",
+        "previous": "Föregående",
+        "search": "Sök",
+        "filter": "Filtrera",
+        "sort": "Sortera",
+        "actions": "Åtgärder"
+    },
+    "footer": {
+        "description": "Referensplattformen för att boka dina ridlektioner med certifierade instruktörer.",
+        "quickLinks": "Snabblänkar",
+        "support": "Support",
+        "legal": "Juridiskt",
+        "contact": "Kontakt",
+        "about": "Om oss",
+        "terms": "Användarvillkor",
+        "privacy": "Integritetspolicy"
+    }
+}

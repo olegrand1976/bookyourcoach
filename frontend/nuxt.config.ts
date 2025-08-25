@@ -4,12 +4,41 @@ export default defineNuxtConfig({
     modules: [
         '@nuxtjs/tailwindcss',
         '@pinia/nuxt',
-        '@nuxtjs/google-fonts'
+        '@nuxtjs/google-fonts',
+        '@nuxtjs/i18n'
     ],
 
     googleFonts: {
         families: {
             Inter: [400, 500, 600, 700]
+        }
+    },
+
+    i18n: {
+        locales: [
+            { code: 'fr', name: 'Français', file: 'fr.json' },
+            { code: 'en', name: 'English', file: 'en.json' },
+            { code: 'nl', name: 'Nederlands', file: 'nl.json' },
+            { code: 'de', name: 'Deutsch', file: 'de.json' },
+            { code: 'it', name: 'Italiano', file: 'it.json' },
+            { code: 'es', name: 'Español', file: 'es.json' },
+            { code: 'pt', name: 'Português', file: 'pt.json' },
+            { code: 'hu', name: 'Magyar', file: 'hu.json' },
+            { code: 'pl', name: 'Polski', file: 'pl.json' },
+            { code: 'zh', name: '中文', file: 'zh.json' },
+            { code: 'ja', name: '日本語', file: 'ja.json' },
+            { code: 'sv', name: 'Svenska', file: 'sv.json' },
+            { code: 'no', name: 'Norsk', file: 'no.json' },
+            { code: 'fi', name: 'Suomi', file: 'fi.json' },
+            { code: 'da', name: 'Dansk', file: 'da.json' }
+        ],
+        defaultLocale: 'fr',
+        langDir: 'locales/',
+        strategy: 'prefix_except_default',
+        detectBrowserLanguage: {
+            useCookie: true,
+            cookieKey: 'i18n_redirected',
+            redirectOn: 'root'
         }
     },
 

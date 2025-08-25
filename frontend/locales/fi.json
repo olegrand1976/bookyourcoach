@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Kojelauta",
+        "teacherSpace": "Opettajan Alue",
+        "profile": "Profiilini",
+        "admin": "Hallinto",
+        "login": "Kirjaudu sisään",
+        "register": "Rekisteröidy",
+        "logout": "Kirjaudu ulos"
+    },
+    "auth": {
+        "login": "Sisäänkirjautuminen",
+        "email": "Sähköpostiosoite",
+        "password": "Salasana",
+        "rememberMe": "Muista minut",
+        "forgotPassword": "Unohditko salasanan?",
+        "noAccount": "Ei tiliä?",
+        "createAccount": "Luo tili",
+        "name": "Koko nimi",
+        "confirmPassword": "Vahvista salasana",
+        "alreadyAccount": "Onko sinulla jo tili?",
+        "loginHere": "Kirjaudu sisään tästä"
+    },
+    "common": {
+        "welcome": "Tervetuloa",
+        "loading": "Ladataan...",
+        "save": "Tallenna",
+        "cancel": "Peruuta",
+        "delete": "Poista",
+        "edit": "Muokkaa",
+        "back": "Takaisin",
+        "next": "Seuraava",
+        "previous": "Edellinen",
+        "search": "Haku",
+        "filter": "Suodata",
+        "sort": "Lajittele",
+        "actions": "Toiminnot"
+    },
+    "footer": {
+        "description": "Viitealusta ratsastustuntien varaamiseen sertifioitujen ohjaajien kanssa.",
+        "quickLinks": "Pikalinkit",
+        "support": "Tuki",
+        "legal": "Oikeudellinen",
+        "contact": "Ota yhteyttä",
+        "about": "Tietoa meistä",
+        "terms": "Käyttöehdot",
+        "privacy": "Tietosuojakäytäntö"
+    }
+}

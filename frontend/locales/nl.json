@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "teacherSpace": "Leraar Ruimte",
+        "profile": "Mijn Profiel",
+        "admin": "Administratie",
+        "login": "Inloggen",
+        "register": "Registreren",
+        "logout": "Uitloggen"
+    },
+    "auth": {
+        "login": "Aanmelden",
+        "email": "E-mailadres",
+        "password": "Wachtwoord",
+        "rememberMe": "Onthoud mij",
+        "forgotPassword": "Wachtwoord vergeten?",
+        "noAccount": "Nog geen account?",
+        "createAccount": "Account aanmaken",
+        "name": "Volledige naam",
+        "confirmPassword": "Bevestig wachtwoord",
+        "alreadyAccount": "Al een account?",
+        "loginHere": "Log hier in"
+    },
+    "common": {
+        "welcome": "Welkom",
+        "loading": "Laden...",
+        "save": "Opslaan",
+        "cancel": "Annuleren",
+        "delete": "Verwijderen",
+        "edit": "Bewerken",
+        "back": "Terug",
+        "next": "Volgende",
+        "previous": "Vorige",
+        "search": "Zoeken",
+        "filter": "Filteren",
+        "sort": "Sorteren",
+        "actions": "Acties"
+    },
+    "footer": {
+        "description": "Het referentieplatform voor het boeken van je rijlessen met gecertificeerde instructeurs.",
+        "quickLinks": "Snelle links",
+        "support": "Ondersteuning",
+        "legal": "Juridisch",
+        "contact": "Contact",
+        "about": "Over ons",
+        "terms": "Gebruiksvoorwaarden",
+        "privacy": "Privacybeleid"
+    }
+}

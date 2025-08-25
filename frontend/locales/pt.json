@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Painel",
+        "teacherSpace": "Área Professor",
+        "profile": "Meu Perfil",
+        "admin": "Administração",
+        "login": "Entrar",
+        "register": "Registrar",
+        "logout": "Sair"
+    },
+    "auth": {
+        "login": "Login",
+        "email": "Endereço de e-mail",
+        "password": "Senha",
+        "rememberMe": "Lembrar de mim",
+        "forgotPassword": "Esqueceu a senha?",
+        "noAccount": "Não tem conta?",
+        "createAccount": "Criar conta",
+        "name": "Nome completo",
+        "confirmPassword": "Confirmar senha",
+        "alreadyAccount": "Já tem conta?",
+        "loginHere": "Entre aqui"
+    },
+    "common": {
+        "welcome": "Bem-vindo",
+        "loading": "Carregando...",
+        "save": "Salvar",
+        "cancel": "Cancelar",
+        "delete": "Excluir",
+        "edit": "Editar",
+        "back": "Voltar",
+        "next": "Próximo",
+        "previous": "Anterior",
+        "search": "Pesquisar",
+        "filter": "Filtrar",
+        "sort": "Ordenar",
+        "actions": "Ações"
+    },
+    "footer": {
+        "description": "A plataforma de referência para reservar suas aulas de equitação com instrutores certificados.",
+        "quickLinks": "Links rápidos",
+        "support": "Suporte",
+        "legal": "Legal",
+        "contact": "Contato",
+        "about": "Sobre",
+        "terms": "Termos de uso",
+        "privacy": "Política de privacidade"
+    }
+}

@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashboard",
+        "teacherSpace": "Lehrer Bereich",
+        "profile": "Mein Profil",
+        "admin": "Administration",
+        "login": "Anmelden",
+        "register": "Registrieren",
+        "logout": "Abmelden"
+    },
+    "auth": {
+        "login": "Anmeldung",
+        "email": "E-Mail-Adresse",
+        "password": "Passwort",
+        "rememberMe": "Angemeldet bleiben",
+        "forgotPassword": "Passwort vergessen?",
+        "noAccount": "Noch kein Konto?",
+        "createAccount": "Konto erstellen",
+        "name": "Vollständiger Name",
+        "confirmPassword": "Passwort bestätigen",
+        "alreadyAccount": "Bereits ein Konto?",
+        "loginHere": "Hier anmelden"
+    },
+    "common": {
+        "welcome": "Willkommen",
+        "loading": "Laden...",
+        "save": "Speichern",
+        "cancel": "Abbrechen",
+        "delete": "Löschen",
+        "edit": "Bearbeiten",
+        "back": "Zurück",
+        "next": "Weiter",
+        "previous": "Vorherige",
+        "search": "Suchen",
+        "filter": "Filtern",
+        "sort": "Sortieren",
+        "actions": "Aktionen"
+    },
+    "footer": {
+        "description": "Die Referenzplattform für die Buchung Ihrer Reitstunden mit zertifizierten Ausbildern.",
+        "quickLinks": "Schnelle Links",
+        "support": "Support",
+        "legal": "Rechtliches",
+        "contact": "Kontakt",
+        "about": "Über uns",
+        "terms": "Nutzungsbedingungen",
+        "privacy": "Datenschutzrichtlinie"
+    }
+}

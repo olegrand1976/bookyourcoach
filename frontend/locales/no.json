@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Dashbord",
+        "teacherSpace": "Lærer Område",
+        "profile": "Min Profil",
+        "admin": "Administrasjon",
+        "login": "Logg inn",
+        "register": "Registrer",
+        "logout": "Logg ut"
+    },
+    "auth": {
+        "login": "Innlogging",
+        "email": "E-postadresse",
+        "password": "Passord",
+        "rememberMe": "Husk meg",
+        "forgotPassword": "Glemt passord?",
+        "noAccount": "Har ikke konto?",
+        "createAccount": "Opprett konto",
+        "name": "Fullt navn",
+        "confirmPassword": "Bekreft passord",
+        "alreadyAccount": "Har allerede konto?",
+        "loginHere": "Logg inn her"
+    },
+    "common": {
+        "welcome": "Velkommen",
+        "loading": "Laster...",
+        "save": "Lagre",
+        "cancel": "Avbryt",
+        "delete": "Slett",
+        "edit": "Rediger",
+        "back": "Tilbake",
+        "next": "Neste",
+        "previous": "Forrige",
+        "search": "Søk",
+        "filter": "Filtrer",
+        "sort": "Sorter",
+        "actions": "Handlinger"
+    },
+    "footer": {
+        "description": "Referanseplattformen for å bestille ridelesingene dine med sertifiserte instruktører.",
+        "quickLinks": "Hurtigkoblinger",
+        "support": "Støtte",
+        "legal": "Juridisk",
+        "contact": "Kontakt",
+        "about": "Om oss",
+        "terms": "Bruksvilkår",
+        "privacy": "Personvernpolicy"
+    }
+}

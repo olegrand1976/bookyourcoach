@@ -12,6 +12,9 @@
           </div>
 
           <div class="flex items-center space-x-6">
+            <!-- Sélecteur de langue -->
+            <LanguageSelector />
+            
             <template v-if="authStore.isAuthenticated">
               <!-- Menu utilisateur authentifié -->
               <div class="relative" v-if="showUserMenu">
@@ -27,32 +30,32 @@
                   <NuxtLink to="/dashboard"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="dashboard" :size="16" />
-                    <span>Tableau de bord</span>
+                    <span>{{ $t('nav.dashboard') }}</span>
                   </NuxtLink>
 
                   <NuxtLink v-if="authStore.canActAsTeacher" to="/teacher/dashboard"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="saddle" :size="16" />
-                    <span>Espace Enseignant</span>
+                    <span>{{ $t('nav.teacherSpace') }}</span>
                   </NuxtLink>
 
                   <NuxtLink to="/profile"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="helmet" :size="16" />
-                    <span>Mon Profil</span>
+                    <span>{{ $t('nav.profile') }}</span>
                   </NuxtLink>
 
                   <NuxtLink v-if="authStore.isAdmin" to="/admin"
                     class="flex items-center space-x-2 px-4 py-3 text-equestrian-darkBrown hover:bg-equestrian-cream transition-colors">
                     <EquestrianIcon name="trophy" :size="16" />
-                    <span>Administration</span>
+                    <span>{{ $t('nav.admin') }}</span>
                   </NuxtLink>
 
                   <hr class="my-2 border-equestrian-gold/20">
 
                   <button @click="handleLogout"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 transition-colors">
-                    <span>🚪 Se déconnecter</span>
+                    <span>🚪 {{ $t('nav.logout') }}</span>
                   </button>
                 </div>
               </div>
@@ -62,11 +65,11 @@
               <!-- Menu utilisateur non authentifié -->
               <NuxtLink to="/login"
                 class="text-equestrian-darkBrown hover:text-equestrian-brown font-medium px-4 py-2 rounded-lg hover:bg-equestrian-cream transition-colors">
-                Se connecter
+                {{ $t('nav.login') }}
               </NuxtLink>
               <NuxtLink to="/register"
                 class="btn-primary bg-equestrian-leather hover:bg-equestrian-brown text-white font-semibold px-6 py-2 rounded-lg transition-colors">
-                🏇 S'inscrire
+                🏇 {{ $t('nav.register') }}
               </NuxtLink>
             </template>
           </div>
@@ -89,7 +92,7 @@
               <Logo size="sm" />
             </div>
             <p class="text-equestrian-cream/80 mb-4">
-              La plateforme de référence pour réserver vos cours d'équitation avec des instructeurs certifiés.
+              {{ $t('footer.description') }}
             </p>
             <div class="flex space-x-4">
               <EquestrianIcon name="trophy" :size="24" class="text-equestrian-gold" />

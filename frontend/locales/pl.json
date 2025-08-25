@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Panel",
+        "teacherSpace": "Obszar Nauczyciela",
+        "profile": "Mój Profil",
+        "admin": "Administracja",
+        "login": "Zaloguj się",
+        "register": "Zarejestruj się",
+        "logout": "Wyloguj się"
+    },
+    "auth": {
+        "login": "Logowanie",
+        "email": "Adres e-mail",
+        "password": "Hasło",
+        "rememberMe": "Zapamiętaj mnie",
+        "forgotPassword": "Zapomniałeś hasła?",
+        "noAccount": "Nie masz konta?",
+        "createAccount": "Utwórz konto",
+        "name": "Pełne imię",
+        "confirmPassword": "Potwierdź hasło",
+        "alreadyAccount": "Masz już konto?",
+        "loginHere": "Zaloguj się tutaj"
+    },
+    "common": {
+        "welcome": "Witamy",
+        "loading": "Ładowanie...",
+        "save": "Zapisz",
+        "cancel": "Anuluj",
+        "delete": "Usuń",
+        "edit": "Edytuj",
+        "back": "Wstecz",
+        "next": "Następny",
+        "previous": "Poprzedni",
+        "search": "Szukaj",
+        "filter": "Filtruj",
+        "sort": "Sortuj",
+        "actions": "Akcje"
+    },
+    "footer": {
+        "description": "Platforma referencyjna do rezerwacji lekcji jazdy konnej z certyfikowanymi instruktorami.",
+        "quickLinks": "Szybkie linki",
+        "support": "Wsparcie",
+        "legal": "Prawne",
+        "contact": "Kontakt",
+        "about": "O nas",
+        "terms": "Warunki użytkowania",
+        "privacy": "Polityka prywatności"
+    }
+}

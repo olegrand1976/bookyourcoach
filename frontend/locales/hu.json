@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Irányítópult",
+        "teacherSpace": "Tanár Terület",
+        "profile": "Profilom",
+        "admin": "Adminisztráció",
+        "login": "Bejelentkezés",
+        "register": "Regisztráció",
+        "logout": "Kijelentkezés"
+    },
+    "auth": {
+        "login": "Bejelentkezés",
+        "email": "E-mail cím",
+        "password": "Jelszó",
+        "rememberMe": "Emlékezz rám",
+        "forgotPassword": "Elfelejtett jelszó?",
+        "noAccount": "Nincs még fiókja?",
+        "createAccount": "Fiók létrehozása",
+        "name": "Teljes név",
+        "confirmPassword": "Jelszó megerősítése",
+        "alreadyAccount": "Már van fiókja?",
+        "loginHere": "Jelentkezzen be itt"
+    },
+    "common": {
+        "welcome": "Üdvözöljük",
+        "loading": "Betöltés...",
+        "save": "Mentés",
+        "cancel": "Mégse",
+        "delete": "Törlés",
+        "edit": "Szerkesztés",
+        "back": "Vissza",
+        "next": "Következő",
+        "previous": "Előző",
+        "search": "Keresés",
+        "filter": "Szűrés",
+        "sort": "Rendezés",
+        "actions": "Műveletek"
+    },
+    "footer": {
+        "description": "A referencia platform lovaglási óráinak foglalásához tanúsított oktatókkal.",
+        "quickLinks": "Gyors linkek",
+        "support": "Támogatás",
+        "legal": "Jogi",
+        "contact": "Kapcsolat",
+        "about": "Rólunk",
+        "terms": "Használati feltételek",
+        "privacy": "Adatvédelmi irányelvek"
+    }
+}

@@ -1,0 +1,49 @@
+{
+    "nav": {
+        "dashboard": "Tableau de bord",
+        "teacherSpace": "Espace Enseignant",
+        "profile": "Mon Profil",
+        "admin": "Administration",
+        "login": "Se connecter",
+        "register": "S'inscrire",
+        "logout": "Se déconnecter"
+    },
+    "auth": {
+        "login": "Connexion",
+        "email": "Adresse e-mail",
+        "password": "Mot de passe",
+        "rememberMe": "Se souvenir de moi",
+        "forgotPassword": "Mot de passe oublié ?",
+        "noAccount": "Pas encore de compte ?",
+        "createAccount": "Créer un compte",
+        "name": "Nom complet",
+        "confirmPassword": "Confirmer le mot de passe",
+        "alreadyAccount": "Déjà un compte ?",
+        "loginHere": "Se connecter ici"
+    },
+    "common": {
+        "welcome": "Bienvenue",
+        "loading": "Chargement...",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "edit": "Modifier",
+        "back": "Retour",
+        "next": "Suivant",
+        "previous": "Précédent",
+        "search": "Rechercher",
+        "filter": "Filtrer",
+        "sort": "Trier",
+        "actions": "Actions"
+    },
+    "footer": {
+        "description": "La plateforme de référence pour réserver vos cours d'équitation avec des instructeurs certifiés.",
+        "quickLinks": "Liens rapides",
+        "support": "Support",
+        "legal": "Légal",
+        "contact": "Contact",
+        "about": "À propos",
+        "terms": "Conditions d'utilisation",
+        "privacy": "Politique de confidentialité"
+    }
+}
