@@ -132,7 +132,7 @@
                                         Rôle</th>
                                     <th
                                         class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Statut</th>
+                                        Statut
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -264,177 +264,113 @@
 import { ref, onMounted } from 'vue'
 
 definePageMeta({
-    middleware: 'auth-admin'
+    layout: 'admin',
+    middleware: ['auth', 'admin']
 })
 
-// Reactive data
-const loading = ref(true)
-const showCreateUserModal = ref(false)
-const showCreateClubModal = ref(false)
+const { $api } = useNuxtApp()
+const toast = useToast()
 
-// Stats
+// State
+const loading = ref(true)
 const stats = ref({
     users: 0,
     teachers: 0,
     students: 0,
-    clubs: 0
+    clubs: 0,
+    lessons_today: 0,
+    revenue_month: 0
 })
-
-// Recent data
 const recentUsers = ref([])
 const recentActivities = ref([])
 const systemStatus = ref([
     { name: 'API Backend', status: 'online' },
     { name: 'Base de données', status: 'online' },
-    { name: 'Système de paiement', status: 'online' },
-    { name: 'Notifications', status: 'online' }
+    { name: 'Serveur Frontend', status: 'online' },
+    { name: 'Service de paiement', status: 'online' }
 ])
+const showCreateUserModal = ref(false)
+const showCreateClubModal = ref(false)
+const newUser = ref({ name: '', email: '', password: '', role: 'student' })
+const newClub = ref({ name: '', address: '', city: '', zip_code: '', country: 'France' })
 
-// Forms
-const newUser = ref({
-    name: '',
-    email: '',
-    role: 'student',
-    password: '',
-    password_confirmation: ''
-})
-
-const newClub = ref({
-    name: '',
-    email: '',
-    phone: '',
-    address: ''
+// Fetch data
+onMounted(async () => {
+    loading.value = true
+    try {
+        const response = await $api.get('/admin/stats')
+        stats.value = response.data.stats
+        recentUsers.value = response.data.recentUsers
+        recentActivities.value = response.data.recentActivities.map(activity => ({
+            ...activity,
+            icon: getActivityIcon(activity.action),
+            time: formatTimeAgo(activity.created_at)
+        }))
+    } catch (error) {
+        console.error("Erreur lors de la récupération des données du dashboard:", error)
+        toast.error("Impossible de charger les données du dashboard.")
+    } finally {
+        loading.value = false
+    }
 })
 
 // Methods
-const getRoleClass = (role) => {
+function getRoleClass(role) {
     const classes = {
         admin: 'bg-red-100 text-red-800',
         teacher: 'bg-green-100 text-green-800',
-        student: 'bg-blue-100 text-blue-800'
+        student: 'bg-blue-100 text-blue-800',
     }
     return classes[role] || 'bg-gray-100 text-gray-800'
 }
 
-const getRoleLabel = (role) => {
+function getRoleLabel(role) {
     const labels = {
         admin: 'Admin',
         teacher: 'Enseignant',
-        student: 'Élève'
+        student: 'Élève',
     }
-    return labels[role] || role
+    return labels[role] || 'N/A'
 }
 
-const fetchStats = async () => {
-    try {
-        const { $api } = useNuxtApp()
-        const response = await $api.get('/admin/stats')
-        stats.value = response.data
-    } catch (error) {
-        console.error('Erreur lors du chargement des statistiques:', error)
-        // Données de fallback
-        stats.value = {
-            users: 3,
-            teachers: 1,
-            students: 1,
-            clubs: 0
-        }
-    }
+function getActivityIcon(action) {
+    if (action.includes('create')) return 'plus'
+    if (action.includes('update')) return 'pencil'
+    if (action.includes('delete')) return 'trash'
+    if (action.includes('login')) return 'login'
+    return 'info'
 }
 
-const fetchRecentUsers = async () => {
-    try {
-        const { $api } = useNuxtApp()
-        const response = await $api.get('/admin/users?per_page=5')
-        recentUsers.value = response.data.data || []
-    } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs récents:', error)
-        // Données de fallback
-        recentUsers.value = [
-            { id: 1, name: 'Marie Dubois', role: 'admin', is_active: true },
-            { id: 2, name: 'Pierre Martin', role: 'teacher', is_active: true },
-            { id: 3, name: 'Sophie Durand', role: 'student', is_active: true }
-        ]
-    }
+function formatTimeAgo(dateString) {
+    const date = new Date(dateString)
+    const seconds = Math.floor((new Date() - date) / 1000)
+    let interval = seconds / 31536000
+    if (interval > 1) return Math.floor(interval) + " ans"
+    interval = seconds / 2592000
+    if (interval > 1) return Math.floor(interval) + " mois"
+    interval = seconds / 86400
+    if (interval > 1) return Math.floor(interval) + " jours"
+    interval = seconds / 3600
+    if (interval > 1) return Math.floor(interval) + " heures"
+    interval = seconds / 60
+    if (interval > 1) return Math.floor(interval) + " minutes"
+    return Math.floor(seconds) + " secondes"
 }
 
-const fetchRecentActivities = async () => {
+async function createUser() {
     try {
-        const { $api } = useNuxtApp()
-        const response = await $api.get('/admin/activities?limit=5')
-        recentActivities.value = response.data.data || []
-    } catch (error) {
-        console.error('Erreur lors du chargement des activités récentes:', error)
-        // Données de fallback
-        recentActivities.value = [
-            { id: 1, message: 'Nouvel utilisateur inscrit', time: 'Il y a 2 heures', icon: 'helmet' },
-            { id: 2, message: 'Cours réservé avec succès', time: 'Il y a 4 heures', icon: 'saddle' },
-            { id: 3, message: 'Paiement traité', time: 'Il y a 6 heures', icon: 'trophy' },
-            { id: 4, message: 'Nouveau club créé', time: 'Il y a 1 jour', icon: 'horse' },
-            { id: 5, message: 'Mise à jour du système', time: 'Il y a 2 jours', icon: 'horseshoe' }
-        ]
-    }
-}
-
-const createUser = async () => {
-    try {
-        const { $api } = useNuxtApp()
-        await $api.post('/admin/users', {
-            ...newUser.value,
-            password_confirmation: newUser.value.password
-        })
-
+        await $api.post('/admin/users', newUser.value)
+        toast.success('Utilisateur créé avec succès')
         showCreateUserModal.value = false
-        newUser.value = { name: '', email: '', role: 'student', password: '', password_confirmation: '' }
-
-        // Actualiser les données
-        await fetchStats()
-        await fetchRecentUsers()
-
-        // Afficher un message de succès
-        alert('Utilisateur créé avec succès!')
+        // Re-fetch data or update list locally
     } catch (error) {
-        console.error('Erreur lors de la création de l\'utilisateur:', error)
-        alert('Erreur lors de la création de l\'utilisateur')
+        toast.error("Erreur lors de la création de l'utilisateur.")
     }
 }
 
-const createClub = async () => {
-    try {
-        const { $api } = useNuxtApp()
-        await $api.post('/admin/clubs', newClub.value)
-
-        showCreateClubModal.value = false
-        newClub.value = { name: '', email: '', phone: '', address: '' }
-
-        // Actualiser les données
-        await fetchStats()
-
-        // Afficher un message de succès
-        alert('Club créé avec succès!')
-    } catch (error) {
-        console.error('Erreur lors de la création du club:', error)
-        alert('Erreur lors de la création du club')
-    }
+async function createClub() {
+    // Implement club creation logic
+    toast.info('La création de club n\'est pas encore implémentée.')
+    showCreateClubModal.value = false
 }
-
-const loadDashboardData = async () => {
-    loading.value = true
-    try {
-        await Promise.all([
-            fetchStats(),
-            fetchRecentUsers(),
-            fetchRecentActivities()
-        ])
-    } catch (error) {
-        console.error('Erreur lors du chargement du dashboard:', error)
-    } finally {
-        loading.value = false
-    }
-}
-
-// Lifecycle
-onMounted(() => {
-    loadDashboardData()
-})
 </script>

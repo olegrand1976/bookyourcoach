@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\AppSettingController;
 use App\Http\Controllers\Api\FileUploadController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Api\Student\DashboardController;
+use App\Http\Controllers\Api\Teacher\DashboardController as TeacherDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,10 +71,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // Teacher routes
     Route::get('/teachers', [UserController::class, 'teachers']);
     Route::get('/teachers/{id}/availability', [UserController::class, 'teacherAvailability']);
+    Route::get('/teacher/dashboard', [TeacherDashboardController::class, 'getDashboardData'])->middleware('teacher');
 
     // Student routes
     Route::get('/students', [UserController::class, 'students']);
     Route::get('/students/{id}/lessons', [LessonController::class, 'studentLessons']);
+
+    // Student Dashboard
+    Route::get('/student/dashboard/stats', [DashboardController::class, 'getStats']);
 
     // Upload de fichiers
     Route::post('/upload/avatar', [FileUploadController::class, 'uploadAvatar'])->name('upload.avatar');

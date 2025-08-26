@@ -111,7 +111,7 @@ import {
     CheckCircleIcon,
     ClockIcon
 } from '@heroicons/vue/24/outline'
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 definePageMeta({
     middleware: 'auth'
@@ -165,7 +165,7 @@ const loadDashboardData = async () => {
 // Formatage des dates
 const formatDate = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(locale.value, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
