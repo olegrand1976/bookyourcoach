@@ -3,12 +3,12 @@
     <div class="max-w-md w-full space-y-8">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Créer un compte
+          {{ t('registerPage.title') }}
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600">
-          Ou
+          {{ t('registerPage.or') }}
           <NuxtLink to="/login" class="font-medium text-primary-600 hover:text-primary-500">
-            connectez-vous à votre compte existant
+            {{ t('registerPage.login') }}
           </NuxtLink>
         </p>
       </div>
@@ -17,7 +17,7 @@
         <div class="space-y-4">
           <div>
             <label for="name" class="block text-sm font-medium text-gray-700">
-              Nom complet
+              {{ t('auth.name') }}
             </label>
             <input
               id="name"
@@ -26,13 +26,13 @@
               type="text"
               required
               class="input-field"
-              placeholder="Votre nom complet"
+              :placeholder="t('auth.name')"
             />
           </div>
           
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700">
-              Adresse email
+              {{ t('auth.email') }}
             </label>
             <input
               id="email"
@@ -42,13 +42,13 @@
               autocomplete="email"
               required
               class="input-field"
-              placeholder="votre@email.com"
+              :placeholder="t('auth.email')"
             />
           </div>
           
           <div>
             <label for="password" class="block text-sm font-medium text-gray-700">
-              Mot de passe
+              {{ t('auth.password') }}
             </label>
             <input
               id="password"
@@ -57,13 +57,13 @@
               type="password"
               required
               class="input-field"
-              placeholder="Au moins 8 caractères"
+              :placeholder="t('auth.password')"
             />
           </div>
           
           <div>
             <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-              Confirmer le mot de passe
+              {{ t('auth.confirmPassword') }}
             </label>
             <input
               id="password_confirmation"
@@ -72,7 +72,7 @@
               type="password"
               required
               class="input-field"
-              placeholder="Confirmez votre mot de passe"
+              :placeholder="t('auth.confirmPassword')"
             />
           </div>
         </div>
@@ -87,9 +87,9 @@
             class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
           />
           <label for="terms" class="ml-2 block text-sm text-gray-900">
-            J'accepte les 
+            {{ t('registerPage.terms') }} 
             <a href="#" class="text-primary-600 hover:text-primary-500">
-              conditions d'utilisation
+              {{ t('registerPage.termsLink') }}
             </a>
           </label>
         </div>
@@ -100,8 +100,8 @@
             :disabled="loading"
             class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            <span v-if="loading">Création en cours...</span>
-            <span v-else>Créer mon compte</span>
+            <span v-if="loading">{{ t('registerPage.creatingAccount') }}</span>
+            <span v-else>{{ t('auth.createAccount') }}</span>
           </button>
         </div>
 
@@ -125,6 +125,7 @@ definePageMeta({
 
 const authStore = useAuthStore()
 const toast = useToast()
+const { t } = useI18n()
 
 const form = reactive({
   name: '',

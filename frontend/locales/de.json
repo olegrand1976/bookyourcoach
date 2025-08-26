@@ -21,6 +21,53 @@
         "alreadyAccount": "Bereits ein Konto?",
         "loginHere": "Hier anmelden"
     },
+    "loginPage": {
+        "title": "Bei Ihrem Konto anmelden",
+        "or": "Oder",
+        "createAccount": "ein neues Konto erstellen",
+        "loggingIn": "Anmelden..."
+    },
+    "registerPage": {
+        "title": "Ein Konto erstellen",
+        "or": "Oder",
+        "login": "bei Ihrem bestehenden Konto anmelden",
+        "terms": "Ich akzeptiere die",
+        "termsLink": "Nutzungsbedingungen",
+        "creatingAccount": "Konto wird erstellt..."
+    },
+    "dashboard": {
+        "title": "Willkommen, {name}",
+        "subtitle": "Hier ist Ihr persönliches Dashboard",
+        "upcomingLessons": "Kommende Lektionen",
+        "completedLessons": "Abgeschlossene Lektionen",
+        "totalHours": "Gesamtstunden",
+        "quickActions": "Schnelle Aktionen",
+        "viewAll": "Alle anzeigen",
+        "noLessons": "Keine Lektionen geplant",
+        "bookLesson": "Eine Lektion buchen",
+        "browseTeachers": "Lehrer durchsuchen",
+        "with": "mit",
+        "confirmed": "Bestätigt"
+    },
+    "teachers": {
+        "title": "Unsere Reitinstruktoren",
+        "subtitle": "Entdecken Sie unser Team aus leidenschaftlichen und erfahrenen Instruktoren",
+        "searchPlaceholder": "Einen Instruktor suchen...",
+        "allDisciplines": "Alle Disziplinen",
+        "allLevels": "Alle Stufen",
+        "dressage": "Dressur",
+        "jumping": "Springen",
+        "cross": "Geländereiten",
+        "ponyGames": "Pony Games",
+        "western": "Western",
+        "beginner": "Anfänger",
+        "intermediate": "Mittelstufe",
+        "advanced": "Fortgeschritten",
+        "competition": "Wettkampf",
+        "experience": "Jahre Erfahrung",
+        "viewProfile": "Profil ansehen",
+        "noTeachers": "Keine Instruktoren für diese Kriterien gefunden"
+    },
     "common": {
         "welcome": "Willkommen",
         "loading": "Laden...",

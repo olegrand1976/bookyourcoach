@@ -5,10 +5,10 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
                     <h1 class="text-4xl md:text-5xl font-bold mb-6 font-serif">
-                        🐎 Nos Instructeurs Équestres
+                        🐎 {{ t('teachers.title') }}
                     </h1>
                     <p class="text-xl text-equestrian-cream max-w-3xl mx-auto">
-                        Découvrez notre équipe d'instructeurs passionnés et expérimentés
+                        {{ t('teachers.subtitle') }}
                     </p>
                 </div>
             </div>
@@ -21,7 +21,7 @@
                     <!-- Barre de recherche -->
                     <div class="flex-1 max-w-md">
                         <div class="relative">
-                            <input v-model="searchQuery" type="text" placeholder="Rechercher un instructeur..."
+                            <input v-model="searchQuery" type="text" :placeholder="t('teachers.searchPlaceholder')"
                                 class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-equestrian-brown focus:border-equestrian-brown">
                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                 <Icon name="heroicons:magnifying-glass" class="h-5 w-5 text-gray-400" />
@@ -33,21 +33,21 @@
                     <div class="flex gap-4">
                         <select v-model="selectedDiscipline"
                             class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-equestrian-brown focus:border-equestrian-brown">
-                            <option value="">Toutes disciplines</option>
-                            <option value="dressage">Dressage</option>
-                            <option value="jumping">Saut d'obstacles</option>
-                            <option value="cross">Cross</option>
-                            <option value="pony_games">Pony Games</option>
-                            <option value="western">Western</option>
+                            <option value="">{{ t('teachers.allDisciplines') }}</option>
+                            <option value="dressage">{{ t('teachers.dressage') }}</option>
+                            <option value="jumping">{{ t('teachers.jumping') }}</option>
+                            <option value="cross">{{ t('teachers.cross') }}</option>
+                            <option value="pony_games">{{ t('teachers.ponyGames') }}</option>
+                            <option value="western">{{ t('teachers.western') }}</option>
                         </select>
 
                         <select v-model="selectedLevel"
                             class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-equestrian-brown focus:border-equestrian-brown">
-                            <option value="">Tous niveaux</option>
-                            <option value="beginner">Débutant</option>
-                            <option value="intermediate">Intermédiaire</option>
-                            <option value="advanced">Avancé</option>
-                            <option value="competition">Compétition</option>
+                            <option value="">{{ t('teachers.allLevels') }}</option>
+                            <option value="beginner">{{ t('teachers.beginner') }}</option>
+                            <option value="intermediate">{{ t('teachers.intermediate') }}</option>
+                            <option value="advanced">{{ t('teachers.advanced') }}</option>
+                            <option value="competition">{{ t('teachers.competition') }}</option>
                         </select>
                     </div>
                 </div>
@@ -155,8 +155,8 @@
                 <!-- Empty State -->
                 <div v-else class="text-center py-12">
                     <Icon name="heroicons:user-group" class="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 class="text-lg font-semibold text-gray-600 mb-2">Aucun instructeur trouvé</h3>
-                    <p class="text-gray-500">Essayez de modifier vos critères de recherche</p>
+                    <h3 class="text-lg font-semibold text-gray-600 mb-2">{{ t('teachers.noTeachers') }}</h3>
+                    <p class="text-gray-500">{{ t('common.search') }}</p>
                 </div>
             </div>
         </section>
@@ -181,6 +181,8 @@
 </template>
 
 <script setup>
+const { t } = useI18n()
+
 // Meta tags
 useHead({
     title: 'Nos Instructeurs | BookYourCoach',

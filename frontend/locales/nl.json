@@ -21,6 +21,53 @@
         "alreadyAccount": "Al een account?",
         "loginHere": "Log hier in"
     },
+    "loginPage": {
+        "title": "Inloggen op uw account",
+        "or": "Of",
+        "createAccount": "maak een nieuw account aan",
+        "loggingIn": "Inloggen..."
+    },
+    "registerPage": {
+        "title": "Een account aanmaken",
+        "or": "Of",
+        "login": "log in op uw bestaande account",
+        "terms": "Ik accepteer de",
+        "termsLink": "gebruiksvoorwaarden",
+        "creatingAccount": "Account aanmaken..."
+    },
+    "dashboard": {
+        "title": "Welkom, {name}",
+        "subtitle": "Hier is uw persoonlijke dashboard",
+        "upcomingLessons": "Komende lessen",
+        "completedLessons": "Voltooide lessen",
+        "totalHours": "Totaal uren",
+        "quickActions": "Snelle acties",
+        "viewAll": "Bekijk alles",
+        "noLessons": "Geen lessen gepland",
+        "bookLesson": "Boek een les",
+        "browseTeachers": "Bekijk instructeurs",
+        "with": "met",
+        "confirmed": "Bevestigd"
+    },
+    "teachers": {
+        "title": "Onze Ruiterinstructeurs",
+        "subtitle": "Ontdek ons team van gepassioneerde en ervaren instructeurs",
+        "searchPlaceholder": "Zoek een instructeur...",
+        "allDisciplines": "Alle disciplines",
+        "allLevels": "Alle niveaus",
+        "dressage": "Dressuur",
+        "jumping": "Springen",
+        "cross": "Cross country",
+        "ponyGames": "Pony Games",
+        "western": "Western",
+        "beginner": "Beginner",
+        "intermediate": "Gemiddeld",
+        "advanced": "Gevorderd",
+        "competition": "Competitie",
+        "experience": "jaar ervaring",
+        "viewProfile": "Bekijk profiel",
+        "noTeachers": "Geen instructeurs gevonden voor deze criteria"
+    },
     "common": {
         "welcome": "Welkom",
         "loading": "Laden...",

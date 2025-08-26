@@ -21,6 +21,53 @@
         "alreadyAccount": "Already have an account?",
         "loginHere": "Sign in here"
     },
+    "loginPage": {
+        "title": "Sign in to your account",
+        "or": "Or",
+        "createAccount": "create a new account",
+        "loggingIn": "Signing in..."
+    },
+    "registerPage": {
+        "title": "Create an account",
+        "or": "Or",
+        "login": "sign in to your existing account",
+        "terms": "I accept the",
+        "termsLink": "terms of use",
+        "creatingAccount": "Creating account..."
+    },
+    "dashboard": {
+        "title": "Welcome, {name}",
+        "subtitle": "Here is your personal dashboard",
+        "upcomingLessons": "Upcoming lessons",
+        "completedLessons": "Completed lessons",
+        "totalHours": "Total hours",
+        "quickActions": "Quick actions",
+        "viewAll": "View all",
+        "noLessons": "No lessons scheduled",
+        "bookLesson": "Book a lesson",
+        "browseTeachers": "Browse teachers",
+        "with": "with",
+        "confirmed": "Confirmed"
+    },
+    "teachers": {
+        "title": "Our Equestrian Instructors",
+        "subtitle": "Discover our team of passionate and experienced instructors",
+        "searchPlaceholder": "Search for an instructor...",
+        "allDisciplines": "All disciplines",
+        "allLevels": "All levels",
+        "dressage": "Dressage",
+        "jumping": "Show jumping",
+        "cross": "Cross country",
+        "ponyGames": "Pony Games",
+        "western": "Western",
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced",
+        "competition": "Competition",
+        "experience": "years of experience",
+        "viewProfile": "View profile",
+        "noTeachers": "No instructors found for these criteria"
+    },
     "common": {
         "welcome": "Welcome",
         "loading": "Loading...",
