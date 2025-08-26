@@ -71,16 +71,16 @@
                     </div>
                     <div class="p-6">
                         <div v-if="upcomingLessons.length > 0" class="space-y-4">
-                            <div v-for="lesson in upcomingLessons" :key="lesson.id" 
-                                 class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div v-for="lesson in upcomingLessons" :key="lesson.id"
+                                class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
                                     <p class="font-medium text-gray-900">{{ lesson.student_name }}</p>
                                     <p class="text-sm text-gray-600">{{ lesson.type }} - {{ lesson.duration }}min</p>
                                     <p class="text-sm text-gray-500">{{ formatDate(lesson.scheduled_at) }}</p>
                                 </div>
                                 <div class="text-right">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full" 
-                                          :class="getStatusClass(lesson.status)">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full"
+                                        :class="getStatusClass(lesson.status)">
                                         {{ lesson.status }}
                                     </span>
                                 </div>
@@ -99,8 +99,8 @@
                         <h3 class="text-lg font-medium text-gray-900">Actions rapides</h3>
                     </div>
                     <div class="p-6 space-y-4">
-                        <NuxtLink to="/teacher/schedule" 
-                                  class="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                        <NuxtLink to="/teacher/schedule"
+                            class="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
                             <EquestrianIcon name="helmet" :size="20" class="text-blue-600 mr-3" />
                             <div>
                                 <p class="font-medium text-gray-900">Gérer mon planning</p>
@@ -108,8 +108,8 @@
                             </div>
                         </NuxtLink>
 
-                        <NuxtLink to="/teacher/students" 
-                                  class="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                        <NuxtLink to="/teacher/students"
+                            class="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
                             <EquestrianIcon name="trophy" :size="20" class="text-green-600 mr-3" />
                             <div>
                                 <p class="font-medium text-gray-900">Mes élèves</p>
@@ -117,8 +117,8 @@
                             </div>
                         </NuxtLink>
 
-                        <NuxtLink to="/teacher/earnings" 
-                                  class="flex items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
+                        <NuxtLink to="/teacher/earnings"
+                            class="flex items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
                             <span class="text-xl mr-3">💰</span>
                             <div>
                                 <p class="font-medium text-gray-900">Mes revenus</p>
@@ -126,8 +126,8 @@
                             </div>
                         </NuxtLink>
 
-                        <NuxtLink to="/profile" 
-                                  class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                        <NuxtLink to="/profile"
+                            class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                             <span class="text-xl mr-3">👤</span>
                             <div>
                                 <p class="font-medium text-gray-900">Mon profil</p>
@@ -169,52 +169,46 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+
 definePageMeta({
     middleware: ['auth', 'teacher']
 })
 
 const authStore = useAuthStore()
+const { $api } = useNuxtApp()
+const toast = useToast()
 
-// État réactif
+// State
+const loading = ref(true)
 const stats = ref({
-    today_lessons: 3,
-    active_students: 12,
-    monthly_earnings: 1450,
-    average_rating: 4.8,
-    week_lessons: 15,
-    week_hours: 22,
-    week_earnings: 1100,
-    new_students: 2
+    today_lessons: 0,
+    active_students: 0,
+    monthly_earnings: 0,
+    average_rating: 0,
+    week_lessons: 0,
+    week_hours: 0,
+    week_earnings: 0,
+    new_students: 0
+})
+const upcomingLessons = ref([])
+
+// Fetch data
+onMounted(async () => {
+    loading.value = true
+    try {
+        const response = await $api.get('/teacher/dashboard')
+        stats.value = response.data.stats
+        upcomingLessons.value = response.data.upcomingLessons
+    } catch (error) {
+        console.error("Erreur lors de la récupération des données du dashboard enseignant:", error)
+        toast.error("Impossible de charger les données du dashboard.")
+    } finally {
+        loading.value = false
+    }
 })
 
-const upcomingLessons = ref([
-    {
-        id: 1,
-        student_name: "Claire Martin",
-        type: "Dressage",
-        duration: 60,
-        scheduled_at: "2025-08-24T10:00:00Z",
-        status: "confirmé"
-    },
-    {
-        id: 2,
-        student_name: "Thomas Dubois",
-        type: "Saut d'obstacles",
-        duration: 45,
-        scheduled_at: "2025-08-24T14:30:00Z",
-        status: "en attente"
-    },
-    {
-        id: 3,
-        student_name: "Sophie Laurent",
-        type: "Cours débutant",
-        duration: 60,
-        scheduled_at: "2025-08-24T16:00:00Z",
-        status: "confirmé"
-    }
-])
-
-// Méthodes
+// Methods
 const formatDate = (dateString) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('fr-FR', {
@@ -227,35 +221,12 @@ const formatDate = (dateString) => {
 }
 
 const getStatusClass = (status) => {
-    switch (status) {
-        case 'confirmé':
-            return 'bg-green-100 text-green-800'
-        case 'en attente':
-            return 'bg-yellow-100 text-yellow-800'
-        case 'annulé':
-            return 'bg-red-100 text-red-800'
-        default:
-            return 'bg-gray-100 text-gray-800'
+    const classes = {
+        pending: 'bg-yellow-100 text-yellow-800',
+        confirmed: 'bg-green-100 text-green-800',
+        completed: 'bg-blue-100 text-blue-800',
+        cancelled: 'bg-red-100 text-red-800',
     }
+    return classes[status] || 'bg-gray-100 text-gray-800'
 }
-
-// Chargement des données
-const loadTeacherDashboard = async () => {
-    try {
-        // TODO: Implémenter l'appel API pour charger les données du dashboard enseignant
-        // const { $api } = useNuxtApp()
-        // const response = await $api.get('/teacher/dashboard')
-        // if (response.data) {
-        //     stats.value = response.data.stats
-        //     upcomingLessons.value = response.data.upcoming_lessons
-        // }
-    } catch (error) {
-        console.error('Erreur lors du chargement du dashboard enseignant:', error)
-    }
-}
-
-// Initialisation
-onMounted(() => {
-    loadTeacherDashboard()
-})
 </script>
