@@ -75,9 +75,8 @@ RUN composer install --optimize-autoloader
 # RUN composer dump-autoload --optimize
 
 # Permissions correctes
-RUN chown -R $user:www-data /var/www
-RUN chmod -R 755 /var/www/storage
-RUN chmod -R 755 /var/www/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
 # Changement vers l'utilisateur Laravel
 USER $user

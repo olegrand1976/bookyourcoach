@@ -23,7 +23,7 @@
         "@vue/test-utils": "^2.4.2",
         "happy-dom": "^12.10.3",
         "nuxt": "^3.8.0",
-        "vitest": "^1.0.0"
+        "vitest": "^3.2.0"
     },
     "dependencies": {
         "@headlessui/vue": "^1.7.16",

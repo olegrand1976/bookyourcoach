@@ -7,13 +7,9 @@ WORKDIR /app
 # Copier les fichiers de configuration
 COPY package*.json ./
 
-# Installer les dépendances avec --legacy-peer-deps pour ignorer les conflits
-# Astuces réseau: augmenter les timeouts et retries pour environnements lents/proxy
-RUN npm config set fetch-retries 5 \
-    && npm config set fetch-retry-factor 2 \
-    && npm config set fetch-retry-maxtimeout 120000 \
-    && npm config set fetch-timeout 60000 \
-    && npm install --legacy-peer-deps
+# Installer les dépendances de manière robuste
+RUN npm cache clean --force && \
+    if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copier le code source
 COPY . .
