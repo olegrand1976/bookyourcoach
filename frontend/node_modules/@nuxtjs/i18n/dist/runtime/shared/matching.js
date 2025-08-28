@@ -1,0 +1,41 @@
+import { joinURL, parsePath, withLeadingSlash } from "ufo";
+import { createRouterMatcher } from "vue-router";
+import { i18nPathToPath, pathToI18nConfig } from "#build/i18n-route-resources.mjs";
+const matcher = createRouterMatcher([], {});
+for (const path of Object.keys(i18nPathToPath)) {
+  matcher.addRoute({ path, component: () => "", meta: {} });
+}
+const getI18nPathToI18nPath = (path, locale) => {
+  if (!path || !locale) return;
+  const plainPath = i18nPathToPath[path];
+  const i18nConfig = pathToI18nConfig[plainPath];
+  if (i18nConfig && i18nConfig[locale]) {
+    return i18nConfig[locale] === true ? plainPath : i18nConfig[locale];
+  }
+};
+export function isExistingNuxtRoute(path) {
+  if (path === "") return;
+  const resolvedMatch = matcher.resolve({ path }, { path: "/", name: "", matched: [], params: {}, meta: {} });
+  return resolvedMatch.matched.length > 0 ? resolvedMatch : void 0;
+}
+export function matchLocalized(path, locale, defaultLocale) {
+  if (path === "") return;
+  const parsed = parsePath(path);
+  const resolvedMatch = matcher.resolve(
+    { path: parsed.pathname || "/" },
+    { path: "/", name: "", matched: [], params: {}, meta: {} }
+  );
+  if (resolvedMatch.matched.length > 0) {
+    const alternate = getI18nPathToI18nPath(resolvedMatch.matched[0].path, locale);
+    const match = matcher.resolve(
+      { params: resolvedMatch.params },
+      { path: alternate || "/", name: "", matched: [], params: {}, meta: {} }
+    );
+    const isPrefixable = prefixable(locale, defaultLocale);
+    return withLeadingSlash(joinURL(isPrefixable ? locale : "", match.path));
+  }
+}
+function prefixable(currentLocale, defaultLocale) {
+  return !__DIFFERENT_DOMAINS__ && __I18N_ROUTING__ && // only prefix default locale with strategy prefix
+  (currentLocale !== defaultLocale || __I18N_STRATEGY__ === "prefix");
+}

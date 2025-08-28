@@ -385,82 +385,100 @@ async function getRouteRules(arg) {
     return defu({}, ..._routeRulesMatcher.matchAll(path).reverse());
   }
 }
+const __nuxt_page_meta$2 = {
+  layout: false
+};
 const __nuxt_page_meta$1 = {
   layout: false
 };
 const __nuxt_page_meta = {
-  layout: false
+  layout: "admin"
 };
 const _routes = [
   {
     name: "index",
     path: "/",
-    component: () => import('./index-CpsnybjE.mjs')
+    component: () => import('./index-BJpoVmP5.mjs')
   },
   {
     name: "login",
     path: "/login",
-    meta: __nuxt_page_meta$1 || {},
-    component: () => import('./login-BWUzNeFl.mjs')
+    meta: __nuxt_page_meta$2 || {},
+    component: () => import('./login-BYB7cDTj.mjs')
   },
   {
     name: "profile",
     path: "/profile",
     meta: { "middleware": "auth" },
-    component: () => import('./profile-CQFnmR_G.mjs')
+    component: () => import('./profile-ghY9xtna.mjs')
   },
   {
     name: "register",
     path: "/register",
-    meta: __nuxt_page_meta || {},
-    component: () => import('./register-COjNrw-n.mjs')
+    meta: __nuxt_page_meta$1 || {},
+    component: () => import('./register-DLgaQ6s2.mjs')
   },
   {
     name: "teachers",
     path: "/teachers",
-    component: () => import('./teachers-1BHdAC9D.mjs'),
+    component: () => import('./teachers-ku20PBWf.mjs'),
     children: [
       {
         name: "teachers-id",
         path: ":id()",
-        component: () => import('./_id_-DPCKjlkN.mjs')
+        component: () => import('./_id_-BXDFncS4.mjs')
       }
     ]
   },
   {
     name: "test-api",
     path: "/test-api",
-    component: () => import('./test-api-BbQYnDN8.mjs')
+    component: () => import('./test-api-CuLyCys3.mjs')
   },
   {
     name: "dashboard",
     path: "/dashboard",
     meta: { "middleware": "auth" },
-    component: () => import('./dashboard-CnXea0q9.mjs')
+    component: () => import('./dashboard-BCD_06OH.mjs')
+  },
+  {
+    name: "test-auth",
+    path: "/test-auth",
+    component: () => import('./test-auth-DUxUMbFZ.mjs')
+  },
+  {
+    name: "debug-auth",
+    path: "/debug-auth",
+    component: () => import('./debug-auth-2oS5ZKmG.mjs')
   },
   {
     name: "admin",
     path: "/admin",
-    meta: { "middleware": "auth-admin" },
-    component: () => import('./index-DSofpIhO.mjs')
+    meta: { ...__nuxt_page_meta || {}, ...{ "middleware": ["auth", "admin"] } },
+    component: () => import('./index-DXBp9dzQ.mjs')
   },
   {
     name: "admin-users",
     path: "/admin/users",
     meta: { "middleware": "auth-admin" },
-    component: () => import('./users-DnVCfYry.mjs')
+    component: () => import('./users-D31dd__D.mjs')
   },
   {
     name: "admin-settings",
     path: "/admin/settings",
-    meta: { "middleware": "auth-admin" },
-    component: () => import('./settings-HYM4LFhB.mjs')
+    meta: { "middleware": ["auth", "admin"] },
+    component: () => import('./settings-CXtf86t5.mjs')
   },
   {
-    name: "admin-settings-temp",
-    path: "/admin/settings-temp",
-    meta: { "middleware": "auth-admin" },
-    component: () => import('./settings-temp-CCLKqH9a.mjs')
+    name: "test-api-direct",
+    path: "/test-api-direct",
+    component: () => import('./test-api-direct-CCShpBwx.mjs')
+  },
+  {
+    name: "teacher-dashboard",
+    path: "/teacher/dashboard",
+    meta: { "middleware": ["auth", "teacher"] },
+    component: () => import('./dashboard-CI3Ugaa8.mjs')
   }
 ];
 const _wrapInTransition = (props, children) => {
@@ -593,10 +611,10 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  admin: () => import('./admin--S50L1nK.mjs'),
-  "auth-admin": () => import('./auth-admin-CFzpDdzV.mjs'),
-  auth: () => import('./auth-D2d7LTht.mjs'),
-  "role-control": () => import('./role-control-Da6B21aa.mjs')
+  admin: () => import('./admin-DfNl79WC.mjs'),
+  "auth-admin": () => import('./auth-admin-CpFW-mdN.mjs'),
+  auth: () => import('./auth-BCkW8MjD.mjs'),
+  "role-control": () => import('./role-control-DZ4cSeYd.mjs')
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -1245,7 +1263,7 @@ const plugins = [
   components_plugin_z4hgvsiddfKkfXTP6M8M4zG5Cb7sGnDhcryKVM45Di4
 ];
 const layouts = {
-  default: defineAsyncComponent(() => import('./default-D_YUrgnN.mjs').then((m) => m.default || m))
+  default: defineAsyncComponent(() => import('./default-DT-HqPEV.mjs').then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
@@ -1518,8 +1536,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = defineAsyncComponent(() => import('./error-404-B3YaoSll.mjs'));
-    const _Error = defineAsyncComponent(() => import('./error-500-zaO1owtj.mjs'));
+    const _Error404 = defineAsyncComponent(() => import('./error-404-mhTeHwkf.mjs'));
+    const _Error = defineAsyncComponent(() => import('./error-500-J1mo4CH7.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(ssrRenderComponent(unref(ErrorTemplate), mergeProps({ statusCode: unref(statusCode), statusMessage: unref(statusMessage), description: unref(description), stack: unref(stack) }, _attrs), null, _parent));
