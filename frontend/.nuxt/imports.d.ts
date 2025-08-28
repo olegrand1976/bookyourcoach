@@ -32,5 +32,6 @@ export { useSettings } from '../composables/useSettings';
 export { useToast } from '../composables/useToast';
 export { useAuthStore } from '../stores/auth';
 export { defineStore, acceptHMRUpdate, usePinia, storeToRefs } from '../node_modules/@pinia/nuxt/dist/runtime/composables';
-export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';
+export { useI18n } from '../node_modules/vue-i18n/dist/vue-i18n';
+export { useRouteBaseName, useLocalePath, useLocaleRoute, useSwitchLocalePath, useLocaleHead, useBrowserLocale, useCookieLocale, useSetI18nParams, useI18nPreloadKeys, defineI18nRoute, defineI18nLocale, defineI18nConfig } from '../node_modules/@nuxtjs/i18n/dist/runtime/composables/index';
 export { definePageMeta } from '../node_modules/nuxt/dist/pages/runtime/composables';

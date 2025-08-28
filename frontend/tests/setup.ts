@@ -59,6 +59,25 @@ global.useToast = vi.fn(() => ({
     warning: vi.fn()
 }))
 
+// Mock useSettings composable
+global.useSettings = vi.fn(() => ({
+    currentLanguage: 'fr',
+    setLanguage: vi.fn(),
+    theme: 'light',
+    setTheme: vi.fn(),
+    settings: {
+        platform_name: 'BookYourCoach',
+        platform_description: 'Plateforme de réservation de coachs équestres'
+    }
+}))
+
+// Mock useI18n composable
+global.useI18n = vi.fn(() => ({
+    t: vi.fn((key) => key),
+    locale: 'fr',
+    locales: ['fr', 'en']
+}))
+
 // Mock Nuxt composables
 global.useNuxtApp = vi.fn(() => ({
     $router: {
@@ -100,6 +119,9 @@ vi.mock('#app', () => ({
         props: ['to']
     }
 }))
+
+// Mock $t function globally
+global.$t = vi.fn((key) => key)
 
 // Prevent actual navigation
 Object.defineProperty(window, 'location', {
