@@ -45,5 +45,52 @@
         "about": "Om oss",
         "terms": "Bruksvilkår",
         "privacy": "Personvernpolicy"
+    },
+    "loginPage": {
+        "title": "Connexion à votre compte",
+        "or": "Ou",
+        "createAccount": "créez un nouveau compte",
+        "loggingIn": "Connexion en cours..."
+    },
+    "registerPage": {
+        "title": "Créer un compte",
+        "or": "Ou",
+        "login": "connectez-vous à votre compte existant",
+        "terms": "J'accepte les",
+        "termsLink": "conditions d'utilisation",
+        "creatingAccount": "Création du compte..."
+    },
+    "dashboard": {
+        "title": "Bienvenue, {name}",
+        "subtitle": "Voici votre tableau de bord personnel",
+        "upcomingLessons": "Prochains cours",
+        "completedLessons": "Cours terminés",
+        "totalHours": "Heures totales",
+        "quickActions": "Actions rapides",
+        "viewAll": "Voir tous",
+        "noLessons": "Aucun cours planifié",
+        "bookLesson": "Réserver un cours",
+        "browseTeachers": "Parcourir les enseignants",
+        "with": "avec",
+        "confirmed": "Confirmé"
+    },
+    "teachers": {
+        "title": "Nos Instructeurs Équestres",
+        "subtitle": "Découvrez notre équipe d'instructeurs passionnés et expérimentés",
+        "searchPlaceholder": "Rechercher un instructeur...",
+        "allDisciplines": "Toutes disciplines",
+        "allLevels": "Tous niveaux",
+        "dressage": "Dressage",
+        "jumping": "Saut d'obstacles",
+        "cross": "Cross",
+        "ponyGames": "Pony Games",
+        "western": "Western",
+        "beginner": "Débutant",
+        "intermediate": "Intermédiaire",
+        "advanced": "Avancé",
+        "competition": "Compétition",
+        "experience": "ans d'expérience",
+        "viewProfile": "Voir le profil",
+        "noTeachers": "Aucun instructeur trouvé pour ces critères"
     }
 }
