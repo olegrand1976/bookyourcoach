@@ -1,5 +1,6 @@
 // Configuration globale pour les tests
 import { vi } from 'vitest'
+import { config as vtConfig } from '@vue/test-utils'
 
 // Mock des composables Nuxt
 global.definePageMeta = vi.fn()
@@ -83,10 +84,42 @@ global.useLazyFetch = vi.fn(() => ({
 global.$fetch = vi.fn()
 
 // Mock i18n
-const tMock = vi.fn((key) => key)
+const translations: Record<string, string> = {
+    'loginPage.title': 'Se connecter à votre compte',
+    'loginPage.or': 'ou',
+    'loginPage.createAccount': 'Créer un compte',
+    'loginPage.loggingIn': 'Connexion en cours…',
+    'auth.email': 'Adresse email',
+    'auth.password': 'Mot de passe',
+    'auth.rememberMe': 'Se souvenir de moi',
+    'auth.forgotPassword': 'Mot de passe oublié',
+    'auth.login': 'Se connecter',
+    'nav.dashboard': 'Tableau de bord',
+    'nav.teacherSpace': 'Espace enseignant',
+    'nav.profile': 'Profil',
+    'nav.admin': 'Administration',
+    'nav.logout': 'Se déconnecter',
+    'nav.login': 'Se connecter',
+    'nav.register': "S'inscrire",
+    'footer.description': 'Plateforme de coaching équestre multilingue'
+}
+
+const tMock = vi.fn((key: string) => translations[key] ?? key)
+
 // provide a basic useI18n composable returning t()
 // @ts-ignore
 global.useI18n = vi.fn(() => ({ t: tMock }))
+
+// also expose $t for templates that access it directly
+// @ts-ignore
+global.$t = tMock
+
+// Provide Vue Test Utils global mocks so templates can call $t
+vtConfig.global = vtConfig.global || {}
+vtConfig.global.mocks = {
+    ...(vtConfig.global.mocks || {}),
+    $t: tMock
+}
 
 // Mock useSettings composable returning expected structure
 // @ts-ignore
@@ -120,14 +153,7 @@ vi.mock('@heroicons/vue/24/outline', () => ({
     }
 }))
 
-// Stub NuxtLink
-vi.mock('#app', () => ({
-    NuxtLink: {
-        name: 'NuxtLink',
-        template: '<a><slot></slot></a>',
-        props: ['to']
-    }
-}))
+// Do not mock NuxtLink here; individual tests stub it themselves
 
 // Stub custom components used in templates
 global.Logo = { name: 'Logo', template: '<div class="logo"></div>', props: ['size'] }

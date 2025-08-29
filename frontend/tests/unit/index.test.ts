@@ -30,7 +30,7 @@ describe('Page d\'accueil', () => {
                 plugins: [pinia],
                 stubs: {
                     NuxtLink: {
-                        template: '<a :href="to"><slot /></a>',
+                        template: '<a data-test-stub="NuxtLink" :href="to"><slot /></a>',
                         props: ['to']
                     }
                 }
@@ -39,14 +39,14 @@ describe('Page d\'accueil', () => {
     })
 
     it('affiche le titre principal', () => {
-        expect(wrapper.text()).toContain('Trouvez votre coach parfait')
+        expect(wrapper.text()).toContain('Trouvez votre instructeur équestre idéal')
     })
 
     it('affiche la section des fonctionnalités', () => {
         expect(wrapper.text()).toContain('Pourquoi choisir BookYourCoach ?')
-        expect(wrapper.text()).toContain('Coaches certifiés')
-        expect(wrapper.text()).toContain('Réservation facile')
-        expect(wrapper.text()).toContain('Paiement sécurisé')
+        expect(wrapper.text()).toContain('Instructeurs Certifiés')
+        expect(wrapper.text()).toContain('Réservation Flexible')
+        expect(wrapper.text()).toContain('Sécurité Garantie')
     })
 
     it('affiche les statistiques de la plateforme', () => {
@@ -58,11 +58,12 @@ describe('Page d\'accueil', () => {
 
     it('contient les boutons d\'action appropriés', () => {
         const links = wrapper.findAllComponents('[data-test-stub="NuxtLink"]')
-        const linkTexts = links.map(link => link.text())
+        const normalize = (s: string) => s.replace(/[\u{1F3C7}\u{1F40E}\u{1F3C6}]/gu, '').replace(/\s+/g, ' ').trim()
+        const linkTexts = links.map(link => normalize(link.text()))
 
-        expect(linkTexts).toContain('Commencer maintenant')
+        expect(linkTexts).toContain("Commencer l'aventure")
         expect(linkTexts).toContain('Découvrir les coaches')
-        expect(linkTexts).toContain('S\'inscrire gratuitement')
+        expect(linkTexts).toContain("S'inscrire Gratuitement")
     })
 
     it('a la structure de section correcte', () => {

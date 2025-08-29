@@ -31,7 +31,7 @@ describe('Page de connexion', () => {
                 plugins: [pinia],
                 stubs: {
                     NuxtLink: {
-                        template: '<a :href="to"><slot /></a>',
+                        template: '<a data-test-stub="NuxtLink" :href="to"><slot /></a>',
                         props: ['to']
                     }
                 }
