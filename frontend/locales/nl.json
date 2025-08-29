@@ -95,40 +95,40 @@
     },
     "home": {
         "hero": {
-            "tagline": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation",
-            "ctaStart": "Commencer l'aventure",
-            "ctaDiscover": "Découvrir les coaches"
+            "tagline": "Vind je ideale rijinstructeur en boek je rijlessen",
+            "ctaStart": "Begin je avontuur",
+            "ctaDiscover": "Ontdek coaches"
         },
         "features": {
-            "title": "Pourquoi choisir {platform} ?",
-            "subtitle": "La plateforme de référence pour l'équitation moderne",
+            "title": "Waarom kiezen voor {platform}?",
+            "subtitle": "Het referentieplatform voor moderne paardensport",
             "items": {
                 "certified": {
-                    "title": "Instructeurs Certifiés",
-                    "desc": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation"
+                    "title": "Gecertificeerde Instructeurs",
+                    "desc": "Al onze instructeurs zijn gecertificeerd en hebben bewezen ervaring in de paardensport"
                 },
                 "flexible": {
-                    "title": "Réservation Flexible",
-                    "desc": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur"
+                    "title": "Flexibel Boeken",
+                    "desc": "Boek lessen volgens je beschikbaarheid, in de buitenbak, binnenbak of buiten"
                 },
                 "safety": {
-                    "title": "Sécurité Garantie",
-                    "desc": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité"
+                    "title": "Gegarandeerde Veiligheid",
+                    "desc": "Gecertificeerde uitrusting, goed getrainde paarden en professionele begeleiding voor je veiligheid"
                 }
             }
         },
         "stats": {
-            "title": "Notre Communauté Équestre",
-            "coachesLabel": "Instructeurs Certifiés",
-            "studentsLabel": "Cavaliers Satisfaits",
-            "lessonsLabel": "Cours Dispensés",
-            "locationsLabel": "Centres Équestres"
+            "title": "Onze Ruitergemeenschap",
+            "coachesLabel": "Gecertificeerde Instructeurs",
+            "studentsLabel": "Tevreden ruiters",
+            "lessonsLabel": "Gegeven lessen",
+            "locationsLabel": "Ruitersportcentra"
         },
         "cta": {
-            "title": "Prêt à Galoper vers l'Excellence ?",
-            "subtitle": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs",
-            "ctaSignup": "S'inscrire Gratuitement",
-            "ctaAbout": "En Savoir Plus"
+            "title": "Klaar om naar excellentie te galopperen?",
+            "subtitle": "Word lid van onze gemeenschap van paardenliefhebbers en leer met de beste instructeurs",
+            "ctaSignup": "Gratis inschrijven",
+            "ctaAbout": "Meer informatie"
         }
     }
 }

@@ -5,7 +5,7 @@
         "profile": "Meu Perfil",
         "admin": "Administração",
         "login": "Entrar",
-        "register": "Registrar",
+        "register": "Registar",
         "logout": "Sair"
     },
     "auth": {
@@ -47,88 +47,88 @@
         "privacy": "Política de privacidade"
     },
     "loginPage": {
-        "title": "Connexion à votre compte",
+        "title": "Inicie sessão na sua conta",
         "or": "Ou",
-        "createAccount": "créez un nouveau compte",
-        "loggingIn": "Connexion en cours..."
+        "createAccount": "crie uma nova conta",
+        "loggingIn": "A iniciar sessão..."
     },
     "registerPage": {
-        "title": "Créer un compte",
+        "title": "Criar uma conta",
         "or": "Ou",
-        "login": "connectez-vous à votre compte existant",
-        "terms": "J'accepte les",
-        "termsLink": "conditions d'utilisation",
-        "creatingAccount": "Création du compte..."
+        "login": "inicie sessão na sua conta existente",
+        "terms": "Aceito os",
+        "termsLink": "termos de uso",
+        "creatingAccount": "A criar conta..."
     },
     "dashboard": {
-        "title": "Bienvenue, {name}",
-        "subtitle": "Voici votre tableau de bord personnel",
-        "upcomingLessons": "Prochains cours",
-        "completedLessons": "Cours terminés",
-        "totalHours": "Heures totales",
-        "quickActions": "Actions rapides",
-        "viewAll": "Voir tous",
-        "noLessons": "Aucun cours planifié",
-        "bookLesson": "Réserver un cours",
-        "browseTeachers": "Parcourir les enseignants",
-        "with": "avec",
-        "confirmed": "Confirmé"
+        "title": "Bem-vindo, {name}",
+        "subtitle": "Aqui está o seu painel pessoal",
+        "upcomingLessons": "Próximas aulas",
+        "completedLessons": "Aulas concluídas",
+        "totalHours": "Total de horas",
+        "quickActions": "Ações rápidas",
+        "viewAll": "Ver tudo",
+        "noLessons": "Nenhuma aula agendada",
+        "bookLesson": "Reservar uma aula",
+        "browseTeachers": "Ver instrutores",
+        "with": "com",
+        "confirmed": "Confirmado"
     },
     "teachers": {
-        "title": "Nos Instructeurs Équestres",
-        "subtitle": "Découvrez notre équipe d'instructeurs passionnés et expérimentés",
-        "searchPlaceholder": "Rechercher un instructeur...",
-        "allDisciplines": "Toutes disciplines",
-        "allLevels": "Tous niveaux",
+        "title": "Nossos Instrutores de Equitação",
+        "subtitle": "Descubra a nossa equipa de instrutores apaixonados e experientes",
+        "searchPlaceholder": "Procurar um instrutor...",
+        "allDisciplines": "Todas as disciplinas",
+        "allLevels": "Todos os níveis",
         "dressage": "Dressage",
-        "jumping": "Saut d'obstacles",
-        "cross": "Cross",
+        "jumping": "Saltos",
+        "cross": "Cross country",
         "ponyGames": "Pony Games",
         "western": "Western",
-        "beginner": "Débutant",
-        "intermediate": "Intermédiaire",
-        "advanced": "Avancé",
-        "competition": "Compétition",
-        "experience": "ans d'expérience",
-        "viewProfile": "Voir le profil",
-        "noTeachers": "Aucun instructeur trouvé pour ces critères"
+        "beginner": "Principiante",
+        "intermediate": "Intermédio",
+        "advanced": "Avançado",
+        "competition": "Competição",
+        "experience": "anos de experiência",
+        "viewProfile": "Ver perfil",
+        "noTeachers": "Nenhum instrutor encontrado para estes critérios"
     },
     "home": {
         "hero": {
-            "tagline": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation",
-            "ctaStart": "Commencer l'aventure",
-            "ctaDiscover": "Découvrir les coaches"
+            "tagline": "Encontre o seu instrutor equestre ideal e reserve as suas aulas de equitação",
+            "ctaStart": "Comece a sua aventura",
+            "ctaDiscover": "Descobrir coaches"
         },
         "features": {
-            "title": "Pourquoi choisir {platform} ?",
-            "subtitle": "La plateforme de référence pour l'équitation moderne",
+            "title": "Porquê escolher {platform}?",
+            "subtitle": "A plataforma de referência para a equitação moderna",
             "items": {
                 "certified": {
-                    "title": "Instructeurs Certifiés",
-                    "desc": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation"
+                    "title": "Instrutores Certificados",
+                    "desc": "Todos os nossos instrutores são certificados e têm experiência comprovada em equitação"
                 },
                 "flexible": {
-                    "title": "Réservation Flexible",
-                    "desc": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur"
+                    "title": "Reserva Flexível",
+                    "desc": "Reserve aulas conforme a sua disponibilidade, em pista, picadeiro ou ao ar livre"
                 },
                 "safety": {
-                    "title": "Sécurité Garantie",
-                    "desc": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité"
+                    "title": "Segurança Garantida",
+                    "desc": "Equipamento certificado, cavalos bem treinados e supervisão profissional para a sua segurança"
                 }
             }
         },
         "stats": {
-            "title": "Notre Communauté Équestre",
-            "coachesLabel": "Instructeurs Certifiés",
-            "studentsLabel": "Cavaliers Satisfaits",
-            "lessonsLabel": "Cours Dispensés",
-            "locationsLabel": "Centres Équestres"
+            "title": "A Nossa Comunidade Equestre",
+            "coachesLabel": "Instrutores Certificados",
+            "studentsLabel": "Cavaleiros Satisfeitos",
+            "lessonsLabel": "Aulas Ministradas",
+            "locationsLabel": "Centros Equestres"
         },
         "cta": {
-            "title": "Prêt à Galoper vers l'Excellence ?",
-            "subtitle": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs",
-            "ctaSignup": "S'inscrire Gratuitement",
-            "ctaAbout": "En Savoir Plus"
+            "title": "Pronto para galopar rumo à excelência?",
+            "subtitle": "Junte-se à nossa comunidade de apaixonados pela equitação e aprenda com os melhores instrutores",
+            "ctaSignup": "Registar gratuitamente",
+            "ctaAbout": "Saber mais"
         }
     }
 }

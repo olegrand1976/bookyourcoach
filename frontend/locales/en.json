@@ -95,40 +95,40 @@
     },
     "home": {
         "hero": {
-            "tagline": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation",
-            "ctaStart": "Commencer l'aventure",
-            "ctaDiscover": "Découvrir les coaches"
+            "tagline": "Find your ideal equestrian instructor and book your riding lessons",
+            "ctaStart": "Start your journey",
+            "ctaDiscover": "Discover coaches"
         },
         "features": {
-            "title": "Pourquoi choisir {platform} ?",
-            "subtitle": "La plateforme de référence pour l'équitation moderne",
+            "title": "Why choose {platform}?",
+            "subtitle": "The reference platform for modern horse riding",
             "items": {
                 "certified": {
-                    "title": "Instructeurs Certifiés",
-                    "desc": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation"
+                    "title": "Certified Instructors",
+                    "desc": "All our instructors are certified and have proven experience in horse riding"
                 },
                 "flexible": {
-                    "title": "Réservation Flexible",
-                    "desc": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur"
+                    "title": "Flexible Booking",
+                    "desc": "Book lessons according to your availability, in arena, indoor school or outdoors"
                 },
                 "safety": {
-                    "title": "Sécurité Garantie",
-                    "desc": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité"
+                    "title": "Safety Guaranteed",
+                    "desc": "Certified equipment, well-trained horses and professional supervision for your safety"
                 }
             }
         },
         "stats": {
-            "title": "Notre Communauté Équestre",
-            "coachesLabel": "Instructeurs Certifiés",
-            "studentsLabel": "Cavaliers Satisfaits",
-            "lessonsLabel": "Cours Dispensés",
-            "locationsLabel": "Centres Équestres"
+            "title": "Our Equestrian Community",
+            "coachesLabel": "Certified Instructors",
+            "studentsLabel": "Satisfied Riders",
+            "lessonsLabel": "Lessons Taught",
+            "locationsLabel": "Equestrian Centers"
         },
         "cta": {
-            "title": "Prêt à Galoper vers l'Excellence ?",
-            "subtitle": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs",
-            "ctaSignup": "S'inscrire Gratuitement",
-            "ctaAbout": "En Savoir Plus"
+            "title": "Ready to Gallop toward Excellence?",
+            "subtitle": "Join our community of equestrian enthusiasts and enjoy learning with the best instructors",
+            "ctaSignup": "Sign up for free",
+            "ctaAbout": "Learn more"
         }
     }
 }

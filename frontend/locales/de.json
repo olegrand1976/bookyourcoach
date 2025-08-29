@@ -95,40 +95,40 @@
     },
     "home": {
         "hero": {
-            "tagline": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation",
-            "ctaStart": "Commencer l'aventure",
-            "ctaDiscover": "Découvrir les coaches"
+            "tagline": "Finden Sie Ihren idealen Reitlehrer und buchen Sie Ihre Reitstunden",
+            "ctaStart": "Jetzt starten",
+            "ctaDiscover": "Coaches entdecken"
         },
         "features": {
-            "title": "Pourquoi choisir {platform} ?",
-            "subtitle": "La plateforme de référence pour l'équitation moderne",
+            "title": "Warum {platform} wählen?",
+            "subtitle": "Die Referenzplattform für modernen Reitsport",
             "items": {
                 "certified": {
-                    "title": "Instructeurs Certifiés",
-                    "desc": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation"
+                    "title": "Zertifizierte Ausbilder",
+                    "desc": "Alle unsere Ausbilder sind zertifiziert und besitzen nachgewiesene Erfahrung im Reitsport"
                 },
                 "flexible": {
-                    "title": "Réservation Flexible",
-                    "desc": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur"
+                    "title": "Flexible Buchung",
+                    "desc": "Buchen Sie Unterricht nach Ihrer Verfügbarkeit, in der Halle, auf dem Platz oder im Freien"
                 },
                 "safety": {
-                    "title": "Sécurité Garantie",
-                    "desc": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité"
+                    "title": "Garantierte Sicherheit",
+                    "desc": "Zertifizierte Ausrüstung, gut ausgebildete Pferde und professionelle Betreuung für Ihre Sicherheit"
                 }
             }
         },
         "stats": {
-            "title": "Notre Communauté Équestre",
-            "coachesLabel": "Instructeurs Certifiés",
-            "studentsLabel": "Cavaliers Satisfaits",
-            "lessonsLabel": "Cours Dispensés",
-            "locationsLabel": "Centres Équestres"
+            "title": "Unsere Reitgemeinschaft",
+            "coachesLabel": "Zertifizierte Ausbilder",
+            "studentsLabel": "Zufriedene Reiter",
+            "lessonsLabel": "Erteilte Stunden",
+            "locationsLabel": "Reitzentren"
         },
         "cta": {
-            "title": "Prêt à Galoper vers l'Excellence ?",
-            "subtitle": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs",
-            "ctaSignup": "S'inscrire Gratuitement",
-            "ctaAbout": "En Savoir Plus"
+            "title": "Bereit zum Galopp Richtung Exzellenz?",
+            "subtitle": "Treten Sie unserer Gemeinschaft von Reitsportbegeisterten bei und lernen Sie mit den besten Ausbildern",
+            "ctaSignup": "Kostenlos registrieren",
+            "ctaAbout": "Mehr erfahren"
         }
     }
 }
