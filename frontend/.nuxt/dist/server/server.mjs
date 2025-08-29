@@ -639,167 +639,167 @@ const _routes = [
   {
     name: "index___fr",
     path: "/",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___en",
     path: "/en",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___nl",
     path: "/nl",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___de",
     path: "/de",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___it",
     path: "/it",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___es",
     path: "/es",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___pt",
     path: "/pt",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___hu",
     path: "/hu",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___pl",
     path: "/pl",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___zh",
     path: "/zh",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___ja",
     path: "/ja",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___sv",
     path: "/sv",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___no",
     path: "/no",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___fi",
     path: "/fi",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "index___da",
     path: "/da",
-    component: () => import("./_nuxt/index-Cg_erUTm.js")
+    component: () => import("./_nuxt/index-XQ0VDCoh.js")
   },
   {
     name: "login___fr",
     path: "/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___en",
     path: "/en/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___nl",
     path: "/nl/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___de",
     path: "/de/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___it",
     path: "/it/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___es",
     path: "/es/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___pt",
     path: "/pt/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___hu",
     path: "/hu/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___pl",
     path: "/pl/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___zh",
     path: "/zh/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___ja",
     path: "/ja/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___sv",
     path: "/sv/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___no",
     path: "/no/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___fi",
     path: "/fi/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "login___da",
     path: "/da/login",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import("./_nuxt/login-C01uSGJi.js")
+    component: () => import("./_nuxt/login-B8E7W4SR.js")
   },
   {
     name: "profile___fr",
@@ -3265,6 +3265,44 @@ const resource$e = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "À propos" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Conditions d'utilisation" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Politique de confidentialité" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$d = {
@@ -3361,6 +3399,44 @@ const resource$d = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "About" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Terms of use" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Privacy policy" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Find your ideal equestrian instructor and book your riding lessons" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Start your journey" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Discover coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Why choose " }, { "t": 4, "k": "platform" }, { "t": 3, "v": "?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "The reference platform for modern horse riding" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Certified Instructors" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "All our instructors are certified and have proven experience in horse riding" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Flexible Booking" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Book lessons according to your availability, in arena, indoor school or outdoors" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Safety Guaranteed" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Certified equipment, well-trained horses and professional supervision for your safety" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Our Equestrian Community" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Certified Instructors" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Satisfied Riders" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Lessons Taught" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Equestrian Centers" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ready to Gallop toward Excellence?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Join our community of equestrian enthusiasts and enjoy learning with the best instructors" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sign up for free" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Learn more" } }
+    }
   }
 };
 const resource$c = {
@@ -3457,6 +3533,44 @@ const resource$c = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Over ons" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gebruiksvoorwaarden" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Privacybeleid" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Vind je ideale rijinstructeur en boek je rijlessen" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Begin je avontuur" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ontdek coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Waarom kiezen voor " }, { "t": 4, "k": "platform" }, { "t": 3, "v": "?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Het referentieplatform voor moderne paardensport" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gecertificeerde Instructeurs" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Al onze instructeurs zijn gecertificeerd en hebben bewezen ervaring in de paardensport" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Flexibel Boeken" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Boek lessen volgens je beschikbaarheid, in de buitenbak, binnenbak of buiten" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gegarandeerde Veiligheid" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gecertificeerde uitrusting, goed getrainde paarden en professionele begeleiding voor je veiligheid" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Onze Ruitergemeenschap" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gecertificeerde Instructeurs" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tevreden ruiters" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gegeven lessen" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ruitersportcentra" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Klaar om naar excellentie te galopperen?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Word lid van onze gemeenschap van paardenliefhebbers en leer met de beste instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Gratis inschrijven" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Meer informatie" } }
+    }
   }
 };
 const resource$b = {
@@ -3553,6 +3667,44 @@ const resource$b = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Über uns" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nutzungsbedingungen" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Datenschutzrichtlinie" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Finden Sie Ihren idealen Reitlehrer und buchen Sie Ihre Reitstunden" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Jetzt starten" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Coaches entdecken" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Warum " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " wählen?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Die Referenzplattform für modernen Reitsport" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Zertifizierte Ausbilder" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Alle unsere Ausbilder sind zertifiziert und besitzen nachgewiesene Erfahrung im Reitsport" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Flexible Buchung" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Buchen Sie Unterricht nach Ihrer Verfügbarkeit, in der Halle, auf dem Platz oder im Freien" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Garantierte Sicherheit" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Zertifizierte Ausrüstung, gut ausgebildete Pferde und professionelle Betreuung für Ihre Sicherheit" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Unsere Reitgemeinschaft" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Zertifizierte Ausbilder" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Zufriedene Reiter" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Erteilte Stunden" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reitzentren" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Bereit zum Galopp Richtung Exzellenz?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Treten Sie unserer Gemeinschaft von Reitsportbegeisterten bei und lernen Sie mit den besten Ausbildern" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Kostenlos registrieren" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Mehr erfahren" } }
+    }
   }
 };
 const resource$a = {
@@ -3602,6 +3754,91 @@ const resource$a = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Chi siamo" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Termini di utilizzo" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Politica sulla privacy" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Accedi al tuo account" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Oppure" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "crea un nuovo account" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Accesso in corso..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Crea un account" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Oppure" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "accedi al tuo account esistente" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Accetto i" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "termini di utilizzo" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Creazione dell'account..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Benvenuto, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ecco il tuo pannello personale" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prossime lezioni" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Lezioni completate" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ore totali" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Azioni rapide" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Vedi tutto" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nessuna lezione programmata" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prenota una lezione" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sfoglia gli insegnanti" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "con" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confermato" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "I Nostri Istruttori di Equitazione" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Scopri il nostro team di istruttori appassionati ed esperti" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cerca un istruttore..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tutte le discipline" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tutti i livelli" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Salto ostacoli" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross country" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Principiante" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermedio" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avanzato" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Competizione" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "anni di esperienza" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Vedi profilo" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nessun istruttore trovato per questi criteri" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trova il tuo istruttore di equitazione ideale e prenota le tue lezioni" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Inizia il tuo percorso" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Scopri i coach" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Perché scegliere " }, { "t": 4, "k": "platform" }, { "t": 3, "v": "?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La piattaforma di riferimento per l'equitazione moderna" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Istruttori Certificati" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tutti i nostri istruttori sono certificati e hanno comprovata esperienza nell'equitazione" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prenotazione Flessibile" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prenota le lezioni secondo la tua disponibilità, in campo, in maneggio o all'aperto" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sicurezza Garantita" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Attrezzature certificate, cavalli ben addestrati e supervisione professionale per la tua sicurezza" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La Nostra Comunità Equestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Istruttori Certificati" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavalieri Soddisfatti" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Lezioni Erogate" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centri Ippici" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pronto a Galoppare verso l'Eccellenza?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Unisciti alla nostra comunità di appassionati di equitazione e scopri il piacere di imparare con i migliori istruttori" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Iscriviti Gratis" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Scopri di più" } }
+    }
   }
 };
 const resource$9 = {
@@ -3651,6 +3888,91 @@ const resource$9 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Acerca de" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Términos de uso" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Política de privacidad" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Inicia sesión en tu cuenta" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "O" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "crea una nueva cuenta" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Iniciando sesión..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Crea una cuenta" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "O" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "inicia sesión en tu cuenta existente" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Acepto los" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "términos de uso" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Creando cuenta..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenido, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aquí está tu panel personal" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Próximas clases" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Clases completadas" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Horas totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Acciones rápidas" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver todo" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "No hay clases programadas" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reservar una clase" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver instructores" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "con" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmado" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nuestros Instructores Ecuestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Descubre nuestro equipo de instructores apasionados y con experiencia" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Buscar un instructor..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todas las disciplinas" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todos los niveles" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Doma" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saltos" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Campo a través" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Principiante" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermedio" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avanzado" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Competición" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "años de experiencia" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver perfil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "No se encontraron instructores para estos criterios" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Encuentra a tu instructor ecuestre ideal y reserva tus clases de equitación" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Comienza tu aventura" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Descubrir coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "¿Por qué elegir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": "?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plataforma de referencia para la equitación moderna" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructores Certificados" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todos nuestros instructores están certificados y cuentan con experiencia demostrada en equitación" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reserva Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reserva tus clases según tu disponibilidad, en pista, picadero o al aire libre" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Seguridad Garantizada" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Equipamiento certificado, caballos bien entrenados y supervisión profesional para tu seguridad" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nuestra Comunidad Ecuestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructores Certificados" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Jinetes Satisfechos" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Clases Impartidas" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centros Ecuestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "¿Listo para galopar hacia la excelencia?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Únete a nuestra comunidad de apasionados de la equitación y disfruta aprendiendo con los mejores instructores" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Regístrate gratis" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saber más" } }
+    }
   }
 };
 const resource$8 = {
@@ -3660,7 +3982,7 @@ const resource$8 = {
     "profile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Meu Perfil" } },
     "admin": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Administração" } },
     "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Entrar" } },
-    "register": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Registrar" } },
+    "register": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Registar" } },
     "logout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sair" } }
   },
   "auth": {
@@ -3700,6 +4022,91 @@ const resource$8 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sobre" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Termos de uso" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Política de privacidade" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Inicie sessão na sua conta" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "crie uma nova conta" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "A iniciar sessão..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Criar uma conta" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "inicie sessão na sua conta existente" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aceito os" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "termos de uso" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "A criar conta..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bem-vindo, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aqui está o seu painel pessoal" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Próximas aulas" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aulas concluídas" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Total de horas" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ações rápidas" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver tudo" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nenhuma aula agendada" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reservar uma aula" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver instrutores" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "com" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmado" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nossos Instrutores de Equitação" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Descubra a nossa equipa de instrutores apaixonados e experientes" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Procurar um instrutor..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todas as disciplinas" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todos os níveis" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saltos" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross country" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Principiante" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédio" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avançado" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Competição" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "anos de experiência" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ver perfil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nenhum instrutor encontrado para estes critérios" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Encontre o seu instrutor equestre ideal e reserve as suas aulas de equitação" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Comece a sua aventura" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Descobrir coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Porquê escolher " }, { "t": 4, "k": "platform" }, { "t": 3, "v": "?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "A plataforma de referência para a equitação moderna" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instrutores Certificados" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Todos os nossos instrutores são certificados e têm experiência comprovada em equitação" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reserva Flexível" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Reserve aulas conforme a sua disponibilidade, em pista, picadeiro ou ao ar livre" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Segurança Garantida" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Equipamento certificado, cavalos bem treinados e supervisão profissional para a sua segurança" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "A Nossa Comunidade Equestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instrutores Certificados" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaleiros Satisfeitos" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aulas Ministradas" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centros Equestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pronto para galopar rumo à excelência?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Junte-se à nossa comunidade de apaixonados pela equitação e aprenda com os melhores instrutores" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Registar gratuitamente" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saber mais" } }
+    }
   }
 };
 const resource$7 = {
@@ -3749,6 +4156,91 @@ const resource$7 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rólunk" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Használati feltételek" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Adatvédelmi irányelvek" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$6 = {
@@ -3798,6 +4290,91 @@ const resource$6 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "O nas" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Warunki użytkowania" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Polityka prywatności" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$5 = {
@@ -3847,6 +4424,91 @@ const resource$5 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "关于" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "使用条款" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "隐私政策" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$4 = {
@@ -3896,6 +4558,91 @@ const resource$4 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "私たちについて" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "利用規約" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "プライバシーポリシー" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$3 = {
@@ -3945,6 +4692,91 @@ const resource$3 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Om oss" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Användarvillkor" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Integritetspolicy" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$2 = {
@@ -3994,6 +4826,91 @@ const resource$2 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Om oss" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Bruksvilkår" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Personvernpolicy" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource$1 = {
@@ -4043,6 +4960,91 @@ const resource$1 = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tietoa meistä" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Käyttöehdot" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tietosuojakäytäntö" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const resource = {
@@ -4092,6 +5094,91 @@ const resource = {
     "about": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Om os" } },
     "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Brugsvilkår" } },
     "privacy": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Privatlivspolitik" } }
+  },
+  "loginPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion à votre compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "createAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "créez un nouveau compte" } },
+    "loggingIn": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Connexion en cours..." } }
+  },
+  "registerPage": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Créer un compte" } },
+    "or": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Ou" } },
+    "login": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "connectez-vous à votre compte existant" } },
+    "terms": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "J'accepte les" } },
+    "termsLink": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "conditions d'utilisation" } },
+    "creatingAccount": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Création du compte..." } }
+  },
+  "dashboard": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Bienvenue, " }, { "t": 4, "k": "name" }] } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voici votre tableau de bord personnel" } },
+    "upcomingLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prochains cours" } },
+    "completedLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours terminés" } },
+    "totalHours": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Heures totales" } },
+    "quickActions": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Actions rapides" } },
+    "viewAll": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir tous" } },
+    "noLessons": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun cours planifié" } },
+    "bookLesson": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réserver un cours" } },
+    "browseTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Parcourir les enseignants" } },
+    "with": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "avec" } },
+    "confirmed": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Confirmé" } }
+  },
+  "teachers": {
+    "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Nos Instructeurs Équestres" } },
+    "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrez notre équipe d'instructeurs passionnés et expérimentés" } },
+    "searchPlaceholder": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rechercher un instructeur..." } },
+    "allDisciplines": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Toutes disciplines" } },
+    "allLevels": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous niveaux" } },
+    "dressage": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Dressage" } },
+    "jumping": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Saut d'obstacles" } },
+    "cross": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cross" } },
+    "ponyGames": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Pony Games" } },
+    "western": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Western" } },
+    "beginner": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Débutant" } },
+    "intermediate": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Intermédiaire" } },
+    "advanced": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Avancé" } },
+    "competition": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Compétition" } },
+    "experience": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "ans d'expérience" } },
+    "viewProfile": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Voir le profil" } },
+    "noTeachers": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Aucun instructeur trouvé pour ces critères" } }
+  },
+  "home": {
+    "hero": {
+      "tagline": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation" } },
+      "ctaStart": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Commencer l'aventure" } },
+      "ctaDiscover": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Découvrir les coaches" } }
+    },
+    "features": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3, "v": "Pourquoi choisir " }, { "t": 4, "k": "platform" }, { "t": 3, "v": " ?" }] } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "La plateforme de référence pour l'équitation moderne" } },
+      "items": {
+        "certified": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation" } }
+        },
+        "flexible": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservation Flexible" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur" } }
+        },
+        "safety": {
+          "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Sécurité Garantie" } },
+          "desc": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité" } }
+        }
+      }
+    },
+    "stats": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Notre Communauté Équestre" } },
+      "coachesLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Instructeurs Certifiés" } },
+      "studentsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cavaliers Satisfaits" } },
+      "lessonsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Cours Dispensés" } },
+      "locationsLabel": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Centres Équestres" } }
+    },
+    "cta": {
+      "title": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Prêt à Galoper vers l'Excellence ?" } },
+      "subtitle": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs" } },
+      "ctaSignup": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "S'inscrire Gratuitement" } },
+      "ctaAbout": { "t": 0, "b": { "t": 2, "i": [{ "t": 3 }], "s": "En Savoir Plus" } }
+    }
   }
 };
 const localeCodes = [
@@ -10501,7 +11588,7 @@ const plugins = [
   i18n_EI7LsD1KYQADczz5hrChviGQCdVM8yUkvFEZLJpmnvM
 ];
 const layouts = {
-  default: defineAsyncComponent(() => import("./_nuxt/default-Cebygz44.js").then((m) => m.default || m))
+  default: defineAsyncComponent(() => import("./_nuxt/default-DV0JR71x.js").then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
