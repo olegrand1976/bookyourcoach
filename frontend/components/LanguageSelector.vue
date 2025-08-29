@@ -26,10 +26,24 @@ import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 const { $i18n } = useNuxtApp()
 const isOpen = ref(false)
 
-const availableLocales = computed(() => $i18n.locales)
-const currentLocale = computed(() => 
-  availableLocales.value.find(locale => locale.code === $i18n.locale) || availableLocales.value[0]
-)
+// Normalise les locales en tableau [{ code, name }]
+const rawLocales = computed(() => $i18n.locales)
+const availableLocales = computed(() => {
+  const value = rawLocales.value
+  if (Array.isArray(value)) {
+    return value
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).map(code => ({ code, name: code }))
+  }
+  return []
+})
+
+const currentLocale = computed(() => {
+  const list = availableLocales.value
+  const found = list.find((locale: any) => locale.code === $i18n.locale)
+  return found || list[0] || { code: $i18n.locale, name: $i18n.locale }
+})
 
 const toggleDropdown = () => {
   isOpen.value = !isOpen.value
