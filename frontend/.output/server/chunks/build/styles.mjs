@@ -1,8 +1,8 @@
 const interopDefault = r => r.default || r || [];
 const styles = {
-  "node_modules/nuxt/dist/app/entry.js": () => import('./entry-styles.CIVZjp1M.mjs').then(interopDefault),
-  "pages/teachers.vue": () => import('./teachers-styles.ABXM1lmi.mjs').then(interopDefault),
-  "pages/teachers.vue?vue&type=style&index=0&scoped=61ab6244&lang.css": () => import('./teachers-styles.BRPe2_o1.mjs').then(interopDefault),
+  "node_modules/nuxt/dist/app/entry.js": () => import('./entry-styles.D1FYz94f.mjs').then(interopDefault),
+  "pages/teachers.vue": () => import('./teachers-styles.BFqba1gB.mjs').then(interopDefault),
+  "pages/teachers.vue?vue&type=style&index=0&scoped=97562392&lang.css": () => import('./teachers-styles.B02nPdUd.mjs').then(interopDefault),
   "node_modules/nuxt/dist/app/components/error-404.vue": () => import('./error-404-styles.CKJK0xyQ.mjs').then(interopDefault),
   "node_modules/nuxt/dist/app/components/error-500.vue": () => import('./error-500-styles.DH4SuYyS.mjs').then(interopDefault),
   "components/EquestrianIcon.vue": () => import('./EquestrianIcon-styles.C5n3oj28.mjs').then(interopDefault),
