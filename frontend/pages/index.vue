@@ -18,16 +18,16 @@
             {{ settings.settings.platform_name }}
           </h1>
           <p class="text-xl md:text-2xl mb-8 text-equestrian-cream">
-            Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation
+            {{ $t('home.hero.tagline') }}
           </p>
           <div class="flex flex-col sm:flex-row gap-4 justify-center">
             <NuxtLink to="/register"
               class="btn-primary bg-equestrian-cream text-equestrian-darkBrown hover:bg-white hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold">
-              🏇 Commencer l'aventure
+              🏇 {{ $t('home.hero.ctaStart') }}
             </NuxtLink>
             <NuxtLink to="/teachers"
               class="btn-secondary border-equestrian-cream text-equestrian-cream hover:bg-equestrian-cream hover:text-equestrian-darkBrown transition-all duration-200 font-semibold">
-              🐎 Découvrir les coaches
+              🐎 {{ $t('home.hero.ctaDiscover') }}
             </NuxtLink>
           </div>
         </div>
@@ -39,10 +39,10 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl md:text-4xl font-bold text-equestrian-darkBrown mb-4 font-serif">
-            Pourquoi choisir {{ settings.settings.platform_name }} ?
+            {{ $t('home.features.title', { platform: settings.settings.platform_name }) }}
           </h2>
           <p class="text-xl text-equestrian-brown max-w-3xl mx-auto">
-            La plateforme de référence pour l'équitation moderne
+            {{ $t('home.features.subtitle') }}
           </p>
         </div>
 
@@ -52,9 +52,9 @@
               class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <EquestrianIcon name="trophy" :size="40" class="text-white" />
             </div>
-            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Instructeurs Certifiés</h3>
+            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">{{ $t('home.features.items.certified.title') }}</h3>
             <p class="text-equestrian-brown">
-              Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation
+              {{ $t('home.features.items.certified.desc') }}
             </p>
           </div>
 
@@ -63,9 +63,9 @@
               class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <CalendarIcon class="w-10 h-10 text-white" />
             </div>
-            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Réservation Flexible</h3>
+            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">{{ $t('home.features.items.flexible.title') }}</h3>
             <p class="text-equestrian-brown">
-              Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur
+              {{ $t('home.features.items.flexible.desc') }}
             </p>
           </div>
 
@@ -74,9 +74,9 @@
               class="w-20 h-20 bg-gradient-to-br from-equestrian-leather to-equestrian-gold rounded-full flex items-center justify-center mx-auto mb-6">
               <EquestrianIcon name="helmet" :size="40" class="text-white" />
             </div>
-            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">Sécurité Garantie</h3>
+            <h3 class="text-xl font-semibold mb-4 text-equestrian-darkBrown">{{ $t('home.features.items.safety.title') }}</h3>
             <p class="text-equestrian-brown">
-              Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité
+              {{ $t('home.features.items.safety.desc') }}
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@
     <section class="py-24 bg-gradient-to-r from-equestrian-brown to-equestrian-leather text-white">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4 font-serif">Notre Communauté Équestre</h2>
+          <h2 class="text-3xl font-bold mb-4 font-serif">{{ $t('home.stats.title') }}</h2>
           <EquestrianIcon name="horseshoe" :size="60" class="text-equestrian-gold mx-auto" />
         </div>
 
@@ -95,22 +95,22 @@
             <div class="text-4xl font-bold text-equestrian-gold mb-2">{{ platformStats.coaches }}+</div>
             <div class="text-equestrian-cream flex items-center justify-center gap-2">
               <EquestrianIcon name="horse" :size="20" />
-              Instructeurs Certifiés
+              {{ $t('home.stats.coachesLabel') }}
             </div>
           </div>
           <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <div class="text-4xl font-bold text-equestrian-gold mb-2">{{ platformStats.students }}+</div>
-            <div class="text-equestrian-cream">Cavaliers Satisfaits</div>
+            <div class="text-equestrian-cream">{{ $t('home.stats.studentsLabel') }}</div>
           </div>
           <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <div class="text-4xl font-bold text-equestrian-gold mb-2">{{ platformStats.lessons }}+</div>
-            <div class="text-equestrian-cream">Cours Dispensés</div>
+            <div class="text-equestrian-cream">{{ $t('home.stats.lessonsLabel') }}</div>
           </div>
           <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
             <div class="text-4xl font-bold text-equestrian-gold mb-2">{{ platformStats.locations }}+</div>
             <div class="text-equestrian-cream flex items-center justify-center gap-2">
               <EquestrianIcon name="saddle" :size="20" />
-              Centres Équestres
+              {{ $t('home.stats.locationsLabel') }}
             </div>
           </div>
         </div>
@@ -125,21 +125,20 @@
         <EquestrianIcon name="jump" :size="80" class="text-equestrian-gold mx-auto mb-8" />
 
         <h2 class="text-3xl md:text-4xl font-bold mb-6 font-serif">
-          Prêt à Galoper vers l'Excellence ?
+          {{ $t('home.cta.title') }}
         </h2>
         <p class="text-xl mb-8 text-green-100 max-w-2xl mx-auto">
-          Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs
-          instructeurs
+          {{ $t('home.cta.subtitle') }}
         </p>
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <NuxtLink to="/register"
             class="btn-primary bg-equestrian-gold text-equestrian-darkBrown hover:bg-equestrian-cream hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold text-lg px-8 py-4">
-            🏆 S'inscrire Gratuitement
+            🏆 {{ $t('home.cta.ctaSignup') }}
           </NuxtLink>
           <NuxtLink to="/about"
             class="btn-secondary border-equestrian-gold text-equestrian-gold hover:bg-equestrian-gold hover:text-equestrian-darkBrown transition-all duration-200 font-semibold text-lg px-8 py-4">
-            📖 En Savoir Plus
+            📖 {{ $t('home.cta.ctaAbout') }}
           </NuxtLink>
         </div>
       </div>

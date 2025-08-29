@@ -92,5 +92,43 @@
         "about": "Over ons",
         "terms": "Gebruiksvoorwaarden",
         "privacy": "Privacybeleid"
+    },
+    "home": {
+        "hero": {
+            "tagline": "Trouvez votre instructeur équestre idéal et réservez vos cours d'équitation",
+            "ctaStart": "Commencer l'aventure",
+            "ctaDiscover": "Découvrir les coaches"
+        },
+        "features": {
+            "title": "Pourquoi choisir {platform} ?",
+            "subtitle": "La plateforme de référence pour l'équitation moderne",
+            "items": {
+                "certified": {
+                    "title": "Instructeurs Certifiés",
+                    "desc": "Tous nos instructeurs sont diplômés d'État et possèdent une expérience reconnue en équitation"
+                },
+                "flexible": {
+                    "title": "Réservation Flexible",
+                    "desc": "Réservez vos cours selon vos disponibilités, en carrière, en manège ou en extérieur"
+                },
+                "safety": {
+                    "title": "Sécurité Garantie",
+                    "desc": "Équipements certifiés, chevaux bien dressés et encadrement professionnel pour votre sécurité"
+                }
+            }
+        },
+        "stats": {
+            "title": "Notre Communauté Équestre",
+            "coachesLabel": "Instructeurs Certifiés",
+            "studentsLabel": "Cavaliers Satisfaits",
+            "lessonsLabel": "Cours Dispensés",
+            "locationsLabel": "Centres Équestres"
+        },
+        "cta": {
+            "title": "Prêt à Galoper vers l'Excellence ?",
+            "subtitle": "Rejoignez notre communauté de passionnés d'équitation et découvrez le plaisir d'apprendre avec les meilleurs instructeurs",
+            "ctaSignup": "S'inscrire Gratuitement",
+            "ctaAbout": "En Savoir Plus"
+        }
     }
 }
