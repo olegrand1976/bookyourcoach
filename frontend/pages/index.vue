@@ -21,11 +21,11 @@
             {{ $t('home.hero.tagline') }}
           </p>
           <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <NuxtLink to="/register"
+            <NuxtLink to="/register" data-testid="cta-register"
               class="btn-primary bg-equestrian-cream text-equestrian-darkBrown hover:bg-white hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold">
               🏇 {{ $t('home.hero.ctaStart') }}
             </NuxtLink>
-            <NuxtLink to="/teachers"
+            <NuxtLink to="/teachers" data-testid="cta-discover"
               class="btn-secondary border-equestrian-cream text-equestrian-cream hover:bg-equestrian-cream hover:text-equestrian-darkBrown transition-all duration-200 font-semibold">
               🐎 {{ $t('home.hero.ctaDiscover') }}
             </NuxtLink>
@@ -132,7 +132,7 @@
         </p>
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/register"
+          <NuxtLink to="/register" data-testid="cta-register-bottom"
             class="btn-primary bg-equestrian-gold text-equestrian-darkBrown hover:bg-equestrian-cream hover:shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold text-lg px-8 py-4">
             🏆 {{ $t('home.cta.ctaSignup') }}
           </NuxtLink>

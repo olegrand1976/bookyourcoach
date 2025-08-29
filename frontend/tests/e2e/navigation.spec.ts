@@ -9,22 +9,23 @@ test.describe('Navigation et layout', () => {
         await expect(page.locator('[data-testid="logo"]')).toBeVisible()
 
         // Vérifier les liens de navigation pour utilisateur non connecté
-        await expect(page.getByRole('link', { name: /Se connecter|Sign In/i })).toBeVisible()
-        await expect(page.getByRole('link', { name: /S'inscrire|Sign Up/i })).toBeVisible()
+        await expect(page.locator('[data-testid="login-link"]')).toBeVisible()
+        await expect(page.locator('[data-testid="register-link"]')).toBeVisible()
     })
 
     test('navigation vers la page de connexion', async ({ page }) => {
         await page.goto('/')
 
-        await page.getByRole('link', { name: /Se connecter|Sign In/i }).click()
-        await expect(page).toHaveURL(/\/login/)
+        await page.locator('[data-testid="login-link"]').click()
+        await page.waitForURL(/\/login/)
         await expect(page.locator('[data-testid="login-form"]')).toBeVisible()
     })
 
     test('navigation vers la page d\'inscription', async ({ page }) => {
         await page.goto('/')
 
-        await page.getByRole('link', { name: /S'inscrire|Sign Up/i }).click()
+        await page.locator('[data-testid="register-link"]').click()
+        await page.waitForURL(/\/register/)
         await expect(page).toHaveURL(/\/register/)
     })
 

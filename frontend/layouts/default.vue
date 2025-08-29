@@ -63,11 +63,11 @@
 
             <template v-else>
               <!-- Menu utilisateur non authentifié -->
-              <NuxtLink to="/login"
+              <NuxtLink to="/login" data-testid="login-link"
                 class="text-equestrian-darkBrown hover:text-equestrian-brown font-medium px-4 py-2 rounded-lg hover:bg-equestrian-cream transition-colors">
                 {{ $t('nav.login') }}
               </NuxtLink>
-              <NuxtLink to="/register"
+              <NuxtLink to="/register" data-testid="register-link"
                 class="btn-primary bg-equestrian-leather hover:bg-equestrian-brown text-white font-semibold px-6 py-2 rounded-lg transition-colors">
                 🏇 {{ $t('nav.register') }}
               </NuxtLink>
