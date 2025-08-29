@@ -46,10 +46,15 @@ global.nextTick = vi.fn(() => Promise.resolve())
 // Mock Pinia stores
 global.useAuthStore = vi.fn(() => ({
     user: null,
+    userName: 'Alice',
     isAuthenticated: false,
+    isAdmin: false,
+    isTeacher: false,
+    canActAsTeacher: false,
     login: vi.fn(),
     logout: vi.fn(),
-    register: vi.fn()
+    register: vi.fn(),
+    initializeAuth: vi.fn()
 }))
 
 global.useToast = vi.fn(() => ({
@@ -74,7 +79,26 @@ global.useLazyFetch = vi.fn(() => ({
     refresh: vi.fn()
 }))
 
+// Mock $fetch
 global.$fetch = vi.fn()
+
+// Mock i18n
+const tMock = vi.fn((key) => key)
+// provide a basic useI18n composable returning t()
+// @ts-ignore
+global.useI18n = vi.fn(() => ({ t: tMock }))
+
+// Mock useSettings composable returning expected structure
+// @ts-ignore
+global.useSettings = vi.fn(() => ({
+    settings: {
+        platform_name: 'BookYourCoach',
+        contact_email: 'support@bookyourcoach.com',
+        contact_phone: '+33 1 23 45 67 89',
+        company_address: '10 rue du Cheval\n75000 Paris'
+    },
+    loadSettings: vi.fn()
+}))
 
 // Mock Heroicons
 vi.mock('@heroicons/vue/24/outline', () => ({
@@ -89,10 +113,14 @@ vi.mock('@heroicons/vue/24/outline', () => ({
     HomeIcon: {
         name: 'HomeIcon',
         template: '<svg></svg>'
+    },
+    CalendarIcon: {
+        name: 'CalendarIcon',
+        template: '<svg></svg>'
     }
 }))
 
-// Mock NuxtLink
+// Stub NuxtLink
 vi.mock('#app', () => ({
     NuxtLink: {
         name: 'NuxtLink',
@@ -100,6 +128,11 @@ vi.mock('#app', () => ({
         props: ['to']
     }
 }))
+
+// Stub custom components used in templates
+global.Logo = { name: 'Logo', template: '<div class="logo"></div>', props: ['size'] }
+global.LanguageSelector = { name: 'LanguageSelector', template: '<div class="lang"></div>' }
+global.EquestrianIcon = { name: 'EquestrianIcon', template: '<i></i>', props: ['name', 'size'] }
 
 // Prevent actual navigation
 Object.defineProperty(window, 'location', {

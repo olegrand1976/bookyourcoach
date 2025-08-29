@@ -29,6 +29,7 @@
         "@headlessui/vue": "^1.7.16",
         "@heroicons/vue": "^2.0.18",
         "@nuxtjs/google-fonts": "^3.0.2",
+        "@nuxtjs/i18n": "^8.0.0",
         "@pinia/nuxt": "^0.5.1",
         "axios": "^1.6.0",
         "pinia": "^2.1.7",
