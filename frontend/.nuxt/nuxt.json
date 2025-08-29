@@ -1,7 +1,7 @@
 {
-  "_hash": "e8DpLOQNrfp4O_E2cZaUG6v3PBoQf_f6vWqlni9jSLE",
+  "_hash": "TIBPjRJ31RSMolNOcKxLzIQZ8OoyklgwgkroYXyzPr4",
   "project": {
-    "rootDir": "/home/olivier/projets/bookyourcoach/copilot/frontend"
+    "rootDir": "/workspace/frontend"
   },
   "versions": {
     "nuxt": "3.17.7"
