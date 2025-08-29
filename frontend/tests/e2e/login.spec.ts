@@ -6,7 +6,7 @@ test.describe('Page de connexion', () => {
     })
 
     test('affiche le formulaire de connexion', async ({ page }) => {
-        await expect(page.locator('text=Se connecter à votre compte')).toBeVisible()
+        await expect(page.locator('[data-testid="login-page"]')).toBeVisible()
 
         // Vérifier la présence des champs
         await expect(page.locator('input[type="email"]')).toBeVisible()
@@ -40,11 +40,11 @@ test.describe('Page de connexion', () => {
     })
 
     test('affiche le lien vers l\'inscription', async ({ page }) => {
-        await expect(page.locator('text=Créer un compte')).toBeVisible()
+        await expect(page.getByRole('link', { name: /Créer un compte|create a new account/i })).toBeVisible()
     })
 
     test('redirige vers l\'inscription', async ({ page }) => {
-        await page.click('text=Créer un compte')
+        await page.getByRole('link', { name: /Créer un compte|create a new account/i }).click()
         await expect(page).toHaveURL(/\/register/)
     })
 

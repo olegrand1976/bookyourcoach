@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen bg-equestrian-cream">
     <!-- Navigation -->
-    <nav class="bg-white shadow-lg border-b-4 border-equestrian-gold">
+    <nav class="bg-white shadow-lg border-b-4 border-equestrian-gold" data-testid="nav">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-20">
           <div class="flex items-center">
             <NuxtLink to="/"
               class="flex items-center space-x-3 text-xl font-bold text-equestrian-darkBrown hover:text-equestrian-brown transition-colors">
-              <Logo size="md" />
+              <Logo size="md" data-testid="logo" />
             </NuxtLink>
           </div>
 
@@ -83,7 +83,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-equestrian-darkBrown text-equestrian-cream border-t-4 border-equestrian-gold mt-auto">
+    <footer class="bg-equestrian-darkBrown text-equestrian-cream border-t-4 border-equestrian-gold mt-auto" data-testid="footer">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
           <!-- Logo et description -->

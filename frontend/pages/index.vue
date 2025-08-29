@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero Section -->
-    <section class="bg-stable-gradient text-white relative overflow-hidden">
+    <section class="bg-stable-gradient text-white relative overflow-hidden" data-testid="home-hero">
       <!-- Motif de fond -->
       <div class="absolute inset-0 bg-horse-pattern opacity-10"></div>
 
@@ -35,7 +35,7 @@
     </section>
 
     <!-- Features Section -->
-    <section class="py-24 bg-equestrian-cream">
+    <section class="py-24 bg-equestrian-cream" data-testid="home-features">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16">
           <h2 class="text-3xl md:text-4xl font-bold text-equestrian-darkBrown mb-4 font-serif">
@@ -83,7 +83,7 @@
       </div>
     </section>
     <!-- Stats Section -->
-    <section class="py-24 bg-gradient-to-r from-equestrian-brown to-equestrian-leather text-white">
+    <section class="py-24 bg-gradient-to-r from-equestrian-brown to-equestrian-leather text-white" data-testid="home-stats">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-12">
           <h2 class="text-3xl font-bold mb-4 font-serif">{{ $t('home.stats.title') }}</h2>
@@ -118,7 +118,7 @@
     </section>
 
     <!-- CTA Section -->
-    <section class="py-24 bg-equestrian-forest text-white relative overflow-hidden">
+    <section class="py-24 bg-equestrian-forest text-white relative overflow-hidden" data-testid="home-cta">
       <div class="absolute inset-0 bg-horse-pattern opacity-5"></div>
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">

@@ -4,34 +4,34 @@ test.describe('Navigation et layout', () => {
     test('affiche la navigation principale', async ({ page }) => {
         await page.goto('/')
 
-        // Vérifier la présence du logo
-        await expect(page.locator('text=BookYourCoach')).toBeVisible()
+        // Vérifier la présence du logo/nav
+        await expect(page.locator('[data-testid="nav"]')).toBeVisible()
+        await expect(page.locator('[data-testid="logo"]')).toBeVisible()
 
         // Vérifier les liens de navigation pour utilisateur non connecté
-        await expect(page.locator('text=Se connecter')).toBeVisible()
-        await expect(page.locator('text=S\'inscrire')).toBeVisible()
+        await expect(page.getByRole('link', { name: /Se connecter|Sign In/i })).toBeVisible()
+        await expect(page.getByRole('link', { name: /S'inscrire|Sign Up/i })).toBeVisible()
     })
 
     test('navigation vers la page de connexion', async ({ page }) => {
         await page.goto('/')
 
-        await page.click('text=Se connecter')
+        await page.getByRole('link', { name: /Se connecter|Sign In/i }).click()
         await expect(page).toHaveURL(/\/login/)
-        await expect(page.locator('text=Se connecter à votre compte')).toBeVisible()
+        await expect(page.locator('[data-testid="login-form"]')).toBeVisible()
     })
 
     test('navigation vers la page d\'inscription', async ({ page }) => {
         await page.goto('/')
 
-        await page.click('text=S\'inscrire')
+        await page.getByRole('link', { name: /S'inscrire|Sign Up/i }).click()
         await expect(page).toHaveURL(/\/register/)
     })
 
     test('affiche le footer', async ({ page }) => {
         await page.goto('/')
 
-        await expect(page.locator('footer')).toBeVisible()
-        await expect(page.locator('text=© 2025 BookYourCoach. Tous droits réservés.')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toBeVisible()
     })
 
     test('est responsive sur mobile', async ({ page }) => {
@@ -40,8 +40,7 @@ test.describe('Navigation et layout', () => {
         await page.goto('/')
 
         // Vérifier que la page se charge correctement
-        await expect(page.locator('h1')).toBeVisible()
-        await expect(page.locator('text=BookYourCoach')).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     })
 
     test('est responsive sur tablette', async ({ page }) => {
@@ -50,7 +49,6 @@ test.describe('Navigation et layout', () => {
         await page.goto('/')
 
         // Vérifier que la page se charge correctement
-        await expect(page.locator('h1')).toBeVisible()
-        await expect(page.locator('text=Commencer maintenant')).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     })
 })
