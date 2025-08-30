@@ -27,8 +27,16 @@ class ApiClient {
 
 class ApiFactory {
   static const _tokenKey = 'auth_token';
+  static ApiClient? _overrideClient;
+
+  static void setClientOverride(ApiClient? client) {
+    _overrideClient = client;
+  }
 
   static Future<ApiClient> authed({String? baseUrl}) async {
+    if (_overrideClient != null) {
+      return _overrideClient!;
+    }
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
     return ApiClient(baseUrl: baseUrl, token: token);
