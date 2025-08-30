@@ -25,6 +25,11 @@
   "homeTeacherLessons": "My Lessons",
   "langTitle": "Language",
   "langFrench": "French",
-  "langEnglish": "English"
+  "langEnglish": "English",
+  "adminTitle": "Administration",
+  "adminUsers": "Users",
+  "adminApprovals": "Teacher approvals",
+  "adminLessons": "Lessons (moderation)",
+  "adminDisciplines": "Disciplines"
 }
 

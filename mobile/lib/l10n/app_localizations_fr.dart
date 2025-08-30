@@ -88,4 +88,19 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get langEnglish => 'English';
+
+  @override
+  String get adminTitle => 'Administration';
+
+  @override
+  String get adminUsers => 'Utilisateurs';
+
+  @override
+  String get adminApprovals => 'Approbations enseignants';
+
+  @override
+  String get adminLessons => 'Leçons (modération)';
+
+  @override
+  String get adminDisciplines => 'Disciplines';
 }

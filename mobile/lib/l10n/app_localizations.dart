@@ -256,6 +256,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'English'**
   String get langEnglish;
+
+  /// No description provided for @adminTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Administration'**
+  String get adminTitle;
+
+  /// No description provided for @adminUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get adminUsers;
+
+  /// No description provided for @adminApprovals.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher approvals'**
+  String get adminApprovals;
+
+  /// No description provided for @adminLessons.
+  ///
+  /// In en, this message translates to:
+  /// **'Lessons (moderation)'**
+  String get adminLessons;
+
+  /// No description provided for @adminDisciplines.
+  ///
+  /// In en, this message translates to:
+  /// **'Disciplines'**
+  String get adminDisciplines;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

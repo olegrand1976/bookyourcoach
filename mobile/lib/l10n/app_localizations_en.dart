@@ -88,4 +88,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get langEnglish => 'English';
+
+  @override
+  String get adminTitle => 'Administration';
+
+  @override
+  String get adminUsers => 'Users';
+
+  @override
+  String get adminApprovals => 'Teacher approvals';
+
+  @override
+  String get adminLessons => 'Lessons (moderation)';
+
+  @override
+  String get adminDisciplines => 'Disciplines';
 }

@@ -7,6 +7,7 @@ import 'student_bookings_screen.dart';
 import 'teacher_lessons_screen.dart';
 import 'language_settings_screen.dart';
 import '../l10n/app_localizations.dart' as app_l10n;
+import 'admin_home_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -84,6 +85,18 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                   child: Text(t?.homeTeacherLessons ?? 'Mes Leçons'),
+                ),
+              ),
+            if (app.isAdmin)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+                    );
+                  },
+                  child: const Text('Administration'),
                 ),
               ),
             if (!isStudent && !isTeacher)

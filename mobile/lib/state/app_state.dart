@@ -17,6 +17,7 @@ class AppState extends ChangeNotifier {
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
   bool get isTeacher => _me?.isTeacher == true;
   bool get isStudent => _me?.isStudent == true;
+  bool get isAdmin => _me?.isAdmin == true;
 
   void setToken(String? token) {
     _token = token;

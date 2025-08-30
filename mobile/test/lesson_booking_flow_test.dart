@@ -9,7 +9,7 @@ void main() {
   testWidgets('Shows loading and renders list container', (tester) async {
     final app = AppState();
     app.setAuthenticated(true);
-    app.setMe(const UserProfile(id: '1', email: 'x', name: 'y', isTeacher: false, isStudent: true));
+    app.setMe(const UserProfile(id: '1', email: 'x', name: 'y', isTeacher: false, isStudent: true, isAdmin: false));
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
         value: app,

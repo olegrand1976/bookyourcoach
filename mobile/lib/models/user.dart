@@ -4,6 +4,7 @@ class UserProfile {
   final String name;
   final bool isTeacher;
   final bool isStudent;
+  final bool isAdmin;
 
   const UserProfile({
     required this.id,
@@ -11,6 +12,7 @@ class UserProfile {
     required this.name,
     required this.isTeacher,
     required this.isStudent,
+    required this.isAdmin,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class UserProfile {
       name: json['name'] ?? '',
       isTeacher: json['is_teacher'] == true || json['role'] == 'teacher',
       isStudent: json['is_student'] == true || json['role'] == 'student',
+      isAdmin: json['is_admin'] == true || json['role'] == 'admin',
     );
   }
 }
