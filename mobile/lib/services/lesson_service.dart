@@ -21,6 +21,14 @@ class LessonService {
     return list.map((e) => Lesson.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<void> updateLesson(String teacherId, String lessonId, Map<String, dynamic> payload) async {
+    await _client.dio.put('/teachers/$teacherId/lessons/$lessonId', data: payload);
+  }
+
+  Future<void> deleteLesson(String teacherId, String lessonId) async {
+    await _client.dio.delete('/teachers/$teacherId/lessons/$lessonId');
+  }
+
   Future<List<Booking>> listStudentBookings(String studentId) async {
     final res = await _client.dio.get('/students/$studentId/bookings');
     final list = (res.data as List?) ?? [];

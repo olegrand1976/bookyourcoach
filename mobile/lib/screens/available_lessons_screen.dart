@@ -4,6 +4,7 @@ import '../services/api_client.dart';
 import '../services/lesson_service.dart';
 import '../state/app_state.dart';
 import '../models/lesson.dart';
+import 'lesson_detail_screen.dart';
 
 class AvailableLessonsScreen extends StatefulWidget {
   const AvailableLessonsScreen({super.key});
@@ -15,7 +16,10 @@ class AvailableLessonsScreen extends StatefulWidget {
 class _AvailableLessonsScreenState extends State<AvailableLessonsScreen> {
   bool _loading = true;
   List<Lesson> _lessons = const [];
+  List<Lesson> _filtered = const [];
   final Map<String, bool> _booking = {};
+  final TextEditingController _search = TextEditingController();
+  String? _filterDiscipline;
 
   @override
   void initState() {
@@ -28,7 +32,22 @@ class _AvailableLessonsScreenState extends State<AvailableLessonsScreen> {
     final client = await ApiFactory.authed();
     final service = LessonService(client);
     final list = await service.listAvailableLessons();
-    setState(() { _lessons = list; _loading = false; });
+    setState(() {
+      _lessons = list;
+      _filtered = list;
+      _loading = false;
+    });
+  }
+
+  void _applyFilters() {
+    final q = _search.text.trim().toLowerCase();
+    setState(() {
+      _filtered = _lessons.where((l) {
+        final matchQuery = q.isEmpty || l.discipline.toLowerCase().contains(q) || l.location.toLowerCase().contains(q);
+        final matchDiscipline = _filterDiscipline == null || l.discipline == _filterDiscipline;
+        return matchQuery && matchDiscipline;
+      }).toList();
+    });
   }
 
   Future<void> _book(String lessonId) async {
@@ -55,17 +74,51 @@ class _AvailableLessonsScreenState extends State<AvailableLessonsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Leçons disponibles')),
+      appBar: AppBar(
+        title: const Text('Leçons disponibles'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    onChanged: (_) => _applyFilters(),
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher (discipline, lieu)',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.filter_list),
+                  onSelected: (val) {
+                    setState(() { _filterDiscipline = val == 'Tous' ? null : val; });
+                    _applyFilters();
+                  },
+                  itemBuilder: (_) => <String>['Tous','Saut d\'obstacles','Dressage','Cross','Poney','Voltige','Balade']
+                      .map((e) => PopupMenuItem(value: e, child: Text(e))).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
-                itemCount: _lessons.length,
+                itemCount: _filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, i) {
-                  final l = _lessons[i];
+                  final l = _filtered[i];
                   final booked = _booking[l.id] == true;
                   return Card(
                     child: Padding(
@@ -120,6 +173,16 @@ class _AvailableLessonsScreenState extends State<AvailableLessonsScreen> {
                                       : const Icon(Icons.event_available),
                                   label: const Text('Réserver'),
                                 ),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => LessonDetailScreen(lesson: l)),
+                                  );
+                                },
+                                icon: const Icon(Icons.info_outline),
+                                label: const Text('Détails'),
                               ),
                             ],
                           ),
