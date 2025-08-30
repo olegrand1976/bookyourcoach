@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import 'student_profile_screen.dart';
 import 'teacher_profile_screen.dart';
+import 'student_bookings_screen.dart';
+import 'teacher_lessons_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,6 +35,18 @@ class HomeScreen extends StatelessWidget {
                   child: const Text('Profil Élève'),
                 ),
               ),
+            if (isStudent)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StudentBookingsScreen()),
+                    );
+                  },
+                  child: const Text('Mes Réservations'),
+                ),
+              ),
             if (isTeacher)
               SizedBox(
                 width: double.infinity,
@@ -43,6 +57,18 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                   child: const Text('Profil Enseignant'),
+                ),
+              ),
+            if (isTeacher)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TeacherLessonsScreen()),
+                    );
+                  },
+                  child: const Text('Mes Leçons'),
                 ),
               ),
             if (!isStudent && !isTeacher)
