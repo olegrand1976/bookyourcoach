@@ -15,6 +15,12 @@ class LessonService {
     await _client.dio.post('/teachers/$teacherId/lessons', data: payload);
   }
 
+  Future<List<Lesson>> listAvailableLessons() async {
+    final res = await _client.dio.get('/lessons/available');
+    final list = (res.data as List?) ?? [];
+    return list.map((e) => Lesson.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<List<Booking>> listStudentBookings(String studentId) async {
     final res = await _client.dio.get('/students/$studentId/bookings');
     final list = (res.data as List?) ?? [];

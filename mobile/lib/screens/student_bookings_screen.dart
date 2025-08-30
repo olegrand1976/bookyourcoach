@@ -4,6 +4,7 @@ import '../services/lesson_service.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../models/lesson.dart';
+import 'available_lessons_screen.dart';
 
 class StudentBookingsScreen extends StatefulWidget {
   const StudentBookingsScreen({super.key});
@@ -45,6 +46,15 @@ class _StudentBookingsScreenState extends State<StudentBookingsScreen> {
             subtitle: Text('Statut: ${b.status}'),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AvailableLessonsScreen()),
+          );
+        },
+        icon: const Icon(Icons.explore),
+        label: const Text('Explorer'),
       ),
     );
   }
