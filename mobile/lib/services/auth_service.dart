@@ -20,11 +20,19 @@ class AuthService {
   }
 
   Future<bool> login(String email, String password) async {
-    // TODO: implémenter l'appel API /auth/login (selon backend)
-    // final client = ApiClient();
-    // final res = await client.dio.post('/auth/login', data: { 'email': email, 'password': password });
-    // final token = res.data['token'];
-    // await saveToken(token);
-    return false;
+    try {
+      final client = ApiClient();
+      final res = await client.dio.post('/auth/login', data: {
+        'email': email,
+        'password': password,
+      });
+      final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) return false;
+      await saveToken(token);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

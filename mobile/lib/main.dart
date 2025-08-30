@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
-import 'config.dart';
+import 'package:provider/provider.dart';
+import 'state/app_state.dart';
+import 'routes.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
-  runApp(const BookYourCoachApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: const BookYourCoachApp(),
+    ),
+  );
 }
 
 class BookYourCoachApp extends StatelessWidget {
@@ -16,29 +24,9 @@ class BookYourCoachApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
         useMaterial3: true,
       ),
-      home: const PlaceholderHome(),
-    );
-  }
-}
-
-class PlaceholderHome extends StatelessWidget {
-  const PlaceholderHome({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('BookYourCoach Mobile')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('API: ${AppConfig.apiBase}', style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-            const Text('Squelette Flutter prêt. Ajoutez services, routes et i18n.'),
-          ],
-        ),
-      ),
+      onGenerateRoute: onGenerateRoute,
+      initialRoute: AppRoutes.splash,
+      debugShowCheckedModeBanner: false,
     );
   }
 }

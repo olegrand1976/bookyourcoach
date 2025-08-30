@@ -12,7 +12,7 @@ Démarrage:
 2. Depuis ce répertoire:
 ```
 flutter create .
-flutter pub add dio shared_preferences flutter_localizations intl
+flutter pub add dio shared_preferences flutter_localizations intl provider
 ```
 3. Configurer l'API dans `lib/config.dart` (créé ci-dessous)
 4. Lancer:
