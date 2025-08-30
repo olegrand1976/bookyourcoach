@@ -41,10 +41,24 @@ class _LoginScreenState extends State<LoginScreen> {
     final client = await ApiFactory.authed();
     final profileService = ProfileService(client);
     try {
-      final me = await profileService.fetchMe();
+      var me = await profileService.fetchMe();
       if (!mounted) return;
       context.read<AppState>().setMe(me);
       context.read<AppState>().setToken('set');
+      // Si aucun rôle, ouvrir l'assistant de sélection
+      if (!(me.isStudent || me.isTeacher)) {
+        final result = await Navigator.of(context).push<Map<String, bool>>(
+          MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+        );
+        if (result != null) {
+          // TODO: appeler endpoints pour initialiser les profils
+          // await profileService.initRoles(result['student']==true, result['teacher']==true)
+        }
+        // rafraîchir me
+        me = await profileService.fetchMe();
+        if (!mounted) return;
+        context.read<AppState>().setMe(me);
+      }
       Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } catch (_) {
       setState(() { _error = 'Erreur de récupération du profil'; });
