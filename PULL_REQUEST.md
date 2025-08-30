@@ -73,3 +73,14 @@ flutter test
 
 PR prête pour revue: i18n web consolidé + application mobile Flutter initiale complète (auth/roles/profils/leçons), tests unitaires OK, base E2E mobile mockée.
 
+### Checklists
+
+- [ ] Frontend web: build passe (Nuxt/Vite)
+- [ ] Frontend web: tests unitaires passent
+- [ ] Frontend web: E2E Playwright passent ou adaptés (route `/` décidée)
+- [ ] Mobile: `flutter pub get` OK
+- [ ] Mobile: tests unitaires `flutter test` passent
+- [ ] Mobile: test d’intégration (mock) s’exécute sur device/Chrome (si nécessaire)
+- [ ] i18n: gen_l10n OK, clés admin ajoutées (fr/en)
+- [ ] Documentation PR revue (résumé, comment tester)
+
