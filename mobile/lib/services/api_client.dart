@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 
 class ApiClient {
@@ -19,4 +20,14 @@ class ApiClient {
   }
 
   Dio get dio => _dio;
+}
+
+class ApiFactory {
+  static const _tokenKey = 'auth_token';
+
+  static Future<ApiClient> authed({String? baseUrl}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+    return ApiClient(baseUrl: baseUrl, token: token);
+  }
 }

@@ -1,19 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
+import 'student_profile_screen.dart';
+import 'teacher_profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final isTeacher = app.isTeacher;
+    final isStudent = app.isStudent;
     return Scaffold(
       appBar: AppBar(title: const Text('Accueil')),
-      body: ListView(
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        children: const [
-          Text('Écran d\'accueil mobile'),
-          SizedBox(height: 12),
-          Text('À venir: profils élève/enseignant, édition, réservations.'),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Bienvenue sur BookYourCoach Mobile'),
+            const SizedBox(height: 16),
+            if (isStudent)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StudentProfileScreen()),
+                    );
+                  },
+                  child: const Text('Profil Élève'),
+                ),
+              ),
+            if (isTeacher)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TeacherProfileScreen()),
+                    );
+                  },
+                  child: const Text('Profil Enseignant'),
+                ),
+              ),
+            if (!isStudent && !isTeacher)
+              const Text('Aucun rôle détecté, connectez-vous ou complétez votre profil.'),
+          ],
+        ),
       ),
     );
   }

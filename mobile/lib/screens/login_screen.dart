@@ -1,13 +1,97 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../services/profile_service.dart';
+import '../services/api_client.dart';
+import '../state/app_state.dart';
+import '../routes.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() { _loading = true; _error = null; });
+    final auth = AuthService();
+    final ok = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() { _loading = false; _error = 'Identifiants invalides'; });
+      return;
+    }
+    // Récupérer le profil et router
+    final client = await ApiFactory.authed();
+    final profileService = ProfileService(client);
+    try {
+      final me = await profileService.fetchMe();
+      if (!mounted) return;
+      context.read<AppState>().setMe(me);
+      context.read<AppState>().setToken('set');
+      Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+    } catch (_) {
+      setState(() { _error = 'Erreur de récupération du profil'; });
+    } finally {
+      if (mounted) setState(() { _loading = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Connexion')),
-      body: const Center(child: Text('Login form à implémenter')), 
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_error != null) ...[
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+              ],
+              TextFormField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: (v) => (v==null || v.isEmpty) ? 'Email requis' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passCtrl,
+                decoration: const InputDecoration(labelText: 'Mot de passe'),
+                obscureText: true,
+                validator: (v) => (v==null || v.length<6) ? 'Mot de passe invalide' : null,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _loading ? null : _submit,
+                  child: _loading ? const CircularProgressIndicator() : const Text('Se connecter'),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
