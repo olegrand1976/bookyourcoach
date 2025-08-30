@@ -60,13 +60,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => (v == null || !v.contains('@')) ? 'Email invalide' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Requis';
+                  final r = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$");
+                  if (!r.hasMatch(v.trim())) return 'Email invalide';
+                  return null;
+                },
               ),
               TextFormField(
                 controller: _password,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Mot de passe'),
-                validator: (v) => (v == null || v.length < 6) ? '6 caractères min.' : null,
+                validator: (v) {
+                  if (v == null || v.length < 8) return '8 caractères min.';
+                  final hasNum = RegExp(r"\d").hasMatch(v);
+                  final hasLetter = RegExp(r"[A-Za-z]").hasMatch(v);
+                  if (!(hasNum && hasLetter)) return 'Inclure lettres et chiffres';
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
               SizedBox(

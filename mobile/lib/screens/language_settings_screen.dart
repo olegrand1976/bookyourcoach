@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 
 class LanguageSettingsScreen extends StatefulWidget {
   const LanguageSettingsScreen({super.key});
@@ -8,13 +10,17 @@ class LanguageSettingsScreen extends StatefulWidget {
 }
 
 class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
-  Locale _locale = const Locale('fr');
+  late Locale _locale;
 
-  void _setLocale(Locale locale) {
+  @override
+  void initState() {
+    super.initState();
+    _locale = context.read<AppState>().locale;
+  }
+
+  Future<void> _setLocale(Locale locale) async {
     setState(() { _locale = locale; });
-    // Note: Full i18n via flutter_localizations + intl is scaffolded but
-    // for brevity this only stores selection in memory. Could persist via
-    // SharedPreferences and rebuild MaterialApp with locale.
+    await context.read<AppState>().setLocale(locale);
   }
 
   @override

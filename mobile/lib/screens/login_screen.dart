@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../routes.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
