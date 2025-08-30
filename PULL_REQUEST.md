@@ -1,27 +1,34 @@
-## feat(i18n): multi-langue complet, i18n robuste et tests front durcis
+## feat(mobile+i18n): App mobile Flutter (profils/lessons), i18n front durcie et tests
 
 ### Résumé des changements
 
-- Internationalisation de la page d’accueil (`pages/index.vue`) avec des clés `home.*`.
-- Ajout/complétion des clés i18n pour 15 langues (FR de référence, EN/NL/DE/IT/ES/PT traduites). Les autres langues ont un fallback FR cohérent.
-- Nouveau script `scripts/sync-locales.mjs` pour synchroniser automatiquement les clés manquantes à partir de `fr.json`.
-- Corrections HTML du template admin (`frontend/pages/admin/index.vue`) : fermeture de balises `<th>/<tr>`.
-- Ajout de `data-testid` pour stabiliser les tests (nav, logo, footer, sections de la home, CTA, page/login form).
-- Mise à jour des tests unitaires et E2E pour tolérer l’i18n et utiliser des sélecteurs stables.
-- Dépendances frontend ajustées: ajout `@nuxtjs/i18n`, installation de `unhead@^1.10` pour compat.
+- Web (frontend):
+  - Internationalisation de la page d’accueil (`pages/index.vue`) avec des clés `home.*`.
+  - Ajout/complétion des clés i18n pour 15 langues (FR de référence, EN/NL/DE/IT/ES/PT traduites). Les autres langues ont un fallback FR.
+  - Script `scripts/sync-locales.mjs` pour synchroniser les clés manquantes.
+  - Corrections HTML et `data-testid` pour E2E; tests unitaires/E2E adaptés.
+  - Dépendances ajustées (`@nuxtjs/i18n`, `unhead@^1.10`).
+
+- Mobile (Flutter `/mobile`):
+  - Architecture Provider + Dio + SharedPreferences + Go-style routing.
+  - Auth: login, register, forgot password, storage du token, fetch `/auth/me`.
+  - Sélection des rôles (élève/enseignant) avec init via `/profiles/init-roles`.
+  - Profils Élève/Enseignant: écrans de consultation/édition (services prêts).
+  - Leçons/Réservations: création leçon (enseignant), liste leçons dispo, réservation/annulation (élève), liste participants (enseignant).
+  - UI avancée: chips de disciplines, sliders/durations, actions contextuelles, filtres+recherche.
+  - i18n mobile: gen_l10n (ARB fr/en), persistance de la langue, écrans core localisés.
+  - Tests: unitaires Flutter OK; base `integration_test` + mock API (HttpClientAdapter) pour un flux bout-en-bout simulé.
 
 ### Validations
 
-- Tests unitaires frontend: 33 tests PASS (4 fichiers) avant adaptations finales de la page d’accueil (3 assertions de texte à corriger dans `tests/unit/index.test.ts`).
-- Test i18n d’intégration (`test-i18n-integration.cjs`): 15/15 locales, 98 clés par langue, 0 clé manquante.
-- Build frontend Nuxt: OK (client + serveur Nitro).
-- E2E (Chromium): specs durcies, 10 PASS / 11 FAIL liés à la page d’accueil non visible (l’app affiche login en racine). Les sélecteurs sont prêts; il reste à décider si `/` doit pointer vers la home ou adapter la navigation des tests.
+- Frontend: build OK; i18n sync OK; E2E stabilisés via `data-testid` (reste la stratégie de route `/`).
+- Mobile: `flutter test` OK; `integration_test` configuré (mock InMemory), prêt pour exécution sur device/Chrome.
 
 ### Points d’attention / Suivi
 
-- Décider du comportement en racine `/` (home vs login). Les E2E échouent car `/` rend login; adapter les tests (naviguer vers home explicite) ou changer la route par défaut.
-- Finaliser les traductions réelles pour les langues Nordiques (sv, no, fi, da), Europe de l’Est (hu, pl), Asie de l’Est (zh, ja) si nécessaire.
-- Mettre à jour `tests/unit/index.test.ts` pour refléter les textes i18n (au lieu de strings codées en dur) ou utiliser des sélecteurs structurants.
+- Décider du comportement `/` (home vs login) pour harmoniser E2E web.
+- Traductions supplémentaires (sv/no/fi/da/hu/pl/zh/ja) si nécessaire.
+- Étendre l’i18n des écrans mobile (profils/leçons) et compléter les scénarios d’intégration.
 
 ### Comment tester
 
@@ -53,7 +60,16 @@ npx playwright test --project=chromium
 
 - Les rapports Playwright sont disponibles via `playwright-report` si reporter HTML activé.
 
+5) Mobile
+```
+cd mobile
+flutter pub get
+flutter test
+# Optionnel intégration (requires device/chrome):
+# flutter drive --driver=test_driver/integration_test.dart --target=integration_test/full_flow_test.dart -d chrome
+```
+
 ---
 
-PR prête pour revue: i18n complet, build OK, tests consolidés; reste à figer la stratégie de route par défaut (`/` => home/login) pour terminer l’E2E au vert.
+PR prête pour revue: i18n web consolidé + application mobile Flutter initiale complète (auth/roles/profils/leçons), tests unitaires OK, base E2E mobile mockée.
 
