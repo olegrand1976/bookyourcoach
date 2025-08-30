@@ -51,8 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
         );
         if (result != null) {
-          // TODO: appeler endpoints pour initialiser les profils
-          // await profileService.initRoles(result['student']==true, result['teacher']==true)
+          await profileService.initRoles(
+            asStudent: result['student'] == true,
+            asTeacher: result['teacher'] == true,
+          );
         }
         // rafraîchir me
         me = await profileService.fetchMe();

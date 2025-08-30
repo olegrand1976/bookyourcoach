@@ -28,4 +28,11 @@ class ProfileService {
   Future<void> updateTeacher(String userId, Map<String, dynamic> payload) async {
     await _client.dio.put('/teachers/$userId', data: payload);
   }
+
+  Future<void> initRoles({required bool asStudent, required bool asTeacher}) async {
+    await _client.dio.post('/profiles/init-roles', data: {
+      'student': asStudent,
+      'teacher': asTeacher,
+    });
+  }
 }
