@@ -286,6 +286,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disciplines'**
   String get adminDisciplines;
+
+  /// No description provided for @studentProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Student Profile'**
+  String get studentProfileTitle;
+
+  /// No description provided for @studentLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get studentLevel;
+
+  /// No description provided for @studentLevelBeginner.
+  ///
+  /// In en, this message translates to:
+  /// **'Beginner'**
+  String get studentLevelBeginner;
+
+  /// No description provided for @studentLevelIntermediate.
+  ///
+  /// In en, this message translates to:
+  /// **'Intermediate'**
+  String get studentLevelIntermediate;
+
+  /// No description provided for @studentLevelAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get studentLevelAdvanced;
+
+  /// No description provided for @studentObjectives.
+  ///
+  /// In en, this message translates to:
+  /// **'Objectives'**
+  String get studentObjectives;
+
+  /// No description provided for @teacherProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher Profile'**
+  String get teacherProfileTitle;
+
+  /// No description provided for @teacherDisciplines.
+  ///
+  /// In en, this message translates to:
+  /// **'Disciplines (comma-separated)'**
+  String get teacherDisciplines;
+
+  /// No description provided for @teacherYears.
+  ///
+  /// In en, this message translates to:
+  /// **'Years of experience'**
+  String get teacherYears;
+
+  /// No description provided for @teacherBio.
+  ///
+  /// In en, this message translates to:
+  /// **'Bio'**
+  String get teacherBio;
+
+  /// No description provided for @commonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// No description provided for @errorLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Load error'**
+  String get errorLoad;
+
+  /// No description provided for @errorSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save error'**
+  String get errorSave;
+
+  /// No description provided for @savedProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile saved'**
+  String get savedProfile;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -4,6 +4,7 @@ import '../services/profile_service.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../models/user.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class StudentProfileScreen extends StatefulWidget {
   const StudentProfileScreen({super.key});
@@ -69,36 +70,38 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil Élève')),
+      appBar: AppBar(title: Text(t?.studentProfileTitle ?? 'Profil Élève')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null) ...[
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(t?.errorLoad ?? _error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 8),
           ],
-          const Text('Niveau'),
+          Text(t?.studentLevel ?? 'Niveau'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: _level,
-            items: const [
-              DropdownMenuItem(value: 'beginner', child: Text('Débutant')),
-              DropdownMenuItem(value: 'intermediate', child: Text('Intermédiaire')),
-              DropdownMenuItem(value: 'advanced', child: Text('Avancé')),
+            items: [
+              DropdownMenuItem(value: 'beginner', child: Text(t?.studentLevelBeginner ?? 'Débutant')),
+              DropdownMenuItem(value: 'intermediate', child: Text(t?.studentLevelIntermediate ?? 'Intermédiaire')),
+              DropdownMenuItem(value: 'advanced', child: Text(t?.studentLevelAdvanced ?? 'Avancé')),
             ],
             onChanged: (v) => setState(() => _level = v ?? 'beginner'),
           ),
           const SizedBox(height: 16),
-          const Text('Objectifs'),
+          Text(t?.studentObjectives ?? 'Objectifs'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _objectivesCtrl,
             maxLines: 4,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: ''),
+            validator: (v) => (v == null || v.trim().isEmpty) ? (t?.studentObjectives ?? 'Objectifs') + ' *' : null,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: _loading ? null : _save, child: const Text('Enregistrer')),
+          ElevatedButton(onPressed: _loading ? null : _save, child: Text(t?.commonSave ?? 'Enregistrer')),
         ],
       ),
     );

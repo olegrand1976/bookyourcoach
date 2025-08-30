@@ -103,4 +103,46 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get adminDisciplines => 'Disciplines';
+
+  @override
+  String get studentProfileTitle => 'Profil Élève';
+
+  @override
+  String get studentLevel => 'Niveau';
+
+  @override
+  String get studentLevelBeginner => 'Débutant';
+
+  @override
+  String get studentLevelIntermediate => 'Intermédiaire';
+
+  @override
+  String get studentLevelAdvanced => 'Avancé';
+
+  @override
+  String get studentObjectives => 'Objectifs';
+
+  @override
+  String get teacherProfileTitle => 'Profil Enseignant';
+
+  @override
+  String get teacherDisciplines => 'Disciplines (séparées par des virgules)';
+
+  @override
+  String get teacherYears => 'Années d\'expérience';
+
+  @override
+  String get teacherBio => 'Bio';
+
+  @override
+  String get commonSave => 'Enregistrer';
+
+  @override
+  String get errorLoad => 'Erreur de chargement';
+
+  @override
+  String get errorSave => 'Erreur de sauvegarde';
+
+  @override
+  String get savedProfile => 'Profil sauvegardé';
 }

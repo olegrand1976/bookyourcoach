@@ -31,5 +31,20 @@
   "adminApprovals": "Teacher approvals",
   "adminLessons": "Lessons (moderation)",
   "adminDisciplines": "Disciplines"
+,
+  "studentProfileTitle": "Student Profile",
+  "studentLevel": "Level",
+  "studentLevelBeginner": "Beginner",
+  "studentLevelIntermediate": "Intermediate",
+  "studentLevelAdvanced": "Advanced",
+  "studentObjectives": "Objectives",
+  "teacherProfileTitle": "Teacher Profile",
+  "teacherDisciplines": "Disciplines (comma-separated)",
+  "teacherYears": "Years of experience",
+  "teacherBio": "Bio",
+  "commonSave": "Save",
+  "errorLoad": "Load error",
+  "errorSave": "Save error",
+  "savedProfile": "Profile saved"
 }
 

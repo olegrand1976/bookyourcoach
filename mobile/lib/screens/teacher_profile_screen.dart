@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/profile_service.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class TeacherProfileScreen extends StatefulWidget {
   const TeacherProfileScreen({super.key});
@@ -73,39 +74,46 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil Enseignant')),
+      appBar: AppBar(title: Text(t?.teacherProfileTitle ?? 'Profil Enseignant')),
       body: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (_error != null) ...[
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(t?.errorLoad ?? _error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 8),
           ],
-          const Text('Disciplines (séparées par des virgules)'),
+          Text(t?.teacherDisciplines ?? 'Disciplines (séparées par des virgules)'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _disciplinesCtrl,
             decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
           const SizedBox(height: 16),
-          const Text('Années d\'expérience'),
+          Text(t?.teacherYears ?? "Années d'expérience"),
           const SizedBox(height: 8),
           TextFormField(
             controller: _yearsCtrl,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(border: OutlineInputBorder()),
+            validator: (v) {
+              final n = int.tryParse(v ?? '');
+              if (n == null || n < 0) return '0+';
+              return null;
+            },
           ),
           const SizedBox(height: 16),
-          const Text('Bio'),
+          Text(t?.teacherBio ?? 'Bio'),
           const SizedBox(height: 8),
           TextFormField(
             controller: _bioCtrl,
             maxLines: 4,
             decoration: const InputDecoration(border: OutlineInputBorder()),
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: _loading ? null : _save, child: const Text('Enregistrer')),
+          ElevatedButton(onPressed: _loading ? null : _save, child: Text(t?.commonSave ?? 'Enregistrer')),
         ],
       ),
     );

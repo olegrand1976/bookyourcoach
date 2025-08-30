@@ -31,5 +31,20 @@
   "adminApprovals": "Approbations enseignants",
   "adminLessons": "Leçons (modération)",
   "adminDisciplines": "Disciplines"
+,
+  "studentProfileTitle": "Profil Élève",
+  "studentLevel": "Niveau",
+  "studentLevelBeginner": "Débutant",
+  "studentLevelIntermediate": "Intermédiaire",
+  "studentLevelAdvanced": "Avancé",
+  "studentObjectives": "Objectifs",
+  "teacherProfileTitle": "Profil Enseignant",
+  "teacherDisciplines": "Disciplines (séparées par des virgules)",
+  "teacherYears": "Années d'expérience",
+  "teacherBio": "Bio",
+  "commonSave": "Enregistrer",
+  "errorLoad": "Erreur de chargement",
+  "errorSave": "Erreur de sauvegarde",
+  "savedProfile": "Profil sauvegardé"
 }
 
