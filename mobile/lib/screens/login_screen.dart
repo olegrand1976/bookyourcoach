@@ -5,6 +5,8 @@ import '../services/profile_service.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../routes.dart';
+import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -103,7 +105,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _loading ? null : _submit,
                   child: _loading ? const CircularProgressIndicator() : const Text('Se connecter'),
                 ),
-              )
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: _loading ? null : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                      );
+                    },
+                    child: const Text("S'inscrire"),
+                  ),
+                  TextButton(
+                    onPressed: _loading ? null : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                      );
+                    },
+                    child: const Text('Mot de passe oublié ?'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

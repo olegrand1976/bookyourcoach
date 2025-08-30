@@ -38,4 +38,14 @@ class LessonService {
   Future<void> bookLesson(String studentId, String lessonId) async {
     await _client.dio.post('/students/$studentId/bookings', data: { 'lesson_id': lessonId });
   }
+
+  Future<void> cancelBooking(String studentId, String bookingId) async {
+    await _client.dio.delete('/students/$studentId/bookings/$bookingId');
+  }
+
+  Future<List<Map<String, dynamic>>> lessonAttendees(String teacherId, String lessonId) async {
+    final res = await _client.dio.get('/teachers/$teacherId/lessons/$lessonId/attendees');
+    final list = (res.data as List?) ?? [];
+    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
 }

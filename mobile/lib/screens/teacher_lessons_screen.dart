@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../models/lesson.dart';
 import 'create_lesson_screen.dart';
 import 'edit_lesson_screen.dart';
+import 'lesson_attendees_screen.dart';
 
 class TeacherLessonsScreen extends StatefulWidget {
   const TeacherLessonsScreen({super.key});
@@ -74,14 +75,27 @@ class _TeacherLessonsScreenState extends State<TeacherLessonsScreen> {
             child: ListTile(
               title: Text('${l.discipline} • ${l.start}'),
               subtitle: Text('${l.location} • ${l.bookedCount}/${l.capacity}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  final updated = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(builder: (_) => EditLessonScreen(lesson: l)),
-                  );
-                  if (updated == true) _load();
-                },
+              trailing: Wrap(
+                spacing: 8,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.group_outlined),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => LessonAttendeesScreen(lessonId: l.id)),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      final updated = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(builder: (_) => EditLessonScreen(lesson: l)),
+                      );
+                      if (updated == true) _load();
+                    },
+                  ),
+                ],
               ),
             ),
           );

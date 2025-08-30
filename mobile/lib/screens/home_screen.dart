@@ -5,6 +5,7 @@ import 'student_profile_screen.dart';
 import 'teacher_profile_screen.dart';
 import 'student_bookings_screen.dart';
 import 'teacher_lessons_screen.dart';
+import 'language_settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -15,7 +16,19 @@ class HomeScreen extends StatelessWidget {
     final isTeacher = app.isTeacher;
     final isStudent = app.isStudent;
     return Scaffold(
-      appBar: AppBar(title: const Text('Accueil')),
+      appBar: AppBar(
+        title: const Text('Accueil'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LanguageSettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

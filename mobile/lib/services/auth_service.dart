@@ -35,4 +35,38 @@ class AuthService {
       return false;
     }
   }
+
+  Future<bool> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final client = ApiClient();
+      final res = await client.dio.post('/auth/register', data: {
+        'name': name,
+        'email': email,
+        'password': password,
+      });
+      final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) return false;
+      await saveToken(token);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> requestPasswordReset(String email) async {
+    try {
+      final client = ApiClient();
+      await client.dio.post('/auth/forgot-password', data: {
+        'email': email,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

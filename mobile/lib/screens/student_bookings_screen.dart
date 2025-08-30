@@ -16,6 +16,7 @@ class StudentBookingsScreen extends StatefulWidget {
 class _StudentBookingsScreenState extends State<StudentBookingsScreen> {
   List<Booking> _bookings = const [];
   bool _loading = true;
+  final Map<String, bool> _cancelling = {};
 
   @override
   void initState() {
@@ -32,6 +33,23 @@ class _StudentBookingsScreenState extends State<StudentBookingsScreen> {
     setState(() { _bookings = list; _loading = false; });
   }
 
+  Future<void> _cancel(String bookingId) async {
+    final app = context.read<AppState>();
+    setState(() { _cancelling[bookingId] = true; });
+    try {
+      final client = await ApiFactory.authed();
+      final service = LessonService(client);
+      await service.cancelBooking(app.me!.id, bookingId);
+      await _load();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Annulation impossible: $e')),
+      );
+    } finally {
+      if (mounted) setState(() { _cancelling[bookingId] = false; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,6 +62,11 @@ class _StudentBookingsScreenState extends State<StudentBookingsScreen> {
             leading: const Icon(Icons.event_available),
             title: Text('Leçon ${b.lessonId}'),
             subtitle: Text('Statut: ${b.status}'),
+            trailing: b.status == 'confirmed' ? TextButton.icon(
+              onPressed: _cancelling[b.id] == true ? null : () => _cancel(b.id),
+              icon: _cancelling[b.id] == true ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cancel_outlined),
+              label: const Text('Annuler'),
+            ) : null,
           );
         },
       ),
