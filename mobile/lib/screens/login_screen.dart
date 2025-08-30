@@ -8,6 +8,7 @@ import '../routes.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -74,8 +75,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Connexion')),
+      appBar: AppBar(title: Text(t?.loginTitle ?? 'Connexion')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -89,13 +91,13 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
               TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(labelText: t?.loginEmail ?? 'Email'),
                 validator: (v) => (v==null || v.isEmpty) ? 'Email requis' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passCtrl,
-                decoration: const InputDecoration(labelText: 'Mot de passe'),
+                decoration: InputDecoration(labelText: t?.loginPassword ?? 'Mot de passe'),
                 obscureText: true,
                 validator: (v) => (v==null || v.length<6) ? 'Mot de passe invalide' : null,
               ),
@@ -104,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
-                  child: _loading ? const CircularProgressIndicator() : const Text('Se connecter'),
+                  child: _loading ? const CircularProgressIndicator() : Text(t?.loginSubmit ?? 'Se connecter'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -117,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         MaterialPageRoute(builder: (_) => const RegisterScreen()),
                       );
                     },
-                    child: const Text("S'inscrire"),
+                    child: Text(t?.loginRegister ?? "S'inscrire"),
                   ),
                   TextButton(
                     onPressed: _loading ? null : () {
@@ -125,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                       );
                     },
-                    child: const Text('Mot de passe oublié ?'),
+                    child: Text(t?.loginForgot ?? 'Mot de passe oublié ?'),
                   ),
                 ],
               ),

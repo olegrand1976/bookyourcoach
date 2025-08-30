@@ -7,7 +7,7 @@ class ApiClient {
 
   ApiClient._(this._dio);
 
-  factory ApiClient({String? baseUrl, String? token}) {
+  factory ApiClient({String? baseUrl, String? token, HttpClientAdapter? adapter}) {
     final dio = Dio(
       BaseOptions(
         baseUrl: baseUrl ?? AppConfig.apiBase,
@@ -16,6 +16,9 @@ class ApiClient {
         headers: token != null ? {'Authorization': 'Bearer $token'} : {},
       ),
     );
+    if (adapter != null) {
+      dio.httpClientAdapter = adapter;
+    }
     return ApiClient._(dio);
   }
 

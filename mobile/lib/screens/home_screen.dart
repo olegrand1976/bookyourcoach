@@ -6,6 +6,7 @@ import 'teacher_profile_screen.dart';
 import 'student_bookings_screen.dart';
 import 'teacher_lessons_screen.dart';
 import 'language_settings_screen.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -15,9 +16,10 @@ class HomeScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final isTeacher = app.isTeacher;
     final isStudent = app.isStudent;
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accueil'),
+        title: Text(t?.appTitle ?? 'Accueil'),
         actions: [
           IconButton(
             icon: const Icon(Icons.language),
@@ -34,7 +36,7 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Bienvenue sur BookYourCoach Mobile'),
+            Text(t?.homeWelcome ?? 'Bienvenue sur BookYourCoach Mobile'),
             const SizedBox(height: 16),
             if (isStudent)
               SizedBox(
@@ -45,7 +47,7 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const StudentProfileScreen()),
                     );
                   },
-                  child: const Text('Profil Élève'),
+                  child: Text(t?.homeStudentProfile ?? 'Profil Élève'),
                 ),
               ),
             if (isStudent)
@@ -57,7 +59,7 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const StudentBookingsScreen()),
                     );
                   },
-                  child: const Text('Mes Réservations'),
+                  child: Text(t?.homeStudentBookings ?? 'Mes Réservations'),
                 ),
               ),
             if (isTeacher)
@@ -69,7 +71,7 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const TeacherProfileScreen()),
                     );
                   },
-                  child: const Text('Profil Enseignant'),
+                  child: Text(t?.homeTeacherProfile ?? 'Profil Enseignant'),
                 ),
               ),
             if (isTeacher)
@@ -81,11 +83,11 @@ class HomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const TeacherLessonsScreen()),
                     );
                   },
-                  child: const Text('Mes Leçons'),
+                  child: Text(t?.homeTeacherLessons ?? 'Mes Leçons'),
                 ),
               ),
             if (!isStudent && !isTeacher)
-              const Text('Aucun rôle détecté, connectez-vous ou complétez votre profil.'),
+              Text(t?.homeNoRole ?? 'Aucun rôle détecté, connectez-vous ou complétez votre profil.'),
           ],
         ),
       ),

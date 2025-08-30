@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -35,8 +36,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Mot de passe oublié')),
+      appBar: AppBar(title: Text(t?.forgotTitle ?? 'Mot de passe oublié')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -46,7 +48,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               TextFormField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(labelText: t?.loginEmail ?? 'Email'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Requis';
                   final r = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$");
@@ -61,7 +63,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onPressed: _loading ? null : _submit,
                   child: _loading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Envoyer'),
+                    : Text(t?.forgotSubmit ?? 'Envoyer'),
                 ),
               ),
             ],

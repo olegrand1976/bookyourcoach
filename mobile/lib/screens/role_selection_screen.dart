@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -13,21 +14,22 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Sélection du rôle')),
+      appBar: AppBar(title: Text(t?.roleTitle ?? 'Sélection du rôle')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Choisissez votre rôle:'),
+            Text(t?.roleChoose ?? 'Choisissez votre rôle:'),
             CheckboxListTile(
-              title: const Text('Élève'),
+              title: Text(t?.roleStudent ?? 'Élève'),
               value: asStudent,
               onChanged: (v) => setState(() => asStudent = v ?? false),
             ),
             CheckboxListTile(
-              title: const Text('Enseignant'),
+              title: Text(t?.roleTeacher ?? 'Enseignant'),
               value: asTeacher,
               onChanged: (v) => setState(() => asTeacher = v ?? false),
             ),
@@ -38,7 +40,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 onPressed: (!asStudent && !asTeacher) ? null : () {
                   Navigator.of(context).pop({'student': asStudent, 'teacher': asTeacher});
                 },
-                child: const Text('Continuer'),
+                child: Text(t?.commonContinue ?? 'Continuer'),
               ),
             )
           ],

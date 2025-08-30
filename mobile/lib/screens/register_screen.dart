@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart' as app_l10n;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -43,8 +44,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = app_l10n.AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Créer un compte')),
+      appBar: AppBar(title: Text(t?.registerTitle ?? 'Créer un compte')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -53,13 +55,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Nom complet'),
+                decoration: InputDecoration(labelText: t?.registerName ?? 'Nom complet'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
               ),
               TextFormField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(labelText: t?.loginEmail ?? 'Email'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Requis';
                   final r = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$");
@@ -70,7 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _password,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Mot de passe'),
+                decoration: InputDecoration(labelText: t?.loginPassword ?? 'Mot de passe'),
                 validator: (v) {
                   if (v == null || v.length < 8) return '8 caractères min.';
                   final hasNum = RegExp(r"\d").hasMatch(v);
@@ -86,7 +88,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: _loading ? null : _submit,
                   child: _loading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('S\'inscrire'),
+                      : Text(t?.registerSubmit ?? "S'inscrire"),
                 ),
               ),
             ],
