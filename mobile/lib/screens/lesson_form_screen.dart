@@ -309,7 +309,7 @@ class _LessonFormScreenState extends ConsumerState<LessonFormScreen> {
         } else {
           // Modifier une leçon existante
           ref.read(teacherProvider.notifier).updateLesson(
-            widget.lesson!.id,
+            lessonId: widget.lesson!.id,
             title: _titleController.text,
             description: _descriptionController.text,
             startTime: startDateTime,

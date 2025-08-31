@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/student_provider.dart';
-// Import supprimé car non utilisé
 import 'student_lessons_screen.dart';
 import 'student_bookings_screen.dart';
-import 'student_teachers_screen.dart';
 import 'student_history_screen.dart';
+import 'student_teachers_screen.dart';
 import 'student_preferences_screen.dart';
 
 class StudentDashboard extends ConsumerStatefulWidget {
@@ -17,7 +16,7 @@ class StudentDashboard extends ConsumerStatefulWidget {
 }
 
 class _StudentDashboardState extends ConsumerState<StudentDashboard> {
-  int _selectedIndex = 0;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -26,113 +25,72 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(studentProvider.notifier).loadAvailableLessons();
       ref.read(studentProvider.notifier).loadBookings();
+      ref.read(studentProvider.notifier).loadTeachers();
+      ref.read(studentProvider.notifier).loadPreferences();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProvider);
     final studentState = ref.watch(studentProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tableau de Bord Élève'),
-        backgroundColor: const Color(0xFF059669),
-        foregroundColor: Colors.white,
+        title: const Text('Tableau de Bord Étudiant'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
         actions: [
           IconButton(
+            onPressed: () {
+              // TODO: Implémenter la déconnexion
+            },
             icon: const Icon(Icons.logout),
-            onPressed: () => _showLogoutDialog(),
           ),
         ],
       ),
-      body: Column(
+      body: IndexedStack(
+        index: _currentIndex,
         children: [
-          // En-tête avec informations de l'utilisateur
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: const Color(0xFFF0FDF4),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: NetworkImage(user?.avatarUrl ?? ''),
-                  onBackgroundImageError: (_, __) {},
-                  child: user?.avatarUrl == null
-                      ? Text(
-                          user?.displayName.substring(0, 1).toUpperCase() ?? 'E',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Bonjour, ${user?.displayName ?? 'Élève'}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Élève',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Statistiques rapides
-          if (studentState.bookings.bookings.isNotEmpty) _buildQuickStats(),
-          
-          // Navigation par onglets
-          Expanded(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children:               const [
-                StudentLessonsScreen(),
-                StudentBookingsScreen(),
-                StudentTeachersScreen(),
-                StudentHistoryScreen(),
-                StudentPreferencesScreen(),
-              ],
-            ),
-          ),
+          _buildOverviewTab(studentState),
+          const StudentLessonsScreen(),
+          const StudentBookingsScreen(),
+          const StudentHistoryScreen(),
+          const StudentTeachersScreen(),
+          const StudentPreferencesScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
         type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        selectedItemColor: const Color(0xFF059669),
-        unselectedItemColor: Colors.grey[600],
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF1E3A8A),
+        unselectedItemColor: const Color(0xFF6B7280),
         items: const [
           BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Vue d\'ensemble',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.school),
-            label: 'Cours disponibles',
+            label: 'Leçons',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.book_online),
-            label: 'Mes réservations',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Enseignants',
+            label: 'Réservations',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'Historique',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Enseignants',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
@@ -143,70 +101,173 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     );
   }
 
-  Widget _buildQuickStats() {
-    final studentState = ref.watch(studentProvider);
-    final bookings = studentState.bookings.bookings;
-    final lessons = studentState.availableLessons.lessons;
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mon Progression',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
+  Widget _buildOverviewTab(StudentState studentState) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.read(studentProvider.notifier).loadAvailableLessons();
+        ref.read(studentProvider.notifier).loadBookings();
+        ref.read(studentProvider.notifier).loadTeachers();
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // En-tête de bienvenue
+            const Text(
+              'Bonjour !',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Cours disponibles',
-                  lessons.length.toString(),
-                  Icons.school,
-                  const Color(0xFF059669),
-                ),
+            const SizedBox(height: 8),
+            const Text(
+              'Découvrez les leçons disponibles et gérez vos réservations',
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF6B7280),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  'Réservations',
-                  bookings.length.toString(),
-                  Icons.book_online,
-                  const Color(0xFF2563EB),
-                ),
+            ),
+            const SizedBox(height: 24),
+
+            // Actions rapides
+            const Text(
+              'Actions Rapides',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Cours terminés',
-                  bookings.where((b) => b.status == 'completed').length.toString(),
-                  Icons.check_circle,
-                  const Color(0xFFDC2626),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _currentIndex = 1; // Onglet Leçons
+                      });
+                    },
+                    icon: const Icon(Icons.search),
+                    label: const Text('Rechercher des cours'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3B82F6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  'Enseignants',
-                  studentState.teachers.teachers.length.toString(),
-                  Icons.people,
-                  const Color(0xFF7C3AED),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _currentIndex = 2; // Onglet Réservations
+                      });
+                    },
+                    icon: const Icon(Icons.book_online),
+                    label: const Text('Mes réservations'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF3B82F6),
+                      side: const BorderSide(color: Color(0xFF3B82F6)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Statistiques rapides
+            if (studentState.bookings.bookings.isNotEmpty) _buildQuickStats(studentState),
+
+            const SizedBox(height: 24),
+
+            // Prochaines réservations
+            const Text(
+              'Mes Prochaines Réservations',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 12),
+            if (studentState.bookings.bookings.isEmpty)
+              _buildEmptyState(
+                'Aucune réservation',
+                'Vous n\'avez pas encore de réservations',
+                Icons.book_online,
+              )
+            else
+              ...studentState.bookings.bookings.take(3).map((booking) => _buildBookingCard(booking)),
+
+            const SizedBox(height: 24),
+
+            // Leçons disponibles
+            const Text(
+              'Leçons Disponibles',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (studentState.availableLessons.lessons.isEmpty)
+              _buildEmptyState(
+                'Aucune leçon disponible',
+                'Aucune leçon n\'est disponible pour le moment',
+                Icons.school,
+              )
+            else
+              ...studentState.availableLessons.lessons.take(3).map((lesson) => _buildLessonCard(lesson)),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildQuickStats(StudentState studentState) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            'Réservations',
+            studentState.bookings.bookings.length.toString(),
+            Icons.book_online,
+            const Color(0xFF3B82F6),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatCard(
+            'Leçons disponibles',
+            studentState.availableLessons.lessons.length.toString(),
+            Icons.school,
+            const Color(0xFF10B981),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatCard(
+            'Enseignants',
+            studentState.teachers.teachers.length.toString(),
+            Icons.people,
+            const Color(0xFFF59E0B),
+          ),
+        ),
+      ],
     );
   }
 
@@ -214,16 +275,9 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -232,7 +286,7 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -242,7 +296,7 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
             title,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: color.withOpacity(0.8),
             ),
             textAlign: TextAlign.center,
           ),
@@ -250,32 +304,6 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
       ),
     );
   }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ref.read(authStateProvider.notifier).logout();
-            },
-            child: const Text('Déconnexion'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Code supprimé car il causait des erreurs de compilation
 
   Widget _buildBookingCard(dynamic booking) {
     return Container(
@@ -317,7 +345,6 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     );
   }
 
-  // Méthodes utilitaires simplifiées
   Widget _buildLessonCard(dynamic lesson) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
