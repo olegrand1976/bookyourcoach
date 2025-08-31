@@ -2,47 +2,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 
-// Provider pour le service d'authentification
-final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService();
-});
-
-// Provider pour l'état de l'authentification
-final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
-});
-
-// État de l'authentification
+// État d'authentification
 class AuthState {
+  final bool isAuthenticated;
   final bool isLoading;
   final User? user;
   final String? error;
-  final bool isAuthenticated;
 
   const AuthState({
+    this.isAuthenticated = false,
     this.isLoading = false,
     this.user,
     this.error,
-    this.isAuthenticated = false,
   });
 
   AuthState copyWith({
+    bool? isAuthenticated,
     bool? isLoading,
     User? user,
     String? error,
-    bool? isAuthenticated,
   }) {
     return AuthState(
+      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isLoading: isLoading ?? this.isLoading,
       user: user ?? this.user,
       error: error ?? this.error,
-      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     );
   }
 }
 
-// Notifier pour gérer l'état de l'authentification
+// Notifier pour l'authentification
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
 
@@ -64,8 +53,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // Connexion
-  Future<bool> login(String email, String password) async {
+  Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -78,24 +66,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           isLoading: false,
         );
-        return true;
       } else {
         state = state.copyWith(
           error: result['message'],
           isLoading: false,
         );
-        return false;
       }
     } catch (e) {
       state = state.copyWith(
-        error: 'Erreur inattendue: $e',
         isLoading: false,
+        error: e.toString(),
       );
-      return false;
     }
   }
 
-  // Déconnexion
   Future<void> logout() async {
     state = state.copyWith(isLoading: true);
 
@@ -108,38 +92,56 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // Mettre à jour les données utilisateur
-  Future<void> updateUser(User user) async {
-    await _authService.updateUserData(user);
-    state = state.copyWith(user: user);
-  }
+  Future<void> checkAuthStatus() async {
+    state = state.copyWith(isLoading: true);
 
-  // Effacer l'erreur
-  void clearError() {
-    state = state.copyWith(error: null);
+    try {
+      final isLoggedIn = await _authService.isLoggedIn();
+      if (isLoggedIn) {
+        final user = await _authService.getUser();
+        if (user != null) {
+          state = state.copyWith(
+            user: user,
+            isAuthenticated: true,
+            isLoading: false,
+          );
+        } else {
+          state = state.copyWith(isLoading: false);
+        }
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
   }
-
-  // Vérifier les capacités utilisateur
-  bool get canActAsTeacher => state.user?.canActAsTeacher() ?? false;
-  bool get canActAsStudent => state.user?.canActAsStudent() ?? false;
-  bool get isAdmin => state.user?.isAdmin ?? false;
-  bool get isTeacher => state.user?.isTeacher ?? false;
-  bool get isStudent => state.user?.isStudent ?? false;
 }
 
-// Providers utilitaires
-final userProvider = Provider<User?>((ref) {
-  return ref.watch(authStateProvider).user;
+// Providers
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
+
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  return AuthNotifier(authService);
 });
 
 final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(authStateProvider).isAuthenticated;
+  return ref.watch(authProvider).isAuthenticated;
 });
 
 final isLoadingProvider = Provider<bool>((ref) {
-  return ref.watch(authStateProvider).isLoading;
+  return ref.watch(authProvider).isLoading;
+});
+
+final userProvider = Provider<User?>((ref) {
+  return ref.watch(authProvider).user;
 });
 
 final errorProvider = Provider<String?>((ref) {
-  return ref.watch(authStateProvider).error;
+  return ref.watch(authProvider).error;
 });

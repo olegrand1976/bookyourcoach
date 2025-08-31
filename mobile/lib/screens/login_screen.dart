@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +13,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,77 +22,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      final success = await ref.read(authStateProvider.notifier).login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      setState(() {
+        _isLoading = true;
+      });
 
-      if (!success && mounted) {
+      try {
+        await ref.read(authProvider.notifier).login(
+          _emailController.text,
+          _passwordController.text,
+        );
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ref.read(errorProvider) ?? 'Erreur de connexion'),
-            backgroundColor: Colors.red,
+            content: Text('Erreur de connexion: $e'),
+            backgroundColor: const Color(0xFFEF4444),
           ),
         );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(isLoadingProvider);
+    final authState = ref.watch(authProvider);
+    final error = ref.watch(errorProvider);
 
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1E3A8A), // Bleu foncé
-              Color(0xFF3B82F6), // Bleu moyen
-              Color(0xFF60A5FA), // Bleu clair
+              Color(0xFF1E3A8A),
+              Color(0xFF3B82F6),
             ],
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo et titre
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+              padding: const EdgeInsets.all(24),
+              child: Card(
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Form(
+                    key: _formKey,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Icône cheval stylisée
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(40),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.sports_martial_arts,
-                            size: 40,
-                            color: Color(0xFF1E3A8A),
-                          ),
+                        // Logo et titre
+                        const Icon(
+                          Icons.school,
+                          size: 64,
+                          color: Color(0xFF1E3A8A),
                         ),
                         const SizedBox(height: 16),
                         const Text(
@@ -102,167 +93,154 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 1.2,
+                            color: Color(0xFF1E3A8A),
                           ),
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Votre plateforme de coaching équestre',
+                          'Connectez-vous à votre compte',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white70,
+                            color: Color(0xFF6B7280),
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 40),
-                  
-                  // Formulaire de connexion
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Connexion',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E3A8A),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Champ email
-                          CustomTextField(
-                            controller: _emailController,
+                        const SizedBox(height: 32),
+
+                        // Formulaire de connexion
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
                             labelText: 'Email',
-                            prefixIcon: Icons.email_outlined,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Veuillez saisir votre email';
-                              }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                return 'Veuillez saisir un email valide';
-                              }
-                              return null;
-                            },
+                            hintText: 'exemple@email.com',
+                            prefixIcon: Icon(Icons.email),
                           ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Champ mot de passe
-                          CustomTextField(
-                            controller: _passwordController,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Veuillez entrer votre email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Veuillez entrer un email valide';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
                             labelText: 'Mot de passe',
-                            prefixIcon: Icons.lock_outlined,
-                            obscureText: _obscurePassword,
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                color: Colors.grey,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Veuillez saisir votre mot de passe';
-                              }
-                              if (value.length < 6) {
-                                return 'Le mot de passe doit contenir au moins 6 caractères';
-                              }
-                              return null;
-                            },
+                            hintText: 'Entrez votre mot de passe',
+                            prefixIcon: Icon(Icons.lock),
                           ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Bouton de connexion
-                          CustomButton(
-                            text: isLoading ? 'Connexion...' : 'Se connecter',
-                            onPressed: isLoading ? null : _handleLogin,
-                            isLoading: isLoading,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Veuillez entrer votre mot de passe';
+                            }
+                            if (value.length < 6) {
+                              return 'Le mot de passe doit contenir au moins 6 caractères';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Bouton de connexion
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading || authState.isLoading ? null : _login,
+                            child: _isLoading || authState.isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text(
+                                    'Se connecter',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
-                          
+                        ),
+
+                        // Message d'erreur
+                        if (error != null) ...[
                           const SizedBox(height: 16),
-                          
-                          // Comptes de test
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xFFFEE2E2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFEF4444)),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Comptes de test :',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Color(0xFFEF4444),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    error,
+                                    style: const TextStyle(
+                                      color: Color(0xFFEF4444),
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                _buildTestAccount('Admin', 'admin@bookyourcoach.com', 'password123'),
-                                _buildTestAccount('Enseignant', 'sophie.martin@bookyourcoach.com', 'password123'),
-                                _buildTestAccount('Étudiant', 'alice.durand@email.com', 'password123'),
                               ],
                             ),
                           ),
                         ],
-                      ),
+
+                        const SizedBox(height: 24),
+
+                        // Informations de test
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F9FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF3B82F6)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Comptes de test disponibles :',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                                                             const Text(
+                                 '👨‍💼 Admin: admin@bookyourcoach.com\n👨‍🏫 Enseignants:\n• sophie.martin@bookyourcoach.com\n• sarah.johnson@test.com\n• michael.brown@test.com\n• lisa.davis@test.com\n👨‍🎓 Étudiants:\n• alice.durand@email.com\n• lucas.moreau@test.com\n• camille.petit@test.com\n• hugo.simon@test.com\n\n🔑 Mot de passe: password123',
+                                style: TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTestAccount(String role, String email, String password) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Text(
-            '$role: ',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          ),
-          Expanded(
-            child: Text(
-              '$email / $password',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
-        ],
       ),
     );
   }
