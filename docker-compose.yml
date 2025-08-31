@@ -54,7 +54,7 @@ services:
         image: mysql:8.0
         container_name: bookyourcoach_mysql
         ports:
-            - "3307:3306"
+            - "3308:3306"
         environment:
             MYSQL_DATABASE: bookyourcoach
             MYSQL_USER: laravel
@@ -71,7 +71,7 @@ services:
         image: redis:7-alpine
         container_name: bookyourcoach_redis
         ports:
-            - "6380:6379"
+            - "6381:6379"
         volumes:
             - ./docker-data/redis:/data
         networks:
