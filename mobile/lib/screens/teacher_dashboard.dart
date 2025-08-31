@@ -256,7 +256,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              ref.read(authStateProvider.notifier).logout();
+              // TODO: Implémenter la déconnexion
             },
             child: const Text('Déconnexion'),
           ),
