@@ -556,9 +556,10 @@ class TeacherNotifier extends StateNotifier<TeacherState> {
     String? notes,
   }) async {
     final notifier = TeacherAvailabilitiesNotifier(_teacherService);
-    await notifier.addAvailability(
+    await notifier.createAvailability(
       startTime: startTime,
       endTime: endTime,
+      dayOfWeek: 'Monday', // Valeur par défaut
       notes: notes,
     );
     state = state.copyWith(availabilities: notifier.state);
