@@ -2,10 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/teacher_provider.dart';
 
-class TeacherStudentsScreen extends ConsumerWidget {
+
+class TeacherStudentsScreen extends ConsumerStatefulWidget {
   const TeacherStudentsScreen({super.key});
 
-  Widget _buildBody(WidgetRef ref) {
+  @override
+  ConsumerState<TeacherStudentsScreen> createState() => _TeacherStudentsScreenState();
+}
+
+class _TeacherStudentsScreenState extends ConsumerState<TeacherStudentsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Charger les étudiants au démarrage
+    Future.microtask(() {
+      ref.read(teacherProvider.notifier).loadStudents();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mes Étudiants'),
+        backgroundColor: const Color(0xFF2563EB),
+        foregroundColor: Colors.white,
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
     final studentsState = ref.watch(teacherProvider).students;
     final students = studentsState.students;
     
@@ -71,13 +98,26 @@ class TeacherStudentsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: NetworkImage(student.avatarUrl ?? ''),
-              onBackgroundImageError: (exception, stackTrace) {
-                // Gérer l'erreur d'image
-              },
-            ),
+                          CircleAvatar(
+                radius: 30,
+                backgroundColor: const Color(0xFF2563EB),
+                backgroundImage: student.avatarUrl != null && student.avatarUrl!.isNotEmpty 
+                    ? NetworkImage(student.avatarUrl!) 
+                    : null,
+                onBackgroundImageError: (_, __) {},
+                child: student.avatarUrl == null || student.avatarUrl!.isEmpty
+                    ? Text(
+                        student.displayName.isNotEmpty 
+                            ? student.displayName.substring(0, 1).toUpperCase() 
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
+              ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -105,19 +145,6 @@ class TeacherStudentsScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes Étudiants'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
-      ),
-      body: _buildBody(ref),
     );
   }
 }

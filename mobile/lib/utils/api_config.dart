@@ -1,18 +1,17 @@
+
+import 'platform_base_url_web.dart' if (dart.library.io) 'platform_base_url_io.dart';
+
 class ApiConfig {
-  // Configuration de base de l'API
-  static const String baseUrl = 'http://localhost:8081/api';
-  static const String authUrl = 'http://localhost:8081/api/auth';
-  
   // Timeouts
   static const int connectTimeout = 30000; // 30 secondes
   static const int receiveTimeout = 30000; // 30 secondes
-  
+
   // Headers par défaut
   static const Map<String, String> defaultHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
-  
+
   // Endpoints de l'API
   static const String loginEndpoint = '/auth/login';
   static const String registerEndpoint = '/auth/register';
@@ -22,11 +21,18 @@ class ApiConfig {
   static const String teachersEndpoint = '/teachers';
   static const String lessonsEndpoint = '/lessons';
   static const String bookingsEndpoint = '/bookings';
-  
-  // Configuration pour le développement
+
+  // Configuration d'environnement (simple)
   static bool get isDevelopment => true;
-  static String get apiUrl => isDevelopment ? baseUrl : 'https://api.bookyourcoach.com/api';
-  
+
+  // URL de base selon la plateforme (web/desktop: localhost, Android émulateur: 10.0.2.2)
+  static String get apiUrl => isDevelopment
+      ? platformBaseApiUrl()
+      : 'https://api.bookyourcoach.com/api';
+
+  // URL d'auth
+  static String get authUrl => '${apiUrl}/auth';
+
   // Messages d'erreur
   static const String networkErrorMessage = 'Erreur de connexion réseau';
   static const String serverErrorMessage = 'Erreur du serveur';

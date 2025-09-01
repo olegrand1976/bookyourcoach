@@ -28,6 +28,8 @@ return [
         'http://localhost:8081', // Ajout pour le serveur de dev Laravel
         'http://localhost:8083', // Ajout pour l'application mobile Flutter
         'http://127.0.0.1:8083', // Ajout pour l'application mobile Flutter (127.0.0.1)
+        'http://localhost:8084', // Ajout pour l'application mobile Flutter (port actuel)
+        'http://127.0.0.1:8084', // Ajout pour l'application mobile Flutter (127.0.0.1, port actuel)
     ],
 
     'allowed_origins_patterns' => [],

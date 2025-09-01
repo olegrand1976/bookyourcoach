@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
 
   @override
   void dispose() {
@@ -22,28 +30,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  // Charger les informations de connexion sauvegardées
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final authService = ref.read(authServiceProvider);
+      final rememberMe = await authService.isRememberMeEnabled();
+      if (rememberMe) {
+        final savedEmail = await authService.getSavedEmail();
+        if (savedEmail != null) {
+          setState(() {
+            _emailController.text = savedEmail;
+            _rememberMe = true;
+          });
+        }
+      }
+    } catch (e) {
+      // Ignorer les erreurs de chargement des informations sauvegardées
+    }
+  }
+
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
 
       try {
         await ref.read(authProvider.notifier).login(
           _emailController.text,
           _passwordController.text,
+          rememberMe: _rememberMe,
         );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de connexion: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur de connexion: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -145,6 +179,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             return null;
                           },
                         ),
+                        const SizedBox(height: 16),
+
+                        // Option "Garder mes informations de connexion"
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                              activeColor: const Color(0xFF1E3A8A),
+                            ),
+                            const Expanded(
+                              child: Text(
+                                'Garder mes informations de connexion',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 24),
 
                         // Bouton de connexion
@@ -223,12 +282,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                                                             const Text(
-                                 '👨‍💼 Admin: admin@bookyourcoach.com\n👨‍🏫 Enseignants:\n• sophie.martin@bookyourcoach.com\n• sarah.johnson@test.com\n• michael.brown@test.com\n• lisa.davis@test.com\n👨‍🎓 Étudiants:\n• alice.durand@email.com\n• lucas.moreau@test.com\n• camille.petit@test.com\n• hugo.simon@test.com\n\n🔑 Mot de passe: password123',
+                              const Text(
+                                'Compte de test: sophie.fixed@example.com / password123',
                                 style: TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontSize: 14,
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),

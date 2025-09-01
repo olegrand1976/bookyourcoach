@@ -19,7 +19,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadLessons();
+    Future.microtask(() => _loadLessons());
   }
 
   void _loadLessons() {
@@ -45,45 +45,69 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filtres
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: const Color(0xFFF8FAFC),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildFilterChip('Tous', 'all', _selectedFilter == 'all'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildFilterChip('Planifiés', 'scheduled', _selectedFilter == 'scheduled'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildFilterChip('En cours', 'in_progress', _selectedFilter == 'in_progress'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildFilterChip('Terminés', 'completed', _selectedFilter == 'completed'),
-                ),
-              ],
-            ),
-          ),
-          
-          // Liste des cours
-          Expanded(
-            child: lessonsState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : lessonsState.error != null
-                    ? _buildErrorState(lessonsState.error!)
-                    : lessonsState.lessons.isEmpty
-                        ? _buildEmptyState()
-                        : _buildLessonsList(lessonsState.lessons),
-          ),
-        ],
-      ),
+      body: lessonsState.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : lessonsState.error != null
+              ? _buildErrorState(lessonsState.error!)
+              : lessonsState.lessons.isEmpty
+                  ? _buildEmptyState()
+                  : Column(
+                      children: [
+                        // Filtres
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          color: const Color(0xFFF8FAFC),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFilterChip('Tous', 'all', _selectedFilter == 'all'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildFilterChip('Confirmés', 'confirmed', _selectedFilter == 'confirmed'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildFilterChip('Terminés', 'completed', _selectedFilter == 'completed'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildFilterChip('En attente', 'pending', _selectedFilter == 'pending'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFilterChip('Disponibles', 'available', _selectedFilter == 'available'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildFilterChip('Annulés', 'cancelled', _selectedFilter == 'cancelled'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildFilterChip('Absents', 'no_show', _selectedFilter == 'no_show'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Container(), // Espace vide pour aligner avec la première ligne
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Liste des cours
+                        Expanded(
+                          child: _buildLessonsList(lessonsState.lessons),
+                        ),
+                      ],
+                    ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToLessonForm(),
         backgroundColor: const Color(0xFF2563EB),
@@ -99,7 +123,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
         setState(() {
           _selectedFilter = value;
         });
-        _loadLessons();
+        Future.microtask(() => _loadLessons());
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -124,28 +148,33 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
   }
 
   Widget _buildLessonsList(List<Lesson> lessons) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: lessons.length,
-      itemBuilder: (context, index) {
-        final lesson = lessons[index];
-        return _buildLessonCard(lesson);
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadLessons();
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: lessons.length,
+        itemBuilder: (context, index) {
+          final lesson = lessons[index];
+          return _buildLessonCard(lesson);
+        },
+      ),
     );
   }
 
   Widget _buildLessonCard(Lesson lesson) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
             spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -153,12 +182,12 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
         children: [
           // En-tête du cours
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _getStatusColor(lesson.status).withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
               ),
             ),
             child: Row(
@@ -170,19 +199,21 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
                       Text(
                         lesson.title,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF1E293B),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         lesson.description,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           color: Colors.grey[600],
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -209,24 +240,40 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           
           // Détails du cours
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                _buildDetailRow(Icons.access_time, 'Horaires', lesson.formattedTime),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailRow(Icons.access_time, 'Horaires', lesson.formattedTime),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDetailRow(Icons.calendar_today, 'Date', lesson.formattedDate),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                _buildDetailRow(Icons.calendar_today, 'Date', lesson.formattedDate),
-                if (lesson.location != null) ...[
+                if (lesson.locationData != null || lesson.location != null) ...[
+                  _buildDetailRow(Icons.location_on, 'Lieu', lesson.locationData?['name'] ?? lesson.location ?? 'Lieu non spécifié'),
                   const SizedBox(height: 8),
-                  _buildDetailRow(Icons.location_on, 'Lieu', lesson.location!),
                 ],
-                if (lesson.price != null) ...[
-                  const SizedBox(height: 8),
-                  _buildDetailRow(Icons.euro, 'Prix', '${lesson.price}€'),
-                ],
-                if (lesson.student != null) ...[
-                  const SizedBox(height: 8),
-                  _buildDetailRow(Icons.person, 'Étudiant', lesson.student!.displayName),
-                ],
+                Row(
+                  children: [
+                    if (lesson.price != null) ...[
+                      Expanded(
+                        child: _buildDetailRow(Icons.euro, 'Prix', '${lesson.price}€'),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    if (lesson.student != null) ...[
+                      Expanded(
+                        child: _buildDetailRow(Icons.person, 'Étudiant', lesson.student!.displayName),
+                      ),
+                    ],
+                  ],
+                ),
                 if (lesson.notes != null && lesson.notes!.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _buildDetailRow(Icons.note, 'Notes', lesson.notes!),
@@ -237,12 +284,12 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           
           // Actions
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey[50],
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
               ),
             ),
             child: Row(
@@ -273,12 +320,12 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
+        Icon(icon, size: 14, color: Colors.grey[600]),
+        const SizedBox(width: 6),
         Text(
           '$label: ',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Colors.grey[700],
           ),
@@ -287,9 +334,10 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           child: Text(
             value,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               color: Colors.grey[600],
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -366,7 +414,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           CustomButton(
             onPressed: () {
               ref.read(teacherLessonsProvider.notifier).clearError();
-              _loadLessons();
+              Future.microtask(() => _loadLessons());
             },
             text: 'Réessayer',
             icon: Icons.refresh,
@@ -394,7 +442,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
                     _selectedFilter = value!;
                   });
                   Navigator.of(context).pop();
-                  _loadLessons();
+                  Future.microtask(() => _loadLessons());
                 },
               ),
             ),
@@ -408,7 +456,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
                     _selectedFilter = value!;
                   });
                   Navigator.of(context).pop();
-                  _loadLessons();
+                  Future.microtask(() => _loadLessons());
                 },
               ),
             ),
@@ -422,7 +470,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
                     _selectedFilter = value!;
                   });
                   Navigator.of(context).pop();
-                  _loadLessons();
+                  Future.microtask(() => _loadLessons());
                 },
               ),
             ),
@@ -436,7 +484,7 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
                     _selectedFilter = value!;
                   });
                   Navigator.of(context).pop();
-                  _loadLessons();
+                  Future.microtask(() => _loadLessons());
                 },
               ),
             ),
@@ -585,14 +633,18 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'scheduled':
-        return const Color(0xFF2563EB);
-      case 'in_progress':
-        return const Color(0xFF059669);
+      case 'pending':
+        return const Color(0xFFF59E0B); // Orange pour en attente
+      case 'confirmed':
+        return const Color(0xFF2563EB); // Bleu pour confirmé
       case 'completed':
-        return const Color(0xFF7C3AED);
+        return const Color(0xFF059669); // Vert pour terminé
       case 'cancelled':
-        return const Color(0xFFDC2626);
+        return const Color(0xFFDC2626); // Rouge pour annulé
+      case 'no_show':
+        return const Color(0xFF6B7280); // Gris pour absent
+      case 'available':
+        return const Color(0xFF10B981); // Vert pour disponible
       default:
         return Colors.grey;
     }
