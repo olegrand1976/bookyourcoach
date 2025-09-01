@@ -148,21 +148,62 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
     );
   }
 
-  Widget _buildQuickStats(Map<String, dynamic> stats) {
+  Widget _buildCollapsibleStats(Map<String, dynamic> stats) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Statistiques Rapides',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
+          // Barre de titre avec bouton de repli
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isStatsExpanded = !_isStatsExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _isStatsExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Statistiques rapides',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.grey[500],
+                    size: 16,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          // Contenu des statistiques (repliable)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isStatsExpanded ? null : 0,
+            child: _isStatsExpanded ? _buildQuickStats(stats) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickStats(Map<String, dynamic> stats) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        children: [
           Row(
             children: [
               Expanded(
@@ -173,7 +214,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
                   const Color(0xFF2563EB),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   'Cours terminés',
@@ -184,7 +225,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -195,7 +236,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
                   const Color(0xFFDC2626),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   'Revenus',
@@ -213,36 +254,36 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
             spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 10,
               color: Colors.grey[600],
             ),
             textAlign: TextAlign.center,
