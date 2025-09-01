@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/teacher_provider.dart';
 import '../widgets/custom_button.dart';
+
 import 'teacher_lessons_screen.dart';
 import 'teacher_availabilities_screen.dart';
 import 'teacher_students_screen.dart';
@@ -17,6 +18,7 @@ class TeacherDashboard extends ConsumerStatefulWidget {
 
 class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
   int _selectedIndex = 0;
+  bool _isStatsExpanded = true; // Nouvelle variable pour contrôler l'expansion des stats
 
   @override
   void initState() {
@@ -56,12 +58,20 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundImage: NetworkImage(user?.avatarUrl ?? ''),
+                  backgroundImage: user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty 
+                      ? NetworkImage(user!.avatarUrl!) 
+                      : null,
                   onBackgroundImageError: (_, __) {},
-                  child: user?.avatarUrl == null
+                  child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
                       ? Text(
-                          user?.displayName.substring(0, 1).toUpperCase() ?? 'E',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          user?.displayName.isNotEmpty == true 
+                              ? user!.displayName.substring(0, 1).toUpperCase() 
+                              : 'E',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         )
                       : null,
                 ),
@@ -93,8 +103,8 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
             ),
           ),
           
-          // Statistiques rapides
-          if (statsState.stats != null) _buildQuickStats(statsState.stats!),
+          // Statistiques rapides repliables
+          if (statsState.stats != null) _buildCollapsibleStats(statsState.stats!),
           
           // Navigation par onglets
           Expanded(
@@ -158,7 +168,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               Expanded(
                 child: _buildStatCard(
                   'Cours ce mois',
-                  stats['lessons_this_month']?.toString() ?? '0',
+                  stats['total_lessons']?.toString() ?? '0',
                   Icons.school,
                   const Color(0xFF2563EB),
                 ),
@@ -166,8 +176,8 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildStatCard(
-                  'Étudiants actifs',
-                  stats['active_students']?.toString() ?? '0',
+                  'Cours terminés',
+                  stats['completed_lessons']?.toString() ?? '0',
                   Icons.people,
                   const Color(0xFF059669),
                 ),
@@ -180,7 +190,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               Expanded(
                 child: _buildStatCard(
                   'Heures enseignées',
-                  '${stats['hours_taught']?.toString() ?? '0'}h',
+                  '${stats['total_hours']?.toString() ?? '0'}h',
                   Icons.access_time,
                   const Color(0xFFDC2626),
                 ),
@@ -189,7 +199,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
               Expanded(
                 child: _buildStatCard(
                   'Revenus',
-                  '${stats['revenue']?.toString() ?? '0'}€',
+                  '${stats['monthly_earnings']?.toString() ?? '0'}€',
                   Icons.euro,
                   const Color(0xFF7C3AED),
                 ),
@@ -256,7 +266,7 @@ class _TeacherDashboardState extends ConsumerState<TeacherDashboard> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // TODO: Implémenter la déconnexion
+              ref.read(authProvider.notifier).logout();
             },
             child: const Text('Déconnexion'),
           ),

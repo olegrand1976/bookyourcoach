@@ -2,10 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/teacher_provider.dart';
 
-class TeacherAvailabilitiesScreen extends ConsumerWidget {
+class TeacherAvailabilitiesScreen extends ConsumerStatefulWidget {
   const TeacherAvailabilitiesScreen({super.key});
 
-  Widget _buildBody(WidgetRef ref) {
+  @override
+  ConsumerState<TeacherAvailabilitiesScreen> createState() => _TeacherAvailabilitiesScreenState();
+}
+
+class _TeacherAvailabilitiesScreenState extends ConsumerState<TeacherAvailabilitiesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Charger les disponibilités au démarrage
+    Future.microtask(() {
+      ref.read(teacherProvider.notifier).loadAvailabilities();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mes Disponibilités'),
+        backgroundColor: const Color(0xFF2563EB),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _addAvailability(),
+          ),
+        ],
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
     final availabilitiesState = ref.watch(teacherProvider).availabilities;
     final availabilities = availabilitiesState.availabilities;
     
@@ -124,7 +156,7 @@ class TeacherAvailabilitiesScreen extends ConsumerWidget {
                 Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
                 Text(
-                  '${availability.startTime} - ${availability.endTime}',
+                  availability.formattedTime,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -132,6 +164,38 @@ class TeacherAvailabilitiesScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  '${availability.dayOfWeekDisplay} ${availability.formattedDate}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            if (availability.location != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      availability.location!['name'] ?? 'Lieu non spécifié',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (availability.notes != null && availability.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -154,27 +218,6 @@ class TeacherAvailabilitiesScreen extends ConsumerWidget {
 
   void _deleteAvailability(dynamic availability) {
     // TODO: Implémenter la suppression
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes Disponibilités'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () {
-              _addAvailability();
-            },
-            icon: const Icon(Icons.add),
-          ),
-        ],
-      ),
-      body: _buildBody(ref),
-    );
   }
 
   void _addAvailability() {

@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
+import '../utils/api_config.dart';
 
 class AuthService {
-  static const String _baseUrl = 'http://localhost:8081/api';
+  static final String _baseUrl = ApiConfig.apiUrl;
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
+  static const String _rememberMeKey = 'remember_me';
+  static const String _savedEmailKey = 'saved_email';
   
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -37,7 +40,7 @@ class AuthService {
   }
 
   // Connexion
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, {bool rememberMe = false}) async {
     try {
       final response = await _dio.post('/auth/login', data: {
         'email': email,
@@ -58,6 +61,17 @@ class AuthService {
             key: _userKey, 
             value: jsonEncode(data['user'])
           );
+        }
+
+        // Sauvegarder l'option "Se souvenir de moi"
+        await _storage.write(key: _rememberMeKey, value: rememberMe.toString());
+        
+        // Si l'utilisateur veut qu'on se souvienne de lui, sauvegarder l'email
+        if (rememberMe) {
+          await _storage.write(key: _savedEmailKey, value: email);
+        } else {
+          // Sinon, supprimer l'email sauvegardé
+          await _storage.delete(key: _savedEmailKey);
         }
 
         return {
@@ -107,15 +121,32 @@ class AuthService {
     try {
       final response = await _dio.post('/auth/logout');
       
+      // Vérifier si "Se souvenir de moi" est activé
+      final rememberMe = await _storage.read(key: _rememberMeKey);
+      
       // Supprimer le token et les données utilisateur
       await _storage.delete(key: _tokenKey);
       await _storage.delete(key: _userKey);
+      
+      // Si "Se souvenir de moi" n'est pas activé, supprimer aussi l'email
+      if (rememberMe != 'true') {
+        await _storage.delete(key: _savedEmailKey);
+        await _storage.delete(key: _rememberMeKey);
+      }
       
       return response.statusCode == 200;
     } catch (e) {
       // Même en cas d'erreur, supprimer les données locales
       await _storage.delete(key: _tokenKey);
       await _storage.delete(key: _userKey);
+      
+      // Vérifier si "Se souvenir de moi" est activé
+      final rememberMe = await _storage.read(key: _rememberMeKey);
+      if (rememberMe != 'true') {
+        await _storage.delete(key: _savedEmailKey);
+        await _storage.delete(key: _rememberMeKey);
+      }
+      
       return true;
     }
   }
@@ -167,6 +198,21 @@ class AuthService {
   // Obtenir le token
   Future<String?> getToken() async {
     return await _storage.read(key: _tokenKey);
+  }
+
+  // Obtenir l'email sauvegardé
+  Future<String?> getSavedEmail() async {
+    final rememberMe = await _storage.read(key: _rememberMeKey);
+    if (rememberMe == 'true') {
+      return await _storage.read(key: _savedEmailKey);
+    }
+    return null;
+  }
+
+  // Vérifier si "Se souvenir de moi" est activé
+  Future<bool> isRememberMeEnabled() async {
+    final rememberMe = await _storage.read(key: _rememberMeKey);
+    return rememberMe == 'true';
   }
 
   // Tester la connexion à l'API

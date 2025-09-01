@@ -2,10 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/student_provider.dart';
 
-class StudentTeachersScreen extends ConsumerWidget {
+
+class StudentTeachersScreen extends ConsumerStatefulWidget {
   const StudentTeachersScreen({super.key});
 
-  Widget _buildBody(WidgetRef ref) {
+  @override
+  ConsumerState<StudentTeachersScreen> createState() => _StudentTeachersScreenState();
+}
+
+class _StudentTeachersScreenState extends ConsumerState<StudentTeachersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Charger les enseignants au démarrage
+    Future.microtask(() {
+      ref.read(studentProvider.notifier).loadTeachers();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Enseignants'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E3A8A),
+        elevation: 0,
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
     final teachersState = ref.watch(studentProvider).teachers;
     final teachers = teachersState.teachers;
     
@@ -19,13 +47,13 @@ class StudentTeachersScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.person_outline,
+              Icons.people_outline,
               size: 64,
               color: Color(0xFF6B7280),
             ),
             SizedBox(height: 16),
             Text(
-              'Aucun enseignant disponible',
+              'Aucun enseignant',
               style: TextStyle(
                 fontSize: 18,
                 color: Color(0xFF6B7280),
@@ -33,7 +61,7 @@ class StudentTeachersScreen extends ConsumerWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'Les enseignants s\'inscriront bientôt sur la plateforme',
+              'Les enseignants s\'inscriront bientôt',
               style: TextStyle(
                 fontSize: 14,
                 color: Color(0xFF9CA3AF),
@@ -71,13 +99,26 @@ class StudentTeachersScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: NetworkImage(teacher.avatarUrl ?? ''),
-              onBackgroundImageError: (exception, stackTrace) {
-                // Gérer l'erreur d'image
-              },
-            ),
+                          CircleAvatar(
+                radius: 30,
+                backgroundColor: const Color(0xFF2563EB),
+                backgroundImage: teacher.avatarUrl != null && teacher.avatarUrl!.isNotEmpty 
+                    ? NetworkImage(teacher.avatarUrl!) 
+                    : null,
+                onBackgroundImageError: (_, __) {},
+                child: teacher.avatarUrl == null || teacher.avatarUrl!.isEmpty
+                    ? Text(
+                        teacher.displayName.isNotEmpty 
+                            ? teacher.displayName.substring(0, 1).toUpperCase() 
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
+              ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -159,19 +200,6 @@ class StudentTeachersScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Enseignants'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
-      ),
-      body: _buildBody(ref),
     );
   }
 }

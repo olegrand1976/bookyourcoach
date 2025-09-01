@@ -43,7 +43,7 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
         actions: [
           IconButton(
             onPressed: () {
-              // TODO: Implémenter la déconnexion
+              ref.read(authProvider.notifier).logout();
             },
             icon: const Icon(Icons.logout),
           ),

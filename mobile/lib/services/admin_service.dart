@@ -1,19 +1,17 @@
-
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../models/lesson.dart';
-import '../models/booking.dart';
 import '../models/user.dart';
+import '../models/club.dart';
 import '../utils/api_config.dart';
 
-class StudentService {
+class AdminService {
   static final String _baseUrl = ApiConfig.apiUrl;
   static const String _tokenKey = 'auth_token';
 
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
-  StudentService() {
+  AdminService() {
     _dio.options.baseUrl = _baseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 10);
@@ -40,27 +38,22 @@ class StudentService {
     return await _storage.read(key: _tokenKey);
   }
 
-  // Récupérer les cours disponibles
-  Future<List<Lesson>> getAvailableLessons({String? subject, DateTime? date}) async {
+  // Récupérer les statistiques de la plateforme
+  Future<Map<String, dynamic>> getStats() async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.get(
-        '/student/available-lessons',
+        '/admin/stats',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
-        queryParameters: {
-          if (subject != null) 'subject': subject,
-          if (date != null) 'date': date.toIso8601String(),
-        },
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => Lesson.fromJson(json)).toList();
+        return response.data;
       }
 
-      throw Exception('Erreur lors de la récupération des cours disponibles');
+      throw Exception('Erreur lors de la récupération des statistiques');
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -68,26 +61,62 @@ class StudentService {
     }
   }
 
-  // Récupérer les réservations de l'élève
-  Future<List<Booking>> getStudentBookings({String? status}) async {
+  // Récupérer les activités récentes
+  Future<List<Map<String, dynamic>>> getActivities({int? limit}) async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.get(
-        '/student/bookings',
+        '/admin/activities',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
         queryParameters: {
+          if (limit != null) 'limit': limit,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? response.data;
+        return data.cast<Map<String, dynamic>>();
+      }
+
+      throw Exception('Erreur lors de la récupération des activités');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Récupérer la liste des utilisateurs
+  Future<Map<String, dynamic>> getUsers({
+    int? page,
+    int? perPage,
+    String? search,
+    String? role,
+    String? status,
+  }) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.get(
+        '/admin/users',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        queryParameters: {
+          if (page != null) 'page': page,
+          if (perPage != null) 'per_page': perPage,
+          if (search != null) 'search': search,
+          if (role != null) 'role': role,
           if (status != null) 'status': status,
         },
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => Booking.fromJson(json)).toList();
+        return response.data;
       }
 
-      throw Exception('Erreur lors de la récupération des réservations');
+      throw Exception('Erreur lors de la récupération des utilisateurs');
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -95,29 +124,35 @@ class StudentService {
     }
   }
 
-  // Réserver un cours
-  Future<Booking> bookLesson({
-    required int lessonId,
-    String? notes,
+  // Créer un nouvel utilisateur
+  Future<User> createUser({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required String role,
   }) async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.post(
-        '/student/bookings',
+        '/admin/users',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
         data: {
-          'lesson_id': lessonId,
-          'notes': notes,
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+          'role': role,
         },
       );
 
       if (response.statusCode == 201) {
-        return Booking.fromJson(response.data['data'] ?? response.data);
+        return User.fromJson(response.data);
       }
 
-      throw Exception('Erreur lors de la réservation');
+      throw Exception('Erreur lors de la création de l\'utilisateur');
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -125,14 +160,250 @@ class StudentService {
     }
   }
 
-  // Annuler une réservation
-  Future<bool> cancelBooking(int bookingId) async {
+  // Mettre à jour un utilisateur
+  Future<User> updateUser({
+    required int userId,
+    String? name,
+    String? email,
+    String? role,
+  }) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (email != null) data['email'] = email;
+      if (role != null) data['role'] = role;
+
+      final response = await _dio.put(
+        '/admin/users/$userId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return User.fromJson(response.data);
+      }
+
+      throw Exception('Erreur lors de la mise à jour de l\'utilisateur');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Basculer le statut d'un utilisateur
+  Future<User> toggleUserStatus(int userId) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.patch(
+        '/admin/users/$userId/toggle-status',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200) {
+        return User.fromJson(response.data);
+      }
+
+      throw Exception('Erreur lors du changement de statut');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Récupérer tous les paramètres
+  Future<Map<String, dynamic>> getAllSettings() async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.get(
+        '/admin/settings',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+
+      throw Exception('Erreur lors de la récupération des paramètres');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Récupérer les paramètres par type
+  Future<Map<String, dynamic>> getSettings(String type) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.get(
+        '/admin/settings/$type',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+
+      throw Exception('Erreur lors de la récupération des paramètres');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Mettre à jour les paramètres
+  Future<Map<String, dynamic>> updateSettings({
+    required String type,
+    required Map<String, dynamic> settings,
+  }) async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.put(
-        '/student/bookings/$bookingId/cancel',
+        '/admin/settings/$type',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: settings,
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+
+      throw Exception('Erreur lors de la mise à jour des paramètres');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Récupérer la liste des clubs
+  Future<List<Club>> getClubs() async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.get(
+        '/admin/clubs',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? response.data;
+        return data.map((json) => Club.fromJson(json)).toList();
+      }
+
+      throw Exception('Erreur lors de la récupération des clubs');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Créer un nouveau club
+  Future<Club> createClub({
+    required String name,
+    required String address,
+    required String city,
+    required String postalCode,
+    required String country,
+    String? description,
+    List<String>? facilities,
+  }) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.post(
+        '/admin/clubs',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: {
+          'name': name,
+          'address': address,
+          'city': city,
+          'postal_code': postalCode,
+          'country': country,
+          if (description != null) 'description': description,
+          if (facilities != null) 'facilities': facilities,
+        },
+      );
+
+      if (response.statusCode == 201) {
+        return Club.fromJson(response.data);
+      }
+
+      throw Exception('Erreur lors de la création du club');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Mettre à jour un club
+  Future<Club> updateClub({
+    required int clubId,
+    String? name,
+    String? address,
+    String? city,
+    String? postalCode,
+    String? country,
+    String? description,
+    List<String>? facilities,
+  }) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (address != null) data['address'] = address;
+      if (city != null) data['city'] = city;
+      if (postalCode != null) data['postal_code'] = postalCode;
+      if (country != null) data['country'] = country;
+      if (description != null) data['description'] = description;
+      if (facilities != null) data['facilities'] = facilities;
+
+      final response = await _dio.put(
+        '/admin/clubs/$clubId',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return Club.fromJson(response.data);
+      }
+
+      throw Exception('Erreur lors de la mise à jour du club');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Erreur inattendue: $e');
+    }
+  }
+
+  // Supprimer un club
+  Future<bool> deleteClub(int clubId) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token non trouvé');
+
+      final response = await _dio.delete(
+        '/admin/clubs/$clubId',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
@@ -144,161 +415,22 @@ class StudentService {
     }
   }
 
-  // Récupérer les enseignants disponibles
-  Future<List<User>> getAvailableTeachers({String? subject}) async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/available-teachers',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-        queryParameters: {
-          if (subject != null) 'subject': subject,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => User.fromJson(json)).toList();
-      }
-
-      throw Exception('Erreur lors de la récupération des enseignants');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Récupérer les cours d'un enseignant spécifique
-  Future<List<Lesson>> getTeacherLessons(int teacherId) async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/teachers/$teacherId/lessons',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => Lesson.fromJson(json)).toList();
-      }
-
-      throw Exception('Erreur lors de la récupération des cours de l\'enseignant');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Récupérer les statistiques de l'élève
-  Future<Map<String, dynamic>> getStudentStats() async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/stats',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode == 200) {
-        return response.data['data'] ?? response.data;
-      }
-
-      throw Exception('Erreur lors de la récupération des statistiques');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Rechercher des cours
-  Future<List<Lesson>> searchLessons({
-    String? query,
-    String? subject,
-    DateTime? startDate,
-    DateTime? endDate,
-    double? maxPrice,
-  }) async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/search-lessons',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-        queryParameters: {
-          if (query != null) 'q': query,
-          if (subject != null) 'subject': subject,
-          if (startDate != null) 'start_date': startDate.toIso8601String(),
-          if (endDate != null) 'end_date': endDate.toIso8601String(),
-          if (maxPrice != null) 'max_price': maxPrice,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => Lesson.fromJson(json)).toList();
-      }
-
-      throw Exception('Erreur lors de la recherche de cours');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Récupérer l'historique des cours
-  Future<List<Booking>> getLessonHistory() async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/lesson-history',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => Booking.fromJson(json)).toList();
-      }
-
-      throw Exception('Erreur lors de la récupération de l\'historique');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Noter un cours terminé
-  Future<bool> rateLesson({
-    required int bookingId,
-    required int rating,
-    String? review,
-  }) async {
+  // Basculer le statut d'un club
+  Future<Club> toggleClubStatus(int clubId) async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.post(
-        '/student/bookings/$bookingId/rate',
+        '/admin/clubs/$clubId/toggle-status',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
-        data: {
-          'rating': rating,
-          'review': review,
-        },
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200) {
+        return Club.fromJson(response.data);
+      }
+
+      throw Exception('Erreur lors du changement de statut du club');
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -306,23 +438,22 @@ class StudentService {
     }
   }
 
-  // Récupérer les favoris de l'élève
-  Future<List<User>> getFavoriteTeachers() async {
+  // Récupérer le statut du système
+  Future<Map<String, dynamic>> getSystemStatus() async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.get(
-        '/student/favorite-teachers',
+        '/admin/system/status',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => User.fromJson(json)).toList();
+        return response.data;
       }
 
-      throw Exception('Erreur lors de la récupération des enseignants favoris');
+      throw Exception('Erreur lors de la récupération du statut système');
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -330,105 +461,18 @@ class StudentService {
     }
   }
 
-  // Ajouter/Retirer un enseignant des favoris
-  Future<bool> toggleFavoriteTeacher(int teacherId) async {
+  // Vider le cache
+  Future<bool> clearCache() async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token non trouvé');
 
       final response = await _dio.post(
-        '/student/favorite-teachers/$teacherId/toggle',
+        '/admin/system/clear-cache',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Récupérer tous les enseignants
-  Future<List<User>> getTeachers() async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/teachers',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? response.data;
-        return data.map((json) => User.fromJson(json)).toList();
-      }
-
-      throw Exception('Erreur lors de la récupération des enseignants');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Récupérer les préférences de l'étudiant
-  Future<Map<String, dynamic>> getStudentPreferences() async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.get(
-        '/student/preferences',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      if (response.statusCode == 200) {
-        return response.data['data'] ?? response.data;
-      }
-
-      throw Exception('Erreur lors de la récupération des préférences');
-    } on DioException catch (e) {
-      return _handleDioError(e);
-    } catch (e) {
-      throw Exception('Erreur inattendue: $e');
-    }
-  }
-
-  // Sauvegarder les préférences de l'étudiant
-  Future<Map<String, dynamic>> saveStudentPreferences({
-    required List<String> disciplines,
-    required List<String> levels,
-    required List<String> formats,
-    String? location,
-    double? maxPrice,
-    int? maxDistance,
-    bool? notificationsEnabled,
-  }) async {
-    try {
-      final token = await _getAuthToken();
-      if (token == null) throw Exception('Token non trouvé');
-
-      final response = await _dio.post(
-        '/student/preferences',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-        data: {
-          'preferred_disciplines': disciplines,
-          'preferred_levels': levels,
-          'preferred_formats': formats,
-          if (location != null) 'location': location,
-          if (maxPrice != null) 'max_price': maxPrice,
-          if (maxDistance != null) 'max_distance': maxDistance,
-          if (notificationsEnabled != null) 'notifications_enabled': notificationsEnabled,
-        },
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return response.data['data'] ?? response.data;
-      }
-
-      throw Exception('Erreur lors de la sauvegarde des préférences');
+      return response.statusCode == 200 || response.statusCode == 204;
     } on DioException catch (e) {
       return _handleDioError(e);
     } catch (e) {
@@ -449,6 +493,8 @@ class StudentService {
         
         if (statusCode == 401) {
           throw Exception('Votre session a expiré. Veuillez vous reconnecter.');
+        } else if (statusCode == 403) {
+          throw Exception('Accès refusé - Droits administrateur requis.');
         } else if (statusCode == 422) {
           // Erreurs de validation
           final errors = data['errors'] as Map<String, dynamic>?;

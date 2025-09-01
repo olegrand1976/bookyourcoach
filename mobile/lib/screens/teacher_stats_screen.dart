@@ -2,10 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/teacher_provider.dart';
 
-class TeacherStatsScreen extends ConsumerWidget {
+class TeacherStatsScreen extends ConsumerStatefulWidget {
   const TeacherStatsScreen({super.key});
 
-  Widget _buildBody(WidgetRef ref) {
+  @override
+  ConsumerState<TeacherStatsScreen> createState() => _TeacherStatsScreenState();
+}
+
+class _TeacherStatsScreenState extends ConsumerState<TeacherStatsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Charger les statistiques au démarrage
+    Future.microtask(() {
+      ref.read(teacherProvider.notifier).loadStats();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Statistiques'),
+        backgroundColor: const Color(0xFF2563EB),
+        foregroundColor: Colors.white,
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
     final statsState = ref.watch(teacherProvider).stats;
     
     if (statsState.isLoading) {
@@ -181,19 +207,6 @@ class TeacherStatsScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes Statistiques'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
-      ),
-      body: _buildBody(ref),
     );
   }
 }

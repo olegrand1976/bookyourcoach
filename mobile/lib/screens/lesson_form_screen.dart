@@ -296,7 +296,7 @@ class _LessonFormScreenState extends ConsumerState<LessonFormScreen> {
 
       try {
         if (widget.lesson == null) {
-          // Créer une nouvelle leçon
+          // Créer une nouvelle leçon (peut être sans étudiant pour les stages/cours en attente)
           ref.read(teacherProvider.notifier).createLesson(
             title: _titleController.text,
             description: _descriptionController.text,

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @OA\Schema(
@@ -32,7 +33,21 @@ class Student extends Model
         'level',
         'goals',
         'medical_info',
-        'emergency_contact'
+        'emergency_contact',
+        'preferred_disciplines',
+        'preferred_levels',
+        'preferred_formats',
+        'location',
+        'max_price',
+        'max_distance',
+        'notifications_enabled',
+    ];
+
+    protected $casts = [
+        'preferred_disciplines' => 'array',
+        'preferred_levels' => 'array',
+        'preferred_formats' => 'array',
+        'notifications_enabled' => 'boolean',
     ];
 
     /**
@@ -44,11 +59,21 @@ class Student extends Model
     }
 
     /**
-     * Get the lessons for this student.
+     * Get the primary lessons for this student (for backward compatibility).
      */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class);
+    }
+
+    /**
+     * Get all lessons for this student (many-to-many relationship).
+     */
+    public function allLessons(): BelongsToMany
+    {
+        return $this->belongsToMany(Lesson::class, 'lesson_student')
+                    ->withPivot(['status', 'price', 'notes'])
+                    ->withTimestamps();
     }
 
     /**
@@ -57,5 +82,25 @@ class Student extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * Get the total number of lessons for this student.
+     */
+    public function getTotalLessonsAttribute(): int
+    {
+        return $this->allLessons()->count();
+    }
+
+    /**
+     * Get the total amount spent by this student.
+     */
+    public function getTotalSpentAttribute(): float
+    {
+        $total = 0;
+        foreach ($this->allLessons as $lesson) {
+            $total += $lesson->pivot->price ?? $lesson->price ?? 0;
+        }
+        return $total;
     }
 }

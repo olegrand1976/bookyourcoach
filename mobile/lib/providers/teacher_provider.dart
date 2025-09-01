@@ -63,9 +63,21 @@ class TeacherLessonsNotifier extends StateNotifier<TeacherLessonsState> {
         filterDate: date,
       );
     } catch (e) {
+      String errorMessage = 'Erreur lors du chargement des cours';
+      
+      if (e.toString().contains('type \'Null\' is not a subtype of type \'String\'')) {
+        errorMessage = 'Erreur de format des données reçues. Veuillez réessayer.';
+      } else if (e.toString().contains('Token non trouvé')) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+      } else if (e.toString().contains('Erreur de connexion')) {
+        errorMessage = 'Problème de connexion au serveur. Vérifiez votre connexion internet.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'Délai de réponse dépassé. Veuillez réessayer.';
+      }
+      
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: errorMessage,
       );
     }
   }

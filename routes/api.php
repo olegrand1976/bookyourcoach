@@ -80,6 +80,39 @@ Route::middleware('auth:sanctum')->group(function () {
     // Student Dashboard
     Route::get('/student/dashboard/stats', [DashboardController::class, 'getStats']);
 
+    // Student routes
+    Route::prefix('student')->middleware('student')->group(function () {
+        Route::get('/available-lessons', [DashboardController::class, 'getAvailableLessons']);
+        Route::get('/bookings', [DashboardController::class, 'getBookings']);
+        Route::post('/bookings', [DashboardController::class, 'createBooking']);
+        Route::put('/bookings/{id}/cancel', [DashboardController::class, 'cancelBooking']);
+        Route::get('/available-teachers', [DashboardController::class, 'getAvailableTeachers']);
+        Route::get('/teachers/{id}/lessons', [DashboardController::class, 'getTeacherLessons']);
+        Route::get('/stats', [DashboardController::class, 'getStats']);
+        Route::get('/search-lessons', [DashboardController::class, 'searchLessons']);
+        Route::get('/lesson-history', [DashboardController::class, 'getLessonHistory']);
+        Route::post('/bookings/{id}/rate', [DashboardController::class, 'rateLesson']);
+        Route::get('/favorite-teachers', [DashboardController::class, 'getFavoriteTeachers']);
+        Route::post('/favorite-teachers/{id}/toggle', [DashboardController::class, 'toggleFavoriteTeacher']);
+        Route::get('/teachers', [DashboardController::class, 'getTeachers']);
+        Route::get('/preferences', [DashboardController::class, 'getPreferences']);
+        Route::post('/preferences', [DashboardController::class, 'savePreferences']);
+    });
+
+    // Teacher routes
+    Route::prefix('teacher')->middleware('teacher')->group(function () {
+        Route::get('/lessons', [TeacherDashboardController::class, 'getLessons']);
+        Route::post('/lessons', [TeacherDashboardController::class, 'createLesson']);
+        Route::put('/lessons/{id}', [TeacherDashboardController::class, 'updateLesson']);
+        Route::delete('/lessons/{id}', [TeacherDashboardController::class, 'deleteLesson']);
+        Route::get('/availabilities', [TeacherDashboardController::class, 'getAvailabilities']);
+        Route::post('/availabilities', [TeacherDashboardController::class, 'createAvailability']);
+        Route::put('/availabilities/{id}', [TeacherDashboardController::class, 'updateAvailability']);
+        Route::delete('/availabilities/{id}', [TeacherDashboardController::class, 'deleteAvailability']);
+        Route::get('/stats', [TeacherDashboardController::class, 'getStats']);
+        Route::get('/students', [TeacherDashboardController::class, 'getStudents']);
+    });
+
     // Upload de fichiers
     Route::post('/upload/avatar', [FileUploadController::class, 'uploadAvatar'])->name('upload.avatar');
     Route::post('/upload/certificate', [FileUploadController::class, 'uploadCertificate'])->name('upload.certificate');

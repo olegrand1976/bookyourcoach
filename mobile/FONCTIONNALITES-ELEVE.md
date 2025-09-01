@@ -375,3 +375,6 @@ class ApiConfig {
 
 **L'application est prête pour la production et offre une expérience utilisateur optimale pour les élèves !**
 
+
+
+

@@ -10,6 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Models\Teacher;
+use App\Models\Student;
 
 class AuthController extends Controller
 {
@@ -70,6 +72,38 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role ?? 'student', // Valeur par défaut
         ]);
+
+        // Créer le profil approprié selon le rôle
+        if ($request->role === 'teacher') {
+            Teacher::create([
+                'user_id' => $user->id,
+                'specialties' => [],
+                'experience_years' => 0,
+                'certifications' => [],
+                'hourly_rate' => 0.00,
+                'bio' => '',
+                'is_available' => true,
+                'max_travel_distance' => 10,
+                'preferred_locations' => [],
+                'rating' => 0.00,
+                'total_lessons' => 0,
+            ]);
+        } elseif ($request->role === 'student') {
+            Student::create([
+                'user_id' => $user->id,
+                'level' => 'débutant',
+                'goals' => 'Apprendre les bases',
+                'medical_info' => '',
+                'emergency_contact' => '',
+                'preferred_disciplines' => [],
+                'preferred_levels' => [],
+                'preferred_formats' => [],
+                'location' => '',
+                'max_price' => null,
+                'max_distance' => 10,
+                'notifications_enabled' => true,
+            ]);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

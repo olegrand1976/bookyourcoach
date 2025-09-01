@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @OA\Schema(
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *     description="Cours/leçon réservé sur la plateforme",
  *     @OA\Property(property="id", type="integer", format="int64", description="Identifiant unique du cours", example=1),
  *     @OA\Property(property="teacher_id", type="integer", description="ID de l'enseignant", example=1),
- *     @OA\Property(property="student_id", type="integer", description="ID de l'élève", example=1),
+ *     @OA\Property(property="student_id", type="integer", description="ID de l'élève principal (pour compatibilité)", example=1),
  *     @OA\Property(property="course_type_id", type="integer", description="ID du type de cours", example=1),
  *     @OA\Property(property="location_id", type="integer", description="ID du lieu", example=1),
  *     @OA\Property(property="scheduled_at", type="string", format="datetime", description="Date et heure prévues", example="2025-08-15 14:00:00"),
@@ -62,11 +63,21 @@ class Lesson extends Model
     }
 
     /**
-     * Get the student for this lesson.
+     * Get the primary student for this lesson (for backward compatibility).
      */
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    /**
+     * Get all students for this lesson (many-to-many relationship).
+     */
+    public function students(): BelongsToMany
+    {
+        return $this->belongsToMany(Student::class, 'lesson_student')
+                    ->withPivot(['status', 'price', 'notes'])
+                    ->withTimestamps();
     }
 
     /**
@@ -116,5 +127,33 @@ class Lesson extends Model
         } else {
             return "{$minutes}min";
         }
+    }
+
+    /**
+     * Get the total number of students enrolled in this lesson.
+     */
+    public function getStudentCountAttribute(): int
+    {
+        return $this->students()->count();
+    }
+
+    /**
+     * Check if the lesson is a group lesson (multiple students).
+     */
+    public function getIsGroupLessonAttribute(): bool
+    {
+        return $this->students()->count() > 1;
+    }
+
+    /**
+     * Get the total price for all students in this lesson.
+     */
+    public function getTotalPriceAttribute(): float
+    {
+        $total = 0;
+        foreach ($this->students as $student) {
+            $total += $student->pivot->price ?? $this->price ?? 0;
+        }
+        return $total;
     }
 }

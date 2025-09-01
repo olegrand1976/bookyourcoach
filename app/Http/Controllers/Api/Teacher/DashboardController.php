@@ -7,6 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Lesson;
 use App\Models\Teacher;
+use App\Models\Availability;
+use App\Models\Student;
+use App\Models\CourseType;
+use App\Models\Location;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -37,17 +41,19 @@ class DashboardController extends Controller
         $lessons = Lesson::where('teacher_id', $teacher->id);
 
         // Stats générales
-        $today_lessons = (clone $lessons)->where('status', 'confirmed')->whereDate('scheduled_at', $now->toDateString())->count();
+        $today_lessons = (clone $lessons)->where('status', 'confirmed')->whereDate('start_time', $now->toDateString())->count();
         $active_students = (clone $lessons)->whereIn('status', ['confirmed', 'completed'])->distinct('student_id')->count('student_id');
-        $monthly_earnings = (clone $lessons)->where('status', 'completed')->whereBetween('scheduled_at', [$startOfMonth, $endOfMonth])->sum('price');
+        $monthly_earnings = (clone $lessons)->where('status', 'completed')->whereBetween('start_time', [$startOfMonth, $endOfMonth])->sum('price');
 
         // La note moyenne n'est pas encore implémentée
         $average_rating = 0;
 
         // Stats de la semaine
-        $week_lessons = (clone $lessons)->where('status', 'confirmed')->whereBetween('scheduled_at', [$startOfWeek, $endOfWeek])->count();
-        $week_hours = (clone $lessons)->where('status', 'completed')->whereBetween('scheduled_at', [$startOfWeek, $endOfWeek])->sum('duration') / 60;
-        $week_earnings = (clone $lessons)->where('status', 'completed')->whereBetween('scheduled_at', [$startOfWeek, $endOfWeek])->sum('price');
+        $week_lessons = (clone $lessons)->where('status', 'confirmed')->whereBetween('start_time', [$startOfWeek, $endOfWeek])->count();
+        $week_hours = (clone $lessons)->where('status', 'completed')->whereBetween('start_time', [$startOfWeek, $endOfWeek])->get()->sum(function ($lesson) {
+            return Carbon::parse($lesson->start_time)->diffInMinutes(Carbon::parse($lesson->end_time));
+        }) / 60;
+        $week_earnings = (clone $lessons)->where('status', 'completed')->whereBetween('start_time', [$startOfWeek, $endOfWeek])->sum('price');
 
         // Nouveaux élèves ce mois-ci (simplifié)
         $new_students = (clone $lessons)->where('created_at', '>=', $now->subMonth())->distinct('student_id')->count('student_id');
@@ -55,8 +61,8 @@ class DashboardController extends Controller
         // --- Prochains cours ---
         $upcomingLessons = (clone $lessons)->with('student.user') // Charger l'élève et son utilisateur associé
             ->where('status', 'confirmed')
-            ->where('scheduled_at', '>=', $now)
-            ->orderBy('scheduled_at', 'asc')
+            ->where('start_time', '>=', $now)
+            ->orderBy('start_time', 'asc')
             ->limit(5)
             ->get()
             ->map(function ($lesson) {
@@ -64,8 +70,8 @@ class DashboardController extends Controller
                     'id' => $lesson->id,
                     'student_name' => $lesson->student->user->name ?? 'Élève inconnu',
                     'type' => $lesson->courseType->name ?? 'Cours',
-                    'duration' => $lesson->duration,
-                    'scheduled_at' => $lesson->scheduled_at,
+                    'start_time' => $lesson->start_time,
+                    'end_time' => $lesson->end_time,
                     'status' => $lesson->status,
                 ];
             });
@@ -83,5 +89,284 @@ class DashboardController extends Controller
             ],
             'upcomingLessons' => $upcomingLessons,
         ]);
+    }
+
+    /**
+     * Récupère les cours de l'enseignant.
+     */
+    public function getLessons(Request $request)
+    {
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $query = Lesson::with(['student.user', 'students.user', 'courseType', 'location'])
+            ->where('teacher_id', $teacherId);
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('date')) {
+            $date = Carbon::parse($request->date);
+            $query->whereDate('start_time', $date);
+        }
+
+        $lessons = $query->orderBy('start_time', 'desc')->get();
+
+        return response()->json($lessons);
+    }
+
+    /**
+     * Crée un nouveau cours.
+     */
+    public function createLesson(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'start_time' => 'required|date|after:now',
+            'end_time' => 'required|date|after:start_time',
+            'student_id' => 'nullable|exists:students,id', // Étudiant principal optionnel (pour compatibilité)
+            'student_ids' => 'nullable|array', // Nouveaux étudiants multiples
+            'student_ids.*' => 'exists:students,id', // Validation de chaque ID d'étudiant
+            'course_type_id' => 'nullable|exists:course_types,id',
+            'location_id' => 'nullable|exists:locations,id',
+            'location' => 'nullable|string',
+            'price' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        // Déterminer le statut du cours
+        $hasStudents = $request->student_id || ($request->student_ids && count($request->student_ids) > 0);
+        $status = $hasStudents ? 'pending' : 'available';
+
+        $lesson = Lesson::create([
+            'teacher_id' => $teacherId,
+            'student_id' => $request->student_id, // Étudiant principal (pour compatibilité)
+            'course_type_id' => $request->course_type_id ?? 1, // Type par défaut
+            'location_id' => $request->location_id ?? 1, // Location par défaut
+            'title' => $request->title,
+            'description' => $request->description,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'location' => $request->location,
+            'price' => $request->price,
+            'notes' => $request->notes,
+            'status' => $status,
+        ]);
+
+        // Ajouter les étudiants multiples via la table de liaison
+        if ($request->student_ids && count($request->student_ids) > 0) {
+            $studentData = [];
+            foreach ($request->student_ids as $studentId) {
+                $studentData[$studentId] = [
+                    'status' => 'pending',
+                    'price' => $request->price, // Prix par défaut, peut être personnalisé
+                    'notes' => null,
+                ];
+            }
+            $lesson->students()->attach($studentData);
+        }
+
+        // Si un étudiant principal est spécifié, l'ajouter aussi à la table de liaison
+        if ($request->student_id && !in_array($request->student_id, $request->student_ids ?? [])) {
+            $lesson->students()->attach($request->student_id, [
+                'status' => 'pending',
+                'price' => $request->price,
+                'notes' => null,
+            ]);
+        }
+
+        return response()->json($lesson->load(['courseType', 'location', 'students.user']), 201);
+    }
+
+    /**
+     * Met à jour un cours.
+     */
+    public function updateLesson(Request $request, $id)
+    {
+        $request->validate([
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'start_time' => 'nullable|date',
+            'end_time' => 'nullable|date|after:start_time',
+            'location' => 'nullable|string',
+            'price' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
+            'status' => 'nullable|string|in:available,confirmed,completed,cancelled',
+        ]);
+
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $lesson = Lesson::where('id', $id)
+            ->where('teacher_id', $teacherId)
+            ->firstOrFail();
+
+        $lesson->update($request->only([
+            'title', 'description', 'start_time', 'end_time',
+            'location', 'price', 'notes', 'status'
+        ]));
+
+        return response()->json($lesson->load(['student.user', 'courseType', 'location']));
+    }
+
+    /**
+     * Supprime un cours.
+     */
+    public function deleteLesson(Request $request, $id)
+    {
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $lesson = Lesson::where('id', $id)
+            ->where('teacher_id', $teacherId)
+            ->firstOrFail();
+
+        $lesson->delete();
+
+        return response()->json(['message' => 'Cours supprimé avec succès.']);
+    }
+
+    /**
+     * Récupère les disponibilités de l'enseignant.
+     */
+    public function getAvailabilities(Request $request)
+    {
+        $user = $request->user();
+        $teacher = $user->teacher;
+
+        if (!$teacher) {
+            return response()->json(['message' => 'Profil enseignant non trouvé.'], 404);
+        }
+
+        $availabilities = Availability::with('location')
+            ->where('teacher_id', $teacher->id)
+            ->orderBy('start_time', 'asc')
+            ->get();
+
+        return response()->json($availabilities);
+    }
+
+    /**
+     * Crée une disponibilité.
+     */
+    public function createAvailability(Request $request)
+    {
+        $request->validate([
+            'start_time' => 'required|date|after:now',
+            'end_time' => 'required|date|after:start_time',
+            'location_id' => 'required|exists:locations,id',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $availability = Availability::create([
+            'teacher_id' => $teacherId,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'location_id' => $request->location_id,
+            'notes' => $request->notes,
+            'is_available' => true,
+        ]);
+
+        return response()->json($availability->load('location'), 201);
+    }
+
+    /**
+     * Met à jour une disponibilité.
+     */
+    public function updateAvailability(Request $request, $id)
+    {
+        $request->validate([
+            'start_time' => 'nullable|date',
+            'end_time' => 'nullable|date|after:start_time',
+            'location_id' => 'nullable|exists:locations,id',
+            'is_available' => 'nullable|boolean',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $availability = Availability::where('id', $id)
+            ->where('teacher_id', $teacherId)
+            ->firstOrFail();
+
+        $availability->update($request->only([
+            'start_time', 'end_time', 'location_id', 'is_available', 'notes'
+        ]));
+
+        return response()->json($availability->load('location'));
+    }
+
+    /**
+     * Supprime une disponibilité.
+     */
+    public function deleteAvailability(Request $request, $id)
+    {
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $availability = Availability::where('id', $id)
+            ->where('teacher_id', $teacherId)
+            ->firstOrFail();
+
+        $availability->delete();
+
+        return response()->json(['message' => 'Disponibilité supprimée avec succès.']);
+    }
+
+    /**
+     * Récupère les statistiques de l'enseignant.
+     */
+    public function getStats(Request $request)
+    {
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        $now = Carbon::now();
+        $startOfMonth = $now->startOfMonth();
+        $endOfMonth = $now->endOfMonth();
+
+        $lessons = Lesson::where('teacher_id', $teacherId);
+
+        $total_lessons = $lessons->count();
+        $completed_lessons = (clone $lessons)->where('status', 'completed')->count();
+        $monthly_earnings = (clone $lessons)->where('status', 'completed')
+            ->whereBetween('start_time', [$startOfMonth, $endOfMonth])
+            ->sum('price');
+
+        $total_hours = (clone $lessons)->where('status', 'completed')
+            ->get()
+            ->sum(function ($lesson) {
+                return Carbon::parse($lesson->start_time)->diffInMinutes(Carbon::parse($lesson->end_time));
+            }) / 60;
+
+        return response()->json([
+            'total_lessons' => $total_lessons,
+            'completed_lessons' => $completed_lessons,
+            'monthly_earnings' => round($monthly_earnings, 2),
+            'total_hours' => round($total_hours, 1),
+        ]);
+    }
+
+    /**
+     * Récupère les étudiants de l'enseignant.
+     */
+    public function getStudents(Request $request)
+    {
+        $user = $request->user();
+        $teacherId = $user->teacher->id;
+
+        // Récupérer tous les étudiants avec leurs utilisateurs associés
+        $students = Student::with('user')->get();
+
+        return response()->json($students);
     }
 }
