@@ -144,4 +144,22 @@ class User extends Authenticatable
     {
         return $this->hasOne(Student::class);
     }
+
+    /**
+     * Get clubs associated with this user
+     */
+    public function clubs()
+    {
+        return $this->belongsToMany(Club::class, 'club_user')
+            ->withPivot('role', 'is_admin', 'joined_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if user is club manager
+     */
+    public function isClub(): bool
+    {
+        return $this->hasRole('club') || $this->clubs()->exists();
+    }
 }

@@ -93,7 +93,7 @@ async function doLogin() {
 
     try {
         await authStore.login({
-            email: 'admin.secours@bookyourcoach.com',
+            email: 'admin.secours@activibe.com',
             password: 'secours123'
         })
 

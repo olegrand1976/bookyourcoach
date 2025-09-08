@@ -27,7 +27,7 @@ const { settings, loadSettings } = useSettings()
 const showFallback = ref(false)
 
 const logoUrl = computed(() => settings.value.logo_url || '/logo.svg')
-const platformName = computed(() => settings.value.platform_name || 'BookYourCoach')
+const platformName = computed(() => settings.value.platform_name || 'Acti\'Vibe')
 
 const onImageError = () => {
     showFallback.value = true

@@ -214,7 +214,7 @@ flutter test
 flutter logs
 
 # Logs API Laravel
-docker logs bookyourcoach_app
+docker logs activibe_app
 
 # Debug mode
 flutter run --debug
@@ -229,13 +229,13 @@ flutter run --debug
 
 ### 🎥 **Tutoriels**
 - [Vidéo de présentation](https://youtube.com/watch?v=...)
-- [Guide d'utilisation](https://docs.bookyourcoach.com/student)
-- [FAQ](https://help.bookyourcoach.com/student)
+- [Guide d'utilisation](https://docs.activibe.com/student)
+- [FAQ](https://help.activibe.com/student)
 
 ### 💬 **Support**
-- **Email** : support@bookyourcoach.com
+- **Email** : support@activibe.com
 - **Chat** : Disponible dans l'application
-- **Documentation** : https://docs.bookyourcoach.com
+- **Documentation** : https://docs.activibe.com
 
 ## 🎉 Prochaines Étapes
 
@@ -263,6 +263,7 @@ flutter run --debug
 ---
 
 **Prêt pour une expérience d'apprentissage exceptionnelle ! 🎓**
+
 
 
 

@@ -24,7 +24,7 @@ class LessonBookedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Nouvelle réservation de cours - BookYourCoach')
+            ->subject('Nouvelle réservation de cours - activibe')
             ->greeting("Bonjour {$notifiable->profile->first_name},")
             ->line('Une nouvelle réservation a été effectuée.')
             ->line("**Cours** : {$this->lesson->courseType->name}")
@@ -32,7 +32,7 @@ class LessonBookedNotification extends Notification implements ShouldQueue
             ->line("**Lieu** : {$this->lesson->location->name}")
             ->line("**Élève** : {$this->lesson->student->user->profile->full_name}")
             ->action('Voir les détails', url("/api/lessons/{$this->lesson->id}"))
-            ->line('Merci d\'utiliser BookYourCoach !');
+            ->line('Merci d\'utiliser activibe !');
     }
 
     public function toArray(object $notifiable): array

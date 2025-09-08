@@ -5,17 +5,17 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'BookYourCoach API',
+                'title' => 'Acti\'Vibe API',
                 'description' => 'API REST complète pour la plateforme de réservation de cours avec coaches équestres. Cette API permet la gestion des utilisateurs, professeurs, élèves, cours, réservations et paiements.',
                 'version' => '1.0.0',
                 'contact' => [
-                    'name' => 'Équipe BookYourCoach',
-                    'email' => 'support@bookyourcoach.com',
-                    'url' => 'https://bookyourcoach.com'
+                    'name' => 'Équipe Acti\'Vibe',
+                    'email' => 'support@activibe.com',
+                    'url' => 'https://activibe.com'
                 ],
                 'license' => [
-                    'name' => 'Propriétaire - BookYourCoach',
-                    'url' => 'https://bookyourcoach.com/license',
+                    'name' => 'Propriétaire - Acti\'Vibe',
+                    'url' => 'https://activibe.com/license',
                 ],
                 'servers' => [
                     [

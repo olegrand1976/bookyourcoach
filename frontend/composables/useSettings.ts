@@ -6,8 +6,8 @@ import { ref, readonly } from 'vue'
 export const useSettings = () => {
     // État réactif pour les paramètres
     const settings = ref({
-        platform_name: 'BookYourCoach',
-        contact_email: 'contact@bookyourcoach.fr',
+        platform_name: 'activibe',
+        contact_email: 'contact@activibe.fr',
         contact_phone: '+32 2 123 45 67',
         company_address: 'Rue de l\'Équitation 123\n1000 Bruxelles\nBelgique',
         timezone: 'Europe/Brussels',

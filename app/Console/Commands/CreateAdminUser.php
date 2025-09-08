@@ -35,7 +35,7 @@ class CreateAdminUser extends Command
 
         // Récupérer les paramètres ou demander interactivement
         $name = $this->option('name') ?: $this->ask('Nom complet de l\'administrateur', 'Administrateur Supplémentaire');
-        $email = $this->option('email') ?: $this->ask('Adresse email', 'admin2@bookyourcoach.com');
+        $email = $this->option('email') ?: $this->ask('Adresse email', 'admin2@activibe.com');
         $password = $this->option('password') ?: $this->generateSecurePassword();
 
         // Vérifier si l'utilisateur existe déjà
@@ -61,7 +61,7 @@ class CreateAdminUser extends Command
                 'first_name' => explode(' ', $name)[0] ?? $name,
                 'last_name' => explode(' ', $name, 2)[1] ?? '',
                 'phone' => '+32 2 123 45 67',
-                'bio' => 'Administrateur de la plateforme BookYourCoach',
+                'bio' => 'Administrateur de la plateforme activibe',
                 'preferences' => [
                     'notifications' => true,
                     'email_updates' => true,

@@ -3,7 +3,11 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
->
+         processIsolation="false"
+         stopOnFailure="false"
+         cacheDirectory=".phpunit.cache"
+         backupGlobals="false"
+         backupStaticAttributes="false">
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
@@ -11,24 +15,72 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <testsuite name="Club">
+            <directory>tests/Unit/Models</directory>
+            <file>tests/Unit/Models/ClubTest.php</file>
+            <file>tests/Unit/Models/UserTest.php</file>
+            <file>tests/Unit/Models/TeacherTest.php</file>
+            <file>tests/Unit/Models/StudentTest.php</file>
+            <directory>tests/Unit/Middleware</directory>
+            <file>tests/Unit/Middleware/ClubMiddlewareTest.php</file>
+            <directory>tests/Feature/Api</directory>
+            <file>tests/Feature/Api/ClubControllerTest.php</file>
+            <file>tests/Feature/Api/ClubMiddlewareTest.php</file>
+            <file>tests/Feature/Api/ClubIntegrationTest.php</file>
+            <file>tests/Feature/Api/ClubAdminTest.php</file>
+            <file>tests/Feature/Api/ClubFrontendTest.php</file>
+            <file>tests/Feature/Api/ClubPerformanceTest.php</file>
+            <file>tests/Feature/Api/ClubSecurityTest.php</file>
+            <file>tests/Feature/Api/ClubErrorHandlingTest.php</file>
+            <file>tests/Feature/Api/ClubDataConsistencyTest.php</file>
+            <file>tests/Feature/Api/ClubAccessControlTest.php</file>
+            <file>tests/Feature/Api/ClubScalabilityTest.php</file>
+            <file>tests/Feature/Api/ClubMaintenanceTest.php</file>
+            <file>tests/Feature/Api/ClubTestSuite.php</file>
+        </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory>app/Console</directory>
+            <directory>app/Exceptions</directory>
+            <directory>app/Http/Middleware</directory>
+            <directory>app/Providers</directory>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="APP_KEY" value="base64:YourAppKeyHere"/>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="APP_URL" value="http://localhost"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="mysql"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="activibe_test"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value="root_password"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
+    <logging>
+        <log type="coverage-html" target="storage/logs/coverage"/>
+        <log type="coverage-clover" target="storage/logs/coverage.xml"/>
+        <log type="coverage-text" target="storage/logs/coverage.txt"/>
+    </logging>
+    <groups>
+        <exclude>
+            <group>slow</group>
+        </exclude>
+    </groups>
+    <filter>
+        <whitelist>
+            <directory>app</directory>
+        </whitelist>
+    </filter>
 </phpunit>

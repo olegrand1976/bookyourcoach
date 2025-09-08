@@ -16,6 +16,7 @@ class AdminDashboard extends ConsumerStatefulWidget {
 
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   int _currentIndex = 0;
+  bool _isStatsExpanded = true; // Nouvelle variable pour contrôler l'expansion des stats
 
   @override
   void initState() {
@@ -180,8 +181,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
             const SizedBox(height: 24),
 
-            // Statistiques
-            if (statsState.stats != null) _buildStatsCards(statsState.stats!),
+            // Statistiques repliables
+            if (statsState.stats != null) _buildCollapsibleStats(statsState.stats!),
 
             const SizedBox(height: 24),
 
@@ -202,52 +203,83 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     );
   }
 
-  Widget _buildStatsCards(Map<String, dynamic> stats) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Statistiques de la Plateforme',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E3A8A),
+  Widget _buildCollapsibleStats(Map<String, dynamic> stats) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        children: [
+          // Barre de titre avec bouton de repli
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isStatsExpanded = !_isStatsExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _isStatsExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Statistiques de la plateforme',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+          // Contenu des statistiques avec animation
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isStatsExpanded ? null : 0,
+            child: _isStatsExpanded ? _buildStatsCards(stats) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCards(Map<String, dynamic> stats) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.5,
+      children: [
+        _buildStatCard(
+          'Utilisateurs',
+          stats['users']?.toString() ?? '0',
+          Icons.people,
+          const Color(0xFF3B82F6),
         ),
-        const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.5,
-          children: [
-            _buildStatCard(
-              'Utilisateurs',
-              stats['users']?.toString() ?? '0',
-              Icons.people,
-              const Color(0xFF3B82F6),
-            ),
-            _buildStatCard(
-              'Enseignants',
-              stats['teachers']?.toString() ?? '0',
-              Icons.school,
-              const Color(0xFF10B981),
-            ),
-            _buildStatCard(
-              'Élèves',
-              stats['students']?.toString() ?? '0',
-              Icons.person,
-              const Color(0xFFF59E0B),
-            ),
-            _buildStatCard(
-              'Clubs',
-              stats['clubs']?.toString() ?? '0',
-              Icons.location_on,
-              const Color(0xFFEF4444),
-            ),
-          ],
+        _buildStatCard(
+          'Enseignants',
+          stats['teachers']?.toString() ?? '0',
+          Icons.school,
+          const Color(0xFF10B981),
+        ),
+        _buildStatCard(
+          'Élèves',
+          stats['students']?.toString() ?? '0',
+          Icons.person,
+          const Color(0xFFF59E0B),
+        ),
+        _buildStatCard(
+          'Clubs',
+          stats['clubs']?.toString() ?? '0',
+          Icons.location_on,
+          const Color(0xFFEF4444),
         ),
       ],
     );
@@ -257,32 +289,32 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 32,
+              size: 24,
               color: color,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               value,
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 color: Color(0xFF6B7280),
               ),
               textAlign: TextAlign.center,

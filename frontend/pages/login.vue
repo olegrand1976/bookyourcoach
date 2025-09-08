@@ -3,12 +3,12 @@
     <div class="max-w-md w-full space-y-8">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {{ t('loginPage.title') }}
+          Connexion
         </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          {{ t('loginPage.or') }}
-          <NuxtLink to="/register" class="font-medium text-primary-600 hover:text-primary-500">
-            {{ t('loginPage.createAccount') }}
+        <p class="mt-2 text-center text-sm text-gray-700">
+          Pas encore de compte ?
+          <NuxtLink to="/register" class="font-medium text-blue-400 bg-blue-600:text-yellow-600">
+            Créer un compte
           </NuxtLink>
         </p>
       </div>
@@ -16,41 +16,41 @@
       <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
         <div class="rounded-md shadow-sm -space-y-px">
           <div>
-            <label for="email" class="sr-only">{{ t('auth.email') }}</label>
+            <label for="email" class="sr-only">Email</label>
             <input id="email" v-model="form.email" name="email" type="email" autocomplete="email" required
-              class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-              :placeholder="t('auth.email')" />
+              class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+              placeholder="Adresse email" />
           </div>
           <div>
-            <label for="password" class="sr-only">{{ t('auth.password') }}</label>
+            <label for="password" class="sr-only">Mot de passe</label>
             <input id="password" v-model="form.password" name="password" type="password" autocomplete="current-password"
               required
-              class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-              :placeholder="t('auth.password')" />
+              class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+              placeholder="Mot de passe" />
           </div>
         </div>
 
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             <input id="remember-me" v-model="form.remember" name="remember-me" type="checkbox"
-              class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" />
+              class="h-4 w-4 text-blue-400 focus:ring-blue-500 border-gray-300 rounded" />
             <label for="remember-me" class="ml-2 block text-sm text-gray-900">
-              {{ t('auth.rememberMe') }}
+              Se souvenir de moi
             </label>
           </div>
 
           <div class="text-sm">
-            <a href="#" class="font-medium text-primary-600 hover:text-primary-500">
-              {{ t('auth.forgotPassword') }}
+            <a href="#" class="font-medium text-blue-400 bg-blue-600:text-yellow-600">
+              Mot de passe oublié ?
             </a>
           </div>
         </div>
 
         <div>
           <button type="submit" :disabled="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50">
-            <span v-if="loading">{{ t('loginPage.loggingIn') }}</span>
-            <span v-else>{{ t('auth.login') }}</span>
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-500 bg-blue-600:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
+            <span v-if="loading">Connexion en cours...</span>
+            <span v-else>Connexion</span>
           </button>
         </div>
 
@@ -82,9 +82,13 @@ definePageMeta({
 })
 
 const authStore = useAuthStore()
-const toast = useToast()
 const router = useRouter()
-const { t } = useI18n()
+
+// Fonction toast simple
+const showToast = (message, type = 'info') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+  // TODO: Implémenter un vrai système de toast
+}
 
 const form = reactive({
   email: '',
@@ -134,13 +138,17 @@ const handleLogin = async () => {
       password: form.password
     })
 
-    toast.success('Connexion réussie')
+    showToast('Connexion réussie', 'success')
 
     // Rediriger selon le rôle
     if (authStore.isAdmin) {
       await navigateTo('/admin')
     } else if (authStore.isTeacher) {
-      await navigateTo('/teacher')
+      await navigateTo('/teacher/dashboard')
+    } else if (authStore.isClub) {
+      await navigateTo('/club/dashboard')
+    } else if (authStore.isStudent) {
+      await navigateTo('/student/dashboard')
     } else {
       await navigateTo('/dashboard')
     }
@@ -165,7 +173,7 @@ const handleLogin = async () => {
     }
 
     error.value = errorMessage
-    toast.error('Erreur de connexion')
+    showToast('Erreur de connexion', 'error')
   } finally {
     loading.value = false
   }
@@ -174,7 +182,17 @@ const handleLogin = async () => {
 // Rediriger si déjà connecté
 watchEffect(() => {
   if (authStore.isAuthenticated) {
-    navigateTo('/dashboard')
+    if (authStore.isAdmin) {
+      navigateTo('/admin')
+    } else if (authStore.isTeacher) {
+      navigateTo('/teacher/dashboard')
+    } else if (authStore.isClub) {
+      navigateTo('/club/dashboard')
+    } else if (authStore.isStudent) {
+      navigateTo('/student/dashboard')
+    } else {
+      navigateTo('/dashboard')
+    }
   }
 })
 </script>

@@ -127,7 +127,7 @@ class DemoDataSeeder extends Seeder
                         'start_time' => $startTime,
                         'end_time' => $endTime,
                         'status' => $status,
-                        'price' => $courseType->price,
+                        'price' => $courseType->price ?? 50.00,
                         'notes' => $this->generateLessonNotes($status, $courseType->name),
                     ]);
 

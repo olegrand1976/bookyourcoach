@@ -27,7 +27,7 @@ const SUPPORTED_LANGUAGES = [
     "da",
 ];
 
-console.log("🌍 Test d'intégration multilingue - BookYourCoach\n");
+console.log("🌍 Test d'intégration multilingue - activibe\n");
 
 // 1. Vérifier que tous les fichiers de langue existent
 console.log("1. Vérification des fichiers de langue...");

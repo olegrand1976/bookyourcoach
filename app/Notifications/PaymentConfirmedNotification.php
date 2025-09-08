@@ -24,7 +24,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Paiement confirmé - BookYourCoach')
+            ->subject('Paiement confirmé - activibe')
             ->greeting("Bonjour {$notifiable->profile->first_name},")
             ->line('Votre paiement a été confirmé avec succès.')
             ->line("**Montant** : {$this->payment->amount} €")

@@ -40,24 +40,24 @@ export const useAuthStore = defineStore('auth', {
 
     actions: {
         async login(credentials: { email: string, password: string }) {
-            console.log('🔑 [LOGIN] Début de la connexion avec:', credentials.email)
+            // console.log('🔑 [LOGIN] Début de la connexion avec:', credentials.email)
             this.loading = true
             try {
                 const { $api } = useNuxtApp()
-                console.log('🔑 [LOGIN] Appel API /auth/login...')
+                // console.log('🔑 [LOGIN] Appel API /auth/login...')
                 const response = await $api.post('/auth/login', credentials)
-                console.log('🔑 [LOGIN] Réponse API:', response.data)
+                // console.log('🔑 [LOGIN] Réponse API:', response.data)
 
                 this.token = response.data.token
                 this.user = response.data.user
                 this.isAuthenticated = true
 
-                console.log('🔑 [LOGIN] Utilisateur connecté:', {
-                    id: this.user.id,
-                    email: this.user.email,
-                    role: this.user.role,
-                    name: this.user.name
-                })
+                // console.log('🔑 [LOGIN] Utilisateur connecté:', {
+                //     id: this.user.id,
+                //     email: this.user.email,
+                //     role: this.user.role,
+                //     name: this.user.name
+                // })
 
                 // Stocker le token
                 const tokenCookie = useCookie('auth-token', {
@@ -66,7 +66,7 @@ export const useAuthStore = defineStore('auth', {
                     maxAge: 60 * 60 * 24 * 7 // 7 jours
                 })
                 tokenCookie.value = this.token
-                console.log('🔑 [LOGIN] Token stocké dans cookie')
+                // console.log('🔑 [LOGIN] Token stocké dans cookie')
 
                 return response.data
             } catch (error) {
@@ -130,33 +130,33 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async fetchUser() {
-            console.log('🔍 [FETCH USER] Début fetchUser, token présent:', !!this.token)
+            // console.log('🔍 [FETCH USER] Début fetchUser, token présent:', !!this.token)
             if (!this.token) return
 
             try {
                 const { $api } = useNuxtApp()
-                console.log('🔍 [FETCH USER] Appel API /auth/user...')
-                const response = await $api.get('/auth/user')
-                console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response.data, null, 2))
+                // console.log('🔍 [FETCH USER] Appel API /auth/user...')
+                const response = await $api.get('/auth/user-test')
+                // console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response.data, null, 2))
 
                 this.user = response.data.user || response.data
                 this.isAuthenticated = true
 
-                console.log('🔍 [FETCH USER] User assigné:', {
-                    id: this.user.id,
-                    email: this.user.email,
-                    role: this.user.role,
-                    name: this.user.name
-                })
+                // console.log('🔍 [FETCH USER] User assigné:', {
+                //     id: this.user.id,
+                //     email: this.user.email,
+                //     role: this.user.role,
+                //     name: this.user.name
+                // })
 
                 // Sauvegarder les données utilisateur localement
                 if (process.client) {
                     const userDataToSave = JSON.stringify(this.user)
                     localStorage.setItem('user-data', userDataToSave)
-                    console.log('🔍 [FETCH USER] Données sauvées en localStorage:', userDataToSave)
+                    // console.log('🔍 [FETCH USER] Données sauvées en localStorage:', userDataToSave)
                 }
             } catch (error: any) {
-                console.error('🔍 [FETCH USER] Erreur lors de la récupération de l\'utilisateur:', error)
+                // console.error('🔍 [FETCH USER] Erreur lors de la récupération de l\'utilisateur:', error)
 
                 // Si c'est une erreur 401 (token expiré), déconnecter silencieusement
                 if (error.response?.status === 401) {
@@ -178,23 +178,23 @@ export const useAuthStore = defineStore('auth', {
         },
 
         async initializeAuth() {
-            console.log('🔍 [AUTH DEBUG] Début initializeAuth')
+            // console.log('🔍 [AUTH DEBUG] Début initializeAuth')
             if (process.client) {
                 const tokenCookie = useCookie('auth-token')
-                console.log('🔍 [AUTH DEBUG] Token cookie:', tokenCookie.value ? 'présent' : 'absent')
+                // console.log('🔍 [AUTH DEBUG] Token cookie:', tokenCookie.value ? 'présent' : 'absent')
 
                 if (tokenCookie.value) {
                     this.token = tokenCookie.value
 
                     // Essayer de récupérer les données utilisateur depuis localStorage
                     const userData = localStorage.getItem('user-data')
-                    console.log('🔍 [AUTH DEBUG] User data localStorage:', userData ? 'présent' : 'absent')
+                    // console.log('🔍 [AUTH DEBUG] User data localStorage:', userData ? 'présent' : 'absent')
 
                     if (userData) {
                         try {
                             this.user = JSON.parse(userData)
                             this.isAuthenticated = true
-                            console.log('🔍 [AUTH DEBUG] User restauré:', this.user.email, 'role:', this.user.role)
+                            // console.log('🔍 [AUTH DEBUG] User restauré:', this.user.email, 'role:', this.user.role)
                         } catch (e) {
                             console.warn('Données utilisateur corrompues dans localStorage')
                         }
@@ -202,16 +202,16 @@ export const useAuthStore = defineStore('auth', {
 
                     // Vérifier la validité du token de manière synchrone
                     try {
-                        console.log('🔍 [AUTH DEBUG] Début vérification token...')
+                        // console.log('🔍 [AUTH DEBUG] Début vérification token...')
                         const isValid = await this.verifyToken()
-                        console.log('🔍 [AUTH DEBUG] Token valide:', isValid)
+                        // console.log('🔍 [AUTH DEBUG] Token valide:', isValid)
 
                         if (!isValid) {
                             console.warn('Token invalide lors de la vérification')
                             // Token invalide, rediriger vers login
                             await navigateTo('/login')
                         } else {
-                            console.log('🔍 [AUTH DEBUG] Authentification réussie, user final:', this.user?.email, 'role:', this.user?.role)
+                            // console.log('🔍 [AUTH DEBUG] Authentification réussie, user final:', this.user?.email, 'role:', this.user?.role)
                         }
                     } catch (error) {
                         console.error('Erreur lors de la vérification du token:', error)
@@ -219,7 +219,7 @@ export const useAuthStore = defineStore('auth', {
                         await navigateTo('/login')
                     }
                 } else {
-                    console.log('🔍 [AUTH DEBUG] Aucun token trouvé')
+                    // console.log('🔍 [AUTH DEBUG] Aucun token trouvé')
                 }
             }
         },

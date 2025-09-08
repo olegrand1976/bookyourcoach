@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = bookyourcoach_mobile
+PRODUCT_NAME = activibe_mobile
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.bookyourcoach.bookyourcoachMobile
+PRODUCT_BUNDLE_IDENTIFIER = com.activibe.activibeMobile
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.bookyourcoach. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 com.activibe. All rights reserved.

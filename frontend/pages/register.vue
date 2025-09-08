@@ -3,12 +3,12 @@
     <div class="max-w-md w-full space-y-8">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {{ t('registerPage.title') }}
+          Inscription
         </h2>
         <p class="mt-2 text-center text-sm text-gray-600">
-          {{ t('registerPage.or') }}
+          Déjà un compte ?
           <NuxtLink to="/login" class="font-medium text-primary-600 hover:text-primary-500">
-            {{ t('registerPage.login') }}
+            Connexion
           </NuxtLink>
         </p>
       </div>
@@ -17,7 +17,7 @@
         <div class="space-y-4">
           <div>
             <label for="name" class="block text-sm font-medium text-gray-700">
-              {{ t('auth.name') }}
+              Nom complet
             </label>
             <input
               id="name"
@@ -26,13 +26,13 @@
               type="text"
               required
               class="input-field"
-              :placeholder="t('auth.name')"
+              placeholder="Nom complet"
             />
           </div>
           
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700">
-              {{ t('auth.email') }}
+              Adresse email
             </label>
             <input
               id="email"
@@ -42,13 +42,13 @@
               autocomplete="email"
               required
               class="input-field"
-              :placeholder="t('auth.email')"
+              placeholder="Adresse email"
             />
           </div>
           
           <div>
             <label for="password" class="block text-sm font-medium text-gray-700">
-              {{ t('auth.password') }}
+              Mot de passe
             </label>
             <input
               id="password"
@@ -57,13 +57,13 @@
               type="password"
               required
               class="input-field"
-              :placeholder="t('auth.password')"
+              placeholder="Mot de passe"
             />
           </div>
           
           <div>
             <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-              {{ t('auth.confirmPassword') }}
+              Confirmer le mot de passe
             </label>
             <input
               id="password_confirmation"
@@ -72,7 +72,7 @@
               type="password"
               required
               class="input-field"
-              :placeholder="t('auth.confirmPassword')"
+              placeholder="Confirmer le mot de passe"
             />
           </div>
         </div>
@@ -100,8 +100,8 @@
             :disabled="loading"
             class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
           >
-            <span v-if="loading">{{ t('registerPage.creatingAccount') }}</span>
-            <span v-else>{{ t('auth.createAccount') }}</span>
+            <span v-if="loading">Création du compte...</span>
+            <span v-else>Inscription</span>
           </button>
         </div>
 
@@ -124,8 +124,12 @@ definePageMeta({
 })
 
 const authStore = useAuthStore()
-const toast = useToast()
-const { t } = useI18n()
+
+// Fonction toast simple
+const showToast = (message, type = 'info') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+  // TODO: Implémenter un vrai système de toast
+}
 
 const form = reactive({
   name: '',
@@ -144,7 +148,7 @@ const handleRegister = async () => {
   
   try {
     await authStore.register(form)
-    toast.success('Inscription réussie')
+    showToast('Inscription réussie', 'success')
     await navigateTo('/dashboard')
   } catch (err) {
     if (err.response?.data?.errors) {
@@ -154,7 +158,7 @@ const handleRegister = async () => {
     } else {
       errors.value = [err.response?.data?.message || 'Une erreur est survenue']
     }
-    toast.error('Erreur lors de l\'inscription')
+    showToast('Erreur lors de l\'inscription', 'error')
   } finally {
     loading.value = false
   }

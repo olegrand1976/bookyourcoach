@@ -28,7 +28,7 @@ class ApiConfig {
   // URL de base selon la plateforme (web/desktop: localhost, Android émulateur: 10.0.2.2)
   static String get apiUrl => isDevelopment
       ? platformBaseApiUrl()
-      : 'https://api.bookyourcoach.com/api';
+      : 'https://api.activibe.com/api';
 
   // URL d'auth
   static String get authUrl => '${apiUrl}/auth';

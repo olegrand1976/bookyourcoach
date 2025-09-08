@@ -50,7 +50,10 @@ class Club extends Model
         'max_students',
         'subscription_price',
         'is_active',
-        'terms_and_conditions'
+        'terms_and_conditions',
+        'activity_type_id',
+        'seasonal_variation',
+        'weather_dependency'
     ];
 
     protected $casts = [
@@ -58,7 +61,9 @@ class Club extends Model
         'disciplines' => 'array',
         'subscription_price' => 'decimal:2',
         'is_active' => 'boolean',
-        'max_students' => 'integer'
+        'max_students' => 'integer',
+        'seasonal_variation' => 'decimal:2',
+        'weather_dependency' => 'boolean'
     ];
 
     protected $attributes = [
@@ -87,6 +92,36 @@ class Club extends Model
     public function students()
     {
         return $this->users()->wherePivot('role', 'student');
+    }
+
+    public function activityType()
+    {
+        return $this->belongsTo(ActivityType::class);
+    }
+
+    public function activityTypes()
+    {
+        return $this->belongsToMany(ActivityType::class, 'club_activity_types');
+    }
+
+    public function disciplines()
+    {
+        return $this->belongsToMany(Discipline::class, 'club_disciplines');
+    }
+
+    public function cashRegisters()
+    {
+        return $this->hasMany(CashRegister::class);
+    }
+
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
     }
 
     // Scopes

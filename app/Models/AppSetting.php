@@ -71,7 +71,7 @@ class AppSetting extends Model
 
         if (!$settings) {
             $settings = self::create([
-                'app_name' => 'BookYourCoach',
+                'app_name' => 'activibe',
                 'primary_color' => '#2563eb',
                 'secondary_color' => '#1e40af',
                 'accent_color' => '#3b82f6',

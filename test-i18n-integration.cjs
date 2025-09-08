@@ -11,7 +11,7 @@ const path = require('path');
 const LOCALES_DIR = path.join(__dirname, 'frontend/locales');
 const SUPPORTED_LANGUAGES = ['fr', 'en', 'nl', 'de', 'it', 'es', 'pt', 'hu', 'pl', 'zh', 'ja', 'sv', 'no', 'fi', 'da'];
 
-console.log('🌍 Test d\'intégration multilingue - BookYourCoach\n');
+console.log('🌍 Test d\'intégration multilingue - activibe\n');
 
 // 1. Vérifier que tous les fichiers de langue existent
 console.log('1. Vérification des fichiers de langue...');

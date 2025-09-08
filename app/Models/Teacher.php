@@ -12,6 +12,7 @@ class Teacher extends Model
 
     protected $fillable = [
         'user_id',
+        'club_id',
         'specialties',
         'experience_years',
         'certifications',
@@ -40,6 +41,30 @@ class Teacher extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the club that owns the teacher
+     */
+    public function club()
+    {
+        return $this->belongsTo(Club::class);
+    }
+
+    /**
+     * Get the teacher's skills
+     */
+    public function skills()
+    {
+        return $this->hasMany(TeacherSkill::class);
+    }
+
+    /**
+     * Get the teacher's certifications
+     */
+    public function certifications()
+    {
+        return $this->hasMany(TeacherCertification::class);
     }
 
     /**

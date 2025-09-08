@@ -1,6 +1,6 @@
-# BookYourCoach 🏇
+# activibe 🏊‍♀️
 
-BookYourCoach est une plateforme de coaching équestre moderne et multilingue qui permet aux utilisateurs de trouver et de réserver des sessions avec des instructeurs professionnels certifiés.
+activibe est une plateforme de coaching moderne et multilingue qui permet aux utilisateurs de trouver et de réserver des sessions avec des instructeurs professionnels certifiés.
 
 ## ✨ Fonctionnalités
 

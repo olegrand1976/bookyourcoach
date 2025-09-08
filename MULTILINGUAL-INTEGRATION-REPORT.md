@@ -1,4 +1,4 @@
-# 🌍 Rapport d'Intégration Multilingue - BookYourCoach
+# 🌍 Rapport d'Intégration Multilingue - activibe
 
 **Date**: 26 août 2025  
 **Status**: Partiellement complété ✅

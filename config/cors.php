@@ -22,8 +22,10 @@ return [
     'allowed_origins' => [
         'http://localhost:3000',
         'http://localhost:3001',
+        'http://localhost:3004', // Ajout pour l'application Flutter web
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
+        'http://127.0.0.1:3004', // Ajout pour l'application Flutter web
         'http://localhost:8080', // Ajout pour Nginx
         'http://localhost:8081', // Ajout pour le serveur de dev Laravel
         'http://localhost:8083', // Ajout pour l'application mobile Flutter

@@ -35,6 +35,7 @@ class Payment extends Model
      */
     protected $fillable = [
         'lesson_id',
+        'student_id',
         'amount',
         'currency',
         'payment_method',

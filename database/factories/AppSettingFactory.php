@@ -17,7 +17,7 @@ class AppSettingFactory extends Factory
     public function definition(): array
     {
         $brandNames = [
-            'BookYourCoach',
+            'activibe',
             'EquestrianPro',
             'CoachConnect',
             'LessonMaster',

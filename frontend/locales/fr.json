@@ -5,7 +5,7 @@
         "profile": "Mon Profil",
         "admin": "Administration",
         "login": "Se connecter",
-        "register": "S'inscrire",
+        "register": "Inscription",
         "logout": "Se déconnecter"
     },
     "auth": {

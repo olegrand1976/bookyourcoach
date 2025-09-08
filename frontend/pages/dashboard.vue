@@ -3,10 +3,10 @@
         <!-- Header -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900">
-                {{ t('dashboard.title', { name: authStore.userName }) }}
+                Bienvenue, {{ authStore.userName }} !
             </h1>
             <p class="mt-2 text-gray-600">
-                {{ t('dashboard.subtitle') }}
+                Gérez vos cours et suivez vos progrès
             </p>
         </div>
 
@@ -18,7 +18,7 @@
                         <CalendarIcon class="w-6 h-6 text-primary-600" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">{{ t('dashboard.upcomingLessons') }}</p>
+                        <p class="text-sm font-medium text-gray-600">Cours à venir</p>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.upcoming_lessons }}</p>
                     </div>
                 </div>
@@ -30,7 +30,7 @@
                         <CheckCircleIcon class="w-6 h-6 text-green-600" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">{{ t('dashboard.completedLessons') }}</p>
+                        <p class="text-sm font-medium text-gray-600">Cours terminés</p>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.completed_lessons }}</p>
                     </div>
                 </div>
@@ -42,7 +42,7 @@
                         <ClockIcon class="w-6 h-6 text-orange-600" />
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">{{ t('dashboard.totalHours') }}</p>
+                        <p class="text-sm font-medium text-gray-600">Heures totales</p>
                         <p class="text-2xl font-bold text-gray-900">{{ stats.total_hours }}h</p>
                     </div>
                 </div>
@@ -54,17 +54,17 @@
             <!-- Prochains cours -->
             <div class="card">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-gray-900">{{ t('dashboard.upcomingLessons') }}</h2>
+                    <h2 class="text-lg font-semibold text-gray-900">Cours à venir</h2>
                     <NuxtLink to="/lessons" class="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                        {{ t('dashboard.viewAll') }}
+                        Voir tout
                     </NuxtLink>
                 </div>
 
                 <div v-if="upcomingLessons.length === 0" class="text-center py-8">
                     <CalendarIcon class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p class="text-gray-500">{{ t('dashboard.noLessons') }}</p>
+                    <p class="text-gray-500">Aucun cours programmé</p>
                     <NuxtLink to="/lessons/book" class="btn-primary mt-4 inline-block">
-                        {{ t('dashboard.bookLesson') }}
+                        Réserver un cours
                     </NuxtLink>
                 </div>
 
@@ -74,13 +74,13 @@
                         <div>
                             <h3 class="font-medium text-gray-900">{{ lesson.course_type }}</h3>
                             <p class="text-sm text-gray-600">{{ formatDate(lesson.scheduled_at) }}</p>
-                            <p class="text-sm text-gray-600">{{ t('dashboard.with') }} {{ lesson.teacher_name }}</p>
+                            <p class="text-sm text-gray-600">avec {{ lesson.teacher_name }}</p>
                         </div>
                         <div class="text-right">
                             <p class="font-medium text-gray-900">{{ lesson.price }}€</p>
                             <span
                                 class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                {{ t('dashboard.confirmed') }}
+                                Confirmé
                             </span>
                         </div>
                     </div>
@@ -89,15 +89,15 @@
 
             <!-- Actions rapides -->
             <div class="card">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('dashboard.quickActions') }}</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h2>
 
                 <div class="space-y-3">
                     <NuxtLink to="/lessons/book" class="block w-full btn-primary text-center">
-                        {{ t('dashboard.bookLesson') }}
+                        Réserver un cours
                     </NuxtLink>
 
                     <NuxtLink to="/teachers" class="block w-full btn-secondary text-center">
-                        {{ t('dashboard.browseTeachers') }}
+                        Parcourir les professeurs
                     </NuxtLink>
                 </div>
             </div>
@@ -111,7 +111,7 @@ import {
     CheckCircleIcon,
     ClockIcon
 } from '@heroicons/vue/24/outline'
-const { t, locale } = useI18n()
+// const { t, locale } = useI18n() // Temporairement désactivé
 
 definePageMeta({
     middleware: 'auth'
@@ -165,7 +165,7 @@ const loadDashboardData = async () => {
 // Formatage des dates
 const formatDate = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString(locale.value, {
+    return date.toLocaleDateString('fr-FR', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',

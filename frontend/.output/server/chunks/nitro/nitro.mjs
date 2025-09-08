@@ -4281,7 +4281,7 @@ const _inlineRuntimeConfig = {
   },
   "public": {
     "apiBase": "http://localhost:8081/api",
-    "appName": "BookYourCoach"
+    "appName": "activibe"
   }
 };
 const envOptions = {

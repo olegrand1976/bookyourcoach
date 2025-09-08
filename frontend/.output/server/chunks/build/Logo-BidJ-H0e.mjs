@@ -16,7 +16,7 @@ const _sfc_main = {
     const { settings, loadSettings } = useSettings();
     const showFallback = ref(false);
     const logoUrl = computed(() => settings.value.logo_url || "/logo.svg");
-    const platformName = computed(() => settings.value.platform_name || "BookYourCoach");
+    const platformName = computed(() => settings.value.platform_name || "activibe");
     return (_ctx, _push, _parent, _attrs) => {
       _push(`<div${ssrRenderAttrs(mergeProps({ class: "flex items-center" }, _attrs))}><img${ssrRenderAttr("src", unref(logoUrl))}${ssrRenderAttr("alt", unref(platformName))} class="${ssrRenderClass([
         "h-auto",

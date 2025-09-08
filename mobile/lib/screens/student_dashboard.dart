@@ -17,6 +17,7 @@ class StudentDashboard extends ConsumerStatefulWidget {
 
 class _StudentDashboardState extends ConsumerState<StudentDashboard> {
   int _currentIndex = 0;
+  bool _isStatsExpanded = true; // Nouvelle variable pour contrôler l'expansion des stats
 
   @override
   void initState() {
@@ -188,8 +189,8 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
 
             const SizedBox(height: 24),
 
-            // Statistiques rapides
-            if (studentState.bookings.bookings.isNotEmpty) _buildQuickStats(studentState),
+            // Statistiques rapides repliables
+            if (studentState.bookings.bookings.isNotEmpty) _buildCollapsibleStats(studentState),
 
             const SizedBox(height: 24),
 
@@ -238,6 +239,51 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     );
   }
 
+  Widget _buildCollapsibleStats(StudentState studentState) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        children: [
+          // Barre de titre avec bouton de repli
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isStatsExpanded = !_isStatsExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _isStatsExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Statistiques rapides',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Contenu des statistiques avec animation
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isStatsExpanded ? null : 0,
+            child: _isStatsExpanded ? _buildQuickStats(studentState) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickStats(StudentState studentState) {
     return Row(
       children: [
@@ -273,29 +319,29 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: color.withOpacity(0.8),
             ),
             textAlign: TextAlign.center,

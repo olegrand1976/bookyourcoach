@@ -17,7 +17,7 @@ flutter run -d chrome --web-port 8083
 
 ### 3️⃣ **Se Connecter**
 - **URL** : http://localhost:8083
-- **Compte enseignant** : `sophie.martin@bookyourcoach.com` / `password123`
+- **Compte enseignant** : `sophie.martin@activibe.com` / `password123`
 
 ## 🎯 Fonctionnalités Disponibles
 
@@ -85,8 +85,8 @@ Ce script teste :
 
 | Rôle | Email | Mot de passe | Fonctionnalités |
 |------|-------|--------------|-----------------|
-| **Enseignant** | `sophie.martin@bookyourcoach.com` | `password123` | Toutes les fonctionnalités |
-| **Admin** | `admin@bookyourcoach.com` | `password123` | Accès complet |
+| **Enseignant** | `sophie.martin@activibe.com` | `password123` | Toutes les fonctionnalités |
+| **Admin** | `admin@activibe.com` | `password123` | Accès complet |
 | **Étudiant** | `alice.durand@email.com` | `password123` | Interface étudiant |
 
 ## 🎨 Interface Utilisateur
@@ -203,7 +203,7 @@ docker-compose logs mysql
 
 ## 🎉 Résumé
 
-L'application mobile BookYourCoach offre une solution complète pour les enseignants :
+L'application mobile activibe offre une solution complète pour les enseignants :
 
 ✅ **Interface moderne et intuitive**  
 ✅ **Gestion complète des cours**  

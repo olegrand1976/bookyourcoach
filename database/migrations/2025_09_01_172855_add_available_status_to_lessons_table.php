@@ -12,8 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modifier l'enum pour inclure 'available'
-        DB::statement("ALTER TABLE lessons MODIFY COLUMN status ENUM('pending', 'confirmed', 'completed', 'cancelled', 'no_show', 'available') DEFAULT 'pending'");
+        // Modifier l'enum pour inclure 'available' - Compatible SQLite et MySQL
+        if (DB::getDriverName() === 'sqlite') {
+            // Pour SQLite, on recrée la table avec la nouvelle colonne
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->string('status')->default('pending')->change();
+            });
+        } else {
+            // Pour MySQL, utiliser MODIFY COLUMN
+            DB::statement("ALTER TABLE lessons MODIFY COLUMN status ENUM('pending', 'confirmed', 'completed', 'cancelled', 'no_show', 'available') DEFAULT 'pending'");
+        }
     }
 
     /**
@@ -21,7 +29,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Retirer 'available' de l'enum
-        DB::statement("ALTER TABLE lessons MODIFY COLUMN status ENUM('pending', 'confirmed', 'completed', 'cancelled', 'no_show') DEFAULT 'pending'");
+        // Retirer 'available' de l'enum - Compatible SQLite et MySQL
+        if (DB::getDriverName() === 'sqlite') {
+            // Pour SQLite, on recrée la table avec l'ancienne colonne
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->string('status')->default('pending')->change();
+            });
+        } else {
+            // Pour MySQL, utiliser MODIFY COLUMN
+            DB::statement("ALTER TABLE lessons MODIFY COLUMN status ENUM('pending', 'confirmed', 'completed', 'cancelled', 'no_show') DEFAULT 'pending'");
+        }
     }
 };

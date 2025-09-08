@@ -30,10 +30,11 @@ class Student extends Model
 
     protected $fillable = [
         'user_id',
+        'club_id',
         'level',
         'goals',
         'medical_info',
-        'emergency_contact',
+        'emergency_contacts',
         'preferred_disciplines',
         'preferred_levels',
         'preferred_formats',
@@ -44,6 +45,7 @@ class Student extends Model
     ];
 
     protected $casts = [
+        'emergency_contacts' => 'array',
         'preferred_disciplines' => 'array',
         'preferred_levels' => 'array',
         'preferred_formats' => 'array',
@@ -56,6 +58,14 @@ class Student extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the club that owns the student.
+     */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
     }
 
     /**
@@ -82,6 +92,34 @@ class Student extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * Get the preferences for this student.
+     */
+    public function preferences(): HasMany
+    {
+        return $this->hasMany(StudentPreference::class);
+    }
+
+    /**
+     * Get the preferred disciplines for this student.
+     */
+    public function preferredDisciplines(): BelongsToMany
+    {
+        return $this->belongsToMany(Discipline::class, 'student_preferences')
+                    ->withPivot(['course_type_id', 'is_preferred', 'priority_level'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the preferred course types for this student.
+     */
+    public function preferredCourseTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(CourseType::class, 'student_preferences')
+                    ->withPivot(['discipline_id', 'is_preferred', 'priority_level'])
+                    ->withTimestamps();
     }
 
     /**

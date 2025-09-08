@@ -52,7 +52,7 @@ const apiStatus = ref('Non testé')
 const testing = ref(false)
 const loginTesting = ref(false)
 const result = ref(null)
-const email = ref('admin@bookyourcoach.com')
+const email = ref('admin@activibe.com')
 const password = ref('admin123')
 
 const testApi = async () => {

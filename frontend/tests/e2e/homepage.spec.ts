@@ -5,7 +5,7 @@ test.describe('Page d\'accueil', () => {
         await page.goto('/')
 
         // Vérifier le titre de la page
-        await expect(page).toHaveTitle(/BookYourCoach/)
+        await expect(page).toHaveTitle(/activibe/)
 
         // Vérifier le titre principal
         await expect(page.locator('h1')).toContainText('Trouvez votre coach parfait')
@@ -39,7 +39,7 @@ test.describe('Page d\'accueil', () => {
         await page.goto('/')
 
         // Section des fonctionnalités
-        await expect(page.locator('text=Pourquoi choisir BookYourCoach ?')).toBeVisible()
+        await expect(page.locator('text=Pourquoi choisir activibe ?')).toBeVisible()
         await expect(page.locator('text=Coaches certifiés')).toBeVisible()
         await expect(page.locator('text=Réservation facile')).toBeVisible()
         await expect(page.locator('text=Paiement sécurisé')).toBeVisible()

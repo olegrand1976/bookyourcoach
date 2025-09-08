@@ -11,6 +11,10 @@ class StudentLessonsScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentLessonsScreenState extends ConsumerState<StudentLessonsScreen> {
+  String _selectedFilter = 'all';
+  String? _selectedDateFilter;
+  String? _selectedPriceFilter;
+  String? _selectedLocationFilter;
   @override
   void initState() {
     super.initState();
@@ -35,6 +39,10 @@ class _StudentLessonsScreenState extends ConsumerState<StudentLessonsScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => _showFilterDialog(),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(studentProvider.notifier).loadAvailableLessons();
@@ -42,8 +50,161 @@ class _StudentLessonsScreenState extends ConsumerState<StudentLessonsScreen> {
           ),
         ],
       ),
+      drawer: _buildDrawer(),
       body: _buildBody(lessons, isLoading, error),
     );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          // En-tête du drawer
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E3A8A),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Filtres des Cours',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Filtrer les cours disponibles',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Filtres
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // Filtres par date
+                _buildFilterSection(
+                  'Date',
+                  [
+                    {'label': 'Toutes les dates', 'value': 'all'},
+                    {'label': 'Aujourd\'hui', 'value': 'today'},
+                    {'label': 'Cette semaine', 'value': 'week'},
+                    {'label': 'Ce mois', 'value': 'month'},
+                  ],
+                  _selectedDateFilter ?? 'all',
+                  (value) {
+                    setState(() {
+                      _selectedDateFilter = value == 'all' ? null : value;
+                    });
+                    _applyFilters();
+                  },
+                ),
+                // Filtres par prix
+                _buildFilterSection(
+                  'Prix',
+                  [
+                    {'label': 'Tous les prix', 'value': 'all'},
+                    {'label': 'Moins de 30€', 'value': 'low'},
+                    {'label': '30€ - 50€', 'value': 'medium'},
+                    {'label': 'Plus de 50€', 'value': 'high'},
+                  ],
+                  _selectedPriceFilter ?? 'all',
+                  (value) {
+                    setState(() {
+                      _selectedPriceFilter = value == 'all' ? null : value;
+                    });
+                    _applyFilters();
+                  },
+                ),
+                // Filtres par localisation
+                _buildFilterSection(
+                  'Localisation',
+                  [
+                    {'label': 'Toutes les localisations', 'value': 'all'},
+                    {'label': 'Proche de moi', 'value': 'near'},
+                    {'label': 'Centre-ville', 'value': 'center'},
+                    {'label': 'Périphérie', 'value': 'suburb'},
+                  ],
+                  _selectedLocationFilter ?? 'all',
+                  (value) {
+                    setState(() {
+                      _selectedLocationFilter = value == 'all' ? null : value;
+                    });
+                    _applyFilters();
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Bouton de réinitialisation
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _resetFilters,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A8A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Réinitialiser les filtres'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(String title, List<Map<String, String>> options, String selectedValue, Function(String) onChanged) {
+    return ExpansionTile(
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF1E3A8A),
+        ),
+      ),
+      children: options.map((option) {
+        return RadioListTile<String>(
+          title: Text(option['label']!),
+          value: option['value']!,
+          groupValue: selectedValue,
+          onChanged: (value) => onChanged(value!),
+          activeColor: const Color(0xFF1E3A8A),
+        );
+      }).toList(),
+    );
+  }
+
+  void _applyFilters() {
+    // Ici vous pouvez implémenter la logique de filtrage
+    // Pour l'instant, on recharge simplement les données
+    ref.read(studentProvider.notifier).loadAvailableLessons();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedDateFilter = null;
+      _selectedPriceFilter = null;
+      _selectedLocationFilter = null;
+    });
+    _applyFilters();
+  }
+
+  void _showFilterDialog() {
+    Scaffold.of(context).openDrawer();
   }
 
   Widget _buildBody(List<Lesson> lessons, bool isLoading, String? error) {

@@ -172,12 +172,17 @@
 import { ref, onMounted } from 'vue'
 
 definePageMeta({
-    middleware: ['auth', 'teacher']
+    middleware: ['auth']
 })
 
 const authStore = useAuthStore()
 const { $api } = useNuxtApp()
-const toast = useToast()
+
+// Fonction toast simple
+const showToast = (message, type = 'info') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+  // TODO: Implémenter un vrai système de toast
+}
 
 // State
 const loading = ref(true)
@@ -202,7 +207,7 @@ onMounted(async () => {
         upcomingLessons.value = response.data.upcomingLessons
     } catch (error) {
         console.error("Erreur lors de la récupération des données du dashboard enseignant:", error)
-        toast.error("Impossible de charger les données du dashboard.")
+        showToast("Impossible de charger les données du dashboard.", 'error')
     } finally {
         loading.value = false
     }

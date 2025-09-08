@@ -42,7 +42,7 @@ async function testDirectAPI() {
     addLog('🔧 Test avec $api (plugin Nuxt)...')
     try {
         const response = await $api.post('/auth/login', {
-            email: 'admin.secours@bookyourcoach.com',
+            email: 'admin.secours@activibe.com',
             password: 'secours123'
         })
         addLog(`✅ Succès: ${response.data.user.role}`)
@@ -59,7 +59,7 @@ async function testWithAxios() {
     addLog('🔧 Test avec Axios direct...')
     try {
         const response = await axios.post(`${config.public.apiBase}/auth/login`, {
-            email: 'admin.secours@bookyourcoach.com',
+            email: 'admin.secours@activibe.com',
             password: 'secours123'
         }, {
             headers: {
@@ -87,7 +87,7 @@ async function testWithFetch() {
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
-                email: 'admin.secours@bookyourcoach.com',
+                email: 'admin.secours@activibe.com',
                 password: 'secours123'
             })
         })
