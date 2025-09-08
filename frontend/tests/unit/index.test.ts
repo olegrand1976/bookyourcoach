@@ -43,7 +43,7 @@ describe('Page d\'accueil', () => {
     })
 
     it('affiche la section des fonctionnalités', () => {
-        expect(wrapper.text()).toContain('Pourquoi choisir BookYourCoach ?')
+        expect(wrapper.text()).toContain('Pourquoi choisir activibe ?')
         expect(wrapper.text()).toContain('Coaches certifiés')
         expect(wrapper.text()).toContain('Réservation facile')
         expect(wrapper.text()).toContain('Paiement sécurisé')

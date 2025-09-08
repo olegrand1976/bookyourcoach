@@ -17,14 +17,14 @@ class DemoProfilesSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('🐎 Création des profils de démonstration BookYourCoach...');
+        $this->command->info('🐎 Création des profils de démonstration activibe...');
 
         // 1. PROFIL ADMINISTRATEUR
         $admin = User::updateOrCreate(
-            ['email' => 'admin@bookyourcoach.fr'],
+            ['email' => 'admin@activibe.fr'],
             [
                 'name' => 'Marie Dubois',
-                'email' => 'admin@bookyourcoach.fr',
+                'email' => 'admin@activibe.fr',
                 'password' => Hash::make('admin123'),
                 'role' => 'admin',
                 'email_verified_at' => now(),
@@ -45,14 +45,14 @@ class DemoProfilesSeeder extends Seeder
             ]
         );
 
-        $this->command->info('✅ Profil Admin créé : admin@bookyourcoach.fr / admin123');
+        $this->command->info('✅ Profil Admin créé : admin@activibe.fr / admin123');
 
         // 2. PROFIL COACH/ENSEIGNANT
         $coach = User::updateOrCreate(
-            ['email' => 'coach@bookyourcoach.fr'],
+            ['email' => 'coach@activibe.fr'],
             [
                 'name' => 'Jean-Luc Moreau',
-                'email' => 'coach@bookyourcoach.fr',
+                'email' => 'coach@activibe.fr',
                 'password' => Hash::make('coach123'),
                 'role' => 'teacher',
                 'email_verified_at' => now(),
@@ -93,14 +93,14 @@ class DemoProfilesSeeder extends Seeder
             ]
         );
 
-        $this->command->info('✅ Profil Coach créé : coach@bookyourcoach.fr / coach123');
+        $this->command->info('✅ Profil Coach créé : coach@activibe.fr / coach123');
 
         // 3. PROFIL ÉLÈVE
         $student = User::updateOrCreate(
-            ['email' => 'eleve@bookyourcoach.fr'],
+            ['email' => 'eleve@activibe.fr'],
             [
                 'name' => 'Emma Leclerc',
-                'email' => 'eleve@bookyourcoach.fr',
+                'email' => 'eleve@activibe.fr',
                 'password' => Hash::make('eleve123'),
                 'role' => 'student',
                 'email_verified_at' => now(),
@@ -143,14 +143,14 @@ class DemoProfilesSeeder extends Seeder
             ]
         );
 
-        $this->command->info('✅ Profil Élève créé : eleve@bookyourcoach.fr / eleve123');
+        $this->command->info('✅ Profil Élève créé : eleve@activibe.fr / eleve123');
 
         $this->command->info('');
         $this->command->info('🎯 IDENTIFIANTS DE CONNEXION :');
         $this->command->info('=====================================');
-        $this->command->info('👨‍💼 ADMIN     : admin@bookyourcoach.fr / admin123');
-        $this->command->info('🏇 COACH     : coach@bookyourcoach.fr / coach123');
-        $this->command->info('👩‍🎓 ÉLÈVE     : eleve@bookyourcoach.fr / eleve123');
+        $this->command->info('👨‍💼 ADMIN     : admin@activibe.fr / admin123');
+        $this->command->info('🏇 COACH     : coach@activibe.fr / coach123');
+        $this->command->info('👩‍🎓 ÉLÈVE     : eleve@activibe.fr / eleve123');
         $this->command->info('');
         $this->command->info('🌐 Connectez-vous sur : http://localhost:3000/login');
     }

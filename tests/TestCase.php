@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use App\Models\User;
-use Illuminate\Foundation\Testing\CreatesApplication;
+use Tests\CreatesApplication;
 
 abstract class TestCase extends BaseTestCase
 {

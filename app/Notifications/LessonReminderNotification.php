@@ -26,7 +26,7 @@ class LessonReminderNotification extends Notification implements ShouldQueue
         $timeUntil = $this->lesson->start_time->diffForHumans();
 
         return (new MailMessage)
-            ->subject('Rappel de cours - BookYourCoach')
+            ->subject('Rappel de cours - activibe')
             ->greeting("Bonjour {$notifiable->profile->first_name},")
             ->line("Votre cours approche ! ({$timeUntil})")
             ->line("**Cours** : {$this->lesson->courseType->name}")

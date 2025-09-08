@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-50 flex items-center justify-center">
     <div class="max-w-md mx-auto text-center">
       <h1 class="text-3xl font-bold text-gray-900 mb-4">
-        BookYourCoach
+        activibe
       </h1>
       <p class="text-gray-600 mb-8">
         Plateforme de réservation de cours équestres
@@ -12,7 +12,7 @@
           Se connecter
         </NuxtLink>
         <NuxtLink to="/register" class="btn btn-outline block">
-          S'inscrire
+vérifier          Inscription
         </NuxtLink>
       </div>
     </div>
@@ -21,6 +21,6 @@
 
 <script setup lang="ts">
 useHead({
-  title: 'BookYourCoach - Accueil'
+  title: 'activibe - Accueil'
 })
 </script>

@@ -1,76 +1,47 @@
 <template>
-    <div class="p-8">
-        <h1 class="text-2xl font-bold mb-4">🔍 Test Authentification Simple</h1>
-
-        <div class="bg-gray-100 p-4 rounded mb-4">
-            <h2 class="text-lg font-semibold mb-2">État actuel</h2>
-            <p><strong>Utilisateur:</strong> {{ user?.name || 'Non connecté' }}</p>
-            <p><strong>Email:</strong> {{ user?.email || 'N/A' }}</p>
-            <p><strong>Rôle:</strong> <span class="font-bold"
-                    :class="user?.role === 'admin' ? 'text-green-600' : 'text-red-600'">{{ user?.role || 'N/A' }}</span>
-            </p>
-            <p><strong>Authentifié:</strong> {{ isAuthenticated ? '✅ Oui' : '❌ Non' }}</p>
+  <div class="p-8">
+    <h1 class="text-2xl font-bold mb-4">Test d'authentification</h1>
+    
+    <div class="space-y-4">
+      <div class="p-4 border rounded">
+        <h3 class="font-semibold">État du store d'authentification :</h3>
+        <p><strong>isAuthenticated:</strong> {{ authStore.isAuthenticated }}</p>
+        <p><strong>Token présent:</strong> {{ !!authStore.token }}</p>
+        <p><strong>User:</strong> {{ authStore.user ? authStore.user.email : 'Aucun' }}</p>
+        <p><strong>canActAsTeacher:</strong> {{ authStore.canActAsTeacher }}</p>
+      </div>
+      
+      <div class="p-4 border rounded">
+        <h3 class="font-semibold">Cookies :</h3>
+        <p><strong>auth-token:</strong> {{ authToken ? 'Présent' : 'Absent' }}</p>
+        <p><strong>Valeur:</strong> {{ authToken ? authToken.substring(0, 20) + '...' : 'N/A' }}</p>
+      </div>
+      
+      <div class="p-4 border rounded">
+        <h3 class="font-semibold">Test API :</h3>
+        <button @click="testAPI" class="px-4 py-2 bg-blue-500 text-white rounded">
+          Tester l'API
+        </button>
+        <div v-if="apiResult" class="mt-2 p-2 bg-gray-100 rounded">
+          <pre>{{ JSON.stringify(apiResult, null, 2) }}</pre>
         </div>
-
-        <div class="space-y-2 mb-4">
-            <button @click="login" class="bg-blue-500 text-white px-4 py-2 rounded mr-2">Se connecter</button>
-            <button @click="refresh" class="bg-green-500 text-white px-4 py-2 rounded mr-2">Rafraîchir</button>
-            <button @click="logout" class="bg-red-500 text-white px-4 py-2 rounded">Se déconnecter</button>
-        </div>
-
-        <div class="bg-black text-green-400 p-4 rounded font-mono text-sm">
-            <div v-for="log in logs" :key="log.id">{{ log.message }}</div>
-        </div>
+      </div>
     </div>
+  </div>
 </template>
 
 <script setup>
 const authStore = useAuthStore()
-const { $api } = useNuxtApp()
+const authToken = useCookie('auth-token')
+const apiResult = ref(null)
 
-const user = computed(() => authStore.user)
-const isAuthenticated = computed(() => authStore.isAuthenticated)
-
-const logs = ref([])
-let logId = 0
-
-function addLog(message) {
-    logs.value.push({
-        id: logId++,
-        message: `[${new Date().toLocaleTimeString()}] ${message}`
-    })
+const testAPI = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/auth/user')
+    apiResult.value = response.data
+  } catch (error) {
+    apiResult.value = { error: error.message }
+  }
 }
-
-async function login() {
-    addLog('🔄 Tentative de connexion...')
-    try {
-        await authStore.login({
-            email: 'admin.secours@bookyourcoach.com',
-            password: 'secours123'
-        })
-        addLog(`✅ Connexion réussie - Role: ${authStore.user?.role}`)
-    } catch (error) {
-        addLog(`❌ Erreur: ${error.message}`)
-    }
-}
-
-async function refresh() {
-    addLog('🔄 Rafraîchissement...')
-    try {
-        await authStore.fetchUser()
-        addLog(`✅ Rafraîchi - Role: ${authStore.user?.role}`)
-    } catch (error) {
-        addLog(`❌ Erreur: ${error.message}`)
-    }
-}
-
-async function logout() {
-    addLog('🔄 Déconnexion...')
-    await authStore.logout()
-    addLog('✅ Déconnecté')
-}
-
-onMounted(() => {
-    addLog('🚀 Page chargée')
-})
 </script>

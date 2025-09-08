@@ -25,7 +25,7 @@ class LessonCancelledNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $message = (new MailMessage)
-            ->subject('Cours annulé - BookYourCoach')
+            ->subject('Cours annulé - activibe')
             ->greeting("Bonjour {$notifiable->profile->first_name},")
             ->line('Nous regrettons de vous informer que votre cours a été annulé.')
             ->line("**Cours** : {$this->lesson->courseType->name}")

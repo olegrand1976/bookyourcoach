@@ -12,17 +12,26 @@ class StudentFactory extends Factory
 
     public function definition()
     {
-        $experienceLevels = ['débutant', 'intermédiaire', 'confirmé', 'expert'];
+        $levels = ['debutant', 'intermediaire', 'avance', 'expert'];
         $disciplines = ['dressage', 'obstacle', 'cross', 'complet', 'western', 'endurance'];
 
         return [
             'user_id' => User::factory()->state(['role' => 'student']),
-            'experience_level' => $this->faker->randomElement($experienceLevels),
+            'level' => $this->faker->randomElement($levels),
+            'goals' => $this->faker->sentence(),
+            'medical_info' => $this->faker->optional(0.3)->sentence(),
+            'emergency_contacts' => [
+                'name' => $this->faker->name(),
+                'phone' => $this->faker->phoneNumber(),
+                'relationship' => $this->faker->randomElement(['parent', 'spouse', 'friend', 'relative'])
+            ],
             'preferred_disciplines' => $this->faker->randomElements($disciplines, $this->faker->numberBetween(1, 3)),
-            'emergency_contact_name' => $this->faker->name(),
-            'emergency_contact_phone' => $this->faker->phoneNumber(),
-            'medical_notes' => $this->faker->optional(0.3)->sentence(),
-            'active' => $this->faker->boolean(90), // 90% chance d'être actif
+            'preferred_levels' => $this->faker->randomElements($levels, $this->faker->numberBetween(1, 2)),
+            'preferred_formats' => $this->faker->randomElements(['individual', 'group'], 1),
+            'location' => $this->faker->city(),
+            'max_price' => $this->faker->numberBetween(30, 100),
+            'max_distance' => $this->faker->numberBetween(5, 50),
+            'notifications_enabled' => $this->faker->boolean(80)
         ];
     }
 
@@ -45,8 +54,14 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'experience_level' => 'débutant',
+                'level' => 'debutant',
                 'preferred_disciplines' => ['dressage'],
+                'preferred_levels' => ['debutant'],
+                'preferred_formats' => ['individual'],
+                'location' => 'Paris',
+                'max_price' => 50,
+                'max_distance' => 10,
+                'notifications_enabled' => true
             ];
         });
     }
@@ -58,8 +73,14 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'experience_level' => 'expert',
+                'level' => 'expert',
                 'preferred_disciplines' => ['dressage', 'obstacle', 'cross'],
+                'preferred_levels' => ['avance', 'expert'],
+                'preferred_formats' => ['individual', 'group'],
+                'location' => 'Lyon',
+                'max_price' => 100,
+                'max_distance' => 30,
+                'notifications_enabled' => true
             ];
         });
     }
@@ -71,19 +92,7 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($notes) {
             return [
-                'medical_notes' => $notes ?? 'Allergie aux poils de chat. Porter un casque obligatoire.',
-            ];
-        });
-    }
-
-    /**
-     * Inactive student
-     */
-    public function inactive()
-    {
-        return $this->state(function (array $attributes) {
-            return [
-                'active' => false,
+                'medical_info' => $notes ?? 'Allergie aux poils de chat. Porter un casque obligatoire.',
             ];
         });
     }
@@ -95,8 +104,14 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'experience_level' => 'confirmé',
+                'level' => 'avance',
                 'preferred_disciplines' => ['dressage'],
+                'preferred_levels' => ['avance'],
+                'preferred_formats' => ['individual'],
+                'location' => 'Versailles',
+                'max_price' => 80,
+                'max_distance' => 20,
+                'notifications_enabled' => true
             ];
         });
     }
@@ -108,8 +123,14 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'experience_level' => 'confirmé',
+                'level' => 'avance',
                 'preferred_disciplines' => ['obstacle'],
+                'preferred_levels' => ['avance'],
+                'preferred_formats' => ['individual'],
+                'location' => 'Chantilly',
+                'max_price' => 90,
+                'max_distance' => 25,
+                'notifications_enabled' => true
             ];
         });
     }
@@ -121,8 +142,14 @@ class StudentFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             return [
-                'experience_level' => 'expert',
+                'level' => 'expert',
                 'preferred_disciplines' => ['dressage', 'obstacle', 'cross', 'complet'],
+                'preferred_levels' => ['avance', 'expert'],
+                'preferred_formats' => ['individual', 'group'],
+                'location' => 'Fontainebleau',
+                'max_price' => 120,
+                'max_distance' => 50,
+                'notifications_enabled' => true
             ];
         });
     }

@@ -1,6 +1,6 @@
-# BookYourCoach - Frontend
+# activibe - Frontend
 
-Interface utilisateur Nuxt.js pour la plateforme de réservation de cours équestres BookYourCoach.
+Interface utilisateur Nuxt.js pour la plateforme de réservation de cours équestres activibe.
 
 ## 🚀 Démarrage rapide
 
@@ -37,7 +37,7 @@ Pour tester l'application, utilisez ces comptes de démonstration :
 
 ### 👩‍💼 Administrateur
 
--   **Email** : `admin@bookyourcoach.fr`
+-   **Email** : `admin@activibe.fr`
 -   **Mot de passe** : `admin123`
 -   **Rôle** : Accès complet à l'administration et dashboard général
 -   **Redirection** : `/admin`
@@ -45,14 +45,14 @@ Pour tester l'application, utilisez ces comptes de démonstration :
 
 ### 🏇 Coach/Enseignant
 
--   **Email** : `coach@bookyourcoach.fr`
+-   **Email** : `coach@activibe.fr`
 -   **Mot de passe** : `coach123`
 -   **Rôle** : Gestion des cours et disponibilités
 -   **Redirection** : `/teacher`
 
 ### 🎓 Élève/Étudiant
 
--   **Email** : `eleve@bookyourcoach.fr`
+-   **Email** : `eleve@activibe.fr`
 -   **Mot de passe** : `eleve123`
 -   **Rôle** : Réservation de cours
 -   **Redirection** : `/dashboard`

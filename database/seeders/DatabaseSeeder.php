@@ -17,27 +17,31 @@ class DatabaseSeeder extends Seeder
         $this->command->info('📱 Création des paramètres d\'application...');
         $this->call(AppSettingSeeder::class);
 
-        // 2. Types de cours
-        $this->command->info('📚 Création des types de cours...');
+        // 2. Disciplines et types de cours
+        $this->command->info('📚 Création des disciplines et types de cours...');
+        $this->call(DisciplineSeeder::class);
+
+        // 3. Types de cours (legacy)
+        $this->command->info('📚 Création des types de cours legacy...');
         $this->call(CourseTypeSeeder::class);
 
-        // 3. Lieux
+        // 4. Lieux
         $this->command->info('🏢 Création des lieux...');
         $this->call(LocationSeeder::class);
 
-        // 4. Utilisateurs (admin, enseignants, élèves)
+        // 5. Utilisateurs (admin, enseignants, élèves)
         $this->command->info('👥 Création des utilisateurs...');
         $this->call(UserSeeder::class);
 
-        // 5. Données de démonstration (leçons, disponibilités, paiements)
+        // 6. Données de démonstration (leçons, disponibilités, paiements)
         $this->command->info('🎯 Création des données de démonstration...');
         $this->call(DemoDataSeeder::class);
 
         $this->command->info('✅ Seeding terminé avec succès !');
         $this->command->line('');
         $this->command->info('🔑 Comptes de test créés :');
-        $this->command->line('   Admin: admin@bookyourcoach.com / password123');
-        $this->command->line('   Enseignants: sophie.martin@bookyourcoach.com / password123');
+        $this->command->line('   Admin: admin@activibe.com / password123');
+        $this->command->line('   Enseignants: sophie.martin@activibe.com / password123');
         $this->command->line('   Élèves: alice.durand@email.com / password123');
         $this->command->line('');
         $this->command->info('🌐 Application disponible sur : http://localhost:8081');

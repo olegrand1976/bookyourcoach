@@ -31,13 +31,13 @@ const _sfc_main = {
     const route = useRoute();
     const teacherId = route.params.id;
     useHead({
-      title: computed(() => teacher.value ? `${teacher.value.first_name} ${teacher.value.last_name} | BookYourCoach` : "Instructeur | BookYourCoach"),
+      title: computed(() => teacher.value ? `${teacher.value.first_name} ${teacher.value.last_name} | activibe` : "Instructeur | activibe"),
       meta: [
         {
           name: "description",
           content: computed(() => {
             var _a;
-            return ((_a = teacher.value) == null ? void 0 : _a.bio) || "Profil d'instructeur \xE9questre sur BookYourCoach";
+            return ((_a = teacher.value) == null ? void 0 : _a.bio) || "Profil d'instructeur \xE9questre sur activibe";
           })
         }
       ]

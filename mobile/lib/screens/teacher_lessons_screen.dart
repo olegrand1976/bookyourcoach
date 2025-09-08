@@ -23,9 +23,31 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
   }
 
   void _loadLessons() {
+    String? statusFilter;
+    DateTime? dateFilter;
+    
+    // Gestion des filtres de statut
+    if (_selectedFilter != 'all' && 
+        !['today', 'week', 'month'].contains(_selectedFilter)) {
+      statusFilter = _selectedFilter;
+    }
+    
+    // Gestion des filtres de date
+    if (_selectedFilter == 'today') {
+      final now = DateTime.now();
+      dateFilter = DateTime(now.year, now.month, now.day);
+    } else if (_selectedFilter == 'week') {
+      final now = DateTime.now();
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      dateFilter = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    } else if (_selectedFilter == 'month') {
+      final now = DateTime.now();
+      dateFilter = DateTime(now.year, now.month, 1);
+    }
+    
     ref.read(teacherLessonsProvider.notifier).loadLessons(
-      status: _selectedFilter == 'all' ? null : _selectedFilter,
-      date: _selectedDate,
+      status: statusFilter,
+      date: dateFilter,
     );
   }
 
@@ -45,69 +67,14 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
           ),
         ],
       ),
+      drawer: _buildDrawer(),
       body: lessonsState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : lessonsState.error != null
               ? _buildErrorState(lessonsState.error!)
               : lessonsState.lessons.isEmpty
                   ? _buildEmptyState()
-                  : Column(
-                      children: [
-                        // Filtres
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          color: const Color(0xFFF8FAFC),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildFilterChip('Tous', 'all', _selectedFilter == 'all'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildFilterChip('Confirmés', 'confirmed', _selectedFilter == 'confirmed'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildFilterChip('Terminés', 'completed', _selectedFilter == 'completed'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildFilterChip('En attente', 'pending', _selectedFilter == 'pending'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildFilterChip('Disponibles', 'available', _selectedFilter == 'available'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildFilterChip('Annulés', 'cancelled', _selectedFilter == 'cancelled'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildFilterChip('Absents', 'no_show', _selectedFilter == 'no_show'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Container(), // Espace vide pour aligner avec la première ligne
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Liste des cours
-                        Expanded(
-                          child: _buildLessonsList(lessonsState.lessons),
-                        ),
-                      ],
-                    ),
+                  : _buildLessonsList(lessonsState.lessons),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToLessonForm(),
         backgroundColor: const Color(0xFF2563EB),
@@ -117,33 +84,107 @@ class _TeacherLessonsScreenState extends ConsumerState<TeacherLessonsScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value, bool isSelected) {
-    return GestureDetector(
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          // En-tête du drawer
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              color: Color(0xFF2563EB),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 40),
+                const Text(
+                  'Filtres des Cours',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Filtrer vos cours par statut',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Section des filtres
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildFilterTile('Tous les cours', 'all', Icons.list),
+                _buildFilterTile('En attente', 'pending', Icons.schedule),
+                _buildFilterTile('Confirmés', 'confirmed', Icons.check_circle),
+                _buildFilterTile('Terminés', 'completed', Icons.done_all),
+                _buildFilterTile('Disponibles', 'available', Icons.event_available),
+                _buildFilterTile('Annulés', 'cancelled', Icons.cancel),
+                _buildFilterTile('Absents', 'no_show', Icons.person_off),
+                const Divider(),
+                _buildFilterTile('Aujourd\'hui', 'today', Icons.today),
+                _buildFilterTile('Cette semaine', 'week', Icons.view_week),
+                _buildFilterTile('Ce mois', 'month', Icons.calendar_month),
+              ],
+            ),
+          ),
+          
+          // Bouton pour fermer le drawer
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Fermer'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterTile(String title, String value, IconData icon) {
+    final isSelected = _selectedFilter == value;
+    
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? const Color(0xFF2563EB) : Colors.grey[600],
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? const Color(0xFF2563EB) : Colors.grey[800],
+        ),
+      ),
+      trailing: isSelected 
+          ? const Icon(Icons.check, color: Color(0xFF2563EB))
+          : null,
+      selected: isSelected,
+      selectedTileColor: const Color(0xFF2563EB).withOpacity(0.1),
       onTap: () {
         setState(() {
           _selectedFilter = value;
         });
-        Future.microtask(() => _loadLessons());
+        _loadLessons();
+        Navigator.pop(context); // Ferme le drawer
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF2563EB) : Colors.grey[300]!,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[700],
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
     );
   }
 

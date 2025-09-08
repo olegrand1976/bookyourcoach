@@ -1,7 +1,7 @@
-# 📚 Fonctionnalités Élève - BookYourCoach Mobile
+# 📚 Fonctionnalités Élève - activibe Mobile
 
 ## 🎯 Vue d'ensemble
-L'application mobile BookYourCoach offre un ensemble complet de fonctionnalités dédiées aux élèves pour découvrir, réserver et gérer leurs cours avec des enseignants qualifiés.
+L'application mobile activibe offre un ensemble complet de fonctionnalités dédiées aux élèves pour découvrir, réserver et gérer leurs cours avec des enseignants qualifiés.
 
 ## 🏗️ Architecture Technique
 
@@ -374,6 +374,7 @@ class ApiConfig {
 ---
 
 **L'application est prête pour la production et offre une expérience utilisateur optimale pour les élèves !**
+
 
 
 

@@ -46,11 +46,13 @@ export default defineNuxtConfig({
     runtimeConfig: {
         public: {
             apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8081/api',
-            appName: 'BookYourCoach'
-        }
+            appName: 'Acti\'Vibe'
+        },
+        // Configuration côté serveur pour Docker
+        apiBase: process.env.NUXT_API_BASE || 'http://webserver:80/api'
     },
 
-    css: ['~/assets/css/main.css'],
+    css: ['~/assets/css/main.css', '~/assets/css/app-colors.css'],
 
     tailwindcss: {
         config: {
@@ -68,22 +70,14 @@ export default defineNuxtConfig({
                             700: '#a15634',
                             800: '#814530',
                             900: '#693829',
-                        },
-                        equestrian: {
-                            brown: '#8B4513',
-                            darkBrown: '#654321',
-                            leather: '#D2691E',
-                            gold: '#DAA520',
-                            cream: '#F5F5DC',
-                            forest: '#228B22'
                         }
                     },
                     fontFamily: {
                         serif: ['Merriweather', 'ui-serif', 'Georgia'],
                     },
                     backgroundImage: {
-                        'stable-gradient': 'linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #DAA520 100%)',
-                        'horse-pattern': "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><path d=\"M20 20h60v60H20z\" fill=\"%23f5f5dc\" opacity=\"0.1\"/></svg>')",
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
                     }
                 }
             }

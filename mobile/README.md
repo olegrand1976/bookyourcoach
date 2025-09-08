@@ -1,6 +1,6 @@
-# BookYourCoach Mobile App 🐎
+# activibe Mobile App 🐎
 
-Application mobile Flutter pour la plateforme de coaching équestre BookYourCoach.
+Application mobile Flutter pour la plateforme de coaching équestre activibe.
 
 ## 🚀 Fonctionnalités
 
@@ -15,7 +15,7 @@ Application mobile Flutter pour la plateforme de coaching équestre BookYourCoac
 
 - Flutter SDK (version 3.24.5+)
 - Dart SDK (version 3.5.4+)
-- API Laravel BookYourCoach en cours d'exécution
+- API Laravel activibe en cours d'exécution
 - Android Studio / VS Code (recommandé)
 
 ## 🛠️ Installation
@@ -94,8 +94,8 @@ flutter test --coverage
 
 | Rôle | Email | Mot de passe |
 |------|-------|--------------|
-| **Admin** | `admin@bookyourcoach.com` | `password123` |
-| **Enseignant** | `sophie.martin@bookyourcoach.com` | `password123` |
+| **Admin** | `admin@activibe.com` | `password123` |
+| **Enseignant** | `sophie.martin@activibe.com` | `password123` |
 | **Étudiant** | `alice.durand@email.com` | `password123` |
 
 ## 🏗️ Architecture
@@ -237,4 +237,4 @@ Pour toute question ou problème :
 
 ---
 
-**BookYourCoach Mobile** - Votre plateforme équestre mobile 🐎📱
+**activibe Mobile** - Votre plateforme équestre mobile 🐎📱

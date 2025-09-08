@@ -21,8 +21,8 @@ describe('useSettings Composable', () => {
     })
 
     it('devrait avoir des valeurs par défaut correctes', () => {
-        expect(settings.settings.value.platform_name).toBe('BookYourCoach')
-        expect(settings.settings.value.contact_email).toBe('contact@bookyourcoach.fr')
+        expect(settings.settings.value.platform_name).toBe('activibe')
+        expect(settings.settings.value.contact_email).toBe('contact@activibe.fr')
         expect(settings.settings.value.timezone).toBe('Europe/Brussels')
     })
 

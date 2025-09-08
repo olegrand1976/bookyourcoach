@@ -8,12 +8,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bookyourcoach_mobile/main.dart';
+import 'package:activibe_mobile/main.dart';
 
 void main() {
-  testWidgets('BookYourCoach app smoke test', (WidgetTester tester) async {
+  testWidgets('activibe app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const BookYourCoachApp());
+    await tester.pumpWidget(const activibeApp());
 
     // Verify that the app starts without crashing
     expect(find.byType(MaterialApp), findsOneWidget);

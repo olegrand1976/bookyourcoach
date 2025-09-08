@@ -1,17 +1,17 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "BookYourCoach API",
+        "title": "activibe API",
         "description": "API REST complète pour la plateforme de réservation de cours avec coaches équestres.\n *     \n * Cette API permet de :\n * - Gérer les utilisateurs (Administrateurs, Enseignants, Élèves)\n * - Planifier et réserver des cours d'équitation\n * - Traiter les paiements via Stripe\n * - Gérer les lieux et types de cours\n * - Suivre les performances et statistiques\n * \n * ## Authentification\n * L'API utilise l'authentification Bearer Token via Laravel Sanctum.\n * Incluez votre token dans l'header Authorization : `Bearer {token}`\n * \n * ## Rôles utilisateurs\n * - **Admin** : Accès complet à toutes les fonctionnalités\n * - **Teacher** : Gestion de ses cours, disponibilités et élèves\n * - **Student** : Réservation de cours et gestion de son profil\n * \n * ## Environnement de test\n * - URL de base : http://localhost:8081/api\n * - Base de données : MySQL via Docker\n * - Paiements : Stripe en mode test\n * - PHPMyAdmin : http://localhost:8082",
-        "termsOfService": "https://bookyourcoach.com/terms",
+        "termsOfService": "https://activibe.com/terms",
         "contact": {
-            "name": "Équipe BookYourCoach",
-            "url": "https://bookyourcoach.com",
-            "email": "support@bookyourcoach.com"
+            "name": "Équipe activibe",
+            "url": "https://activibe.com",
+            "email": "support@activibe.com"
         },
         "license": {
-            "name": "Propriétaire - BookYourCoach",
-            "url": "https://bookyourcoach.com/license"
+            "name": "Propriétaire - activibe",
+            "url": "https://activibe.com/license"
         },
         "version": "1.0.0"
     },
@@ -21,7 +21,7 @@
             "description": "Serveur de développement"
         },
         {
-            "url": "https://api.bookyourcoach.com",
+            "url": "https://api.activibe.com",
             "description": "Serveur de production"
         }
     ],

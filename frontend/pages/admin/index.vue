@@ -4,48 +4,48 @@
             <!-- Header -->
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-                    <EquestrianIcon icon="trophy" class="mr-3 text-primary-600" :size="32" />
+                    <span class="text-4xl mr-3">⚙️</span>
                     Dashboard Administrateur
                 </h1>
-                <p class="mt-2 text-gray-600">Vue d'ensemble et gestion de la plateforme BookYourCoach</p>
+                <p class="mt-2 text-gray-900/80">Vue d'ensemble et gestion de la plateforme activibe</p>
             </div>
 
             <!-- Loading State -->
             <div v-if="loading" class="flex justify-center items-center py-12">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
             </div>
 
             <!-- Statistics Cards -->
             <div v-else class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500 border border-blue-500/20">
                     <div class="flex items-center">
-                        <EquestrianIcon icon="helmet" class="text-blue-500 mr-3" :size="24" />
+                        <span class="text-2xl mr-3">👥</span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Utilisateurs</h3>
-                            <p class="text-3xl font-bold text-blue-600">{{ stats.users }}</p>
-                            <p class="text-sm text-gray-500">Total inscrits</p>
+                            <p class="text-3xl font-bold text-blue-400">{{ stats.users }}</p>
+                            <p class="text-sm text-gray-900/60">Total inscrits</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-equestrian-leather border border-blue-500/20">
                     <div class="flex items-center">
-                        <EquestrianIcon icon="saddle" class="text-green-500 mr-3" :size="24" />
+                        <span class="text-2xl mr-3">🏇</span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Enseignants</h3>
-                            <p class="text-3xl font-bold text-green-600">{{ stats.teachers }}</p>
-                            <p class="text-sm text-gray-500">Coaches actifs</p>
+                            <p class="text-3xl font-bold text-equestrian-leather">{{ stats.teachers }}</p>
+                            <p class="text-sm text-gray-900/60">Coaches actifs</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-purple-500">
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-600 border border-blue-500/20">
                     <div class="flex items-center">
-                        <EquestrianIcon icon="horseshoe" class="text-purple-500 mr-3" :size="24" />
+                        <span class="text-2xl mr-3">👨‍🎓</span>
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Élèves</h3>
-                            <p class="text-3xl font-bold text-purple-600">{{ stats.students }}</p>
-                            <p class="text-sm text-gray-500">Apprenants</p>
+                            <p class="text-3xl font-bold text-gray-700">{{ stats.students }}</p>
+                            <p class="text-sm text-gray-900/60">Apprenants</p>
                         </div>
                     </div>
                 </div>
@@ -158,7 +158,7 @@
                         </table>
                     </div>
                     <div class="mt-4">
-                        <NuxtLink to="/admin/users" class="text-primary-600 hover:text-primary-500 text-sm font-medium">
+                        <NuxtLink to="/admin/users" class="text-primary-600 bg-blue-600:text-primary-500 text-sm font-medium">
                             Voir tous les utilisateurs →
                         </NuxtLink>
                     </div>
@@ -270,7 +270,12 @@ definePageMeta({
 })
 
 const { $api } = useNuxtApp()
-const toast = useToast()
+
+// Fonction toast simple
+const showToast = (message, type = 'info') => {
+  console.log(`[${type.toUpperCase()}] ${message}`)
+  // TODO: Implémenter un vrai système de toast
+}
 
 // State
 const loading = ref(true)
@@ -300,16 +305,35 @@ onMounted(async () => {
     loading.value = true
     try {
         const response = await $api.get('/admin/stats')
-        stats.value = response.data.stats
-        recentUsers.value = response.data.recentUsers
-        recentActivities.value = response.data.recentActivities.map(activity => ({
+        stats.value = response.data.stats || {
+            users: 0,
+            teachers: 0,
+            students: 0,
+            lessons: 0,
+            bookings: 0,
+            revenue: 0
+        }
+        recentUsers.value = response.data.recentUsers || []
+        recentActivities.value = (response.data.recentActivities || []).map(activity => ({
             ...activity,
             icon: getActivityIcon(activity.action),
             time: formatTimeAgo(activity.created_at)
         }))
     } catch (error) {
         console.error("Erreur lors de la récupération des données du dashboard:", error)
-        toast.error("Impossible de charger les données du dashboard.")
+        showToast("Impossible de charger les données du dashboard.", 'error')
+        
+        // Données par défaut en cas d'erreur
+        stats.value = {
+            users: 0,
+            teachers: 0,
+            students: 0,
+            lessons: 0,
+            bookings: 0,
+            revenue: 0
+        }
+        recentUsers.value = []
+        recentActivities.value = []
     } finally {
         loading.value = false
     }

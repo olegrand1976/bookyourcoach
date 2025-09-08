@@ -1481,7 +1481,7 @@ const _sfc_main$2 = {
   __ssrInlineRender: true,
   setup(__props) {
     useHead({
-      titleTemplate: "%s - BookYourCoach",
+      titleTemplate: "%s - activibe",
       meta: [
         { charset: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1" },

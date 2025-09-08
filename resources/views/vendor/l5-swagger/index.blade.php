@@ -27,7 +27,7 @@
             background: #fafafa;
         }
 
-        /* Personnalisation BookYourCoach */
+        /* Personnalisation activibe */
         .swagger-ui .topbar {
             background-color: #2c3e50 !important;
             border-bottom: 3px solid #3498db;
@@ -353,7 +353,7 @@
                     const customHeader = document.createElement('div');
                     customHeader.className = 'custom-header';
                     customHeader.innerHTML = `
-                    <h1>🐎 BookYourCoach API</h1>
+                    <h1>🐎 activibe API</h1>
                     <p>Plateforme complète de réservation de cours d'équitation</p>
                 `;
 

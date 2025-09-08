@@ -31,7 +31,7 @@ const _sfc_main = {
     let __temp, __restore;
     const { t } = useI18n();
     useHead({
-      title: "Nos Instructeurs | BookYourCoach",
+      title: "Nos Instructeurs | activibe",
       meta: [
         { name: "description", content: "D\xE9couvrez nos instructeurs \xE9questres exp\xE9riment\xE9s et passionn\xE9s. Trouvez le coach parfait pour vos cours d'\xE9quitation." },
         { name: "keywords", content: "instructeurs \xE9questres, coaches \xE9quitation, cours d'\xE9quitation, dressage, saut d'obstacles" }

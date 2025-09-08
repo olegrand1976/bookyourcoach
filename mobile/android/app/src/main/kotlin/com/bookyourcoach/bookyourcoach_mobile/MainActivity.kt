@@ -1,4 +1,4 @@
-package com.bookyourcoach.bookyourcoach_mobile
+package com.activibe.activibe_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

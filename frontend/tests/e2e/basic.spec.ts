@@ -5,7 +5,7 @@ test.describe('Tests E2E - Application Frontend', () => {
         await page.goto('http://localhost:3000')
 
         // Vérifier que la page se charge
-        await expect(page).toHaveTitle(/BookYourCoach/)
+        await expect(page).toHaveTitle(/activibe/)
 
         // Vérifier le contenu principal
         const heading = page.locator('h1').first()

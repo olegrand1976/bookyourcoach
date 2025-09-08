@@ -34,23 +34,67 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'],
-      name: json['name'],
-      email: json['email'],
-      emailVerifiedAt: json['email_verified_at'],
-      role: json['role'] ?? 'student',
-      profile: json['profile'],
-      avatar: json['avatar'],
-      phone: json['phone'],
-      status: json['status'] ?? 'active',
-      isActive: json['is_active'] ?? true,
-      canActAsTeacher: json['can_act_as_teacher'] ?? false,
-      canActAsStudent: json['can_act_as_student'] ?? true,
-      isAdmin: json['is_admin'] ?? false,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-    );
+    try {
+      // Gestion sécurisée des champs requis
+      int safeId = json['id'] ?? 0;
+      String safeName = json['name']?.toString() ?? 'Utilisateur';
+      String safeEmail = json['email']?.toString() ?? 'user@example.com';
+      
+      // Gestion sécurisée des dates
+      DateTime safeCreatedAt = DateTime.now();
+      if (json['created_at'] != null) {
+        try {
+          safeCreatedAt = DateTime.parse(json['created_at'].toString());
+        } catch (e) {
+          print('Erreur parsing created_at dans User: $e');
+        }
+      }
+
+      DateTime safeUpdatedAt = DateTime.now();
+      if (json['updated_at'] != null) {
+        try {
+          safeUpdatedAt = DateTime.parse(json['updated_at'].toString());
+        } catch (e) {
+          print('Erreur parsing updated_at dans User: $e');
+        }
+      }
+
+      return User(
+        id: safeId,
+        name: safeName,
+        email: safeEmail,
+        emailVerifiedAt: json['email_verified_at']?.toString(),
+        role: json['role']?.toString() ?? 'student',
+        profile: json['profile'] is Map<String, dynamic> ? json['profile'] : null,
+        avatar: json['avatar']?.toString(),
+        phone: json['phone']?.toString(),
+        status: json['status']?.toString() ?? 'active',
+        isActive: json['is_active'] == true,
+        canActAsTeacher: json['can_act_as_teacher'] == true,
+        canActAsStudent: json['can_act_as_student'] != false, // Par défaut true
+        isAdmin: json['is_admin'] == true,
+        createdAt: safeCreatedAt,
+        updatedAt: safeUpdatedAt,
+      );
+    } catch (e) {
+      print('Erreur lors de la création de User depuis JSON: $e');
+      print('JSON reçu: $json');
+      
+      // Retourner un utilisateur par défaut en cas d'erreur
+      return User(
+        id: json['id'] ?? 0,
+        name: 'Utilisateur',
+        email: 'user@example.com',
+        role: 'student',
+        status: 'active',
+        isActive: true,
+        canActAsTeacher: false,
+        canActAsStudent: true,
+        isAdmin: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
   }
 
   Map<String, dynamic> toJson() {

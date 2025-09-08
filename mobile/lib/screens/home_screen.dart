@@ -9,7 +9,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BookYourCoach'),
+        title: const Text('activibe'),
         actions: [
           IconButton(
             onPressed: () {
@@ -30,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
             ),
             SizedBox(height: 16),
             Text(
-              'Bienvenue sur BookYourCoach',
+              'Bienvenue sur activibe',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

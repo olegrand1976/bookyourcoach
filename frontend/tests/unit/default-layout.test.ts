@@ -45,8 +45,8 @@ describe('Layout par défaut', () => {
         expect(wrapper.find('nav').exists()).toBe(true)
     })
 
-    it('affiche le logo BookYourCoach', () => {
-        expect(wrapper.text()).toContain('BookYourCoach')
+    it('affiche le logo activibe', () => {
+        expect(wrapper.text()).toContain('activibe')
     })
 
     it('affiche le contenu principal dans le slot', () => {
@@ -55,7 +55,7 @@ describe('Layout par défaut', () => {
 
     it('affiche le footer', () => {
         expect(wrapper.find('footer').exists()).toBe(true)
-        expect(wrapper.text()).toContain('© 2025 BookYourCoach. Tous droits réservés.')
+        expect(wrapper.text()).toContain('© 2025 activibe. Tous droits réservés.')
     })
 
     it('a la structure HTML correcte', () => {

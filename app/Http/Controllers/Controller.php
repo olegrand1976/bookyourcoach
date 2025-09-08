@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 /**
  * @OA\Info(
- *     title="BookYourCoach API",
+ *     title="activibe API",
  *     version="1.0.0",
  *     description="API REST complète pour la plateforme de réservation de cours avec coaches équestres.
  *     
@@ -29,15 +29,15 @@ namespace App\Http\Controllers;
  * - Base de données : MySQL via Docker
  * - Paiements : Stripe en mode test
  * - PHPMyAdmin : http://localhost:8082",
- *     termsOfService="https://bookyourcoach.com/terms",
+ *     termsOfService="https://activibe.com/terms",
  *     @OA\Contact(
- *         name="Équipe BookYourCoach",
- *         email="support@bookyourcoach.com",
- *         url="https://bookyourcoach.com"
+ *         name="Équipe activibe",
+ *         email="support@activibe.com",
+ *         url="https://activibe.com"
  *     ),
  *     @OA\License(
- *         name="Propriétaire - BookYourCoach",
- *         url="https://bookyourcoach.com/license"
+ *         name="Propriétaire - activibe",
+ *         url="https://activibe.com/license"
  *     )
  * )
  * 
@@ -47,7 +47,7 @@ namespace App\Http\Controllers;
  * )
  * 
  * @OA\Server(
- *     url="https://api.bookyourcoach.com",
+ *     url="https://api.activibe.com",
  *     description="Serveur de production"
  * )
  * 

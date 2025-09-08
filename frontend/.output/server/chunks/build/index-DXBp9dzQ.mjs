@@ -72,7 +72,7 @@ const _sfc_main = {
         class: "mr-3 text-primary-600",
         size: 32
       }, null, _parent));
-      _push(` Dashboard Administrateur </h1><p class="mt-2 text-gray-600">Vue d&#39;ensemble et gestion de la plateforme BookYourCoach</p></div>`);
+      _push(` Dashboard Administrateur </h1><p class="mt-2 text-gray-600">Vue d&#39;ensemble et gestion de la plateforme activibe</p></div>`);
       if (loading.value) {
         _push(`<div class="flex justify-center items-center py-12"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div></div>`);
       } else {

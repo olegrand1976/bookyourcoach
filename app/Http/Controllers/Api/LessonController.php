@@ -95,14 +95,14 @@ class LessonController extends Controller
             }
 
             if ($request->has('date_from')) {
-                $query->whereDate('scheduled_at', '>=', $request->date_from);
+                $query->whereDate('start_time', '>=', $request->date_from);
             }
 
             if ($request->has('date_to')) {
-                $query->whereDate('scheduled_at', '<=', $request->date_to);
+                $query->whereDate('start_time', '<=', $request->date_to);
             }
 
-            $lessons = $query->orderBy('scheduled_at', 'desc')->get();
+            $lessons = $query->orderBy('start_time', 'desc')->get();
 
             return response()->json([
                 'success' => true,
@@ -163,7 +163,7 @@ class LessonController extends Controller
                 'teacher_id' => 'required|exists:teachers,id',
                 'course_type_id' => 'required|exists:course_types,id',
                 'location_id' => 'nullable|exists:locations,id',
-                'scheduled_at' => 'required|date|after:now',
+                'start_time' => 'required|date|after:now',
                 'duration' => 'nullable|integer|min:15|max:180',
                 'price' => 'nullable|numeric|min:0',
                 'notes' => 'nullable|string|max:1000'
@@ -194,7 +194,7 @@ class LessonController extends Controller
             $this->sendBookingNotifications($lesson);
 
             // Programmer un rappel 24h avant le cours
-            $reminderTime = Carbon::parse($lesson->scheduled_at)->subHours(24);
+            $reminderTime = Carbon::parse($lesson->start_time)->subHours(24);
             if ($reminderTime->isFuture()) {
                 SendLessonReminderJob::dispatch($lesson)->delay($reminderTime);
             }
@@ -354,7 +354,7 @@ class LessonController extends Controller
             $lesson = $query->findOrFail($id);
 
             $validationRules = [
-                'scheduled_at' => 'sometimes|date|after:now',
+                'start_time' => 'sometimes|date|after:now',
                 'duration' => 'sometimes|integer|min:15|max:180',
                 'price' => 'sometimes|numeric|min:0',
                 'status' => 'sometimes|in:pending,confirmed,completed,cancelled',
@@ -441,7 +441,7 @@ class LessonController extends Controller
 
             // Si le cours est dans le futur et a le statut 'pending', on l'annule
             // Sinon on le supprime définitivement (pour les admins principalement)
-            if ($lesson->scheduled_at > now() && $lesson->status === 'pending') {
+            if ($lesson->start_time > now() && $lesson->status === 'pending') {
                 $lesson->update(['status' => 'cancelled']);
                 $message = 'Cours annulé avec succès';
             } else {
@@ -519,7 +519,7 @@ class LessonController extends Controller
 
             $lessons = Lesson::where('student_id', $id)
                 ->with(['teacher.user', 'courseType', 'location'])
-                ->orderBy('scheduled_at', 'desc')
+                ->orderBy('start_time', 'desc')
                 ->get();
 
             return response()->json([

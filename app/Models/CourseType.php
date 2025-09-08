@@ -4,51 +4,50 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * @OA\Schema(
- *     schema="CourseType",
- *     type="object",
- *     title="Course Type",
- *     description="Type de cours disponible sur la plateforme",
- *     @OA\Property(property="id", type="integer", format="int64", description="Identifiant unique du type de cours", example=1),
- *     @OA\Property(property="name", type="string", maxLength=255, description="Nom du type de cours", example="Dressage"),
- *     @OA\Property(property="description", type="string", description="Description du type de cours", example="Cours de dressage classique"),
- *     @OA\Property(property="duration", type="integer", description="Durée standard en minutes", example=60),
- *     @OA\Property(property="price", type="number", format="float", description="Prix de base", example=45.00),
- *     @OA\Property(property="created_at", type="string", format="datetime", description="Date de création"),
- *     @OA\Property(property="updated_at", type="string", format="datetime", description="Date de dernière mise à jour")
- * )
- */
 class CourseType extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'discipline_id',
         'name',
         'description',
-        'duration',
-        'price'
+        'duration_minutes',
+        'is_individual',
+        'max_participants',
+        'is_active',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'duration' => 'integer'
+        'is_individual' => 'boolean',
+        'is_active' => 'boolean',
+        'duration_minutes' => 'integer',
+        'max_participants' => 'integer',
     ];
 
     /**
-     * Get the teachers that offer this course type.
+     * Get the discipline that owns this course type
      */
-    public function teachers(): BelongsToMany
+    public function discipline(): BelongsTo
     {
-        return $this->belongsToMany(Teacher::class, 'teacher_course_types');
+        return $this->belongsTo(Discipline::class);
     }
 
     /**
-     * Get the lessons of this course type.
+     * Get the student preferences for this course type
      */
-    public function lessons()
+    public function studentPreferences(): HasMany
+    {
+        return $this->hasMany(StudentPreference::class);
+    }
+
+    /**
+     * Get the lessons for this course type
+     */
+    public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class);
     }

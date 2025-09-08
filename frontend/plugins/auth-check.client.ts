@@ -63,8 +63,10 @@ export default defineNuxtPlugin(() => {
         }
     })
 
-    // Nettoyer lors de la destruction
-    onBeforeUnmount(() => {
-        stopTokenValidation()
-    })
+    // Nettoyer lors de la destruction du plugin
+    if (process.client) {
+        window.addEventListener('beforeunload', () => {
+            stopTokenValidation()
+        })
+    }
 })

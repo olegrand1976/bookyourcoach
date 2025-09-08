@@ -250,11 +250,11 @@ class TestDataSeeder extends Seeder
         $this->command->info('📋 Comptes de test disponibles :');
         $this->command->info('');
         $this->command->info('👨‍💼 Administrateur :');
-        $this->command->info('   Email: admin@bookyourcoach.com');
+        $this->command->info('   Email: admin@activibe.com');
         $this->command->info('   Mot de passe: password123');
         $this->command->info('');
         $this->command->info('👨‍🏫 Enseignants :');
-        $this->command->info('   • sophie.martin@bookyourcoach.com');
+        $this->command->info('   • sophie.martin@activibe.com');
         $this->command->info('   • sarah.johnson@test.com');
         $this->command->info('   • michael.brown@test.com');
         $this->command->info('   • lisa.davis@test.com');

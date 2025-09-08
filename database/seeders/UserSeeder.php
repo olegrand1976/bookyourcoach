@@ -19,7 +19,7 @@ class UserSeeder extends Seeder
         // Administrateur principal
         $admin = User::create([
             'name' => 'Administrateur',
-            'email' => 'admin@bookyourcoach.com',
+            'email' => 'admin@activibe.com',
             'password' => Hash::make('password123'),
             'role' => 'admin',
             'email_verified_at' => now(),
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
         // Enseignants de démonstration
         $teachers = [
             [
-                'email' => 'sophie.martin@bookyourcoach.com',
+                'email' => 'sophie.martin@activibe.com',
                 'profile' => [
                     'first_name' => 'Sophie',
                     'last_name' => 'Martin',
@@ -56,7 +56,7 @@ class UserSeeder extends Seeder
                 ]
             ],
             [
-                'email' => 'jean.dubois@bookyourcoach.com',
+                'email' => 'jean.dubois@activibe.com',
                 'profile' => [
                     'first_name' => 'Jean',
                     'last_name' => 'Dubois',
@@ -73,7 +73,7 @@ class UserSeeder extends Seeder
                 ]
             ],
             [
-                'email' => 'marie.leroy@bookyourcoach.com',
+                'email' => 'marie.leroy@activibe.com',
                 'profile' => [
                     'first_name' => 'Marie',
                     'last_name' => 'Leroy',
@@ -90,7 +90,7 @@ class UserSeeder extends Seeder
                 ]
             ],
             [
-                'email' => 'pierre.bernard@bookyourcoach.com',
+                'email' => 'pierre.bernard@activibe.com',
                 'profile' => [
                     'first_name' => 'Pierre',
                     'last_name' => 'Bernard',

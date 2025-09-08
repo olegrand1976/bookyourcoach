@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/student_provider.dart';
+import '../models/discipline.dart';
+import '../providers/preferences_provider.dart';
 
 class StudentPreferencesScreen extends ConsumerStatefulWidget {
   const StudentPreferencesScreen({super.key});
@@ -10,428 +11,262 @@ class StudentPreferencesScreen extends ConsumerStatefulWidget {
 }
 
 class _StudentPreferencesScreenState extends ConsumerState<StudentPreferencesScreen> {
-  final Set<String> _selectedDisciplines = {};
-  final Set<String> _selectedLevels = {};
-  final Set<String> _selectedFormats = {};
-  
-  // Disciplines disponibles
-  final List<String> _availableDisciplines = [
-    'Mathématiques',
-    'Physique',
-    'Chimie',
-    'Biologie',
-    'Histoire',
-    'Géographie',
-    'Français',
-    'Anglais',
-    'Espagnol',
-    'Allemand',
-    'Philosophie',
-    'Économie',
-    'Informatique',
-    'Musique',
-    'Arts plastiques',
-    'Sport',
-    'Sciences politiques',
-    'Psychologie',
-    'Sociologie',
-    'Droit',
-  ];
-
-  // Niveaux disponibles
-  final List<String> _availableLevels = [
-    'Primaire',
-    'Collège',
-    'Lycée',
-    'Supérieur',
-    'Adulte',
-  ];
-
-  // Formats disponibles
-  final List<String> _availableFormats = [
-    'Cours particulier',
-    'Cours en groupe',
-    'Cours en ligne',
-    'Cours en présentiel',
-    'Stage intensif',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _loadCurrentPreferences();
-  }
-
-  void _loadCurrentPreferences() {
-    // TODO: Charger les préférences depuis le backend
-    // Pour l'instant, on utilise des valeurs par défaut
-    setState(() {
-      _selectedDisciplines.addAll(['Mathématiques', 'Physique']);
-      _selectedLevels.addAll(['Lycée', 'Supérieur']);
-      _selectedFormats.addAll(['Cours particulier', 'Cours en ligne']);
+    // Charger les données au démarrage
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(disciplinesProvider.notifier).loadDisciplines();
+      ref.read(studentPreferencesProvider.notifier).loadPreferences();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final disciplinesState = ref.watch(disciplinesProvider);
+    final preferencesState = ref.watch(studentPreferencesProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mes Préférences'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E3A8A),
-        elevation: 0,
+        backgroundColor: Colors.blue[600],
+        foregroundColor: Colors.white,
         actions: [
-          TextButton(
-            onPressed: _savePreferences,
-            child: const Text(
-              'Sauvegarder',
-              style: TextStyle(
-                color: Color(0xFF3B82F6),
-                fontWeight: FontWeight.w600,
+          if (preferencesState.isSaving)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               ),
             ),
-          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.settings,
-                      size: 32,
-                      color: Color(0xFF3B82F6),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Personnalisez votre expérience',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E3A8A),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Sélectionnez vos préférences pour recevoir des recommandations personnalisées et filtrer automatiquement les enseignants et leçons.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Disciplines préférées
-            _buildSection(
-              title: 'Disciplines préférées',
-              subtitle: 'Sélectionnez les matières qui vous intéressent',
-              icon: Icons.school,
-              items: _availableDisciplines,
-              selectedItems: _selectedDisciplines,
-              onItemToggle: (item) {
-                setState(() {
-                  if (_selectedDisciplines.contains(item)) {
-                    _selectedDisciplines.remove(item);
-                  } else {
-                    _selectedDisciplines.add(item);
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Niveaux préférés
-            _buildSection(
-              title: 'Niveaux préférés',
-              subtitle: 'Choisissez vos niveaux d\'étude',
-              icon: Icons.grade,
-              items: _availableLevels,
-              selectedItems: _selectedLevels,
-              onItemToggle: (item) {
-                setState(() {
-                  if (_selectedLevels.contains(item)) {
-                    _selectedLevels.remove(item);
-                  } else {
-                    _selectedLevels.add(item);
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Formats préférés
-            _buildSection(
-              title: 'Formats préférés',
-              subtitle: 'Sélectionnez vos formats de cours préférés',
-              icon: Icons.format_list_bulleted,
-              items: _availableFormats,
-              selectedItems: _selectedFormats,
-              onItemToggle: (item) {
-                setState(() {
-                  if (_selectedFormats.contains(item)) {
-                    _selectedFormats.remove(item);
-                  } else {
-                    _selectedFormats.add(item);
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 32),
-
-            // Boutons d'action
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _resetPreferences,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF6B7280)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'Réinitialiser',
-                      style: TextStyle(color: Color(0xFF6B7280)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _savePreferences,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'Sauvegarder',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Résumé des préférences
-            if (_selectedDisciplines.isNotEmpty || _selectedLevels.isNotEmpty || _selectedFormats.isNotEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Résumé de vos préférences',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_selectedDisciplines.isNotEmpty) ...[
-                        _buildPreferenceSummary('Disciplines', _selectedDisciplines),
-                        const SizedBox(height: 8),
-                      ],
-                      if (_selectedLevels.isNotEmpty) ...[
-                        _buildPreferenceSummary('Niveaux', _selectedLevels),
-                        const SizedBox(height: 8),
-                      ],
-                      if (_selectedFormats.isNotEmpty) ...[
-                        _buildPreferenceSummary('Formats', _selectedFormats),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(disciplinesProvider.notifier).loadDisciplines();
+          await ref.read(studentPreferencesProvider.notifier).loadPreferences();
+        },
+        child: _buildBody(disciplinesState, preferencesState),
       ),
     );
   }
 
-  Widget _buildSection({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required List<String> items,
-    required Set<String> selectedItems,
-    required Function(String) onItemToggle,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  Widget _buildBody(DisciplinesState disciplinesState, StudentPreferencesState preferencesState) {
+    if (disciplinesState.isLoading || preferencesState.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (disciplinesState.error != null) {
+      return Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF3B82F6)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E3A8A),
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur lors du chargement',
+              style: TextStyle(fontSize: 18, color: Colors.red[700]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              disciplinesState.error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red[600]),
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: items.map((item) {
-                final isSelected = selectedItems.contains(item);
-                return FilterChip(
-                  label: Text(item),
-                  selected: isSelected,
-                  onSelected: (selected) => onItemToggle(item),
-                  selectedColor: const Color(0xFF3B82F6),
-                  checkmarkColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF6B7280),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                  backgroundColor: const Color(0xFFF3F4F6),
-                  side: BorderSide(
-                    color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB),
-                  ),
-                );
-              }).toList(),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(disciplinesProvider.notifier).loadDisciplines();
+                ref.read(studentPreferencesProvider.notifier).loadPreferences();
+              },
+              child: const Text('Réessayer'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPreferenceSummary(String title, Set<String> items) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$title : ',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF6B7280),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            items.join(', '),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1E3A8A),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _savePreferences() async {
-    try {
-      // TODO: Sauvegarder les préférences via le provider
-      await ref.read(studentProvider.notifier).savePreferences(
-        disciplines: _selectedDisciplines.toList(),
-        levels: _selectedLevels.toList(),
-        formats: _selectedFormats.toList(),
       );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Préférences sauvegardées avec succès !'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la sauvegarde: ${e.toString()}'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
     }
+
+    if (disciplinesState.disciplines.isEmpty) {
+      return const Center(
+        child: Text('Aucune discipline disponible'),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: disciplinesState.disciplines.length,
+      itemBuilder: (context, index) {
+        final discipline = disciplinesState.disciplines[index];
+        return _buildDisciplineCard(discipline, preferencesState);
+      },
+    );
   }
 
-  void _resetPreferences() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Réinitialiser les préférences'),
-        content: const Text(
-          'Êtes-vous sûr de vouloir réinitialiser toutes vos préférences ? Cette action ne peut pas être annulée.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              setState(() {
-                _selectedDisciplines.clear();
-                _selectedLevels.clear();
-                _selectedFormats.clear();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Préférences réinitialisées'),
-                  backgroundColor: Color(0xFF10B981),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+  Widget _buildDisciplineCard(Discipline discipline, StudentPreferencesState preferencesState) {
+    final disciplinePreferences = preferencesState.getPreferencesForDiscipline(discipline.id);
+    final hasDisciplinePreference = preferencesState.hasPreferenceForDiscipline(discipline.id);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(
+              _getDisciplineIcon(discipline.name),
+              color: hasDisciplinePreference ? Colors.blue[600] : Colors.grey[600],
             ),
-            child: const Text(
-              'Réinitialiser',
-              style: TextStyle(color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                discipline.name,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: hasDisciplinePreference ? Colors.blue[700] : Colors.grey[700],
+                ),
+              ),
+            ),
+            if (hasDisciplinePreference)
+              Icon(
+                Icons.check_circle,
+                color: Colors.green[600],
+                size: 20,
+              ),
+          ],
+        ),
+        subtitle: Text(
+          discipline.description,
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Bouton pour sélectionner toute la discipline
+                _buildDisciplineToggle(discipline, hasDisciplinePreference),
+                
+                if (hasDisciplinePreference && discipline.courseTypes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Types de cours préférés :',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...discipline.courseTypes.map((courseType) => 
+                    _buildCourseTypeTile(discipline.id, courseType, preferencesState)
+                  ),
+                ],
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildDisciplineToggle(Discipline discipline, bool isSelected) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+        color: isSelected ? Colors.blue[600] : Colors.grey[600],
+      ),
+      title: Text(
+        isSelected ? 'Désélectionner ${discipline.name}' : 'Sélectionner ${discipline.name}',
+        style: TextStyle(
+          fontWeight: FontWeight.w500,
+          color: isSelected ? Colors.blue[700] : Colors.grey[700],
+        ),
+      ),
+      onTap: () {
+        if (isSelected) {
+          // Supprimer toutes les préférences pour cette discipline
+          ref.read(studentPreferencesProvider.notifier).removePreference(
+            disciplineId: discipline.id,
+          );
+        } else {
+          // Ajouter une préférence pour la discipline (sans type de cours spécifique)
+          ref.read(studentPreferencesProvider.notifier).addPreference(
+            disciplineId: discipline.id,
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildCourseTypeTile(int disciplineId, CourseType courseType, StudentPreferencesState preferencesState) {
+    final isSelected = preferencesState.hasPreferenceForCourseType(disciplineId, courseType.id);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+          color: isSelected ? Colors.blue[600] : Colors.grey[600],
+          size: 20,
+        ),
+        title: Text(
+          courseType.name,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.blue[700] : Colors.grey[700],
+          ),
+        ),
+        subtitle: Text(
+          '${courseType.typeDisplay} • ${courseType.durationDisplay}',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        trailing: isSelected
+            ? Icon(
+                Icons.check_circle,
+                color: Colors.green[600],
+                size: 16,
+              )
+            : null,
+        onTap: () {
+          if (isSelected) {
+            // Supprimer la préférence pour ce type de cours
+            ref.read(studentPreferencesProvider.notifier).removePreference(
+              disciplineId: disciplineId,
+              courseTypeId: courseType.id,
+            );
+          } else {
+            // Ajouter une préférence pour ce type de cours
+            ref.read(studentPreferencesProvider.notifier).addPreference(
+              disciplineId: disciplineId,
+              courseTypeId: courseType.id,
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  IconData _getDisciplineIcon(String disciplineName) {
+    switch (disciplineName.toLowerCase()) {
+      case 'équitation':
+        return Icons.pets;
+      case 'natation':
+        return Icons.pool;
+      default:
+        return Icons.sports;
+    }
   }
 }

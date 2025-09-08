@@ -4,44 +4,44 @@
             <!-- Header -->
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-                    <EquestrianIcon icon="horse" class="mr-3 text-primary-600" :size="32" />
+                    <span class="text-4xl mr-3">👤</span>
                     Mon Profil
                 </h1>
                 <p class="mt-2 text-gray-600">Gérez vos informations personnelles et préférences</p>
             </div>
 
             <!-- Profile Form -->
-            <div class="bg-white shadow-lg rounded-lg">
+            <div class="bg-white shadow-lg rounded-lg border border-gray-200">
                 <form @submit.prevent="updateProfile" class="space-y-6 p-6">
                     <!-- Personal Information -->
                     <div class="border-b border-gray-200 pb-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                            <EquestrianIcon icon="helmet" class="mr-2 text-primary-600" :size="20" />
+                            <span class="text-xl mr-2">🏇</span>
                             Informations personnelles
                         </h2>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
-                                <input v-model="form.name" type="text" class="input-field"
+                                <input v-model="form.name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="Votre nom complet" required />
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                <input v-model="form.email" type="email" class="input-field"
+                                <input v-model="form.email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="votre@email.com" required />
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                                <input v-model="form.phone" type="tel" class="input-field"
+                                <input v-model="form.phone" type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="+33 6 12 34 56 78" />
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Date de naissance</label>
-                                <input v-model="form.birth_date" type="date" class="input-field" />
+                                <input v-model="form.birth_date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                             </div>
                         </div>
                     </div>
@@ -71,25 +71,25 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Spécialités</label>
-                                <textarea v-model="form.specialties" class="input-field" rows="3"
+                                <textarea v-model="form.specialties" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="3"
                                     placeholder="Dressage, saut d'obstacles, équitation western..."></textarea>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Expérience (années)</label>
-                                <input v-model="form.experience_years" type="number" class="input-field" min="0"
+                                <input v-model="form.experience_years" type="number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0"
                                     placeholder="10" />
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Certifications</label>
-                                <textarea v-model="form.certifications" class="input-field" rows="2"
+                                <textarea v-model="form.certifications" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="2"
                                     placeholder="BPJEPS, Galop 7, FFE..."></textarea>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Tarif horaire (€)</label>
-                                <input v-model="form.hourly_rate" type="number" class="input-field" min="0" step="5"
+                                <input v-model="form.hourly_rate" type="number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0" step="5"
                                     placeholder="45" />
                             </div>
                         </div>
@@ -104,7 +104,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Niveau équestre</label>
-                                <select v-model="form.riding_level" class="input-field">
+                                <select v-model="form.riding_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                     <option value="">Sélectionnez votre niveau</option>
                                     <option value="debutant">Débutant</option>
                                     <option value="galop1">Galop 1</option>
@@ -120,13 +120,13 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Préférences de cours</label>
-                                <textarea v-model="form.course_preferences" class="input-field" rows="2"
+                                <textarea v-model="form.course_preferences" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="2"
                                     placeholder="Dressage, saut, balade..."></textarea>
                             </div>
 
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Contact d'urgence</label>
-                                <input v-model="form.emergency_contact" type="text" class="input-field"
+                                <input v-model="form.emergency_contact" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="Nom et téléphone du contact d'urgence" />
                             </div>
                         </div>
@@ -134,10 +134,10 @@
 
                     <!-- Actions -->
                     <div class="flex justify-end space-x-4 pt-6">
-                        <button type="button" @click="resetForm" class="btn-secondary" :disabled="loading">
+                        <button type="button" @click="resetForm" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" :disabled="loading">
                             Annuler
                         </button>
-                        <button type="submit" class="btn-primary flex items-center" :disabled="loading">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center" :disabled="loading">
                             <span v-if="loading" class="mr-2">
                                 <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
@@ -218,7 +218,7 @@ const loadProfileData = async () => {
     // Load additional profile data from API
     try {
         const { $api } = useNuxtApp()
-        const response = await $api.get('/profile')
+        const response = await $api.get('/profile-test')
 
         if (response.data.profile) {
             const profile = response.data.profile
@@ -277,7 +277,7 @@ const updateProfile = async () => {
 
     try {
         const { $api } = useNuxtApp()
-        await $api.put('/profile', form)
+        await $api.put('/profile-test', form)
 
         toast.success('Profil mis à jour avec succès')
 

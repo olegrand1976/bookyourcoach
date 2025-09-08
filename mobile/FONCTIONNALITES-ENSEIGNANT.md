@@ -1,8 +1,8 @@
-# 📚 Fonctionnalités Enseignant - BookYourCoach Mobile
+# 📚 Fonctionnalités Enseignant - activibe Mobile
 
 ## 🎯 Vue d'ensemble
 
-L'application mobile BookYourCoach offre un ensemble complet de fonctionnalités dédiées aux enseignants pour gérer leurs cours, disponibilités, étudiants et statistiques.
+L'application mobile activibe offre un ensemble complet de fonctionnalités dédiées aux enseignants pour gérer leurs cours, disponibilités, étudiants et statistiques.
 
 ## 🏗️ Architecture Technique
 
@@ -247,7 +247,7 @@ flutter run -d chrome --web-port 8083
 ### 🔑 Connexion
 1. Ouvrir `http://localhost:8083`
 2. Se connecter avec un compte enseignant :
-   - Email : `sophie.martin@bookyourcoach.com`
+   - Email : `sophie.martin@activibe.com`
    - Mot de passe : `password123`
 3. Accéder au tableau de bord enseignant
 
@@ -303,7 +303,7 @@ class ApiConfig {
 
 ## 🎉 Résumé
 
-L'application mobile BookYourCoach offre une solution complète pour les enseignants avec :
+L'application mobile activibe offre une solution complète pour les enseignants avec :
 
 ✅ **Gestion complète des cours** : CRUD complet avec statuts  
 ✅ **Disponibilités flexibles** : Calendrier et créneaux  

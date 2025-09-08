@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('app_settings', function (Blueprint $table) {
             $table->id();
-            $table->string('app_name')->default('BookYourCoach');
+            $table->string('app_name')->default('activibe');
             $table->string('primary_color')->default('#2563eb'); // Bleu principal
             $table->string('secondary_color')->default('#1e40af'); // Bleu secondaire
             $table->string('accent_color')->default('#3b82f6'); // Bleu accent

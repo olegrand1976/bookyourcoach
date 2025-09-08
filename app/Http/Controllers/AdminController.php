@@ -50,7 +50,29 @@ class AdminController extends BaseController
             'revenue_month' => 0, // À implémenter avec le modèle Payment
         ];
 
-        return response()->json($stats);
+        // Récupérer les utilisateurs récents
+        $recentUsers = User::orderBy('created_at', 'desc')->limit(5)->get();
+
+        // Récupérer les activités récentes
+        $recentActivities = AuditLog::with('user')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'message' => $this->formatActivityMessage($log),
+                    'created_at' => $log->created_at,
+                    'user' => $log->user ? $log->user->name : 'Système',
+                ];
+            });
+
+        return response()->json([
+            'stats' => $stats,
+            'recentUsers' => $recentUsers,
+            'recentActivities' => $recentActivities
+        ]);
     }
 
     /**
@@ -394,12 +416,12 @@ class AdminController extends BaseController
         switch ($type) {
             case 'general':
                 return [
-                    'platform_name' => 'BookYourCoach',
+                    'platform_name' => 'activibe',
                     'logo_url' => '/logo.svg',
-                    'contact_email' => 'contact@bookyourcoach.fr',
+                    'contact_email' => 'contact@activibe.fr',
                     'contact_phone' => '+33 1 23 45 67 89',
                     'timezone' => 'Europe/Brussels',
-                    'company_address' => 'BookYourCoach\nBelgique'
+                    'company_address' => 'activibe\nBelgique'
                 ];
 
             case 'booking':

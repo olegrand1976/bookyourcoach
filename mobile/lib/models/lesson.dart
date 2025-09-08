@@ -98,28 +98,170 @@ class Lesson {
             .toList();
       }
 
+      // Gestion sécurisée du titre
+      String safeTitle = 'Cours';
+      if (json['title'] != null) {
+        safeTitle = json['title'].toString();
+      } else if (json['course_type'] != null && json['course_type'] is Map) {
+        final courseType = json['course_type'] as Map;
+        if (courseType['name'] != null) {
+          safeTitle = courseType['name'].toString();
+        }
+      } else if (json['notes'] != null) {
+        safeTitle = json['notes'].toString();
+      }
+
+      // Gestion sécurisée de la description
+      String safeDescription = 'Description du cours';
+      if (json['description'] != null) {
+        safeDescription = json['description'].toString();
+      } else if (json['course_type'] != null && json['course_type'] is Map) {
+        final courseType = json['course_type'] as Map;
+        if (courseType['description'] != null) {
+          safeDescription = courseType['description'].toString();
+        }
+      }
+
+      // Gestion sécurisée des dates
+      DateTime safeStartTime = DateTime.now();
+      if (json['start_time'] != null) {
+        try {
+          safeStartTime = DateTime.parse(json['start_time'].toString());
+        } catch (e) {
+          print('Erreur parsing start_time: $e');
+        }
+      }
+
+      DateTime safeEndTime = safeStartTime.add(const Duration(hours: 1));
+      if (json['end_time'] != null) {
+        try {
+          safeEndTime = DateTime.parse(json['end_time'].toString());
+        } catch (e) {
+          print('Erreur parsing end_time: $e');
+        }
+      }
+
+      // Gestion sécurisée du statut
+      String safeStatus = 'pending';
+      if (json['status'] != null) {
+        safeStatus = json['status'].toString();
+      }
+
+      // Gestion sécurisée de l'emplacement
+      String safeLocation = 'Lieu non spécifié';
+      if (json['location'] != null && json['location'] is Map) {
+        final location = json['location'] as Map;
+        if (location['name'] != null) {
+          safeLocation = location['name'].toString();
+        }
+      } else if (json['location_data'] != null && json['location_data'] is Map) {
+        final locationData = json['location_data'] as Map;
+        if (locationData['name'] != null) {
+          safeLocation = locationData['name'].toString();
+        }
+      } else if (json['location_id'] != null) {
+        safeLocation = json['location_id'].toString();
+      }
+
+      // Gestion sécurisée des prix et notes
+      double? safePrice;
+      if (json['price'] != null) {
+        if (json['price'] is String) {
+          safePrice = double.tryParse(json['price']);
+        } else if (json['price'] is num) {
+          safePrice = json['price'].toDouble();
+        }
+      }
+
+      String? safeNotes;
+      if (json['notes'] != null) {
+        safeNotes = json['notes'].toString();
+      }
+
+      String? safeTeacherFeedback;
+      if (json['teacher_feedback'] != null) {
+        safeTeacherFeedback = json['teacher_feedback'].toString();
+      }
+
+      double? safeRating;
+      if (json['rating'] != null) {
+        if (json['rating'] is String) {
+          safeRating = double.tryParse(json['rating']);
+        } else if (json['rating'] is num) {
+          safeRating = json['rating'].toDouble();
+        }
+      }
+
+      String? safeReview;
+      if (json['review'] != null) {
+        safeReview = json['review'].toString();
+      }
+
+      String? safePaymentStatus;
+      if (json['payment_status'] != null) {
+        safePaymentStatus = json['payment_status'].toString();
+      }
+
+      // Gestion sécurisée des dates de création/modification
+      DateTime safeCreatedAt = DateTime.now();
+      if (json['created_at'] != null) {
+        try {
+          safeCreatedAt = DateTime.parse(json['created_at'].toString());
+        } catch (e) {
+          print('Erreur parsing created_at: $e');
+        }
+      }
+
+      DateTime safeUpdatedAt = DateTime.now();
+      if (json['updated_at'] != null) {
+        try {
+          safeUpdatedAt = DateTime.parse(json['updated_at'].toString());
+        } catch (e) {
+          print('Erreur parsing updated_at: $e');
+        }
+      }
+
+      // Gestion sécurisée des objets User
+      User? safeTeacher;
+      if (json['teacher'] != null && json['teacher'] is Map) {
+        try {
+          safeTeacher = User.fromJson(json['teacher']);
+        } catch (e) {
+          print('Erreur parsing teacher: $e');
+        }
+      }
+
+      User? safeStudent;
+      if (json['student'] != null && json['student'] is Map) {
+        try {
+          safeStudent = User.fromJson(json['student']);
+        } catch (e) {
+          print('Erreur parsing student: $e');
+        }
+      }
+
       return Lesson(
         id: json['id'] ?? 0,
-        title: json['title']?.toString() ?? json['course_type']?['name']?.toString() ?? json['notes']?.toString() ?? 'Cours',
-        description: json['description']?.toString() ?? json['course_type']?['description']?.toString() ?? 'Description du cours',
-        startTime: json['start_time'] != null ? DateTime.parse(json['start_time'].toString()) : DateTime.now(),
-        endTime: json['end_time'] != null ? DateTime.parse(json['end_time'].toString()) : DateTime.now().add(const Duration(hours: 1)),
-        status: json['status']?.toString() ?? 'pending',
+        title: safeTitle,
+        description: safeDescription,
+        startTime: safeStartTime,
+        endTime: safeEndTime,
+        status: safeStatus,
         teacherId: json['teacher_id'] ?? 0,
         studentId: json['student_id'],
         courseTypeId: json['course_type_id'],
         locationId: json['location_id'],
-        location: json['location']?['name']?.toString() ?? json['location_data']?['name']?.toString() ?? json['location_id']?.toString() ?? 'Lieu non spécifié',
-        price: json['price'] != null ? (json['price'] is String ? double.tryParse(json['price']) ?? 0.0 : (json['price'] is num ? json['price'].toDouble() : 0.0)) : null,
-        notes: json['notes']?.toString(),
-        teacherFeedback: json['teacher_feedback']?.toString(),
-        rating: json['rating'] != null ? (json['rating'] is String ? double.tryParse(json['rating']) ?? 0.0 : (json['rating'] is num ? json['rating'].toDouble() : 0.0)) : null,
-        review: json['review']?.toString(),
-        paymentStatus: json['payment_status']?.toString(),
-        createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : DateTime.now(),
-        updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'].toString()) : DateTime.now(),
-        teacher: json['teacher'] != null ? User.fromJson(json['teacher']) : null,
-        student: json['student'] != null ? User.fromJson(json['student']) : null,
+        location: safeLocation,
+        price: safePrice,
+        notes: safeNotes,
+        teacherFeedback: safeTeacherFeedback,
+        rating: safeRating,
+        review: safeReview,
+        paymentStatus: safePaymentStatus,
+        createdAt: safeCreatedAt,
+        updatedAt: safeUpdatedAt,
+        teacher: safeTeacher,
+        student: safeStudent,
         students: studentsList,
         courseType: json['course_type'] is Map<String, dynamic> ? json['course_type'] : null,
         locationData: json['location'] is Map<String, dynamic> ? json['location'] : null,

@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Models\Teacher;
 use App\Models\User;
+use App\Models\Club;
 use App\Models\Availability;
 use App\Models\Lesson;
 use App\Models\CourseType;
@@ -40,6 +41,14 @@ class TeacherTest extends TestCase
 
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $teacher->user());
         $this->assertInstanceOf(User::class, $teacher->user);
+    }
+
+    /** @test */
+    public function it_has_club_relationship()
+    {
+        $teacher = Teacher::factory()->create();
+
+        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $teacher->club());
     }
 
     /** @test */
@@ -157,6 +166,7 @@ class TeacherTest extends TestCase
     {
         $fillable = [
             'user_id',
+            'club_id',
             'specialties',
             'experience_years',
             'certifications',
@@ -219,5 +229,34 @@ class TeacherTest extends TestCase
         $this->assertEquals('acct_123456789', $teacher->stripe_account_id);
         $this->assertEquals('4.80', $teacher->rating);
         $this->assertEquals(250, $teacher->total_lessons);
+    }
+
+    /** @test */
+    public function it_can_be_associated_with_club()
+    {
+        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
+        $club = Club::factory()->create();
+
+        $teacher = Teacher::factory()->create([
+            'user_id' => $user->id,
+            'club_id' => $club->id
+        ]);
+
+        $this->assertEquals($club->id, $teacher->club_id);
+        $this->assertInstanceOf(Club::class, $teacher->club);
+    }
+
+    /** @test */
+    public function it_can_be_created_without_club()
+    {
+        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
+
+        $teacher = Teacher::factory()->create([
+            'user_id' => $user->id,
+            'club_id' => null
+        ]);
+
+        $this->assertNull($teacher->club_id);
+        $this->assertNull($teacher->club);
     }
 }

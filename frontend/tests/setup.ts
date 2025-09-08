@@ -66,7 +66,7 @@ global.useSettings = vi.fn(() => ({
     theme: 'light',
     setTheme: vi.fn(),
     settings: {
-        platform_name: 'BookYourCoach',
+        platform_name: 'activibe',
         platform_description: 'Plateforme de réservation de coachs équestres'
     }
 }))

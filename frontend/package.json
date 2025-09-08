@@ -1,7 +1,7 @@
 {
-    "name": "bookyourcoach-frontend",
+    "name": "activibe-frontend",
     "version": "1.0.0",
-    "description": "Frontend application for BookYourCoach platform",
+    "description": "Frontend application for activibe platform",
     "private": true,
     "scripts": {
         "build": "nuxt build",
@@ -19,7 +19,6 @@
         "@nuxt/test-utils": "^3.8.0",
         "@nuxtjs/tailwindcss": "^6.8.4",
         "@playwright/test": "^1.40.0",
-        "@vitejs/plugin-vue": "^4.5.0",
         "@vue/test-utils": "^2.4.2",
         "happy-dom": "^12.10.3",
         "nuxt": "^3.8.0",
@@ -29,7 +28,6 @@
         "@headlessui/vue": "^1.7.16",
         "@heroicons/vue": "^2.0.18",
         "@nuxtjs/google-fonts": "^3.0.2",
-        "@nuxtjs/i18n": "^10.0.6",
         "@pinia/nuxt": "^0.5.1",
         "axios": "^1.6.0",
         "pinia": "^2.1.7",

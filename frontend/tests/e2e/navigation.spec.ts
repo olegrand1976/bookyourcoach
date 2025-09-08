@@ -5,7 +5,7 @@ test.describe('Navigation et layout', () => {
         await page.goto('/')
 
         // Vérifier la présence du logo
-        await expect(page.locator('text=BookYourCoach')).toBeVisible()
+        await expect(page.locator('text=activibe')).toBeVisible()
 
         // Vérifier les liens de navigation pour utilisateur non connecté
         await expect(page.locator('text=Se connecter')).toBeVisible()
@@ -31,7 +31,7 @@ test.describe('Navigation et layout', () => {
         await page.goto('/')
 
         await expect(page.locator('footer')).toBeVisible()
-        await expect(page.locator('text=© 2025 BookYourCoach. Tous droits réservés.')).toBeVisible()
+        await expect(page.locator('text=© 2025 activibe. Tous droits réservés.')).toBeVisible()
     })
 
     test('est responsive sur mobile', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Navigation et layout', () => {
 
         // Vérifier que la page se charge correctement
         await expect(page.locator('h1')).toBeVisible()
-        await expect(page.locator('text=BookYourCoach')).toBeVisible()
+        await expect(page.locator('text=activibe')).toBeVisible()
     })
 
     test('est responsive sur tablette', async ({ page }) => {

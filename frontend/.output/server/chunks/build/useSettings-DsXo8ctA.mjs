@@ -3,8 +3,8 @@ import { b as useNuxtApp } from './server.mjs';
 
 const useSettings = () => {
   const settings = ref({
-    platform_name: "BookYourCoach",
-    contact_email: "contact@bookyourcoach.fr",
+    platform_name: "activibe",
+    contact_email: "contact@activibe.fr",
     contact_phone: "+32 2 123 45 67",
     company_address: "Rue de l'\xC9quitation 123\n1000 Bruxelles\nBelgique",
     timezone: "Europe/Brussels",
