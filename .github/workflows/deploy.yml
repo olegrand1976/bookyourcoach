@@ -19,7 +19,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: 'frontend/package.json'
     
@@ -105,11 +105,11 @@ jobs:
           # Variables
           export IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
           export CONTAINER_NAME="activibe-app"
-          export COMPOSE_FILE="/opt/activibe/docker-compose.prod.yml"
+          export COMPOSE_FILE="/srv/activibe/docker-compose.prod.yml"
           
           # Create application directory
-          sudo mkdir -p /opt/activibe
-          cd /opt/activibe
+          sudo mkdir -p /srv/activibe
+          cd /srv/activibe
           
           # Pull latest image
           docker pull $IMAGE_NAME:latest

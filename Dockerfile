@@ -9,8 +9,6 @@ RUN apk add --no-cache \
     zip \
     unzip \
     git \
-    nodejs \
-    npm \
     mysql-client \
     freetype-dev \
     libjpeg-turbo-dev \
@@ -18,6 +16,9 @@ RUN apk add --no-cache \
     libzip-dev \
     icu-dev \
     oniguruma-dev
+
+# Installer Node.js 20
+RUN apk add --no-cache nodejs=20.18.0-r0 npm=10.8.2-r0
 
 # Installer les extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
