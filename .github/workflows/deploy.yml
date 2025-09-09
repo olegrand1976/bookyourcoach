@@ -21,7 +21,7 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        cache-dependency-path: 'frontend/package-lock.json'
     
     - name: Install Frontend Dependencies
       run: |
@@ -134,10 +134,16 @@ jobs:
     if: always()
     
     steps:
-    - name: Notify deployment status
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: always()
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tests**: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build**: ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deploy**: ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Overall**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Deployment failed!**" >> $GITHUB_STEP_SUMMARY
+        fi
