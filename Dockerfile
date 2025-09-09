@@ -56,8 +56,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Installer les dépendances Node.js et build le frontend
 RUN cd frontend \
     && npm install \
-    && chmod +x ../fix-permissions.sh \
-    && ../fix-permissions.sh \
+    && find node_modules/.bin -name "*.mjs" -exec chmod +x {} \; 2>/dev/null || true \
+    && chmod +x node_modules/@nuxt/cli/bin/nuxi.mjs 2>/dev/null || true \
+    && chmod +x node_modules/vitest/vitest.mjs 2>/dev/null || true \
     && npm run build \
     && npm cache clean --force
 
