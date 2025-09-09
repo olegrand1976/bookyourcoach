@@ -4,15 +4,15 @@
     "description": "Frontend application for activibe platform",
     "private": true,
     "scripts": {
-        "build": "nuxt build",
-        "dev": "nuxt dev",
-        "generate": "nuxt generate",
-        "preview": "nuxt preview",
-        "postinstall": "nuxt prepare",
-        "test": "vitest --run",
-        "test:watch": "vitest",
-        "test:unit": "vitest --run tests/unit",
-        "test:e2e": "playwright test"
+        "build": "npx nuxt build",
+        "dev": "npx nuxt dev",
+        "generate": "npx nuxt generate",
+        "preview": "npx nuxt preview",
+        "postinstall": "npx nuxt prepare",
+        "test": "npx vitest --run",
+        "test:watch": "npx vitest",
+        "test:unit": "npx vitest --run tests/unit",
+        "test:e2e": "npx playwright test"
     },
     "devDependencies": {
         "@nuxt/devtools": "latest",
