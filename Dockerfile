@@ -55,7 +55,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Installer les dépendances Node.js et build le frontend
 RUN cd frontend \
-    && npm ci --only=production \
+    && npm install \
     && npm run build \
     && npm cache clean --force
 

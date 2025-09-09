@@ -27,6 +27,7 @@ jobs:
       run: |
         cd frontend
         npm install
+        npx nuxt prepare
     
     - name: Run Frontend Tests
       run: |

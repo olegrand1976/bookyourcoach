@@ -27,7 +27,7 @@
 
                 <div v-if="userMenuOpen"
                   class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-blue-500/20">
-                  <NuxtLink v-if="isAdmin" to="/admin"
+anuuel                  <NuxtLink v-if="isAdmin" to="/admin"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
