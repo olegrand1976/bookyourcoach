@@ -58,6 +58,10 @@ RUN cd frontend \
     && npm run build \
     && npm cache clean --force
 
+# Configurer le frontend pour le port 3001
+ENV NUXT_PORT=3001
+ENV NUXT_HOST=0.0.0.0
+
 # Créer les répertoires nécessaires
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
     && chown -R www-data:www-data storage bootstrap/cache \
@@ -71,8 +75,9 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Exposer le port 80
+# Exposer les ports
 EXPOSE 80
+EXPOSE 3001
 
 # Démarrer Supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
