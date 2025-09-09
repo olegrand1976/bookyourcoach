@@ -27,7 +27,8 @@ jobs:
       run: |
         cd frontend
         npm install
-        chmod +x node_modules/@nuxt/cli/bin/nuxi.mjs
+        chmod +x ../fix-permissions.sh
+        ../fix-permissions.sh
         npx nuxt prepare
     
     - name: Run Frontend Tests

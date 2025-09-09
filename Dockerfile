@@ -56,7 +56,8 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Installer les dépendances Node.js et build le frontend
 RUN cd frontend \
     && npm install \
-    && chmod +x node_modules/@nuxt/cli/bin/nuxi.mjs \
+    && chmod +x ../fix-permissions.sh \
+    && ../fix-permissions.sh \
     && npm run build \
     && npm cache clean --force
 
