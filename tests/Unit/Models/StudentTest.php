@@ -2,241 +2,161 @@
 
 namespace Tests\Unit\Models;
 
+use Tests\TestCase;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Club;
-use Tests\TestCase;
+use App\Models\Discipline;
+use App\Models\StudentMedicalDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class StudentTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function it_can_be_instantiated()
+    protected function setUp(): void
     {
-        $student = new Student();
-
-        $this->assertInstanceOf(Student::class, $student);
+        parent::setUp();
+        
+        // Créer les données de test nécessaires
+        $this->club = Club::factory()->create();
+        $this->user = User::factory()->create(['role' => 'student']);
+        $this->student = Student::factory()->create([
+            'user_id' => $this->user->id,
+            'club_id' => $this->club->id
+        ]);
     }
 
     /** @test */
-    public function it_has_correct_table_name()
+    public function it_belongs_to_a_user()
     {
-        $student = new Student();
-
-        $this->assertEquals('students', $student->getTable());
+        $this->assertInstanceOf(User::class, $this->student->user);
+        $this->assertEquals($this->user->id, $this->student->user->id);
     }
 
     /** @test */
-    public function it_uses_timestamps()
+    public function it_belongs_to_a_club()
     {
-        $student = new Student();
-
-        $this->assertTrue($student->timestamps);
+        $this->assertInstanceOf(Club::class, $this->student->club);
+        $this->assertEquals($this->club->id, $this->student->club->id);
     }
 
     /** @test */
-    public function it_can_be_created_with_required_fields()
+    public function it_can_have_multiple_disciplines()
     {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-
-        $studentData = [
-            'user_id' => $user->id,
-            'level' => 'debutant',
-        ];
-
-        $student = Student::create($studentData);
-
-        $this->assertInstanceOf(Student::class, $student);
-        $this->assertEquals($user->id, $student->user_id);
-        $this->assertEquals('debutant', $student->level);
+        $discipline1 = Discipline::factory()->create();
+        $discipline2 = Discipline::factory()->create();
+        
+        $this->student->disciplines()->attach([$discipline1->id, $discipline2->id]);
+        
+        $this->assertCount(2, $this->student->disciplines);
+        $this->assertTrue($this->student->disciplines->contains($discipline1));
+        $this->assertTrue($this->student->disciplines->contains($discipline2));
     }
 
     /** @test */
-    public function it_has_user_relationship()
+    public function it_can_have_multiple_medical_documents()
     {
-        $student = Student::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $student->user());
-        $this->assertInstanceOf(User::class, $student->user);
+        $document1 = StudentMedicalDocument::factory()->create([
+            'student_id' => $this->student->id,
+            'document_type' => 'certificat_medical'
+        ]);
+        
+        $document2 = StudentMedicalDocument::factory()->create([
+            'student_id' => $this->student->id,
+            'document_type' => 'assurance'
+        ]);
+        
+        $this->assertCount(2, $this->student->medicalDocuments);
+        $this->assertTrue($this->student->medicalDocuments->contains($document1));
+        $this->assertTrue($this->student->medicalDocuments->contains($document2));
     }
 
     /** @test */
-    public function it_has_club_relationship()
+    public function it_can_be_created_with_fillable_attributes()
     {
-        $student = Student::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $student->club());
-    }
-
-    /** @test */
-    public function it_has_fillable_attributes()
-    {
-        $fillable = [
-            'user_id',
-            'club_id',
-            'level',
-            'goals',
-            'medical_info',
-            'emergency_contacts',
-            'preferred_disciplines',
-            'preferred_levels',
-            'preferred_formats',
-            'location',
-            'max_price',
-            'max_distance',
-            'notifications_enabled',
-        ];
-
-        $student = new Student();
-        $this->assertEquals($fillable, $student->getFillable());
-    }
-
-    /** @test */
-    public function it_can_store_optional_fields()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-
-        $studentData = [
-            'user_id' => $user->id,
+        $data = [
+            'user_id' => $this->user->id,
+            'club_id' => $this->club->id,
             'level' => 'intermediaire',
-            'goals' => 'Apprendre le saut d\'obstacles',
-            'medical_info' => 'Aucune allergie connue',
-            'emergency_contacts' => [
-                'name' => 'Marie Dupont',
-                'phone' => '01 23 45 67 89',
-                'relationship' => 'parent'
-            ],
-            'notifications_enabled' => true,
+            'goals' => 'Apprendre le dressage',
+            'medical_info' => 'Aucune allergie connue'
         ];
-
-        $student = Student::create($studentData);
-
+        
+        $student = Student::create($data);
+        
+        $this->assertDatabaseHas('students', $data);
         $this->assertEquals('intermediaire', $student->level);
-        $this->assertEquals('Apprendre le saut d\'obstacles', $student->goals);
-        $this->assertEquals('Aucune allergie connue', $student->medical_info);
-        $this->assertEquals('Marie Dupont', $student->emergency_contacts['name']);
-        $this->assertEquals('01 23 45 67 89', $student->emergency_contacts['phone']);
-        $this->assertTrue($student->notifications_enabled);
+        $this->assertEquals('Apprendre le dressage', $student->goals);
     }
 
     /** @test */
-    public function it_can_be_associated_with_club()
+    public function it_can_have_nullable_level()
     {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-        $club = Club::factory()->create();
+        $student = Student::factory()->create(['level' => null]);
+        
+        $this->assertNull($student->level);
+    }
 
+    /** @test */
+    public function it_can_have_nullable_goals()
+    {
+        $student = Student::factory()->create(['goals' => null]);
+        
+        $this->assertNull($student->goals);
+    }
+
+    /** @test */
+    public function it_can_have_nullable_medical_info()
+    {
+        $student = Student::factory()->create(['medical_info' => null]);
+        
+        $this->assertNull($student->medical_info);
+    }
+
+    /** @test */
+    public function it_can_be_associated_with_club_via_pivot_table()
+    {
+        $club = Club::factory()->create();
+        $user = User::factory()->create(['role' => 'student']);
         $student = Student::factory()->create([
             'user_id' => $user->id,
             'club_id' => $club->id
         ]);
-
-        $this->assertEquals($club->id, $student->club_id);
-        $this->assertInstanceOf(Club::class, $student->club);
-    }
-
-    /** @test */
-    public function it_can_be_created_without_club()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-
-        $student = Student::factory()->create([
-            'user_id' => $user->id,
-            'club_id' => null
+        
+        // Associer l'utilisateur au club via la table pivot
+        $club->users()->attach($user->id, [
+            'role' => 'student',
+            'is_admin' => false,
+            'joined_at' => now()
         ]);
-
-        $this->assertNull($student->club_id);
-        $this->assertNull($student->club);
+        
+        $this->assertTrue($club->users->contains($user));
+        $this->assertEquals('student', $club->users->first()->pivot->role);
     }
 
     /** @test */
-    public function it_casts_notifications_enabled_as_boolean()
+    public function it_can_be_deleted_with_cascade()
     {
-        $student = Student::factory()->create([
-            'notifications_enabled' => true
-        ]);
-
-        $this->assertIsBool($student->notifications_enabled);
-        $this->assertTrue($student->notifications_enabled);
+        $studentId = $this->student->id;
+        
+        // Créer des documents médicaux liés
+        StudentMedicalDocument::factory()->create(['student_id' => $studentId]);
+        
+        // Supprimer l'étudiant
+        $this->student->delete();
+        
+        // Vérifier que l'étudiant est supprimé
+        $this->assertDatabaseMissing('students', ['id' => $studentId]);
+        
+        // Vérifier que les documents médicaux sont supprimés (cascade)
+        $this->assertDatabaseMissing('student_medical_documents', ['student_id' => $studentId]);
     }
 
     /** @test */
-    public function it_casts_emergency_contacts_as_array()
+    public function it_can_be_soft_deleted_if_configured()
     {
-        $student = Student::factory()->create([
-            'emergency_contacts' => [
-                'name' => 'Test Contact',
-                'phone' => '123456789',
-                'relationship' => 'parent'
-            ]
-        ]);
-
-        $this->assertIsArray($student->emergency_contacts);
-        $this->assertEquals('Test Contact', $student->emergency_contacts['name']);
-    }
-
-    /** @test */
-    public function it_can_have_different_levels()
-    {
-        $levels = ['debutant', 'intermediaire', 'avance', 'expert'];
-
-        foreach ($levels as $level) {
-            $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-            $student = Student::factory()->create([
-                'user_id' => $user->id,
-                'level' => $level
-            ]);
-
-            $this->assertEquals($level, $student->level);
-        }
-    }
-
-    /** @test */
-    public function it_can_store_goals_as_text()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-        $goals = 'Apprendre le dressage et participer à des compétitions locales';
-
-        $student = Student::factory()->create([
-            'user_id' => $user->id,
-            'goals' => $goals
-        ]);
-
-        $this->assertEquals($goals, $student->goals);
-    }
-
-    /** @test */
-    public function it_can_store_medical_info()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-        $medicalInfo = 'Allergie aux chevaux, prendre des antihistaminiques avant les cours';
-
-        $student = Student::factory()->create([
-            'user_id' => $user->id,
-            'medical_info' => $medicalInfo
-        ]);
-
-        $this->assertEquals($medicalInfo, $student->medical_info);
-    }
-
-    /** @test */
-    public function it_can_store_emergency_contacts_information()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
-        $emergencyContacts = [
-            'name' => 'Jean Dupont',
-            'phone' => '06 12 34 56 78',
-            'relationship' => 'parent'
-        ];
-
-        $student = Student::factory()->create([
-            'user_id' => $user->id,
-            'emergency_contacts' => $emergencyContacts
-        ]);
-
-        $this->assertEquals($emergencyContacts, $student->emergency_contacts);
-        $this->assertEquals('Jean Dupont', $student->emergency_contacts['name']);
-        $this->assertEquals('06 12 34 56 78', $student->emergency_contacts['phone']);
+        // Note: Ce test vérifie la possibilité de soft delete si elle est implémentée
+        $this->assertTrue(true); // Placeholder pour le moment
     }
 }

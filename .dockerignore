@@ -1,71 +1,70 @@
+# Fichiers et dossiers à ignorer lors de la construction Docker
+
 # Git
 .git
 .gitignore
 .gitattributes
-.github
 
 # Documentation
-README.md
 *.md
+docs/
+README.md
 
-# Configuration files
-.env.example
-.editorconfig
-Dockerfile
-docker-compose.yml
-docker-compose-new.yml
+# Environnements de développement
+.env.local
+.env.development
+.env.testing
+.env.production.example
 
-# Dependencies (will be installed in container)
-/vendor
-/node_modules
-
-# Laravel specific
-/public/hot
-/public/storage
-/storage/*.key
-.env
-.env.backup
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-
-# Node.js
-npm-debug.log
-yarn-error.log
-package-lock.json
-
-# IDE & Editor files
-/.idea
-/.vscode
-/.fleet
-/.nova
-/.zed
-.phpactor.json
-
-# Logs & Debug files
+# Logs
 *.log
-setup-diagnostic.log
-setup.log
-cookies.txt
-debug_auth.html
+logs/
+storage/logs/*
 
-# Test & Debug scripts
-*.sh
-test_*.js
-test_*.cjs
-test-*.txt
-debug-*.sh
-dev-*.sh
+# Cache
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Copilot workspace copy
-/copilot/
+# Dossiers de build
+frontend/dist/
+frontend/.nuxt/
+frontend/.output/
 
-# OS files
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Build files
-/public/build
+# Tests
+tests/
+phpunit.xml
+tests/
+coverage/
 
-# Local volumes and data caches (not needed in build context)
-/docker-data
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Scripts de déploiement
+deploy.sh
+backup.sh
+
+# Sauvegardes
+backups/
+*.sql
+*.tar.gz
+
+# SSL
+ssl/
+*.pem
+*.key
+*.crt

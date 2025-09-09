@@ -63,9 +63,14 @@ class Student extends Model
     /**
      * Get the club that owns the student.
      */
-    public function club(): BelongsTo
+    /**
+     * Get the clubs that the student belongs to
+     */
+    public function clubs()
     {
-        return $this->belongsTo(Club::class);
+        return $this->belongsToMany(Club::class, 'club_students')
+                    ->withPivot(['level', 'goals', 'medical_info', 'preferred_disciplines', 'is_active', 'joined_at'])
+                    ->withTimestamps();
     }
 
     /**
@@ -120,6 +125,23 @@ class Student extends Model
         return $this->belongsToMany(CourseType::class, 'student_preferences')
                     ->withPivot(['discipline_id', 'is_preferred', 'priority_level'])
                     ->withTimestamps();
+    }
+
+    /**
+     * Get the disciplines for this student.
+     */
+    public function disciplines(): BelongsToMany
+    {
+        return $this->belongsToMany(Discipline::class, 'student_disciplines')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the medical documents for this student.
+     */
+    public function medicalDocuments(): HasMany
+    {
+        return $this->hasMany(StudentMedicalDocument::class);
     }
 
     /**

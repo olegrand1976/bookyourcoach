@@ -1,88 +1,78 @@
-FROM php:8.2-fpm
+# Dockerfile pour la production Acti'Vibe
+FROM php:8.2-fpm-alpine AS base
 
-# Arguments pour la configuration
-ARG user=laravel
-ARG uid=1000
-
-# Installation des dépendances système
-RUN apt-get update && apt-get install -y \
-    git \
+# Installer les dépendances système
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
     curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libzip-dev \
     zip \
     unzip \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libmcrypt-dev \
-    libgd-dev \
-    jpegoptim \
-    optipng \
-    pngquant \
-    gifsicle \
-    vim \
-    nano \
-    ghostscript \
-    libmagickwand-dev --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+    git \
+    nodejs \
+    npm \
+    mysql-client \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    libzip-dev \
+    icu-dev \
+    oniguruma-dev
 
-# Installation des extensions PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg
-RUN docker-php-ext-install \
-    pdo_mysql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    zip \
-    intl \
-    opcache
+# Installer les extensions PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mbstring \
+        zip \
+        exif \
+        pcntl \
+        gd \
+        intl \
+        bcmath
 
-# Installation de Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Installation d'ImageMagick
-RUN pecl install imagick && docker-php-ext-enable imagick
-
-# Installation de Composer
+# Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Création de l'utilisateur système pour Laravel
-RUN useradd -G www-data,root -u $uid -d /home/$user $user
-RUN mkdir -p /home/$user/.composer && \
-    chown -R $user:$user /home/$user
+# Créer l'utilisateur www-data
+RUN addgroup -g 1000 -S www-data \
+    && adduser -u 1000 -D -S -G www-data www-data
 
-# Configuration PHP
-# COPY ./docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
+# Définir le répertoire de travail
+WORKDIR /var/www/html
 
-# Définition du répertoire de travail
-WORKDIR /var/www
+# Copier les fichiers de configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/php.ini /usr/local/etc/php/php.ini
 
-# Copie de tous les fichiers d'abord
-COPY . .
-COPY --chown=$user:$user . .
+# Copier les fichiers de l'application
+COPY --chown=www-data:www-data . .
 
-# Copie de la configuration PHP après avoir copié tous les fichiers
-COPY ./docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
+# Installer les dépendances PHP
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Installation des dépendances PHP
-RUN composer install --optimize-autoloader
+# Installer les dépendances Node.js et build le frontend
+RUN cd frontend \
+    && npm ci --only=production \
+    && npm run build \
+    && npm cache clean --force
 
-# Finalisation de l'installation Composer
-# RUN composer dump-autoload --optimize
+# Créer les répertoires nécessaires
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-# Permissions correctes
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+# Générer la clé d'application Laravel
+RUN php artisan key:generate --no-interaction
 
-# Changement vers l'utilisateur Laravel
-USER $user
+# Optimiser Laravel pour la production
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 
-# Exposition du port
-EXPOSE 9000
+# Exposer le port 80
+EXPOSE 80
 
-# Commande par défaut
-CMD ["php-fpm"]
+# Démarrer Supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

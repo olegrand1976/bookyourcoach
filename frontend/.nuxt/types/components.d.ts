@@ -14,9 +14,14 @@ type HydrationStrategies = {
 type LazyComponent<T> = (T & DefineComponent<HydrationStrategies, {}, {}, {}, {}, {}, {}, { hydrated: () => void }>)
 
 interface _GlobalComponents {
-      'AddStudentModal': typeof import("../../components/AddStudentModal.vue")['default']
+      'AddCustomSpecialtyForm': typeof import("../../components/AddCustomSpecialtyForm.vue")['default']
+    'AddStudentAdvancedModal': typeof import("../../components/AddStudentAdvancedModal.vue")['default']
+    'AddStudentModal': typeof import("../../components/AddStudentModal.vue")['default']
+    'AddTeacherAdvancedModal': typeof import("../../components/AddTeacherAdvancedModal.vue")['default']
     'AddTeacherModal': typeof import("../../components/AddTeacherModal.vue")['default']
+    'EditCustomSpecialtyForm': typeof import("../../components/EditCustomSpecialtyForm.vue")['default']
     'EquestrianIcon': typeof import("../../components/EquestrianIcon.vue")['default']
+    'JoinClubModal': typeof import("../../components/JoinClubModal.vue")['default']
     'LanguageSelector': typeof import("../../components/LanguageSelector.vue")['default']
     'Logo': typeof import("../../components/Logo.vue")['default']
     'StudentNavigation': typeof import("../../components/StudentNavigation.vue")['default']
@@ -44,9 +49,14 @@ interface _GlobalComponents {
     'Body': typeof import("../../node_modules/nuxt/dist/head/runtime/components")['Body']
     'NuxtIsland': typeof import("../../node_modules/nuxt/dist/app/components/nuxt-island")['default']
     'NuxtRouteAnnouncer': typeof import("../../node_modules/nuxt/dist/app/components/server-placeholder")['default']
-      'LazyAddStudentModal': LazyComponent<typeof import("../../components/AddStudentModal.vue")['default']>
+      'LazyAddCustomSpecialtyForm': LazyComponent<typeof import("../../components/AddCustomSpecialtyForm.vue")['default']>
+    'LazyAddStudentAdvancedModal': LazyComponent<typeof import("../../components/AddStudentAdvancedModal.vue")['default']>
+    'LazyAddStudentModal': LazyComponent<typeof import("../../components/AddStudentModal.vue")['default']>
+    'LazyAddTeacherAdvancedModal': LazyComponent<typeof import("../../components/AddTeacherAdvancedModal.vue")['default']>
     'LazyAddTeacherModal': LazyComponent<typeof import("../../components/AddTeacherModal.vue")['default']>
+    'LazyEditCustomSpecialtyForm': LazyComponent<typeof import("../../components/EditCustomSpecialtyForm.vue")['default']>
     'LazyEquestrianIcon': LazyComponent<typeof import("../../components/EquestrianIcon.vue")['default']>
+    'LazyJoinClubModal': LazyComponent<typeof import("../../components/JoinClubModal.vue")['default']>
     'LazyLanguageSelector': LazyComponent<typeof import("../../components/LanguageSelector.vue")['default']>
     'LazyLogo': LazyComponent<typeof import("../../components/Logo.vue")['default']>
     'LazyStudentNavigation': LazyComponent<typeof import("../../components/StudentNavigation.vue")['default']>

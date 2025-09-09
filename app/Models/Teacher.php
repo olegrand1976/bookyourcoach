@@ -44,11 +44,31 @@ class Teacher extends Model
     }
 
     /**
-     * Get the club that owns the teacher
+     * Get the clubs that the teacher belongs to
      */
-    public function club()
+    public function clubs()
     {
-        return $this->belongsTo(Club::class);
+        return $this->belongsToMany(Club::class, 'club_teachers')
+                    ->withPivot(['allowed_disciplines', 'restricted_disciplines', 'hourly_rate', 'is_active', 'joined_at'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the disciplines that the teacher can teach
+     */
+    public function disciplines()
+    {
+        return $this->belongsToMany(Discipline::class, 'teacher_disciplines')
+                    ->withPivot(['level', 'certifications', 'is_primary'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the primary discipline
+     */
+    public function primaryDiscipline()
+    {
+        return $this->disciplines()->wherePivot('is_primary', true)->first();
     }
 
     /**

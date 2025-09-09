@@ -16,9 +16,17 @@ use Laravel\Sanctum\HasApiTokens;
  *     description="Modèle utilisateur",
  *     @OA\Property(property="id", type="integer", example=1),
  *     @OA\Property(property="name", type="string", example="John Doe"),
+ *     @OA\Property(property="first_name", type="string", example="John"),
+ *     @OA\Property(property="last_name", type="string", example="Doe"),
  *     @OA\Property(property="email", type="string", format="email", example="john@example.com"),
- *     @OA\Property(property="role", type="string", enum={"admin", "teacher", "student"}, example="student"),
+ *     @OA\Property(property="role", type="string", enum={"admin", "teacher", "student", "club"}, example="student"),
  *     @OA\Property(property="phone", type="string", nullable=true, example="+33123456789"),
+ *     @OA\Property(property="street", type="string", nullable=true, example="Rue de la Paix"),
+ *     @OA\Property(property="street_number", type="string", nullable=true, example="123"),
+ *     @OA\Property(property="postal_code", type="string", nullable=true, example="1000"),
+ *     @OA\Property(property="city", type="string", nullable=true, example="Bruxelles"),
+ *     @OA\Property(property="country", type="string", nullable=true, example="Belgium"),
+ *     @OA\Property(property="birth_date", type="string", format="date", nullable=true, example="1990-01-01"),
  *     @OA\Property(property="status", type="string", example="active"),
  *     @OA\Property(property="email_verified_at", type="string", format="date-time", nullable=true),
  *     @OA\Property(property="created_at", type="string", format="date-time"),
@@ -41,12 +49,22 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'role',
         'phone',
+        'street',
+        'street_number',
+        'postal_code',
+        'city',
+        'country',
+        'birth_date',
         'status',
         'is_active',
+        'qr_code',
+        'qr_code_generated_at',
     ];
 
     /**
@@ -67,9 +85,10 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_active' => 'boolean',
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'is_active' => 'boolean',
+        'qr_code_generated_at' => 'datetime',
         ];
     }
 

@@ -1,264 +1,183 @@
 <template>
-    <div class="min-h-screen bg-gray-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-                    <span class="text-4xl mr-3">⚙️</span>
-                    Dashboard Administrateur
-                </h1>
-                <p class="mt-2 text-gray-900/80">Vue d'ensemble et gestion de la plateforme activibe</p>
-            </div>
+  <div class="p-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard Administrateur</h1>
+    <p class="text-gray-600 mb-8">Vue d'ensemble et gestion de la plateforme Acti'Vibe.</p>
 
-            <!-- Loading State -->
-            <div v-if="loading" class="flex justify-center items-center py-12">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-
-            <!-- Statistics Cards -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500 border border-blue-500/20">
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-3">👥</span>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Utilisateurs</h3>
-                            <p class="text-3xl font-bold text-blue-400">{{ stats.users }}</p>
-                            <p class="text-sm text-gray-900/60">Total inscrits</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-equestrian-leather border border-blue-500/20">
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-3">🏇</span>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Enseignants</h3>
-                            <p class="text-3xl font-bold text-equestrian-leather">{{ stats.teachers }}</p>
-                            <p class="text-sm text-gray-900/60">Coaches actifs</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-600 border border-blue-500/20">
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-3">👨‍🎓</span>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Élèves</h3>
-                            <p class="text-3xl font-bold text-gray-700">{{ stats.students }}</p>
-                            <p class="text-sm text-gray-900/60">Apprenants</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-orange-500">
-                    <div class="flex items-center">
-                        <EquestrianIcon icon="horse" class="text-orange-500 mr-3" :size="24" />
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Clubs</h3>
-                            <p class="text-3xl font-bold text-orange-600">{{ stats.clubs }}</p>
-                            <p class="text-sm text-gray-500">Centres équestres</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <EquestrianIcon icon="trophy" class="mr-2 text-primary-600" :size="20" />
-                        Actions rapides
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button @click="showCreateUserModal = true"
-                            class="btn-primary flex items-center justify-center">
-                            <EquestrianIcon icon="helmet" class="mr-2" :size="16" />
-                            Créer un utilisateur
-                        </button>
-                        <button @click="showCreateClubModal = true"
-                            class="btn-secondary flex items-center justify-center">
-                            <EquestrianIcon icon="horse" class="mr-2" :size="16" />
-                            Créer un club
-                        </button>
-                        <NuxtLink to="/admin/users" class="btn-outline flex items-center justify-center">
-                            <EquestrianIcon icon="saddle" class="mr-2" :size="16" />
-                            Gérer les utilisateurs
-                        </NuxtLink>
-                        <NuxtLink to="/admin/settings" class="btn-outline flex items-center justify-center">
-                            <EquestrianIcon icon="horseshoe" class="mr-2" :size="16" />
-                            Paramètres système
-                        </NuxtLink>
-                    </div>
-                </div>
-
-                <!-- Recent Activity -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <EquestrianIcon icon="horseshoe" class="mr-2 text-primary-600" :size="20" />
-                        Activité récente
-                    </h2>
-                    <div class="space-y-3">
-                        <div v-for="activity in recentActivities" :key="activity.id"
-                            class="flex items-center p-3 bg-gray-50 rounded-lg">
-                            <div class="flex-shrink-0">
-                                <EquestrianIcon :icon="activity.icon" class="text-primary-600" :size="16" />
-                            </div>
-                            <div class="ml-3 flex-1">
-                                <p class="text-sm font-medium text-gray-900">{{ activity.message }}</p>
-                                <p class="text-xs text-gray-500">{{ activity.time }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Data Tables -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Recent Users -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <EquestrianIcon icon="helmet" class="mr-2 text-primary-600" :size="20" />
-                        Derniers utilisateurs
-                    </h2>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead>
-                                <tr>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Nom</th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Rôle</th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Statut
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                <tr v-for="user in recentUsers" :key="user.id">
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ user.name }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-500">
-                                        <span :class="getRoleClass(user.role)"
-                                            class="px-2 py-1 text-xs font-semibold rounded-full">
-                                            {{ getRoleLabel(user.role) }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-gray-500">
-                                        <span :class="user.is_active ? 'text-green-600' : 'text-red-600'"
-                                            class="flex items-center">
-                                            <div :class="user.is_active ? 'bg-green-400' : 'bg-red-400'"
-                                                class="w-2 h-2 rounded-full mr-2"></div>
-                                            {{ user.is_active ? 'Actif' : 'Inactif' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-4">
-                        <NuxtLink to="/admin/users" class="text-primary-600 bg-blue-600:text-primary-500 text-sm font-medium">
-                            Voir tous les utilisateurs →
-                        </NuxtLink>
-                    </div>
-                </div>
-
-                <!-- System Status -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <EquestrianIcon icon="trophy" class="mr-2 text-primary-600" :size="20" />
-                        État du système
-                    </h2>
-                    <div class="space-y-4">
-                        <div v-for="status in systemStatus" :key="status.name"
-                            class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-gray-900">{{ status.name }}</span>
-                            <span
-                                :class="status.status === 'online' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'"
-                                class="px-2 py-1 text-xs font-semibold rounded-full">
-                                {{ status.status === 'online' ? 'En ligne' : 'Hors ligne' }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Create User Modal -->
-        <div v-if="showCreateUserModal"
-            class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Créer un nouvel utilisateur</h3>
-                    <form @submit.prevent="createUser" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Nom</label>
-                            <input v-model="newUser.name" type="text" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email</label>
-                            <input v-model="newUser.email" type="email" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Rôle</label>
-                            <select v-model="newUser.role" class="input-field" required>
-                                <option value="student">Élève</option>
-                                <option value="teacher">Enseignant</option>
-                                <option value="admin">Administrateur</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
-                            <input v-model="newUser.password" type="password" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
-                            <input v-model="newUser.password_confirmation" type="password" class="input-field" required>
-                        </div>
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" @click="showCreateUserModal = false"
-                                class="btn-outline">Annuler</button>
-                            <button type="submit" class="btn-primary">Créer</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Create Club Modal -->
-        <div v-if="showCreateClubModal"
-            class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Créer un nouveau club</h3>
-                    <form @submit.prevent="createClub" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Nom du club</label>
-                            <input v-model="newClub.name" type="text" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email</label>
-                            <input v-model="newClub.email" type="email" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Téléphone</label>
-                            <input v-model="newClub.phone" type="tel" class="input-field">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Adresse</label>
-                            <textarea v-model="newClub.address" class="input-field" rows="3"></textarea>
-                        </div>
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" @click="showCreateClubModal = false"
-                                class="btn-outline">Annuler</button>
-                            <button type="submit" class="btn-primary">Créer</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+    <div v-if="loading" class="text-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+      <p class="mt-4 text-gray-500">Chargement des données...</p>
     </div>
+
+    <div v-else class="space-y-8">
+      <!-- Statistics Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4">
+          <div class="bg-blue-100 p-3 rounded-xl">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A5.995 5.995 0 0112 13a5.995 5.995 0 013 5.197M15 21a6 6 0 00-9-5.197"></path></svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Utilisateurs</p>
+            <p class="text-2xl font-bold text-gray-800">{{ stats.users }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4">
+          <div class="bg-green-100 p-3 rounded-xl">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Enseignants</p>
+            <p class="text-2xl font-bold text-gray-800">{{ stats.teachers }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4">
+          <div class="bg-indigo-100 p-3 rounded-xl">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 14l9-5-9-5-9 5 9 5z"></path><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-5.998 12.078 12.078 0 01.665-6.479L12 14z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-5.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222 4 2.222V20M1 14.55v-7.5l4-2.222m0 16.444v-7.5l-4-2.222"></path></svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Élèves</p>
+            <p class="text-2xl font-bold text-gray-800">{{ stats.students }}</p>
+          </div>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-200 flex items-center space-x-4">
+          <div class="bg-orange-100 p-3 rounded-xl">
+           <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Clubs</p>
+            <p class="text-2xl font-bold text-gray-800">{{ stats.clubs }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Recent Users -->
+        <div class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-800">Derniers utilisateurs inscrits</h2>
+            <NuxtLink to="/admin/users" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+              Voir tout →
+            </NuxtLink>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full">
+              <thead class="border-b border-gray-200">
+                <tr>
+                  <th class="py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                  <th class="py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
+                  <th class="py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="user in recentUsers" :key="user.id" class="border-b border-gray-100">
+                  <td class="py-4 text-sm font-medium text-gray-900">{{ user.name }}</td>
+                  <td class="py-4 text-sm">
+                    <span :class="getRoleClass(user.role)" class="px-2 py-1 text-xs font-semibold rounded-full">
+                      {{ getRoleLabel(user.role) }}
+                    </span>
+                  </td>
+                  <td class="py-4 text-sm">
+                    <span :class="user.is_active ? 'text-green-600' : 'text-red-600'" class="flex items-center">
+                      <div :class="user.is_active ? 'bg-green-400' : 'bg-red-400'" class="w-2 h-2 rounded-full mr-2"></div>
+                      {{ user.is_active ? 'Actif' : 'Inactif' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- System Status & Actions -->
+        <div class="space-y-8">
+          <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+            <h2 class="text-xl font-bold text-gray-800 mb-6">État du système</h2>
+            <div class="space-y-4">
+              <div v-for="status in systemStatus" :key="status.name" class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">{{ status.name }}</span>
+                <span :class="status.status === 'online' ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'" class="px-2.5 py-1 text-xs font-semibold rounded-full">
+                  {{ status.status === 'online' ? 'En ligne' : 'Hors ligne' }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+            <h2 class="text-xl font-bold text-gray-800 mb-6">Actions rapides</h2>
+            <div class="space-y-3">
+              <button @click="showCreateUserModal = true" class="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">Créer un utilisateur</button>
+              <button @click="showCreateClubModal = true" class="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">Créer un club</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div v-if="showCreateUserModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-6">Créer un nouvel utilisateur</h3>
+        <form @submit.prevent="createUser" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Nom</label>
+            <input v-model="newUser.name" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <input v-model="newUser.email" type="email" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Rôle</label>
+            <select v-model="newUser.role" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+              <option value="student">Élève</option>
+              <option value="teacher">Enseignant</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
+            <input v-model="newUser.password" type="password" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+           <div>
+            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
+            <input v-model="newUser.password_confirmation" type="password" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+          <div class="flex justify-end space-x-4 pt-4">
+            <button type="button" @click="showCreateUserModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg">Annuler</button>
+            <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg">Créer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Create Club Modal -->
+     <div v-if="showCreateClubModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-6">Créer un nouveau club</h3>
+        <form @submit.prevent="createClub" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Nom du club</label>
+            <input v-model="newClub.name" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <input v-model="newClub.email" type="email" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Téléphone</label>
+            <input v-model="newClub.phone" type="tel" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Adresse</label>
+            <textarea v-model="newClub.address" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" rows="3"></textarea>
+          </div>
+          <div class="flex justify-end space-x-4 pt-4">
+            <button type="button" @click="showCreateClubModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg">Annuler</button>
+            <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg">Créer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -266,16 +185,11 @@ import { ref, onMounted } from 'vue'
 
 definePageMeta({
     layout: 'admin',
-    middleware: ['auth', 'admin']
+    middleware: 'admin'
 })
 
 const { $api } = useNuxtApp()
-
-// Fonction toast simple
-const showToast = (message, type = 'info') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-  // TODO: Implémenter un vrai système de toast
-}
+const { showToast } = useToast()
 
 // State
 const loading = ref(true)
@@ -284,56 +198,28 @@ const stats = ref({
     teachers: 0,
     students: 0,
     clubs: 0,
-    lessons_today: 0,
-    revenue_month: 0
 })
 const recentUsers = ref([])
-const recentActivities = ref([])
 const systemStatus = ref([
     { name: 'API Backend', status: 'online' },
     { name: 'Base de données', status: 'online' },
     { name: 'Serveur Frontend', status: 'online' },
-    { name: 'Service de paiement', status: 'online' }
 ])
 const showCreateUserModal = ref(false)
 const showCreateClubModal = ref(false)
-const newUser = ref({ name: '', email: '', password: '', role: 'student' })
-const newClub = ref({ name: '', address: '', city: '', zip_code: '', country: 'France' })
+const newUser = ref({ name: '', email: '', password: '', password_confirmation: '', role: 'student' })
+const newClub = ref({ name: '', email: '', phone: '', address: '' })
 
 // Fetch data
 onMounted(async () => {
     loading.value = true
     try {
         const response = await $api.get('/admin/stats')
-        stats.value = response.data.stats || {
-            users: 0,
-            teachers: 0,
-            students: 0,
-            lessons: 0,
-            bookings: 0,
-            revenue: 0
-        }
+        stats.value = response.data.stats || stats.value
         recentUsers.value = response.data.recentUsers || []
-        recentActivities.value = (response.data.recentActivities || []).map(activity => ({
-            ...activity,
-            icon: getActivityIcon(activity.action),
-            time: formatTimeAgo(activity.created_at)
-        }))
     } catch (error) {
         console.error("Erreur lors de la récupération des données du dashboard:", error)
         showToast("Impossible de charger les données du dashboard.", 'error')
-        
-        // Données par défaut en cas d'erreur
-        stats.value = {
-            users: 0,
-            teachers: 0,
-            students: 0,
-            lessons: 0,
-            bookings: 0,
-            revenue: 0
-        }
-        recentUsers.value = []
-        recentActivities.value = []
     } finally {
         loading.value = false
     }
@@ -358,44 +244,33 @@ function getRoleLabel(role) {
     return labels[role] || 'N/A'
 }
 
-function getActivityIcon(action) {
-    if (action.includes('create')) return 'plus'
-    if (action.includes('update')) return 'pencil'
-    if (action.includes('delete')) return 'trash'
-    if (action.includes('login')) return 'login'
-    return 'info'
-}
-
-function formatTimeAgo(dateString) {
-    const date = new Date(dateString)
-    const seconds = Math.floor((new Date() - date) / 1000)
-    let interval = seconds / 31536000
-    if (interval > 1) return Math.floor(interval) + " ans"
-    interval = seconds / 2592000
-    if (interval > 1) return Math.floor(interval) + " mois"
-    interval = seconds / 86400
-    if (interval > 1) return Math.floor(interval) + " jours"
-    interval = seconds / 3600
-    if (interval > 1) return Math.floor(interval) + " heures"
-    interval = seconds / 60
-    if (interval > 1) return Math.floor(interval) + " minutes"
-    return Math.floor(seconds) + " secondes"
-}
-
 async function createUser() {
     try {
         await $api.post('/admin/users', newUser.value)
-        toast.success('Utilisateur créé avec succès')
+        showToast('Utilisateur créé avec succès', 'success')
         showCreateUserModal.value = false
-        // Re-fetch data or update list locally
+        // Reset form
+        newUser.value = { name: '', email: '', password: '', password_confirmation: '', role: 'student' }
+        // Re-fetch users
+        const response = await $api.get('/admin/stats')
+        recentUsers.value = response.data.recentUsers || []
     } catch (error) {
-        toast.error("Erreur lors de la création de l'utilisateur.")
+        showToast(error.data?.message || "Erreur lors de la création de l'utilisateur.", 'error')
     }
 }
 
 async function createClub() {
-    // Implement club creation logic
-    toast.info('La création de club n\'est pas encore implémentée.')
-    showCreateClubModal.value = false
+    try {
+        await $api.post('/admin/clubs', newClub.value)
+        showToast('Club créé avec succès', 'success')
+        showCreateClubModal.value = false
+        // Reset form
+        newClub.value = { name: '', email: '', phone: '', address: '' }
+        // Re-fetch stats
+        const response = await $api.get('/admin/stats')
+        stats.value = response.data.stats || stats.value
+    } catch (error) {
+        showToast(error.data?.message || "Erreur lors de la création du club.", 'error')
+    }
 }
 </script>

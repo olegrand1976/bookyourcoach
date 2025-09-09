@@ -5,26 +5,14 @@
             <div class="mb-8">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-grayconst createUser = async () => {
-    try {
-        const { $api } = useNuxtApp()
-        await $api.post('/admin/users', userForm.value)
-
-        closeModal()
-        await loadUsers()
-        alert('Utilisateur créé avec succès!')
-    } catch (error) {
-        console.error('Erreur lors de la création:', error)
-        alert('Erreur lors de la création de l\'utilisateur')
-    }
-}center">
-                            <EquestrianIcon icon="helmet" class="mr-3 text-primary-600" :size="32" />
+                        <h1 class="text-3xl font-bold text-gray-900 text-center">
+                            <span class="mr-3 text-primary-600">👥</span>
                             Gestion des Utilisateurs
                         </h1>
                         <p class="mt-2 text-gray-600">Gérez tous les utilisateurs de la plateforme</p>
                     </div>
-                    <button @click="showCreateModal = true" class="btn-primary flex items-center">
-                        <EquestrianIcon icon="horseshoe" class="mr-2" :size="16" />
+                    <button @click="showCreateModal = true" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center">
+                        <span class="mr-2">➕</span>
                         Nouvel utilisateur
                     </button>
                 </div>
@@ -32,14 +20,14 @@
 
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Rechercher</label>
-                        <input v-model="filters.search" type="text" placeholder="Nom ou email..." class="input-field">
+                        <input v-model="filters.search" type="text" placeholder="Nom ou email..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-                        <select v-model="filters.role" class="input-field">
+                        <select v-model="filters.role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Tous les rôles</option>
                             <option value="admin">Administrateur</option>
                             <option value="teacher">Enseignant</option>
@@ -48,14 +36,18 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                        <select v-model="filters.status" class="input-field">
+                        <select v-model="filters.status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Tous les statuts</option>
                             <option value="active">Actif</option>
                             <option value="inactive">Inactif</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
+                        <input v-model="filters.postal_code" type="text" placeholder="Ex: 1000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
                     <div class="flex items-end">
-                        <button @click="loadUsers" class="btn-outline w-full">
+                        <button @click="loadUsers" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 w-full">
                             Filtrer
                         </button>
                     </div>
@@ -188,40 +180,93 @@
         <!-- Create/Edit User Modal -->
         <div v-if="showCreateModal || showEditModal"
             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
                 <div class="mt-3">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">
                         {{ showEditModal ? 'Modifier l\'utilisateur' : 'Créer un nouvel utilisateur' }}
                     </h3>
                     <form @submit.prevent="showEditModal ? updateUser() : createUser()" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Nom</label>
-                            <input v-model="userForm.name" type="text" class="input-field" required>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Nom *</label>
+                                <input v-model="userForm.last_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Prénom *</label>
+                                <input v-model="userForm.first_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
                         </div>
+                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Email</label>
-                            <input v-model="userForm.email" type="email" class="input-field" required>
+                            <label class="block text-sm font-medium text-gray-700">Email *</label>
+                            <input v-model="userForm.email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         </div>
+                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Rôle</label>
-                            <select v-model="userForm.role" class="input-field" required>
+                            <label class="block text-sm font-medium text-gray-700">Téléphone</label>
+                            <input v-model="userForm.phone" type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Date de naissance</label>
+                            <input v-model="userForm.birth_date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Adresse</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Rue</label>
+                                    <input v-model="userForm.street" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nom de la rue">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Numéro</label>
+                                    <input v-model="userForm.street_number" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="92, 92/A, 92B...">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Code postal</label>
+                                    <input v-model="userForm.postal_code" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Ville</label>
+                                    <input v-model="userForm.city" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Bruxelles">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Pays</label>
+                                    <select v-model="userForm.country" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="Belgium">Belgique</option>
+                                        <option value="France">France</option>
+                                        <option value="Netherlands">Pays-Bas</option>
+                                        <option value="Germany">Allemagne</option>
+                                        <option value="Luxembourg">Luxembourg</option>
+                                        <option value="Switzerland">Suisse</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Rôle *</label>
+                            <select v-model="userForm.role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                                 <option value="student">Élève</option>
                                 <option value="teacher">Enseignant</option>
                                 <option value="admin">Administrateur</option>
                             </select>
                         </div>
+                        
                         <div v-if="!showEditModal">
-                            <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
-                            <input v-model="userForm.password" type="password" class="input-field" required>
+                            <label class="block text-sm font-medium text-gray-700">Mot de passe *</label>
+                            <input v-model="userForm.password" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         </div>
                         <div v-if="!showEditModal">
-                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
-                            <input v-model="userForm.password_confirmation" type="password" class="input-field"
-                                required>
+                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe *</label>
+                            <input v-model="userForm.password_confirmation" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         </div>
                         <div class="flex justify-end space-x-3">
-                            <button type="button" @click="closeModal" class="btn-outline">Annuler</button>
-                            <button type="submit" class="btn-primary">
+                            <button type="button" @click="closeModal" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700">Annuler</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
                                 {{ showEditModal ? 'Modifier' : 'Créer' }}
                             </button>
                         </div>
@@ -236,7 +281,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 
 definePageMeta({
-    middleware: 'auth-admin'
+    layout: 'admin',
+    middleware: 'admin'
 })
 
 // Reactive data
@@ -253,14 +299,23 @@ const totalPages = ref(0)
 const filters = ref({
     search: '',
     role: '',
-    status: ''
+    status: '',
+    postal_code: ''
 })
 
 // Form
 const userForm = ref({
     id: null,
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
+    phone: '',
+    birth_date: '',
+    street: '',
+    street_number: '',
+    postal_code: '',
+    city: '',
+    country: 'Belgium',
     role: 'student',
     password: '',
     password_confirmation: ''
@@ -322,6 +377,9 @@ const loadUsers = async () => {
         if (filters.value.status && filters.value.status.trim()) {
             params.append('status', filters.value.status.trim())
         }
+        if (filters.value.postal_code && filters.value.postal_code.trim()) {
+            params.append('postal_code', filters.value.postal_code.trim())
+        }
 
         console.log('Paramètres envoyés:', params.toString())
         const response = await $api.get(`/admin/users?${params}`)
@@ -330,14 +388,15 @@ const loadUsers = async () => {
         console.log('Response complète:', response)
         console.log('Response.data:', response.data)
 
-        // Accès aux données selon la structure de la réponse
+        // Accès aux données selon la structure de pagination Laravel
         const responseData = response.data || response
-
-        if (responseData.success && responseData.data) {
+        if (responseData.data && Array.isArray(responseData.data)) {
+            // Structure de pagination Laravel
             users.value = responseData.data
-            totalUsers.value = responseData.data.length
-            totalPages.value = Math.ceil(totalUsers.value / perPage.value)
-            console.log('Utilisateurs chargés:', users.value.length)
+            totalUsers.value = responseData.total || responseData.data.length
+            totalPages.value = responseData.last_page || Math.ceil(totalUsers.value / perPage.value)
+            currentPage.value = responseData.current_page || 1
+            console.log('Utilisateurs chargés (pagination Laravel):', users.value.length)
         } else if (Array.isArray(responseData)) {
             // Cas où la réponse est directement un tableau
             users.value = responseData
@@ -429,8 +488,16 @@ const closeModal = () => {
     showEditModal.value = false
     userForm.value = {
         id: null,
-        name: '',
+        first_name: '',
+        last_name: '',
         email: '',
+        phone: '',
+        birth_date: '',
+        street: '',
+        street_number: '',
+        postal_code: '',
+        city: '',
+        country: 'Belgium',
         role: 'student',
         password: '',
         password_confirmation: ''

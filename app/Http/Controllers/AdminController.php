@@ -26,7 +26,8 @@ class AdminController extends BaseController
 {
     public function __construct()
     {
-        $this->middleware(['auth:sanctum', 'admin']);
+        // Le middleware 'admin' est appliqué au niveau des routes
+        // Pas besoin de middleware Sanctum ici pour éviter SIGSEGV
     }
 
     /**

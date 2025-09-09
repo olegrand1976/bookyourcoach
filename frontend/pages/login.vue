@@ -11,6 +11,12 @@
             Créer un compte
           </NuxtLink>
         </p>
+        <p class="mt-1 text-center text-sm text-gray-600">
+          Vous êtes enseignant ?
+          <NuxtLink to="/register-teacher" class="font-medium text-emerald-600 hover:text-emerald-500">
+            S'inscrire comme enseignant
+          </NuxtLink>
+        </p>
       </div>
 
       <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
@@ -140,7 +146,7 @@ const handleLogin = async () => {
 
     showToast('Connexion réussie', 'success')
 
-    // Rediriger selon le rôle
+    // Rediriger selon le rôle (admin en priorité)
     if (authStore.isAdmin) {
       await navigateTo('/admin')
     } else if (authStore.isTeacher) {
@@ -179,7 +185,7 @@ const handleLogin = async () => {
   }
 }
 
-// Rediriger si déjà connecté
+// Rediriger si déjà connecté (admin en priorité)
 watchEffect(() => {
   if (authStore.isAuthenticated) {
     if (authStore.isAdmin) {

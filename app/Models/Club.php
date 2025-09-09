@@ -53,7 +53,9 @@ class Club extends Model
         'terms_and_conditions',
         'activity_type_id',
         'seasonal_variation',
-        'weather_dependency'
+        'weather_dependency',
+        'qr_code',
+        'qr_code_generated_at'
     ];
 
     protected $casts = [
@@ -63,7 +65,8 @@ class Club extends Model
         'is_active' => 'boolean',
         'max_students' => 'integer',
         'seasonal_variation' => 'decimal:2',
-        'weather_dependency' => 'boolean'
+        'weather_dependency' => 'boolean',
+        'qr_code_generated_at' => 'datetime'
     ];
 
     protected $attributes = [
@@ -86,12 +89,32 @@ class Club extends Model
 
     public function teachers()
     {
-        return $this->users()->wherePivot('role', 'teacher');
+        return $this->belongsToMany(Teacher::class, 'club_teachers')
+                    ->withPivot(['allowed_disciplines', 'restricted_disciplines', 'hourly_rate', 'is_active', 'joined_at'])
+                    ->withTimestamps();
     }
 
     public function students()
     {
-        return $this->users()->wherePivot('role', 'student');
+        return $this->belongsToMany(Student::class, 'club_students')
+                    ->withPivot(['level', 'goals', 'medical_info', 'preferred_disciplines', 'is_active', 'joined_at'])
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get active teachers for this club
+     */
+    public function activeTeachers()
+    {
+        return $this->teachers()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get active students for this club
+     */
+    public function activeStudents()
+    {
+        return $this->students()->wherePivot('is_active', true);
     }
 
     public function activityType()
@@ -122,6 +145,11 @@ class Club extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    public function customSpecialties()
+    {
+        return $this->hasMany(ClubCustomSpecialty::class);
     }
 
     // Scopes

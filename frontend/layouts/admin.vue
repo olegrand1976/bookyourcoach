@@ -1,43 +1,55 @@
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Header Admin -->
-    <header class="bg-white shadow-sm border-b border-gray-200">
+    <!-- Header Admin Unifié -->
+    <nav class="bg-white shadow-lg border-b-4 border-red-500">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center py-4">
+        <div class="flex justify-between h-20">
           <div class="flex items-center">
-            <NuxtLink to="/admin" class="text-xl font-bold text-primary-600">
-              🏆 activibe Admin
+            <NuxtLink to="/admin" class="flex items-center space-x-3 text-xl font-bold text-gray-900">
+              <img src="/images/logo-activibe.svg" alt="Acti'Vibe" class="h-12 w-auto" />
+              <span class="bg-red-100 text-red-700 text-sm font-semibold px-2.5 py-1 rounded-full">Admin</span>
             </NuxtLink>
           </div>
-          
-          <div class="flex items-center space-x-4">
-            <span class="text-sm text-gray-600">
-              Connecté en tant qu'administrateur
-            </span>
-            <NuxtLink to="/dashboard" class="text-sm text-primary-600 hover:text-primary-700">
-              Retour au site
-            </NuxtLink>
-            <button @click="logout" class="text-sm text-red-600 hover:text-red-700">
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
 
-    <!-- Navigation Admin -->
-    <nav class="bg-white border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex space-x-8">
-          <NuxtLink to="/admin" class="py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-            Dashboard
-          </NuxtLink>
-          <NuxtLink to="/admin/users" class="py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-            Utilisateurs
-          </NuxtLink>
-          <NuxtLink to="/admin/settings" class="py-4 px-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-            Paramètres
-          </NuxtLink>
+          <div class="flex items-center space-x-6">
+            <div class="relative">
+              <button @click="toggleUserMenu" class="flex items-center space-x-2 text-gray-900 bg-gray-50 px-4 py-2 rounded-lg">
+                <span class="font-medium">{{ userName }}</span>
+                <ChevronDownIcon class="w-4 h-4" />
+              </button>
+
+              <div v-if="userMenuOpen" class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-200">
+                <p class="px-4 py-2 text-xs text-gray-500">Menu Administration</p>
+                <NuxtLink to="/admin" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>📊</span>
+                  <span>Dashboard</span>
+                </NuxtLink>
+                <NuxtLink to="/admin/users" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>👥</span>
+                  <span>Utilisateurs</span>
+                </NuxtLink>
+                <NuxtLink to="/admin/contracts" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>📄</span>
+                  <span>Contrats</span>
+                </NuxtLink>
+                <NuxtLink to="/admin/settings" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>⚙️</span>
+                  <span>Paramètres</span>
+                </NuxtLink>
+                
+                <hr class="my-2 border-gray-200">
+
+                <NuxtLink to="/" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>🌐</span>
+                  <span>Retour au site</span>
+                </NuxtLink>
+                <button @click="logout" class="flex items-center space-x-3 w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+                  <span>🚪</span>
+                  <span>Déconnexion</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
@@ -50,7 +62,31 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ChevronDownIcon } from '@heroicons/vue/24/outline'
+
 const authStore = useAuthStore()
+
+const userMenuOpen = ref(false)
+const userName = computed(() => authStore.userName || 'Admin')
+
+const toggleUserMenu = () => {
+  userMenuOpen.value = !userMenuOpen.value
+}
+
+const closeMenu = (e) => {
+  if (!e.target.closest('.relative')) {
+    userMenuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
 
 const logout = async () => {
   await authStore.logout()

@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         // 1. Paramètres de l'application (branding)
         $this->command->info('📱 Création des paramètres d\'application...');
         $this->call(AppSettingSeeder::class);
+        $this->call(ContractSettingsSeeder::class);
 
         // 2. Disciplines et types de cours
         $this->command->info('📚 Création des disciplines et types de cours...');

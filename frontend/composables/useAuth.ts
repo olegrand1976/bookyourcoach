@@ -19,9 +19,9 @@ export const useAuth = () => {
                     const config = useRuntimeConfig()
                     // Utiliser l'URL côté serveur pour Docker
                     const apiUrl = config.apiBase || config.public.apiBase
-                    console.log('🌐 [AUTH] Appel API:', `${apiUrl}/auth/user`)
+                    console.log('🌐 [AUTH] Appel API:', `${apiUrl}/auth/user-test`)
                     
-                    const response = await $fetch(`${apiUrl}/auth/user`, {
+                    const response = await $fetch(`${apiUrl}/auth/user-test`, {
                         headers: {
                             'Authorization': `Bearer ${tokenCookie.value}`
                         }
