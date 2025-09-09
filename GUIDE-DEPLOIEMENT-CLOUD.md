@@ -8,16 +8,21 @@
 - ✅ **Serveur Cloud** : VPS/Cloud avec Ubuntu 20.04+ (minimum 2GB RAM, 2 CPU)
 - ✅ **Nom de domaine** : activibe.com (ou votre domaine)
 
-### **2. Variables d'Environnement GitHub**
-Configurez ces secrets dans GitHub Settings > Secrets and variables > Actions :
+### **2. Variables et Secrets GitHub**
+Configurez dans GitHub Settings > Secrets and variables > Actions :
 
+#### **Variables (non sensibles)**
 ```
 DOCKERHUB_USERNAME=votre_username_dockerhub
-DOCKERHUB_TOKEN=votre_token_dockerhub
 SERVER_HOST=ip_ou_domaine_serveur
+SERVER_PORT=22
+```
+
+#### **Secrets (sensibles)**
+```
+DOCKERHUB_PASSWORD=votre_mot_de_passe_dockerhub
 SERVER_USERNAME=utilisateur_ssh
 SERVER_SSH_KEY=clé_privée_ssh
-SERVER_PORT=22
 SLACK_WEBHOOK=url_webhook_slack (optionnel)
 ```
 
@@ -148,15 +153,18 @@ sudo ufw enable
 - Créer un compte
 - Créer un repository public nommé `activibe/app`
 
-### **2. Générer un token d'accès**
-- Aller dans Account Settings > Security
-- Créer un nouveau Access Token
-- Copier le token (il ne sera affiché qu'une fois)
-
-### **3. Configurer GitHub Secrets**
+### **2. Configurer GitHub Variables et Secrets**
 Dans GitHub > Settings > Secrets and variables > Actions :
+
+#### **Variables (onglet Variables)**
 - `DOCKERHUB_USERNAME` : votre nom d'utilisateur DockerHub
-- `DOCKERHUB_TOKEN` : le token généré
+- `SERVER_HOST` : IP ou domaine de votre serveur
+- `SERVER_PORT` : 22 (port SSH par défaut)
+
+#### **Secrets (onglet Secrets)**
+- `DOCKERHUB_PASSWORD` : votre mot de passe DockerHub
+- `SERVER_USERNAME` : nom d'utilisateur SSH
+- `SERVER_SSH_KEY` : clé privée SSH complète
 
 ---
 
@@ -174,11 +182,9 @@ ssh-keygen -t rsa -b 4096 -C "github-actions"
 ssh-copy-id -i ~/.ssh/github_actions.pub utilisateur@ip_serveur
 ```
 
-### **3. Configurer GitHub Secrets**
-- `SERVER_HOST` : ip_serveur ou domaine
-- `SERVER_USERNAME` : nom d'utilisateur SSH
-- `SERVER_SSH_KEY` : contenu de la clé privée (~/.ssh/github_actions)
-- `SERVER_PORT` : 22 (port SSH par défaut)
+### **3. Configurer GitHub Variables et Secrets**
+- **Variables** : `SERVER_HOST`, `SERVER_PORT`
+- **Secrets** : `SERVER_USERNAME`, `SERVER_SSH_KEY`
 
 ---
 

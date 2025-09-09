@@ -95,7 +95,7 @@ Configurez dans GitHub > Settings > Secrets and variables > Actions :
 
 ```
 DOCKERHUB_USERNAME=votre_username_dockerhub
-DOCKERHUB_TOKEN=votre_token_dockerhub
+DOCKERHUB_PASSWORD=votre_mot_de_passe_dockerhub
 SERVER_HOST=ip_ou_domaine_serveur
 SERVER_USERNAME=utilisateur_ssh
 SERVER_SSH_KEY=clé_privée_ssh
