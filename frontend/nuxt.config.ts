@@ -52,7 +52,7 @@ export default defineNuxtConfig({
         apiBase: process.env.NUXT_API_BASE || 'http://webserver:80/api'
     },
 
-    css: ['~/assets/css/main.css', '~/assets/css/app-colors.css'],
+    css: ['~/assets/css/main.css'],
 
     tailwindcss: {
         config: {

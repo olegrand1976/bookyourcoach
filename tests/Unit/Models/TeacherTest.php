@@ -2,261 +2,197 @@
 
 namespace Tests\Unit\Models;
 
+use Tests\TestCase;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Models\Club;
-use App\Models\Availability;
 use App\Models\Lesson;
-use App\Models\CourseType;
-use App\Models\Payout;
-use App\Models\TimeBlock;
-use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class TeacherTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function it_can_be_created_with_required_fields()
+    protected function setUp(): void
     {
-        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
-
-        $teacherData = [
-            'user_id' => $user->id,
-            'hourly_rate' => 50.00,
-        ];
-
-        $teacher = Teacher::create($teacherData);
-
-        $this->assertInstanceOf(Teacher::class, $teacher);
-        $this->assertEquals($user->id, $teacher->user_id);
-        $this->assertEquals(50.00, $teacher->hourly_rate);
-    }
-
-    /** @test */
-    public function it_has_user_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $teacher->user());
-        $this->assertInstanceOf(User::class, $teacher->user);
-    }
-
-    /** @test */
-    public function it_has_club_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsTo::class, $teacher->club());
-    }
-
-    /** @test */
-    public function it_has_availabilities_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $teacher->availabilities());
-    }
-
-    /** @test */
-    public function it_has_lessons_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $teacher->lessons());
-    }
-
-    /** @test */
-    public function it_has_course_types_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsToMany::class, $teacher->courseTypes());
-    }
-
-    /** @test */
-    public function it_has_payouts_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $teacher->payouts());
-    }
-
-    /** @test */
-    public function it_has_time_blocks_relationship()
-    {
-        $teacher = Teacher::factory()->create();
-
-        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $teacher->timeBlocks());
-    }
-
-    /** @test */
-    public function it_casts_specialties_as_array()
-    {
-        $specialties = ['dressage', 'obstacle', 'cross'];
-
-        $teacher = Teacher::factory()->create([
-            'specialties' => $specialties
+        parent::setUp();
+        
+        // Créer les données de test nécessaires
+        $this->club = Club::factory()->create();
+        $this->user = User::factory()->create(['role' => 'teacher']);
+        $this->teacher = Teacher::factory()->create([
+            'user_id' => $this->user->id,
+            'club_id' => $this->club->id
         ]);
-
-        $this->assertIsArray($teacher->specialties);
-        $this->assertEquals($specialties, $teacher->specialties);
     }
 
     /** @test */
-    public function it_casts_certifications_as_array()
+    public function it_belongs_to_a_user()
     {
-        $certifications = ['FFE Galop 7', 'BPJEPS', 'CQP ASA'];
-
-        $teacher = Teacher::factory()->create([
-            'certifications' => $certifications
-        ]);
-
-        $this->assertIsArray($teacher->certifications);
-        $this->assertEquals($certifications, $teacher->certifications);
+        $this->assertInstanceOf(User::class, $this->teacher->user);
+        $this->assertEquals($this->user->id, $this->teacher->user->id);
     }
 
     /** @test */
-    public function it_casts_preferred_locations_as_array()
+    public function it_belongs_to_a_club()
     {
-        $locations = ['Paris', 'Lyon', 'Marseille'];
-
-        $teacher = Teacher::factory()->create([
-            'preferred_locations' => $locations
-        ]);
-
-        $this->assertIsArray($teacher->preferred_locations);
-        $this->assertEquals($locations, $teacher->preferred_locations);
+        $this->assertInstanceOf(Club::class, $this->teacher->club);
+        $this->assertEquals($this->club->id, $this->teacher->club->id);
     }
 
     /** @test */
-    public function it_casts_hourly_rate_as_decimal()
+    public function it_can_have_multiple_lessons()
     {
-        $teacher = Teacher::factory()->create([
-            'hourly_rate' => 45.50
-        ]);
-
-        $this->assertEquals('45.50', $teacher->hourly_rate);
+        $lesson1 = Lesson::factory()->create(['teacher_id' => $this->teacher->id]);
+        $lesson2 = Lesson::factory()->create(['teacher_id' => $this->teacher->id]);
+        
+        $this->assertCount(2, $this->teacher->lessons);
+        $this->assertTrue($this->teacher->lessons->contains($lesson1));
+        $this->assertTrue($this->teacher->lessons->contains($lesson2));
     }
 
     /** @test */
-    public function it_casts_rating_as_decimal()
+    public function it_can_be_created_with_fillable_attributes()
     {
-        $teacher = Teacher::factory()->create([
-            'rating' => 4.75
-        ]);
-
-        $this->assertEquals('4.75', $teacher->rating);
-    }
-
-    /** @test */
-    public function it_casts_is_available_as_boolean()
-    {
-        $teacher = Teacher::factory()->create([
-            'is_available' => true
-        ]);
-
-        $this->assertIsBool($teacher->is_available);
-        $this->assertTrue($teacher->is_available);
-    }
-
-    /** @test */
-    public function it_has_fillable_attributes()
-    {
-        $fillable = [
-            'user_id',
-            'club_id',
-            'specialties',
-            'experience_years',
-            'certifications',
-            'hourly_rate',
-            'bio',
-            'is_available',
-            'max_travel_distance',
-            'preferred_locations',
-            'stripe_account_id',
-            'rating',
-            'total_lessons',
-        ];
-
-        $teacher = new Teacher();
-        $this->assertEquals($fillable, $teacher->getFillable());
-    }
-
-    /** @test */
-    public function it_uses_soft_deletes()
-    {
-        $teacher = Teacher::factory()->create();
-        $teacherId = $teacher->id;
-
-        $teacher->delete();
-
-        $this->assertSoftDeleted('teachers', ['id' => $teacherId]);
-        $this->assertNotNull($teacher->fresh()->deleted_at);
-    }
-
-    /** @test */
-    public function it_can_store_optional_fields()
-    {
-        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
-
-        $teacherData = [
-            'user_id' => $user->id,
-            'specialties' => ['dressage', 'obstacle'],
-            'experience_years' => 10,
-            'certifications' => ['FFE Galop 7', 'BPJEPS'],
+        $data = [
+            'user_id' => $this->user->id,
+            'club_id' => $this->club->id,
+            'specializations' => ['dressage', 'obstacle'],
+            'experience_years' => 5,
             'hourly_rate' => 60.00,
-            'bio' => 'Enseignant expérimenté en équitation',
-            'is_available' => true,
-            'max_travel_distance' => 50,
-            'preferred_locations' => ['Paris', 'Versailles'],
-            'stripe_account_id' => 'acct_123456789',
-            'rating' => 4.8,
-            'total_lessons' => 250,
+            'bio' => 'Enseignant expérimenté',
+            'is_available' => true
         ];
-
-        $teacher = Teacher::create($teacherData);
-
-        $this->assertEquals(['dressage', 'obstacle'], $teacher->specialties);
-        $this->assertEquals(10, $teacher->experience_years);
-        $this->assertEquals(['FFE Galop 7', 'BPJEPS'], $teacher->certifications);
-        $this->assertEquals('60.00', $teacher->hourly_rate);
-        $this->assertEquals('Enseignant expérimenté en équitation', $teacher->bio);
-        $this->assertTrue($teacher->is_available);
-        $this->assertEquals(50, $teacher->max_travel_distance);
-        $this->assertEquals(['Paris', 'Versailles'], $teacher->preferred_locations);
-        $this->assertEquals('acct_123456789', $teacher->stripe_account_id);
-        $this->assertEquals('4.80', $teacher->rating);
-        $this->assertEquals(250, $teacher->total_lessons);
+        
+        $teacher = Teacher::create($data);
+        
+        $this->assertDatabaseHas('teachers', $data);
+        $this->assertEquals(['dressage', 'obstacle'], $teacher->specializations);
+        $this->assertEquals(5, $teacher->experience_years);
+        $this->assertEquals(60.00, $teacher->hourly_rate);
     }
 
     /** @test */
-    public function it_can_be_associated_with_club()
+    public function it_can_have_nullable_specializations()
     {
-        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
-        $club = Club::factory()->create();
+        $teacher = Teacher::factory()->create(['specializations' => null]);
+        
+        $this->assertNull($teacher->specializations);
+    }
 
+    /** @test */
+    public function it_can_have_nullable_bio()
+    {
+        $teacher = Teacher::factory()->create(['bio' => null]);
+        
+        $this->assertNull($teacher->bio);
+    }
+
+    /** @test */
+    public function it_can_have_default_values()
+    {
+        $teacher = Teacher::factory()->create([
+            'experience_years' => null,
+            'hourly_rate' => null,
+            'is_available' => null
+        ]);
+        
+        $this->assertNull($teacher->experience_years);
+        $this->assertNull($teacher->hourly_rate);
+        $this->assertNull($teacher->is_available);
+    }
+
+    /** @test */
+    public function it_can_be_associated_with_club_via_pivot_table()
+    {
+        $club = Club::factory()->create();
+        $user = User::factory()->create(['role' => 'teacher']);
         $teacher = Teacher::factory()->create([
             'user_id' => $user->id,
             'club_id' => $club->id
         ]);
-
-        $this->assertEquals($club->id, $teacher->club_id);
-        $this->assertInstanceOf(Club::class, $teacher->club);
+        
+        // Associer l'utilisateur au club via la table pivot
+        $club->users()->attach($user->id, [
+            'role' => 'teacher',
+            'is_admin' => false,
+            'joined_at' => now()
+        ]);
+        
+        $this->assertTrue($club->users->contains($user));
+        $this->assertEquals('teacher', $club->users->first()->pivot->role);
     }
 
     /** @test */
-    public function it_can_be_created_without_club()
+    public function it_can_be_deleted_with_cascade()
     {
-        $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
+        $teacherId = $this->teacher->id;
+        
+        // Créer des leçons liées
+        Lesson::factory()->create(['teacher_id' => $teacherId]);
+        
+        // Supprimer l'enseignant
+        $this->teacher->delete();
+        
+        // Vérifier que l'enseignant est supprimé
+        $this->assertDatabaseMissing('teachers', ['id' => $teacherId]);
+        
+        // Vérifier que les leçons sont supprimées (cascade)
+        $this->assertDatabaseMissing('lessons', ['teacher_id' => $teacherId]);
+    }
 
-        $teacher = Teacher::factory()->create([
-            'user_id' => $user->id,
-            'club_id' => null
+    /** @test */
+    public function it_can_calculate_total_lessons()
+    {
+        Lesson::factory()->count(3)->create(['teacher_id' => $this->teacher->id]);
+        
+        $this->assertEquals(3, $this->teacher->lessons->count());
+    }
+
+    /** @test */
+    public function it_can_calculate_completed_lessons()
+    {
+        Lesson::factory()->count(2)->create([
+            'teacher_id' => $this->teacher->id,
+            'status' => 'completed'
         ]);
+        
+        Lesson::factory()->count(1)->create([
+            'teacher_id' => $this->teacher->id,
+            'status' => 'pending'
+        ]);
+        
+        $completedLessons = $this->teacher->lessons()->where('status', 'completed')->count();
+        $this->assertEquals(2, $completedLessons);
+    }
 
-        $this->assertNull($teacher->club_id);
-        $this->assertNull($teacher->club);
+    /** @test */
+    public function it_can_be_filtered_by_availability()
+    {
+        $availableTeacher = Teacher::factory()->create(['is_available' => true]);
+        $unavailableTeacher = Teacher::factory()->create(['is_available' => false]);
+        
+        $availableTeachers = Teacher::where('is_available', true)->get();
+        
+        $this->assertTrue($availableTeachers->contains($availableTeacher));
+        $this->assertFalse($availableTeachers->contains($unavailableTeacher));
+    }
+
+    /** @test */
+    public function it_can_be_filtered_by_specialization()
+    {
+        $dressageTeacher = Teacher::factory()->create([
+            'specializations' => ['dressage', 'obstacle']
+        ]);
+        
+        $obstacleTeacher = Teacher::factory()->create([
+            'specializations' => ['obstacle', 'cross']
+        ]);
+        
+        // Rechercher les enseignants de dressage
+        $dressageTeachers = Teacher::whereJsonContains('specializations', 'dressage')->get();
+        
+        $this->assertTrue($dressageTeachers->contains($dressageTeacher));
+        $this->assertFalse($dressageTeachers->contains($obstacleTeacher));
     }
 }

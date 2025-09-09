@@ -1,1 +1,0 @@
-const i=()=>{const n=(o,s={})=>{console.log(`[${s.type||"info"}] ${s.title||""}: ${o}`)};return{showToast:n,success:(o,s)=>{n(o,{type:"success",title:s})},error:(o,s)=>{n(o,{type:"error",title:s})},warning:(o,s)=>{n(o,{type:"warning",title:s})},info:(o,s)=>{n(o,{type:"info",title:s})}}};export{i as u};

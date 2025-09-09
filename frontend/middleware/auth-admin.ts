@@ -10,8 +10,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     try {
         await authStore.fetchUser()
 
-        // Vérifier que l'utilisateur est admin
-        if (!authStore.isAdmin) {
+        // Vérifier que l'utilisateur est admin (avec vérification robuste)
+        if (!authStore.user || authStore.user.role !== 'admin') {
+            console.error('Utilisateur non-admin détecté:', authStore.user?.role)
             throw createError({
                 statusCode: 403,
                 statusMessage: 'Accès refusé - Droits administrateur requis'

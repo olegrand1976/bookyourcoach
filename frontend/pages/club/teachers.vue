@@ -1,0 +1,405 @@
+<template>
+  <div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Header avec actions -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">Enseignants</h1>
+            <p class="mt-2 text-gray-600">
+              Gérez vos enseignants et leurs informations
+            </p>
+          </div>
+          <div class="flex space-x-3">
+            <button 
+              @click="showNewTeacherModal = true"
+              class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Nouvel enseignant</span>
+            </button>
+            <button 
+              @click="showAddTeacherModal = true"
+              class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center space-x-2"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <span>Enseignant existant</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats rapides -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 bg-blue-100 rounded-lg">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Total</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ teachers.length }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 bg-green-100 rounded-lg">
+              <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Actifs</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ activeTeachers }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 bg-yellow-100 rounded-lg">
+              <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Tarif moyen</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ averageRate }}€</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 bg-purple-100 rounded-lg">
+              <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Expérience moy.</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ averageExperience }} ans</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtres et recherche -->
+      <div class="bg-white rounded-xl shadow p-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rechercher</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </div>
+              <input 
+                v-model="searchQuery" 
+                type="text" 
+                placeholder="Nom, email..."
+                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Spécialisation</label>
+            <select 
+              v-model="selectedSpecialization" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Toutes les spécialisations</option>
+              <option value="dressage">🏇 Dressage</option>
+              <option value="obstacle">🏆 Obstacle</option>
+              <option value="cross">🌲 Cross</option>
+              <option value="complet">🎯 Complet</option>
+              <option value="voltige">🤸 Voltige</option>
+              <option value="pony">🐴 Poney</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tri</label>
+            <select 
+              v-model="sortBy" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="name">Nom (A-Z)</option>
+              <option value="name_desc">Nom (Z-A)</option>
+              <option value="experience">Expérience (croissant)</option>
+              <option value="experience_desc">Expérience (décroissant)</option>
+              <option value="rate">Tarif (croissant)</option>
+              <option value="rate_desc">Tarif (décroissant)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste des enseignants -->
+      <div class="bg-white rounded-xl shadow overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">
+            Liste des enseignants ({{ filteredTeachers.length }})
+          </h3>
+        </div>
+        
+        <div v-if="filteredTeachers.length === 0" class="text-center py-12">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+          </svg>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">Aucun enseignant</h3>
+          <p class="mt-1 text-sm text-gray-500">Commencez par ajouter votre premier enseignant.</p>
+          <div class="mt-6">
+            <button 
+              @click="showAddTeacherModal = true"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Ajouter un enseignant
+            </button>
+          </div>
+        </div>
+        
+        <div v-else class="divide-y divide-gray-200">
+          <div 
+            v-for="teacher in filteredTeachers" 
+            :key="teacher.id" 
+            class="p-6 hover:bg-gray-50 transition-colors"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-4">
+                <div class="bg-blue-100 p-3 rounded-full">
+                  <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                  </svg>
+                </div>
+                
+                <div class="flex-1">
+                  <div class="flex items-center space-x-3">
+                    <h4 class="text-lg font-medium text-gray-900">{{ teacher.name }}</h4>
+                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                      Actif
+                    </span>
+                  </div>
+                  
+                  <div class="mt-1 flex items-center space-x-4 text-sm text-gray-600">
+                    <span class="flex items-center">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                      </svg>
+                      {{ teacher.email }}
+                    </span>
+                    
+                    <span v-if="teacher.phone" class="flex items-center">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                      </svg>
+                      {{ teacher.phone }}
+                    </span>
+                  </div>
+                  
+                  <div class="mt-2 flex items-center space-x-4 text-sm">
+                    <span class="flex items-center text-blue-600">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                      </svg>
+                      {{ teacher.hourly_rate }}€/h
+                    </span>
+                    
+                    <span class="flex items-center text-purple-600">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                      </svg>
+                      {{ teacher.experience_years }} ans d'expérience
+                    </span>
+                  </div>
+                  
+                  <div v-if="teacher.specializations && teacher.specializations.length > 0" class="mt-2">
+                    <div class="flex flex-wrap gap-2">
+                      <span 
+                        v-for="spec in teacher.specializations" 
+                        :key="spec" 
+                        class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full"
+                      >
+                        {{ getSpecializationLabel(spec) }}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div v-if="teacher.bio" class="mt-2 text-sm text-gray-600">
+                    {{ teacher.bio.substring(0, 150) }}{{ teacher.bio.length > 150 ? '...' : '' }}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex items-center space-x-2">
+                <button 
+                  @click="editTeacher(teacher)"
+                  class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
+                
+                <button 
+                  @click="deleteTeacher(teacher)"
+                  class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal d'ajout d'enseignant -->
+    <AddTeacherAdvancedModal 
+      v-if="showAddTeacherModal" 
+      @close="showAddTeacherModal = false" 
+      @success="loadTeachers"
+      @open-new-teacher="openNewTeacherForm"
+    />
+    
+    <!-- Modal de création d'enseignant -->
+    <AddTeacherModal 
+      v-if="showNewTeacherModal" 
+      @close="showNewTeacherModal = false" 
+      @success="loadTeachers" 
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+
+definePageMeta({
+  middleware: ['auth']
+})
+
+const teachers = ref([])
+const showAddTeacherModal = ref(false)
+const showNewTeacherModal = ref(false)
+const searchQuery = ref('')
+const selectedSpecialization = ref('')
+const sortBy = ref('name')
+
+// Computed properties pour les statistiques
+const activeTeachers = computed(() => teachers.value.length)
+const averageRate = computed(() => {
+  if (teachers.value.length === 0) return 0
+  const total = teachers.value.reduce((sum, teacher) => sum + (teacher.hourly_rate || 0), 0)
+  return Math.round(total / teachers.value.length)
+})
+const averageExperience = computed(() => {
+  if (teachers.value.length === 0) return 0
+  const total = teachers.value.reduce((sum, teacher) => sum + (teacher.experience_years || 0), 0)
+  return Math.round(total / teachers.value.length)
+})
+
+// Filtrage et tri des enseignants
+const filteredTeachers = computed(() => {
+  let filtered = teachers.value
+
+  // Filtrage par recherche
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(teacher => 
+      teacher.name.toLowerCase().includes(query) ||
+      teacher.email.toLowerCase().includes(query)
+    )
+  }
+
+  // Filtrage par spécialisation
+  if (selectedSpecialization.value) {
+    filtered = filtered.filter(teacher => 
+      teacher.specializations && teacher.specializations.includes(selectedSpecialization.value)
+    )
+  }
+
+  // Tri
+  filtered.sort((a, b) => {
+    switch (sortBy.value) {
+      case 'name':
+        return a.name.localeCompare(b.name)
+      case 'name_desc':
+        return b.name.localeCompare(a.name)
+      case 'experience':
+        return (a.experience_years || 0) - (b.experience_years || 0)
+      case 'experience_desc':
+        return (b.experience_years || 0) - (a.experience_years || 0)
+      case 'rate':
+        return (a.hourly_rate || 0) - (b.hourly_rate || 0)
+      case 'rate_desc':
+        return (b.hourly_rate || 0) - (a.hourly_rate || 0)
+      default:
+        return 0
+    }
+  })
+
+  return filtered
+})
+
+// Obtenir le label d'une spécialisation
+const getSpecializationLabel = (spec) => {
+  const labels = {
+    dressage: '🏇 Dressage',
+    obstacle: '🏆 Obstacle',
+    cross: '🌲 Cross',
+    complet: '🎯 Complet',
+    voltige: '🤸 Voltige',
+    pony: '🐴 Poney'
+  }
+  return labels[spec] || spec
+}
+
+// Charger les enseignants
+const loadTeachers = async () => {
+  try {
+    const config = useRuntimeConfig()
+    const tokenCookie = useCookie('auth-token')
+    
+    const response = await $fetch(`${config.public.apiBase}/club/dashboard-test`)
+    
+    if (response.success && response.data && response.data.recentTeachers) {
+      teachers.value = response.data.recentTeachers
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors du chargement des enseignants:', error)
+  }
+}
+
+// Actions sur les enseignants
+const editTeacher = (teacher) => {
+  console.log('Modifier enseignant:', teacher)
+  // TODO: Implémenter l'édition
+}
+
+const deleteTeacher = (teacher) => {
+  if (confirm(`Êtes-vous sûr de vouloir supprimer l'enseignant ${teacher.name} ?`)) {
+    console.log('Supprimer enseignant:', teacher)
+    // TODO: Implémenter la suppression
+  }
+}
+
+const openNewTeacherForm = () => {
+  showNewTeacherModal.value = true
+}
+
+onMounted(() => {
+  loadTeachers()
+})
+</script>

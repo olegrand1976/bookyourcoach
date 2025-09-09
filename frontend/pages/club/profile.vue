@@ -119,8 +119,28 @@
 
             <!-- Spécialités par activité -->
             <div v-if="selectedActivities.length > 0" class="mt-6">
-              <h3 class="text-md font-medium text-gray-900 mb-3">Spécialités par activité</h3>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-md font-medium text-gray-900">Spécialités par activité</h3>
+                <button
+                  v-if="!showAddSpecialtyForm"
+                  @click="showAddSpecialtyForm = true"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Ajouter une spécialité</span>
+                </button>
+              </div>
               
+              <!-- Formulaire d'ajout de spécialité -->
+              <AddCustomSpecialtyForm
+                v-if="showAddSpecialtyForm"
+                :available-activities="availableActivities"
+                @cancel="showAddSpecialtyForm = false"
+                @success="handleAddSpecialtySuccess"
+              />
+
               <div v-for="activityId in selectedActivities" :key="activityId" class="mb-4">
                 <div class="bg-gray-50 p-4 rounded-lg">
                   <h4 class="font-medium text-gray-900 mb-2 flex items-center">
@@ -138,6 +158,61 @@
                              class="h-3 w-3 text-blue-500 focus:ring-blue-500 border-gray-300 rounded mr-2">
                       <span class="text-gray-700">{{ discipline.name }}</span>
                     </label>
+                    
+                    <!-- Spécialités personnalisées pour cette activité -->
+                    <template v-for="customSpecialty in getCustomSpecialtiesByActivity(activityId)" :key="'custom-' + customSpecialty.id">
+                      <!-- Affiche le formulaire de modification si on est en mode édition pour CETTE spécialité -->
+                      <div v-if="editingSpecialtyId === customSpecialty.id" class="col-span-2 md:col-span-3">
+                        <EditCustomSpecialtyForm
+                          :specialty="customSpecialty"
+                          :available-activities="availableActivities"
+                          @cancel="editingSpecialtyId = null"
+                          @success="handleEditSpecialtySuccess"
+                        />
+                      </div>
+
+                      <!-- Affiche la spécialité normalement sinon -->
+                      <div v-else
+                           :class="[
+                             'flex items-center justify-between p-2 text-sm rounded border',
+                             customSpecialty.is_active ? 'bg-blue-50 border-blue-200' : 'bg-gray-100 border-gray-200 opacity-60'
+                           ]">
+                        <div class="flex items-center">
+                          <input :id="'custom-specialty-' + customSpecialty.id" 
+                                 v-model="selectedCustomSpecialties" 
+                                 :value="customSpecialty.id" 
+                                 type="checkbox" 
+                                 class="h-3 w-3 text-blue-500 focus:ring-blue-500 border-gray-300 rounded mr-2">
+                          <span class="font-medium" :class="[customSpecialty.is_active ? 'text-gray-700' : 'text-gray-500 line-through']">
+                            {{ customSpecialty.name }}
+                          </span>
+                          <span class="text-xs text-blue-600 ml-1">(personnalisée)</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            @click="editingSpecialtyId = customSpecialty.id"
+                            class="p-1 text-gray-500 hover:text-blue-700 hover:bg-blue-100 rounded"
+                            title="Modifier"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                          </button>
+                          <button
+                            type="button"
+                            @click="toggleCustomSpecialty(customSpecialty.id)"
+                            :class="[
+                              'px-2 py-1 text-xs rounded transition-colors',
+                              customSpecialty.is_active 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            ]"
+                            :title="customSpecialty.is_active ? 'Désactiver' : 'Activer'"
+                          >
+                            {{ customSpecialty.is_active ? 'Désactiver' : 'Activer' }}
+                          </button>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -182,6 +257,12 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '~/stores/auth'
+import { useToast } from '~/composables/useToast'
+import AddCustomSpecialtyForm from '~/components/AddCustomSpecialtyForm.vue'
+import EditCustomSpecialtyForm from '~/components/EditCustomSpecialtyForm.vue'
+
 const authStore = useAuthStore()
 const loading = ref(false)
 const toast = useToast()
@@ -205,6 +286,10 @@ const availableActivities = ref([])
 const availableDisciplines = ref([])
 const selectedActivities = ref([])
 const selectedDisciplines = ref([])
+const customSpecialties = ref([])
+const selectedCustomSpecialties = ref([])
+const showAddSpecialtyForm = ref(false)
+const editingSpecialtyId = ref(null)
 
 // Charger les données
 const loadClubData = async () => {
@@ -212,8 +297,8 @@ const loadClubData = async () => {
     const config = useRuntimeConfig()
     const response = await $fetch(`${config.public.apiBase}/club/profile-test`)
     
-    if (response.user && response.user.club) {
-      const club = response.user.club
+    if (response.club) {
+      const club = response.club
       form.value = {
         name: club.name || '',
         email: club.email || '',
@@ -225,6 +310,16 @@ const loadClubData = async () => {
         postal_code: club.postal_code || '',
         country: club.country || '',
         is_active: club.is_active !== false
+      }
+      
+      // Charger les activités sélectionnées
+      if (club.activity_types) {
+        selectedActivities.value = club.activity_types.map(activity => activity.id)
+      }
+      
+      // Charger les disciplines sélectionnées
+      if (club.disciplines) {
+        selectedDisciplines.value = club.disciplines.map(discipline => discipline.id)
       }
     }
   } catch (error) {
@@ -261,6 +356,55 @@ const getActivityById = (id) => {
 
 const getDisciplinesByActivity = (activityId) => {
   return availableDisciplines.value.filter(discipline => discipline.activity_type_id === activityId)
+}
+
+const getCustomSpecialtiesByActivity = (activityId) => {
+  // Affiche toutes les spécialités, actives ou non
+  return customSpecialties.value.filter(specialty => specialty.activity_type_id === activityId)
+}
+
+// Charger les spécialités personnalisées
+const loadCustomSpecialties = async () => {
+  try {
+    const config = useRuntimeConfig()
+    const response = await $fetch(`${config.public.apiBase}/club/custom-specialties`)
+    
+    if (response.success) {
+      customSpecialties.value = response.data
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des spécialités personnalisées:', error)
+  }
+}
+
+// Désactiver une spécialité personnalisée
+const toggleCustomSpecialty = async (specialtyId) => {
+  try {
+    const specialty = customSpecialties.value.find(s => s.id === specialtyId)
+    if (!specialty) return
+
+    const config = useRuntimeConfig()
+    const tokenCookie = useCookie('auth-token')
+    
+    await $fetch(`${config.public.apiBase}/club/custom-specialty/${specialtyId}/toggle`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${tokenCookie.value}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    // Mettre à jour localement
+    specialty.is_active = !specialty.is_active
+    
+    toast.success(
+      specialty.is_active ? 'Spécialité activée' : 'Spécialité désactivée', 
+      'Modification réussie'
+    )
+  } catch (error) {
+    console.error('Erreur lors de la modification de la spécialité:', error)
+    toast.error('Erreur lors de la modification', 'Échec')
+  }
 }
 
 // Actions
@@ -304,12 +448,23 @@ const cancelEdit = () => {
   navigateTo('/club/dashboard')
 }
 
+const handleAddSpecialtySuccess = (newSpecialty) => {
+  loadCustomSpecialties()
+  showAddSpecialtyForm.value = false
+}
+
+const handleEditSpecialtySuccess = (updatedSpecialty) => {
+  loadCustomSpecialties()
+  editingSpecialtyId.value = null
+}
+
 // Initialisation
 onMounted(async () => {
   await Promise.all([
     loadClubData(),
     loadActivities(),
-    loadDisciplines()
+    loadDisciplines(),
+    loadCustomSpecialties()
   ])
 })
 

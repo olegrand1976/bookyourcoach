@@ -1,230 +1,358 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Header -->
+      <!-- Header avec navigation -->
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">
-          Dashboard Club
-        </h1>
-        <p class="mt-2 text-gray-600">
-          Bienvenue {{ club?.name }}, gérez vos enseignants et élèves
-        </p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">
+              Tableau de bord Club
+            </h1>
+            <p class="mt-2 text-gray-600">
+              Bienvenue {{ club?.name }}, gérez votre club en un seul endroit
+            </p>
+          </div>
+          <div class="flex items-center space-x-4">
+            <button 
+              @click="navigateTo('/club/qr-code')"
+              class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+              <span>QR Code</span>
+            </button>
+            <button 
+              @click="showAddTeacherModal = true"
+              class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Enseignant</span>
+            </button>
+            <button 
+              @click="showAddStudentModal = true"
+              class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 font-medium flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Élève</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Stats cards -->
+      <!-- Stats principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Enseignants -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-blue-100 rounded-lg">
-              <EquestrianIcon icon="helmet" :size="24" class="text-blue-600" />
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="p-3 bg-blue-100 rounded-lg">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                </svg>
+              </div>
+              <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Enseignants</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_teachers || 0 }}</p>
+              </div>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Enseignants</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_teachers || 0 }}</p>
-            </div>
+            <NuxtLink to="/club/teachers" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+              Voir tout →
+            </NuxtLink>
           </div>
         </div>
 
         <!-- Élèves -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-green-100 rounded-lg">
-              <EquestrianIcon icon="horse" :size="24" class="text-green-600" />
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="p-3 bg-emerald-100 rounded-lg">
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                </svg>
+              </div>
+              <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Élèves</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_students || 0 }}</p>
+              </div>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Élèves</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_students || 0 }}</p>
-            </div>
+            <NuxtLink to="/club/students" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium">
+              Voir tout →
+            </NuxtLink>
           </div>
         </div>
 
         <!-- Cours totaux -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-purple-100 rounded-lg">
-              <EquestrianIcon icon="trophy" :size="24" class="text-purple-600" />
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="p-3 bg-purple-100 rounded-lg">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+              </div>
+              <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Cours totaux</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_lessons || 0 }}</p>
+              </div>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Cours totaux</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_lessons || 0 }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cours terminés -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-emerald-100 rounded-lg">
-              <EquestrianIcon icon="medal" :size="24" class="text-emerald-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Cours terminés</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.completed_lessons || 0 }}</p>
+            <div class="text-sm text-gray-500">
+              {{ stats?.completed_lessons || 0 }} terminés
             </div>
           </div>
         </div>
 
-        <!-- Revenus totaux -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-yellow-100 rounded-lg">
-              <EquestrianIcon icon="saddle" :size="24" class="text-yellow-600" />
+        <!-- Revenus -->
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="p-3 bg-yellow-100 rounded-lg">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                </svg>
+              </div>
+              <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">Revenus totaux</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_revenue || 0 }}€</p>
+              </div>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Revenus totaux</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.total_revenue || 0 }}€</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Revenus mensuels -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-orange-100 rounded-lg">
-              <EquestrianIcon icon="calendar" :size="24" class="text-orange-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Revenus ce mois</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.monthly_revenue || 0 }}€</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Taux d'occupation -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-indigo-100 rounded-lg">
-              <EquestrianIcon icon="chart" :size="24" class="text-indigo-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Taux d'occupation</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.occupancy_rate || 0 }}%</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Prix moyen -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-pink-100 rounded-lg">
-              <EquestrianIcon icon="star" :size="24" class="text-pink-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Prix moyen</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ stats?.average_lesson_price || 0 }}€</p>
+            <div class="text-sm text-gray-500">
+              {{ stats?.monthly_revenue || 0 }}€ ce mois
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Actions rapides -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Actions rapides</h3>
+      <!-- Métriques avancées -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Taux d'occupation -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Taux d'occupation</h3>
+            <div class="p-2 bg-indigo-100 rounded-lg">
+              <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-indigo-600 mb-2">
+            {{ stats?.occupancy_rate || 0 }}%
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              class="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
+              :style="{ width: `${stats?.occupancy_rate || 0}%` }"
+            ></div>
+          </div>
+          <p class="text-sm text-gray-600 mt-2">
+            Cours occupés sur le total
+          </p>
+        </div>
+
+        <!-- Prix moyen -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Prix moyen</h3>
+            <div class="p-2 bg-green-100 rounded-lg">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+              </svg>
+            </div>
+          </div>
+          <div class="text-3xl font-bold text-green-600 mb-2">
+            {{ stats?.average_lesson_price || 0 }}€
+          </div>
+          <p class="text-sm text-gray-600">
+            Par cours
+          </p>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">Actions rapides</h3>
+            <div class="p-2 bg-orange-100 rounded-lg">
+              <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+          </div>
           <div class="space-y-3">
-            <button @click="showAddTeacherModal = true" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-              <EquestrianIcon icon="helmet" :size="16" class="mr-2" />
-              Ajouter un enseignant
+            <button 
+              @click="showAddLessonModal = true"
+              class="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center justify-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Nouveau cours</span>
             </button>
-            <button @click="showAddStudentModal = true" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
-              <EquestrianIcon icon="horse" :size="16" class="mr-2" />
-              Ajouter un élève
-            </button>
-            <button @click="navigateTo('/club/profile')" class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-              <EquestrianIcon icon="settings" :size="16" class="mr-2" />
-              Modifier le profil du club
-            </button>
+            <NuxtLink 
+              to="/club/profile"
+              class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center justify-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              <span>Paramètres</span>
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sections récentes -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Enseignants récents -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900">Enseignants récents</h3>
+              <NuxtLink to="/club/teachers" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                Voir tout →
+              </NuxtLink>
+            </div>
+          </div>
+          <div class="p-6">
+            <div v-if="recentTeachers?.length === 0" class="text-center text-gray-500 py-8">
+              <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+              </svg>
+              <p>Aucun enseignant pour le moment</p>
+              <button 
+                @click="showAddTeacherModal = true"
+                class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Ajouter le premier
+              </button>
+            </div>
+            <div v-else class="space-y-4">
+              <div 
+                v-for="teacher in recentTeachers.slice(0, 5)" 
+                :key="teacher.id" 
+                class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div class="flex items-center space-x-3">
+                  <div class="bg-blue-100 p-2 rounded-lg">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-medium text-gray-900">{{ teacher.name }}</p>
+                    <p class="text-sm text-gray-600">{{ teacher.email }}</p>
+                  </div>
+                </div>
+                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                  {{ teacher.hourly_rate }}€/h
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Informations du club</h3>
-          <div class="space-y-2">
-            <p><span class="font-medium">Nom:</span> {{ club?.name }}</p>
-            <p><span class="font-medium">Email:</span> {{ club?.email }}</p>
-            <p><span class="font-medium">Téléphone:</span> {{ club?.phone }}</p>
-            <p><span class="font-medium">Ville:</span> {{ club?.city }}</p>
-            <p><span class="font-medium">Disciplines:</span> {{ club?.disciplines?.join(', ') }}</p>
+        <!-- Élèves récents -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-gray-900">Élèves récents</h3>
+              <NuxtLink to="/club/students" class="text-emerald-600 hover:text-emerald-800 text-sm font-medium">
+                Voir tout →
+              </NuxtLink>
+            </div>
+          </div>
+          <div class="p-6">
+            <div v-if="recentStudents?.length === 0" class="text-center text-gray-500 py-8">
+              <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+              </svg>
+              <p>Aucun élève pour le moment</p>
+              <button 
+                @click="showAddStudentModal = true"
+                class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+              >
+                Ajouter le premier
+              </button>
+            </div>
+            <div v-else class="space-y-4">
+              <div 
+                v-for="student in recentStudents.slice(0, 5)" 
+                :key="student.id" 
+                class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div class="flex items-center space-x-3">
+                  <div class="bg-emerald-100 p-2 rounded-lg">
+                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <p class="font-medium text-gray-900">{{ student.name }}</p>
+                    <p class="text-sm text-gray-600">{{ student.email }}</p>
+                  </div>
+                </div>
+                <span v-if="student.level" class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                  {{ getLevelLabel(student.level) }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Cours récents -->
-      <div class="mb-8">
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Réservations récentes</h3>
-          </div>
-          <div class="p-6">
-            <div v-if="recentLessons?.length === 0" class="text-center text-gray-500 py-4">
-              Aucune réservation récente
-            </div>
-            <div v-else class="space-y-3">
-              <div v-for="lesson in recentLessons" :key="lesson.id" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p class="font-medium text-gray-900">{{ lesson.location }}</p>
-                  <p class="text-sm text-gray-600">{{ lesson.teacher_name }} → {{ lesson.student_name }}</p>
-                  <p class="text-sm text-gray-500" v-if="lesson.start_time">
-                    📅 {{ lesson.start_time.split(' ')[0] }} de {{ lesson.start_time.split(' ')[1] }} à {{ lesson.end_time.split(' ')[1] }}
-                  </p>
-                  <p class="text-sm text-gray-500" v-else>
-                    Créé le {{ lesson.created_at }}
-                  </p>
-                </div>
-                <div class="text-right">
-                  <span :class="getStatusClass(lesson.status)" class="inline-flex px-2 py-1 text-xs font-medium rounded-full">
-                    {{ getStatusLabel(lesson.status) }}
-                  </span>
-                </div>
-              </div>
-            </div>
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Cours récents</h3>
+            <button 
+              @click="showAddLessonModal = true"
+              class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              Nouveau cours
+            </button>
           </div>
         </div>
-      </div>
-
-      <!-- Enseignants et élèves récents -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Enseignants récents</h3>
+        <div class="p-6">
+          <div v-if="recentLessons?.length === 0" class="text-center text-gray-500 py-8">
+            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <p>Aucun cours programmé</p>
+            <button 
+              @click="showAddLessonModal = true"
+              class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Programmer le premier
+            </button>
           </div>
-          <div class="p-6">
-            <div v-if="recentTeachers?.length === 0" class="text-center text-gray-500 py-4">
-              Aucun enseignant pour le moment
-            </div>
-            <div v-else class="space-y-3">
-              <div v-for="teacher in recentTeachers" :key="teacher.id" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p class="font-medium text-gray-900">{{ teacher.name }}</p>
-                  <p class="text-sm text-gray-600">{{ teacher.email }}</p>
+          <div v-else class="space-y-4">
+            <div 
+              v-for="lesson in recentLessons.slice(0, 5)" 
+              :key="lesson.id" 
+              class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div class="flex items-center space-x-3">
+                <div class="bg-purple-100 p-2 rounded-lg">
+                  <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
                 </div>
-                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                  Enseignant
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Élèves récents</h3>
-          </div>
-          <div class="p-6">
-            <div v-if="recentStudents?.length === 0" class="text-center text-gray-500 py-4">
-              Aucun élève pour le moment
-            </div>
-            <div v-else class="space-y-3">
-              <div v-for="student in recentStudents" :key="student.id" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p class="font-medium text-gray-900">{{ student.name }}</p>
-                  <p class="text-sm text-gray-600">{{ student.email }}</p>
+                  <p class="font-medium text-gray-900">{{ lesson.title || 'Cours' }}</p>
+                  <p class="text-sm text-gray-600">{{ formatDate(lesson.start_time) }}</p>
                 </div>
-                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                  Élève
-                </span>
               </div>
+              <span 
+                class="px-2 py-1 text-xs font-medium rounded-full"
+                :class="getStatusClass(lesson.status)"
+              >
+                {{ getStatusLabel(lesson.status) }}
+              </span>
             </div>
           </div>
         </div>
@@ -241,10 +369,9 @@
 import { ref, onMounted } from 'vue'
 
 definePageMeta({
-    middleware: ['auth']
+  middleware: ['auth']
 })
 
-const authStore = useAuthStore()
 const club = ref(null)
 const stats = ref(null)
 const recentTeachers = ref([])
@@ -252,13 +379,14 @@ const recentStudents = ref([])
 const recentLessons = ref([])
 const showAddTeacherModal = ref(false)
 const showAddStudentModal = ref(false)
+const showAddLessonModal = ref(false)
+const showFinancialDetails = ref(false)
 
 const loadDashboardData = async () => {
   try {
     console.log('🔄 Chargement des données du dashboard club...')
     
-    // Utilisation directe de l'URL complète pour contourner le problème de proxy
-      const response = await $fetch('http://localhost:8081/api/club/dashboard-test')
+    const response = await $fetch('http://localhost:8081/api/club/dashboard-test')
     
     console.log('✅ Données reçues:', response)
     
@@ -278,10 +406,6 @@ const loadDashboardData = async () => {
   }
 }
 
-onMounted(() => {
-  loadDashboardData()
-})
-
 // Méthodes utilitaires
 const formatDate = (dateString) => {
   const date = new Date(dateString)
@@ -299,8 +423,7 @@ const getStatusClass = (status) => {
     pending: 'bg-yellow-100 text-yellow-800',
     confirmed: 'bg-green-100 text-green-800',
     completed: 'bg-blue-100 text-blue-800',
-    cancelled: 'bg-red-100 text-red-800',
-    no_show: 'bg-gray-100 text-gray-800'
+    cancelled: 'bg-red-100 text-red-800'
   }
   return classes[status] || 'bg-gray-100 text-gray-800'
 }
@@ -310,9 +433,22 @@ const getStatusLabel = (status) => {
     pending: 'En attente',
     confirmed: 'Confirmé',
     completed: 'Terminé',
-    cancelled: 'Annulé',
-    no_show: 'Absent'
+    cancelled: 'Annulé'
   }
   return labels[status] || status
 }
+
+const getLevelLabel = (level) => {
+  const labels = {
+    debutant: '🌱 Débutant',
+    intermediaire: '📈 Intermédiaire',
+    avance: '⭐ Avancé',
+    expert: '🏆 Expert'
+  }
+  return labels[level] || level
+}
+
+onMounted(() => {
+  loadDashboardData()
+})
 </script>

@@ -27,7 +27,12 @@
 
                 <div v-if="userMenuOpen"
                   class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-blue-500/20">
-                  <NuxtLink v-if="isClub" to="/club/dashboard"
+                  <NuxtLink v-if="isAdmin" to="/admin"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>📊</span>
+                    <span>Tableau de bord</span>
+                  </NuxtLink>
+                  <NuxtLink v-else-if="isClub" to="/club/dashboard"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
@@ -43,7 +48,7 @@
                     <span>Tableau de bord</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="canActAsTeacher" to="/teacher/dashboard"
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher/dashboard"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>🏇</span>
                     <span>Espace Enseignant</span>
@@ -55,10 +60,16 @@
                     <span>Espace Étudiant</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/space"
+                  <NuxtLink v-if="isClub" to="/club/teachers"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
-                    <span>🏇</span>
-                    <span>Espace Club</span>
+                    <span>👨‍🏫</span>
+                    <span>Enseignants</span>
+                  </NuxtLink>
+
+                  <NuxtLink v-if="isClub" to="/club/students"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>👨‍🎓</span>
+                    <span>Élèves</span>
                   </NuxtLink>
 
                   <NuxtLink :to="authStore.user?.role === 'club' ? '/club/profile' : '/profile'"

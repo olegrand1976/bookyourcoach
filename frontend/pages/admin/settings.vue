@@ -84,7 +84,8 @@
 
 <script setup>
 definePageMeta({
-    middleware: ['auth', 'admin']
+    layout: 'admin',
+    middleware: 'admin'
 })
 
 const loading = ref(false)
