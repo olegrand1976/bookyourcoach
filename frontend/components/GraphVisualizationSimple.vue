@@ -160,6 +160,12 @@
             <p>Sélectionnez une entité pour visualiser ses relations</p>
           </div>
         </div>
+        <div v-else-if="graphData && !cytoscapeLoaded" class="flex items-center justify-center h-full">
+          <div class="text-center text-gray-500">
+            <div class="text-6xl mb-4">⏳</div>
+            <p>Chargement de la bibliothèque de visualisation...</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -209,6 +215,7 @@ const cy = ref(null)
 const isLoading = ref(false)
 const graphData = ref(null)
 const graphStats = ref(null)
+const cytoscapeLoaded = ref(false)
 
 // Filtres
 const selectedEntity = ref(props.initialEntity)
@@ -284,7 +291,7 @@ const loadGraphData = async () => {
       graphStats.value = response.stats
       
       await nextTick()
-      renderGraph()
+      await renderGraph()
     }
   } catch (error) {
     console.error('Erreur lors du chargement du graphe:', error)
@@ -297,108 +304,127 @@ const loadGraphData = async () => {
 const renderGraph = async () => {
   if (!graphData.value || !cyContainer.value) return
   
-  // Importer Cytoscape dynamiquement
-  const cytoscape = await import('cytoscape')
-  const coseBilkent = await import('cytoscape-cose-bilkent')
-  
-  // Enregistrer les extensions
-  cytoscape.default.use(coseBilkent.default)
-  
-  // Détruire l'instance précédente
-  if (cy.value) {
-    cy.value.destroy()
-  }
-  
-  // Configuration du style
-  const style = [
-    {
-      selector: 'node',
-      style: {
-        'background-color': 'data(color)',
-        'label': 'data(label)',
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'font-size': '12px',
-        'font-weight': 'bold',
-        'color': '#fff',
-        'text-outline-width': 2,
-        'text-outline-color': '#000',
-        'width': 'data(size)',
-        'height': 'data(size)',
-        'border-width': 2,
-        'border-color': '#fff'
-      }
-    },
-    {
-      selector: 'edge',
-      style: {
-        'width': 3,
-        'line-color': 'data(color)',
-        'target-arrow-color': 'data(color)',
-        'target-arrow-shape': 'triangle',
-        'curve-style': 'bezier',
-        'label': 'data(label)',
-        'font-size': '10px',
-        'text-rotation': 'autorotate',
-        'text-margin-y': -10
-      }
-    },
-    {
-      selector: 'node:selected',
-      style: {
-        'border-width': 4,
-        'border-color': '#ff6b6b'
-      }
-    },
-    {
-      selector: 'edge:selected',
-      style: {
-        'line-color': '#ff6b6b',
-        'target-arrow-color': '#ff6b6b'
-      }
+  try {
+    // Charger Cytoscape dynamiquement
+    const cytoscapeModule = await import('cytoscape')
+    const cytoscape = cytoscapeModule.default
+    
+    // Charger l'extension cose-bilkent
+    const coseBilkentModule = await import('cytoscape-cose-bilkent')
+    const coseBilkent = coseBilkentModule.default
+    
+    // Enregistrer l'extension
+    cytoscape.use(coseBilkent)
+    
+    cytoscapeLoaded.value = true
+    
+    // Détruire l'instance précédente
+    if (cy.value) {
+      cy.value.destroy()
     }
-  ]
-  
-  // Configuration du layout
-  const layout = {
-    name: 'cose-bilkent',
-    idealEdgeLength: 100,
-    nodeRepulsion: 4500,
-    edgeElasticity: 0.45,
-    nestingFactor: 0.1,
-    gravity: 0.25,
-    numIter: 2500,
-    tile: true,
-    animate: true,
-    animationDuration: 1000,
-    tilingPaddingVertical: 10,
-    tilingPaddingHorizontal: 10
+    
+    // Configuration du style
+    const style = [
+      {
+        selector: 'node',
+        style: {
+          'background-color': 'data(color)',
+          'label': 'data(label)',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'font-size': '12px',
+          'font-weight': 'bold',
+          'color': '#fff',
+          'text-outline-width': 2,
+          'text-outline-color': '#000',
+          'width': 'data(size)',
+          'height': 'data(size)',
+          'border-width': 2,
+          'border-color': '#fff'
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 3,
+          'line-color': 'data(color)',
+          'target-arrow-color': 'data(color)',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'label': 'data(label)',
+          'font-size': '10px',
+          'text-rotation': 'autorotate',
+          'text-margin-y': -10
+        }
+      },
+      {
+        selector: 'node:selected',
+        style: {
+          'border-width': 4,
+          'border-color': '#ff6b6b'
+        }
+      },
+      {
+        selector: 'edge:selected',
+        style: {
+          'line-color': '#ff6b6b',
+          'target-arrow-color': '#ff6b6b'
+        }
+      }
+    ]
+    
+    // Configuration du layout
+    const layout = {
+      name: 'cose-bilkent',
+      idealEdgeLength: 100,
+      nodeRepulsion: 4500,
+      edgeElasticity: 0.45,
+      nestingFactor: 0.1,
+      gravity: 0.25,
+      numIter: 2500,
+      tile: true,
+      animate: true,
+      animationDuration: 1000,
+      tilingPaddingVertical: 10,
+      tilingPaddingHorizontal: 10
+    }
+    
+    // Créer l'instance Cytoscape
+    cy.value = cytoscape({
+      container: cyContainer.value,
+      elements: graphData.value,
+      style: style,
+      layout: layout,
+      minZoom: 0.1,
+      maxZoom: 3,
+      wheelSensitivity: 0.1
+    })
+    
+    // Ajouter les événements
+    cy.value.on('tap', 'node', (event) => {
+      const node = event.target
+      console.log('Nœud sélectionné:', node.data())
+    })
+    
+    cy.value.on('tap', 'edge', (event) => {
+      const edge = event.target
+      console.log('Relation sélectionnée:', edge.data())
+    })
+    
+    // Ajuster la vue
+    cy.value.fit()
+    
+  } catch (error) {
+    console.error('Erreur lors du chargement de Cytoscape:', error)
+    // Fallback: afficher les données sous forme de liste
+    showFallbackVisualization()
   }
-  
-  // Créer l'instance Cytoscape
-  cy.value = cytoscape.default({
-    container: cyContainer.value,
-    elements: graphData.value,
-    style: style,
-    layout: layout,
-    minZoom: 0.1,
-    maxZoom: 3,
-    wheelSensitivity: 0.1
-  })
-  
-  // Ajouter les événements
-  cy.value.on('tap', 'node', (event) => {
-    const node = event.target
-    console.log('Nœud sélectionné:', node.data())
-  })
-  
-  cy.value.on('tap', 'edge', (event) => {
-    const edge = event.target
-    console.log('Relation sélectionnée:', edge.data())
-  })
-  
-  // Ajuster la vue
-  cy.value.fit()
+}
+
+// Visualisation de fallback si Cytoscape ne charge pas
+const showFallbackVisualization = () => {
+  console.log('Utilisation de la visualisation de fallback')
+  // Ici on pourrait afficher les données sous forme de liste ou de tableau
 }
 
 // Réinitialiser les filtres
@@ -411,6 +437,7 @@ const resetFilters = () => {
   entityItems.value = []
   graphData.value = null
   graphStats.value = null
+  cytoscapeLoaded.value = false
   
   if (cy.value) {
     cy.value.destroy()
