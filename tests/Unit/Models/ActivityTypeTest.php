@@ -8,11 +8,14 @@ use App\Models\Facility;
 use App\Models\Discipline;
 use App\Models\Club;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ActivityTypeTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_activity_type()
     {
         $activityType = ActivityType::create([
@@ -32,6 +35,7 @@ class ActivityTypeTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_activity_type_has_facilities()
     {
         $activityType = ActivityType::factory()->create();
@@ -41,6 +45,7 @@ class ActivityTypeTest extends TestCase
         $this->assertEquals(1, $activityType->facilities->count());
     }
 
+    #[Test]
     public function test_activity_type_has_disciplines()
     {
         $activityType = ActivityType::factory()->create();
@@ -50,6 +55,7 @@ class ActivityTypeTest extends TestCase
         $this->assertEquals(1, $activityType->disciplines->count());
     }
 
+    #[Test]
     public function test_activity_type_has_clubs()
     {
         $activityType = ActivityType::factory()->create();
@@ -59,6 +65,7 @@ class ActivityTypeTest extends TestCase
         $this->assertEquals(1, $activityType->clubs->count());
     }
 
+    #[Test]
     public function test_scope_active()
     {
         ActivityType::factory()->create(['is_active' => true]);
@@ -70,6 +77,7 @@ class ActivityTypeTest extends TestCase
         $this->assertTrue($activeTypes->first()->is_active);
     }
 
+    #[Test]
     public function test_scope_by_slug()
     {
         ActivityType::factory()->create(['slug' => 'equestrian']);
@@ -81,6 +89,7 @@ class ActivityTypeTest extends TestCase
         $this->assertEquals('equestrian', $equestrian->slug);
     }
 
+    #[Test]
     public function test_default_icon()
     {
         $activityType = ActivityType::create([
@@ -92,14 +101,14 @@ class ActivityTypeTest extends TestCase
         $this->assertEquals('🏃‍♂️', $activityType->getIconAttribute(null));
     }
 
+    #[Test]
     public function test_default_color()
     {
         $activityType = ActivityType::create([
             'name' => 'Test',
-            'slug' => 'test',
-            'color' => null
+            'slug' => 'test'
         ]);
 
-        $this->assertEquals('#6B7280', $activityType->getColorAttribute(null));
+        $this->assertEquals('#6B7280', $activityType->color);
     }
 }

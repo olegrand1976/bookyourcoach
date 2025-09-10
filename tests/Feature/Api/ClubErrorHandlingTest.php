@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubErrorHandlingTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_handles_database_connection_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -34,7 +36,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(500);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_invalid_json_requests()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -53,7 +55,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(400);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_missing_required_fields()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -73,7 +75,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_invalid_field_types()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -98,7 +100,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_field_length_validation()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -126,7 +128,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['name', 'description', 'address', 'phone', 'email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_nonexistent_resources()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -145,7 +147,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_duplicate_email_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -175,7 +177,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_constraint_violation_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -200,7 +202,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_foreign_key_constraint_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -222,7 +224,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_memory_limit_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -252,7 +254,7 @@ class ClubErrorHandlingTest extends TestCase
             ->assertJsonValidationErrors(['description', 'address']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_timeout_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -271,7 +273,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_concurrent_modification_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -310,7 +312,7 @@ class ClubErrorHandlingTest extends TestCase
         $response2->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_network_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -329,7 +331,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_authentication_errors()
     {
         // Test avec un token d'authentification invalide
@@ -340,7 +342,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_authorization_errors()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -351,7 +353,7 @@ class ClubErrorHandlingTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_rate_limiting_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -376,7 +378,7 @@ class ClubErrorHandlingTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_corrupted_data_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

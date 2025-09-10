@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\Subscription;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class SubscriptionTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $subscription = new Subscription();
@@ -18,7 +20,7 @@ class SubscriptionTest extends TestCase
         $this->assertInstanceOf(Subscription::class, $subscription);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $subscription = new Subscription();
@@ -26,7 +28,7 @@ class SubscriptionTest extends TestCase
         $this->assertEquals('subscriptions', $subscription->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $subscription = new Subscription();

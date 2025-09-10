@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubAdminTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_get_clubs_list_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -42,7 +44,7 @@ class ClubAdminTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_club_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -84,7 +86,7 @@ class ClubAdminTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_specific_club_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -112,7 +114,7 @@ class ClubAdminTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_club_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -151,7 +153,7 @@ class ClubAdminTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_club_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -171,7 +173,7 @@ class ClubAdminTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_toggle_club_status_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -203,7 +205,7 @@ class ClubAdminTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_club_creation_data()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -220,7 +222,7 @@ class ClubAdminTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_club_update_data()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -238,7 +240,7 @@ class ClubAdminTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_nonexistent_club()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -253,7 +255,7 @@ class ClubAdminTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_admin_role_for_club_management()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -284,7 +286,7 @@ class ClubAdminTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_for_admin_club_routes()
     {
         $response = $this->getJson('/api/admin/clubs');
@@ -305,7 +307,7 @@ class ClubAdminTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_paginate_clubs_list()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -345,7 +347,7 @@ class ClubAdminTest extends TestCase
         $this->assertEquals(25, $data['meta']['total']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_filter_clubs_by_status()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -367,7 +369,7 @@ class ClubAdminTest extends TestCase
         $this->assertCount(3, $data['data']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_search_clubs_by_name()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -384,7 +386,7 @@ class ClubAdminTest extends TestCase
         $this->assertEquals('Club de Paris', $data['data'][0]['name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_club_statistics()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);

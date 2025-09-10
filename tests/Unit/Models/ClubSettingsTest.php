@@ -6,11 +6,14 @@ use App\Models\ClubSettings;
 use App\Models\Club;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_club_settings()
     {
         $club = Club::factory()->create();
@@ -34,6 +37,7 @@ class ClubSettingsTest extends TestCase
         $this->assertTrue($settings->is_enabled);
     }
 
+    #[Test]
     public function test_belongs_to_club()
     {
         $club = Club::factory()->create();
@@ -45,6 +49,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals($club->id, $settings->club->id);
     }
 
+    #[Test]
     public function test_scope_by_category()
     {
         $club = Club::factory()->create();
@@ -63,15 +68,18 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals('general', $generalSettings->first()->feature_category);
     }
 
+    #[Test]
     public function test_scope_enabled()
     {
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'lesson_booking',
             'is_enabled' => true
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'payment_online',
             'is_enabled' => false
         ]);
 
@@ -81,15 +89,18 @@ class ClubSettingsTest extends TestCase
         $this->assertTrue($enabledSettings->first()->is_enabled);
     }
 
+    #[Test]
     public function test_scope_disabled()
     {
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'lesson_booking',
             'is_enabled' => true
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'payment_online',
             'is_enabled' => false
         ]);
 
@@ -99,16 +110,19 @@ class ClubSettingsTest extends TestCase
         $this->assertFalse($disabledSettings->first()->is_enabled);
     }
 
+    #[Test]
     public function test_scope_ordered()
     {
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'feature_b',
             'sort_order' => 2,
             'feature_name' => 'Feature B'
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'feature_a',
             'sort_order' => 1,
             'feature_name' => 'Feature A'
         ]);
@@ -119,6 +133,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals('Feature B', $orderedSettings->last()->feature_name);
     }
 
+    #[Test]
     public function test_enable_method()
     {
         $settings = ClubSettings::factory()->create(['is_enabled' => false]);
@@ -128,6 +143,7 @@ class ClubSettingsTest extends TestCase
         $this->assertTrue($settings->fresh()->is_enabled);
     }
 
+    #[Test]
     public function test_disable_method()
     {
         $settings = ClubSettings::factory()->create(['is_enabled' => true]);
@@ -137,6 +153,7 @@ class ClubSettingsTest extends TestCase
         $this->assertFalse($settings->fresh()->is_enabled);
     }
 
+    #[Test]
     public function test_toggle_method()
     {
         $settings = ClubSettings::factory()->create(['is_enabled' => false]);
@@ -150,6 +167,7 @@ class ClubSettingsTest extends TestCase
         $this->assertFalse($settings->fresh()->is_enabled);
     }
 
+    #[Test]
     public function test_update_configuration()
     {
         $settings = ClubSettings::factory()->create([
@@ -164,6 +182,7 @@ class ClubSettingsTest extends TestCase
         ], $settings->fresh()->configuration);
     }
 
+    #[Test]
     public function test_get_configuration_value()
     {
         $settings = ClubSettings::factory()->create([
@@ -174,6 +193,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals('default', $settings->getConfigurationValue('nonexistent', 'default'));
     }
 
+    #[Test]
     public function test_set_configuration_value()
     {
         $settings = ClubSettings::factory()->create([
@@ -185,6 +205,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals('value2', $settings->fresh()->configuration['key2']);
     }
 
+    #[Test]
     public function test_is_feature_enabled_static_method()
     {
         $club = Club::factory()->create();
@@ -198,6 +219,7 @@ class ClubSettingsTest extends TestCase
         $this->assertFalse(ClubSettings::isFeatureEnabled($club->id, 'nonexistent_feature'));
     }
 
+    #[Test]
     public function test_get_enabled_features_static_method()
     {
         $club = Club::factory()->create();
@@ -218,16 +240,19 @@ class ClubSettingsTest extends TestCase
         $this->assertContains('feature1', $enabledFeatures);
     }
 
+    #[Test]
     public function test_get_features_by_category_static_method()
     {
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'general_feature',
             'feature_category' => 'general',
             'feature_name' => 'General Feature'
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'advanced_feature',
             'feature_category' => 'advanced',
             'feature_name' => 'Advanced Feature'
         ]);
@@ -238,6 +263,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals('General Feature', $generalFeatures->first()->feature_name);
     }
 
+    #[Test]
     public function test_get_all_features_static_method()
     {
         $club = Club::factory()->create();
@@ -259,6 +285,7 @@ class ClubSettingsTest extends TestCase
         $this->assertArrayHasKey('advanced', $allFeatures->toArray());
     }
 
+    #[Test]
     public function test_configuration_casting()
     {
         $configuration = ['key1' => 'value1', 'key2' => 'value2'];
@@ -270,6 +297,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals($configuration, $settings->configuration);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $settings = new ClubSettings();
@@ -290,6 +318,7 @@ class ClubSettingsTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $settings = new ClubSettings();

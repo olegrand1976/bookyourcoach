@@ -36,22 +36,22 @@ class Lesson extends Model
         'student_id',
         'course_type_id',
         'location_id',
-        'scheduled_at',
         'start_time',
         'end_time',
-        'duration',
-        'price',
         'status',
         'payment_status',
-        'notes'
+        'price',
+        'notes',
+        'teacher_feedback',
+        'rating',
+        'review'
     ];
 
     protected $casts = [
-        'scheduled_at' => 'datetime',
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'price' => 'decimal:2',
-        'duration' => 'integer'
+        'rating' => 'integer'
     ];
 
     /**
@@ -109,7 +109,7 @@ class Lesson extends Model
      */
     public function scopeInDateRange($query, $from, $to)
     {
-        return $query->whereBetween('scheduled_at', [$from, $to]);
+        return $query->whereBetween('start_time', [$from, $to]);
     }
 
     /**
@@ -117,8 +117,13 @@ class Lesson extends Model
      */
     public function getFormattedDurationAttribute(): string
     {
-        $hours = floor($this->duration / 60);
-        $minutes = $this->duration % 60;
+        if (!$this->start_time || !$this->end_time) {
+            return '0min';
+        }
+        
+        $duration = $this->start_time->diffInMinutes($this->end_time);
+        $hours = floor($duration / 60);
+        $minutes = $duration % 60;
 
         if ($hours > 0 && $minutes > 0) {
             return "{$hours}h {$minutes}min";

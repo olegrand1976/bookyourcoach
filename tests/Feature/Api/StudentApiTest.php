@@ -9,6 +9,8 @@ use App\Models\Student;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class StudentApiTest extends TestCase
 {
@@ -32,7 +34,7 @@ class StudentApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_student_via_api()
     {
         $studentData = [
@@ -77,7 +79,7 @@ class StudentApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields()
     {
         $response = $this->postJson('/api/club/students-test', []);
@@ -86,7 +88,7 @@ class StudentApiTest extends TestCase
                 ->assertJsonValidationErrors(['name', 'email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_email_uniqueness()
     {
         User::factory()->create(['email' => 'existing@example.com']);
@@ -102,7 +104,7 @@ class StudentApiTest extends TestCase
                 ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_student_with_optional_fields()
     {
         $studentData = [
@@ -125,7 +127,7 @@ class StudentApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_student_with_nullable_fields()
     {
         $studentData = [
@@ -147,7 +149,7 @@ class StudentApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_associates_student_with_club()
     {
         $studentData = [
@@ -167,7 +169,7 @@ class StudentApiTest extends TestCase
         $this->assertTrue($this->club->users->contains($student->user));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_upload_medical_documents()
     {
         Storage::fake('public');
@@ -206,7 +208,7 @@ class StudentApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_students()
     {
         // Créer quelques étudiants
@@ -230,7 +232,7 @@ class StudentApiTest extends TestCase
         $this->assertCount(2, $response->json('students'));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_user_not_found()
     {
         // Supprimer l'utilisateur club
@@ -247,7 +249,7 @@ class StudentApiTest extends TestCase
                 ->assertJson(['error' => 'User not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_club_not_found()
     {
         // Supprimer le club
@@ -264,7 +266,7 @@ class StudentApiTest extends TestCase
                 ->assertJson(['error' => 'Club not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_database_errors_gracefully()
     {
         // Mock une erreur de base de données

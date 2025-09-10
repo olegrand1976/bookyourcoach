@@ -6,12 +6,14 @@ use App\Models\User;
 use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class UserTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_created_with_required_fields()
     {
         $userData = [
@@ -29,7 +31,7 @@ class UserTest extends TestCase
         $this->assertEquals($userData['role'], $user->role);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_role_constants()
     {
         $this->assertEquals('admin', User::ROLE_ADMIN);
@@ -38,7 +40,7 @@ class UserTest extends TestCase
         $this->assertEquals('club', User::ROLE_CLUB);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_check_if_user_has_specific_role()
     {
         $user = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -49,7 +51,7 @@ class UserTest extends TestCase
         $this->assertFalse($user->hasRole(User::ROLE_CLUB));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_check_if_user_is_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -59,7 +61,7 @@ class UserTest extends TestCase
         $this->assertFalse($teacher->isAdmin());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_check_if_user_is_teacher()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -69,7 +71,7 @@ class UserTest extends TestCase
         $this->assertFalse($student->isTeacher());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_check_if_user_is_student()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -79,7 +81,7 @@ class UserTest extends TestCase
         $this->assertFalse($admin->isStudent());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_check_if_user_is_club()
     {
         $club = User::factory()->create(['role' => User::ROLE_CLUB]);
@@ -89,7 +91,7 @@ class UserTest extends TestCase
         $this->assertFalse($admin->isClub());
     }
 
-    /** @test */
+    #[Test]
     public function it_has_profile_relationship()
     {
         $user = User::factory()->create();
@@ -97,7 +99,7 @@ class UserTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasOne::class, $user->profile());
     }
 
-    /** @test */
+    #[Test]
     public function it_has_teacher_relationship()
     {
         $user = User::factory()->create();
@@ -105,7 +107,7 @@ class UserTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasOne::class, $user->teacher());
     }
 
-    /** @test */
+    #[Test]
     public function it_has_student_relationship()
     {
         $user = User::factory()->create();
@@ -113,7 +115,7 @@ class UserTest extends TestCase
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasOne::class, $user->student());
     }
 
-    /** @test */
+    #[Test]
     public function it_has_clubs_relationship()
     {
         $user = User::factory()->create();
@@ -129,7 +131,7 @@ class UserTest extends TestCase
         $this->assertTrue($user->clubs->contains($club));
     }
 
-    /** @test */
+    #[Test]
     public function it_defaults_to_student_role()
     {
         $user = User::factory()->create();
@@ -137,7 +139,7 @@ class UserTest extends TestCase
         $this->assertEquals(User::ROLE_STUDENT, $user->role);
     }
 
-    /** @test */
+    #[Test]
     public function it_hides_sensitive_attributes()
     {
         $user = User::factory()->create();
@@ -147,7 +149,7 @@ class UserTest extends TestCase
         $this->assertArrayNotHasKey('remember_token', $userArray);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_act_as_teacher()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -157,7 +159,7 @@ class UserTest extends TestCase
         $this->assertFalse($student->canActAsTeacher());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_act_as_student()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -167,7 +169,7 @@ class UserTest extends TestCase
         $this->assertFalse($teacher->canActAsStudent());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_associated_with_multiple_clubs()
     {
         $user = User::factory()->create(['role' => User::ROLE_CLUB]);
@@ -190,7 +192,7 @@ class UserTest extends TestCase
         $this->assertTrue($user->clubs->contains($club2));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_different_roles_in_different_clubs()
     {
         $user = User::factory()->create(['role' => User::ROLE_CLUB]);
@@ -208,12 +210,13 @@ class UserTest extends TestCase
             'joined_at' => now()
         ]);
 
-        $club1User = $user->clubs()->where('club_id', $club1->id)->first();
-        $club2User = $user->clubs()->where('club_id', $club2->id)->first();
+        $user->refresh();
+        $club1User = $user->clubs->where('id', $club1->id)->first();
+        $club2User = $user->clubs->where('id', $club2->id)->first();
 
         $this->assertEquals('owner', $club1User->pivot->role);
-        $this->assertTrue($club1User->pivot->is_admin);
+        $this->assertEquals(1, $club1User->pivot->is_admin);
         $this->assertEquals('manager', $club2User->pivot->role);
-        $this->assertFalse($club2User->pivot->is_admin);
+        $this->assertEquals(0, $club2User->pivot->is_admin);
     }
 }

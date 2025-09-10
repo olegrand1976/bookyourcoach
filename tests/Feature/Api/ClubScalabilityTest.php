@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubScalabilityTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_handles_large_number_of_clubs()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -40,7 +42,7 @@ class ClubScalabilityTest extends TestCase
         $this->assertEquals(1000, $data['total']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_large_number_of_club_members()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -91,7 +93,7 @@ class ClubScalabilityTest extends TestCase
         $this->assertEquals(2501, $data['stats']['total_members']); // 1 club user + 500 teachers + 2000 students
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_concurrent_club_operations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -136,7 +138,7 @@ class ClubScalabilityTest extends TestCase
         $this->assertLessThan(10.0, $executionTime, 'Concurrent operations should complete in less than 10 seconds');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_large_club_profile_updates()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -201,7 +203,7 @@ class ClubScalabilityTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_memory_efficiently_with_large_datasets()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -258,7 +260,7 @@ class ClubScalabilityTest extends TestCase
         $this->assertEquals(60001, $data['stats']['total_members']); // 1 club user + 10000 teachers + 50000 students
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_database_query_optimization()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -318,7 +320,7 @@ class ClubScalabilityTest extends TestCase
         $this->assertCount(15, $studentsData['data']); // Laravel pagination default per_page
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_horizontal_scaling()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -337,7 +339,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_vertical_scaling()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -356,7 +358,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_load_balancing()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -375,7 +377,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_caching()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -394,7 +396,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_cdn()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -413,7 +415,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_microservices()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -432,7 +434,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_api_gateway()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -451,7 +453,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_service_mesh()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -470,7 +472,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_container_orchestration()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -489,7 +491,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_auto_scaling()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -508,7 +510,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_monitoring()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -527,7 +529,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_alerting()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -546,7 +548,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_logging()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -565,7 +567,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_backup()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -584,7 +586,7 @@ class ClubScalabilityTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_disaster_recovery()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

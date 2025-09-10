@@ -41,11 +41,6 @@ class Discipline extends Model
         return $this->belongsTo(ActivityType::class);
     }
 
-    public function lessons(): HasMany
-    {
-        return $this->hasMany(Lesson::class);
-    }
-
     public function courseTypes(): HasMany
     {
         return $this->hasMany(CourseType::class);

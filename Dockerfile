@@ -1,5 +1,5 @@
 # Dockerfile pour la production Acti'Vibe
-FROM php:8.2-fpm-alpine AS base
+FROM php:8.3-fpm-alpine AS base
 
 # Installer les dépendances système
 RUN apk add --no-cache \

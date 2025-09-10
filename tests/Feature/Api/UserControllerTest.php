@@ -5,12 +5,14 @@ namespace Tests\Feature\Api;
 use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class UserControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_get_users_list_when_authenticated()
     {
         $user = User::factory()->create();
@@ -41,7 +43,7 @@ class UserControllerTest extends TestCase
         $this->assertCount(4, $responseData['users']); // 1 utilisateur initial + 3 créés
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_to_access_users_list()
     {
         User::factory()->count(3)->create();
@@ -51,7 +53,7 @@ class UserControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_empty_array_when_no_users_exist()
     {
         $user = User::factory()->create();

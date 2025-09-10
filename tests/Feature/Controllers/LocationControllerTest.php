@@ -7,12 +7,14 @@ use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class LocationControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_list_locations()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -42,7 +44,7 @@ class LocationControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_a_location()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -65,7 +67,7 @@ class LocationControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_location_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -107,7 +109,7 @@ class LocationControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_cannot_create_a_location_as_student()
     {
         $user = User::factory()->create(['role' => 'student']);
@@ -126,7 +128,7 @@ class LocationControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_location_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -163,7 +165,7 @@ class LocationControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_location_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -178,7 +180,7 @@ class LocationControllerTest extends TestCase
         $this->assertDatabaseMissing('locations', ['id' => $location->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields_when_creating()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -190,7 +192,7 @@ class LocationControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'address', 'city', 'postal_code', 'country']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_latitude_longitude_range()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -210,7 +212,7 @@ class LocationControllerTest extends TestCase
             ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_facilities_array()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -229,7 +231,7 @@ class LocationControllerTest extends TestCase
             ->assertJsonValidationErrors(['facilities']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_404_for_non_existent_location()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -240,7 +242,7 @@ class LocationControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function guest_cannot_access_locations()
     {
         $response = $this->getJson('/api/locations');
@@ -248,7 +250,7 @@ class LocationControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function teacher_can_read_locations_but_not_modify()
     {
         $user = User::factory()->create(['role' => 'teacher']);

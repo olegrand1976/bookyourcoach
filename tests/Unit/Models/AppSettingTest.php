@@ -5,11 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\AppSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AppSettingTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_app_setting()
     {
         $setting = AppSetting::create([
@@ -26,6 +29,7 @@ class AppSettingTest extends TestCase
         $this->assertTrue($setting->is_active);
     }
 
+    #[Test]
     public function test_get_active_settings_returns_active_setting()
     {
         // Créer un paramètre actif
@@ -53,6 +57,7 @@ class AppSettingTest extends TestCase
         $this->assertTrue($activeSetting->is_active);
     }
 
+    #[Test]
     public function test_get_or_create_default_creates_default_when_none_exists()
     {
         $setting = AppSetting::getOrCreateDefault();
@@ -63,6 +68,7 @@ class AppSettingTest extends TestCase
         $this->assertTrue($setting->is_active);
     }
 
+    #[Test]
     public function test_get_or_create_default_returns_existing_active_setting()
     {
         // Créer un paramètre actif existant
@@ -80,6 +86,7 @@ class AppSettingTest extends TestCase
         $this->assertEquals('Existing App', $setting->app_name);
     }
 
+    #[Test]
     public function test_primary_color_validation()
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -94,6 +101,7 @@ class AppSettingTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_secondary_color_validation()
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -108,6 +116,7 @@ class AppSettingTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_accent_color_validation()
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -122,6 +131,7 @@ class AppSettingTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_social_links_casting()
     {
         $socialLinks = [
@@ -142,6 +152,7 @@ class AppSettingTest extends TestCase
         $this->assertEquals($socialLinks, $setting->social_links);
     }
 
+    #[Test]
     public function test_key_value_system()
     {
         $setting = AppSetting::create([

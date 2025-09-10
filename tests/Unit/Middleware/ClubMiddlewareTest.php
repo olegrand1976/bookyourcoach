@@ -9,12 +9,14 @@ use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubMiddlewareTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_with_club_association()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -39,7 +41,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_admin_user()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -64,7 +66,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_unauthenticated_user()
     {
         $middleware = new ClubMiddleware();
@@ -82,7 +84,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertStringContainsString('Unauthenticated', $response->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_student_user()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -102,7 +104,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertStringContainsString('Unauthorized', $response->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_teacher_user()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -122,7 +124,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertStringContainsString('Unauthorized', $response->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_club_user_without_club_association()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -143,7 +145,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertStringContainsString('not associated with any club', $response->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_admin_user_without_club_association()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -164,7 +166,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertStringContainsString('not associated with any club', $response->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_with_multiple_club_associations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -195,7 +197,7 @@ class ClubMiddlewareTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode());
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_with_different_roles_in_clubs()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

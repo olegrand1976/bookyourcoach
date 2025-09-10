@@ -6,11 +6,14 @@ use App\Models\AppSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AppSettingControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_index_returns_active_settings()
     {
         $settings = AppSetting::factory()->create([
@@ -32,6 +35,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_index_creates_default_settings_when_none_exist()
     {
         $response = $this->getJson('/api/app-settings');
@@ -47,6 +51,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_show_returns_setting_for_admin()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -64,6 +69,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_show_denies_access_for_non_admin()
     {
         $user = User::factory()->create(['role' => 'student']);
@@ -78,6 +84,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_show_denies_access_for_unauthenticated_user()
     {
         $settings = AppSetting::factory()->create();
@@ -91,6 +98,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_store_creates_new_settings()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -123,6 +131,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_store_deactivates_other_settings_when_creating_active()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -155,6 +164,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_store_validates_required_fields()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -165,6 +175,7 @@ class AppSettingControllerTest extends TestCase
             ->assertJsonValidationErrors(['app_name', 'primary_color', 'secondary_color', 'accent_color']);
     }
 
+    #[Test]
     public function test_store_validates_color_format()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -182,6 +193,7 @@ class AppSettingControllerTest extends TestCase
             ->assertJsonValidationErrors(['primary_color']);
     }
 
+    #[Test]
     public function test_update_modifies_existing_settings()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -217,6 +229,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_update_deactivates_other_settings_when_activating()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -249,6 +262,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_destroy_deletes_inactive_settings()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -267,6 +281,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_destroy_prevents_deletion_of_active_settings()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -285,6 +300,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_destroy_denies_access_for_non_admin()
     {
         $user = User::factory()->create(['role' => 'student']);
@@ -299,6 +315,7 @@ class AppSettingControllerTest extends TestCase
             ]);
     }
 
+    #[Test]
     public function test_activate_activates_specific_settings()
     {
         $admin = User::factory()->create(['role' => 'admin']);
@@ -331,6 +348,7 @@ class AppSettingControllerTest extends TestCase
         ]);
     }
 
+    #[Test]
     public function test_activate_denies_access_for_non_admin()
     {
         $user = User::factory()->create(['role' => 'student']);

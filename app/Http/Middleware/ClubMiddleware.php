@@ -27,7 +27,7 @@ class ClubMiddleware
         }
 
         // Vérifier si l'utilisateur est associé à un club
-        if ($user->role === 'club' && !$user->clubs()->exists()) {
+        if (!$user->clubs()->exists()) {
             return response()->json(['message' => 'User is not associated with any club.'], 403);
         }
 

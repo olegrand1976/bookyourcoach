@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_tests_club_creation_regression()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -38,7 +40,7 @@ class ClubRegressionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_user_association_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -55,7 +57,7 @@ class ClubRegressionTest extends TestCase
         $this->assertEquals('owner', $club->users()->where('user_id', $clubUser->id)->first()->pivot->role);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_dashboard_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -98,7 +100,7 @@ class ClubRegressionTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_teacher_management_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -147,7 +149,7 @@ class ClubRegressionTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_student_management_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -196,7 +198,7 @@ class ClubRegressionTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_profile_update_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -234,7 +236,7 @@ class ClubRegressionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_middleware_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -258,7 +260,7 @@ class ClubRegressionTest extends TestCase
         $this->getJson('/api/club/dashboard')->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_admin_regression()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -313,7 +315,7 @@ class ClubRegressionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_data_consistency_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -360,7 +362,7 @@ class ClubRegressionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_performance_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -387,7 +389,7 @@ class ClubRegressionTest extends TestCase
         $this->assertLessThan(2.0, $executionTime, 'Dashboard should load in less than 2 seconds');
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_security_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -412,7 +414,7 @@ class ClubRegressionTest extends TestCase
         $this->assertArrayNotHasKey('email_verified_at', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_error_handling_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -443,7 +445,7 @@ class ClubRegressionTest extends TestCase
             ->assertJson(['message' => 'Utilisateur non trouvé']);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_club_scalability_regression()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

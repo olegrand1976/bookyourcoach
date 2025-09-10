@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubAccessControlTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_enforces_role_based_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -35,7 +37,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($admin)->getJson('/api/club/dashboard')->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_club_association_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -61,7 +63,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($otherClubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_permission_based_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -82,7 +84,7 @@ class ClubAccessControlTest extends TestCase
         ])->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_resource_ownership_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -111,7 +113,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/students')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_time_based_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -132,7 +134,7 @@ class ClubAccessControlTest extends TestCase
         $this->getJson('/api/club/dashboard')->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_ip_based_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -148,7 +150,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_device_based_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -164,7 +166,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_geographic_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -180,7 +182,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_rate_limiting_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -205,7 +207,7 @@ class ClubAccessControlTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_audit_logging_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -221,7 +223,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_encryption_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -245,7 +247,7 @@ class ClubAccessControlTest extends TestCase
         $this->assertArrayNotHasKey('remember_token', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_data_privacy_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -271,7 +273,7 @@ class ClubAccessControlTest extends TestCase
         $this->assertArrayHasKey('recentStudents', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_compliance_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -287,7 +289,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_business_logic_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -317,7 +319,7 @@ class ClubAccessControlTest extends TestCase
         $response->assertStatus(200); // L'API permet l'ajout car la limite est vérifiée côté frontend
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_data_integrity_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -343,7 +345,7 @@ class ClubAccessControlTest extends TestCase
         $this->assertArrayHasKey('recentStudents', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_error_handling_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -362,7 +364,7 @@ class ClubAccessControlTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_monitoring_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -378,7 +380,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_alerting_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -394,7 +396,7 @@ class ClubAccessControlTest extends TestCase
         $this->actingAs($clubUser)->getJson('/api/club/dashboard')->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_enforces_recovery_access_control()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

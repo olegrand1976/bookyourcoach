@@ -8,14 +8,14 @@ use App\Models\Teacher;
 use App\Models\Student;
 use App\Models\Availability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class TeacherDashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_teacher_dashboard_data()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -47,9 +47,7 @@ class TeacherDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_create_availability()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -87,9 +85,7 @@ class TeacherDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_update_availability()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -128,9 +124,7 @@ class TeacherDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_delete_availability()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -155,9 +149,7 @@ class TeacherDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_teacher_students()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -186,9 +178,7 @@ class TeacherDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_validates_availability_data()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -207,9 +197,7 @@ class TeacherDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_requires_teacher_role_to_access_dashboard()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -220,9 +208,7 @@ class TeacherDashboardControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_teacher_lessons_with_pagination()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);

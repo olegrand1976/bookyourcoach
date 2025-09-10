@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\Invoice;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class InvoiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $invoice = new Invoice();
@@ -18,7 +20,7 @@ class InvoiceTest extends TestCase
         $this->assertInstanceOf(Invoice::class, $invoice);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $invoice = new Invoice();
@@ -26,7 +28,7 @@ class InvoiceTest extends TestCase
         $this->assertEquals('invoices', $invoice->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $invoice = new Invoice();

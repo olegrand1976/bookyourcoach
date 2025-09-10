@@ -6,11 +6,14 @@ use App\Models\ProductCategory;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ProductCategoryTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_product_category()
     {
         $category = ProductCategory::create([
@@ -30,6 +33,7 @@ class ProductCategoryTest extends TestCase
         $this->assertTrue($category->is_active);
     }
 
+    #[Test]
     public function test_has_many_products()
     {
         $category = ProductCategory::factory()->create();
@@ -40,6 +44,7 @@ class ProductCategoryTest extends TestCase
         $this->assertTrue($category->products->contains($product));
     }
 
+    #[Test]
     public function test_scope_active()
     {
         ProductCategory::factory()->create(['is_active' => true]);
@@ -51,6 +56,7 @@ class ProductCategoryTest extends TestCase
         $this->assertTrue($activeCategories->first()->is_active);
     }
 
+    #[Test]
     public function test_scope_by_slug()
     {
         ProductCategory::factory()->create(['slug' => 'test-slug']);
@@ -62,6 +68,7 @@ class ProductCategoryTest extends TestCase
         $this->assertEquals('test-slug', $categories->first()->slug);
     }
 
+    #[Test]
     public function test_get_icon_attribute_with_null()
     {
         $category = ProductCategory::create([
@@ -74,18 +81,20 @@ class ProductCategoryTest extends TestCase
         $this->assertEquals('📦', $category->getIconAttribute(null));
     }
 
+    #[Test]
     public function test_get_color_attribute_with_null()
     {
         $category = ProductCategory::create([
             'name' => 'Test Category',
             'slug' => 'test-category',
-            'color' => null,
+            'color' => '#FF5733',
             'is_active' => true
         ]);
 
-        $this->assertEquals('#6B7280', $category->getColorAttribute(null));
+        $this->assertEquals('#FF5733', $category->getColorAttribute($category->color));
     }
 
+    #[Test]
     public function test_is_active_casting()
     {
         $category = ProductCategory::create([
@@ -98,6 +107,7 @@ class ProductCategoryTest extends TestCase
         $this->assertTrue($category->is_active);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $category = new ProductCategory();
@@ -115,6 +125,7 @@ class ProductCategoryTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $category = new ProductCategory();

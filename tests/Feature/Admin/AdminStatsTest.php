@@ -5,12 +5,14 @@ namespace Tests\Feature\Admin;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\WithFaker;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AdminStatsTest extends TestCase
 {
     use WithFaker;
 
-    /** @test */
+    #[Test]
     public function admin_can_view_platform_stats()
     {
         $this->actingAsAdmin();
@@ -29,7 +31,7 @@ class AdminStatsTest extends TestCase
                  ]);
     }
 
-    /** @test */
+    #[Test]
     public function admin_can_list_users()
     {
         $admin = $this->actingAsAdmin();

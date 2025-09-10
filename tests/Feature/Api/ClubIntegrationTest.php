@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubIntegrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_complete_full_club_workflow()
     {
         // 1. Créer un utilisateur club
@@ -150,7 +152,7 @@ class ClubIntegrationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_user_management_scenarios()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -202,7 +204,7 @@ class ClubIntegrationTest extends TestCase
             ->assertJson(['message' => 'Cet utilisateur est déjà membre du club']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_profile_validation()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -244,7 +246,7 @@ class ClubIntegrationTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_statistics_calculation()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -293,7 +295,7 @@ class ClubIntegrationTest extends TestCase
         $this->assertEquals(25.0, $data['stats']['occupancy_rate']); // 25/100 * 100
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_user_roles_and_permissions()
     {
         $club = Club::factory()->create();

@@ -12,6 +12,8 @@ use App\Models\Payment;
 use App\Models\CourseType;
 use App\Models\Location;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class DashboardMetricsTest extends TestCase
 {
@@ -40,7 +42,7 @@ class DashboardMetricsTest extends TestCase
         $this->location = Location::factory()->create();
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_average_lesson_price_correctly()
     {
         // Créer des cours avec des prix différents
@@ -90,7 +92,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals($expectedAveragePrice, $stats['average_lesson_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_occupancy_rate_correctly()
     {
         // Créer des cours avec différents statuts
@@ -126,7 +128,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals($expectedOccupancyRate, $stats['occupancy_rate']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_revenue_correctly()
     {
         // Créer des cours
@@ -179,7 +181,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals($expectedTotalRevenue, $stats['total_revenue']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_monthly_revenue_correctly()
     {
         // Créer des paiements pour ce mois
@@ -213,7 +215,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals(50.00, $stats['monthly_revenue']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_zero_lessons_gracefully()
     {
         // Ne créer aucun cours
@@ -235,7 +237,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals(0, $stats['occupancy_rate']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_lesson_counts_correctly()
     {
         // Créer des cours avec différents statuts
@@ -276,7 +278,7 @@ class DashboardMetricsTest extends TestCase
         $this->assertEquals(1, $stats['cancelled_lessons']);
     }
 
-    /** @test */
+    #[Test]
     public function it_only_includes_club_teachers_in_calculations()
     {
         // Créer un enseignant d'un autre club

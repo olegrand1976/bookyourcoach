@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubPerformanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_handles_large_club_dashboard_efficiently()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -64,7 +66,7 @@ class ClubPerformanceTest extends TestCase
         $this->assertEquals(601, $data['stats']['total_members']); // 1 club user + 100 teachers + 500 students
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_paginated_teachers_list_efficiently()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -107,7 +109,7 @@ class ClubPerformanceTest extends TestCase
         $this->assertEquals(1000, $data['total']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_paginated_students_list_efficiently()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -150,7 +152,7 @@ class ClubPerformanceTest extends TestCase
         $this->assertEquals(2000, $data['total']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_concurrent_club_operations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -195,7 +197,7 @@ class ClubPerformanceTest extends TestCase
         $this->assertLessThan(5.0, $executionTime, 'Concurrent operations should complete in less than 5 seconds');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_large_club_profile_updates_efficiently()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -260,7 +262,7 @@ class ClubPerformanceTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_memory_efficiently_with_large_datasets()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -317,7 +319,7 @@ class ClubPerformanceTest extends TestCase
         $this->assertEquals(15001, $data['stats']['total_members']); // 1 club user + 5000 teachers + 10000 students
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_database_query_optimization()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

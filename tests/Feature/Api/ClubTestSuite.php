@@ -7,18 +7,20 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubTestSuite extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_runs_complete_club_test_suite()
     {
         $this->markTestSkipped('This is a test suite runner - individual tests should be run separately');
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_test_environment()
     {
         // Créer un environnement de test complet
@@ -68,7 +70,7 @@ class ClubTestSuite extends TestCase
         $this->assertDatabaseHas('club_user', ['club_id' => $club->id, 'user_id' => $student->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_test_data_integrity()
     {
         // Créer des données de test
@@ -88,7 +90,7 @@ class ClubTestSuite extends TestCase
         $this->assertEquals('owner', $club->users()->where('user_id', $clubUser->id)->first()->pivot->role);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_all_club_endpoints()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -127,7 +129,7 @@ class ClubTestSuite extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_all_admin_endpoints()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -162,7 +164,7 @@ class ClubTestSuite extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_middleware_protection()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -182,7 +184,7 @@ class ClubTestSuite extends TestCase
         $this->getJson('/api/club/dashboard')->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_data_relationships()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -218,7 +220,7 @@ class ClubTestSuite extends TestCase
         $this->assertEquals(1, $club->users()->wherePivot('role', 'student')->count());
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_performance_benchmarks()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -245,7 +247,7 @@ class ClubTestSuite extends TestCase
         $this->assertLessThan(2.0, $executionTime, 'Dashboard should load in less than 2 seconds');
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_error_handling()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -267,7 +269,7 @@ class ClubTestSuite extends TestCase
         $response->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_security_measures()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -291,7 +293,7 @@ class ClubTestSuite extends TestCase
         $this->assertArrayNotHasKey('remember_token', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_tests_scalability()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

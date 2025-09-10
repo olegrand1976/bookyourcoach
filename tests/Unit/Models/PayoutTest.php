@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\Payout;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class PayoutTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $payout = new Payout();
@@ -18,7 +20,7 @@ class PayoutTest extends TestCase
         $this->assertInstanceOf(Payout::class, $payout);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $payout = new Payout();
@@ -26,7 +28,7 @@ class PayoutTest extends TestCase
         $this->assertEquals('payouts', $payout->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $payout = new Payout();
