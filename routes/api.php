@@ -1683,3 +1683,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/system/status', [AdminController::class, 'getSystemStatus']);
         Route::post('/system/clear-cache', [AdminController::class, 'clearCache']);
 });
+
+// Routes d'analyse Neo4j
+Route::prefix('neo4j')->middleware('admin')->group(function () {
+    Route::get('/metrics', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'getGlobalMetrics']);
+    Route::get('/sync-stats', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'getSyncStats']);
+    Route::get('/user-club-relations', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeUserClubRelations']);
+    Route::get('/teachers-by-specialty', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeTeachersBySpecialty']);
+    Route::get('/contracts', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeContracts']);
+    Route::get('/most-connected-teachers', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'findMostConnectedTeachers']);
+    Route::get('/geographic-distribution', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeGeographicDistribution']);
+    Route::get('/teacher-club-relations', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeTeacherClubRelations']);
+    Route::get('/contract-trends', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeContractTrends']);
+    Route::get('/most-demanded-specialties', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeMostDemandedSpecialties']);
+    Route::get('/club-performance', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeClubPerformance']);
+    Route::post('/recommend-teachers', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'recommendTeachersForClub']);
+    Route::post('/custom-query', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'executeCustomQuery']);
+});
