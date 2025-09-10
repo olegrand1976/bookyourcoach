@@ -177,10 +177,12 @@ jobs:
           sudo mkdir -p /srv/activibe
           cd /srv/activibe
           
-          # Stop and remove all existing containers and orphaned containers
+          # Stop and remove only our application containers (preserve other apps)
           docker compose -f $COMPOSE_FILE down --remove-orphans || true
-          docker stop $(docker ps -aq) || true
-          docker rm $(docker ps -aq) || true
+          
+          # Stop only our specific containers (don't touch other applications)
+          docker stop activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
+          docker rm activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
           
           # Create docker-compose.prod.yml file
           cat > docker-compose.prod.yml << 'EOF'
@@ -268,8 +270,8 @@ jobs:
               container_name: activibe-nginx-proxy
               restart: unless-stopped
               ports:
-                - "8080:80"
-                - "8443:443"
+                - "8081:80"
+                - "8444:443"
               volumes:
                 - /var/run/docker.sock:/tmp/docker.sock:ro
                 - ./ssl:/etc/nginx/certs
