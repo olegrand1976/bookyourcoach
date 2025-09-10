@@ -68,6 +68,7 @@ ENV NUXT_HOST=0.0.0.0
 
 # Créer les répertoires nécessaires
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && mkdir -p /var/log/supervisor \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
