@@ -109,7 +109,7 @@ jobs:
         echo "=== DEBUG SSH CONFIGURATION ==="
         echo "SERVER_HOST: ${{ vars.SERVER_HOST }}"
         echo "SERVER_PORT: ${{ vars.SERVER_PORT }}"
-        echo "SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}"
+        echo "SERVER_USERNAME: '${{ vars.SERVER_USERNAME }}'"
         echo "SSH_KEY length: ${#SERVER_SSH_KEY}"
         echo "KNOWN_HOSTS length: ${#SERVER_KNOWN_HOSTS}"
         echo "SSH_KEY starts with: ${SERVER_SSH_KEY:0:50}..."
@@ -124,6 +124,24 @@ jobs:
         echo "=== TESTING SSH CONNECTION ==="
         echo "Testing connection to ${{ vars.SERVER_HOST }}:${{ vars.SERVER_PORT }}"
         
+        # Vérifier que le nom d'utilisateur est défini
+        if [ -z "${{ vars.SERVER_USERNAME }}" ]; then
+          echo "ERROR: SERVER_USERNAME is not defined or empty!"
+          exit 1
+        fi
+        
+        # Vérifier que la clé SSH est définie
+        if [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
+          echo "ERROR: SERVER_SSH_KEY is not defined or empty!"
+          exit 1
+        fi
+        
+        # Vérifier que known_hosts est défini
+        if [ -z "${{ secrets.SERVER_KNOWN_HOSTS }}" ]; then
+          echo "ERROR: SERVER_KNOWN_HOSTS is not defined or empty!"
+          exit 1
+        fi
+        
         # Create temporary SSH key file
         echo "${{ secrets.SERVER_SSH_KEY }}" > /tmp/ssh_key
         chmod 600 /tmp/ssh_key
@@ -133,7 +151,7 @@ jobs:
         chmod 644 /tmp/known_hosts
         
         # Test SSH connection with verbose output
-        ssh -vvv -i /tmp/ssh_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -p ${{ vars.SERVER_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ vars.SERVER_HOST }} "echo 'SSH connection successful!'"
+        ssh -vvv -i /tmp/ssh_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -p ${{ vars.SERVER_PORT }} ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_HOST }} "echo 'SSH connection successful!'"
         
         # Clean up
         rm -f /tmp/ssh_key /tmp/known_hosts
@@ -143,7 +161,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ vars.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USERNAME }}
+        username: ${{ vars.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ vars.SERVER_PORT }}
         known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
