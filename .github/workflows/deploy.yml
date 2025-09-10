@@ -8,7 +8,7 @@ on:
 
 env:
   DOCKER_REGISTRY: docker.io
-  IMAGE_NAME: activibe/app
+  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
 
 jobs:
   test:
