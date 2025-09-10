@@ -49,7 +49,7 @@ COPY docker/php.ini /usr/local/etc/php/php.ini
 COPY --chown=www-data:www-data . .
 
 # Installer les dépendances PHP
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 # Installer les dépendances Node.js et build le frontend
 RUN cd frontend \
@@ -69,14 +69,6 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
 
 # Créer le fichier .env à partir de env.production.example
 RUN cp env.production.example .env
-
-# Générer la clé d'application Laravel
-RUN php artisan key:generate --no-interaction
-
-# Optimiser Laravel pour la production
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
 
 # Exposer les ports
 EXPOSE 80
