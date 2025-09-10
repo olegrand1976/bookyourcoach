@@ -173,6 +173,11 @@ jobs:
           export CONTAINER_NAME="activibe-app"
           export COMPOSE_FILE="/srv/activibe/docker-compose.prod.yml"
           
+          # Debug variables
+          echo "IMAGE_NAME: $IMAGE_NAME"
+          echo "CONTAINER_NAME: $CONTAINER_NAME"
+          echo "COMPOSE_FILE: $COMPOSE_FILE"
+          
           # Create application directory
           sudo mkdir -p /srv/activibe
           cd /srv/activibe
@@ -185,12 +190,12 @@ jobs:
           docker rm activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
           
           # Create docker-compose.prod.yml file
-          cat > docker-compose.prod.yml << 'EOF'
+          cat > docker-compose.prod.yml << EOF
           version: '3.8'
           
           services:
             app:
-              image: $IMAGE_NAME:latest
+              image: ${IMAGE_NAME}:latest
               container_name: activibe-app
               restart: unless-stopped
               ports:
