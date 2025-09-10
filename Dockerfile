@@ -53,12 +53,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Installer les dépendances Node.js et build le frontend
 RUN cd frontend \
-    && npm install \
-    && find node_modules/.bin -name "*.mjs" -exec chmod +x {} \; 2>/dev/null || true \
-    && chmod +x node_modules/@nuxt/cli/bin/nuxi.mjs 2>/dev/null || true \
-    && chmod +x node_modules/vitest/vitest.mjs 2>/dev/null || true \
-    && chmod +x node_modules/@esbuild/linux-x64/bin/esbuild 2>/dev/null || true \
-    && find node_modules/@esbuild -name "esbuild" -exec chmod +x {} \; 2>/dev/null || true \
+    && npm install --no-audit --no-fund \
     && npm run build \
     && npm cache clean --force
 
