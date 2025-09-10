@@ -193,16 +193,18 @@ jobs:
                 - ./storage:/var/www/html/storage
                 - ./bootstrap/cache:/var/www/html/bootstrap/cache
                 - ./ssl:/etc/nginx/ssl
+                - ./cert.pem:/var/www/html/cert.pem:ro
               environment:
                 - APP_ENV=production
                 - APP_DEBUG=false
                 - APP_URL=https://activibe.com
                 - DB_CONNECTION=mysql
-                - DB_HOST=mysql
-                - DB_PORT=3306
-                - DB_DATABASE=activibe_prod
-                - DB_USERNAME=activibe_user
-                - DB_PASSWORD=${DB_PASSWORD}
+                - DB_HOST=mysql-dae24fb8-odf582313.database.cloud.ovh.net
+                - DB_PORT=20184
+                - DB_DATABASE=defaultdb
+                - DB_USERNAME=admin_bookyourcoach
+                - DB_PASSWORD=4rulO5w37hC9nZXEIHda
+                - DB_SSL_CA=/var/www/html/cert.pem
                 - REDIS_HOST=redis
                 - REDIS_PORT=6379
                 - MAIL_MAILER=smtp
@@ -212,23 +214,7 @@ jobs:
                 - MAIL_PASSWORD=${MAIL_PASSWORD}
                 - MAIL_ENCRYPTION=tls
               depends_on:
-                - mysql
                 - redis
-              networks:
-                - activibe-network
-          
-            mysql:
-              image: mysql:8.0
-              container_name: activibe-mysql
-              restart: unless-stopped
-              environment:
-                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-                MYSQL_DATABASE: activibe_prod
-                MYSQL_USER: activibe_user
-                MYSQL_PASSWORD: ${DB_PASSWORD}
-              volumes:
-                - mysql_data:/var/lib/mysql
-                - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
               networks:
                 - activibe-network
           
@@ -257,7 +243,6 @@ jobs:
                 - activibe-network
           
           volumes:
-            mysql_data:
             redis_data:
           
           networks:
@@ -265,18 +250,69 @@ jobs:
               driver: bridge
           EOF
           
-          # Create .env file with default values
+          # Create .env file with OVH database configuration
           cat > .env << 'EOF'
-          DB_PASSWORD=activibe_password_2024
-          MYSQL_ROOT_PASSWORD=root_password_2024
+          APP_NAME=ActiVibe
+          APP_ENV=production
+          APP_KEY=base64:$(openssl rand -base64 32)
+          APP_DEBUG=false
+          APP_URL=https://activibe.com
+          
+          LOG_CHANNEL=stack
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=debug
+          
+          DB_CONNECTION=mysql
+          DB_HOST=mysql-dae24fb8-odf582313.database.cloud.ovh.net
+          DB_PORT=20184
+          DB_DATABASE=defaultdb
+          DB_USERNAME=admin_bookyourcoach
+          DB_PASSWORD=4rulO5w37hC9nZXEIHda
+          DB_SSL_CA=/var/www/html/cert.pem
+          
+          BROADCAST_DRIVER=log
+          CACHE_DRIVER=redis
+          FILESYSTEM_DISK=local
+          QUEUE_CONNECTION=redis
+          SESSION_DRIVER=redis
+          SESSION_LIFETIME=120
+          
+          REDIS_HOST=redis
+          REDIS_PASSWORD=null
+          REDIS_PORT=6379
+          
+          MAIL_MAILER=smtp
           MAIL_HOST=smtp.gmail.com
           MAIL_PORT=587
           MAIL_USERNAME=your-email@gmail.com
           MAIL_PASSWORD=your-app-password
+          MAIL_ENCRYPTION=tls
+          MAIL_FROM_ADDRESS="noreply@activibe.com"
+          MAIL_FROM_NAME="${APP_NAME}"
+          
+          AWS_ACCESS_KEY_ID=
+          AWS_SECRET_ACCESS_KEY=
+          AWS_DEFAULT_REGION=us-east-1
+          AWS_BUCKET=
+          AWS_USE_PATH_STYLE_ENDPOINT=false
+          
+          PUSHER_APP_ID=
+          PUSHER_APP_KEY=
+          PUSHER_APP_SECRET=
+          PUSHER_HOST=
+          PUSHER_PORT=443
+          PUSHER_SCHEME=https
+          PUSHER_APP_CLUSTER=mt1
+          
+          VITE_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
+          VITE_PUSHER_HOST="${PUSHER_HOST}"
+          VITE_PUSHER_PORT="${PUSHER_PORT}"
+          VITE_PUSHER_SCHEME="${PUSHER_SCHEME}"
+          VITE_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
           EOF
           
           # Create necessary directories
-          mkdir -p storage bootstrap/cache ssl docker/mysql docker/nginx-proxy/vhost.d docker/nginx-proxy/html
+          mkdir -p storage bootstrap/cache ssl docker/nginx-proxy/vhost.d docker/nginx-proxy/html
           
           # Pull latest image
           docker pull $IMAGE_NAME:latest
@@ -286,6 +322,13 @@ jobs:
           
           # Start new containers
           docker compose -f $COMPOSE_FILE up -d
+          
+          # Wait for containers to be ready
+          sleep 30
+          
+          # Run database migrations and seeders
+          docker exec activibe-app php artisan migrate --force
+          docker exec activibe-app php artisan db:seed --force
           
           # Clean up old images
           docker image prune -f
