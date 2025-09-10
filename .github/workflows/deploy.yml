@@ -111,6 +111,9 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ vars.SERVER_PORT }}
+        known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
+        timeout: 30s
+        command_timeout: 10m
         script: |
           # Variables
           export IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
