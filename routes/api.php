@@ -1699,4 +1699,5 @@ Route::prefix('neo4j')->middleware('admin')->group(function () {
     Route::get('/club-performance', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'analyzeClubPerformance']);
     Route::post('/recommend-teachers', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'recommendTeachersForClub']);
     Route::post('/custom-query', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'executeCustomQuery']);
+    Route::get('/graph-visualization', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'getGraphVisualization']);
 });
