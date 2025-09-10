@@ -17,8 +17,8 @@ RUN apk add --no-cache \
     icu-dev \
     oniguruma-dev
 
-# Installer Node.js 20
-RUN apk add --no-cache nodejs=20.18.0-r0 npm=10.8.2-r0
+# Installer Node.js 22 (dernière version disponible dans Alpine 3.22)
+RUN apk add --no-cache nodejs npm
 
 # Installer les extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
