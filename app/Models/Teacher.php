@@ -126,4 +126,79 @@ class Teacher extends Model
     {
         return $this->hasMany(TimeBlock::class);
     }
+
+    /**
+     * Get the teacher's contracts
+     */
+    public function contracts()
+    {
+        return $this->hasMany(TeacherContract::class);
+    }
+
+    /**
+     * Get active contracts for this teacher
+     */
+    public function activeContracts()
+    {
+        return $this->contracts()->where('is_active', true);
+    }
+
+    /**
+     * Get course assignments for this teacher
+     */
+    public function courseAssignments()
+    {
+        return $this->hasMany(CourseAssignment::class);
+    }
+
+    /**
+     * Get active course assignments for this teacher
+     */
+    public function activeCourseAssignments()
+    {
+        return $this->courseAssignments()->whereIn('status', ['assigned', 'confirmed']);
+    }
+
+    /**
+     * Get teacher's contract for a specific club
+     */
+    public function getContractForClub($clubId)
+    {
+        return $this->contracts()
+            ->where('club_id', $clubId)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Check if teacher can teach at a specific time and date
+     */
+    public function canTeachAt($clubId, $dayOfWeek, $startTime, $endTime, $date = null)
+    {
+        $contract = $this->getContractForClub($clubId);
+        
+        if (!$contract) {
+            return false;
+        }
+
+        // Vérifier les contraintes du contrat
+        if (!$contract->canTeachOnDay($dayOfWeek)) {
+            return false;
+        }
+
+        if (!$contract->canTeachAtTime($startTime, $endTime)) {
+            return false;
+        }
+
+        if ($date && !$contract->isActiveForDate($date)) {
+            return false;
+        }
+
+        // Vérifier les heures max par semaine
+        if ($date && $contract->hasReachedMaxHoursForWeek($date)) {
+            return false;
+        }
+
+        return true;
+    }
 }
