@@ -35,10 +35,11 @@ docs/
 docker-compose*.yml
 Dockerfile*
 .dockerignore
+docker-data/
 
-# Scripts de développement
+# Scripts de développement (sauf ceux nécessaires pour Docker)
 *.sh
-!docker/start-workers.sh
+!docker/*.sh
 
 # Frontend (pour simplifier le build)
 frontend/
