@@ -190,10 +190,8 @@ jobs:
           docker rm activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
           
           # Create docker-compose.prod.yml file
-          cat > docker-compose.prod.yml << EOF
-          version: '3.8'
-          
-          services:
+cat > docker-compose.prod.yml << EOF
+services:
             app:
               image: ${IMAGE_NAME}:latest
               container_name: activibe-app
@@ -251,7 +249,7 @@ jobs:
                 - "7474:7474"
                 - "7687:7687"
               environment:
-                - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+                - NEO4J_AUTH=neo4j/Neo4jSecure2024!
                 - NEO4J_PLUGINS=["apoc"]
                 - NEO4J_dbms_security_procedures_unrestricted=apoc.*
                 - NEO4J_dbms_security_procedures_allowlist=apoc.*
@@ -320,7 +318,7 @@ jobs:
           NEO4J_HOST=neo4j
           NEO4J_PORT=7474
           NEO4J_USERNAME=neo4j
-          NEO4J_PASSWORD=neo4j_password_2024
+          NEO4J_PASSWORD=Neo4jSecure2024!
           NEO4J_BOLT_PORT=7687
           NEO4J_HTTP_PORT=7474
           NEO4J_HTTPS_PORT=7473
@@ -381,9 +379,21 @@ jobs:
           # Wait for containers to be ready
           sleep 30
           
-          # Run database migrations and seeders
+          # Vérifier la connexion à la base de données
+          echo "Vérification de la connexion à la base de données..."
+          docker exec activibe-app php artisan tinker --execute="DB::connection()->getPdo(); echo 'Connexion DB OK';"
+          
+          # Exécuter les migrations
+          echo "Exécution des migrations..."
           docker exec activibe-app php artisan migrate --force
+          
+          # Exécuter les seeders
+          echo "Exécution des seeders..."
           docker exec activibe-app php artisan db:seed --force
+          
+          # Redémarrer les workers après la configuration de la DB
+          echo "Redémarrage des workers..."
+          docker exec activibe-app supervisorctl restart laravel-worker:*
           
           # Clean up old images
           docker image prune -f
