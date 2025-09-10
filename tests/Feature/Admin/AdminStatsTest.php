@@ -19,15 +19,20 @@ class AdminStatsTest extends TestCase
 
         $response = $this->getJson('/api/admin/stats');
 
+
         $response->assertOk()
                  ->assertJsonStructure([
-                     'users',
-                     'teachers',
-                     'students',
-                     'clubs',
-                     'active_users',
-                     'lessons_today',
-                     'revenue_month',
+                     'stats' => [
+                         'users',
+                         'teachers',
+                         'students',
+                         'clubs',
+                         'active_users',
+                         'lessons_today',
+                         'revenue_month',
+                     ],
+                     'recentUsers',
+                     'recentActivities',
                  ]);
     }
 
@@ -41,12 +46,12 @@ class AdminStatsTest extends TestCase
 
         $response = $this->getJson('/api/admin/users');
 
+
         $response->assertOk()
-                 ->assertJsonFragment(['current_page' => 1])
+                 ->assertJsonFragment(['success' => true])
                  ->assertJsonStructure([
+                     'success',
                      'data',
-                     'links',
-                     'meta',
                  ]);
     }
 }

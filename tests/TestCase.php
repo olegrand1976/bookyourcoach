@@ -23,7 +23,14 @@ abstract class TestCase extends BaseTestCase
             'is_active' => true,
         ]);
 
-        Sanctum::actingAs($admin, ['*']);
+        // Créer un token Sanctum pour l'admin
+        $token = $admin->createToken('test-token')->plainTextToken;
+        
+        // Définir l'en-tête Authorization pour le middleware admin
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'Accept' => 'application/json',
+        ]);
 
         return $admin;
     }
