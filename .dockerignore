@@ -53,6 +53,7 @@ coverage/
 Dockerfile*
 docker-compose*.yml
 .dockerignore
+docker-data/
 
 # Scripts de déploiement
 deploy.sh
