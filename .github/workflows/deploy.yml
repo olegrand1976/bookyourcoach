@@ -205,6 +205,10 @@ jobs:
                 - DB_USERNAME=admin_bookyourcoach
                 - DB_PASSWORD=4rulO5w37hC9nZXEIHda
                 - DB_SSL_CA=/var/www/html/cert.pem
+                - NEO4J_HOST=neo4j
+                - NEO4J_PORT=7474
+                - NEO4J_USERNAME=neo4j
+                - NEO4J_PASSWORD=${NEO4J_PASSWORD}
                 - REDIS_HOST=redis
                 - REDIS_PORT=6379
                 - MAIL_MAILER=smtp
@@ -215,6 +219,7 @@ jobs:
                 - MAIL_ENCRYPTION=tls
               depends_on:
                 - redis
+                - neo4j
               networks:
                 - activibe-network
           
@@ -224,6 +229,33 @@ jobs:
               restart: unless-stopped
               volumes:
                 - redis_data:/data
+              networks:
+                - activibe-network
+          
+            neo4j:
+              image: neo4j:5.15-community
+              container_name: activibe-neo4j
+              restart: unless-stopped
+              ports:
+                - "7474:7474"
+                - "7687:7687"
+              environment:
+                - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+                - NEO4J_PLUGINS=["apoc"]
+                - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+                - NEO4J_dbms_security_procedures_allowlist=apoc.*
+                - NEO4J_dbms_memory_heap_initial__size=512m
+                - NEO4J_dbms_memory_heap_max__size=2G
+                - NEO4J_dbms_memory_pagecache_size=1G
+                - NEO4J_dbms_default__listen__address=0.0.0.0
+                - NEO4J_dbms_connector_bolt_listen__address=0.0.0.0:7687
+                - NEO4J_dbms_connector_http_listen__address=0.0.0.0:7474
+                - NEO4J_dbms_connector_https_listen__address=0.0.0.0:7473
+              volumes:
+                - neo4j_data:/data
+                - neo4j_logs:/logs
+                - neo4j_import:/var/lib/neo4j/import
+                - neo4j_plugins:/plugins
               networks:
                 - activibe-network
           
@@ -244,6 +276,10 @@ jobs:
           
           volumes:
             redis_data:
+            neo4j_data:
+            neo4j_logs:
+            neo4j_import:
+            neo4j_plugins:
           
           networks:
             activibe-network:
@@ -269,6 +305,14 @@ jobs:
           DB_USERNAME=admin_bookyourcoach
           DB_PASSWORD=4rulO5w37hC9nZXEIHda
           DB_SSL_CA=/var/www/html/cert.pem
+          
+          NEO4J_HOST=neo4j
+          NEO4J_PORT=7474
+          NEO4J_USERNAME=neo4j
+          NEO4J_PASSWORD=neo4j_password_2024
+          NEO4J_BOLT_PORT=7687
+          NEO4J_HTTP_PORT=7474
+          NEO4J_HTTPS_PORT=7473
           
           BROADCAST_DRIVER=log
           CACHE_DRIVER=redis
