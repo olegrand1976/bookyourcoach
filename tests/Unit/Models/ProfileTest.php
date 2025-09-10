@@ -6,12 +6,14 @@ use App\Models\Profile;
 use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ProfileTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_created_with_required_fields()
     {
         $user = User::factory()->create();
@@ -30,7 +32,7 @@ class ProfileTest extends TestCase
         $this->assertEquals($user->id, $profile->user_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_user_relationship()
     {
         $profile = Profile::factory()->create();
@@ -39,7 +41,7 @@ class ProfileTest extends TestCase
         $this->assertInstanceOf(User::class, $profile->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_date_of_birth_as_date()
     {
         $profile = Profile::factory()->create([
@@ -50,7 +52,7 @@ class ProfileTest extends TestCase
         $this->assertEquals('1990-05-15', $profile->date_of_birth->format('Y-m-d'));
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_preferences_as_array()
     {
         $preferences = [
@@ -67,7 +69,7 @@ class ProfileTest extends TestCase
         $this->assertEquals($preferences, $profile->preferences);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_full_name_accessor()
     {
         $profile = Profile::factory()->create([
@@ -79,7 +81,7 @@ class ProfileTest extends TestCase
         $this->assertEquals('Jean Dupont', $profile->full_name);
     }
 
-    /** @test */
+    #[Test]
     public function it_trims_whitespace_in_full_name()
     {
         $profile = Profile::factory()->create([
@@ -90,7 +92,7 @@ class ProfileTest extends TestCase
         $this->assertEquals('Jean Dupont', $profile->full_name);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_empty_names_in_full_name()
     {
         $profile = Profile::factory()->create([
@@ -108,7 +110,7 @@ class ProfileTest extends TestCase
         $this->assertEquals('Jean', $profile->full_name);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_fillable_attributes()
     {
         $fillable = [
@@ -134,7 +136,7 @@ class ProfileTest extends TestCase
         $this->assertEquals($fillable, $profile->getFillable());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_store_optional_fields()
     {
         $user = User::factory()->create();
@@ -167,7 +169,7 @@ class ProfileTest extends TestCase
         $this->assertEquals('Passionné d\'équitation depuis 10 ans', $profile->bio);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_user()
     {
         $user = User::factory()->create();

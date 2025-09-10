@@ -26,7 +26,7 @@ class ClubCustomSpecialty extends Model
     protected $casts = [
         'skill_levels' => 'array',
         'equipment_required' => 'array',
-        'base_price' => 'decimal:2',
+        'base_price' => 'float',
         'duration_minutes' => 'integer',
         'min_participants' => 'integer',
         'max_participants' => 'integer',

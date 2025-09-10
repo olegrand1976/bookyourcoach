@@ -7,6 +7,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class FileUploadControllerTest extends TestCase
 {
@@ -18,7 +20,7 @@ class FileUploadControllerTest extends TestCase
         Storage::fake('public');
     }
 
-    /** @test */
+    #[Test]
     public function it_can_upload_avatar_when_authenticated()
     {
         $user = User::factory()->create();
@@ -40,7 +42,7 @@ class FileUploadControllerTest extends TestCase
         $this->assertTrue(Storage::disk('public')->exists($response->json('path')));
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_avatar_file_type()
     {
         $user = User::factory()->create();
@@ -55,7 +57,7 @@ class FileUploadControllerTest extends TestCase
             ->assertJsonValidationErrors(['avatar']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_upload_certificate_when_authenticated()
     {
         $user = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -79,7 +81,7 @@ class FileUploadControllerTest extends TestCase
         $this->assertTrue(Storage::disk('public')->exists($response->json('path')));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_upload_logo_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -101,7 +103,7 @@ class FileUploadControllerTest extends TestCase
         $this->assertTrue(Storage::disk('public')->exists($response->json('path')));
     }
 
-    /** @test */
+    #[Test]
     public function it_cannot_upload_logo_as_non_admin()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -115,7 +117,7 @@ class FileUploadControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_for_file_upload()
     {
         $file = UploadedFile::fake()->image('avatar.jpg');
@@ -127,7 +129,7 @@ class FileUploadControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_file_when_authenticated()
     {
         $user = User::factory()->create();

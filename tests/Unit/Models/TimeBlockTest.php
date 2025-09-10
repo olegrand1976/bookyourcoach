@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\TimeBlock;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class TimeBlockTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $timeBlock = new TimeBlock();
@@ -18,7 +20,7 @@ class TimeBlockTest extends TestCase
         $this->assertInstanceOf(TimeBlock::class, $timeBlock);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $timeBlock = new TimeBlock();
@@ -26,7 +28,7 @@ class TimeBlockTest extends TestCase
         $this->assertEquals('time_blocks', $timeBlock->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $timeBlock = new TimeBlock();

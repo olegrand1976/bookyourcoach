@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubFrontendTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_access_club_dashboard_page()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -30,7 +32,7 @@ class ClubFrontendTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_access_club_profile_page()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -48,7 +50,7 @@ class ClubFrontendTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_redirects_unauthenticated_user_from_club_pages()
     {
         $response = $this->get('/club/dashboard');
@@ -58,7 +60,7 @@ class ClubFrontendTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    /** @test */
+    #[Test]
     public function it_redirects_non_club_user_from_club_pages()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -74,7 +76,7 @@ class ClubFrontendTest extends TestCase
         $response->assertRedirect('/dashboard');
     }
 
-    /** @test */
+    #[Test]
     public function it_redirects_club_user_without_club_association()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -91,7 +93,7 @@ class ClubFrontendTest extends TestCase
         $response->assertRedirect('/dashboard');
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_admin_user_to_access_club_pages()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -114,7 +116,7 @@ class ClubFrontendTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_displays_club_dashboard_with_correct_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -163,7 +165,7 @@ class ClubFrontendTest extends TestCase
         $response->assertSee('100.00');
     }
 
-    /** @test */
+    #[Test]
     public function it_displays_club_profile_with_correct_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -197,7 +199,7 @@ class ClubFrontendTest extends TestCase
         $response->assertSee('100.00');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_dashboard_api_calls()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -241,7 +243,7 @@ class ClubFrontendTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_club_profile_update_from_frontend()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -284,7 +286,7 @@ class ClubFrontendTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_adding_teachers_from_frontend()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -316,7 +318,7 @@ class ClubFrontendTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_adding_students_from_frontend()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -348,7 +350,7 @@ class ClubFrontendTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_frontend_validation_errors()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -391,7 +393,7 @@ class ClubFrontendTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_frontend_error_messages()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

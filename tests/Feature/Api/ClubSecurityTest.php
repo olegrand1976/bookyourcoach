@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_prevents_sql_injection_in_club_queries()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -36,7 +38,7 @@ class ClubSecurityTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $clubUser->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_xss_attacks_in_club_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -73,7 +75,7 @@ class ClubSecurityTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_csrf_attacks()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -95,7 +97,7 @@ class ClubSecurityTest extends TestCase
         $response->assertStatus(200); // Les API JSON n'utilisent pas CSRF par défaut
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_unauthorized_access_to_club_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -123,7 +125,7 @@ class ClubSecurityTest extends TestCase
         $response->assertStatus(200); // L'API retourne les données du club de l'utilisateur connecté
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_privilege_escalation()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -150,7 +152,7 @@ class ClubSecurityTest extends TestCase
         $response->assertStatus(200); // L'API permet la modification car le middleware vérifie l'association au club
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_mass_assignment_vulnerabilities()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -188,7 +190,7 @@ class ClubSecurityTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_directory_traversal_attacks()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -223,7 +225,7 @@ class ClubSecurityTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_brute_force_attacks()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -248,7 +250,7 @@ class ClubSecurityTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_information_disclosure()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -280,7 +282,7 @@ class ClubSecurityTest extends TestCase
         $this->assertArrayHasKey('recentStudents', $data);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_session_fixation()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -302,7 +304,7 @@ class ClubSecurityTest extends TestCase
         $this->assertTrue($response->headers->has('Set-Cookie'));
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_timing_attacks()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -329,7 +331,7 @@ class ClubSecurityTest extends TestCase
         $this->assertLessThan(2.0, $executionTime, 'Response time should be consistent');
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_http_parameter_pollution()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

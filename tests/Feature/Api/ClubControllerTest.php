@@ -9,12 +9,14 @@ use App\Models\Student;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_get_club_dashboard_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -80,7 +82,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_club_teachers()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -119,7 +121,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_club_students()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -158,7 +160,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_add_teacher_to_club()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -190,7 +192,7 @@ class ClubControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_add_student_to_club()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -222,7 +224,7 @@ class ClubControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_club_profile()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -265,7 +267,7 @@ class ClubControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_teacher_email_when_adding()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -286,7 +288,7 @@ class ClubControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_student_email_when_adding()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -307,7 +309,7 @@ class ClubControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_club_profile_update_data()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -331,7 +333,7 @@ class ClubControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'max_students', 'subscription_price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_access_dashboard()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -342,7 +344,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_access_teachers()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -353,7 +355,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_access_students()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -364,7 +366,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_add_teacher()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -377,7 +379,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_add_student()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -390,7 +392,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_club_role_to_update_profile()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -403,7 +405,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_for_all_club_routes()
     {
         $response = $this->getJson('/api/club/dashboard');
@@ -425,7 +427,7 @@ class ClubControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_nonexistent_teacher_email()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -449,7 +451,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_nonexistent_student_email()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -473,7 +475,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_teacher_already_in_club()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -505,7 +507,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_student_already_in_club()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -537,7 +539,7 @@ class ClubControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_user_not_associated_with_club()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

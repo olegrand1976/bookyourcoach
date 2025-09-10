@@ -6,12 +6,14 @@ use App\Models\User;
 use App\Models\Profile;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ProfileControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_get_profiles_list_when_authenticated()
     {
         $user = User::factory()->create();
@@ -40,7 +42,7 @@ class ProfileControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_profile()
     {
         $user = User::factory()->create();
@@ -86,7 +88,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields_when_creating_profile()
     {
         $user = User::factory()->create();
@@ -100,7 +102,7 @@ class ProfileControllerTest extends TestCase
             ->assertJsonValidationErrors(['first_name', 'last_name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_a_specific_profile()
     {
         $user = User::factory()->create();
@@ -135,7 +137,7 @@ class ProfileControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_profile()
     {
         $user = User::factory()->create();
@@ -179,7 +181,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_profile()
     {
         $user = User::factory()->create();
@@ -203,7 +205,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_to_access_profiles()
     {
         $response = $this->getJson('/api/profiles');

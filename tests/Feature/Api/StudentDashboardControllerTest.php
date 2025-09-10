@@ -9,14 +9,14 @@ use App\Models\Teacher;
 use App\Models\Lesson;
 use App\Models\Booking;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class StudentDashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_student_dashboard_stats()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -37,9 +37,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_available_lessons()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -75,9 +73,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_available_teachers()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -105,9 +101,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_student_bookings()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -146,9 +140,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_create_booking()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -186,9 +178,7 @@ class StudentDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_cancel_booking()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -215,9 +205,7 @@ class StudentDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_rate_lesson()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -250,9 +238,7 @@ class StudentDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_favorite_teachers()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -284,9 +270,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_toggle_favorite_teacher()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -325,9 +309,7 @@ class StudentDashboardControllerTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_get_lesson_history()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -369,9 +351,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_validates_booking_data()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -389,9 +369,7 @@ class StudentDashboardControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_requires_student_role_to_access_dashboard()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);

@@ -7,12 +7,14 @@ use App\Models\Payment;
 use App\Models\Lesson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AdminDashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_get_dashboard_stats_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -33,7 +35,7 @@ class AdminDashboardControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_cannot_access_dashboard_as_non_admin()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -44,7 +46,7 @@ class AdminDashboardControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_for_dashboard()
     {
         $response = $this->getJson('/api/admin/dashboard');
@@ -52,7 +54,7 @@ class AdminDashboardControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_users_list_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -77,7 +79,7 @@ class AdminDashboardControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_user_status_as_admin()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -100,7 +102,7 @@ class AdminDashboardControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_cannot_update_user_status_as_non_admin()
     {
         $user = User::factory()->create(['role' => User::ROLE_STUDENT]);

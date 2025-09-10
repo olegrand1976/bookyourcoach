@@ -9,6 +9,8 @@ use App\Models\Student;
 use App\Models\CourseType;
 use App\Models\Location;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class LessonTest extends TestCase
 {
@@ -36,35 +38,35 @@ class LessonTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_teacher()
     {
         $this->assertInstanceOf(Teacher::class, $this->lesson->teacher);
         $this->assertEquals($this->teacher->id, $this->lesson->teacher->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_student()
     {
         $this->assertInstanceOf(Student::class, $this->lesson->student);
         $this->assertEquals($this->student->id, $this->lesson->student->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_course_type()
     {
         $this->assertInstanceOf(CourseType::class, $this->lesson->courseType);
         $this->assertEquals($this->courseType->id, $this->lesson->courseType->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_location()
     {
         $this->assertInstanceOf(Location::class, $this->lesson->location);
         $this->assertEquals($this->location->id, $this->lesson->location->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_multiple_students()
     {
         $student2 = Student::factory()->create();
@@ -80,7 +82,7 @@ class LessonTest extends TestCase
         $this->assertTrue($this->lesson->students->contains($student3));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_created_with_fillable_attributes()
     {
         $data = [
@@ -102,7 +104,7 @@ class LessonTest extends TestCase
         $this->assertEquals('confirmed', $lesson->status);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_nullable_notes()
     {
         $lesson = Lesson::factory()->create(['notes' => null]);
@@ -110,7 +112,7 @@ class LessonTest extends TestCase
         $this->assertNull($lesson->notes);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_filtered_by_status()
     {
         Lesson::factory()->create(['status' => 'completed']);
@@ -123,23 +125,33 @@ class LessonTest extends TestCase
         $this->assertCount(1, $completedLessons);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_filtered_by_date_range()
     {
+        // Nettoyer les leçons existantes pour ce test
+        Lesson::query()->delete();
+        
         $today = now()->startOfDay();
         $tomorrow = now()->addDay()->startOfDay();
-        $nextWeek = now()->addWeek()->startOfDay();
+        $nextMonth = now()->addMonth()->startOfDay();
         
         Lesson::factory()->create(['start_time' => $today]);
         Lesson::factory()->create(['start_time' => $tomorrow]);
-        Lesson::factory()->create(['start_time' => $nextWeek]);
+        Lesson::factory()->create(['start_time' => $nextMonth]);
         
-        $thisWeekLessons = Lesson::inDateRange($today, $tomorrow->addDay())->get();
+        // Filtrer de aujourd'hui à demain (inclus) - devrait inclure 2 leçons
+        $thisWeekLessons = Lesson::inDateRange($today, $tomorrow)->get();
         
         $this->assertCount(2, $thisWeekLessons);
+        $this->assertTrue($thisWeekLessons->contains(function($lesson) use ($today) {
+            return $lesson->start_time->format('Y-m-d') === $today->format('Y-m-d');
+        }));
+        $this->assertTrue($thisWeekLessons->contains(function($lesson) use ($tomorrow) {
+            return $lesson->start_time->format('Y-m-d') === $tomorrow->format('Y-m-d');
+        }));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_formatted_duration()
     {
         $lesson1 = Lesson::factory()->create(['start_time' => now(), 'end_time' => now()->addMinutes(90)]);
@@ -156,7 +168,7 @@ class LessonTest extends TestCase
         $this->assertEquals(45, $duration3);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_student_count()
     {
         $student2 = Student::factory()->create();
@@ -170,23 +182,41 @@ class LessonTest extends TestCase
         $this->assertEquals(2, $this->lesson->students->count());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_determine_if_group_lesson()
     {
         $student2 = Student::factory()->create();
         
+        // Créer une leçon sans student_id pour utiliser uniquement la relation students()
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $this->teacher->id,
+            'student_id' => null, // Pas de student_id pour utiliser uniquement la relation students()
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => now()->addHour(),
+            'end_time' => now()->addHours(2),
+            'price' => 50.00,
+            'status' => 'pending'
+        ]);
+        
+        // Attacher le premier étudiant
+        $lesson->students()->attach([
+            $this->student->id => ['status' => 'pending', 'price' => 50.00]
+        ]);
+        
         // Leçon individuelle
-        $this->assertFalse($this->lesson->students->count() > 1);
+        $this->assertFalse($lesson->students->count() > 1);
         
         // Leçon de groupe
-        $this->lesson->students()->attach([
+        $lesson->students()->attach([
             $student2->id => ['status' => 'pending', 'price' => 50.00]
         ]);
         
-        $this->assertTrue($this->lesson->students->count() > 1);
+        $lesson->refresh();
+        $this->assertTrue($lesson->students->count() > 1);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_total_price()
     {
         $student2 = Student::factory()->create();
@@ -200,7 +230,7 @@ class LessonTest extends TestCase
         $this->assertEquals($totalPrice, $this->lesson->price + 60.00);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_deleted_with_cascade()
     {
         $lessonId = $this->lesson->id;
@@ -221,7 +251,7 @@ class LessonTest extends TestCase
         $this->assertDatabaseMissing('lesson_student', ['lesson_id' => $lessonId]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_different_statuses()
     {
         $statuses = ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'];
@@ -232,7 +262,7 @@ class LessonTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_payment_status()
     {
         $lesson = Lesson::factory()->create(['payment_status' => 'paid']);

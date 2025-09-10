@@ -9,6 +9,8 @@ use App\Models\Club;
 use App\Models\Discipline;
 use App\Models\StudentMedicalDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class StudentTest extends TestCase
 {
@@ -22,26 +24,35 @@ class StudentTest extends TestCase
         $this->club = Club::factory()->create();
         $this->user = User::factory()->create(['role' => 'student']);
         $this->student = Student::factory()->create([
-            'user_id' => $this->user->id,
-            'club_id' => $this->club->id
+            'user_id' => $this->user->id
+        ]);
+        
+        // Associer le student au club via la table pivot
+        $this->student->clubs()->attach($this->club->id, [
+            'level' => 'debutant',
+            'goals' => 'Test goals',
+            'medical_info' => 'Test medical info',
+            'preferred_disciplines' => json_encode(['dressage']),
+            'is_active' => true,
+            'joined_at' => now()
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_user()
     {
         $this->assertInstanceOf(User::class, $this->student->user);
         $this->assertEquals($this->user->id, $this->student->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_belongs_to_a_club()
     {
-        $this->assertInstanceOf(Club::class, $this->student->club);
-        $this->assertEquals($this->club->id, $this->student->club->id);
+        $this->assertTrue($this->student->clubs->contains($this->club));
+        $this->assertEquals($this->club->id, $this->student->clubs->first()->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_multiple_disciplines()
     {
         $discipline1 = Discipline::factory()->create();
@@ -54,7 +65,7 @@ class StudentTest extends TestCase
         $this->assertTrue($this->student->disciplines->contains($discipline2));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_multiple_medical_documents()
     {
         $document1 = StudentMedicalDocument::factory()->create([
@@ -72,7 +83,7 @@ class StudentTest extends TestCase
         $this->assertTrue($this->student->medicalDocuments->contains($document2));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_created_with_fillable_attributes()
     {
         $data = [
@@ -90,7 +101,7 @@ class StudentTest extends TestCase
         $this->assertEquals('Apprendre le dressage', $student->goals);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_nullable_level()
     {
         $student = Student::factory()->create(['level' => null]);
@@ -98,7 +109,7 @@ class StudentTest extends TestCase
         $this->assertNull($student->level);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_nullable_goals()
     {
         $student = Student::factory()->create(['goals' => null]);
@@ -106,7 +117,7 @@ class StudentTest extends TestCase
         $this->assertNull($student->goals);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_have_nullable_medical_info()
     {
         $student = Student::factory()->create(['medical_info' => null]);
@@ -114,7 +125,7 @@ class StudentTest extends TestCase
         $this->assertNull($student->medical_info);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_associated_with_club_via_pivot_table()
     {
         $club = Club::factory()->create();
@@ -135,7 +146,7 @@ class StudentTest extends TestCase
         $this->assertEquals('student', $club->users->first()->pivot->role);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_deleted_with_cascade()
     {
         $studentId = $this->student->id;
@@ -153,7 +164,7 @@ class StudentTest extends TestCase
         $this->assertDatabaseMissing('student_medical_documents', ['student_id' => $studentId]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_soft_deleted_if_configured()
     {
         // Note: Ce test vérifie la possibilité de soft delete si elle est implémentée

@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Models\Club;
 use App\Models\Teacher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class TeacherApiTest extends TestCase
 {
@@ -30,7 +32,7 @@ class TeacherApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_teacher_via_api()
     {
         $teacherData = [
@@ -78,7 +80,7 @@ class TeacherApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields()
     {
         $response = $this->postJson('/api/club/teachers-test', []);
@@ -87,7 +89,7 @@ class TeacherApiTest extends TestCase
                 ->assertJsonValidationErrors(['name', 'email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_email_uniqueness()
     {
         User::factory()->create(['email' => 'existing@example.com']);
@@ -103,7 +105,7 @@ class TeacherApiTest extends TestCase
                 ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_teacher_with_optional_fields()
     {
         $teacherData = [
@@ -128,7 +130,7 @@ class TeacherApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_teacher_with_default_values()
     {
         $teacherData = [
@@ -149,7 +151,7 @@ class TeacherApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_associates_teacher_with_club()
     {
         $teacherData = [
@@ -169,7 +171,7 @@ class TeacherApiTest extends TestCase
         $this->assertTrue($this->club->users->contains($teacher->user));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_list_teachers()
     {
         // Créer quelques enseignants
@@ -196,7 +198,7 @@ class TeacherApiTest extends TestCase
         $this->assertCount(2, $response->json('data.recentTeachers'));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_user_not_found()
     {
         // Supprimer l'utilisateur club
@@ -213,7 +215,7 @@ class TeacherApiTest extends TestCase
                 ->assertJson(['error' => 'User not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_club_not_found()
     {
         // Supprimer le club
@@ -230,7 +232,7 @@ class TeacherApiTest extends TestCase
                 ->assertJson(['error' => 'Club not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_database_errors_gracefully()
     {
         // Mock une erreur de base de données
@@ -253,7 +255,7 @@ class TeacherApiTest extends TestCase
                 ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_teacher_with_specializations_array()
     {
         $teacherData = [
@@ -270,7 +272,7 @@ class TeacherApiTest extends TestCase
         $this->assertEquals(['dressage', 'obstacle', 'cross'], $teacher->specializations);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_teacher_with_numeric_values()
     {
         $teacherData = [

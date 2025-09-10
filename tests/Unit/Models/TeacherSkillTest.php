@@ -8,11 +8,14 @@ use App\Models\Skill;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class TeacherSkillTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_teacher_skill()
     {
         $teacher = Teacher::factory()->create();
@@ -42,6 +45,7 @@ class TeacherSkillTest extends TestCase
         $this->assertTrue($teacherSkill->is_active);
     }
 
+    #[Test]
     public function test_belongs_to_teacher()
     {
         $teacher = Teacher::factory()->create();
@@ -53,6 +57,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals($teacher->id, $teacherSkill->teacher->id);
     }
 
+    #[Test]
     public function test_belongs_to_skill()
     {
         $skill = Skill::factory()->create();
@@ -64,6 +69,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals($skill->id, $teacherSkill->skill->id);
     }
 
+    #[Test]
     public function test_belongs_to_verified_by_user()
     {
         $user = User::factory()->create();
@@ -75,6 +81,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals($user->id, $teacherSkill->verifiedBy->id);
     }
 
+    #[Test]
     public function test_scope_active()
     {
         TeacherSkill::factory()->create(['is_active' => true]);
@@ -86,6 +93,7 @@ class TeacherSkillTest extends TestCase
         $this->assertTrue($activeSkills->first()->is_active);
     }
 
+    #[Test]
     public function test_scope_verified()
     {
         TeacherSkill::factory()->create(['is_verified' => true]);
@@ -97,6 +105,7 @@ class TeacherSkillTest extends TestCase
         $this->assertTrue($verifiedSkills->first()->is_verified);
     }
 
+    #[Test]
     public function test_scope_by_level()
     {
         TeacherSkill::factory()->create(['level' => 'beginner']);
@@ -108,6 +117,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals('beginner', $beginnerSkills->first()->level);
     }
 
+    #[Test]
     public function test_evidence_casting()
     {
         $evidence = ['certificate1', 'video1', 'testimonial1'];
@@ -123,6 +133,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals($evidence, $teacherSkill->evidence);
     }
 
+    #[Test]
     public function test_get_evidence_attribute_with_null()
     {
         $teacherSkill = TeacherSkill::create([
@@ -136,6 +147,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals([], $teacherSkill->getEvidenceAttribute(null));
     }
 
+    #[Test]
     public function test_is_recently_practiced_returns_true_for_recent_practice()
     {
         $teacherSkill = TeacherSkill::create([
@@ -149,6 +161,7 @@ class TeacherSkillTest extends TestCase
         $this->assertTrue($teacherSkill->isRecentlyPracticed());
     }
 
+    #[Test]
     public function test_is_recently_practiced_returns_false_for_old_practice()
     {
         $teacherSkill = TeacherSkill::create([
@@ -162,6 +175,7 @@ class TeacherSkillTest extends TestCase
         $this->assertFalse($teacherSkill->isRecentlyPracticed());
     }
 
+    #[Test]
     public function test_is_recently_practiced_returns_false_for_no_practice()
     {
         $teacherSkill = TeacherSkill::create([
@@ -175,6 +189,7 @@ class TeacherSkillTest extends TestCase
         $this->assertFalse($teacherSkill->isRecentlyPracticed());
     }
 
+    #[Test]
     public function test_get_experience_level_returns_expert_for_10_years()
     {
         $teacherSkill = TeacherSkill::create([
@@ -188,6 +203,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals('expert', $teacherSkill->getExperienceLevel());
     }
 
+    #[Test]
     public function test_get_experience_level_returns_advanced_for_5_years()
     {
         $teacherSkill = TeacherSkill::create([
@@ -201,6 +217,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals('advanced', $teacherSkill->getExperienceLevel());
     }
 
+    #[Test]
     public function test_get_experience_level_returns_intermediate_for_2_years()
     {
         $teacherSkill = TeacherSkill::create([
@@ -214,6 +231,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals('intermediate', $teacherSkill->getExperienceLevel());
     }
 
+    #[Test]
     public function test_get_experience_level_returns_beginner_for_less_than_2_years()
     {
         $teacherSkill = TeacherSkill::create([
@@ -227,6 +245,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals('beginner', $teacherSkill->getExperienceLevel());
     }
 
+    #[Test]
     public function test_date_casting()
     {
         $acquiredDate = now()->subYears(5);
@@ -248,6 +267,7 @@ class TeacherSkillTest extends TestCase
         $this->assertInstanceOf(\Carbon\Carbon::class, $teacherSkill->verified_at);
     }
 
+    #[Test]
     public function test_boolean_casting()
     {
         $teacherSkill = TeacherSkill::create([
@@ -264,6 +284,7 @@ class TeacherSkillTest extends TestCase
         $this->assertFalse($teacherSkill->is_active);
     }
 
+    #[Test]
     public function test_experience_years_casting()
     {
         $teacherSkill = TeacherSkill::create([
@@ -278,6 +299,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals(7, $teacherSkill->experience_years);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $teacherSkill = new TeacherSkill();
@@ -301,6 +323,7 @@ class TeacherSkillTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $teacherSkill = new TeacherSkill();

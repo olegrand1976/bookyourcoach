@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubMaintenanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_handles_database_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -31,7 +33,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_application_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -50,7 +52,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_server_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -69,7 +71,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_network_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -88,7 +90,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_security_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -107,7 +109,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_performance_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -126,7 +128,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_capacity_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -145,7 +147,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_availability_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -164,7 +166,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_reliability_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -183,7 +185,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_scalability_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -202,7 +204,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_monitoring_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -221,7 +223,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_alerting_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -240,7 +242,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_logging_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -259,7 +261,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_backup_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -278,7 +280,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_recovery_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -297,7 +299,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_disaster_recovery_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -316,7 +318,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_business_continuity_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -335,7 +337,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_compliance_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -354,7 +356,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_governance_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -373,7 +375,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_risk_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -392,7 +394,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_quality_assurance_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -411,7 +413,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_testing_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -430,7 +432,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_deployment_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -449,7 +451,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_configuration_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -468,7 +470,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_documentation_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -487,7 +489,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_training_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -506,7 +508,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_support_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -525,7 +527,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_incident_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -544,7 +546,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_change_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -563,7 +565,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_release_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -582,7 +584,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_problem_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -601,7 +603,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_service_level_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -620,7 +622,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_capacity_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -639,7 +641,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_availability_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -658,7 +660,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_continuity_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -677,7 +679,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_financial_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -696,7 +698,7 @@ class ClubMaintenanceTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_supplier_management_maintenance()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

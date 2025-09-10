@@ -11,6 +11,8 @@ use App\Models\CourseType;
 use App\Models\Location;
 use App\Models\Lesson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class LessonApiTest extends TestCase
 {
@@ -39,7 +41,7 @@ class LessonApiTest extends TestCase
         $this->location = Location::factory()->create();
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_lesson_via_api()
     {
         $lessonData = [
@@ -78,7 +80,7 @@ class LessonApiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields()
     {
         $response = $this->postJson('/api/club/lessons-test', []);
@@ -87,7 +89,7 @@ class LessonApiTest extends TestCase
                 ->assertJsonValidationErrors(['teacher_id', 'student_id', 'start_time', 'duration', 'price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_teacher_exists()
     {
         $lessonData = [
@@ -104,7 +106,7 @@ class LessonApiTest extends TestCase
                 ->assertJsonValidationErrors(['teacher_id']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_student_exists()
     {
         $lessonData = [
@@ -121,7 +123,7 @@ class LessonApiTest extends TestCase
                 ->assertJsonValidationErrors(['student_id']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_duration_minimum()
     {
         $lessonData = [
@@ -138,7 +140,7 @@ class LessonApiTest extends TestCase
                 ->assertJsonValidationErrors(['duration']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_price_minimum()
     {
         $lessonData = [
@@ -155,7 +157,7 @@ class LessonApiTest extends TestCase
                 ->assertJsonValidationErrors(['price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_end_time_correctly()
     {
         $startTime = now()->addDay()->setTime(14, 0, 0);
@@ -179,7 +181,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals($expectedEndTime->format('Y-m-d H:i:s'), $lesson->end_time->format('Y-m-d H:i:s'));
     }
 
-    /** @test */
+    #[Test]
     public function it_associates_student_with_lesson()
     {
         $lessonData = [
@@ -205,7 +207,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals(50.00, $pivotData->price);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_default_course_type_and_location()
     {
         $lessonData = [
@@ -227,7 +229,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals(1, $lesson->location_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_lesson_with_custom_course_type_and_location()
     {
         $lessonData = [
@@ -250,7 +252,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals($this->location->id, $lesson->location_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_dashboard_statistics()
     {
         // Vérifier les statistiques initiales
@@ -276,7 +278,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals($initialStats['pending_lessons'] + 1, $updatedStats['pending_lessons']);
     }
 
-    /** @test */
+    #[Test]
     public function it_shows_new_lesson_in_recent_lessons()
     {
         $lessonData = [
@@ -299,7 +301,7 @@ class LessonApiTest extends TestCase
         $this->assertEquals('pending', $recentLessons[0]['status']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_user_not_found()
     {
         // Supprimer l'utilisateur club
@@ -319,7 +321,7 @@ class LessonApiTest extends TestCase
                 ->assertJson(['error' => 'User not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_error_when_club_not_found()
     {
         // Supprimer le club
@@ -339,7 +341,7 @@ class LessonApiTest extends TestCase
                 ->assertJson(['error' => 'Club not found']);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_database_errors_gracefully()
     {
         // Mock une erreur de base de données

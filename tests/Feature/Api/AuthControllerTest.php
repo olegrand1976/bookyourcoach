@@ -6,12 +6,14 @@ use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AuthControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_register_a_new_user()
     {
         $userData = [
@@ -42,7 +44,7 @@ class AuthControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields_on_registration()
     {
         $response = $this->postJson('/api/auth/register', []);
@@ -51,7 +53,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'email', 'password']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_unique_email_on_registration()
     {
         User::factory()->create(['email' => 'john@example.com']);
@@ -69,7 +71,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_password_confirmation()
     {
         $userData = [
@@ -85,7 +87,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_login_with_valid_credentials()
     {
         $user = User::factory()->create([
@@ -112,7 +114,7 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_login_with_invalid_credentials()
     {
         $user = User::factory()->create([
@@ -131,7 +133,7 @@ class AuthControllerTest extends TestCase
             ->assertJson(['message' => 'Invalid credentials']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields_on_login()
     {
         $response = $this->postJson('/api/auth/login', []);
@@ -140,7 +142,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors(['email', 'password']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_logout_authenticated_user()
     {
         $user = User::factory()->create();
@@ -154,7 +156,7 @@ class AuthControllerTest extends TestCase
             ->assertJson(['message' => 'Logout successful']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_authenticated_user()
     {
         $user = User::factory()->create();
@@ -180,7 +182,7 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_requires_authentication_for_protected_routes()
     {
         $response = $this->getJson('/api/auth/user');

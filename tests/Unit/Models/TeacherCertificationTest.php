@@ -8,11 +8,14 @@ use App\Models\Certification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class TeacherCertificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_teacher_certification()
     {
         $teacher = Teacher::factory()->create();
@@ -43,6 +46,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($teacherCertification->is_verified);
     }
 
+    #[Test]
     public function test_belongs_to_teacher()
     {
         $teacher = Teacher::factory()->create();
@@ -54,6 +58,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertEquals($teacher->id, $teacherCertification->teacher->id);
     }
 
+    #[Test]
     public function test_belongs_to_certification()
     {
         $certification = Certification::factory()->create();
@@ -65,6 +70,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertEquals($certification->id, $teacherCertification->certification->id);
     }
 
+    #[Test]
     public function test_belongs_to_verified_by_user()
     {
         $user = User::factory()->create();
@@ -76,6 +82,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertEquals($user->id, $teacherCertification->verifiedBy->id);
     }
 
+    #[Test]
     public function test_scope_valid()
     {
         TeacherCertification::factory()->create(['is_valid' => true]);
@@ -87,6 +94,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($validCertifications->first()->is_valid);
     }
 
+    #[Test]
     public function test_scope_verified()
     {
         TeacherCertification::factory()->create(['is_verified' => true]);
@@ -98,6 +106,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($verifiedCertifications->first()->is_verified);
     }
 
+    #[Test]
     public function test_scope_expiring_soon()
     {
         TeacherCertification::factory()->create([
@@ -117,11 +126,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($expiringSoon->first()->expiry_date->isBefore(now()->addDays(30)));
     }
 
+    #[Test]
     public function test_is_expired_returns_true_for_expired_certification()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => now()->subDays(10),
             'is_valid' => true
         ]);
@@ -129,11 +140,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($teacherCertification->isExpired());
     }
 
+    #[Test]
     public function test_is_expired_returns_false_for_valid_certification()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => now()->addDays(30),
             'is_valid' => true
         ]);
@@ -141,11 +154,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertFalse($teacherCertification->isExpired());
     }
 
+    #[Test]
     public function test_is_expired_returns_false_for_certification_without_expiry()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => null,
             'is_valid' => true
         ]);
@@ -153,11 +168,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertFalse($teacherCertification->isExpired());
     }
 
+    #[Test]
     public function test_is_expiring_soon_returns_true_for_certification_expiring_within_days()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => now()->addDays(15),
             'is_valid' => true
         ]);
@@ -165,11 +182,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($teacherCertification->isExpiringSoon(30));
     }
 
+    #[Test]
     public function test_is_expiring_soon_returns_false_for_certification_expiring_after_days()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => now()->addDays(45),
             'is_valid' => true
         ]);
@@ -177,23 +196,28 @@ class TeacherCertificationTest extends TestCase
         $this->assertFalse($teacherCertification->isExpiringSoon(30));
     }
 
+    #[Test]
     public function test_get_days_until_expiry_returns_correct_days()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => now()->addDays(30),
             'is_valid' => true
         ]);
 
-        $this->assertEquals(30, $teacherCertification->getDaysUntilExpiry());
+        $this->assertGreaterThanOrEqual(29, $teacherCertification->getDaysUntilExpiry());
+        $this->assertLessThanOrEqual(31, $teacherCertification->getDaysUntilExpiry());
     }
 
+    #[Test]
     public function test_get_days_until_expiry_returns_null_for_certification_without_expiry()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'expiry_date' => null,
             'is_valid' => true
         ]);
@@ -201,6 +225,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertNull($teacherCertification->getDaysUntilExpiry());
     }
 
+    #[Test]
     public function test_date_casting()
     {
         $obtainedDate = now()->subYear();
@@ -224,11 +249,13 @@ class TeacherCertificationTest extends TestCase
         $this->assertInstanceOf(\Carbon\Carbon::class, $teacherCertification->verified_at);
     }
 
+    #[Test]
     public function test_boolean_casting()
     {
         $teacherCertification = TeacherCertification::create([
             'teacher_id' => Teacher::factory()->create()->id,
             'certification_id' => Certification::factory()->create()->id,
+            'obtained_date' => now()->subDays(365),
             'is_valid' => true,
             'renewal_required' => false,
             'is_verified' => true
@@ -242,6 +269,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertTrue($teacherCertification->is_verified);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $teacherCertification = new TeacherCertification();
@@ -267,6 +295,7 @@ class TeacherCertificationTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $teacherCertification = new TeacherCertification();

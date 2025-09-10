@@ -7,11 +7,14 @@ use App\Models\Club;
 use App\Models\ActivityType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubCustomSpecialtyTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_club_custom_specialty()
     {
         $club = Club::factory()->create();
@@ -40,6 +43,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertTrue($specialty->is_active);
     }
 
+    #[Test]
     public function test_belongs_to_club()
     {
         $club = Club::factory()->create();
@@ -51,6 +55,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals($club->id, $specialty->club->id);
     }
 
+    #[Test]
     public function test_belongs_to_activity_type()
     {
         $activityType = ActivityType::factory()->create();
@@ -62,6 +67,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals($activityType->id, $specialty->activityType->id);
     }
 
+    #[Test]
     public function test_skill_levels_casting()
     {
         $skillLevels = ['beginner', 'intermediate', 'advanced'];
@@ -77,6 +83,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals($skillLevels, $specialty->skill_levels);
     }
 
+    #[Test]
     public function test_equipment_required_casting()
     {
         $equipment = ['helmet', 'boots', 'gloves'];
@@ -92,6 +99,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals($equipment, $specialty->equipment_required);
     }
 
+    #[Test]
     public function test_base_price_casting()
     {
         $specialty = ClubCustomSpecialty::create([
@@ -106,6 +114,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals(25.50, $specialty->base_price);
     }
 
+    #[Test]
     public function test_duration_minutes_casting()
     {
         $specialty = ClubCustomSpecialty::create([
@@ -120,6 +129,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals(90, $specialty->duration_minutes);
     }
 
+    #[Test]
     public function test_min_max_participants_casting()
     {
         $specialty = ClubCustomSpecialty::create([
@@ -137,6 +147,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals(10, $specialty->max_participants);
     }
 
+    #[Test]
     public function test_is_active_casting()
     {
         $specialty = ClubCustomSpecialty::create([
@@ -150,6 +161,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertTrue($specialty->is_active);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $specialty = new ClubCustomSpecialty();
@@ -172,6 +184,7 @@ class ClubCustomSpecialtyTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $specialty = new ClubCustomSpecialty();

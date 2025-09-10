@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\CourseType;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class CourseTypeTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $courseType = new CourseType();
@@ -18,7 +20,7 @@ class CourseTypeTest extends TestCase
         $this->assertInstanceOf(CourseType::class, $courseType);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $courseType = new CourseType();
@@ -26,7 +28,7 @@ class CourseTypeTest extends TestCase
         $this->assertEquals('course_types', $courseType->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $courseType = new CourseType();

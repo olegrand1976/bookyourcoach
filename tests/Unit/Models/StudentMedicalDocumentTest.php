@@ -6,11 +6,14 @@ use App\Models\StudentMedicalDocument;
 use App\Models\Student;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class StudentMedicalDocumentTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_student_medical_document()
     {
         $student = Student::factory()->create();
@@ -33,6 +36,7 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertTrue($document->is_active);
     }
 
+    #[Test]
     public function test_belongs_to_student()
     {
         $student = Student::factory()->create();
@@ -44,11 +48,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertEquals($student->id, $document->student->id);
     }
 
+    #[Test]
     public function test_is_expired_returns_true_for_expired_document()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => now()->subDays(10),
             'is_active' => true
         ]);
@@ -56,11 +63,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertTrue($document->isExpired());
     }
 
+    #[Test]
     public function test_is_expired_returns_false_for_valid_document()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => now()->addDays(30),
             'is_active' => true
         ]);
@@ -68,11 +78,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertFalse($document->isExpired());
     }
 
+    #[Test]
     public function test_is_expired_returns_false_for_document_without_expiry()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => null,
             'is_active' => true
         ]);
@@ -80,11 +93,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertFalse($document->isExpired());
     }
 
+    #[Test]
     public function test_expires_soon_returns_true_for_document_expiring_within_30_days()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => now()->addDays(15),
             'is_active' => true
         ]);
@@ -92,11 +108,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertTrue($document->expiresSoon());
     }
 
+    #[Test]
     public function test_expires_soon_returns_false_for_document_expiring_after_30_days()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => now()->addDays(45),
             'is_active' => true
         ]);
@@ -104,11 +123,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertFalse($document->expiresSoon());
     }
 
+    #[Test]
     public function test_expires_soon_returns_false_for_expired_document()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => now()->subDays(10),
             'is_active' => true
         ]);
@@ -116,11 +138,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertFalse($document->expiresSoon());
     }
 
+    #[Test]
     public function test_expires_soon_returns_false_for_document_without_expiry()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => null,
             'is_active' => true
         ]);
@@ -128,12 +153,15 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertFalse($document->expiresSoon());
     }
 
+    #[Test]
     public function test_expiry_date_casting()
     {
         $expiryDate = now()->addYear();
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'expiry_date' => $expiryDate,
             'is_active' => true
         ]);
@@ -142,11 +170,14 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertEquals($expiryDate->format('Y-m-d'), $document->expiry_date->format('Y-m-d'));
     }
 
+    #[Test]
     public function test_is_active_casting()
     {
         $document = StudentMedicalDocument::create([
             'student_id' => Student::factory()->create()->id,
             'document_type' => 'medical_certificate',
+            'file_path' => '/documents/medical_cert_123.pdf',
+            'file_name' => 'medical_cert_123.pdf',
             'is_active' => true
         ]);
 
@@ -154,6 +185,7 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertTrue($document->is_active);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $document = new StudentMedicalDocument();
@@ -173,6 +205,7 @@ class StudentMedicalDocumentTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $document = new StudentMedicalDocument();

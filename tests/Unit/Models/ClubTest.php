@@ -8,12 +8,14 @@ use App\Models\Teacher;
 use App\Models\Student;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_created_with_required_fields()
     {
         $clubData = [
@@ -40,7 +42,7 @@ class ClubTest extends TestCase
         $this->assertTrue($club->is_active);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_users_relationship()
     {
         $club = Club::factory()->create();
@@ -56,15 +58,17 @@ class ClubTest extends TestCase
         $this->assertTrue($club->users->contains($user));
     }
 
-    /** @test */
+    #[Test]
     public function it_has_teachers_relationship()
     {
         $club = Club::factory()->create();
-        $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
+        $teacher = Teacher::factory()->create();
 
-        $club->users()->attach($teacher->id, [
-            'role' => 'teacher',
-            'is_admin' => false,
+        $club->teachers()->attach($teacher->id, [
+            'allowed_disciplines' => json_encode([]),
+            'restricted_disciplines' => json_encode([]),
+            'hourly_rate' => 50.00,
+            'is_active' => true,
             'joined_at' => now()
         ]);
 
@@ -72,15 +76,18 @@ class ClubTest extends TestCase
         $this->assertTrue($club->teachers->contains($teacher));
     }
 
-    /** @test */
+    #[Test]
     public function it_has_students_relationship()
     {
         $club = Club::factory()->create();
-        $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
+        $student = Student::factory()->create();
 
-        $club->users()->attach($student->id, [
-            'role' => 'student',
-            'is_admin' => false,
+        $club->students()->attach($student->id, [
+            'level' => 'beginner',
+            'goals' => 'Learn basics',
+            'medical_info' => null,
+            'preferred_disciplines' => json_encode([]),
+            'is_active' => true,
             'joined_at' => now()
         ]);
 
@@ -88,7 +95,7 @@ class ClubTest extends TestCase
         $this->assertTrue($club->students->contains($student));
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_subscription_price_as_decimal()
     {
         $club = Club::factory()->create([
@@ -98,7 +105,7 @@ class ClubTest extends TestCase
         $this->assertEquals('150.50', $club->subscription_price);
     }
 
-    /** @test */
+    #[Test]
     public function it_casts_is_active_as_boolean()
     {
         $club = Club::factory()->create([
@@ -109,7 +116,7 @@ class ClubTest extends TestCase
         $this->assertTrue($club->is_active);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_fillable_attributes()
     {
         $fillable = [
@@ -128,13 +135,18 @@ class ClubTest extends TestCase
             'subscription_price',
             'is_active',
             'terms_and_conditions',
+            'activity_type_id',
+            'seasonal_variation',
+            'weather_dependency',
+            'qr_code',
+            'qr_code_generated_at',
         ];
 
         $club = new Club();
         $this->assertEquals($fillable, $club->getFillable());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_count_teachers()
     {
         $club = Club::factory()->create();
@@ -162,7 +174,7 @@ class ClubTest extends TestCase
         $this->assertEquals(2, $club->users()->wherePivot('role', 'teacher')->count());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_count_students()
     {
         $club = Club::factory()->create();
@@ -190,7 +202,7 @@ class ClubTest extends TestCase
         $this->assertEquals(2, $club->users()->wherePivot('role', 'student')->count());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_calculate_occupancy_rate()
     {
         $club = Club::factory()->create([
@@ -217,7 +229,7 @@ class ClubTest extends TestCase
         $this->assertEquals(2.0, $occupancyRate);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_recent_teachers()
     {
         $club = Club::factory()->create();
@@ -247,7 +259,7 @@ class ClubTest extends TestCase
         $this->assertTrue($recentTeachers->contains('id', $teacher2->id));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_get_recent_students()
     {
         $club = Club::factory()->create();
@@ -277,7 +289,7 @@ class ClubTest extends TestCase
         $this->assertTrue($recentStudents->contains('id', $student2->id));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_store_optional_fields()
     {
         $clubData = [

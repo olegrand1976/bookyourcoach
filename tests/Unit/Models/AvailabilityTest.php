@@ -5,12 +5,14 @@ namespace Tests\Unit\Models;
 use App\Models\Availability;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class AvailabilityTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $availability = new Availability();
@@ -18,7 +20,7 @@ class AvailabilityTest extends TestCase
         $this->assertInstanceOf(Availability::class, $availability);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_correct_table_name()
     {
         $availability = new Availability();
@@ -26,7 +28,7 @@ class AvailabilityTest extends TestCase
         $this->assertEquals('availabilities', $availability->getTable());
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_timestamps()
     {
         $availability = new Availability();

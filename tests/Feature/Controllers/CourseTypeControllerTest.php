@@ -7,12 +7,14 @@ use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class CourseTypeControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_can_list_course_types()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -38,7 +40,7 @@ class CourseTypeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_show_a_course_type()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -60,7 +62,7 @@ class CourseTypeControllerTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_a_course_type_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -88,7 +90,7 @@ class CourseTypeControllerTest extends TestCase
         $this->assertDatabaseHas('course_types', $courseTypeData);
     }
 
-    /** @test */
+    #[Test]
     public function it_cannot_create_a_course_type_as_teacher()
     {
         $user = User::factory()->create(['role' => 'teacher']);
@@ -106,7 +108,7 @@ class CourseTypeControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_update_a_course_type_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -137,7 +139,7 @@ class CourseTypeControllerTest extends TestCase
         $this->assertDatabaseHas('course_types', array_merge(['id' => $courseType->id], $updateData));
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_a_course_type_as_admin()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -152,7 +154,7 @@ class CourseTypeControllerTest extends TestCase
         $this->assertDatabaseMissing('course_types', ['id' => $courseType->id]);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_required_fields_when_creating()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -164,7 +166,7 @@ class CourseTypeControllerTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_price_format()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -179,7 +181,7 @@ class CourseTypeControllerTest extends TestCase
             ->assertJsonValidationErrors(['price']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_404_for_non_existent_course_type()
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -190,7 +192,7 @@ class CourseTypeControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function guest_cannot_access_course_types()
     {
         $response = $this->getJson('/api/course-types');

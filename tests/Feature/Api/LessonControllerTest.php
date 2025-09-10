@@ -6,14 +6,14 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Lesson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class LessonControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_list_lessons_when_authenticated()
     {
         $user = $this->actingAsAdmin();
@@ -40,9 +40,7 @@ class LessonControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_requires_authentication_to_access_lessons()
     {
         $response = $this->getJson('/api/lessons');
@@ -50,9 +48,7 @@ class LessonControllerTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_show_a_specific_lesson()
     {
         $user = $this->actingAsAdmin();
@@ -74,9 +70,7 @@ class LessonControllerTest extends TestCase
             ]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_returns_404_for_nonexistent_lesson()
     {
         $user = $this->actingAsAdmin();
@@ -86,9 +80,7 @@ class LessonControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_search_lessons_by_title()
     {
         $user = $this->actingAsAdmin();
@@ -105,9 +97,7 @@ class LessonControllerTest extends TestCase
             ->assertJsonPath('data.0.title', 'Cours de dressage débutant');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_filter_lessons_by_status()
     {
         $user = $this->actingAsAdmin();
@@ -124,9 +114,7 @@ class LessonControllerTest extends TestCase
             ->assertJsonPath('data.0.status', 'available');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_filter_lessons_by_price_range()
     {
         $user = $this->actingAsAdmin();
@@ -143,9 +131,7 @@ class LessonControllerTest extends TestCase
             ->assertJsonPath('data.0.price', '50.00');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_paginate_lessons()
     {
         $user = $this->actingAsAdmin();
@@ -171,9 +157,7 @@ class LessonControllerTest extends TestCase
             ->assertJsonPath('meta.total', 15);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_sort_lessons_by_price()
     {
         $user = $this->actingAsAdmin();
@@ -192,9 +176,7 @@ class LessonControllerTest extends TestCase
             ->assertJsonPath('data.2.price', '80.00');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_can_sort_lessons_by_date()
     {
         $user = $this->actingAsAdmin();

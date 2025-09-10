@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubDataConsistencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_when_adding_teachers()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -50,7 +52,7 @@ class ClubDataConsistencyTest extends TestCase
         $this->assertEquals(2, $dashboardData['stats']['total_members']); // 1 club user + 1 teacher
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_when_adding_students()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -88,7 +90,7 @@ class ClubDataConsistencyTest extends TestCase
         $this->assertEquals(2, $dashboardData['stats']['total_members']); // 1 club user + 1 student
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_when_updating_club_profile()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -144,7 +146,7 @@ class ClubDataConsistencyTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_with_multiple_operations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -221,7 +223,7 @@ class ClubDataConsistencyTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_with_concurrent_updates()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -284,7 +286,7 @@ class ClubDataConsistencyTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_with_rollback_on_error()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -327,7 +329,7 @@ class ClubDataConsistencyTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_with_transactional_operations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -398,7 +400,7 @@ class ClubDataConsistencyTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_maintains_data_consistency_with_soft_deletes()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

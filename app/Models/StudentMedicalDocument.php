@@ -47,6 +47,8 @@ class StudentMedicalDocument extends Model
      */
     public function expiresSoon(): bool
     {
-        return $this->expiry_date && $this->expiry_date->isFuture() && $this->expiry_date->diffInDays(now()) <= 30;
+        return $this->expiry_date && 
+               $this->expiry_date->isFuture() && 
+               $this->expiry_date->isBefore(now()->addDays(30));
     }
 }

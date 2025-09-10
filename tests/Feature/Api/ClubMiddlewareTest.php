@@ -7,12 +7,14 @@ use App\Models\Club;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class ClubMiddlewareTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_to_access_club_routes()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -30,7 +32,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_admin_user_to_access_club_routes()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -48,7 +50,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_student_user_from_accessing_club_routes()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -59,7 +61,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_teacher_user_from_accessing_club_routes()
     {
         $teacher = User::factory()->create(['role' => User::ROLE_TEACHER]);
@@ -70,7 +72,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_club_user_without_club_association()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -82,7 +84,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_admin_user_without_club_association()
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -94,7 +96,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function it_denies_unauthenticated_user_from_accessing_club_routes()
     {
         $response = $this->getJson('/api/club/dashboard');
@@ -102,7 +104,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_middleware_to_all_club_routes()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -120,7 +122,7 @@ class ClubMiddlewareTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_with_multiple_club_associations()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -144,7 +146,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_allows_club_user_with_different_roles_in_clubs()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -167,7 +169,7 @@ class ClubMiddlewareTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_post_requests_with_middleware()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -189,7 +191,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_put_requests_with_middleware()
     {
         $clubUser = User::factory()->create(['role' => 'club']);
@@ -209,7 +211,7 @@ class ClubMiddlewareTest extends TestCase
         $response->assertStatus(200);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_proper_error_messages()
     {
         $student = User::factory()->create(['role' => User::ROLE_STUDENT]);
@@ -223,7 +225,7 @@ class ClubMiddlewareTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_proper_error_message_for_unauthenticated_user()
     {
         $response = $this->getJson('/api/club/dashboard');
@@ -234,7 +236,7 @@ class ClubMiddlewareTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_proper_error_message_for_user_without_club_association()
     {
         $clubUser = User::factory()->create(['role' => 'club']);

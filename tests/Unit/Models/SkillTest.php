@@ -7,11 +7,14 @@ use App\Models\ActivityType;
 use App\Models\TeacherSkill;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class SkillTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_skill()
     {
         $activityType = ActivityType::factory()->create();
@@ -35,6 +38,7 @@ class SkillTest extends TestCase
         $this->assertTrue($skill->is_active);
     }
 
+    #[Test]
     public function test_belongs_to_activity_type()
     {
         $activityType = ActivityType::factory()->create();
@@ -46,6 +50,7 @@ class SkillTest extends TestCase
         $this->assertEquals($activityType->id, $skill->activityType->id);
     }
 
+    #[Test]
     public function test_has_many_teacher_skills()
     {
         $skill = Skill::factory()->create();
@@ -56,6 +61,7 @@ class SkillTest extends TestCase
         $this->assertTrue($skill->teacherSkills->contains($teacherSkill));
     }
 
+    #[Test]
     public function test_scope_active()
     {
         Skill::factory()->create(['is_active' => true]);
@@ -67,10 +73,11 @@ class SkillTest extends TestCase
         $this->assertTrue($activeSkills->first()->is_active);
     }
 
+    #[Test]
     public function test_scope_by_category()
     {
         Skill::factory()->create(['category' => 'technical']);
-        Skill::factory()->create(['category' => 'physical']);
+        Skill::factory()->create(['category' => 'pedagogical']);
 
         $technicalSkills = Skill::byCategory('technical')->get();
 
@@ -78,6 +85,7 @@ class SkillTest extends TestCase
         $this->assertEquals('technical', $technicalSkills->first()->category);
     }
 
+    #[Test]
     public function test_scope_by_activity_type()
     {
         $activityType = ActivityType::factory()->create();
@@ -90,6 +98,7 @@ class SkillTest extends TestCase
         $this->assertEquals($activityType->id, $skills->first()->activity_type_id);
     }
 
+    #[Test]
     public function test_levels_casting()
     {
         $levels = ['beginner', 'intermediate', 'advanced', 'expert'];
@@ -105,6 +114,7 @@ class SkillTest extends TestCase
         $this->assertEquals($levels, $skill->levels);
     }
 
+    #[Test]
     public function test_requirements_casting()
     {
         $requirements = ['requirement1', 'requirement2'];
@@ -120,6 +130,7 @@ class SkillTest extends TestCase
         $this->assertEquals($requirements, $skill->requirements);
     }
 
+    #[Test]
     public function test_get_levels_attribute_with_null()
     {
         $skill = Skill::create([
@@ -133,6 +144,7 @@ class SkillTest extends TestCase
         $this->assertEquals(['beginner', 'intermediate', 'advanced', 'expert', 'master'], $skill->getLevelsAttribute(null));
     }
 
+    #[Test]
     public function test_get_requirements_attribute_with_null()
     {
         $skill = Skill::create([
@@ -146,6 +158,7 @@ class SkillTest extends TestCase
         $this->assertEquals([], $skill->getRequirementsAttribute(null));
     }
 
+    #[Test]
     public function test_sort_order_casting()
     {
         $skill = Skill::create([
@@ -160,6 +173,7 @@ class SkillTest extends TestCase
         $this->assertEquals(5, $skill->sort_order);
     }
 
+    #[Test]
     public function test_is_active_casting()
     {
         $skill = Skill::create([
@@ -173,6 +187,7 @@ class SkillTest extends TestCase
         $this->assertTrue($skill->is_active);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $skill = new Skill();
@@ -193,6 +208,7 @@ class SkillTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $skill = new Skill();

@@ -8,11 +8,14 @@ use App\Models\Discipline;
 use App\Models\CourseType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
+
 
 class StudentPreferenceTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
     public function test_can_create_student_preference()
     {
         $student = Student::factory()->create();
@@ -35,6 +38,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals(1, $preference->priority_level);
     }
 
+    #[Test]
     public function test_belongs_to_student()
     {
         $student = Student::factory()->create();
@@ -46,6 +50,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals($student->id, $preference->student->id);
     }
 
+    #[Test]
     public function test_belongs_to_discipline()
     {
         $discipline = Discipline::factory()->create();
@@ -57,6 +62,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals($discipline->id, $preference->discipline->id);
     }
 
+    #[Test]
     public function test_belongs_to_course_type()
     {
         $courseType = CourseType::factory()->create();
@@ -68,6 +74,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals($courseType->id, $preference->courseType->id);
     }
 
+    #[Test]
     public function test_is_preferred_casting()
     {
         $preference = StudentPreference::create([
@@ -81,6 +88,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertTrue($preference->is_preferred);
     }
 
+    #[Test]
     public function test_priority_level_casting()
     {
         $preference = StudentPreference::create([
@@ -94,6 +102,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals(5, $preference->priority_level);
     }
 
+    #[Test]
     public function test_fillable_attributes()
     {
         $preference = new StudentPreference();
@@ -110,6 +119,7 @@ class StudentPreferenceTest extends TestCase
         $this->assertEquals($expectedFillable, $fillable);
     }
 
+    #[Test]
     public function test_casts()
     {
         $preference = new StudentPreference();
