@@ -1,190 +1,218 @@
 <template>
-  <div class="graph-analysis-page">
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">
-        🔗 Analyse Graphique des Relations
-      </h1>
-      <p class="text-gray-600">
-        Visualisez et explorez les relations complexes entre clubs, enseignants, utilisateurs et contrats
-      </p>
-    </div>
-
-    <!-- Onglets de navigation -->
-    <div class="mb-6">
-      <nav class="flex space-x-8">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          @click="activeTab = tab.id"
-          :class="[
-            'py-2 px-1 border-b-2 font-medium text-sm',
-            activeTab === tab.id
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          ]"
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
-    </div>
-
-    <!-- Contenu des onglets -->
-    <div class="tab-content">
-      <!-- Visualisation interactive -->
-      <div v-if="activeTab === 'visualization'" class="space-y-6">
-        <GraphVisualizationSimple 
-          :initial-entity="selectedEntity"
-          :initial-item="selectedItem"
-        />
-      </div>
-
-      <!-- Analyses prédéfinies -->
-      <div v-if="activeTab === 'analytics'" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Métriques globales -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Métriques Globales</h3>
-            <div v-if="globalMetrics" class="space-y-2">
-              <div class="flex justify-between">
-                <span>Utilisateurs:</span>
-                <span class="font-medium">{{ globalMetrics.total_users }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Clubs:</span>
-                <span class="font-medium">{{ globalMetrics.total_clubs }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Enseignants:</span>
-                <span class="font-medium">{{ globalMetrics.total_teachers }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Contrats:</span>
-                <span class="font-medium">{{ globalMetrics.total_contracts }}</span>
-              </div>
-            </div>
-            <button 
-              @click="loadGlobalMetrics"
-              class="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              🔄 Actualiser
-            </button>
-          </div>
-
-          <!-- Relations utilisateurs-clubs -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">👥 Relations Utilisateurs-Clubs</h3>
-            <div v-if="userClubRelations.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-              <div 
-                v-for="relation in userClubRelations.slice(0, 5)" 
-                :key="relation.club_name"
-                class="text-sm"
-              >
-                <div class="font-medium">{{ relation.club_name }}</div>
-                <div class="text-gray-600">{{ relation.member_count }} membres</div>
-              </div>
-            </div>
-            <button 
-              @click="loadUserClubRelations"
-              class="mt-4 w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              📈 Analyser
-            </button>
-          </div>
-
-          <!-- Enseignants par spécialité -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 Enseignants par Spécialité</h3>
-            <div v-if="teachersBySpecialty.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-              <div 
-                v-for="specialty in teachersBySpecialty.slice(0, 5)" 
-                :key="specialty.specialty"
-                class="text-sm"
-              >
-                <div class="font-medium">{{ specialty.specialty }}</div>
-                <div class="text-gray-600">{{ specialty.teacher_count }} enseignants</div>
-              </div>
-            </div>
-            <button 
-              @click="loadTeachersBySpecialty"
-              class="mt-4 w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-            >
-              🎯 Analyser
-            </button>
-          </div>
-
-          <!-- Répartition géographique -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🌍 Répartition Géographique</h3>
-            <div v-if="geographicDistribution.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-              <div 
-                v-for="location in geographicDistribution.slice(0, 5)" 
-                :key="location.club_city"
-                class="text-sm"
-              >
-                <div class="font-medium">{{ location.club_city }}</div>
-                <div class="text-gray-600">{{ location.clubs_count }} clubs</div>
-              </div>
-            </div>
-            <button 
-              @click="loadGeographicDistribution"
-              class="mt-4 w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
-            >
-              🌍 Analyser
-            </button>
-          </div>
-
-          <!-- Performance des clubs -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🏆 Performance des Clubs</h3>
-            <div v-if="clubPerformance.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-              <div 
-                v-for="club in clubPerformance.slice(0, 5)" 
-                :key="club.club_name"
-                class="text-sm"
-              >
-                <div class="font-medium">{{ club.club_name }}</div>
-                <div class="text-gray-600">{{ club.members_count }} membres, {{ club.teachers_count }} enseignants</div>
-              </div>
-            </div>
-            <button 
-              @click="loadClubPerformance"
-              class="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              🏆 Analyser
-            </button>
-          </div>
-
-          <!-- Spécialités les plus demandées -->
-          <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🔥 Spécialités Populaires</h3>
-            <div v-if="mostDemandedSpecialties.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-              <div 
-                v-for="specialty in mostDemandedSpecialties.slice(0, 5)" 
-                :key="specialty.specialty"
-                class="text-sm"
-              >
-                <div class="font-medium">{{ specialty.specialty }}</div>
-                <div class="text-gray-600">{{ specialty.contracts_count }} contrats</div>
-              </div>
-            </div>
-            <button 
-              @click="loadMostDemandedSpecialties"
-              class="mt-4 w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              🔥 Analyser
-            </button>
+  <div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Header -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 text-center">
+              <span class="mr-3 text-primary-600">📊</span>
+              Analyse Graphique
+            </h1>
+            <p class="mt-2 text-gray-600">Visualisez et analysez les relations entre les entités de votre plateforme</p>
           </div>
         </div>
       </div>
 
-      <!-- Synchronisation -->
-      <div v-if="activeTab === 'sync'" class="space-y-6">
-        <div class="bg-white p-6 rounded-lg shadow">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">🔄 Synchronisation Neo4j</h3>
+      <!-- Navigation par onglets -->
+      <div class="mb-8">
+        <nav class="flex space-x-8">
+          <button 
+            @click="activeTab = 'visualization'"
+            :class="activeTab === 'visualization' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+          >
+            Visualisation Interactive
+          </button>
+          <button 
+            @click="activeTab = 'analytics'"
+            :class="activeTab === 'analytics' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+          >
+            Analyses Prédéfinies
+          </button>
+          <button 
+            @click="activeTab = 'sync'"
+            :class="activeTab === 'sync' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+          >
+            Synchronisation
+          </button>
+        </nav>
+      </div>
+
+      <!-- Contenu des onglets -->
+      <div v-if="isLoading" class="text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <p class="mt-2 text-gray-600">Chargement...</p>
+      </div>
+
+      <!-- Onglet Visualisation Interactive -->
+      <div v-if="activeTab === 'visualization'" class="bg-white rounded-lg shadow">
+        <div class="p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Visualisation Interactive du Graphe</h2>
+          <p class="text-gray-600 mb-6">Sélectionnez une entité pour visualiser ses relations dans le graphe</p>
+          
+          <GraphVisualizationSimple 
+            :initial-entity="selectedEntity"
+            :initial-item="selectedItem"
+          />
+        </div>
+      </div>
+
+      <!-- Onglet Analyses Prédéfinies -->
+      <div v-if="activeTab === 'analytics'" class="bg-white rounded-lg shadow">
+        <div class="p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Analyses Prédéfinies</h2>
+          <p class="text-gray-600 mb-6">Consultez des analyses prédéfinies sur les données de votre plateforme</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Métriques Globales -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">📈 Métriques Globales</h3>
+              <div v-if="globalMetrics" class="space-y-2 mb-3">
+                <div class="flex justify-between text-sm">
+                  <span>Utilisateurs:</span>
+                  <span class="font-medium">{{ globalMetrics.total_users }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span>Clubs:</span>
+                  <span class="font-medium">{{ globalMetrics.total_clubs }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span>Enseignants:</span>
+                  <span class="font-medium">{{ globalMetrics.total_teachers }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span>Contrats:</span>
+                  <span class="font-medium">{{ globalMetrics.total_contracts }}</span>
+                </div>
+              </div>
+              <button 
+                @click="loadGlobalMetrics"
+                class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              >
+                🔄 Actualiser
+              </button>
+            </div>
+
+            <!-- Relations Utilisateurs-Clubs -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">👥 Relations Utilisateurs-Clubs</h3>
+              <div v-if="userClubRelations.length > 0" class="space-y-2 max-h-32 overflow-y-auto mb-3">
+                <div 
+                  v-for="relation in userClubRelations.slice(0, 3)" 
+                  :key="relation.club_name"
+                  class="text-sm"
+                >
+                  <div class="font-medium">{{ relation.club_name }}</div>
+                  <div class="text-gray-600">{{ relation.member_count }} membres</div>
+                </div>
+              </div>
+              <button 
+                @click="loadUserClubRelations"
+                class="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+              >
+                📈 Analyser
+              </button>
+            </div>
+
+            <!-- Enseignants par Spécialité -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">🎯 Enseignants par Spécialité</h3>
+              <div v-if="teachersBySpecialty.length > 0" class="space-y-2 max-h-32 overflow-y-auto mb-3">
+                <div 
+                  v-for="specialty in teachersBySpecialty.slice(0, 3)" 
+                  :key="specialty.specialty"
+                  class="text-sm"
+                >
+                  <div class="font-medium">{{ specialty.specialty }}</div>
+                  <div class="text-gray-600">{{ specialty.teacher_count }} enseignants</div>
+                </div>
+              </div>
+              <button 
+                @click="loadTeachersBySpecialty"
+                class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
+              >
+                🎯 Analyser
+              </button>
+            </div>
+
+            <!-- Répartition Géographique -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">🌍 Répartition Géographique</h3>
+              <div v-if="geographicDistribution.length > 0" class="space-y-2 max-h-32 overflow-y-auto mb-3">
+                <div 
+                  v-for="location in geographicDistribution.slice(0, 3)" 
+                  :key="location.club_city"
+                  class="text-sm"
+                >
+                  <div class="font-medium">{{ location.club_city }}</div>
+                  <div class="text-gray-600">{{ location.clubs_count }} clubs</div>
+                </div>
+              </div>
+              <button 
+                @click="loadGeographicDistribution"
+                class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700"
+              >
+                🌍 Analyser
+              </button>
+            </div>
+
+            <!-- Performance des Clubs -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">🏆 Performance des Clubs</h3>
+              <div v-if="clubPerformance.length > 0" class="space-y-2 max-h-32 overflow-y-auto mb-3">
+                <div 
+                  v-for="club in clubPerformance.slice(0, 3)" 
+                  :key="club.club_name"
+                  class="text-sm"
+                >
+                  <div class="font-medium">{{ club.club_name }}</div>
+                  <div class="text-gray-600">{{ club.members_count }} membres, {{ club.teachers_count }} enseignants</div>
+                </div>
+              </div>
+              <button 
+                @click="loadClubPerformance"
+                class="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+              >
+                🏆 Analyser
+              </button>
+            </div>
+
+            <!-- Spécialités Populaires -->
+            <div class="bg-gray-50 rounded-lg p-4">
+              <h3 class="font-semibold text-gray-900 mb-2">🔥 Spécialités Populaires</h3>
+              <div v-if="mostDemandedSpecialties.length > 0" class="space-y-2 max-h-32 overflow-y-auto mb-3">
+                <div 
+                  v-for="specialty in mostDemandedSpecialties.slice(0, 3)" 
+                  :key="specialty.specialty"
+                  class="text-sm"
+                >
+                  <div class="font-medium">{{ specialty.specialty }}</div>
+                  <div class="text-gray-600">{{ specialty.contracts_count }} contrats</div>
+                </div>
+              </div>
+              <button 
+                @click="loadMostDemandedSpecialties"
+                class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
+              >
+                🔥 Analyser
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Onglet Synchronisation -->
+      <div v-if="activeTab === 'sync'" class="bg-white rounded-lg shadow">
+        <div class="p-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Synchronisation Neo4j</h2>
+          <p class="text-gray-600 mb-6">Gérez la synchronisation des données MySQL vers Neo4j</p>
           
           <!-- Statut de synchronisation -->
           <div v-if="syncStats" class="mb-6">
-            <h4 class="font-medium text-gray-900 mb-3">Statut de synchronisation</h4>
+            <h3 class="font-medium text-gray-900 mb-3">Statut de synchronisation</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div 
                 v-for="(status, entity) in syncStats.sync_status" 
@@ -204,26 +232,26 @@
           </div>
 
           <!-- Actions de synchronisation -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <button 
               @click="syncAll"
               :disabled="isSyncing"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400"
             >
               {{ isSyncing ? '⏳ Synchronisation...' : '🔄 Synchronisation complète' }}
             </button>
             
             <button 
               @click="loadSyncStats"
-              class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+              class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700"
             >
               📊 Actualiser le statut
             </button>
           </div>
 
           <!-- Logs de synchronisation -->
-          <div v-if="syncLogs.length > 0" class="mt-6">
-            <h4 class="font-medium text-gray-900 mb-3">Logs de synchronisation</h4>
+          <div v-if="syncLogs.length > 0">
+            <h3 class="font-medium text-gray-900 mb-3">Logs de synchronisation</h3>
             <div class="bg-gray-50 p-4 rounded-lg max-h-64 overflow-y-auto">
               <div 
                 v-for="log in syncLogs" 
@@ -422,11 +450,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.graph-analysis-page {
-  @apply p-6;
-}
-
-.tab-content {
-  @apply min-h-96;
-}
+/* Styles spécifiques à la page d'analyse graphique */
 </style>

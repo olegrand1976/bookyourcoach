@@ -190,10 +190,10 @@ jobs:
           docker rm activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
           
           # Create docker-compose.prod.yml file
-cat > docker-compose.prod.yml << EOF
-services:
+          cat > docker-compose.prod.yml << EOF
+          services:
             app:
-              image: ${IMAGE_NAME}:latest
+              image: \${IMAGE_NAME}:latest
               container_name: activibe-app
               restart: unless-stopped
               ports:
@@ -217,14 +217,14 @@ services:
                 - NEO4J_HOST=neo4j
                 - NEO4J_PORT=7474
                 - NEO4J_USERNAME=neo4j
-                - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+                - NEO4J_PASSWORD=\${NEO4J_PASSWORD}
                 - REDIS_HOST=redis
                 - REDIS_PORT=6379
                 - MAIL_MAILER=smtp
-                - MAIL_HOST=${MAIL_HOST}
-                - MAIL_PORT=${MAIL_PORT}
-                - MAIL_USERNAME=${MAIL_USERNAME}
-                - MAIL_PASSWORD=${MAIL_PASSWORD}
+                - MAIL_HOST=\${MAIL_HOST}
+                - MAIL_PORT=\${MAIL_PORT}
+                - MAIL_USERNAME=\${MAIL_USERNAME}
+                - MAIL_PASSWORD=\${MAIL_PASSWORD}
                 - MAIL_ENCRYPTION=tls
               depends_on:
                 - redis
