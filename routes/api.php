@@ -1682,6 +1682,86 @@ Route::middleware('auth:sanctum')->group(function () {
         // System management
         Route::get('/system/status', [AdminController::class, 'getSystemStatus']);
         Route::post('/system/clear-cache', [AdminController::class, 'clearCache']);
+    });
+
+// Routes pour les entités (nécessaires pour la visualisation graphique)
+Route::prefix('admin')->middleware('admin')->group(function () {
+    // Clubs
+    Route::get('/clubs', function() {
+        $clubs = App\Models\Club::select('id', 'name', 'city')->get();
+        return response()->json([
+            'success' => true,
+            'data' => $clubs
+        ]);
+    });
+    
+    // Enseignants
+    Route::get('/teachers', function() {
+        $teachers = App\Models\Teacher::with('user:id,name,first_name,last_name,email')
+            ->select('id', 'user_id')
+            ->get()
+            ->map(function($teacher) {
+                return [
+                    'id' => $teacher->id,
+                    'name' => $teacher->user ? 
+                        ($teacher->user->first_name . ' ' . $teacher->user->last_name) : 
+                        $teacher->user->name ?? 'Enseignant #' . $teacher->id,
+                    'email' => $teacher->user->email ?? null
+                ];
+            });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $teachers
+        ]);
+    });
+    
+    // Utilisateurs
+    Route::get('/users', function() {
+        $users = App\Models\User::select('id', 'name', 'first_name', 'last_name', 'email', 'role')
+            ->get()
+            ->map(function($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->first_name && $user->last_name ? 
+                        $user->first_name . ' ' . $user->last_name : 
+                        $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role
+                ];
+            });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
+    });
+    
+    // Contrats
+    Route::get('/contracts', function() {
+        $contracts = App\Models\Contract::with(['teacher.user:id,name,first_name,last_name', 'club:id,name'])
+            ->select('id', 'teacher_id', 'club_id', 'type', 'status')
+            ->get()
+            ->map(function($contract) {
+                $teacherName = $contract->teacher && $contract->teacher->user ? 
+                    ($contract->teacher->user->first_name . ' ' . $contract->teacher->user->last_name) : 
+                    'Enseignant #' . $contract->teacher_id;
+                
+                return [
+                    'id' => $contract->id,
+                    'name' => $contract->club ? 
+                        $contract->club->name . ' - ' . $teacherName : 
+                        'Contrat #' . $contract->id,
+                    'type' => $contract->type,
+                    'status' => $contract->status
+                ];
+            });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $contracts
+        ]);
+    });
 });
 
 // Routes d'analyse Neo4j

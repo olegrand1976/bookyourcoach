@@ -29,18 +29,24 @@
           <select 
             v-model="selectedItem" 
             @change="onItemChange"
-            :disabled="!selectedEntity"
+            :disabled="!selectedEntity || isLoading"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           >
-            <option value="">Sélectionner {{ entityLabel.toLowerCase() }}</option>
+            <option value="">
+              {{ isLoading ? 'Chargement...' : `Sélectionner ${entityLabel.toLowerCase()}` }}
+            </option>
             <option 
               v-for="item in entityItems" 
               :key="item.id" 
               :value="item.id"
+              :disabled="item.id === 'error'"
             >
               {{ item.name }}
             </option>
           </select>
+          <div v-if="entityItems.length === 0 && selectedEntity && !isLoading" class="text-sm text-red-600 mt-1">
+            Aucun {{ entityLabel.toLowerCase() }} trouvé
+          </div>
         </div>
 
         <!-- Profondeur de recherche -->
@@ -247,16 +253,31 @@ const onEntityChange = async () => {
   
   try {
     isLoading.value = true
-    const response = await $fetch(`/api/${selectedEntity.value}s`)
+    console.log('Chargement des éléments pour:', selectedEntity.value)
+    
+    // Utiliser le bon endpoint selon l'entité
+    const endpoint = `/api/admin/${selectedEntity.value}s`
+    console.log('Endpoint:', endpoint)
+    
+    const response = await $fetch(endpoint)
+    console.log('Réponse API:', response)
     
     if (response.success) {
       entityItems.value = response.data.map(item => ({
         id: item.id,
-        name: item.name || `${item.first_name} ${item.last_name}` || item.email
+        name: item.name || `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.email || `Élément #${item.id}`
       }))
+      console.log('Éléments chargés:', entityItems.value)
+    } else {
+      console.error('Erreur dans la réponse API:', response)
     }
   } catch (error) {
     console.error('Erreur lors du chargement des éléments:', error)
+    // Afficher un message d'erreur à l'utilisateur
+    entityItems.value = [{
+      id: 'error',
+      name: 'Erreur de chargement - Vérifiez la connexion'
+    }]
   } finally {
     isLoading.value = false
   }
@@ -448,9 +469,10 @@ const resetFilters = () => {
 // Charger les villes
 const loadCities = async () => {
   try {
-    const response = await $fetch('/api/clubs')
+    const response = await $fetch('/api/admin/clubs')
     if (response.success) {
       cities.value = [...new Set(response.data.map(club => club.city).filter(Boolean))]
+      console.log('Villes chargées:', cities.value)
     }
   } catch (error) {
     console.error('Erreur lors du chargement des villes:', error)
