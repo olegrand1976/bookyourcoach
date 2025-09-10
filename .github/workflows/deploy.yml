@@ -178,20 +178,120 @@ jobs:
           sudo mkdir -p /srv/activibe
           cd /srv/activibe
           
+          # Create docker-compose.prod.yml file
+          cat > docker-compose.prod.yml << 'EOF'
+          version: '3.8'
+          
+          services:
+            app:
+              image: $IMAGE_NAME:latest
+              container_name: activibe-app
+              restart: unless-stopped
+              ports:
+                - "3001:3001"
+              volumes:
+                - ./storage:/var/www/html/storage
+                - ./bootstrap/cache:/var/www/html/bootstrap/cache
+                - ./ssl:/etc/nginx/ssl
+              environment:
+                - APP_ENV=production
+                - APP_DEBUG=false
+                - APP_URL=https://activibe.com
+                - DB_CONNECTION=mysql
+                - DB_HOST=mysql
+                - DB_PORT=3306
+                - DB_DATABASE=activibe_prod
+                - DB_USERNAME=activibe_user
+                - DB_PASSWORD=${DB_PASSWORD}
+                - REDIS_HOST=redis
+                - REDIS_PORT=6379
+                - MAIL_MAILER=smtp
+                - MAIL_HOST=${MAIL_HOST}
+                - MAIL_PORT=${MAIL_PORT}
+                - MAIL_USERNAME=${MAIL_USERNAME}
+                - MAIL_PASSWORD=${MAIL_PASSWORD}
+                - MAIL_ENCRYPTION=tls
+              depends_on:
+                - mysql
+                - redis
+              networks:
+                - activibe-network
+          
+            mysql:
+              image: mysql:8.0
+              container_name: activibe-mysql
+              restart: unless-stopped
+              environment:
+                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+                MYSQL_DATABASE: activibe_prod
+                MYSQL_USER: activibe_user
+                MYSQL_PASSWORD: ${DB_PASSWORD}
+              volumes:
+                - mysql_data:/var/lib/mysql
+                - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+              networks:
+                - activibe-network
+          
+            redis:
+              image: redis:7-alpine
+              container_name: activibe-redis
+              restart: unless-stopped
+              volumes:
+                - redis_data:/data
+              networks:
+                - activibe-network
+          
+            nginx-proxy:
+              image: nginxproxy/nginx-proxy:latest
+              container_name: activibe-nginx-proxy
+              restart: unless-stopped
+              ports:
+                - "80:80"
+                - "443:443"
+              volumes:
+                - /var/run/docker.sock:/tmp/docker.sock:ro
+                - ./ssl:/etc/nginx/certs
+                - ./docker/nginx-proxy/vhost.d:/etc/nginx/vhost.d
+                - ./docker/nginx-proxy/html:/usr/share/nginx/html
+              networks:
+                - activibe-network
+          
+          volumes:
+            mysql_data:
+            redis_data:
+          
+          networks:
+            activibe-network:
+              driver: bridge
+          EOF
+          
+          # Create .env file with default values
+          cat > .env << 'EOF'
+          DB_PASSWORD=activibe_password_2024
+          MYSQL_ROOT_PASSWORD=root_password_2024
+          MAIL_HOST=smtp.gmail.com
+          MAIL_PORT=587
+          MAIL_USERNAME=your-email@gmail.com
+          MAIL_PASSWORD=your-app-password
+          EOF
+          
+          # Create necessary directories
+          mkdir -p storage bootstrap/cache ssl docker/mysql docker/nginx-proxy/vhost.d docker/nginx-proxy/html
+          
           # Pull latest image
           docker pull $IMAGE_NAME:latest
           
-          # Stop existing container
-          docker-compose -f $COMPOSE_FILE down || true
+          # Stop existing containers
+          docker compose -f $COMPOSE_FILE down || true
           
-          # Start new container
-          docker-compose -f $COMPOSE_FILE up -d
+          # Start new containers
+          docker compose -f $COMPOSE_FILE up -d
           
           # Clean up old images
           docker image prune -f
           
           # Show status
-          docker-compose -f $COMPOSE_FILE ps
+          docker compose -f $COMPOSE_FILE ps
           
           echo "Deployment completed successfully!"
 
