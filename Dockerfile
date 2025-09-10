@@ -71,6 +71,9 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Créer le fichier .env à partir de env.production.example
+RUN cp env.production.example .env
+
 # Générer la clé d'application Laravel
 RUN php artisan key:generate --no-interaction
 
