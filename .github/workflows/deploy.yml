@@ -104,6 +104,41 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Debug SSH Configuration
+      run: |
+        echo "=== DEBUG SSH CONFIGURATION ==="
+        echo "SERVER_HOST: ${{ vars.SERVER_HOST }}"
+        echo "SERVER_PORT: ${{ vars.SERVER_PORT }}"
+        echo "SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}"
+        echo "SSH_KEY length: ${#SERVER_SSH_KEY}"
+        echo "KNOWN_HOSTS length: ${#SERVER_KNOWN_HOSTS}"
+        echo "SSH_KEY starts with: ${SERVER_SSH_KEY:0:50}..."
+        echo "KNOWN_HOSTS starts with: ${SERVER_KNOWN_HOSTS:0:50}..."
+        echo "================================="
+      env:
+        SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+
+    - name: Test SSH Connection
+      run: |
+        echo "=== TESTING SSH CONNECTION ==="
+        echo "Testing connection to ${{ vars.SERVER_HOST }}:${{ vars.SERVER_PORT }}"
+        
+        # Create temporary SSH key file
+        echo "${{ secrets.SERVER_SSH_KEY }}" > /tmp/ssh_key
+        chmod 600 /tmp/ssh_key
+        
+        # Create temporary known_hosts file
+        echo "${{ secrets.SERVER_KNOWN_HOSTS }}" > /tmp/known_hosts
+        chmod 644 /tmp/known_hosts
+        
+        # Test SSH connection with verbose output
+        ssh -vvv -i /tmp/ssh_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -p ${{ vars.SERVER_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ vars.SERVER_HOST }} "echo 'SSH connection successful!'"
+        
+        # Clean up
+        rm -f /tmp/ssh_key /tmp/known_hosts
+        echo "================================="
+
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -114,6 +149,7 @@ jobs:
         known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
         timeout: 30s
         command_timeout: 10m
+        debug: true
         script: |
           # Variables
           export IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
