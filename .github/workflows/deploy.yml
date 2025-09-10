@@ -164,7 +164,6 @@ jobs:
         username: ${{ vars.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ vars.SERVER_PORT }}
-        known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
         timeout: 30s
         command_timeout: 10m
         debug: true
@@ -177,6 +176,11 @@ jobs:
           # Create application directory
           sudo mkdir -p /srv/activibe
           cd /srv/activibe
+          
+          # Stop and remove all existing containers and orphaned containers
+          docker compose -f $COMPOSE_FILE down --remove-orphans || true
+          docker stop $(docker ps -aq) || true
+          docker rm $(docker ps -aq) || true
           
           # Create docker-compose.prod.yml file
           cat > docker-compose.prod.yml << 'EOF'
@@ -264,8 +268,8 @@ jobs:
               container_name: activibe-nginx-proxy
               restart: unless-stopped
               ports:
-                - "80:80"
-                - "443:443"
+                - "8080:80"
+                - "8443:443"
               volumes:
                 - /var/run/docker.sock:/tmp/docker.sock:ro
                 - ./ssl:/etc/nginx/certs
