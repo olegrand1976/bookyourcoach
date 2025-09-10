@@ -22,6 +22,7 @@ interface _GlobalComponents {
     'EditCustomSpecialtyForm': typeof import("../../components/EditCustomSpecialtyForm.vue")['default']
     'EquestrianIcon': typeof import("../../components/EquestrianIcon.vue")['default']
     'GraphVisualization': typeof import("../../components/GraphVisualization.vue")['default']
+    'GraphVisualizationSimple': typeof import("../../components/GraphVisualizationSimple.vue")['default']
     'JoinClubModal': typeof import("../../components/JoinClubModal.vue")['default']
     'LanguageSelector': typeof import("../../components/LanguageSelector.vue")['default']
     'Logo': typeof import("../../components/Logo.vue")['default']
@@ -58,6 +59,7 @@ interface _GlobalComponents {
     'LazyEditCustomSpecialtyForm': LazyComponent<typeof import("../../components/EditCustomSpecialtyForm.vue")['default']>
     'LazyEquestrianIcon': LazyComponent<typeof import("../../components/EquestrianIcon.vue")['default']>
     'LazyGraphVisualization': LazyComponent<typeof import("../../components/GraphVisualization.vue")['default']>
+    'LazyGraphVisualizationSimple': LazyComponent<typeof import("../../components/GraphVisualizationSimple.vue")['default']>
     'LazyJoinClubModal': LazyComponent<typeof import("../../components/JoinClubModal.vue")['default']>
     'LazyLanguageSelector': LazyComponent<typeof import("../../components/LanguageSelector.vue")['default']>
     'LazyLogo': LazyComponent<typeof import("../../components/Logo.vue")['default']>

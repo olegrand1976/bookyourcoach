@@ -32,7 +32,7 @@
     <div class="tab-content">
       <!-- Visualisation interactive -->
       <div v-if="activeTab === 'visualization'" class="space-y-6">
-        <GraphVisualization 
+        <GraphVisualizationSimple 
           :initial-entity="selectedEntity"
           :initial-item="selectedItem"
         />
@@ -243,7 +243,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import GraphVisualization from '~/components/GraphVisualization.vue'
+import GraphVisualizationSimple from '~/components/GraphVisualizationSimple.vue'
 
 // Configuration de la page
 definePageMeta({

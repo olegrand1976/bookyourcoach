@@ -22,6 +22,7 @@ export const AddTeacherModal: typeof import("../components/AddTeacherModal.vue")
 export const EditCustomSpecialtyForm: typeof import("../components/EditCustomSpecialtyForm.vue")['default']
 export const EquestrianIcon: typeof import("../components/EquestrianIcon.vue")['default']
 export const GraphVisualization: typeof import("../components/GraphVisualization.vue")['default']
+export const GraphVisualizationSimple: typeof import("../components/GraphVisualizationSimple.vue")['default']
 export const JoinClubModal: typeof import("../components/JoinClubModal.vue")['default']
 export const LanguageSelector: typeof import("../components/LanguageSelector.vue")['default']
 export const Logo: typeof import("../components/Logo.vue")['default']
@@ -58,6 +59,7 @@ export const LazyAddTeacherModal: LazyComponent<typeof import("../components/Add
 export const LazyEditCustomSpecialtyForm: LazyComponent<typeof import("../components/EditCustomSpecialtyForm.vue")['default']>
 export const LazyEquestrianIcon: LazyComponent<typeof import("../components/EquestrianIcon.vue")['default']>
 export const LazyGraphVisualization: LazyComponent<typeof import("../components/GraphVisualization.vue")['default']>
+export const LazyGraphVisualizationSimple: LazyComponent<typeof import("../components/GraphVisualizationSimple.vue")['default']>
 export const LazyJoinClubModal: LazyComponent<typeof import("../components/JoinClubModal.vue")['default']>
 export const LazyLanguageSelector: LazyComponent<typeof import("../components/LanguageSelector.vue")['default']>
 export const LazyLogo: LazyComponent<typeof import("../components/Logo.vue")['default']>
