@@ -1,4 +1,4 @@
-# Dockerfile pour la production Acti'Vibe
+# Dockerfile pour BookYourCoach - Backend Laravel uniquement
 FROM php:8.3-fpm-alpine AS base
 
 # Installer les dépendances système
@@ -17,9 +17,6 @@ RUN apk add --no-cache \
     icu-dev \
     oniguruma-dev
 
-# Installer Node.js 22 (dernière version disponible dans Alpine 3.22)
-RUN apk add --no-cache nodejs npm
-
 # Installer les extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
@@ -34,8 +31,6 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# L'utilisateur www-data existe déjà dans l'image PHP Alpine (ID 82)
 
 # Définir le répertoire de travail
 WORKDIR /var/www/html
@@ -52,16 +47,6 @@ COPY --chown=www-data:www-data . .
 # Installer les dépendances PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Installer les dépendances Node.js et build le frontend
-RUN cd frontend \
-    && npm install --no-audit --no-fund \
-    && npm run build \
-    && npm cache clean --force
-
-# Configurer le frontend pour le port 3001
-ENV NUXT_PORT=3001
-ENV NUXT_HOST=0.0.0.0
-
 # Créer les répertoires nécessaires
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
     && mkdir -p /var/log/supervisor \
@@ -69,12 +54,11 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     && chmod -R 775 storage bootstrap/cache \
     && chmod +x /usr/local/bin/start-workers.sh
 
-# Créer le fichier .env à partir de env.production.example
-RUN cp env.production.example .env
+# Créer le fichier .env à partir de .env.example
+RUN cp .env.example .env
 
-# Exposer les ports
+# Exposer le port
 EXPOSE 80
-EXPOSE 3001
 
 # Démarrer Supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
