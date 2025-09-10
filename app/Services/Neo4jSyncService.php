@@ -22,7 +22,7 @@ class Neo4jSyncService
         $this->neo4j = $neo4j;
         $this->batchSize = config('neo4j.sync.batch_size', 100);
         $this->timeout = config('neo4j.sync.timeout', 300);
-        $this->retryAttempts = config('ne4j.sync.retry_attempts', 3);
+        $this->retryAttempts = config('neo4j.sync.retry_attempts', 3);
         $this->retryDelay = config('neo4j.sync.retry_delay', 5);
     }
 

@@ -36,6 +36,10 @@
                   <span>⚙️</span>
                   <span>Paramètres</span>
                 </NuxtLink>
+                <NuxtLink to="/admin/graph-analysis" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                  <span>🔗</span>
+                  <span>Analyse Graphique</span>
+                </NuxtLink>
                 
                 <hr class="my-2 border-gray-200">
 

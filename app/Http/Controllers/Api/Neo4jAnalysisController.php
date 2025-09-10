@@ -283,44 +283,51 @@ class Neo4jAnalysisController extends Controller
     }
 
     /**
-     * Exécuter une requête Cypher personnalisée
+     * Obtenir les données pour la visualisation graphique
      */
-    public function executeCustomQuery(Request $request): JsonResponse
+    public function getGraphVisualization(Request $request): JsonResponse
     {
         try {
-            $query = $request->get('query');
-            $parameters = $request->get('parameters', []);
+            $entity = $request->get('entity');
+            $entityId = $request->get('id');
+            $depth = $request->get('depth', 2);
+            $status = $request->get('status', '');
+            $city = $request->get('city', '');
             
-            if (!$query) {
+            if (!$entity || !$entityId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'query est requis'
+                    'message' => 'entity et id sont requis'
                 ], 400);
             }
             
-            // Validation basique pour éviter les requêtes dangereuses
-            $dangerousKeywords = ['DELETE', 'DROP', 'REMOVE', 'SET', 'CREATE', 'MERGE'];
-            foreach ($dangerousKeywords as $keyword) {
-                if (stripos($query, $keyword) !== false) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Requête non autorisée: ' . $keyword
-                    ], 400);
-                }
-            }
+            $filters = [
+                'status' => $status,
+                'city' => $city
+            ];
             
-            $data = $this->analysisService->neo4j->run($query, $parameters);
+            $graphData = $this->analysisService->getGraphVisualizationData($entity, $entityId, $depth, $filters);
+            
+            // Calculer les statistiques
+            $stats = [
+                'nodes' => count($graphData['nodes']),
+                'edges' => count($graphData['edges']),
+                'clubs' => count(array_filter($graphData['nodes'], fn($n) => $n['data']['type'] === 'Club')),
+                'teachers' => count(array_filter($graphData['nodes'], fn($n) => $n['data']['type'] === 'Teacher')),
+                'users' => count(array_filter($graphData['nodes'], fn($n) => $n['data']['type'] === 'User')),
+                'contracts' => count(array_filter($graphData['nodes'], fn($n) => $n['data']['type'] === 'Contract'))
+            ];
             
             return response()->json([
                 'success' => true,
-                'data' => $data,
-                'message' => 'Requête exécutée avec succès'
+                'data' => $graphData,
+                'stats' => $stats,
+                'message' => 'Données de visualisation récupérées avec succès'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'exécution de la requête: ' . $e->getMessage()
+                'message' => 'Erreur lors de la récupération des données: ' . $e->getMessage()
             ], 500);
         }
     }
-}

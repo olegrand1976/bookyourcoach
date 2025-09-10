@@ -282,24 +282,261 @@ class Neo4jAnalysisService
     }
 
     /**
-     * Analyser la performance des clubs
+     * Obtenir les données pour la visualisation graphique
      */
-    public function analyzeClubPerformance(): array
+    public function getGraphVisualizationData(string $entity, int $entityId, int $depth = 2, array $filters = []): array
     {
-        $query = "
-            MATCH (c:Club)
-            OPTIONAL MATCH (c)<-[:MEMBERSHIP]-(u:User)
-            OPTIONAL MATCH (c)<-[:WORKING_FOR]-(contract:Contract)-[:HAS_CONTRACT]->(t:Teacher)
-            RETURN 
-                c.name as club_name,
-                c.city as club_city,
-                count(DISTINCT u) as members_count,
-                count(DISTINCT t) as teachers_count,
-                count(DISTINCT contract) as contracts_count,
-                avg(contract.hourly_rate) as avg_hourly_rate
-            ORDER BY members_count DESC, teachers_count DESC
-        ";
-
-        return $this->neo4j->run($query);
+        $statusFilter = $filters['status'] ?? '';
+        $cityFilter = $filters['city'] ?? '';
+        
+        // Construire la requête selon l'entité de départ
+        $query = $this->buildGraphQuery($entity, $entityId, $depth, $statusFilter, $cityFilter);
+        
+        $result = $this->neo4j->run($query, [
+            'entity_id' => $entityId,
+            'depth' => $depth
+        ]);
+        
+        return $this->formatGraphData($result, $entity, $entityId);
     }
-}
+
+    /**
+     * Construire la requête Cypher selon l'entité
+     */
+    protected function buildGraphQuery(string $entity, int $entityId, int $depth, string $statusFilter, string $cityFilter): string
+    {
+        $statusCondition = $statusFilter ? "AND c.status = '{$statusFilter}'" : '';
+        $cityCondition = $cityFilter ? "AND (cl.city = '{$cityFilter}' OR u.city = '{$cityFilter}')" : '';
+        
+        switch ($entity) {
+            case 'club':
+                return "
+                    MATCH path = (cl:Club {id: \$entity_id})-[*1..{$depth}]-(connected)
+                    WHERE connected:User OR connected:Teacher OR connected:Contract
+                    {$cityCondition}
+                    WITH cl, connected, path
+                    OPTIONAL MATCH (connected)-[r]-(other)
+                    WHERE other <> cl
+                    RETURN 
+                        cl as start_node,
+                        collect(DISTINCT connected) as nodes,
+                        collect(DISTINCT r) as relationships
+                ";
+                
+            case 'teacher':
+                return "
+                    MATCH (t:Teacher {id: \$entity_id})-[:IS_TEACHER]->(u:User)
+                    MATCH path = (t)-[*1..{$depth}]-(connected)
+                    WHERE connected:Club OR connected:Contract OR connected:User
+                    {$statusCondition}
+                    {$cityCondition}
+                    WITH t, u, connected, path
+                    OPTIONAL MATCH (connected)-[r]-(other)
+                    WHERE other <> t AND other <> u
+                    RETURN 
+                        t as start_node,
+                        u as teacher_user,
+                        collect(DISTINCT connected) as nodes,
+                        collect(DISTINCT r) as relationships
+                ";
+                
+            case 'user':
+                return "
+                    MATCH (u:User {id: \$entity_id})
+                    MATCH path = (u)-[*1..{$depth}]-(connected)
+                    WHERE connected:Club OR connected:Teacher OR connected:Contract
+                    {$cityCondition}
+                    WITH u, connected, path
+                    OPTIONAL MATCH (connected)-[r]-(other)
+                    WHERE other <> u
+                    RETURN 
+                        u as start_node,
+                        collect(DISTINCT connected) as nodes,
+                        collect(DISTINCT r) as relationships
+                ";
+                
+            case 'contract':
+                return "
+                    MATCH (c:Contract {id: \$entity_id})-[:HAS_CONTRACT]->(t:Teacher)
+                    MATCH (c)-[:WORKING_FOR]->(cl:Club)
+                    MATCH path = (c)-[*1..{$depth}]-(connected)
+                    WHERE connected:Club OR connected:Teacher OR connected:User
+                    {$statusCondition}
+                    {$cityCondition}
+                    WITH c, t, cl, connected, path
+                    OPTIONAL MATCH (connected)-[r]-(other)
+                    WHERE other <> c
+                    RETURN 
+                        c as start_node,
+                        t as teacher,
+                        cl as club,
+                        collect(DISTINCT connected) as nodes,
+                        collect(DISTINCT r) as relationships
+                ";
+                
+            default:
+                throw new \InvalidArgumentException("Entité non supportée: {$entity}");
+        }
+    }
+
+    /**
+     * Formater les données pour Cytoscape
+     */
+    protected function formatGraphData(array $result, string $entity, int $entityId): array
+    {
+        $nodes = [];
+        $edges = [];
+        $nodeIds = [];
+        
+        if (empty($result)) {
+            return ['nodes' => [], 'edges' => []];
+        }
+        
+        $data = $result[0];
+        
+        // Ajouter le nœud de départ
+        $startNode = $data['start_node'] ?? null;
+        if ($startNode) {
+            $nodeId = $this->getNodeId($startNode);
+            $nodes[] = [
+                'data' => [
+                    'id' => $nodeId,
+                    'label' => $this->getNodeLabel($startNode),
+                    'color' => $this->getNodeColor($startNode),
+                    'size' => 40,
+                    'type' => $this->getNodeType($startNode),
+                    'properties' => $startNode
+                ]
+            ];
+            $nodeIds[] = $nodeId;
+        }
+        
+        // Ajouter les nœuds connectés
+        $connectedNodes = $data['nodes'] ?? [];
+        foreach ($connectedNodes as $node) {
+            $nodeId = $this->getNodeId($node);
+            if (!in_array($nodeId, $nodeIds)) {
+                $nodes[] = [
+                    'data' => [
+                        'id' => $nodeId,
+                        'label' => $this->getNodeLabel($node),
+                        'color' => $this->getNodeColor($node),
+                        'size' => 30,
+                        'type' => $this->getNodeType($node),
+                        'properties' => $node
+                    ]
+                ];
+                $nodeIds[] = $nodeId;
+            }
+        }
+        
+        // Ajouter les relations
+        $relationships = $data['relationships'] ?? [];
+        foreach ($relationships as $rel) {
+            $sourceId = $this->getNodeId($rel['start']);
+            $targetId = $this->getNodeId($rel['end']);
+            
+            if (in_array($sourceId, $nodeIds) && in_array($targetId, $nodeIds)) {
+                $edges[] = [
+                    'data' => [
+                        'id' => $sourceId . '-' . $targetId,
+                        'source' => $sourceId,
+                        'target' => $targetId,
+                        'label' => $this->getEdgeLabel($rel),
+                        'color' => $this->getEdgeColor($rel),
+                        'properties' => $rel
+                    ]
+                ];
+            }
+        }
+        
+        return [
+            'nodes' => $nodes,
+            'edges' => $edges
+        ];
+    }
+
+    /**
+     * Obtenir l'ID unique d'un nœud
+     */
+    protected function getNodeId(array $node): string
+    {
+        $type = $this->getNodeType($node);
+        $id = $node['id'] ?? uniqid();
+        return "{$type}_{$id}";
+    }
+
+    /**
+     * Obtenir le type de nœud
+     */
+    protected function getNodeType(array $node): string
+    {
+        if (isset($node['email'])) return 'User';
+        if (isset($node['bio'])) return 'Teacher';
+        if (isset($node['type'])) return 'Contract';
+        if (isset($node['name']) && !isset($node['email'])) return 'Club';
+        return 'Unknown';
+    }
+
+    /**
+     * Obtenir le label d'un nœud
+     */
+    protected function getNodeLabel(array $node): string
+    {
+        if (isset($node['name'])) {
+            return $node['name'];
+        }
+        if (isset($node['first_name']) && isset($node['last_name'])) {
+            return $node['first_name'] . ' ' . $node['last_name'];
+        }
+        if (isset($node['email'])) {
+            return $node['email'];
+        }
+        return 'Nœud ' . ($node['id'] ?? '');
+    }
+
+    /**
+     * Obtenir la couleur d'un nœud
+     */
+    protected function getNodeColor(array $node): string
+    {
+        $type = $this->getNodeType($node);
+        $colors = [
+            'Club' => '#3B82F6',      // Bleu
+            'Teacher' => '#10B981',   // Vert
+            'User' => '#8B5CF6',      // Violet
+            'Contract' => '#F59E0B',  // Orange
+            'Unknown' => '#6B7280'    // Gris
+        ];
+        return $colors[$type] ?? '#6B7280';
+    }
+
+    /**
+     * Obtenir le label d'une relation
+     */
+    protected function getEdgeLabel(array $rel): string
+    {
+        $type = $rel['type'] ?? '';
+        $labels = [
+            'MEMBERSHIP' => 'Membre',
+            'IS_TEACHER' => 'Est enseignant',
+            'HAS_CONTRACT' => 'A contrat',
+            'WORKING_FOR' => 'Travaille pour'
+        ];
+        return $labels[$type] ?? $type;
+    }
+
+    /**
+     * Obtenir la couleur d'une relation
+     */
+    protected function getEdgeColor(array $rel): string
+    {
+        $type = $rel['type'] ?? '';
+        $colors = [
+            'MEMBERSHIP' => '#3B82F6',
+            'IS_TEACHER' => '#10B981',
+            'HAS_CONTRACT' => '#F59E0B',
+            'WORKING_FOR' => '#EF4444'
+        ];
+        return $colors[$type] ?? '#6B7280';
+    }
