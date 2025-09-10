@@ -35,9 +35,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Créer l'utilisateur www-data
-RUN addgroup -g 1000 -S www-data \
-    && adduser -u 1000 -D -S -G www-data www-data
+# L'utilisateur www-data existe déjà dans l'image PHP Alpine (ID 82)
 
 # Définir le répertoire de travail
 WORKDIR /var/www/html
