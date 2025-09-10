@@ -44,6 +44,7 @@ WORKDIR /var/www/html
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/php.ini
+COPY docker/start-workers.sh /usr/local/bin/start-workers.sh
 
 # Copier les fichiers de l'application
 COPY --chown=www-data:www-data . .
@@ -65,7 +66,8 @@ ENV NUXT_HOST=0.0.0.0
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
     && mkdir -p /var/log/supervisor \
     && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache \
+    && chmod +x /usr/local/bin/start-workers.sh
 
 # Créer le fichier .env à partir de env.production.example
 RUN cp env.production.example .env

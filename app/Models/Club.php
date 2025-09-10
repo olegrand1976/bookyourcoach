@@ -152,6 +152,62 @@ class Club extends Model
         return $this->hasMany(ClubCustomSpecialty::class);
     }
 
+    /**
+     * Get the club facilities
+     */
+    public function clubFacilities()
+    {
+        return $this->hasMany(ClubFacility::class);
+    }
+
+    /**
+     * Get active club facilities
+     */
+    public function activeFacilities()
+    {
+        return $this->clubFacilities()->where('is_active', true);
+    }
+
+    /**
+     * Get the course slots for this club
+     */
+    public function courseSlots()
+    {
+        return $this->hasMany(CourseSlot::class);
+    }
+
+    /**
+     * Get active course slots for this club
+     */
+    public function activeCourseSlots()
+    {
+        return $this->courseSlots()->where('is_active', true);
+    }
+
+    /**
+     * Get teacher contracts for this club
+     */
+    public function teacherContracts()
+    {
+        return $this->hasMany(TeacherContract::class);
+    }
+
+    /**
+     * Get active teacher contracts for this club
+     */
+    public function activeTeacherContracts()
+    {
+        return $this->teacherContracts()->where('is_active', true);
+    }
+
+    /**
+     * Get course assignments for this club
+     */
+    public function courseAssignments()
+    {
+        return $this->hasManyThrough(CourseAssignment::class, CourseSlot::class);
+    }
+
     // Scopes
     public function scopeActive($query)
     {

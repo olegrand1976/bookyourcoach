@@ -368,6 +368,7 @@ jobs:
           mkdir -p storage bootstrap/cache ssl docker/nginx-proxy/vhost.d docker/nginx-proxy/html
           
           # Pull latest image
+          echo "IMAGE_NAME: $IMAGE_NAME"
           docker pull $IMAGE_NAME:latest
           
           # Stop existing containers
@@ -378,6 +379,11 @@ jobs:
           
           # Wait for containers to be ready
           sleep 30
+          
+          # Vérifier la configuration Laravel
+          echo "Vérification de la configuration Laravel..."
+          docker exec activibe-app php artisan config:clear
+          docker exec activibe-app php artisan config:cache
           
           # Vérifier la connexion à la base de données
           echo "Vérification de la connexion à la base de données..."
@@ -391,9 +397,15 @@ jobs:
           echo "Exécution des seeders..."
           docker exec activibe-app php artisan db:seed --force
           
-          # Redémarrer les workers après la configuration de la DB
-          echo "Redémarrage des workers..."
-          docker exec activibe-app supervisorctl restart laravel-worker:*
+          # Démarrer les workers avec notre script personnalisé
+          echo "Démarrage des workers avec vérification DB..."
+          docker exec activibe-app /usr/local/bin/start-workers.sh
+          
+          # Attendre que les workers soient stables
+          sleep 10
+          
+          echo "Vérification finale des workers..."
+          docker exec activibe-app supervisorctl status
           
           # Clean up old images
           docker image prune -f

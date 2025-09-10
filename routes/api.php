@@ -20,8 +20,9 @@ use App\Http\Controllers\Api\Teacher\DashboardController as TeacherDashboardCont
 use App\Http\Controllers\Api\ClubController;
 use App\Http\Controllers\Api\FinancialDashboardController;
 use App\Http\Controllers\Api\ClubSettingsController;
-use App\Http\Controllers\Api\GraphAnalyticsController;
-use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Api\ClubCourseController;
+use App\Http\Controllers\Api\TeacherAssignmentController;
+use App\Http\Controllers\Api\AssignmentSummaryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1764,7 +1765,32 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     });
 });
 
-// Routes d'analyse Neo4j
+// Routes pour la gestion des cours des clubs
+Route::prefix('clubs/{clubId}')->middleware(['auth:sanctum'])->group(function () {
+    // Tableau de bord des cours
+    Route::get('/course-dashboard', [ClubCourseController::class, 'getCourseDashboard']);
+    
+    // Gestion des installations
+    Route::get('/facilities', [ClubCourseController::class, 'getFacilities']);
+    Route::post('/facilities', [ClubCourseController::class, 'createFacility']);
+    
+    // Gestion des plages de cours
+    Route::post('/course-slots', [ClubCourseController::class, 'createCourseSlot']);
+    
+    // Affectation des enseignants
+    Route::get('/assignments', [TeacherAssignmentController::class, 'getAssignments']);
+    Route::post('/assignments/auto-assign', [TeacherAssignmentController::class, 'autoAssign']);
+    Route::post('/assignments/{assignmentId}/assign', [TeacherAssignmentController::class, 'assignTeacher']);
+    Route::post('/assignments/{assignmentId}/confirm', [TeacherAssignmentController::class, 'confirmAssignment']);
+    
+    // Enseignants disponibles
+    Route::get('/teachers/available', [TeacherAssignmentController::class, 'getAvailableTeachers']);
+    
+    // Tableau récapitulatif
+    Route::get('/assignment-summary', [AssignmentSummaryController::class, 'getSummary']);
+    Route::get('/assignment-alerts', [AssignmentSummaryController::class, 'getAlerts']);
+    Route::get('/teacher-workload', [AssignmentSummaryController::class, 'getTeacherWorkload']);
+});
 Route::prefix('neo4j')->middleware('admin')->group(function () {
     Route::get('/metrics', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'getGlobalMetrics']);
     Route::get('/sync-stats', [App\Http\Controllers\Api\Neo4jAnalysisController::class, 'getSyncStats']);
