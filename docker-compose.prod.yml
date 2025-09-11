@@ -4,23 +4,25 @@ services:
     container_name: bookyourcoach_app_prod
     restart: unless-stopped
     # Pas d'exposition de ports - communication interne uniquement
+    env_file:
+      - production.env
     environment:
-      - APP_NAME=BookYourCoach
-      - APP_ENV=production
-      - APP_DEBUG=false
-      - APP_URL=${APP_URL:-https://bookyourcoach.com}
-      - DB_CONNECTION=mysql
-      - DB_HOST=bookyourcoach_mysql_prod
-      - DB_PORT=3306
-      - DB_DATABASE=bookyourcoach_prod
-      - DB_USERNAME=bookyourcoach_user
+      - APP_NAME=${APP_NAME}
+      - APP_ENV=${APP_ENV}
+      - APP_DEBUG=${APP_DEBUG}
+      - APP_URL=${APP_URL}
+      - DB_CONNECTION=${DB_CONNECTION}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
-      - REDIS_HOST=bookyourcoach_redis_prod
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - CACHE_DRIVER=redis
-      - SESSION_DRIVER=redis
-      - QUEUE_CONNECTION=redis
+      - CACHE_DRIVER=${CACHE_DRIVER}
+      - SESSION_DRIVER=${SESSION_DRIVER}
+      - QUEUE_CONNECTION=${QUEUE_CONNECTION}
     volumes:
       - app_storage:/var/www/storage
       - app_bootstrap_cache:/var/www/bootstrap/cache
@@ -35,10 +37,12 @@ services:
     image: mysql:8.0
     container_name: bookyourcoach_mysql_prod
     restart: unless-stopped
+    env_file:
+      - production.env
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: bookyourcoach_prod
-      MYSQL_USER: bookyourcoach_user
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
@@ -52,6 +56,8 @@ services:
     image: redis:7-alpine
     container_name: bookyourcoach_redis_prod
     restart: unless-stopped
+    env_file:
+      - production.env
     volumes:
       - redis_data:/data
     # Pas d'exposition de ports - communication interne uniquement
