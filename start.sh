@@ -1,51 +1,29 @@
 #!/bin/bash
 
-# Script de démarrage pour BookYourCoach
+# Script de démarrage rapide BookYourCoach
+# Pour démarrer rapidement l'application après le déploiement
 
-echo "🚀 Démarrage de BookYourCoach..."
+echo "🚀 Démarrage rapide BookYourCoach..."
 
-# Construire et démarrer les conteneurs
-echo "📦 Construction et démarrage des conteneurs Docker..."
-docker-compose up -d --build
+# Vérifier si le fichier .env existe
+if [ ! -f ".env" ]; then
+    echo "⚠️  Fichier .env non trouvé. Copie depuis production.env..."
+    cp production.env .env
+fi
 
-# Attendre que la base de données soit prête
-echo "⏳ Attente que la base de données soit prête..."
+# Démarrer les services
+echo "📦 Démarrage des services..."
+docker compose -f docker-compose.prod.yml up -d
+
+# Attendre le démarrage
+echo "⏳ Attente du démarrage (15 secondes)..."
 sleep 15
 
-# Installation des dépendances
-echo "📥 Installation des dépendances Composer..."
-docker-compose exec app composer install --optimize-autoloader
+# Vérifier le statut
+echo "📊 Statut des conteneurs:"
+docker compose -f docker-compose.prod.yml ps
 
-# Génération de la clé d'application
-echo "🔑 Génération de la clé d'application..."
-docker-compose exec app php artisan key:generate
-
-# Configuration du cache
-echo "💾 Configuration du cache..."
-docker-compose exec app php artisan config:cache
-docker-compose exec app php artisan route:cache
-
-# Exécution des migrations
-echo "🗄️ Exécution des migrations..."
-docker-compose exec app php artisan migrate --force
-
-# Création du lien de stockage
-echo "🔗 Création du lien de stockage..."
-docker-compose exec app php artisan storage:link
-
-# Configuration des permissions
-echo "🔒 Configuration des permissions..."
-docker-compose exec app chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-
-echo "✅ BookYourCoach est maintenant disponible !"
 echo ""
-echo "📱 Application: http://localhost:8000"
-echo "🗃️ PHPMyAdmin: http://localhost:8080"
-echo "   - Utilisateur: bookyourcoach"
-echo "   - Mot de passe: password"
-echo ""
-echo "🔧 Commandes utiles:"
-echo "   - Arrêter: docker-compose down"
-echo "   - Logs: docker-compose logs -f"
-echo "   - Console Laravel: docker-compose exec app php artisan tinker"
-echo "   - Tests: docker-compose exec app php artisan test"
+echo "✅ Application démarrée!"
+echo "🌐 Accès: http://localhost"
+echo "📋 Logs: docker compose -f docker-compose.prod.yml logs -f"
