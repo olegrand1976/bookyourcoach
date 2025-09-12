@@ -237,13 +237,13 @@ jobs:
         LETSENCRYPT_HOST=bookyourcoach.com,www.bookyourcoach.com
         LETSENCRYPT_EMAIL=admin@bookyourcoach.com
 
-        # Base de données MySQL
+        # Base de données MySQL externe (OVH) - CORRIGÉ
         DB_CONNECTION=mysql
-        DB_HOST=mysql
-        DB_PORT=3306
-        DB_DATABASE=bookyourcoach_prod
-        DB_USERNAME=bookyourcoach_user
-        DB_PASSWORD=bookyourcoach_secure_password_2024
+        DB_HOST=${{ secrets.DB_HOST_OVH }}
+        DB_PORT=${{ secrets.DB_PORT_OVH }}
+        DB_DATABASE=${{ secrets.DB_DATABASE_OVH }}
+        DB_USERNAME=${{ secrets.DB_USERNAME_OVH }}
+        DB_PASSWORD=${{ secrets.DB_PASSWORD_OVH }}
 
         # Cache Redis
         BROADCAST_DRIVER=redis
@@ -328,9 +328,9 @@ jobs:
         # Arrêt propre des containers existants
         log_info "🛑 Arrêt des containers existants..."
         
-        # Essayer d'arrêter avec docker-compose si possible
+        # Essayer d'arrêter avec docker compose si possible
         if [[ -f "$COMPOSE_FILE" ]]; then
-            docker-compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
         fi
         
         # Arrêt forcé des containers connus
@@ -392,7 +392,7 @@ jobs:
 
         # Démarrage des services
         log_info "🚀 Démarrage des services..."
-        docker-compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
         # Attente du démarrage
         log_info "⏳ Attente du démarrage des services (60 secondes)..."
@@ -400,7 +400,7 @@ jobs:
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
-        docker-compose -f "$COMPOSE_FILE" ps
+        docker compose -f "$COMPOSE_FILE" ps
 
         # Tests de connectivité
         log_step "🧪 Tests de connectivité..."
@@ -469,7 +469,7 @@ jobs:
 
         # État final des services
         log_info "🔍 État final des services :"
-        docker-compose -f "$COMPOSE_FILE" ps
+        docker compose -f "$COMPOSE_FILE" ps
 
         log_step "✅ Déploiement automatique terminé avec succès !"
         EOF
@@ -545,7 +545,7 @@ jobs:
         
         # Affichage de l'état des containers
         echo "📊 État des containers :"
-        ssh production-server "cd /srv/activibe && docker-compose -f docker-compose.nginx-proxy.yml ps"
+        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.nginx-proxy.yml ps"
 
     - name: 📧 Notification de succès
       if: success()
