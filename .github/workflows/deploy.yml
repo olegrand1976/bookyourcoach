@@ -1,436 +1,209 @@
-name: Deploy to Cloud Server
+name: 🚀 Déploiement Production (Actif)
 
 on:
   push:
-    branches: [ main, production ]
-  pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
 
 jobs:
-  test:
+  build-and-deploy:
+    name: 🏗️ Build, Push & Deploy
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: 'frontend/package.json'
-    
-    - name: Install Frontend Dependencies
-      run: |
-        cd frontend
-        npm install
-        # Corriger les permissions des fichiers .mjs et binaires
-        find node_modules/.bin -name "*.mjs" -exec chmod +x {} \; 2>/dev/null || true
-        chmod +x node_modules/@nuxt/cli/bin/nuxi.mjs 2>/dev/null || true
-        chmod +x node_modules/vitest/vitest.mjs 2>/dev/null || true
-        chmod +x node_modules/@esbuild/linux-x64/bin/esbuild 2>/dev/null || true
-        # Correction supplémentaire pour tous les binaires esbuild
-        find node_modules/@esbuild -name "esbuild" -exec chmod +x {} \; 2>/dev/null || true
-        npx nuxt prepare
-    
-    - name: Run Frontend Tests
-      run: |
-        cd frontend
-        echo "Tests désactivés temporairement - vitest fonctionne mais les tests sont obsolètes"
-        # npm run test:unit
-    
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, dom, fileinfo, mysql, pdo_mysql, zip, gd, curl, xml, ctype, json, bcmath, openssl, tokenizer
-    
-    - name: Install Composer Dependencies
-      run: |
-        composer install --no-dev --optimize-autoloader
-    
-    - name: Run PHP Tests
-      run: |
-        echo "Tests PHP désactivés temporairement - PHPUnit fonctionne mais les tests nécessitent des extensions PDO"
-        # php artisan test
-
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Configuration Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
-    - name: Login to DockerHub
+      
+    - name: 🔐 Connexion DockerHub
       uses: docker/login-action@v3
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
     
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: Build and push Docker image
+    - name: 🏗️ Build et Push de l'image Docker
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ env.IMAGE_NAME }}:latest,${{ env.IMAGE_NAME }}:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Debug SSH Configuration
+        
+    - name: 📝 Génération des fichiers de configuration sur le Runner
       run: |
-        echo "=== DEBUG SSH CONFIGURATION ==="
-        echo "SERVER_HOST: ${{ vars.SERVER_HOST }}"
-        echo "SERVER_PORT: ${{ vars.SERVER_PORT }}"
-        echo "SERVER_USERNAME: '${{ vars.SERVER_USERNAME }}'"
-        echo "SSH_KEY length: ${#SERVER_SSH_KEY}"
-        echo "KNOWN_HOSTS length: ${#SERVER_KNOWN_HOSTS}"
-        echo "SSH_KEY starts with: ${SERVER_SSH_KEY:0:50}..."
-        echo "KNOWN_HOSTS starts with: ${SERVER_KNOWN_HOSTS:0:50}..."
-        echo "================================="
-      env:
-        SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-        SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+        echo "🔧 Génération de docker-compose.yml..."
+        cat > docker-compose.yml << 'EOF'
+        version: "3.8"
 
-    - name: Test SSH Connection
-      run: |
-        echo "=== TESTING SSH CONNECTION ==="
-        echo "Testing connection to ${{ vars.SERVER_HOST }}:${{ vars.SERVER_PORT }}"
-        
-        # Vérifier que le nom d'utilisateur est défini
-        if [ -z "${{ vars.SERVER_USERNAME }}" ]; then
-          echo "ERROR: SERVER_USERNAME is not defined or empty!"
-          exit 1
-        fi
-        
-        # Vérifier que la clé SSH est définie
-        if [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
-          echo "ERROR: SERVER_SSH_KEY is not defined or empty!"
-          exit 1
-        fi
-        
-        # Vérifier que known_hosts est défini
-        if [ -z "${{ secrets.SERVER_KNOWN_HOSTS }}" ]; then
-          echo "ERROR: SERVER_KNOWN_HOSTS is not defined or empty!"
-          exit 1
-        fi
-        
-        # Create temporary SSH key file
-        echo "${{ secrets.SERVER_SSH_KEY }}" > /tmp/ssh_key
-        chmod 600 /tmp/ssh_key
-        
-        # Create temporary known_hosts file
-        echo "${{ secrets.SERVER_KNOWN_HOSTS }}" > /tmp/known_hosts
-        chmod 644 /tmp/known_hosts
-        
-        # Test SSH connection with verbose output
-        ssh -vvv -i /tmp/ssh_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -p ${{ vars.SERVER_PORT }} ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_HOST }} "echo 'SSH connection successful!'"
-        
-        # Clean up
-        rm -f /tmp/ssh_key /tmp/known_hosts
-        echo "================================="
+        services:
+          app:
+            image: ${{ env.IMAGE_NAME }}:latest
+            container_name: activibe-app
+            restart: unless-stopped
+            environment:
+              - VIRTUAL_HOST=${VIRTUAL_HOST}
+              - VIRTUAL_PORT=3001
+              - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+              - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+              - APP_NAME=${APP_NAME}
+              - APP_ENV=${APP_ENV}
+              - APP_DEBUG=${APP_DEBUG}
+              - APP_URL=${APP_URL}
+              - DB_CONNECTION=mysql
+              - DB_HOST=${DB_HOST}
+              - DB_PORT=${DB_PORT}
+              - DB_DATABASE=${DB_DATABASE}
+              - DB_USERNAME=${DB_USERNAME}
+              - DB_PASSWORD=${DB_PASSWORD}
+              - REDIS_HOST=redis
+              - REDIS_PASSWORD=${REDIS_PASSWORD}
+              - CACHE_DRIVER=redis
+              - SESSION_DRIVER=redis
+              - QUEUE_CONNECTION=redis
+            networks:
+              - nginx-proxy
+              - app-network
+            depends_on:
+              - redis
 
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.0
+          redis:
+            image: redis:7-alpine
+            container_name: activibe-redis
+            restart: unless-stopped
+            volumes:
+              - redis_data:/data
+            networks:
+              - app-network
+            command: redis-server --appendonly yes --requirepass \${REDIS_PASSWORD}
+
+          neo4j:
+            image: neo4j:5.15-community
+            container_name: activibe-neo4j
+            restart: unless-stopped
+            ports:
+              - "7474:7474"
+              - "7687:7687"
+            environment:
+              - NEO4J_AUTH=neo4j/\${NEO4J_PASSWORD}
+            volumes:
+              - neo4j_data:/data
+            networks:
+              - app-network
+              
+          phpmyadmin:
+            image: phpmyadmin:latest
+            container_name: activibe-phpmyadmin
+            restart: unless-stopped
+            ports:
+              - "8082:80"
+            environment:
+              - PMA_HOST=\${DB_HOST}
+              - PMA_PORT=\${DB_PORT}
+              - PMA_USER=\${DB_USERNAME}
+              - PMA_PASSWORD=\${DB_PASSWORD}
+            networks:
+              - app-network
+            depends_on:
+              - redis
+
+        volumes:
+          redis_data:
+          neo4j_data:
+
+        networks:
+          nginx-proxy:
+            external: true
+          app-network:
+            driver: bridge
+        EOF
+
+        echo "🔧 Génération de production.env..."
+        cat > production.env << EOF
+        APP_NAME="${{ vars.APP_NAME }}"
+        APP_ENV=production
+        APP_DEBUG=false
+        APP_URL="${{ vars.APP_URL }}"
+        VIRTUAL_HOST="${{ vars.VIRTUAL_HOST }}"
+        LETSENCRYPT_HOST="${{ vars.LETSENCRYPT_HOST }}"
+        LETSENCRYPT_EMAIL="${{ vars.LETSENCRYPT_EMAIL }}"
+        DB_CONNECTION=mysql
+        DB_HOST=${{ secrets.DB_HOST_OVH }}
+        DB_PORT=${{ secrets.DB_PORT_OVH }}
+        DB_DATABASE=${{ secrets.DB_DATABASE_OVH }}
+        DB_USERNAME=${{ secrets.DB_USERNAME_OVH }}
+        DB_PASSWORD=${{ secrets.DB_PASSWORD_OVH }}
+        REDIS_HOST=redis
+        REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+        REDIS_PORT=6379
+        CACHE_DRIVER=redis
+        SESSION_DRIVER=redis
+        QUEUE_CONNECTION=redis
+        NEO4J_PASSWORD=${{ secrets.NEO4J_PASSWORD }}
+        EOF
+
+    - name: 🚀 Déploiement sur le serveur
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ vars.SERVER_HOST }}
         username: ${{ vars.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ vars.SERVER_PORT }}
-        timeout: 30s
-        command_timeout: 10m
-        debug: true
         script: |
-          # Variables
-          export IMAGE_NAME="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}"
-          export CONTAINER_NAME="activibe-app"
-          export COMPOSE_FILE="/srv/activibe/docker-compose.prod.yml"
+          set -e
+          APP_DIR="/srv/activibe"
+          mkdir -p $APP_DIR
+          cd $APP_DIR
           
-          # Debug variables
-          echo "IMAGE_NAME: $IMAGE_NAME"
-          echo "CONTAINER_NAME: $CONTAINER_NAME"
-          echo "COMPOSE_FILE: $COMPOSE_FILE"
-          
-          # Create application directory
-          sudo mkdir -p /srv/activibe
+          echo "🛑 Arrêt des anciens services applicatifs..."
+          docker stop activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
+          docker rm activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
+
+    - name: 📂 Copie des nouveaux fichiers de configuration
+      uses: scp-action@v1.1.2
+      with:
+        host: ${{ vars.SERVER_HOST }}
+        username: ${{ vars.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ vars.SERVER_PORT }}
+        source: "docker-compose.yml,production.env"
+        target: "/srv/activibe/"
+
+    - name: 🚀 Démarrage de la nouvelle stack
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ vars.SERVER_HOST }}
+        username: ${{ vars.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ vars.SERVER_PORT }}
+        script: |
+          set -e
           cd /srv/activibe
           
-          # Stop and remove only our application containers (preserve other apps)
-          docker compose -f $COMPOSE_FILE down --remove-orphans || true
+          echo "📥 Récupération de la dernière image..."
+          docker pull ${{ env.IMAGE_NAME }}:latest
           
-          # Stop only our specific containers (don't touch other applications)
-          docker stop activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
-          docker rm activibe-app activibe-redis activibe-neo4j activibe-nginx-proxy 2>/dev/null || true
+          echo "🚀 Démarrage de la nouvelle stack..."
+          docker-compose -f docker-compose.yml --env-file production.env up -d
           
-          # Create docker-compose.prod.yml file
-          cat > docker-compose.prod.yml << EOF
-          services:
-            app:
-              image: \${IMAGE_NAME}:latest
-              container_name: activibe-app
-              restart: unless-stopped
-              ports:
-                - "3001:3001"
-              volumes:
-                - ./storage:/var/www/html/storage
-                - ./bootstrap/cache:/var/www/html/bootstrap/cache
-                - ./ssl:/etc/nginx/ssl
-                - ./cert.pem:/var/www/html/cert.pem:ro
-              environment:
-                - APP_ENV=production
-                - APP_DEBUG=false
-                - APP_URL=https://activibe.com
-                - DB_CONNECTION=mysql
-                - DB_HOST=mysql-dae24fb8-odf582313.database.cloud.ovh.net
-                - DB_PORT=20184
-                - DB_DATABASE=defaultdb
-                - DB_USERNAME=admin_bookyourcoach
-                - DB_PASSWORD=4rulO5w37hC9nZXEIHda
-                - DB_SSL_CA=/var/www/html/cert.pem
-                - NEO4J_HOST=neo4j
-                - NEO4J_PORT=7474
-                - NEO4J_USERNAME=neo4j
-                - NEO4J_PASSWORD=\${NEO4J_PASSWORD}
-                - REDIS_HOST=redis
-                - REDIS_PORT=6379
-                - MAIL_MAILER=smtp
-                - MAIL_HOST=\${MAIL_HOST}
-                - MAIL_PORT=\${MAIL_PORT}
-                - MAIL_USERNAME=\${MAIL_USERNAME}
-                - MAIL_PASSWORD=\${MAIL_PASSWORD}
-                - MAIL_ENCRYPTION=tls
-              depends_on:
-                - redis
-                - neo4j
-              networks:
-                - activibe-network
-          
-            redis:
-              image: redis:7-alpine
-              container_name: activibe-redis
-              restart: unless-stopped
-              volumes:
-                - redis_data:/data
-              networks:
-                - activibe-network
-          
-            neo4j:
-              image: neo4j:5.15-community
-              container_name: activibe-neo4j
-              restart: unless-stopped
-              ports:
-                - "7474:7474"
-                - "7687:7687"
-              environment:
-                - NEO4J_AUTH=neo4j/Neo4jSecure2024!
-                - NEO4J_PLUGINS=["apoc"]
-                - NEO4J_dbms_security_procedures_unrestricted=apoc.*
-                - NEO4J_dbms_security_procedures_allowlist=apoc.*
-                - NEO4J_dbms_memory_heap_initial__size=512m
-                - NEO4J_dbms_memory_heap_max__size=2G
-                - NEO4J_dbms_memory_pagecache_size=1G
-                - NEO4J_dbms_default__listen__address=0.0.0.0
-                - NEO4J_dbms_connector_bolt_listen__address=0.0.0.0:7687
-                - NEO4J_dbms_connector_http_listen__address=0.0.0.0:7474
-                - NEO4J_dbms_connector_https_listen__address=0.0.0.0:7473
-              volumes:
-                - neo4j_data:/data
-                - neo4j_logs:/logs
-                - neo4j_import:/var/lib/neo4j/import
-                - neo4j_plugins:/plugins
-              networks:
-                - activibe-network
-          
-            nginx-proxy:
-              image: nginxproxy/nginx-proxy:latest
-              container_name: activibe-nginx-proxy
-              restart: unless-stopped
-              ports:
-                - "8081:80"
-                - "8444:443"
-              volumes:
-                - /var/run/docker.sock:/tmp/docker.sock:ro
-                - ./ssl:/etc/nginx/certs
-                - ./docker/nginx-proxy/vhost.d:/etc/nginx/vhost.d
-                - ./docker/nginx-proxy/html:/usr/share/nginx/html
-              networks:
-                - activibe-network
-          
-          volumes:
-            redis_data:
-            neo4j_data:
-            neo4j_logs:
-            neo4j_import:
-            neo4j_plugins:
-          
-          networks:
-            activibe-network:
-              driver: bridge
-          EOF
-          
-          # Create .env file with OVH database configuration
-          cat > .env << 'EOF'
-          APP_NAME=ActiVibe
-          APP_ENV=production
-          APP_KEY=base64:$(openssl rand -base64 32)
-          APP_DEBUG=false
-          APP_URL=https://activibe.com
-          
-          LOG_CHANNEL=stack
-          LOG_DEPRECATIONS_CHANNEL=null
-          LOG_LEVEL=debug
-          
-          DB_CONNECTION=mysql
-          DB_HOST=mysql-dae24fb8-odf582313.database.cloud.ovh.net
-          DB_PORT=20184
-          DB_DATABASE=defaultdb
-          DB_USERNAME=admin_bookyourcoach
-          DB_PASSWORD=4rulO5w37hC9nZXEIHda
-          DB_SSL_CA=/var/www/html/cert.pem
-          
-          NEO4J_HOST=neo4j
-          NEO4J_PORT=7474
-          NEO4J_USERNAME=neo4j
-          NEO4J_PASSWORD=Neo4jSecure2024!
-          NEO4J_BOLT_PORT=7687
-          NEO4J_HTTP_PORT=7474
-          NEO4J_HTTPS_PORT=7473
-          
-          BROADCAST_DRIVER=log
-          CACHE_DRIVER=redis
-          FILESYSTEM_DISK=local
-          QUEUE_CONNECTION=redis
-          SESSION_DRIVER=redis
-          SESSION_LIFETIME=120
-          
-          REDIS_HOST=redis
-          REDIS_PASSWORD=null
-          REDIS_PORT=6379
-          
-          MAIL_MAILER=smtp
-          MAIL_HOST=smtp.gmail.com
-          MAIL_PORT=587
-          MAIL_USERNAME=your-email@gmail.com
-          MAIL_PASSWORD=your-app-password
-          MAIL_ENCRYPTION=tls
-          MAIL_FROM_ADDRESS="noreply@activibe.com"
-          MAIL_FROM_NAME="${APP_NAME}"
-          
-          AWS_ACCESS_KEY_ID=
-          AWS_SECRET_ACCESS_KEY=
-          AWS_DEFAULT_REGION=us-east-1
-          AWS_BUCKET=
-          AWS_USE_PATH_STYLE_ENDPOINT=false
-          
-          PUSHER_APP_ID=
-          PUSHER_APP_KEY=
-          PUSHER_APP_SECRET=
-          PUSHER_HOST=
-          PUSHER_PORT=443
-          PUSHER_SCHEME=https
-          PUSHER_APP_CLUSTER=mt1
-          
-          VITE_PUSHER_APP_KEY="${PUSHER_APP_KEY}"
-          VITE_PUSHER_HOST="${PUSHER_HOST}"
-          VITE_PUSHER_PORT="${PUSHER_PORT}"
-          VITE_PUSHER_SCHEME="${PUSHER_SCHEME}"
-          VITE_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
-          EOF
-          
-          # Create necessary directories
-          mkdir -p storage bootstrap/cache ssl docker/nginx-proxy/vhost.d docker/nginx-proxy/html
-          
-          # Pull latest image
-          echo "IMAGE_NAME: $IMAGE_NAME"
-          docker pull $IMAGE_NAME:latest
-          
-          # Stop existing containers
-          docker compose -f $COMPOSE_FILE down || true
-          
-          # Start new containers
-          docker compose -f $COMPOSE_FILE up -d
-          
-          # Wait for containers to be ready
+          echo "⏳ Attente de la stabilisation (30s)..."
           sleep 30
           
-          # Vérifier la configuration Laravel
-          echo "Vérification de la configuration Laravel..."
-          docker exec activibe-app php artisan config:clear
-          docker exec activibe-app php artisan config:cache
+          echo "📊 État final des containers :"
+          docker ps
           
-          # Vérifier la connexion à la base de données
-          echo "Vérification de la connexion à la base de données..."
-          docker exec activibe-app php artisan tinker --execute="DB::connection()->getPdo(); echo 'Connexion DB OK';"
-          
-          # Exécuter les migrations
-          echo "Exécution des migrations..."
-          docker exec activibe-app php artisan migrate --force
-          
-          # Exécuter les seeders
-          echo "Exécution des seeders..."
-          docker exec activibe-app php artisan db:seed --force
-          
-          # Démarrer les workers avec notre script personnalisé
-          echo "Démarrage des workers avec vérification DB..."
-          docker exec activibe-app /usr/local/bin/start-workers.sh
-          
-          # Attendre que les workers soient stables
-          sleep 10
-          
-          echo "Vérification finale des workers..."
-          docker exec activibe-app supervisorctl status
-          
-          # Clean up old images
-          docker image prune -f
-          
-          # Show status
-          docker compose -f $COMPOSE_FILE ps
-          
-          echo "Deployment completed successfully!"
+          echo "✅ Déploiement terminé !"
 
-  notify:
-    needs: [test, build-and-push, deploy]
-    runs-on: ubuntu-latest
-    if: always()
-    
-    steps:
-    - name: Deployment Summary
+    - name: 🧹 Nettoyage du projet (fichiers inutilisés)
+      if: success()
       run: |
-        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tests**: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build**: ${{ needs.build-and-push.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Deploy**: ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Overall**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ **Deployment failed!**" >> $GITHUB_STEP_SUMMARY
-        fi
+        echo "Le déploiement est réussi. Vous pouvez maintenant supprimer les fichiers inutiles."
+        echo "Fichiers à supprimer : .github/workflows/deploy-production.yml, docker-compose.prod.yml, etc."
+        # Cette étape est manuelle pour l'instant pour des raisons de sécurité.
