@@ -37,12 +37,13 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: 📝 Génération des fichiers de configuration sur le Runner
+    - name: 📝 Génération des fichiers de configuration
+      id: generate_files
       run: |
-        echo "🔧 Génération de docker-compose.yml..."
-        cat > docker-compose.yml << 'EOF'
+        # Use a unique delimiter for the heredoc to avoid conflicts
+        echo "compose_file<<EOF_DELIMITER" >> $GITHUB_OUTPUT
+        cat <<'EOF_DELIMITER' >> $GITHUB_OUTPUT
         version: "3.8"
-
         services:
           app:
             image: ${{ env.IMAGE_NAME }}:latest
@@ -73,7 +74,6 @@ jobs:
               - app-network
             depends_on:
               - redis
-
           redis:
             image: redis:7-alpine
             container_name: activibe-redis
@@ -82,8 +82,7 @@ jobs:
               - redis_data:/data
             networks:
               - app-network
-            command: redis-server --appendonly yes --requirepass \${REDIS_PASSWORD}
-
+            command: redis-server --appendonly yes --requirepass $$REDIS_PASSWORD
           neo4j:
             image: neo4j:5.15-community
             container_name: activibe-neo4j
@@ -92,12 +91,11 @@ jobs:
               - "7474:7474"
               - "7687:7687"
             environment:
-              - NEO4J_AUTH=neo4j/\${NEO4J_PASSWORD}
+              - NEO4J_AUTH=neo4j/$$NEO4J_PASSWORD
             volumes:
               - neo4j_data:/data
             networks:
               - app-network
-              
           phpmyadmin:
             image: phpmyadmin:latest
             container_name: activibe-phpmyadmin
@@ -105,28 +103,27 @@ jobs:
             ports:
               - "8082:80"
             environment:
-              - PMA_HOST=\${DB_HOST}
-              - PMA_PORT=\${DB_PORT}
-              - PMA_USER=\${DB_USERNAME}
-              - PMA_PASSWORD=\${DB_PASSWORD}
+              - PMA_HOST=$$DB_HOST
+              - PMA_PORT=$$DB_PORT
+              - PMA_USER=$$DB_USERNAME
+              - PMA_PASSWORD=$$DB_PASSWORD
             networks:
               - app-network
             depends_on:
               - redis
-
         volumes:
           redis_data:
           neo4j_data:
-
         networks:
           nginx-proxy:
             external: true
           app-network:
             driver: bridge
-        EOF
+        EOF_DELIMITER
+        echo "EOF_DELIMITER" >> $GITHUB_OUTPUT
 
-        echo "🔧 Génération de production.env..."
-        cat > production.env << EOF
+        echo "env_file<<EOF_DELIMITER" >> $GITHUB_OUTPUT
+        cat <<'EOF_DELIMITER' >> $GITHUB_OUTPUT
         APP_NAME="${{ vars.APP_NAME }}"
         APP_ENV=production
         APP_DEBUG=false
@@ -147,9 +144,10 @@ jobs:
         SESSION_DRIVER=redis
         QUEUE_CONNECTION=redis
         NEO4J_PASSWORD=${{ secrets.NEO4J_PASSWORD }}
-        EOF
+        EOF_DELIMITER
+        echo "EOF_DELIMITER" >> $GITHUB_OUTPUT
 
-    - name: 🚀 Déploiement sur le serveur
+    - name: 🚀 Déploiement et Exécution sur le Serveur
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ vars.SERVER_HOST }}
@@ -161,12 +159,18 @@ jobs:
           APP_DIR="/srv/activibe"
           mkdir -p $APP_DIR
           cd $APP_DIR
-          
-          echo "🛑 Arrêt et nettoyage des anciens containers..."
-          if [ -f docker-compose.yml ]; then
-            docker compose -f docker-compose.yml down --remove-orphans 2>/dev/null || true
-          fi
-          docker container prune -f 2>/dev/null || true
+
+          echo "🛑 Arrêt des anciens services applicatifs..."
+          docker stop activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
+          docker rm activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
+
+          echo "📝 Création des fichiers de configuration sur le serveur..."
+          cat > docker-compose.yml <<'EOF'
+          ${{ steps.generate_files.outputs.compose_file }}
+          EOF
+          cat > production.env <<'EOF'
+          ${{ steps.generate_files.outputs.env_file }}
+          EOF
           
           echo "📥 Récupération de la dernière image..."
           docker pull "${{ env.IMAGE_NAME }}:latest"
@@ -181,6 +185,10 @@ jobs:
           docker compose -f docker-compose.yml ps
 
           echo "✅ Déploiement terminé avec succès !"
+
+    - name: 🧪 Tests post-déploiement
+      if: always()
+      uses: appleboy/ssh-action@v1.0.3
 
     - name: 🧹 Nettoyage du projet (fichiers inutilisés)
       if: success()
