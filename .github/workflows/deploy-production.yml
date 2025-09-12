@@ -177,18 +177,6 @@ jobs:
             labels:
               - "com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy"
 
-          # Container infiswap-front (préservé sur port 80)
-          infiswap-front:
-            image: nginx:alpine
-            container_name: infiswap-front
-            restart: unless-stopped
-            ports:
-              - "80:80"  # Port 80 préservé pour infiswap-front
-            volumes:
-              - ./infiswap-static:/usr/share/nginx/html:ro
-            networks:
-              - nginx-proxy
-
         volumes:
           redis_data:
             driver: local
@@ -318,7 +306,7 @@ jobs:
         docker images > "$BACKUP_DIR/docker-images-before.txt" 2>/dev/null || true
 
         # Sauvegarde des logs des containers existants
-        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j infiswap-front; do
+        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j; do
             if docker ps -a --format '{{.Names}}' | grep -q "^$container$"; then
                 log_info "💾 Sauvegarde des logs de $container..."
                 docker logs "$container" > "$BACKUP_DIR/${container}-logs.txt" 2>&1 || true
@@ -334,7 +322,7 @@ jobs:
         fi
         
         # Arrêt forcé des containers connus
-        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j infiswap-front; do
+        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j; do
             if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
                 log_info "🔄 Arrêt de $container..."
                 docker stop "$container" 2>/dev/null || true
@@ -346,42 +334,6 @@ jobs:
         log_info "🧹 Nettoyage des ressources orphelines..."
         docker container prune -f 2>/dev/null || true
         docker network prune -f 2>/dev/null || true
-
-        # Création du répertoire infiswap-static
-        log_info "📂 Configuration d'infiswap-front..."
-        mkdir -p ./infiswap-static
-        cat > ./infiswap-static/index.html << 'HTML'
-        <!DOCTYPE html>
-        <html lang="fr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Infiswap Front</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-                .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                h1 { color: #2c3e50; }
-                .status { color: #27ae60; font-weight: bold; }
-                .info { background: #ecf0f1; padding: 15px; border-radius: 4px; margin: 20px 0; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🌐 Infiswap Front</h1>
-                <p class="status">✅ Service Actif sur le Port 80</p>
-                <div class="info">
-                    <h3>🔗 Services Disponibles</h3>
-                    <ul>
-                        <li><strong>BookYourCoach App:</strong> <a href="http://91.134.77.98:8081">Port 8081</a></li>
-                        <li><strong>Neo4j Interface:</strong> <a href="http://91.134.77.98:7474">Port 7474</a></li>
-                        <li><strong>Infiswap Front:</strong> Port 80 (cette page)</li>
-                    </ul>
-                </div>
-                <p><small>🕒 Dernière mise à jour: $(date)</small></p>
-            </div>
-        </body>
-        </html>
-        HTML
 
         # Pull de la dernière image
         log_info "📥 Récupération de la dernière image Docker..."
@@ -406,7 +358,7 @@ jobs:
         log_step "🧪 Tests de connectivité..."
 
         # Test des containers
-        containers=("activibe-app" "activibe-nginx-proxy" "infiswap-front" "bookyourcoach_mysql_prod" "activibe-redis" "activibe-neo4j")
+        containers=("activibe-app" "activibe-nginx-proxy" "bookyourcoach_mysql_prod" "activibe-redis" "activibe-neo4j")
         
         for container in "${containers[@]}"; do
             if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
@@ -419,13 +371,6 @@ jobs:
         # Tests des ports
         log_info "🔌 Test des ports..."
         
-        # Test port 80 (infiswap-front)
-        if curl -f http://localhost:80 >/dev/null 2>&1; then
-            log_info "✅ Port 80 (infiswap-front) : Accessible"
-        else
-            log_warning "⚠️  Port 80 (infiswap-front) : Non accessible"
-        fi
-
         # Test port 8081 (nginx-proxy)
         sleep 30  # Attente supplémentaire pour nginx-proxy
         if curl -f http://localhost:8081 >/dev/null 2>&1; then
@@ -459,7 +404,7 @@ jobs:
         echo ""
         log_info "🎯 URLs d'accès :"
         log_info "   • Application principale : http://91.134.77.98:8081"
-        log_info "   • Infiswap Front : http://91.134.77.98:80"
+        log_info "   • Infiswap Front (préservé) : http://91.134.77.98:80"
         log_info "   • Neo4j Interface : http://91.134.77.98:7474"
         echo ""
         log_info "📁 Sauvegarde : $BACKUP_DIR"
@@ -522,13 +467,6 @@ jobs:
         # Test de connectivité des services
         echo "🌐 Test des services sur le serveur..."
         
-        # Test infiswap-front (port 80)
-        if ssh production-server "curl -f http://localhost:80" >/dev/null 2>&1; then
-          echo "✅ infiswap-front (port 80) : OK"
-        else
-          echo "⚠️  infiswap-front (port 80) : KO"
-        fi
-        
         # Test nginx-proxy (port 8081)
         if ssh production-server "curl -f http://localhost:8081" >/dev/null 2>&1; then
           echo "✅ nginx-proxy (port 8081) : OK"
@@ -554,7 +492,7 @@ jobs:
         echo ""
         echo "🌐 L'application BookYourCoach est maintenant accessible :"
         echo "   • Application : http://${{ vars.SERVER_HOST }}:8081"
-        echo "   • Infiswap Front : http://${{ vars.SERVER_HOST }}:80"
+        echo "   • Infiswap Front (préservé) : http://${{ vars.SERVER_HOST }}:80"
         echo "   • Neo4j : http://${{ vars.SERVER_HOST }}:7474"
         echo ""
         echo "🐳 Image déployée : ${{ env.IMAGE_NAME }}:${{ github.sha }}"
