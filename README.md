@@ -251,3 +251,11 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de 
 ---
 
 **Développé avec ❤️ par l'équipe BookYourCoach**
+
+# BookYourCoach API
+
+## Déploiement
+
+Le déploiement est automatisé via GitHub Actions.
+
+<!-- Trigger CI -->
