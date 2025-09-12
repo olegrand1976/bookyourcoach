@@ -162,44 +162,25 @@ jobs:
           mkdir -p $APP_DIR
           cd $APP_DIR
           
-          echo "🛑 Arrêt des anciens services applicatifs..."
-          docker stop activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
-          docker rm activibe-app activibe-redis activibe-neo4j activibe-phpmyadmin 2>/dev/null || true
-
-    - name: 📂 Copie des nouveaux fichiers de configuration
-      uses: scp-action@v1.1.2
-      with:
-        host: ${{ vars.SERVER_HOST }}
-        username: ${{ vars.SERVER_USERNAME }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ vars.SERVER_PORT }}
-        source: "docker-compose.yml,production.env"
-        target: "/srv/activibe/"
-
-    - name: 🚀 Démarrage de la nouvelle stack
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ vars.SERVER_HOST }}
-        username: ${{ vars.SERVER_USERNAME }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ vars.SERVER_PORT }}
-        script: |
-          set -e
-          cd /srv/activibe
+          echo "🛑 Arrêt et nettoyage des anciens containers..."
+          if [ -f docker-compose.yml ]; then
+            docker compose -f docker-compose.yml down --remove-orphans 2>/dev/null || true
+          fi
+          docker container prune -f 2>/dev/null || true
           
           echo "📥 Récupération de la dernière image..."
-          docker pull ${{ env.IMAGE_NAME }}:latest
-          
+          docker pull "${{ env.IMAGE_NAME }}:latest"
+
           echo "🚀 Démarrage de la nouvelle stack..."
-          docker-compose -f docker-compose.yml --env-file production.env up -d
+          docker compose -f docker-compose.yml --env-file production.env up -d
           
-          echo "⏳ Attente de la stabilisation (30s)..."
-          sleep 30
-          
+          echo "⏳ Attente de la stabilisation des services (45s)..."
+          sleep 45
+
           echo "📊 État final des containers :"
-          docker ps
-          
-          echo "✅ Déploiement terminé !"
+          docker compose -f docker-compose.yml ps
+
+          echo "✅ Déploiement terminé avec succès !"
 
     - name: 🧹 Nettoyage du projet (fichiers inutilisés)
       if: success()
