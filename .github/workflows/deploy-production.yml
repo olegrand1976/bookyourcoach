@@ -61,13 +61,14 @@ jobs:
             container_name: activibe-app
             restart: unless-stopped
             env_file:
-              - ./production.env
+              - ./.env
             ports:
               # Exposition directe : port 8080 du serveur -> port 80 du conteneur (Laravel via Nginx)
               - "8080:80"
             volumes:
               - app_storage:/var/www/storage
               - app_bootstrap_cache:/var/www/bootstrap/cache
+              - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
             depends_on:
               - redis
               - neo4j
@@ -148,60 +149,27 @@ jobs:
         echo "🔧 Génération de APP_KEY Laravel..."
         APP_KEY=$(openssl rand -base64 32)
         
-        echo "🔧 Création du fichier production.env (version simplifiée)..."
-        cat > production.env << EOF
-        # Configuration de production BookYourCoach
-        # Application
-        APP_NAME="BookYourCoach"
-        APP_ENV=production
-        APP_DEBUG=false
-        APP_KEY=base64:$APP_KEY
-        APP_URL=http://${{ vars.SERVER_HOST }}:8080
-
-        # Base de données MySQL externe (OVH)
-        DB_CONNECTION=mysql
-        DB_HOST=${{ secrets.DB_HOST_OVH }}
-        DB_PORT=${{ secrets.DB_PORT_OVH }}
-        DB_DATABASE=${{ secrets.DB_DATABASE_OVH }}
-        DB_USERNAME=${{ secrets.DB_USERNAME_OVH }}
-        DB_PASSWORD=${{ secrets.DB_PASSWORD_OVH }}
-
-        # Cache Redis
-        BROADCAST_DRIVER=redis
-        CACHE_DRIVER=redis
-        FILESYSTEM_DISK=local
-        QUEUE_CONNECTION=redis
-        SESSION_DRIVER=redis
-        SESSION_LIFETIME=120
-
-        REDIS_HOST=redis
-        REDIS_PASSWORD=redis_secure_password_2024
-        REDIS_PORT=6379
-
-        # Mail SMTP
-        MAIL_MAILER=smtp
-        MAIL_HOST=smtp.gmail.com
-        MAIL_PORT=587
-        MAIL_USERNAME=noreply@bookyourcoach.com
-        MAIL_PASSWORD=your-smtp-password
-        MAIL_ENCRYPTION=tls
-        MAIL_FROM_ADDRESS="noreply@bookyourcoach.com"
-        MAIL_FROM_NAME="${APP_NAME}"
-
-        # Configuration spécifique BookYourCoach
-        SANCTUM_STATEFUL_DOMAINS=${{ vars.SERVER_HOST }}:8080
-        SESSION_DOMAIN=${{ vars.SERVER_HOST }}
-
-        # MySQL Root Password (non utilisé, mais gardé pour compatibilité)
-        MYSQL_ROOT_PASSWORD=mysql_root_secure_password_2024
-
-        # Neo4j Configuration
-        NEO4J_PASSWORD=neo4j_secure_password_2024
-
-        # Docker Image Configuration
-        IMAGE_NAME=${{ env.IMAGE_NAME }}
-        DOCKER_REGISTRY=docker.io
+        echo "🔧 Création du script de mise à jour .env..."
+        cat > update-env.sh << 'EOF'
+        #!/bin/bash
+        # Script pour mettre à jour APP_KEY dans le fichier .env existant
+        
+        if [[ -f ".env" ]]; then
+            echo "📝 Mise à jour de APP_KEY dans .env existant..."
+            # Remplacer APP_KEY existant ou l'ajouter s'il n'existe pas
+            if grep -q "^APP_KEY=" .env; then
+                sed -i "s/^APP_KEY=.*/APP_KEY=base64:$1/" .env
+            else
+                echo "APP_KEY=base64:$1" >> .env
+            fi
+            echo "✅ APP_KEY mis à jour avec succès"
+        else
+            echo "❌ Fichier .env non trouvé"
+            exit 1
+        fi
         EOF
+        
+        chmod +x update-env.sh
 
         echo "🔧 Création du script de déploiement automatique (version simplifiée)..."
         cat > auto-deploy.sh << 'EOF'
@@ -224,7 +192,7 @@ jobs:
 
         # Configuration
         COMPOSE_FILE="docker-compose.yml"
-        ENV_FILE="production.env"
+        ENV_FILE=".env"
         APP_DIR="/srv/activibe"
 
         log_step "🚀 Démarrage du déploiement automatique (simplifié)..."
@@ -251,9 +219,17 @@ jobs:
         docker container prune -f 2>/dev/null || true
         docker network prune -f 2>/dev/null || true
 
+        # Mise à jour de APP_KEY dans .env
+        log_info "🔑 Mise à jour de APP_KEY..."
+        if [[ -f "update-env.sh" && -f ".env" ]]; then
+            ./update-env.sh "$1"
+        else
+            log_warning "⚠️  Impossible de mettre à jour APP_KEY - fichiers manquants"
+        fi
+
         # Pull de la dernière image
         log_info "📥 Récupération de la dernière image Docker..."
-        source "$ENV_FILE"
+        source ".env"
         docker pull "${IMAGE_NAME}:latest" || {
             log_warning "⚠️  Impossible de récupérer l'image, utilisation de l'image locale"
         }
@@ -340,12 +316,12 @@ jobs:
         # Copie des fichiers de configuration
         echo "📁 Copie des fichiers de configuration..."
         scp docker-compose.yml production-server:/srv/activibe/
-        scp production.env production-server:/srv/activibe/
+        scp update-env.sh production-server:/srv/activibe/
         scp auto-deploy.sh production-server:/srv/activibe/
         
         # Exécution du script de déploiement
         echo "🎯 Exécution du déploiement automatique..."
-        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && ./auto-deploy.sh"
+        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && ./auto-deploy.sh $APP_KEY"
 
     - name: 🧪 Tests post-déploiement
       run: |
