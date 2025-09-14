@@ -32,9 +32,14 @@ return [
         'http://127.0.0.1:8083', // Ajout pour l'application mobile Flutter (127.0.0.1)
         'http://localhost:8084', // Ajout pour l'application mobile Flutter (port actuel)
         'http://127.0.0.1:8084', // Ajout pour l'application mobile Flutter (127.0.0.1, port actuel)
+        'http://91.134.77.98:3000', // Frontend en production
+        'https://91.134.77.98:3000', // Frontend en production HTTPS
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^http:\/\/.*:3000$/', // Toutes les IPs sur port 3000
+        '/^https:\/\/.*:3000$/', // Toutes les IPs sur port 3000 HTTPS
+    ],
 
     'allowed_headers' => ['*'],
 
