@@ -254,6 +254,22 @@ jobs:
             log_warning "⚠️  Impossible de mettre à jour APP_KEY - fichiers manquants"
         fi
 
+        # Configuration post-déploiement
+        log_info "🔧 Configuration post-déploiement..."
+        
+        # Attendre que les conteneurs démarrent
+        sleep 30
+        
+        # Créer le lien symbolique storage
+        docker exec activibe-backend php /var/www/html/artisan storage:link 2>/dev/null || true
+        
+        # Corriger CORS pour permettre l'accès frontend
+        docker exec activibe-backend sed -i "/localhost:3000/a\\        'http://\$(curl -s ifconfig.me):3000'," /var/www/html/config/cors.php 2>/dev/null || true
+        
+        # Vider les caches
+        docker exec activibe-backend php /var/www/html/artisan config:clear 2>/dev/null || true
+        docker exec activibe-backend php /var/www/html/artisan route:clear 2>/dev/null || true
+
         # Pull de la dernière image
         log_info "📥 Récupération de la dernière image Docker..."
         source ".env"
