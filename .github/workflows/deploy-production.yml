@@ -152,17 +152,25 @@ jobs:
         echo "🔧 Création du script de mise à jour .env..."
         cat > update-env.sh << 'EOF'
         #!/bin/bash
-        # Script pour mettre à jour APP_KEY dans le fichier .env existant
+        # Script pour vérifier/générer APP_KEY dans le fichier .env existant
         
         if [[ -f ".env" ]]; then
-            echo "📝 Mise à jour de APP_KEY dans .env existant..."
-            # Remplacer APP_KEY existant ou l'ajouter s'il n'existe pas
-            if grep -q "^APP_KEY=" .env; then
-                sed -i "s/^APP_KEY=.*/APP_KEY=base64:$1/" .env
+            # Vérifier si APP_KEY existe et est valide
+            current_key=$(grep "^APP_KEY=" .env | cut -d'=' -f2)
+            
+            if [[ -n "$current_key" && "$current_key" != "base64:\$(openssl rand -base64 32)" && "$current_key" =~ ^base64:[A-Za-z0-9+/]{43}=?$ ]]; then
+                echo "✅ APP_KEY valide trouvée - conservation de la clé existante"
+                echo "🔑 APP_KEY actuelle: ${current_key:0:15}..."
             else
-                echo "APP_KEY=base64:$1" >> .env
+                echo "📝 APP_KEY manquante ou invalide - génération d'une nouvelle clé..."
+                if grep -q "^APP_KEY=" .env; then
+                    sed -i "s/^APP_KEY=.*/APP_KEY=base64:$1/" .env
+                else
+                    echo "APP_KEY=base64:$1" >> .env
+                fi
+                echo "✅ Nouvelle APP_KEY générée avec succès"
+                echo "🔑 Nouvelle APP_KEY: base64:${1:0:10}..."
             fi
-            echo "✅ APP_KEY mis à jour avec succès"
         else
             echo "❌ Fichier .env non trouvé"
             exit 1
