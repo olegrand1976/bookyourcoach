@@ -37,13 +37,12 @@ WORKDIR /var/www/html
 
 # Copier les fichiers de configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/php.ini
 COPY docker/start-workers.sh /usr/local/bin/start-workers.sh
 
 # Ajouter la configuration Nginx spécifique au site
-COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
-
 # Copier les fichiers de l'application
 COPY --chown=www-data:www-data . .
 
