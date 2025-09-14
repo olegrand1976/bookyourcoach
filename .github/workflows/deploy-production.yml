@@ -145,13 +145,17 @@ jobs:
             driver: bridge
         EOF
 
+        echo "🔧 Génération de APP_KEY Laravel..."
+        APP_KEY=$(openssl rand -base64 32)
+        
         echo "🔧 Création du fichier production.env (version simplifiée)..."
-        cat > production.env << 'EOF'
+        cat > production.env << EOF
         # Configuration de production BookYourCoach
         # Application
         APP_NAME="BookYourCoach"
         APP_ENV=production
         APP_DEBUG=false
+        APP_KEY=base64:$APP_KEY
         APP_URL=http://${{ vars.SERVER_HOST }}:8080
 
         # Base de données MySQL externe (OVH)
