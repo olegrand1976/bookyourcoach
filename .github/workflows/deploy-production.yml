@@ -71,7 +71,6 @@ jobs:
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
-              - redis
               - neo4j
             networks:
               - app-network
@@ -94,16 +93,7 @@ jobs:
             networks:
               - app-network
 
-          # Redis pour cache et sessions
-          redis:
-            image: redis:7-alpine
-            container_name: activibe-redis
-            restart: unless-stopped
-            volumes:
-              - redis_data:/data
-            networks:
-              - app-network
-            command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+          # Redis hébergé sur OVH (pas de conteneur local nécessaire)
 
           # Neo4j pour analyses graphiques
           neo4j:
@@ -127,8 +117,6 @@ jobs:
               - app-network
 
         volumes:
-          redis_data:
-            driver: local
           neo4j_data:
             driver: local
           neo4j_logs:
@@ -215,7 +203,7 @@ jobs:
         fi
         
         # Arrêt forcé des containers connus au cas où
-        for container in activibe-app activibe-phpmyadmin activibe-redis activibe-neo4j; do
+        for container in activibe-app activibe-phpmyadmin activibe-neo4j; do
             if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
                 log_info "🔄 Arrêt de $container..."
                 docker stop "$container" 2>/dev/null || true
