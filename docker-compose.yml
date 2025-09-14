@@ -31,6 +31,7 @@ services:
       - "3000:3000"
     environment:
       - NUXT_PUBLIC_API_BASE=http://91.134.77.98:8080/api
+      - NUXT_API_BASE=http://activibe-backend:80/api
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
     depends_on:
