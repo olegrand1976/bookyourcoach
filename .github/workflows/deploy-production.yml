@@ -69,6 +69,7 @@ jobs:
               - app_storage:/var/www/storage
               - app_bootstrap_cache:/var/www/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
+              - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
               - redis
               - neo4j
