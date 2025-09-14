@@ -14,7 +14,8 @@ on:
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
-  COMPOSE_FILE: docker-compose.yml # Changement de nom
+  FRONTEND_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend
+  COMPOSE_FILE: docker-compose.yml
   ENV_FILE: production.env
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
     
-    - name: 🏗️ Build et Push de l'image Docker
+    - name: 🏗️ Build et Push de l'image Backend (Laravel)
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -47,6 +48,18 @@ jobs:
           ${{ env.IMAGE_NAME }}:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: 🎨 Build et Push de l'image Frontend (Nuxt.js)
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        platforms: linux/amd64
+        push: true
+        tags: |
+          ${{ env.FRONTEND_IMAGE_NAME }}:latest
+          ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         
     - name: 📝 Génération des fichiers de configuration
       run: |
@@ -55,15 +68,15 @@ jobs:
         version: "3.8"
 
         services:
-          # Application Laravel + Nuxt (image unique)
-          app:
+          # Backend Laravel API
+          backend:
             image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
-            container_name: activibe-app
+            container_name: activibe-backend
             restart: unless-stopped
             env_file:
               - ./.env
             ports:
-              # Exposition directe : port 8080 du serveur -> port 80 du conteneur (Laravel via Nginx)
+              # API Backend accessible en interne et externe
               - "8080:80"
             volumes:
               - app_storage:/var/www/storage
@@ -72,6 +85,23 @@ jobs:
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
               - neo4j
+            networks:
+              - app-network
+
+          # Frontend Nuxt.js
+          frontend:
+            image: ${FRONTEND_IMAGE_NAME:-${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend:latest}
+            container_name: activibe-frontend
+            restart: unless-stopped
+            ports:
+              # Frontend accessible sur le port 3000
+              - "3000:3000"
+            environment:
+              - NUXT_PUBLIC_API_BASE=http://91.134.77.98:8080/api
+              - NITRO_HOST=0.0.0.0
+              - NITRO_PORT=3000
+            depends_on:
+              - backend
             networks:
               - app-network
 
@@ -203,7 +233,7 @@ jobs:
         fi
         
         # Arrêt forcé des containers connus au cas où
-        for container in activibe-app activibe-phpmyadmin activibe-neo4j; do
+        for container in activibe-backend activibe-frontend activibe-phpmyadmin activibe-neo4j; do
             if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
                 log_info "🔄 Arrêt de $container..."
                 docker stop "$container" 2>/dev/null || true
@@ -246,12 +276,20 @@ jobs:
         # Tests de connectivité
         log_step "🧪 Tests de connectivité..."
 
-        # Test de l'application (port 8080)
-        log_info "🔌 Test du port 8080 (Application)..."
+        # Test du backend Laravel (port 8080)
+        log_info "🔌 Test du port 8080 (Backend Laravel)..."
         if curl -f http://localhost:8080 >/dev/null 2>&1; then
-            log_info "✅ Port 8080 (Application) : Accessible"
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
         else
-            log_warning "⚠️  Port 8080 (Application) : Non accessible (peut nécessiter plus de temps)"
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (peut nécessiter plus de temps)"
+        fi
+
+        # Test du frontend Nuxt.js (port 3000)
+        log_info "🔌 Test du port 3000 (Frontend Nuxt.js)..."
+        if curl -f http://localhost:3000 >/dev/null 2>&1; then
+            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
+        else
+            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible (peut nécessiter plus de temps)"
         fi
 
         # Test port 7474 (Neo4j)
@@ -263,15 +301,19 @@ jobs:
         fi
 
         # Logs récents
-        log_step "📋 Logs récents du conteneur applicatif..."
+        log_step "📋 Logs récents des conteneurs..."
         
-        echo "=== Logs activibe-app ==="
-        docker logs --tail=20 activibe-app 2>/dev/null || log_warning "Pas de logs pour activibe-app"
+        echo "=== Logs Backend (Laravel) ==="
+        docker logs --tail=10 activibe-backend 2>/dev/null || log_warning "Pas de logs pour activibe-backend"
+        
+        echo "=== Logs Frontend (Nuxt.js) ==="
+        docker logs --tail=10 activibe-frontend 2>/dev/null || log_warning "Pas de logs pour activibe-frontend"
 
         # Résumé final
         log_step "📊 RÉSUMÉ DU DÉPLOIEMENT"
         log_info "🎯 URLs d'accès :"
-        log_info "   • Application principale : http://$(curl -s ifconfig.me):8080"
+        log_info "   • Frontend Nuxt.js : http://$(curl -s ifconfig.me):3000"
+        log_info "   • Backend Laravel API : http://$(curl -s ifconfig.me):8080"
         log_info "   • phpMyAdmin : http://$(curl -s ifconfig.me):8082"
         log_info "   • Neo4j Interface : http://$(curl -s ifconfig.me):7474"
         log_info "   • Infiswap Front (préservé) : http://$(curl -s ifconfig.me):80"
@@ -351,10 +393,11 @@ jobs:
         echo "🎉 DÉPLOIEMENT RÉUSSI !"
         echo ""
         echo "🌐 L'application BookYourCoach est maintenant accessible :"
-        echo "   • Application : http://${{ vars.SERVER_HOST }}:8080"
+        echo "   • Frontend Nuxt.js : http://${{ vars.SERVER_HOST }}:3000"
+        echo "   • Backend Laravel API : http://${{ vars.SERVER_HOST }}:8080"
         echo "   • phpMyAdmin : http://${{ vars.SERVER_HOST }}:8082"
-        echo "   • Infiswap Front (préservé) : http://${{ vars.SERVER_HOST }}:80"
         echo "   • Neo4j : http://${{ vars.SERVER_HOST }}:7474"
+        echo "   • Infiswap Front (préservé) : http://${{ vars.SERVER_HOST }}:80"
         echo ""
         echo "🐳 Image déployée : ${{ env.IMAGE_NAME }}:${{ github.sha }}"
         echo "📅 Date : $(date)"
