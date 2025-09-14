@@ -14,7 +14,7 @@ on:
 env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
-  COMPOSE_FILE: docker-compose.nginx-proxy.yml
+  COMPOSE_FILE: docker-compose.yml # Changement de nom
   ENV_FILE: production.env
 
 jobs:
@@ -50,8 +50,8 @@ jobs:
         
     - name: 📝 Génération des fichiers de configuration
       run: |
-        echo "🔧 Création du fichier docker-compose.nginx-proxy.yml..."
-        cat > docker-compose.nginx-proxy.yml << 'EOF'
+        echo "🔧 Création du fichier docker-compose.yml (version simplifiée)..."
+        cat > docker-compose.yml << 'EOF'
         version: "3.8"
 
         services:
@@ -60,43 +60,19 @@ jobs:
             image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
             container_name: activibe-app
             restart: unless-stopped
-            environment:
-              - VIRTUAL_HOST=${VIRTUAL_HOST:-bookyourcoach.com,www.bookyourcoach.com}
-              - VIRTUAL_PORT=3001
-              - LETSENCRYPT_HOST=${LETSENCRYPT_HOST:-bookyourcoach.com,www.bookyourcoach.com}
-              - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@bookyourcoach.com}
-              - APP_NAME=${APP_NAME}
-              - APP_ENV=${APP_ENV}
-              - APP_DEBUG=${APP_DEBUG}
-              - APP_URL=${APP_URL}
-              - DB_CONNECTION=${DB_CONNECTION}
-              - DB_HOST=${DB_HOST}
-              - DB_PORT=3306
-              - DB_DATABASE=${DB_DATABASE}
-              - DB_USERNAME=${DB_USERNAME}
-              - DB_PASSWORD=${DB_PASSWORD}
-              - REDIS_HOST=redis
-              - REDIS_PORT=6379
-              - REDIS_PASSWORD=${REDIS_PASSWORD}
-              - CACHE_DRIVER=${CACHE_DRIVER}
-              - SESSION_DRIVER=${SESSION_DRIVER}
-              - QUEUE_CONNECTION=${QUEUE_CONNECTION}
+            env_file:
+              - ./production.env
             ports:
-              - "3001:3001"  # Frontend Nuxt
-              - "8080:80"    # Backend Laravel (nginx interne)
-              - "9000:9000"  # PHP-FPM
+              # Exposition directe : port 8080 du serveur -> port 3001 du conteneur (Nuxt)
+              - "8080:3001"
             volumes:
               - app_storage:/var/www/storage
               - app_bootstrap_cache:/var/www/bootstrap/cache
-              - ssl_certs:/etc/ssl/certs
             depends_on:
               - redis
               - neo4j
             networks:
-              - nginx-proxy
               - app-network
-
-          # Base de données MySQL hébergée sur OVH (pas de container local)
 
           # phpMyAdmin pour administrer la base de données OVH
           phpmyadmin:
@@ -104,6 +80,7 @@ jobs:
             container_name: activibe-phpmyadmin
             restart: unless-stopped
             ports:
+              # Exposition sur le port 8082 pour éviter les conflits
               - "8082:80"
             environment:
               - PMA_HOST=${DB_HOST}
@@ -114,8 +91,6 @@ jobs:
               - MEMORY_LIMIT=512M
             networks:
               - app-network
-            depends_on:
-              - redis
 
           # Redis pour cache et sessions
           redis:
@@ -156,27 +131,6 @@ jobs:
             networks:
               - app-network
 
-          # nginx-proxy pour reverse proxy automatique
-          nginx-proxy:
-            image: nginxproxy/nginx-proxy:latest
-            container_name: activibe-nginx-proxy
-            restart: unless-stopped
-            ports:
-              - "8081:80"   # HTTP via nginx-proxy
-              - "8444:443"  # HTTPS via nginx-proxy
-            volumes:
-              - /var/run/docker.sock:/tmp/docker.sock:ro
-              - nginx_certs:/etc/nginx/certs
-              - nginx_vhost:/etc/nginx/vhost.d
-              - nginx_html:/usr/share/nginx/html
-              - nginx_dhparam:/etc/nginx/dhparam
-            environment:
-              - TRUST_DOWNSTREAM_PROXY=false
-            networks:
-              - nginx-proxy
-            labels:
-              - "com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy"
-
         volumes:
           redis_data:
             driver: local
@@ -192,40 +146,22 @@ jobs:
             driver: local
           app_bootstrap_cache:
             driver: local
-          ssl_certs:
-            driver: local
-          nginx_certs:
-            driver: local
-          nginx_vhost:
-            driver: local
-          nginx_html:
-            driver: local
-          nginx_dhparam:
-            driver: local
 
         networks:
-          nginx-proxy:
-            driver: bridge
           app-network:
             driver: bridge
-            internal: true
         EOF
 
-        echo "🔧 Création du fichier production.env..."
+        echo "🔧 Création du fichier production.env (version simplifiée)..."
         cat > production.env << 'EOF'
         # Configuration de production BookYourCoach
         # Application
         APP_NAME="BookYourCoach"
         APP_ENV=production
         APP_DEBUG=false
-        APP_URL=https://bookyourcoach.com
+        APP_URL=http://${{ vars.SERVER_HOST }}:8080
 
-        # nginx-proxy Configuration
-        VIRTUAL_HOST=bookyourcoach.com,www.bookyourcoach.com
-        LETSENCRYPT_HOST=bookyourcoach.com,www.bookyourcoach.com
-        LETSENCRYPT_EMAIL=admin@bookyourcoach.com
-
-        # Base de données MySQL externe (OVH) - CORRIGÉ
+        # Base de données MySQL externe (OVH)
         DB_CONNECTION=mysql
         DB_HOST=${{ secrets.DB_HOST_OVH }}
         DB_PORT=${{ secrets.DB_PORT_OVH }}
@@ -256,10 +192,10 @@ jobs:
         MAIL_FROM_NAME="${APP_NAME}"
 
         # Configuration spécifique BookYourCoach
-        SANCTUM_STATEFUL_DOMAINS=bookyourcoach.com,www.bookyourcoach.com
-        SESSION_DOMAIN=.bookyourcoach.com
+        SANCTUM_STATEFUL_DOMAINS=${{ vars.SERVER_HOST }}:8080
+        SESSION_DOMAIN=${{ vars.SERVER_HOST }}
 
-        # MySQL Root Password
+        # MySQL Root Password (non utilisé, mais gardé pour compatibilité)
         MYSQL_ROOT_PASSWORD=mysql_root_secure_password_2024
 
         # Neo4j Configuration
@@ -270,10 +206,10 @@ jobs:
         DOCKER_REGISTRY=docker.io
         EOF
 
-        echo "🔧 Création du script de déploiement automatique..."
+        echo "🔧 Création du script de déploiement automatique (version simplifiée)..."
         cat > auto-deploy.sh << 'EOF'
         #!/bin/bash
-        # Script de déploiement automatique via GitHub Actions
+        # Script de déploiement automatique via GitHub Actions (simplifié)
 
         set -e
 
@@ -290,39 +226,22 @@ jobs:
         log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 
         # Configuration
-        COMPOSE_FILE="docker-compose.nginx-proxy.yml"
+        COMPOSE_FILE="docker-compose.yml"
         ENV_FILE="production.env"
         APP_DIR="/srv/activibe"
-        BACKUP_DIR="/tmp/activibe-backup-$(date +%Y%m%d-%H%M%S)"
 
-        log_step "🚀 Démarrage du déploiement automatique..."
-
-        # Création du répertoire de sauvegarde
-        log_info "📁 Création de la sauvegarde..."
-        mkdir -p "$BACKUP_DIR"
-
-        # Sauvegarde des containers actuels
-        docker ps > "$BACKUP_DIR/docker-ps-before.txt" 2>/dev/null || true
-        docker images > "$BACKUP_DIR/docker-images-before.txt" 2>/dev/null || true
-
-        # Sauvegarde des logs des containers existants
-        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j; do
-            if docker ps -a --format '{{.Names}}' | grep -q "^$container$"; then
-                log_info "💾 Sauvegarde des logs de $container..."
-                docker logs "$container" > "$BACKUP_DIR/${container}-logs.txt" 2>&1 || true
-            fi
-        done
+        log_step "🚀 Démarrage du déploiement automatique (simplifié)..."
 
         # Arrêt propre des containers existants
         log_info "🛑 Arrêt des containers existants..."
         
         # Essayer d'arrêter avec docker compose si possible
         if [[ -f "$COMPOSE_FILE" ]]; then
-            docker compose -f "$COMPOSE_FILE" down 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
         fi
         
-        # Arrêt forcé des containers connus
-        for container in activibe-app activibe-nginx-proxy bookyourcoach_mysql_prod activibe-redis activibe-neo4j; do
+        # Arrêt forcé des containers connus au cas où
+        for container in activibe-app activibe-phpmyadmin activibe-redis activibe-neo4j; do
             if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
                 log_info "🔄 Arrêt de $container..."
                 docker stop "$container" 2>/dev/null || true
@@ -347,8 +266,8 @@ jobs:
         docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
         # Attente du démarrage
-        log_info "⏳ Attente du démarrage des services (60 secondes)..."
-        sleep 60
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
@@ -357,66 +276,37 @@ jobs:
         # Tests de connectivité
         log_step "🧪 Tests de connectivité..."
 
-        # Test des containers
-        containers=("activibe-app" "activibe-nginx-proxy" "bookyourcoach_mysql_prod" "activibe-redis" "activibe-neo4j")
-        
-        for container in "${containers[@]}"; do
-            if docker ps --format '{{.Names}}' | grep -q "^$container$"; then
-                log_info "✅ $container : En cours d'exécution"
-            else
-                log_error "❌ $container : Non trouvé"
-            fi
-        done
-
-        # Tests des ports
-        log_info "🔌 Test des ports..."
-        
-        # Test port 8081 (nginx-proxy)
-        sleep 30  # Attente supplémentaire pour nginx-proxy
-        if curl -f http://localhost:8081 >/dev/null 2>&1; then
-            log_info "✅ Port 8081 (nginx-proxy) : Accessible"
+        # Test de l'application (port 8080)
+        log_info "🔌 Test du port 8080 (Application)..."
+        if curl -f http://localhost:8080 >/dev/null 2>&1; then
+            log_info "✅ Port 8080 (Application) : Accessible"
         else
-            log_warning "⚠️  Port 8081 (nginx-proxy) : Non accessible (peut nécessiter plus de temps)"
+            log_warning "⚠️  Port 8080 (Application) : Non accessible (peut nécessiter plus de temps)"
         fi
 
         # Test port 7474 (Neo4j)
+        log_info "🔌 Test du port 7474 (Neo4j)..."
         if curl -f http://localhost:7474 >/dev/null 2>&1; then
             log_info "✅ Port 7474 (Neo4j) : Accessible"
         else
             log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
         fi
 
-        # Sauvegarde post-déploiement
-        docker ps > "$BACKUP_DIR/docker-ps-after.txt" 2>/dev/null || true
-        docker images > "$BACKUP_DIR/docker-images-after.txt" 2>/dev/null || true
-
         # Logs récents
-        log_step "📋 Logs récents des services principaux..."
+        log_step "📋 Logs récents du conteneur applicatif..."
         
         echo "=== Logs activibe-app ==="
-        docker logs --tail=10 activibe-app 2>/dev/null || log_warning "Pas de logs pour activibe-app"
-        
-        echo "=== Logs nginx-proxy ==="
-        docker logs --tail=10 activibe-nginx-proxy 2>/dev/null || log_warning "Pas de logs pour nginx-proxy"
+        docker logs --tail=20 activibe-app 2>/dev/null || log_warning "Pas de logs pour activibe-app"
 
         # Résumé final
         log_step "📊 RÉSUMÉ DU DÉPLOIEMENT"
-        echo ""
         log_info "🎯 URLs d'accès :"
-        log_info "   • Application principale : http://91.134.77.98:8081"
-        log_info "   • Infiswap Front (préservé) : http://91.134.77.98:80"
-        log_info "   • Neo4j Interface : http://91.134.77.98:7474"
-        echo ""
-        log_info "📁 Sauvegarde : $BACKUP_DIR"
-        log_info "🐳 Configuration : $COMPOSE_FILE"
-        log_info "⚙️  Variables : $ENV_FILE"
-        echo ""
-
-        # État final des services
-        log_info "🔍 État final des services :"
-        docker compose -f "$COMPOSE_FILE" ps
-
-        log_step "✅ Déploiement automatique terminé avec succès !"
+        log_info "   • Application principale : http://$(curl -s ifconfig.me):8080"
+        log_info "   • phpMyAdmin : http://$(curl -s ifconfig.me):8082"
+        log_info "   • Neo4j Interface : http://$(curl -s ifconfig.me):7474"
+        log_info "   • Infiswap Front (préservé) : http://$(curl -s ifconfig.me):80"
+        
+        log_step "✅ Déploiement automatique terminé !"
         EOF
 
         chmod +x auto-deploy.sh
@@ -452,7 +342,7 @@ jobs:
         
         # Copie des fichiers de configuration
         echo "📁 Copie des fichiers de configuration..."
-        scp docker-compose.nginx-proxy.yml production-server:/srv/activibe/
+        scp docker-compose.yml production-server:/srv/activibe/
         scp production.env production-server:/srv/activibe/
         scp auto-deploy.sh production-server:/srv/activibe/
         
@@ -467,11 +357,11 @@ jobs:
         # Test de connectivité des services
         echo "🌐 Test des services sur le serveur..."
         
-        # Test nginx-proxy (port 8081)
-        if ssh production-server "curl -f http://localhost:8081" >/dev/null 2>&1; then
-          echo "✅ nginx-proxy (port 8081) : OK"
+        # Test application (port 8080)
+        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
+          echo "✅ Application (port 8080) : OK"
         else
-          echo "⚠️  nginx-proxy (port 8081) : KO (peut nécessiter plus de temps)"
+          echo "⚠️  Application (port 8080) : KO (peut nécessiter plus de temps)"
         fi
         
         # Test Neo4j (port 7474)
@@ -483,7 +373,7 @@ jobs:
         
         # Affichage de l'état des containers
         echo "📊 État des containers :"
-        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.nginx-proxy.yml ps"
+        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
 
     - name: 📧 Notification de succès
       if: success()
@@ -491,7 +381,8 @@ jobs:
         echo "🎉 DÉPLOIEMENT RÉUSSI !"
         echo ""
         echo "🌐 L'application BookYourCoach est maintenant accessible :"
-        echo "   • Application : http://${{ vars.SERVER_HOST }}:8081"
+        echo "   • Application : http://${{ vars.SERVER_HOST }}:8080"
+        echo "   • phpMyAdmin : http://${{ vars.SERVER_HOST }}:8082"
         echo "   • Infiswap Front (préservé) : http://${{ vars.SERVER_HOST }}:80"
         echo "   • Neo4j : http://${{ vars.SERVER_HOST }}:7474"
         echo ""
