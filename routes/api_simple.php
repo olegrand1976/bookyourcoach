@@ -19,7 +19,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/auth/user-test', [AuthController::class, 'userTest']);
 
 // Routes protégées SANS middleware Sanctum (solution temporaire)
-Route::group(function () {
+Route::group([], function () {
     Route::post('/auth/logout', function() {
         return response()->json(['message' => 'Déconnexion réussie']);
     });
