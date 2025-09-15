@@ -147,11 +147,8 @@ const onLogoUpload = async (event) => {
 
     try {
         const { $api } = useNuxtApp()
-        const response = await $api.post('/admin/upload-logo', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        })
+        const response = await $api.post('/admin/upload-logo', formData)
+        // Note: Ne pas spécifier Content-Type pour FormData, Axios le gère automatiquement
 
         if (response.data?.logo_url) {
             settings.value.logo_url = response.data.logo_url
