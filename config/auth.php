@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'sanctum'), // Correction définitive
+        'guard' => env('AUTH_GUARD', 'web'), // Retour à web pour éviter la boucle Sanctum
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
