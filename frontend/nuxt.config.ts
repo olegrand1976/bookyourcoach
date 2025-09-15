@@ -45,7 +45,7 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8081/api',
+            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://91.134.77.98:8080/api',
             appName: 'Acti\'Vibe'
         },
         // Configuration côté serveur pour Docker
