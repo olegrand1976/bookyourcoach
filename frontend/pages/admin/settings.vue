@@ -135,29 +135,42 @@ const saveGeneralSettings = async () => {
     }
 }
 
-// Upload du logo
+// Upload du logo - Solution alternative avec base64
 const onLogoUpload = async (event) => {
     const target = event.target
     const files = target.files
     if (!files || files.length === 0) return
 
     const file = files[0]
-    const formData = new FormData()
-    formData.append('logo', file)
-
-    try {
-        const { $api } = useNuxtApp()
-        const response = await $api.post('/admin/upload-logo', formData)
-        // Note: Ne pas spécifier Content-Type pour FormData, Axios le gère automatiquement
-
-        if (response.data?.logo_url) {
-            settings.value.logo_url = response.data.logo_url
-            console.log('✅ Logo uploadé avec succès:', response.data.logo_url)
+    
+    // Convertir en base64 pour éviter les problèmes d'upload
+    const reader = new FileReader()
+    reader.onload = async () => {
+        try {
+            const base64 = reader.result
+            
+            // Sauvegarder directement l'image en base64 dans les paramètres
+            const logoData = {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                data: base64
+            }
+            
+            // Stocker dans les paramètres localement (solution temporaire)
+            settings.value.logo_url = base64
+            settings.value.logo_data = logoData
+            
+            console.log('✅ Logo chargé avec succès (base64)')
+            alert('Logo chargé avec succès ! (Solution temporaire en base64)')
+            
+        } catch (error) {
+            console.error('❌ Erreur lors du traitement du logo:', error)
+            alert('Erreur lors du traitement du logo')
         }
-    } catch (error) {
-        console.error('❌ Erreur lors de l\'upload du logo:', error)
-        alert('Erreur lors de l\'upload du logo')
     }
+    
+    reader.readAsDataURL(file)
 }
 
 // Initialisation au montage du composant
