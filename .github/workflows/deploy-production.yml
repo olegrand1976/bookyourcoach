@@ -272,15 +272,14 @@ jobs:
         docker exec activibe-backend php /var/www/html/artisan route:clear 2>/dev/null || true
 
         # Pull de la dernière image
-        log_info "📥 Récupération de la dernière image Docker..."
+        log_info "📥 Récupération des dernières images Docker..."
         source ".env"
-        docker pull "${IMAGE_NAME}:latest" || {
-            log_warning "⚠️  Impossible de récupérer l'image, utilisation de l'image locale"
-        }
+        docker pull "${IMAGE_NAME}:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "${FRONTEND_IMAGE_NAME}:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
 
-        # Démarrage des services
-        log_info "🚀 Démarrage des services..."
-        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+        # Démarrage avec docker compose
+        log_info "🚀 Démarrage des conteneurs..."
+        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
         # Attente du démarrage
         log_info "⏳ Attente du démarrage des services (30 secondes)..."
