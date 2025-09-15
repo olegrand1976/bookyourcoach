@@ -274,8 +274,8 @@ jobs:
         # Pull de la dernière image
         log_info "📥 Récupération des dernières images Docker..."
         source ".env"
-        docker pull "${IMAGE_NAME}:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
-        docker pull "${FRONTEND_IMAGE_NAME}:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+        docker pull "$1:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "$2:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
 
         # Démarrage avec docker compose
         log_info "🚀 Démarrage des conteneurs..."
@@ -376,7 +376,7 @@ jobs:
         
         # Exécution du script de déploiement
         echo "🎯 Exécution du déploiement automatique..."
-        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && ./auto-deploy.sh $APP_KEY"
+        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && ./auto-deploy.sh '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}' '$APP_KEY'"
 
     - name: 🧪 Tests post-déploiement
       run: |
