@@ -6,10 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
 
-// Toutes les routes avec middleware CORS
-Route::middleware(['cors'])->group(function () {
-
-// Routes publiques
+// Routes publiques (CORS géré par config/cors.php)
 Route::get('/activity-types', function() {
     return response()->json([
         'success' => true,
@@ -35,13 +32,13 @@ Route::group([], function () {
 // Routes admin SANS middleware Sanctum (solution temporaire)
 Route::prefix('admin')->group(function () {
     Route::get('/stats', function() {
-        return response()->json([
+    return response()->json([
             'users' => App\Models\User::count(),
             'lessons' => App\Models\Lesson::count(),
             'clubs' => App\Models\Club::count()
-        ]);
-    });
-    
+    ]);
+});
+
     Route::post('/upload-logo', function(Request $request) {
         try {
             if (!$request->hasFile('logo')) {
@@ -51,23 +48,21 @@ Route::prefix('admin')->group(function () {
             $file = $request->file('logo');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $path = $file->storeAs('logos', $fileName, 'public');
-            
-            return response()->json([
-                'success' => true,
+
+        return response()->json([
+            'success' => true,
                 'message' => 'Logo uploadé avec succès',
                 'logo_url' => url('storage/' . $path)
-            ]);
+        ]);
         } catch (Exception $e) {
-            return response()->json([
+        return response()->json([
                 'error' => true,
                 'message' => 'Erreur: ' . $e->getMessage()
-            ], 500);
-        }
-    });
-    
-    Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
-    Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+        ], 500);
+    }
 });
 
-}); // Fermeture du groupe CORS
+        Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
+        Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+});
 
