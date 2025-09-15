@@ -49,7 +49,7 @@ export default defineNuxtConfig({
             appName: 'Acti\'Vibe'
         },
         // Configuration côté serveur pour Docker
-        apiBase: process.env.NUXT_API_BASE || 'http://webserver:80/api'
+        apiBase: process.env.NUXT_API_BASE || 'http://activibe-backend:80/api'
     },
 
     css: ['~/assets/css/main.css'],
