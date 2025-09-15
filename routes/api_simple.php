@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
 
+// Toutes les routes avec middleware CORS
+Route::middleware(['cors'])->group(function () {
+
 // Routes publiques
 Route::get('/activity-types', function() {
     return response()->json([
@@ -65,4 +68,6 @@ Route::prefix('admin')->group(function () {
     Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
     Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
 });
+
+}); // Fermeture du groupe CORS
 
