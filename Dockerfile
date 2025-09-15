@@ -59,6 +59,9 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
 # Créer le fichier .env à partir de .env.example
 RUN cp .env.example .env
 
+# Correction du garde d'authentification
+RUN sed -i "s/'guard' => env('AUTH_GUARD', 'web')/'guard' => 'sanctum'/" config/auth.php
+
 # Exposer le port
 EXPOSE 80
 
