@@ -35,46 +35,46 @@ class TransactionFactory extends Factory
     }
 
     /**
-     * Indicate that the transaction is pending.
+     * Indicate that the transaction is a sale.
      */
-    public function pending(): static
+    public function sale(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'pending',
-            'processed_at' => null,
+            'type' => 'sale',
+            'amount' => $this->faker->randomFloat(2, 10, 200),
         ]);
     }
 
     /**
-     * Indicate that the transaction is completed.
+     * Indicate that the transaction is a refund.
      */
-    public function completed(): static
+    public function refund(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'completed',
-            'processed_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
+            'type' => 'refund',
+            'amount' => -$this->faker->randomFloat(2, 10, 100),
         ]);
     }
 
     /**
-     * Indicate that the transaction is cancelled.
+     * Indicate that the transaction is an expense.
      */
-    public function cancelled(): static
+    public function expense(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'cancelled',
-            'processed_at' => null,
+            'type' => 'expense',
+            'amount' => -$this->faker->randomFloat(2, 5, 50),
         ]);
     }
 
     /**
-     * Indicate that the transaction is refunded.
+     * Indicate that the transaction is a deposit.
      */
-    public function refunded(): static
+    public function deposit(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'refunded',
-            'processed_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
+            'type' => 'deposit',
+            'amount' => $this->faker->randomFloat(2, 50, 500),
         ]);
     }
 }

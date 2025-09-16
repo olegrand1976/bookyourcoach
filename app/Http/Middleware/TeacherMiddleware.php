@@ -16,19 +16,32 @@ class TeacherMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!Auth::check()) {
-            return response()->json(['message' => 'Non authentifié'], 401);
+        $token = $request->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
         }
-
-        $user = Auth::user();
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
 
         // Vérifier si l'utilisateur peut agir en tant qu'enseignant
         // (admin ou possède un profil enseignant)
         if (!$user->canActAsTeacher()) {
             return response()->json([
-                'message' => 'Accès refusé - Droits enseignant requis'
+                'message' => 'Access denied - Teacher rights required'
             ], 403);
         }
+
+        $request->setUserResolver(function () use ($user) {
+            return $user;
+        });
 
         return $next($request);
     }

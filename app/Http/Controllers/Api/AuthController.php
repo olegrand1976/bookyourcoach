@@ -304,6 +304,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
         // Ajouter les capacités utilisateur
         $userData = $user->toArray();
         $userData['can_act_as_teacher'] = $user->canActAsTeacher();
