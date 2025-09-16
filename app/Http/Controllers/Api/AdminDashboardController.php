@@ -175,6 +175,18 @@ class AdminDashboardController extends Controller
      *     tags={"Admin Dashboard"},
      *     security={{"bearerAuth":{}}},
      *     @OA\Parameter(
+     *         name="page",
+     *         in="query",
+     *         @OA\Schema(type="integer", default=1),
+     *         description="Numéro de page"
+     *     ),
+     *     @OA\Parameter(
+     *         name="per_page",
+     *         in="query",
+     *         @OA\Schema(type="integer", default=10),
+     *         description="Nombre d'éléments par page"
+     *     ),
+     *     @OA\Parameter(
      *         name="role",
      *         in="query",
      *         @OA\Schema(type="string", enum={"admin", "teacher", "student"}),
@@ -186,9 +198,21 @@ class AdminDashboardController extends Controller
      *         @OA\Schema(type="string", enum={"active", "inactive", "suspended"}),
      *         description="Filtrer par statut"
      *     ),
+     *     @OA\Parameter(
+     *         name="search",
+     *         in="query",
+     *         @OA\Schema(type="string"),
+     *         description="Rechercher par nom ou email"
+     *     ),
+     *     @OA\Parameter(
+     *         name="postal_code",
+     *         in="query",
+     *         @OA\Schema(type="string"),
+     *         description="Filtrer par code postal"
+     *     ),
      *     @OA\Response(
      *         response=200,
-     *         description="Liste des utilisateurs"
+     *         description="Liste des utilisateurs avec pagination"
      *     )
      * )
      */
@@ -219,20 +243,204 @@ class AdminDashboardController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
                 });
             }
 
-            $users = $query->orderBy('created_at', 'desc')->get();
+            if ($request->filled('postal_code')) {
+                $query->where('postal_code', 'like', "%{$request->postal_code}%");
+            }
+
+            // Pagination
+            $perPage = $request->get('per_page', 10);
+            $perPage = min($perPage, 100); // Limiter à 100 éléments max par page
+
+            $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
             return response()->json([
                 'success' => true,
-                'data' => $users
+                'data' => $users->items(),
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'from' => $users->firstItem(),
+                'to' => $users->lastItem()
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des utilisateurs',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/users",
+     *     summary="Créer un nouvel utilisateur",
+     *     tags={"Admin Dashboard"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="first_name", type="string", example="Jean"),
+     *             @OA\Property(property="last_name", type="string", example="Dupont"),
+     *             @OA\Property(property="email", type="string", format="email", example="jean@example.com"),
+     *             @OA\Property(property="phone", type="string", example="+33123456789"),
+     *             @OA\Property(property="birth_date", type="string", format="date", example="1990-01-01"),
+     *             @OA\Property(property="street", type="string", example="Rue de la Paix"),
+     *             @OA\Property(property="street_number", type="string", example="123"),
+     *             @OA\Property(property="postal_code", type="string", example="1000"),
+     *             @OA\Property(property="city", type="string", example="Bruxelles"),
+     *             @OA\Property(property="country", type="string", example="Belgium"),
+     *             @OA\Property(property="role", type="string", enum={"admin", "teacher", "student"}, example="student"),
+     *             @OA\Property(property="password", type="string", example="password123"),
+     *             @OA\Property(property="password_confirmation", type="string", example="password123")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Utilisateur créé avec succès"
+     *     )
+     * )
+     */
+    public function createUser(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        if ($user->role !== User::ROLE_ADMIN) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès refusé. Administrateur requis.'
+            ], 403);
+        }
+
+        $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:10',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'role' => 'required|in:admin,teacher,student',
+            'password' => 'required|string|min:8|confirmed'
+        ]);
+
+        try {
+            $userData = $request->only([
+                'first_name', 'last_name', 'email', 'phone', 'birth_date',
+                'street', 'street_number', 'postal_code', 'city', 'country', 'role'
+            ]);
+            
+            $userData['name'] = trim($userData['first_name'] . ' ' . $userData['last_name']);
+            $userData['password'] = bcrypt($request->password);
+            $userData['status'] = 'active';
+            $userData['is_active'] = true;
+
+            $newUser = User::create($userData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Utilisateur créé avec succès',
+                'data' => $newUser
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de l\'utilisateur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Put(
+     *     path="/api/admin/users/{id}",
+     *     summary="Modifier un utilisateur",
+     *     tags={"Admin Dashboard"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="first_name", type="string", example="Jean"),
+     *             @OA\Property(property="last_name", type="string", example="Dupont"),
+     *             @OA\Property(property="email", type="string", format="email", example="jean@example.com"),
+     *             @OA\Property(property="phone", type="string", example="+33123456789"),
+     *             @OA\Property(property="birth_date", type="string", format="date", example="1990-01-01"),
+     *             @OA\Property(property="street", type="string", example="Rue de la Paix"),
+     *             @OA\Property(property="street_number", type="string", example="123"),
+     *             @OA\Property(property="postal_code", type="string", example="1000"),
+     *             @OA\Property(property="city", type="string", example="Bruxelles"),
+     *             @OA\Property(property="country", type="string", example="Belgium"),
+     *             @OA\Property(property="role", type="string", enum={"admin", "teacher", "student"}, example="student")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Utilisateur modifié avec succès"
+     *     )
+     * )
+     */
+    public function updateUser(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+
+        if ($user->role !== User::ROLE_ADMIN) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès refusé. Administrateur requis.'
+            ], 403);
+        }
+
+        $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:10',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'role' => 'required|in:admin,teacher,student'
+        ]);
+
+        try {
+            $targetUser = User::findOrFail($id);
+
+            $userData = $request->only([
+                'first_name', 'last_name', 'email', 'phone', 'birth_date',
+                'street', 'street_number', 'postal_code', 'city', 'country', 'role'
+            ]);
+            
+            $userData['name'] = trim($userData['first_name'] . ' ' . $userData['last_name']);
+
+            $targetUser->update($userData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Utilisateur modifié avec succès',
+                'data' => $targetUser
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification de l\'utilisateur',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -253,7 +461,7 @@ class AdminDashboardController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="string", enum={"active", "inactive", "suspended"})
+     *             @OA\Property(property="is_active", type="boolean", example=true)
      *         )
      *     ),
      *     @OA\Response(
@@ -274,7 +482,7 @@ class AdminDashboardController extends Controller
         }
 
         $request->validate([
-            'status' => 'required|in:active,inactive,suspended'
+            'is_active' => 'required|boolean'
         ]);
 
         try {
@@ -288,7 +496,7 @@ class AdminDashboardController extends Controller
                 ], 400);
             }
 
-            $targetUser->update(['status' => $request->status]);
+            $targetUser->update(['is_active' => $request->is_active]);
 
             return response()->json([
                 'success' => true,

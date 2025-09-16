@@ -271,7 +271,7 @@ Route::prefix('admin')->group(function () {
         }
         
         if ($postal_code) {
-            $query->where('postal_code', $postal_code);
+            $query->where('postal_code', 'like', "%{$postal_code}%");
         }
         
         // Pagination
@@ -328,6 +328,126 @@ Route::prefix('admin')->group(function () {
             'message' => 'Statut utilisateur mis à jour'
     ]);
 });
+
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:10',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'role' => 'required|in:admin,teacher,student',
+            'password' => 'required|string|min:8|confirmed'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $userData = $request->only([
+            'first_name', 'last_name', 'email', 'phone', 'birth_date',
+            'street', 'street_number', 'postal_code', 'city', 'country', 'role'
+        ]);
+        
+        $userData['name'] = trim($userData['first_name'] . ' ' . $userData['last_name']);
+        $userData['password'] = bcrypt($request->password);
+        $userData['status'] = 'active';
+        $userData['is_active'] = true;
+
+        $newUser = App\Models\User::create($userData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur créé avec succès',
+            'data' => $newUser
+        ], 201);
+    });
+
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:10',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'role' => 'required|in:admin,teacher,student'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $targetUser = App\Models\User::findOrFail($id);
+
+        $userData = $request->only([
+            'first_name', 'last_name', 'email', 'phone', 'birth_date',
+            'street', 'street_number', 'postal_code', 'city', 'country', 'role'
+        ]);
+        
+        $userData['name'] = trim($userData['first_name'] . ' ' . $userData['last_name']);
+
+        $targetUser->update($userData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur modifié avec succès',
+            'data' => $targetUser
+        ]);
+    });
 
     Route::put('/settings/{type}', function(Request $request, $type) {
         $token = request()->header('Authorization');
