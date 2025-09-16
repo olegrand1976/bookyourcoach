@@ -288,6 +288,56 @@ Route::prefix('admin')->group(function () {
             'to' => $users->lastItem()
         ]);
     });
+
+    // Création d'un utilisateur (admin)
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = $personalAccessToken->tokenable;
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+
+        // Déléguer au contrôleur pour la logique métier et la validation
+        return app(\App\Http\Controllers\AdminController::class)->createUser($request);
+    });
+
+    // Mise à jour d'un utilisateur (admin)
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = $personalAccessToken->tokenable;
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+
+        // Déléguer au contrôleur pour la logique métier et la validation
+        return app(\App\Http\Controllers\AdminController::class)->updateUser($request, $id);
+    });
     
     Route::put('/users/{id}/status', function(Request $request, $id) {
         $token = request()->header('Authorization');

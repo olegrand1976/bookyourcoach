@@ -140,11 +140,29 @@ class AdminController extends BaseController
      */
     public function createUser(Request $request)
     {
+        // Composer un "name" si first_name / last_name fournis (compat frontend)
+        if (!$request->filled('name')) {
+            $first = trim((string) $request->input('first_name', ''));
+            $last = trim((string) $request->input('last_name', ''));
+            if ($first || $last) {
+                $request->merge(['name' => trim($first . ' ' . $last)]);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:admin,teacher,student',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:50',
+            'postal_code' => 'nullable|string|max:20',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'birth_date' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -153,9 +171,18 @@ class AdminController extends BaseController
 
         $user = User::create([
             'name' => $request->name,
+            'first_name' => $request->input('first_name'),
+            'last_name' => $request->input('last_name'),
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'phone' => $request->input('phone'),
+            'street' => $request->input('street'),
+            'street_number' => $request->input('street_number'),
+            'postal_code' => $request->input('postal_code'),
+            'city' => $request->input('city'),
+            'country' => $request->input('country'),
+            'birth_date' => $request->input('birth_date'),
             'is_active' => true,
             'status' => 'active',
         ]);
