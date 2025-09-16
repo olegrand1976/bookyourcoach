@@ -438,10 +438,15 @@ const changePage = (page) => {
 const createUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.post('/admin/users', {
-            ...userForm.value,
-            password_confirmation: userForm.value.password
-        })
+        // Construire le payload attendu par l'API backend
+        const payload = {
+            name: `${userForm.value.first_name.trim()} ${userForm.value.last_name.trim()}`.trim(),
+            email: userForm.value.email,
+            role: userForm.value.role,
+            password: userForm.value.password,
+            password_confirmation: userForm.value.password_confirmation
+        }
+        await $api.post('/admin/users', payload)
 
         closeModal()
         await loadUsers()
@@ -453,12 +458,26 @@ const createUser = async () => {
 }
 
 const editUser = (user) => {
+    // Séparer le nom complet en prénom/nom s'il y a un espace, sinon stocker dans last_name
+    const nameParts = user.name.split(' ')
+    const firstName = nameParts.shift() || ''
+    const lastName = nameParts.join(' ')
+
     userForm.value = {
         id: user.id,
-        name: user.name,
+        first_name: firstName,
+        last_name: lastName,
         email: user.email,
+        phone: user.phone || '',
+        birth_date: user.birth_date || '',
+        street: user.street || '',
+        street_number: user.street_number || '',
+        postal_code: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgium',
         role: user.role,
-        password: ''
+        password: '',
+        password_confirmation: ''
     }
     showEditModal.value = true
 }
@@ -466,7 +485,17 @@ const editUser = (user) => {
 const updateUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.put(`/admin/users/${userForm.value.id}`, userForm.value)
+        const payload = {
+            name: `${userForm.value.first_name.trim()} ${userForm.value.last_name.trim()}`.trim(),
+            email: userForm.value.email,
+            role: userForm.value.role
+        }
+        // Inclure le mot de passe s'il a été renseigné
+        if (userForm.value.password) {
+            payload.password = userForm.value.password
+            payload.password_confirmation = userForm.value.password_confirmation
+        }
+        await $api.put(`/admin/users/${userForm.value.id}`, payload)
 
         closeModal()
         await loadUsers()
