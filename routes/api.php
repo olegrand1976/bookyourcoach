@@ -381,79 +381,7 @@ Route::prefix('admin')->group(function () {
         }
 });
 
-    Route::post('/upload-logo', function(Request $request) {
-        // Vérification de l'authentification
-        $token = request()->header('Authorization');
-        
-        if (!$token || !str_starts_with($token, 'Bearer ')) {
-            return response()->json(['message' => 'Missing token'], 401);
-        }
-        
-        $token = substr($token, 7);
-        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-        
-        if (!$personalAccessToken) {
-            return response()->json(['message' => 'Invalid token'], 401);
-        }
-        
-        $user = $personalAccessToken->tokenable;
-        
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
-        }
-        
-        try {
-            // Validation du fichier
-            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-                'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
-            ]);
-            
-            if ($validator->fails()) {
-                return response()->json([
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-            
-            if (!$request->hasFile('logo')) {
-                return response()->json(['message' => 'Aucun fichier fourni'], 400);
-            }
-            
-            $file = $request->file('logo');
-            $filename = 'logo_' . time() . '.' . $file->getClientOriginalExtension();
-            
-            // Stocker dans public/storage/logos
-            $path = $file->storeAs('logos', $filename, 'public');
-            $url = '/storage/' . $path;
-            
-            // Mettre à jour le paramètre logo_url dans les paramètres
-            App\Models\AppSetting::updateOrCreate(
-                [
-                    'key' => 'general.logo_url',
-                    'group' => 'general'
-                ],
-                [
-                    'value' => $url,
-                    'type' => 'string',
-                    'is_active' => true
-                ]
-            );
-
-        return response()->json([
-            'success' => true,
-                'message' => 'Logo uploadé avec succès',
-                'logo_url' => url($url)
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l\'upload: ' . $e->getMessage()
-            ], 500);
-        }
-    });
-
-        Route::get('/settings/{type}', function($type) {
+    Route::get('/settings/{type}', function($type) {
             $token = request()->header('Authorization');
             
             if (!$token || !str_starts_with($token, 'Bearer ')) {
@@ -481,7 +409,7 @@ Route::prefix('admin')->group(function () {
                     case 'general':
                         $defaultSettings = [
                             'platform_name' => 'activibe',
-                            'logo_url' => '/logo.svg',
+                            'logo_url' => '/logo-activibe.svg',
                             'contact_email' => 'contact@activibe.fr',
                             'contact_phone' => '+33 1 23 45 67 89',
                             'timezone' => 'Europe/Brussels',
@@ -672,11 +600,11 @@ Route::prefix('admin')->group(function () {
                         ]
                     );
                 }
-                
-                return response()->json([
+
+        return response()->json([
                     'message' => 'Paramètres mis à jour avec succès',
                     'settings' => $settings
-                ]);
+        ]);
                 
             } catch (\Exception $e) {
         return response()->json([
