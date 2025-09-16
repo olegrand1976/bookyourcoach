@@ -946,3 +946,19 @@ Route::prefix('admin')->group(function () {
         });
 });
 
+// Routes Graph Analytics (Neo4j)
+Route::prefix('graph')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('/dashboard', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getDashboard']);
+    Route::get('/network-stats', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getNetworkStats']);
+    Route::get('/top-teachers', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getTopTeachers']);
+    Route::get('/skills-network', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getSkillsNetwork']);
+    Route::get('/student-progress', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getStudentProgress']);
+    Route::get('/recommendations', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getRecommendations']);
+    Route::post('/teacher-matching', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getTeacherMatching']);
+    Route::post('/teacher-performance', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getTeacherPerformance']);
+    Route::post('/predict-success', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'predictStudentSuccess']);
+    Route::get('/visualization', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getGraphVisualization']);
+    Route::post('/sync', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'syncAllData']);
+    Route::get('/status', [App\Http\Controllers\Api\GraphAnalyticsController::class, 'getStatus']);
+});
+
