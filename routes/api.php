@@ -238,7 +238,7 @@ Route::prefix('admin')->group(function () {
             return response()->json(['message' => 'Access denied - Admin rights required'], 403);
         }
         
-        return response()->json([
+    return response()->json([
             'success' => true,
             'data' => App\Models\User::all()
         ]);
@@ -270,31 +270,80 @@ Route::prefix('admin')->group(function () {
         return response()->json([
             'success' => true,
             'message' => 'Statut utilisateur mis à jour'
-        ]);
-    });
+    ]);
+});
 
     Route::post('/upload-logo', function(Request $request) {
+        // Vérification de l'authentification
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
         try {
+            // Validation du fichier
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            
             if (!$request->hasFile('logo')) {
-                return response()->json(['error' => 'Aucun fichier fourni'], 400);
+                return response()->json(['message' => 'Aucun fichier fourni'], 400);
             }
             
             $file = $request->file('logo');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('logos', $fileName, 'public');
+            $filename = 'logo_' . time() . '.' . $file->getClientOriginalExtension();
+            
+            // Stocker dans public/storage/logos
+            $path = $file->storeAs('logos', $filename, 'public');
+            $url = '/storage/' . $path;
+            
+            // Mettre à jour le paramètre logo_url dans les paramètres
+            App\Models\AppSetting::updateOrCreate(
+                [
+                    'key' => 'general.logo_url',
+                    'group' => 'general'
+                ],
+                [
+                    'value' => $url,
+                    'type' => 'string',
+                    'is_active' => true
+                ]
+            );
 
         return response()->json([
             'success' => true,
                 'message' => 'Logo uploadé avec succès',
-                'logo_url' => url('storage/' . $path)
-        ]);
-        } catch (Exception $e) {
-        return response()->json([
-                'error' => true,
-                'message' => 'Erreur: ' . $e->getMessage()
-        ], 500);
-    }
-});
+                'logo_url' => url($url)
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'upload: ' . $e->getMessage()
+            ], 500);
+        }
+    });
 
         Route::get('/settings/{type}', function($type) {
             $token = request()->header('Authorization');
@@ -522,12 +571,12 @@ Route::prefix('admin')->group(function () {
                 ]);
                 
             } catch (\Exception $e) {
-                return response()->json([
+        return response()->json([
                     'message' => 'Erreur lors de la mise à jour des paramètres: ' . $e->getMessage()
-                ], 500);
-            }
-        });
-        
+        ], 500);
+    }
+});
+
         // Routes supplémentaires pour AdminControllerTest
         Route::get('/stats', function() {
             $token = request()->header('Authorization');
