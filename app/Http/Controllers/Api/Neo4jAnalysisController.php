@@ -331,3 +331,4 @@ class Neo4jAnalysisController extends Controller
             ], 500);
         }
     }
+}
