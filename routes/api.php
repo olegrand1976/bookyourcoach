@@ -296,8 +296,237 @@ Route::prefix('admin')->group(function () {
     }
 });
 
-        Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
-        Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+        Route::get('/settings/{type}', function($type) {
+            $token = request()->header('Authorization');
+            
+            if (!$token || !str_starts_with($token, 'Bearer ')) {
+                return response()->json(['message' => 'Missing token'], 401);
+            }
+            
+            $token = substr($token, 7);
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            
+            if (!$personalAccessToken) {
+                return response()->json(['message' => 'Invalid token'], 401);
+            }
+            
+            $user = $personalAccessToken->tokenable;
+            
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+            }
+            
+            try {
+                // Paramètres par défaut selon le type
+                $defaultSettings = [];
+                
+                switch ($type) {
+                    case 'general':
+                        $defaultSettings = [
+                            'platform_name' => 'activibe',
+                            'logo_url' => '/logo.svg',
+                            'contact_email' => 'contact@activibe.fr',
+                            'contact_phone' => '+33 1 23 45 67 89',
+                            'timezone' => 'Europe/Brussels',
+                            'company_address' => 'activibe\nBelgique'
+                        ];
+                        break;
+                        
+                    case 'booking':
+                        $defaultSettings = [
+                            'min_booking_hours' => 2,
+                            'max_booking_days' => 30,
+                            'cancellation_hours' => 24,
+                            'default_lesson_duration' => 60,
+                            'auto_confirm_bookings' => true,
+                            'send_reminder_emails' => true,
+                            'allow_student_cancellation' => true
+                        ];
+                        break;
+                        
+                    case 'payment':
+                        $defaultSettings = [
+                            'platform_commission' => 10,
+                            'vat_rate' => 21,
+                            'default_currency' => 'EUR',
+                            'payout_delay_days' => 7,
+                            'stripe_enabled' => true,
+                            'auto_payout' => false
+                        ];
+                        break;
+                        
+                    case 'notifications':
+                        $defaultSettings = [
+                            'email_new_booking' => true,
+                            'email_booking_cancelled' => true,
+                            'email_payment_received' => true,
+                            'email_lesson_reminder' => true,
+                            'sms_new_booking' => false,
+                            'sms_lesson_reminder' => false
+                        ];
+                        break;
+                        
+                    default:
+                        return response()->json(['message' => 'Invalid settings type'], 400);
+                }
+                
+                // Récupérer les paramètres sauvegardés depuis la base de données
+                $savedSettings = App\Models\AppSetting::where('group', $type)->get();
+                
+                // Fusionner avec les valeurs par défaut
+                foreach ($savedSettings as $setting) {
+                    $key = str_replace($type . '.', '', $setting->key);
+                    $value = $setting->value;
+                    
+                    // Convertir selon le type
+                    switch ($setting->type) {
+                        case 'boolean':
+                            $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                            break;
+                        case 'integer':
+                            $value = (int)$value;
+                            break;
+                        case 'array':
+                            $value = json_decode($value, true);
+                            break;
+                        case 'float':
+                            $value = (float)$value;
+                            break;
+                        default:
+                            // string - garder tel quel
+                            break;
+                    }
+                    
+                    $defaultSettings[$key] = $value;
+                }
+                
+                return response()->json($defaultSettings);
+                
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Erreur lors du chargement des paramètres: ' . $e->getMessage()], 500);
+            }
+        });
+        
+        Route::put('/settings/{type}', function(Request $request, $type) {
+            $token = request()->header('Authorization');
+            
+            if (!$token || !str_starts_with($token, 'Bearer ')) {
+                return response()->json(['message' => 'Missing token'], 401);
+            }
+            
+            $token = substr($token, 7);
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            
+            if (!$personalAccessToken) {
+                return response()->json(['message' => 'Invalid token'], 401);
+            }
+            
+            $user = $personalAccessToken->tokenable;
+            
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+            }
+            
+            try {
+                $settings = $request->all();
+                
+                // Valider les données selon le type
+                $rules = [];
+                switch ($type) {
+                    case 'general':
+                        $rules = [
+                            'platform_name' => 'required|string|max:255',
+                            'contact_email' => 'required|email|max:255',
+                            'contact_phone' => 'nullable|string|max:50',
+                            'timezone' => 'required|string|max:50',
+                            'company_address' => 'nullable|string|max:1000'
+                        ];
+                        break;
+                        
+                    case 'booking':
+                        $rules = [
+                            'min_booking_hours' => 'required|integer|min:1|max:48',
+                            'max_booking_days' => 'required|integer|min:1|max:365',
+                            'cancellation_hours' => 'required|integer|min:1|max:168',
+                            'default_lesson_duration' => 'required|integer|min:15|max:480',
+                            'auto_confirm_bookings' => 'required|boolean',
+                            'send_reminder_emails' => 'required|boolean',
+                            'allow_student_cancellation' => 'required|boolean'
+                        ];
+                        break;
+                        
+                    case 'payment':
+                        $rules = [
+                            'platform_commission' => 'required|numeric|min:0|max:50',
+                            'vat_rate' => 'required|numeric|min:0|max:100',
+                            'default_currency' => 'required|string|size:3',
+                            'payout_delay_days' => 'required|integer|min:1|max:30',
+                            'stripe_enabled' => 'required|boolean',
+                            'auto_payout' => 'required|boolean'
+                        ];
+                        break;
+                        
+                    case 'notifications':
+                        $rules = [
+                            'email_new_booking' => 'required|boolean',
+                            'email_booking_cancelled' => 'required|boolean',
+                            'email_payment_received' => 'required|boolean',
+                            'email_lesson_reminder' => 'required|boolean',
+                            'sms_new_booking' => 'required|boolean',
+                            'sms_lesson_reminder' => 'required|boolean'
+                        ];
+                        break;
+                        
+                    default:
+                        return response()->json(['message' => 'Invalid settings type'], 400);
+                }
+                
+                $validator = \Illuminate\Support\Facades\Validator::make($settings, $rules);
+                if ($validator->fails()) {
+                    return response()->json([
+                        'message' => 'Données invalides',
+                        'errors' => $validator->errors()
+                    ], 422);
+                }
+                
+                // Sauvegarder chaque paramètre dans la base de données
+                foreach ($settings as $key => $value) {
+                    // Déterminer le type de valeur
+                    $valueType = 'string';
+                    if (is_bool($value)) {
+                        $valueType = 'boolean';
+                    } elseif (is_int($value)) {
+                        $valueType = 'integer';
+                    } elseif (is_float($value)) {
+                        $valueType = 'float';
+                    } elseif (is_array($value)) {
+                        $valueType = 'array';
+                    }
+                    
+                    App\Models\AppSetting::updateOrCreate(
+                        [
+                            'key' => "{$type}.{$key}",
+                            'group' => $type
+                        ],
+                        [
+                            'value' => is_array($value) ? json_encode($value) : (string)$value,
+                            'type' => $valueType,
+                            'is_active' => true
+                        ]
+                    );
+                }
+                
+                return response()->json([
+                    'message' => 'Paramètres mis à jour avec succès',
+                    'settings' => $settings
+                ]);
+                
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => 'Erreur lors de la mise à jour des paramètres: ' . $e->getMessage()
+                ], 500);
+            }
+        });
         
         // Routes supplémentaires pour AdminControllerTest
         Route::get('/stats', function() {
