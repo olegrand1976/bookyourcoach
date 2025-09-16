@@ -636,17 +636,16 @@ Route::prefix('admin')->group(function () {
             
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'stats' => [
-                        'total_users' => App\Models\User::count(),
-                        'total_teachers' => App\Models\User::where('role', 'teacher')->count(),
-                        'total_students' => App\Models\User::where('role', 'student')->count(),
-                        'total_clubs' => App\Models\Club::count(),
-                        'total_lessons' => App\Models\Lesson::count(),
-                        'total_payments' => App\Models\Payment::count(),
-                        'revenue_this_month' => App\Models\Payment::whereMonth('created_at', now()->month)->sum('amount'),
-                    ]
-                ]
+                'stats' => [
+                    'total_users' => App\Models\User::count(),
+                    'total_teachers' => App\Models\User::where('role', 'teacher')->count(),
+                    'total_students' => App\Models\User::where('role', 'student')->count(),
+                    'total_clubs' => App\Models\Club::count(),
+                    'total_lessons' => App\Models\Lesson::count(),
+                    'total_payments' => App\Models\Payment::count(),
+                    'revenue_this_month' => App\Models\Payment::whereMonth('created_at', now()->month)->sum('amount'),
+                ],
+                'recentUsers' => App\Models\User::latest()->take(5)->get()
             ]);
         });
         
