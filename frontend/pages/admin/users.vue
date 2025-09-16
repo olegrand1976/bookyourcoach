@@ -85,6 +85,10 @@
                                 </th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Code postal
+                                </th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Inscription
                                 </th>
                                 <th
@@ -123,6 +127,9 @@
                                         class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
                                         {{ user.is_active ? 'Actif' : 'Inactif' }}
                                     </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ user.postal_code || '-' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {{ formatDate(user.created_at) }}
