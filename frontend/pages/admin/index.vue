@@ -215,7 +215,17 @@ onMounted(async () => {
     loading.value = true
     try {
         const response = await $api.get('/admin/stats')
-        stats.value = response.data.stats || stats.value
+        
+        // Mapper les données de l'API vers le format attendu par le frontend
+        if (response.data.stats) {
+            stats.value = {
+                users: response.data.stats.total_users || 0,
+                teachers: response.data.stats.total_teachers || 0,
+                students: response.data.stats.total_students || 0,
+                clubs: response.data.stats.total_clubs || 0,
+            }
+        }
+        
         recentUsers.value = response.data.recentUsers || []
     } catch (error) {
         console.error("Erreur lors de la récupération des données du dashboard:", error)
@@ -268,7 +278,14 @@ async function createClub() {
         newClub.value = { name: '', email: '', phone: '', address: '' }
         // Re-fetch stats
         const response = await $api.get('/admin/stats')
-        stats.value = response.data.stats || stats.value
+        if (response.data.stats) {
+            stats.value = {
+                users: response.data.stats.total_users || 0,
+                teachers: response.data.stats.total_teachers || 0,
+                students: response.data.stats.total_students || 0,
+                clubs: response.data.stats.total_clubs || 0,
+            }
+        }
     } catch (error) {
         showToast(error.data?.message || "Erreur lors de la création du club.", 'error')
     }
