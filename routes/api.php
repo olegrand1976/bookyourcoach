@@ -218,6 +218,11 @@ Route::prefix('admin')->group(function () {
         ]);
     });
     
+    // POST /admin/users (create)
+    Route::post('/users', [App\Http\Controllers\AdminController::class, 'createUser']);
+    // PUT /admin/users/{id} (update)
+    Route::put('/users/{id}', [App\Http\Controllers\AdminController::class, 'updateUser']);
+    
     Route::get('/users', function() {
         $token = request()->header('Authorization');
         
