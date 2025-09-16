@@ -455,10 +455,19 @@ const createUser = async () => {
 const editUser = (user) => {
     userForm.value = {
         id: user.id,
-        name: user.name,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email,
+        phone: user.phone || '',
+        birth_date: user.birth_date || '',
+        street: user.street || '',
+        street_number: user.street_number || '',
+        postal_code: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgium',
         role: user.role,
-        password: ''
+        password: '',
+        password_confirmation: ''
     }
     showEditModal.value = true
 }
