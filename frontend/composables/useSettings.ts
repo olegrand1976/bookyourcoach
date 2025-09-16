@@ -11,7 +11,7 @@ export const useSettings = () => {
         contact_phone: '+32 2 123 45 67',
         company_address: 'Rue de l\'Équitation 123\n1000 Bruxelles\nBelgique',
         timezone: 'Europe/Brussels',
-        logo_url: '/logo.png',
+        logo_url: '/logo-activibe.svg',
         favicon_url: '/favicon.ico'
     })
 

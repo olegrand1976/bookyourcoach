@@ -31,26 +31,6 @@
                         </div>
                     </div>
 
-                    <!-- Gestion du logo -->
-                    <div class="mt-6 border-t pt-6">
-                        <h3 class="text-lg font-semibold mb-4">Logo de la plateforme</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-gray-700 mb-1">URL du logo</label>
-                                <input v-model="settings.logo_url" class="input-field" placeholder="https://..." />
-                                <div class="mt-2">
-                                    <label class="block text-gray-700 mb-1">Uploader un logo</label>
-                                    <input type="file" accept="image/*" @change="onLogoUpload" class="input-field" />
-                                </div>
-                            </div>
-                            <div v-if="settings.logo_url" class="flex flex-col items-center">
-                                <span class="text-sm text-gray-600 mb-2">Aperçu actuel</span>
-                                <div class="border rounded-lg p-4 bg-gray-50">
-                                    <img :src="settings.logo_url" alt="Logo" class="h-16 w-auto max-w-full" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="mt-6 flex justify-end">
                         <button type="submit" class="btn-primary" :disabled="loading">
@@ -133,44 +113,6 @@ const saveGeneralSettings = async () => {
     } finally {
         loading.value = false
     }
-}
-
-// Upload du logo - Solution alternative avec base64
-const onLogoUpload = async (event) => {
-    const target = event.target
-    const files = target.files
-    if (!files || files.length === 0) return
-
-    const file = files[0]
-    
-    // Convertir en base64 pour éviter les problèmes d'upload
-    const reader = new FileReader()
-    reader.onload = async () => {
-        try {
-            const base64 = reader.result
-            
-            // Sauvegarder directement l'image en base64 dans les paramètres
-            const logoData = {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                data: base64
-            }
-            
-            // Stocker dans les paramètres localement (solution temporaire)
-            settings.value.logo_url = base64
-            settings.value.logo_data = logoData
-            
-            console.log('✅ Logo chargé avec succès (base64)')
-            alert('Logo chargé avec succès ! (Solution temporaire en base64)')
-            
-        } catch (error) {
-            console.error('❌ Erreur lors du traitement du logo:', error)
-            alert('Erreur lors du traitement du logo')
-        }
-    }
-    
-    reader.readAsDataURL(file)
 }
 
 // Initialisation au montage du composant
