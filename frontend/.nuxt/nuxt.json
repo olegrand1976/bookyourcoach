@@ -1,9 +1,9 @@
 {
-  "_hash": "FTze_Yl6DoZAXhFTJTgcCMAVt-NmDS67n70AFyY1ygA",
+  "_hash": "TIBPjRJ31RSMolNOcKxLzIQZ8OoyklgwgkroYXyzPr4",
   "project": {
-    "rootDir": "/app"
+    "rootDir": "/workspace/frontend"
   },
   "versions": {
-    "nuxt": "3.19.1"
+    "nuxt": "3.17.7"
   }
 }

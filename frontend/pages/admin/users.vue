@@ -438,27 +438,42 @@ const changePage = (page) => {
 const createUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.post('/admin/users', {
-            ...userForm.value,
-            password_confirmation: userForm.value.password
-        })
+        const response = await $api.post('/admin/users', userForm.value)
 
         closeModal()
         await loadUsers()
         alert('Utilisateur créé avec succès!')
     } catch (error) {
         console.error('Erreur lors de la création:', error)
-        alert('Erreur lors de la création de l\'utilisateur')
+        if (error.response?.data?.errors) {
+            const errors = error.response.data.errors
+            let errorMessage = 'Erreurs de validation:\n'
+            Object.keys(errors).forEach(field => {
+                errorMessage += `- ${field}: ${errors[field].join(', ')}\n`
+            })
+            alert(errorMessage)
+        } else {
+            alert(error.response?.data?.message || 'Erreur lors de la création de l\'utilisateur')
+        }
     }
 }
 
 const editUser = (user) => {
     userForm.value = {
         id: user.id,
-        name: user.name,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email,
+        phone: user.phone || '',
+        birth_date: user.birth_date || '',
+        street: user.street || '',
+        street_number: user.street_number || '',
+        postal_code: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgium',
         role: user.role,
-        password: ''
+        password: '',
+        password_confirmation: ''
     }
     showEditModal.value = true
 }
@@ -473,7 +488,16 @@ const updateUser = async () => {
         alert('Utilisateur modifié avec succès!')
     } catch (error) {
         console.error('Erreur lors de la modification:', error)
-        alert('Erreur lors de la modification de l\'utilisateur')
+        if (error.response?.data?.errors) {
+            const errors = error.response.data.errors
+            let errorMessage = 'Erreurs de validation:\n'
+            Object.keys(errors).forEach(field => {
+                errorMessage += `- ${field}: ${errors[field].join(', ')}\n`
+            })
+            alert(errorMessage)
+        } else {
+            alert(error.response?.data?.message || 'Erreur lors de la modification de l\'utilisateur')
+        }
     }
 }
 
