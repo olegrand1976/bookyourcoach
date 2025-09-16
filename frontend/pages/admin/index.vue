@@ -104,8 +104,18 @@
           <div class="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
             <h2 class="text-xl font-bold text-gray-800 mb-6">Actions rapides</h2>
             <div class="space-y-3">
-              <button @click="showCreateUserModal = true" class="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">Créer un utilisateur</button>
-              <button @click="showCreateClubModal = true" class="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg">Créer un club</button>
+              <button @click="showCreateUserModal = true" class="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Créer un utilisateur
+              </button>
+              <button @click="showCreateClubModal = true" class="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                Créer un club
+              </button>
             </div>
           </div>
         </div>
@@ -113,39 +123,101 @@
     </div>
 
     <!-- Create User Modal -->
-    <div v-if="showCreateUserModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
-      <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h3 class="text-xl font-bold text-gray-800 mb-6">Créer un nouvel utilisateur</h3>
-        <form @submit.prevent="createUser" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Nom</label>
-            <input v-model="newUser.name" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Email</label>
-            <input v-model="newUser.email" type="email" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Rôle</label>
-            <select v-model="newUser.role" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
-              <option value="student">Élève</option>
-              <option value="teacher">Enseignant</option>
-              <option value="admin">Administrateur</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Mot de passe</label>
-            <input v-model="newUser.password" type="password" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
-          </div>
-           <div>
-            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
-            <input v-model="newUser.password_confirmation" type="password" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" required>
-          </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showCreateUserModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg">Annuler</button>
-            <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg">Créer</button>
-          </div>
-        </form>
+    <div v-if="showCreateUserModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-8">
+          <h3 class="text-xl font-bold text-gray-800 mb-6">Créer un nouvel utilisateur</h3>
+          <form @submit.prevent="createUser" class="space-y-6">
+            <!-- Informations personnelles -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Prénom *</label>
+                <input v-model="newUser.first_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Nom *</label>
+                <input v-model="newUser.last_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Email *</label>
+                <input v-model="newUser.email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Téléphone</label>
+                <input v-model="newUser.phone" type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Date de naissance</label>
+              <input v-model="newUser.birth_date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            
+            <!-- Adresse -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Adresse</label>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Rue</label>
+                  <input v-model="newUser.street" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nom de la rue">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Numéro</label>
+                  <input v-model="newUser.street_number" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="92, 92/A, 92B...">
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Code postal</label>
+                  <input v-model="newUser.postal_code" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Ville</label>
+                  <input v-model="newUser.city" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Bruxelles">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Pays</label>
+                  <select v-model="newUser.country" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="Belgium">Belgique</option>
+                    <option value="France">France</option>
+                    <option value="Netherlands">Pays-Bas</option>
+                    <option value="Germany">Allemagne</option>
+                    <option value="Luxembourg">Luxembourg</option>
+                    <option value="Switzerland">Suisse</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Rôle *</label>
+              <select v-model="newUser.role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                <option value="student">Élève</option>
+                <option value="teacher">Enseignant</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Mot de passe *</label>
+                <input v-model="newUser.password" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe *</label>
+                <input v-model="newUser.password_confirmation" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+              </div>
+            </div>
+            
+            <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <button type="button" @click="showCreateUserModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Annuler</button>
+              <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">Créer l'utilisateur</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -207,7 +279,21 @@ const systemStatus = ref([
 ])
 const showCreateUserModal = ref(false)
 const showCreateClubModal = ref(false)
-const newUser = ref({ name: '', email: '', password: '', password_confirmation: '', role: 'student' })
+const newUser = ref({ 
+    first_name: '', 
+    last_name: '', 
+    email: '', 
+    phone: '', 
+    birth_date: '', 
+    street: '', 
+    street_number: '', 
+    postal_code: '', 
+    city: '', 
+    country: 'Belgium', 
+    role: 'student', 
+    password: '', 
+    password_confirmation: '' 
+})
 const newClub = ref({ name: '', email: '', phone: '', address: '' })
 
 // Fetch data
@@ -256,11 +342,28 @@ function getRoleLabel(role) {
 
 async function createUser() {
     try {
-        await $api.post('/admin/users', newUser.value)
+        await $api.post('/admin/users', {
+            ...newUser.value,
+            password_confirmation: newUser.value.password
+        })
         showToast('Utilisateur créé avec succès', 'success')
         showCreateUserModal.value = false
         // Reset form
-        newUser.value = { name: '', email: '', password: '', password_confirmation: '', role: 'student' }
+        newUser.value = { 
+            first_name: '', 
+            last_name: '', 
+            email: '', 
+            phone: '', 
+            birth_date: '', 
+            street: '', 
+            street_number: '', 
+            postal_code: '', 
+            city: '', 
+            country: 'Belgium', 
+            role: 'student', 
+            password: '', 
+            password_confirmation: '' 
+        }
         // Re-fetch users
         const response = await $api.get('/admin/stats')
         recentUsers.value = response.data.recentUsers || []

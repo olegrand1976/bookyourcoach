@@ -238,9 +238,54 @@ Route::prefix('admin')->group(function () {
             return response()->json(['message' => 'Access denied - Admin rights required'], 403);
         }
         
-    return response()->json([
+        // Récupérer les paramètres de filtrage
+        $search = request('search');
+        $role = request('role');
+        $status = request('status');
+        $postal_code = request('postal_code');
+        $page = request('page', 1);
+        $per_page = request('per_page', 10);
+        
+        // Construire la requête avec filtres
+        $query = App\Models\User::query();
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%");
+            });
+        }
+        
+        if ($role) {
+            $query->where('role', $role);
+        }
+        
+        if ($status) {
+            if ($status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+        
+        if ($postal_code) {
+            $query->where('postal_code', $postal_code);
+        }
+        
+        // Pagination
+        $users = $query->orderBy('created_at', 'desc')->paginate($per_page, ['*'], 'page', $page);
+        
+        return response()->json([
             'success' => true,
-            'data' => App\Models\User::all()
+            'data' => $users->items(),
+            'current_page' => $users->currentPage(),
+            'last_page' => $users->lastPage(),
+            'per_page' => $users->perPage(),
+            'total' => $users->total(),
+            'from' => $users->firstItem(),
+            'to' => $users->lastItem()
         ]);
     });
     
@@ -267,7 +312,7 @@ Route::prefix('admin')->group(function () {
         $targetUser = App\Models\User::findOrFail($id);
         $targetUser->update(['status' => $request->status]);
         
-        return response()->json([
+    return response()->json([
             'success' => true,
             'message' => 'Statut utilisateur mis à jour'
     ]);
