@@ -26,7 +26,7 @@ const props = defineProps({
 const { settings, loadSettings } = useSettings()
 const showFallback = ref(false)
 
-const logoUrl = computed(() => settings.value.logo_url || '/logo.svg')
+const logoUrl = computed(() => settings.value.logo_url || '/logo-activibe.svg')
 const platformName = computed(() => settings.value.platform_name || 'Acti\'Vibe')
 
 const onImageError = () => {
