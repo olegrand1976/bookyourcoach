@@ -127,12 +127,20 @@ class AdminController extends BaseController
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"name","email","password","role"},
-     *             @OA\Property(property="name", type="string"),
+     *             required={"first_name","last_name","email","password","role"},
+     *             @OA\Property(property="first_name", type="string"),
+     *             @OA\Property(property="last_name", type="string"),
      *             @OA\Property(property="email", type="string"),
      *             @OA\Property(property="password", type="string"),
      *             @OA\Property(property="password_confirmation", type="string"),
-     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"})
+     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"}),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="street", type="string"),
+     *             @OA\Property(property="street_number", type="string"),
+     *             @OA\Property(property="postal_code", type="string"),
+     *             @OA\Property(property="city", type="string"),
+     *             @OA\Property(property="country", type="string"),
+     *             @OA\Property(property="birth_date", type="string", format="date")
      *         )
      *     ),
      *     @OA\Response(response=201, description="User created successfully")
@@ -141,21 +149,40 @@ class AdminController extends BaseController
     public function createUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'birth_date' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        $name = trim($request->first_name . ' ' . $request->last_name);
+
         $user = User::create([
-            'name' => $request->name,
+            'name' => $name,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'phone' => $request->phone,
+            'street' => $request->street,
+            'street_number' => $request->street_number,
+            'postal_code' => $request->postal_code,
+            'city' => $request->city,
+            'country' => $request->country,
+            'birth_date' => $request->birth_date,
             'is_active' => true,
             'status' => 'active',
         ]);
@@ -182,9 +209,17 @@ class AdminController extends BaseController
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="first_name", type="string"),
+     *             @OA\Property(property="last_name", type="string"),
      *             @OA\Property(property="email", type="string"),
-     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"})
+     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"}),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="street", type="string"),
+     *             @OA\Property(property="street_number", type="string"),
+     *             @OA\Property(property="postal_code", type="string"),
+     *             @OA\Property(property="city", type="string"),
+     *             @OA\Property(property="country", type="string"),
+     *             @OA\Property(property="birth_date", type="string", format="date")
      *         )
      *     ),
      *     @OA\Response(response=200, description="User updated successfully")
@@ -195,17 +230,33 @@ class AdminController extends BaseController
         $user = User::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
             'role' => 'sometimes|required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'birth_date' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        $updateData = $request->only([
+            'first_name', 'last_name', 'email', 'role', 'phone', 'street', 'street_number', 'postal_code', 'city', 'country', 'birth_date'
+        ]);
+
+        if (isset($updateData['first_name']) || isset($updateData['last_name'])) {
+            $updateData['name'] = trim(($updateData['first_name'] ?? $user->first_name) . ' ' . ($updateData['last_name'] ?? $user->last_name));
+        }
+
         $oldData = $user->toArray();
-        $user->update($request->only(['name', 'email', 'role']));
+        $user->update($updateData);
 
         // Log de l'action
         AuditLog::create([
