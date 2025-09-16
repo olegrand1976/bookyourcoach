@@ -480,7 +480,9 @@ const updateUser = async () => {
 const toggleUserStatus = async (user) => {
     try {
         const { $api } = useNuxtApp()
-        await $api.patch(`/admin/users/${user.id}/toggle-status`)
+        await $api.put(`/admin/users/${user.id}/status`, {
+            is_active: !user.is_active
+        })
 
         user.is_active = !user.is_active
         alert(`Utilisateur ${user.is_active ? 'activé' : 'désactivé'} avec succès!`)

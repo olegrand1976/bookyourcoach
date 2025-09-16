@@ -84,8 +84,12 @@ const loadStats = async () => {
     try {
         const { $api } = useNuxtApp()
         const response = await $api.get('/admin/stats')
-        if (response.data) {
-            stats.value = response.data
+        if (response.data.stats) {
+            stats.value = {
+                users: response.data.stats.total_users || 0,
+                teachers: response.data.stats.total_teachers || 0,
+                students: response.data.stats.total_students || 0,
+            }
         }
     } catch (error) {
         console.error('Erreur lors du chargement des statistiques:', error)

@@ -309,8 +309,19 @@ Route::prefix('admin')->group(function () {
             return response()->json(['message' => 'Access denied - Admin rights required'], 403);
         }
         
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'is_active' => 'required|boolean'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
         $targetUser = App\Models\User::findOrFail($id);
-        $targetUser->update(['status' => $request->status]);
+        $targetUser->update(['is_active' => $request->is_active]);
         
     return response()->json([
             'success' => true,
