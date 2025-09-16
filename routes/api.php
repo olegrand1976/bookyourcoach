@@ -246,8 +246,8 @@ Route::prefix('admin')->group(function () {
         $page = request('page', 1);
         $per_page = request('per_page', 10);
         
-        // Construire la requête avec filtres
-        $query = App\Models\User::query();
+        // Construire la requête avec filtres (eager-load profile for postal_code fallback)
+        $query = App\Models\User::query()->with(['profile:id,user_id,postal_code']);
         
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -271,7 +271,12 @@ Route::prefix('admin')->group(function () {
         }
         
         if ($postal_code) {
-            $query->where('postal_code', $postal_code);
+            $query->where(function($q) use ($postal_code) {
+                $q->where('postal_code', $postal_code)
+                  ->orWhereHas('profile', function($q2) use ($postal_code) {
+                      $q2->where('postal_code', $postal_code);
+                  });
+            });
         }
         
         // Pagination

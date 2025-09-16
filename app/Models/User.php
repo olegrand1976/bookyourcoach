@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
  * @OA\Schema(
@@ -182,4 +183,20 @@ class User extends Authenticatable
     {
         return $this->hasRole('club') || $this->clubs()->exists();
     }
+
+	/**
+	 * Accessor for postal_code that falls back to profile.postal_code when empty.
+	 */
+	protected function postalCode(): Attribute
+	{
+		return Attribute::make(
+			get: function ($value) {
+				if (!empty($value)) {
+					return $value;
+				}
+				$profile = $this->relationLoaded('profile') ? $this->getRelation('profile') : $this->profile()->select('id', 'user_id', 'postal_code')->first();
+				return $profile?->postal_code;
+			}
+		);
+	}
 }
