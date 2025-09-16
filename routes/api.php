@@ -273,6 +273,114 @@ Route::prefix('admin')->group(function () {
     ]);
 });
 
+    Route::put('/settings/{type}', function(Request $request, $type) {
+        $token = request()->header('Authorization');
+
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = $personalAccessToken->tokenable;
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+
+        try {
+            // Validation selon le type
+            $validationRules = [];
+            
+            switch ($type) {
+                case 'general':
+                    $validationRules = [
+                        'platform_name' => 'sometimes|string|max:255',
+                        'logo_url' => 'sometimes|string|max:500',
+                        'contact_email' => 'sometimes|email|max:255',
+                        'contact_phone' => 'sometimes|string|max:50',
+                        'timezone' => 'sometimes|string|max:100',
+                        'company_address' => 'sometimes|string|max:1000'
+                    ];
+                    break;
+                    
+                case 'booking':
+                    $validationRules = [
+                        'min_booking_hours' => 'sometimes|integer|min:1|max:24',
+                        'max_booking_days' => 'sometimes|integer|min:1|max:365',
+                        'cancellation_hours' => 'sometimes|integer|min:1|max:168',
+                        'default_lesson_duration' => 'sometimes|integer|min:15|max:480',
+                        'auto_confirm_bookings' => 'sometimes|boolean',
+                        'send_reminder_emails' => 'sometimes|boolean',
+                        'allow_student_cancellation' => 'sometimes|boolean'
+                    ];
+                    break;
+                    
+                case 'payment':
+                    $validationRules = [
+                        'platform_commission' => 'sometimes|numeric|min:0|max:100',
+                        'vat_rate' => 'sometimes|numeric|min:0|max:100',
+                        'default_currency' => 'sometimes|string|size:3',
+                        'payout_delay_days' => 'sometimes|integer|min:0|max:30',
+                        'stripe_enabled' => 'sometimes|boolean',
+                        'auto_payout' => 'sometimes|boolean'
+                    ];
+                    break;
+                    
+                case 'notifications':
+                    $validationRules = [
+                        'email_new_booking' => 'sometimes|boolean',
+                        'email_booking_cancelled' => 'sometimes|boolean',
+                        'email_payment_received' => 'sometimes|boolean',
+                        'email_lesson_reminder' => 'sometimes|boolean',
+                        'sms_new_booking' => 'sometimes|boolean',
+                        'sms_lesson_reminder' => 'sometimes|boolean'
+                    ];
+                    break;
+                    
+                default:
+                    return response()->json(['message' => 'Invalid settings type'], 400);
+            }
+
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $validationRules);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Sauvegarder les paramètres
+            foreach ($request->all() as $key => $value) {
+                App\Models\AppSetting::updateOrCreate(
+                    [
+                        'key' => $type . '.' . $key,
+                        'group' => $type
+                    ],
+                    [
+                        'value' => is_array($value) ? json_encode($value) : (string)$value,
+                        'type' => is_bool($value) ? 'boolean' : (is_numeric($value) ? (is_float($value) ? 'float' : 'integer') : (is_array($value) ? 'array' : 'string')),
+                        'is_active' => true
+                    ]
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Paramètres sauvegardés avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()], 500);
+        }
+});
+
     Route::post('/upload-logo', function(Request $request) {
         // Vérification de l'authentification
         $token = request()->header('Authorization');
@@ -707,7 +815,32 @@ Route::prefix('admin')->group(function () {
                 'settings.*.value' => 'required'
             ]);
             
-            if ($validator->fails()) {
+            // Validation supplémentaire pour les valeurs spécifiques
+            $hasErrors = false;
+            foreach (request('settings') as $index => $setting) {
+                $key = $setting['key'];
+                $value = $setting['value'];
+                
+                // Validation spécifique selon la clé
+                if (str_contains($key, 'contact_email')) {
+                    if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                        $validator->errors()->add("settings.{$index}.value", "L'email n'est pas valide");
+                        $hasErrors = true;
+                    }
+                }
+                
+                if (str_contains($key, 'platform_name') && strlen($value) > 255) {
+                    $validator->errors()->add("settings.{$index}.value", "Le nom de la plateforme est trop long");
+                    $hasErrors = true;
+                }
+                
+                if (str_contains($key, 'min_booking_hours') && (!is_numeric($value) || $value < 1 || $value > 24)) {
+                    $validator->errors()->add("settings.{$index}.value", "Les heures de réservation minimum doivent être entre 1 et 24");
+                    $hasErrors = true;
+                }
+            }
+            
+            if ($validator->fails() || $hasErrors) {
                 return response()->json([
                     'message' => 'Validation failed',
                     'errors' => $validator->errors()
@@ -722,7 +855,8 @@ Route::prefix('admin')->group(function () {
             }
             
             return response()->json([
-                'message' => 'Settings updated successfully'
+                'success' => true,
+                'message' => 'Paramètres sauvegardés avec succès'
             ]);
         });
         
