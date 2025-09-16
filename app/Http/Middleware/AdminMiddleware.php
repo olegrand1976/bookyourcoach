@@ -23,7 +23,7 @@ class AdminMiddleware
         $token = $request->header('Authorization');
         
         if (!$token || !str_starts_with($token, 'Bearer ')) {
-            return response()->json(['message' => 'Token manquant'], 401);
+            return response()->json(['message' => 'Missing token'], 401);
         }
         
         $token = substr($token, 7); // Enlever "Bearer "
@@ -32,13 +32,13 @@ class AdminMiddleware
         $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
         
         if (!$personalAccessToken) {
-            return response()->json(['message' => 'Token invalide'], 401);
+            return response()->json(['message' => 'Invalid token'], 401);
         }
         
         $user = $personalAccessToken->tokenable;
         
         if (!$user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé - Droits administrateur requis'], 403);
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
         }
         
         // Ajouter l'utilisateur à la requête pour compatibilité
