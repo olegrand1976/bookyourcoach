@@ -247,7 +247,7 @@ Route::prefix('admin')->group(function () {
         $per_page = request('per_page', 10);
         
         // Construire la requête avec filtres
-        $query = App\Models\User::query();
+        $query = App\Models\User::query()->with('profile');
         
         if ($search) {
             $query->where(function($q) use ($search) {
@@ -271,11 +271,24 @@ Route::prefix('admin')->group(function () {
         }
         
         if ($postal_code) {
-            $query->where('postal_code', $postal_code);
+            $query->where(function($q) use ($postal_code) {
+                $q->where('users.postal_code', $postal_code)
+                  ->orWhereHas('profile', function($q2) use ($postal_code) {
+                      $q2->where('postal_code', $postal_code);
+                  });
+            });
         }
         
         // Pagination
         $users = $query->orderBy('created_at', 'desc')->paginate($per_page, ['*'], 'page', $page);
+        
+        // Fallback du code postal depuis le profil si absent sur l'utilisateur
+        $users->getCollection()->transform(function($user) {
+            if (empty($user->postal_code) && $user->relationLoaded('profile') && $user->profile) {
+                $user->postal_code = $user->profile->postal_code;
+            }
+            return $user;
+        });
         
         return response()->json([
             'success' => true,
