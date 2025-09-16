@@ -33,6 +33,14 @@ class DatabaseSeeder extends Seeder
         // 5. Utilisateurs (admin, enseignants, élèves)
         $this->command->info('👥 Création des utilisateurs...');
         $this->call(UserSeeder::class);
+        
+        // 5.1. Mise à jour des utilisateurs existants avec des adresses
+        $this->command->info('📍 Mise à jour des adresses utilisateurs...');
+        $this->call(UpdateUsersWithAddressSeeder::class);
+        
+        // 5.2. Utilisateurs de test avec codes postaux
+        $this->command->info('🧪 Création d\'utilisateurs de test...');
+        $this->call(AdminUsersTestSeeder::class);
 
         // 6. Données de démonstration (leçons, disponibilités, paiements)
         $this->command->info('🎯 Création des données de démonstration...');
