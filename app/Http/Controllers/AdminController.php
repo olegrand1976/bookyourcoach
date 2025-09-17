@@ -45,6 +45,7 @@ class AdminController extends BaseController
             'users' => User::count(),
             'teachers' => User::where('role', 'teacher')->count(),
             'students' => User::where('role', 'student')->count(),
+            'club_users' => User::where('role', 'club')->count(),
             'clubs' => Club::count(),
             'active_users' => User::where('is_active', true)->count(),
             'lessons_today' => 0, // À implémenter avec le modèle Lesson
@@ -112,6 +113,10 @@ class AdminController extends BaseController
             $query->where('is_active', $is_active);
         }
 
+        if ($request->filled('postal_code')) {
+            $query->where('postal_code', $request->postal_code);
+        }
+
         $perPage = $request->get('per_page', 10);
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
@@ -132,7 +137,7 @@ class AdminController extends BaseController
      *             @OA\Property(property="email", type="string"),
      *             @OA\Property(property="password", type="string"),
      *             @OA\Property(property="password_confirmation", type="string"),
-     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"})
+     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student","club"})
      *         )
      *     ),
      *     @OA\Response(response=201, description="User created successfully")
@@ -145,7 +150,7 @@ class AdminController extends BaseController
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:admin,teacher,student',
+            'role' => 'required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
             'street' => 'nullable|string|max:255',
@@ -204,7 +209,7 @@ class AdminController extends BaseController
      *         @OA\JsonContent(
      *             @OA\Property(property="name", type="string"),
      *             @OA\Property(property="email", type="string"),
-     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student"})
+     *             @OA\Property(property="role", type="string", enum={"admin","teacher","student","club"})
      *         )
      *     ),
      *     @OA\Response(response=200, description="User updated successfully")
@@ -218,7 +223,7 @@ class AdminController extends BaseController
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
-            'role' => 'sometimes|required|in:admin,teacher,student',
+            'role' => 'sometimes|required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
             'street' => 'nullable|string|max:255',

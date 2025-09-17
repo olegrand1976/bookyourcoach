@@ -32,6 +32,7 @@
                             <option value="admin">Administrateur</option>
                             <option value="teacher">Enseignant</option>
                             <option value="student">Élève</option>
+                            <option value="club">Club</option>
                         </select>
                     </div>
                     <div>
@@ -260,6 +261,7 @@
                                 <option value="student">Élève</option>
                                 <option value="teacher">Enseignant</option>
                                 <option value="admin">Administrateur</option>
+                                <option value="club">Club</option>
                             </select>
                         </div>
                         
@@ -345,7 +347,8 @@ const getRoleClass = (role) => {
     const classes = {
         admin: 'bg-red-100 text-red-800',
         teacher: 'bg-green-100 text-green-800',
-        student: 'bg-blue-100 text-blue-800'
+        student: 'bg-blue-100 text-blue-800',
+        club: 'bg-purple-100 text-purple-800'
     }
     return classes[role] || 'bg-gray-100 text-gray-800'
 }
@@ -354,7 +357,8 @@ const getRoleLabel = (role) => {
     const labels = {
         admin: 'Admin',
         teacher: 'Enseignant',
-        student: 'Élève'
+        student: 'Élève',
+        club: 'Club'
     }
     return labels[role] || role
 }
