@@ -289,6 +289,142 @@ Route::prefix('admin')->group(function () {
         ]);
     });
     
+    // Créer un utilisateur (utilisé par le frontend /admin/users.vue)
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'role' => 'required|in:admin,teacher,student,club',
+            'password' => 'required|string|min:8|confirmed',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:50',
+            'postal_code' => 'nullable|string|max:20',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $fullName = trim(($request->first_name ?? '') . ' ' . ($request->last_name ?? ''));
+        
+        $newUser = App\Models\User::create([
+            'name' => $fullName ?: $request->email,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'email' => $request->email,
+            'password' => $request->password, // sera hashé par le cast 'hashed'
+            'role' => $request->role,
+            'phone' => $request->phone,
+            'birth_date' => $request->birth_date,
+            'street' => $request->street,
+            'street_number' => $request->street_number,
+            'postal_code' => $request->postal_code,
+            'city' => $request->city,
+            'country' => $request->country,
+            'is_active' => true,
+        ]);
+        
+        return response()->json([
+            'message' => 'User created successfully',
+            'user' => $newUser
+        ], 201);
+    });
+    
+    // Mettre à jour un utilisateur
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $targetUser = App\Models\User::findOrFail($id);
+        
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|email|unique:users,email,' . $targetUser->id,
+            'role' => 'sometimes|required|in:admin,teacher,student,club',
+            'password' => 'nullable|string|min:8|confirmed',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:50',
+            'postal_code' => 'nullable|string|max:20',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $updateData = $request->only([
+            'first_name','last_name','email','role','phone','birth_date','street','street_number','postal_code','city','country'
+        ]);
+        
+        if ($request->filled('password')) {
+            $updateData['password'] = $request->password; // hash via cast
+        }
+        
+        // Mettre à jour le champ name si first/last changent
+        if (isset($updateData['first_name']) || isset($updateData['last_name'])) {
+            $firstName = $updateData['first_name'] ?? $targetUser->first_name;
+            $lastName = $updateData['last_name'] ?? $targetUser->last_name;
+            $updateData['name'] = trim(($firstName ?? '') . ' ' . ($lastName ?? '')) ?: ($updateData['email'] ?? $targetUser->email);
+        }
+        
+        $targetUser->update($updateData);
+        
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user' => $targetUser
+        ]);
+    });
+    
     Route::put('/users/{id}/status', function(Request $request, $id) {
         $token = request()->header('Authorization');
         
