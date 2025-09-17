@@ -453,12 +453,26 @@ const createUser = async () => {
 }
 
 const editUser = (user) => {
+    // Pré-remplir le formulaire avec des champs normalisés
+    const [maybeFirstName, ...rest] = (user.first_name ? `${user.first_name} ${user.last_name || ''}` : (user.name || '')).trim().split(' ')
+    const derivedFirstName = user.first_name || maybeFirstName || ''
+    const derivedLastName = user.last_name || rest.join(' ').trim() || ''
+
     userForm.value = {
         id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        password: ''
+        first_name: derivedFirstName,
+        last_name: derivedLastName,
+        email: user.email || '',
+        phone: user.phone || '',
+        birth_date: user.birth_date || '',
+        street: user.street || '',
+        street_number: user.street_number || '',
+        postal_code: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgium',
+        role: user.role || 'student',
+        password: '',
+        password_confirmation: ''
     }
     showEditModal.value = true
 }
@@ -466,7 +480,15 @@ const editUser = (user) => {
 const updateUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.put(`/admin/users/${userForm.value.id}`, userForm.value)
+        const payload = { ...userForm.value }
+        // N'envoyer le mot de passe que s'il est saisi
+        if (!payload.password) {
+            delete payload.password
+            delete payload.password_confirmation
+        } else {
+            payload.password_confirmation = payload.password
+        }
+        await $api.put(`/admin/users/${userForm.value.id}`, payload)
 
         closeModal()
         await loadUsers()
