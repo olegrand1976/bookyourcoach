@@ -7,7 +7,7 @@
           <div class="flex items-center">
             <NuxtLink to="/"
               class="flex items-center space-x-3 text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
-              🏊‍♀️ activibe
+              <Logo size="md" />
             </NuxtLink>
           </div>
 
