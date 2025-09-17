@@ -19,7 +19,7 @@ Route::get('/activity-types', function() {
 
 // Authentification
 Route::post('/auth/login', [AuthController::class, 'login']);
-Route::get('/auth/user-test', [AuthController::class, 'userTest']);
+//Route::get('/auth/user-test', [AuthController::class, 'userTest']);
 
 // Routes protégées SANS middleware Sanctum (solution temporaire)
 Route::group([], function () {

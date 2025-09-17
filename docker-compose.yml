@@ -7,7 +7,7 @@ services:
     container_name: activibe-backend
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.local
     ports:
       # API Backend accessible en interne et externe
       - "8080:80"
@@ -15,7 +15,7 @@ services:
       - app_storage:/var/www/storage
       - app_bootstrap_cache:/var/www/bootstrap/cache
       - ./cert.pem:/var/www/html/cert.pem:ro
-      - ./.env:/var/www/html/.env:ro
+      - ./.env.local:/var/www/html/.env:ro
     depends_on:
       - neo4j
     networks:

@@ -130,7 +130,7 @@ const loadUserData = async () => {
     const tokenCookie = useCookie('auth-token')
     
     // Charger les données utilisateur
-    const userResponse = await $fetch(`${config.public.apiBase}/auth/user-test`)
+    const userResponse = await $fetch(`${config.public.apiBase}/auth/user`)
     user.value = userResponse.user
     
     // Charger le QR code
