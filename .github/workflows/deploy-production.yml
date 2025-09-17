@@ -267,6 +267,13 @@ jobs:
         # Créer le lien symbolique storage
         docker exec activibe-backend php /var/www/html/artisan storage:link 2>/dev/null || true
         
+        # Exécuter les migrations automatiquement
+        log_info "🗄️  Exécution des migrations de base de données..."
+        docker exec activibe-backend php /var/www/html/artisan migrate --force 2>/dev/null || {
+            log_warning "⚠️  Erreur lors des migrations, tentative de récupération..."
+            docker exec activibe-backend php /var/www/html/artisan migrate:status 2>/dev/null || true
+        }
+        
         # Corriger CORS pour permettre l'accès frontend
         docker exec activibe-backend sed -i "/localhost:3000/a\\        'http://\$(curl -s ifconfig.me):3000'," /var/www/html/config/cors.php 2>/dev/null || true
         
@@ -317,6 +324,14 @@ jobs:
             log_info "✅ Port 7474 (Neo4j) : Accessible"
         else
             log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
+        fi
+
+        # Vérification des migrations
+        log_info "🗄️  Vérification des migrations..."
+        if docker exec activibe-backend php /var/www/html/artisan migrate:status >/dev/null 2>&1; then
+            log_info "✅ Migrations : Toutes appliquées"
+        else
+            log_warning "⚠️  Migrations : Problème détecté"
         fi
 
         # Logs récents

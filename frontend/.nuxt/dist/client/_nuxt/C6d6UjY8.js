@@ -1,0 +1,1 @@
+import{af as a,f as u,U as e}from"./b2as_OcS.js";const r=a(s=>{const t=u();if(!t.isAuthenticated)throw e({statusCode:401,statusMessage:"Authentification requise"});if(!t.canActAsStudent)throw console.warn(`Tentative d'accès non autorisé à ${s.path} - Capacité étudiant requise`),e({statusCode:403,statusMessage:"Accès réservé aux étudiants"})});export{r as default};

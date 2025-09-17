@@ -40,6 +40,9 @@ class Club extends Model
         'description',
         'email',
         'phone',
+        'street',
+        'street_number',
+        'street_box',
         'address',
         'city',
         'postal_code',
@@ -73,6 +76,41 @@ class Club extends Model
         'country' => 'France',
         'is_active' => true
     ];
+
+    /**
+     * Boot method to automatically build the full address
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($club) {
+            // Construire l'adresse complète automatiquement
+            $addressParts = array_filter([
+                $club->street,
+                $club->street_number,
+                $club->street_box
+            ]);
+            $club->address = implode(' ', $addressParts);
+        });
+    }
+
+    /**
+     * Get the full address as a single string
+     */
+    public function getFullAddressAttribute(): string
+    {
+        $parts = array_filter([
+            $this->street,
+            $this->street_number,
+            $this->street_box,
+            $this->postal_code,
+            $this->city,
+            $this->country
+        ]);
+
+        return implode(', ', $parts);
+    }
 
     // Relations
     public function users()

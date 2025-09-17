@@ -46,10 +46,10 @@
                                     <label class="block text-sm text-gray-600 mb-1">Ville</label>
                                     <input v-model="settings.company_city" class="input-field" placeholder="Ville">
                                 </div>
-                                <div>
-                                    <label class="block text-sm text-gray-600 mb-1">Pays</label>
-                                    <input v-model="settings.company_country" class="input-field" placeholder="Pays" value="France">
-                                </div>
+                                  <div>
+                                      <label class="block text-sm text-gray-600 mb-1">Pays</label>
+                                      <input v-model="settings.company_country" class="input-field" placeholder="France">
+                                  </div>
                             </div>
                         </div>
                     </div>

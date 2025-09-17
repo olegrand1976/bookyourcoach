@@ -17,6 +17,8 @@ interface _GlobalComponents {
     'AddStudentModal': typeof import("../components/AddStudentModal.vue")['default']
     'AddTeacherAdvancedModal': typeof import("../components/AddTeacherAdvancedModal.vue")['default']
     'AddTeacherModal': typeof import("../components/AddTeacherModal.vue")['default']
+    'AddressForm': typeof import("../components/AddressForm.vue")['default']
+    'Button': typeof import("../components/Button.vue")['default']
     'EditCustomSpecialtyForm': typeof import("../components/EditCustomSpecialtyForm.vue")['default']
     'EquestrianIcon': typeof import("../components/EquestrianIcon.vue")['default']
     'GraphVisualization': typeof import("../components/GraphVisualization.vue")['default']
@@ -54,6 +56,8 @@ interface _GlobalComponents {
     'LazyAddStudentModal': LazyComponent<typeof import("../components/AddStudentModal.vue")['default']>
     'LazyAddTeacherAdvancedModal': LazyComponent<typeof import("../components/AddTeacherAdvancedModal.vue")['default']>
     'LazyAddTeacherModal': LazyComponent<typeof import("../components/AddTeacherModal.vue")['default']>
+    'LazyAddressForm': LazyComponent<typeof import("../components/AddressForm.vue")['default']>
+    'LazyButton': LazyComponent<typeof import("../components/Button.vue")['default']>
     'LazyEditCustomSpecialtyForm': LazyComponent<typeof import("../components/EditCustomSpecialtyForm.vue")['default']>
     'LazyEquestrianIcon': LazyComponent<typeof import("../components/EquestrianIcon.vue")['default']>
     'LazyGraphVisualization': LazyComponent<typeof import("../components/GraphVisualization.vue")['default']>
@@ -97,6 +101,8 @@ export const AddStudentAdvancedModal: typeof import("../components/AddStudentAdv
 export const AddStudentModal: typeof import("../components/AddStudentModal.vue")['default']
 export const AddTeacherAdvancedModal: typeof import("../components/AddTeacherAdvancedModal.vue")['default']
 export const AddTeacherModal: typeof import("../components/AddTeacherModal.vue")['default']
+export const AddressForm: typeof import("../components/AddressForm.vue")['default']
+export const Button: typeof import("../components/Button.vue")['default']
 export const EditCustomSpecialtyForm: typeof import("../components/EditCustomSpecialtyForm.vue")['default']
 export const EquestrianIcon: typeof import("../components/EquestrianIcon.vue")['default']
 export const GraphVisualization: typeof import("../components/GraphVisualization.vue")['default']
@@ -134,6 +140,8 @@ export const LazyAddStudentAdvancedModal: LazyComponent<typeof import("../compon
 export const LazyAddStudentModal: LazyComponent<typeof import("../components/AddStudentModal.vue")['default']>
 export const LazyAddTeacherAdvancedModal: LazyComponent<typeof import("../components/AddTeacherAdvancedModal.vue")['default']>
 export const LazyAddTeacherModal: LazyComponent<typeof import("../components/AddTeacherModal.vue")['default']>
+export const LazyAddressForm: LazyComponent<typeof import("../components/AddressForm.vue")['default']>
+export const LazyButton: LazyComponent<typeof import("../components/Button.vue")['default']>
 export const LazyEditCustomSpecialtyForm: LazyComponent<typeof import("../components/EditCustomSpecialtyForm.vue")['default']>
 export const LazyEquestrianIcon: LazyComponent<typeof import("../components/EquestrianIcon.vue")['default']>
 export const LazyGraphVisualization: LazyComponent<typeof import("../components/GraphVisualization.vue")['default']>
