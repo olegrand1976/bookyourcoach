@@ -1,55 +1,45 @@
 export const useAuth = () => {
     const authStore = useAuthStore()
+    const config = useRuntimeConfig()
     
-    // Fonction pour initialiser l'authentification côté serveur
+    // Détecter l'environnement
+    const isLocal = config.public.apiBase.includes('localhost') || config.public.apiBase.includes('127.0.0.1')
+    
     const initializeServerAuth = async () => {
-        if (process.server) {
-            console.log('🔴 [AUTH] Initialisation côté serveur')
-            
-            // Récupérer le token depuis les cookies
-            const tokenCookie = useCookie('auth-token')
-            console.log('🍪 [AUTH] Token cookie:', tokenCookie.value ? 'présent' : 'absent')
-            
-            if (tokenCookie.value) {
-                authStore.token = tokenCookie.value
-                authStore.isAuthenticated = true
-                console.log('✅ [AUTH] Authentification côté serveur activée')
-                
-                try {
-                    const config = useRuntimeConfig()
-                    // Utiliser l'URL côté serveur pour Docker
-                    const apiUrl = config.apiBase || config.public.apiBase
-                    console.log('🌐 [AUTH] Appel API:', `${apiUrl}/auth/user-test`)
-                    
-                    const response = await $fetch(`${apiUrl}/auth/user-test`, {
-                        headers: {
-                            'Authorization': `Bearer ${tokenCookie.value}`
-                        }
-                    })
-                    
-                    if (response.user) {
-                        authStore.user = response.user
-                        console.log('👤 [AUTH] Utilisateur chargé:', response.user.email)
-                        console.log('🔐 [AUTH] Droits:', {
-                            canActAsTeacher: response.user.can_act_as_teacher,
-                            canActAsStudent: response.user.can_act_as_student,
-                            isAdmin: response.user.is_admin
-                        })
-                    }
-                } catch (error) {
-                    console.warn('❌ [AUTH] Erreur API côté serveur:', error)
-                    authStore.token = null
-                    authStore.isAuthenticated = false
-                    authStore.user = null
-                }
-            } else {
-                console.log('❌ [AUTH] Pas de token cookie côté serveur')
-            }
+        if (isLocal) {
+            // Mode local : initialisation simple
+            await authStore.initializeAuth()
+        } else {
+            // Mode production : initialisation avec Sanctum
+            await authStore.initializeAuth()
+        }
+    }
+    
+    const login = async (credentials: { email: string, password: string }) => {
+        if (isLocal) {
+            // Mode local : connexion simple avec token
+            return await authStore.login(credentials)
+        } else {
+            // Mode production : connexion avec Sanctum
+            return await authStore.login(credentials)
+        }
+    }
+    
+    const logout = async () => {
+        if (isLocal) {
+            // Mode local : déconnexion simple
+            await authStore.logout()
+        } else {
+            // Mode production : déconnexion avec Sanctum
+            await authStore.logout()
         }
     }
     
     return {
         authStore,
-        initializeServerAuth
+        initializeServerAuth,
+        login,
+        logout,
+        isLocal
     }
 }

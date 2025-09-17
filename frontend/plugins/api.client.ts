@@ -2,14 +2,17 @@ import axios from 'axios'
 
 export default defineNuxtPlugin(() => {
     const config = useRuntimeConfig()
+    
+    // Détecter l'environnement
+    const isLocal = config.public.apiBase.includes('localhost') || config.public.apiBase.includes('127.0.0.1')
 
     const api = axios.create({
         baseURL: config.public.apiBase,
-        withCredentials: true, // Important pour Sanctum
+        withCredentials: isLocal ? false : true, // Sanctum seulement en production
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+            ...(isLocal ? {} : { 'X-Requested-With': 'XMLHttpRequest' }) // Sanctum seulement en production
         }
     })
 
