@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -56,23 +57,18 @@ class AuthControllerSimple extends Controller
             ], 422);
         }
 
-        // Utiliser l'authentification Sanctum pour les SPA
-        if (auth()->attempt($request->only('email', 'password'))) {
-            $user = auth()->user();
-            
-            // Créer un token pour l'API
-            $token = $user->createToken('api-token')->plainTextToken;
-
+        if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
-                'message' => 'Login successful',
-                'user' => $user,
-                'token' => $token
-            ], 200);
+                'message' => 'Invalid credentials'
+            ], 401);
         }
 
+        $user = Auth::user();
+
         return response()->json([
-            'message' => 'Invalid credentials'
-        ], 401);
+            'message' => 'Login successful',
+            'user' => $user,
+        ], 200);
     }
 
     public function logout(Request $request): JsonResponse

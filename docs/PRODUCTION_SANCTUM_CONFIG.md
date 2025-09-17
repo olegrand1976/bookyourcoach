@@ -13,11 +13,14 @@ FRONTEND_URL=https://activibe.be
 CORS_ALLOWED_ORIGINS=https://activibe.be,https://www.activibe.be
 
 # Configuration de session
-SESSION_DRIVER=database
+SESSION_DRIVER=redis
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 SESSION_PATH=/
 SESSION_DOMAIN=.activibe.be
+SESSION_SECURE=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
 ```
 
 ## Configuration du frontend
