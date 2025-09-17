@@ -1,19 +1,19 @@
 import { shallowReactive, reactive, effectScope, getCurrentScope, hasInjectionContext, getCurrentInstance, inject, toRef, ref, markRaw, isRef, isReactive, toRaw, nextTick, onScopeDispose, watch, toRefs, computed, shallowRef, isReadonly, isShallow, defineComponent, createElementBlock, provide, cloneVNode, h, defineAsyncComponent, unref, Suspense, mergeProps, Fragment, withCtx, createVNode, useSSRContext, onErrorCaptured, onServerPrefetch, resolveDynamicComponent, createApp } from "vue";
 import { $fetch as $fetch$1 } from "ofetch";
 import { baseURL } from "#internal/nuxt/paths";
-import { createHooks } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/hookable/dist/index.mjs";
-import { getContext, executeAsync } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/unctx/dist/index.mjs";
-import { sanitizeStatusCode, createError as createError$1, getRequestHeader, setCookie, getCookie, deleteCookie } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/h3/dist/index.mjs";
+import { createHooks } from "/workspace/frontend/node_modules/hookable/dist/index.mjs";
+import { getContext, executeAsync } from "/workspace/frontend/node_modules/unctx/dist/index.mjs";
+import { sanitizeStatusCode, createError as createError$1, getRequestHeader, setCookie, getCookie, deleteCookie } from "/workspace/frontend/node_modules/h3/dist/index.mjs";
 import { START_LOCATION, createMemoryHistory, createRouter as createRouter$1, useRoute as useRoute$1, RouterView } from "vue-router";
-import { toRouteMatcher, createRouter } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/radix3/dist/index.mjs";
-import { defu } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/defu/dist/defu.mjs";
-import { hasProtocol, joinURL, withQuery, isScriptProtocol } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/ufo/dist/index.mjs";
-import { parse } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/nuxt/node_modules/cookie-es/dist/index.mjs";
-import destr from "/home/olivier/projets/bookyourcoach/frontend/node_modules/destr/dist/index.mjs";
-import { isEqual } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/ohash/dist/index.mjs";
-import { klona } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/klona/dist/index.mjs";
+import { toRouteMatcher, createRouter } from "/workspace/frontend/node_modules/radix3/dist/index.mjs";
+import { defu } from "/workspace/frontend/node_modules/defu/dist/defu.mjs";
+import { hasProtocol, joinURL, withQuery, isScriptProtocol } from "/workspace/frontend/node_modules/ufo/dist/index.mjs";
+import { parse } from "/workspace/frontend/node_modules/nuxt/node_modules/cookie-es/dist/index.mjs";
+import destr from "/workspace/frontend/node_modules/destr/dist/index.mjs";
+import { isEqual } from "/workspace/frontend/node_modules/ohash/dist/index.mjs";
+import { klona } from "/workspace/frontend/node_modules/klona/dist/index.mjs";
 import { ssrRenderComponent, ssrRenderSuspense, ssrRenderVNode } from "vue/server-renderer";
-import { useHead as useHead$1, headSymbol } from "/home/olivier/projets/bookyourcoach/frontend/node_modules/@unhead/vue/dist/index.mjs";
+import { useHead as useHead$1, headSymbol } from "/workspace/frontend/node_modules/@unhead/vue/dist/index.mjs";
 if (!globalThis.$fetch) {
   globalThis.$fetch = $fetch$1.create({
     baseURL: baseURL()
@@ -426,67 +426,67 @@ const _routes = [
     name: "test",
     path: "/test",
     meta: __nuxt_page_meta$c || {},
-    component: () => import("./_nuxt/test-CFwYIjfl.js")
+    component: () => import("./_nuxt/test-Cnrxoq8R.js")
   },
   {
     name: "index",
     path: "/",
     meta: __nuxt_page_meta$b || {},
-    component: () => import("./_nuxt/index-CKxb3zgT.js")
+    component: () => import("./_nuxt/index-2vnF61CN.js")
   },
   {
     name: "login",
     path: "/login",
-    component: () => import("./_nuxt/login-DXYFCpQg.js")
+    component: () => import("./_nuxt/login-D7mMcelh.js")
   },
   {
     name: "centers",
     path: "/centers",
-    component: () => import("./_nuxt/centers-DccZ9fJJ.js")
+    component: () => import("./_nuxt/centers-BxBqK7QW.js")
   },
   {
     name: "coaches",
     path: "/coaches",
-    component: () => import("./_nuxt/coaches-BW6lj11S.js")
+    component: () => import("./_nuxt/coaches-mpop3iZQ.js")
   },
   {
     name: "profile",
     path: "/profile",
     meta: { "middleware": "auth" },
-    component: () => import("./_nuxt/profile-DCsdkcK0.js")
+    component: () => import("./_nuxt/profile-KGPyDPA2.js")
   },
   {
     name: "register",
     path: "/register",
-    component: () => import("./_nuxt/register-DKWwlfCN.js")
+    component: () => import("./_nuxt/register-cyB6imZT.js")
   },
   {
     name: "teachers",
     path: "/teachers",
-    component: () => import("./_nuxt/teachers-Dvqa7sOB.js"),
+    component: () => import("./_nuxt/teachers-BH8TNywP.js"),
     children: [
       {
         name: "teachers-id",
         path: ":id()",
-        component: () => import("./_nuxt/_id_-yXRwdYV6.js")
+        component: () => import("./_nuxt/_id_-Dtam0FT2.js")
       }
     ]
   },
   {
     name: "test-api",
     path: "/test-api",
-    component: () => import("./_nuxt/test-api-DI0Tl-OA.js")
+    component: () => import("./_nuxt/test-api-iNCFiJk9.js")
   },
   {
     name: "dashboard",
     path: "/dashboard",
     meta: { "middleware": "auth" },
-    component: () => import("./_nuxt/dashboard-BnI0ekD2.js")
+    component: () => import("./_nuxt/dashboard-DmD8ejPq.js")
   },
   {
     name: "test-auth",
     path: "/test-auth",
-    component: () => import("./_nuxt/test-auth-C9q5kl7v.js")
+    component: () => import("./_nuxt/test-auth-BQzilUr8.js")
   },
   {
     name: "club-space",
@@ -496,24 +496,24 @@ const _routes = [
   {
     name: "debug-auth",
     path: "/debug-auth",
-    component: () => import("./_nuxt/debug-auth-DNIgZ0-u.js")
+    component: () => import("./_nuxt/debug-auth-CAFtAX2w.js")
   },
   {
     name: "test-links",
     path: "/test-links",
-    component: () => import("./_nuxt/test-links-Bsh9lCJF.js")
+    component: () => import("./_nuxt/test-links-B0fKMB7U.js")
   },
   {
     name: "admin",
     path: "/admin",
     meta: { ...__nuxt_page_meta$a || {}, ...{ "middleware": "admin" } },
-    component: () => import("./_nuxt/index-B7Tv0k6E.js")
+    component: () => import("./_nuxt/index-DwQBIn_w.js")
   },
   {
     name: "admin-users",
     path: "/admin/users",
     meta: { ...__nuxt_page_meta$9 || {}, ...{ "middleware": "admin" } },
-    component: () => import("./_nuxt/users-lDIGnxyh.js")
+    component: () => import("./_nuxt/users-BcrHPl_I.js")
   },
   {
     name: "colors-demo",
@@ -523,123 +523,123 @@ const _routes = [
   {
     name: "disciplines",
     path: "/disciplines",
-    component: () => import("./_nuxt/disciplines-VcZ6IVVZ.js")
+    component: () => import("./_nuxt/disciplines-BkVloqFd.js")
   },
   {
     name: "club-profile",
     path: "/club/profile",
-    component: () => import("./_nuxt/profile-CYpu8tDW.js")
+    component: () => import("./_nuxt/profile-BowfgN03.js")
   },
   {
     name: "club-qr-code",
     path: "/club/qr-code",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/qr-code-Bwldg_RT.js")
+    component: () => import("./_nuxt/qr-code-XXO4UpOA.js")
   },
   {
     name: "club-students",
     path: "/club/students",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/students-Dm_eIvcI.js")
+    component: () => import("./_nuxt/students-BZ4qexXH.js")
   },
   {
     name: "club-teachers",
     path: "/club/teachers",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/teachers-fmao9aWl.js")
+    component: () => import("./_nuxt/teachers-sL3uatUs.js")
   },
   {
     name: "student",
     path: "/student",
     meta: { ...__nuxt_page_meta$8 || {}, ...{ "middleware": ["auth", "student"] } },
-    component: () => import("./_nuxt/index-CI5CGTGh.js")
+    component: () => import("./_nuxt/index-roN3kxZ4.js")
   },
   {
     name: "admin-settings",
     path: "/admin/settings",
     meta: { ...__nuxt_page_meta$7 || {}, ...{ "middleware": "admin" } },
-    component: () => import("./_nuxt/settings-DRM1ebb2.js")
+    component: () => import("./_nuxt/settings-Cr-z7yTo.js")
   },
   {
     name: "club-dashboard",
     path: "/club/dashboard",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/dashboard-ZO_jJG1R.js")
+    component: () => import("./_nuxt/dashboard-FfKvNRmX.js")
   },
   {
     name: "admin-contracts",
     path: "/admin/contracts",
     meta: { ...__nuxt_page_meta$6 || {}, ...{ "middleware": "admin" } },
-    component: () => import("./_nuxt/contracts-C2ybpdFk.js")
+    component: () => import("./_nuxt/contracts-BW7A3muo.js")
   },
   {
     name: "student-lessons",
     path: "/student/lessons",
     meta: { ...__nuxt_page_meta$5 || {}, ...{ "middleware": ["auth", "student"] } },
-    component: () => import("./_nuxt/lessons-9U5b5aWt.js")
+    component: () => import("./_nuxt/lessons-r0d1lspp.js")
   },
   {
     name: "teacher-qr-code",
     path: "/teacher/qr-code",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/qr-code-HcbtHKdT.js")
+    component: () => import("./_nuxt/qr-code-roGIwXAk.js")
   },
   {
     name: "test-api-direct",
     path: "/test-api-direct",
-    component: () => import("./_nuxt/test-api-direct-pSeNxmo7.js")
+    component: () => import("./_nuxt/test-api-direct-MdYC6PJD.js")
   },
   {
     name: "register-teacher",
     path: "/register-teacher",
     meta: __nuxt_page_meta$4 || {},
-    component: () => import("./_nuxt/register-teacher-C6RcgDhr.js")
+    component: () => import("./_nuxt/register-teacher-Cr0ejbUq.js")
   },
   {
     name: "student-bookings",
     path: "/student/bookings",
     meta: { ...__nuxt_page_meta$3 || {}, ...{ "middleware": ["auth", "student"] } },
-    component: () => import("./_nuxt/bookings-B5X2YpS_.js")
+    component: () => import("./_nuxt/bookings-BTPCrP_m.js")
   },
   {
     name: "student-dashboard",
     path: "/student/dashboard",
     meta: { ...__nuxt_page_meta$2 || {}, ...{ "middleware": ["auth", "student"] } },
-    component: () => import("./_nuxt/dashboard-BmIrdjk1.js")
+    component: () => import("./_nuxt/dashboard-5TYVnCBC.js")
   },
   {
     name: "teacher-dashboard",
     path: "/teacher/dashboard",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/dashboard-Ddbh270m.js")
+    component: () => import("./_nuxt/dashboard-DRIn9F-V.js")
   },
   {
     name: "test-auth-complete",
     path: "/test-auth-complete",
-    component: () => import("./_nuxt/test-auth-complete-CIs4gA1R.js")
+    component: () => import("./_nuxt/test-auth-complete-BczwnG12.js")
   },
   {
     name: "student-preferences",
     path: "/student/preferences",
     meta: { ...__nuxt_page_meta$1 || {}, ...{ "middleware": ["auth", "student"] } },
-    component: () => import("./_nuxt/preferences-CXk_QLIN.js")
+    component: () => import("./_nuxt/preferences-D3-7vj1a.js")
   },
   {
     name: "admin-graph-analysis",
     path: "/admin/graph-analysis",
     meta: { ...__nuxt_page_meta || {}, ...{ "middleware": "admin" } },
-    component: () => import("./_nuxt/graph-analysis-gi226PqM.js")
+    component: () => import("./_nuxt/graph-analysis-DqM1Ei7Y.js")
   },
   {
     name: "club-profile-unified",
     path: "/club/profile-unified",
-    component: () => import("./_nuxt/profile-unified-B5xYC0hU.js")
+    component: () => import("./_nuxt/profile-unified-CM-Sew4r.js")
   },
   {
     name: "teacher-dashboard-simple",
     path: "/teacher/dashboard-simple",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/dashboard-simple-DVNAf9_4.js")
+    component: () => import("./_nuxt/dashboard-simple-DoeYsEgO.js")
   }
 ];
 const _wrapInTransition = (props, children) => {
@@ -1593,11 +1593,11 @@ const globalMiddleware = [
   manifest_45route_45rule
 ];
 const namedMiddleware = {
-  admin: () => import("./_nuxt/admin-DY2ihQat.js"),
-  "auth-admin": () => import("./_nuxt/auth-admin-BW_5FskY.js"),
-  auth: () => import("./_nuxt/auth-BSrirfg-.js"),
-  "role-control": () => import("./_nuxt/role-control-C06R57lR.js"),
-  student: () => import("./_nuxt/student-C8RcdKBU.js")
+  admin: () => import("./_nuxt/admin-DjDJCmJl.js"),
+  "auth-admin": () => import("./_nuxt/auth-admin-BeS2zJJe.js"),
+  auth: () => import("./_nuxt/auth-DRCyRGjD.js"),
+  "role-control": () => import("./_nuxt/role-control-CcHY0Epb.js"),
+  student: () => import("./_nuxt/student-C2lkl1Sr.js")
 };
 const plugin$1 = /* @__PURE__ */ defineNuxtPlugin({
   name: "nuxt:router",
@@ -1916,10 +1916,10 @@ const plugins = [
   auth_ydS_uAQ5qS4E2Ez9vBX0d0JPoo00WYZNOgh9_nraCUo
 ];
 const layouts = {
-  admin: defineAsyncComponent(() => import("./_nuxt/admin-x2Qv4JSt.js").then((m) => m.default || m)),
-  default: defineAsyncComponent(() => import("./_nuxt/default-Dkh2fg3S.js").then((m) => m.default || m)),
-  minimal: defineAsyncComponent(() => import("./_nuxt/minimal-CkA7RsZ8.js").then((m) => m.default || m)),
-  student: defineAsyncComponent(() => import("./_nuxt/student-x9J7YAVT.js").then((m) => m.default || m))
+  admin: defineAsyncComponent(() => import("./_nuxt/admin-Cq07CuP9.js").then((m) => m.default || m)),
+  default: defineAsyncComponent(() => import("./_nuxt/default-Dk1Ghcio.js").then((m) => m.default || m)),
+  minimal: defineAsyncComponent(() => import("./_nuxt/minimal-UDKM4yYm.js").then((m) => m.default || m)),
+  student: defineAsyncComponent(() => import("./_nuxt/student-BZN92YxH.js").then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
@@ -2192,8 +2192,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = defineAsyncComponent(() => import("./_nuxt/error-404-BleA92MF.js"));
-    const _Error = defineAsyncComponent(() => import("./_nuxt/error-500-DjntQ3ek.js"));
+    const _Error404 = defineAsyncComponent(() => import("./_nuxt/error-404-XGE4xUP9.js"));
+    const _Error = defineAsyncComponent(() => import("./_nuxt/error-500-DbxLYf6u.js"));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(ssrRenderComponent(unref(ErrorTemplate), mergeProps({ statusCode: unref(statusCode), statusMessage: unref(statusMessage), description: unref(description), stack: unref(stack) }, _attrs), null, _parent));
