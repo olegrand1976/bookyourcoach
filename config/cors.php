@@ -25,6 +25,7 @@ return [
         'https://www.activibe.be', // Domaine de production avec www
         'http://activibe.be', // Domaine de production (HTTP)
         'http://www.activibe.be', // Domaine de production avec www (HTTP)
+        'http://10.0.0.244:3000', // Frontend sur IP privée
         'http://localhost:3001',
         'http://localhost:3004', // Ajout pour l'application Flutter web
         'http://127.0.0.1:3000',
