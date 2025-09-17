@@ -563,7 +563,7 @@ const _routes = [
     name: "admin-users",
     path: "/admin/users",
     meta: { ...__nuxt_page_meta$9 || {}, ...{ "middleware": "admin" } },
-    component: () => import('./users-lDIGnxyh.mjs')
+    component: () => import('./users-CjIfU34-.mjs')
   },
   {
     name: "colors-demo",
