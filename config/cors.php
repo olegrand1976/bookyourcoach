@@ -23,6 +23,10 @@ return [
         env('FRONTEND_URL', 'http://localhost:3000'),
         'http://91.134.77.98:3000', // Ajout pour la production
         'https://91.134.77.98:3000', // Ajout pour la production (HTTPS)
+        'https://activibe.be', // Domaine de production
+        'https://www.activibe.be', // Domaine de production avec www
+        'http://activibe.be', // Domaine de production (HTTP)
+        'http://www.activibe.be', // Domaine de production avec www (HTTP)
         'http://localhost:3001',
         'http://localhost:3004', // Ajout pour l'application Flutter web
         'http://127.0.0.1:3000',
