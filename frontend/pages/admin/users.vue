@@ -438,17 +438,20 @@ const changePage = (page) => {
 const createUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.post('/admin/users', {
-            ...userForm.value,
-            password_confirmation: userForm.value.password
-        })
+        await $api.post('/admin/users', userForm.value)
 
         closeModal()
         await loadUsers()
         alert('Utilisateur créé avec succès!')
     } catch (error) {
         console.error('Erreur lors de la création:', error)
-        alert('Erreur lors de la création de l\'utilisateur')
+        if (error.response?.data?.errors) {
+            console.error('Erreurs de validation:', error.response.data.errors)
+            const firstError = Object.values(error.response.data.errors)[0]
+            alert('Erreur de validation: ' + (Array.isArray(firstError) ? firstError[0] : firstError))
+        } else {
+            alert('Erreur lors de la création de l\'utilisateur: ' + (error.response?.data?.message || error.message))
+        }
     }
 }
 

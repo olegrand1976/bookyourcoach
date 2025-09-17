@@ -289,6 +289,82 @@ Route::prefix('admin')->group(function () {
         ]);
     });
     
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email|max:255',
+            'role' => 'required|in:admin,teacher,student',
+            'password' => 'required|string|min:8',
+            'password_confirmation' => 'required|same:password',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:10',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $newUser = App\Models\User::create([
+                'name' => $request->first_name . ' ' . $request->last_name,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request->email,
+                'role' => $request->role,
+                'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+                'phone' => $request->phone,
+                'birth_date' => $request->birth_date,
+                'street' => $request->street,
+                'street_number' => $request->street_number,
+                'postal_code' => $request->postal_code,
+                'city' => $request->city,
+                'country' => $request->country ?: 'Belgium',
+                'is_active' => true,
+                'email_verified_at' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Utilisateur créé avec succès',
+                'user' => $newUser
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la création de l\'utilisateur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+
     Route::put('/users/{id}/status', function(Request $request, $id) {
         $token = request()->header('Authorization');
         
