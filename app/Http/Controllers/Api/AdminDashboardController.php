@@ -177,7 +177,7 @@ class AdminDashboardController extends Controller
      *     @OA\Parameter(
      *         name="role",
      *         in="query",
-     *         @OA\Schema(type="string", enum={"admin", "teacher", "student"}),
+     *         @OA\Schema(type="string", enum={"admin", "teacher", "student", "club"}),
      *         description="Filtrer par rôle"
      *     ),
      *     @OA\Parameter(
