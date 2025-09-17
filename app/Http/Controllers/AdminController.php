@@ -141,21 +141,41 @@ class AdminController extends BaseController
     public function createUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Construire le nom complet
+        $fullName = trim($request->first_name . ' ' . $request->last_name);
+
         $user = User::create([
-            'name' => $request->name,
+            'name' => $fullName,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'phone' => $request->phone,
+            'birth_date' => $request->birth_date,
+            'street' => $request->street,
+            'street_number' => $request->street_number,
+            'postal_code' => $request->postal_code,
+            'city' => $request->city,
+            'country' => $request->country,
             'is_active' => true,
             'status' => 'active',
         ]);
@@ -195,9 +215,17 @@ class AdminController extends BaseController
         $user = User::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
             'role' => 'sometimes|required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -205,7 +233,22 @@ class AdminController extends BaseController
         }
 
         $oldData = $user->toArray();
-        $user->update($request->only(['name', 'email', 'role']));
+        
+        // Préparer les données de mise à jour
+        $updateData = $request->only([
+            'first_name', 'last_name', 'email', 'role', 'phone', 
+            'birth_date', 'street', 'street_number', 'postal_code', 
+            'city', 'country'
+        ]);
+        
+        // Reconstruire le nom complet si first_name ou last_name sont modifiés
+        if (isset($updateData['first_name']) || isset($updateData['last_name'])) {
+            $firstName = $updateData['first_name'] ?? $user->first_name;
+            $lastName = $updateData['last_name'] ?? $user->last_name;
+            $updateData['name'] = trim($firstName . ' ' . $lastName);
+        }
+        
+        $user->update($updateData);
 
         // Log de l'action
         AuditLog::create([
@@ -647,6 +690,80 @@ class AdminController extends BaseController
         } catch (\Exception $e) {
             return 'offline';
         }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/admin/audit-logs",
+     *     summary="Get audit logs",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *         name="action",
+     *         in="query",
+     *         description="Filter by action",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="limit",
+     *         in="query",
+     *         description="Number of logs to return",
+     *         required=false,
+     *         @OA\Schema(type="integer", default=50)
+     *     ),
+     *     @OA\Response(response=200, description="Audit logs retrieved successfully")
+     * )
+     */
+    public function getAuditLogs(Request $request)
+    {
+        $query = AuditLog::query();
+
+        // Filtres
+        if ($request->filled('action')) {
+            $query->where('action', $request->action);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $limit = $request->get('limit', 50);
+        $logs = $query->with('user')
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get()
+            ->map(function ($log) {
+                return [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'description' => $this->getActivityDescription($log),
+                    'icon' => $this->getActivityIcon($log->action),
+                    'user' => $log->user ? [
+                        'id' => $log->user->id,
+                        'name' => $log->user->name,
+                        'email' => $log->user->email,
+                    ] : null,
+                    'data' => $log->data,
+                    'ip_address' => $log->ip_address,
+                    'user_agent' => $log->user_agent,
+                    'created_at' => $log->created_at->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'logs' => $logs,
+            'total' => $logs->count(),
+        ]);
     }
 
     // =================================

@@ -45,11 +45,11 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://activibe-backend:80/api',
+            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://91.134.77.98:8001/api',
             appName: 'Acti\'Vibe'
         },
         // Configuration côté serveur pour Docker
-        apiBase: process.env.NUXT_API_BASE || 'http://activibe-backend:80/api'
+        apiBase: process.env.NUXT_API_BASE || 'http://91.134.77.98:8001/api'
     },
 
     css: ['~/assets/css/main.css'],

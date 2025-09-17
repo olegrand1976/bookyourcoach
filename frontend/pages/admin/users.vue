@@ -438,27 +438,66 @@ const changePage = (page) => {
 const createUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.post('/admin/users', {
-            ...userForm.value,
-            password_confirmation: userForm.value.password
-        })
+        
+        // Préparer les données pour l'API
+        const userData = {
+            first_name: userForm.value.first_name,
+            last_name: userForm.value.last_name,
+            email: userForm.value.email,
+            phone: userForm.value.phone,
+            birth_date: userForm.value.birth_date,
+            street: userForm.value.street,
+            street_number: userForm.value.street_number,
+            postal_code: userForm.value.postal_code,
+            city: userForm.value.city,
+            country: userForm.value.country,
+            role: userForm.value.role,
+            password: userForm.value.password,
+            password_confirmation: userForm.value.password_confirmation
+        }
+        
+        console.log('Données envoyées:', userData)
+        
+        const response = await $api.post('/admin/users', userData)
+        console.log('Réponse de création:', response)
 
         closeModal()
         await loadUsers()
         alert('Utilisateur créé avec succès!')
     } catch (error) {
         console.error('Erreur lors de la création:', error)
-        alert('Erreur lors de la création de l\'utilisateur')
+        console.error('Détails de l\'erreur:', error.response?.data)
+        
+        // Afficher les erreurs de validation si disponibles
+        if (error.response?.data?.errors) {
+            const errors = error.response.data.errors
+            let errorMessage = 'Erreurs de validation:\n'
+            for (const field in errors) {
+                errorMessage += `- ${field}: ${errors[field].join(', ')}\n`
+            }
+            alert(errorMessage)
+        } else {
+            alert('Erreur lors de la création de l\'utilisateur: ' + (error.response?.data?.message || error.message))
+        }
     }
 }
 
 const editUser = (user) => {
     userForm.value = {
         id: user.id,
-        name: user.name,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email,
+        phone: user.phone || '',
+        birth_date: user.birth_date || '',
+        street: user.street || '',
+        street_number: user.street_number || '',
+        postal_code: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgium',
         role: user.role,
-        password: ''
+        password: '',
+        password_confirmation: ''
     }
     showEditModal.value = true
 }
@@ -466,29 +505,70 @@ const editUser = (user) => {
 const updateUser = async () => {
     try {
         const { $api } = useNuxtApp()
-        await $api.put(`/admin/users/${userForm.value.id}`, userForm.value)
+        
+        // Préparer les données pour l'API (sans les mots de passe vides)
+        const userData = {
+            first_name: userForm.value.first_name,
+            last_name: userForm.value.last_name,
+            email: userForm.value.email,
+            phone: userForm.value.phone,
+            birth_date: userForm.value.birth_date,
+            street: userForm.value.street,
+            street_number: userForm.value.street_number,
+            postal_code: userForm.value.postal_code,
+            city: userForm.value.city,
+            country: userForm.value.country,
+            role: userForm.value.role
+        }
+        
+        // Ajouter le mot de passe seulement s'il est fourni
+        if (userForm.value.password && userForm.value.password.trim()) {
+            userData.password = userForm.value.password
+            userData.password_confirmation = userForm.value.password_confirmation
+        }
+        
+        console.log('Données de mise à jour:', userData)
+        
+        const response = await $api.put(`/admin/users/${userForm.value.id}`, userData)
+        console.log('Réponse de mise à jour:', response)
 
         closeModal()
         await loadUsers()
         alert('Utilisateur modifié avec succès!')
     } catch (error) {
         console.error('Erreur lors de la modification:', error)
-        alert('Erreur lors de la modification de l\'utilisateur')
+        console.error('Détails de l\'erreur:', error.response?.data)
+        
+        // Afficher les erreurs de validation si disponibles
+        if (error.response?.data?.errors) {
+            const errors = error.response.data.errors
+            let errorMessage = 'Erreurs de validation:\n'
+            for (const field in errors) {
+                errorMessage += `- ${field}: ${errors[field].join(', ')}\n`
+            }
+            alert(errorMessage)
+        } else {
+            alert('Erreur lors de la modification de l\'utilisateur: ' + (error.response?.data?.message || error.message))
+        }
     }
 }
 
 const toggleUserStatus = async (user) => {
     try {
         const { $api } = useNuxtApp()
-        await $api.put(`/admin/users/${user.id}/status`, {
-            is_active: !user.is_active
-        })
+        const response = await $api.patch(`/admin/users/${user.id}/toggle-status`)
+        console.log('Réponse du changement de statut:', response)
 
-        user.is_active = !user.is_active
+        // Mettre à jour l'utilisateur local avec la réponse du serveur
+        const updatedUser = response.data || response
+        user.is_active = updatedUser.is_active
+        user.status = updatedUser.status
+        
         alert(`Utilisateur ${user.is_active ? 'activé' : 'désactivé'} avec succès!`)
     } catch (error) {
         console.error('Erreur lors du changement de statut:', error)
-        alert('Erreur lors du changement de statut')
+        console.error('Détails de l\'erreur:', error.response?.data)
+        alert('Erreur lors du changement de statut: ' + (error.response?.data?.message || error.message))
     }
 }
 
