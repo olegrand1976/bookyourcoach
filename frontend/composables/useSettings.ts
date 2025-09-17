@@ -9,7 +9,11 @@ export const useSettings = () => {
         platform_name: 'activibe',
         contact_email: 'contact@activibe.fr',
         contact_phone: '+32 2 123 45 67',
-        company_address: 'Rue de l\'Équitation 123\n1000 Bruxelles\nBelgique',
+        company_street: 'Rue de l\'Équitation',
+        company_street_number: '123',
+        company_postal_code: '1000',
+        company_city: 'Bruxelles',
+        company_country: 'Belgium',
         timezone: 'Europe/Brussels',
         logo_url: '/logo-activibe.svg',
         favicon_url: '/favicon.ico'

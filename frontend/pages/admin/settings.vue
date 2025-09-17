@@ -27,8 +27,8 @@
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-gray-700 mb-1">Adresse de la société</label>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div class="md:col-span-2">
                                     <label class="block text-sm text-gray-600 mb-1">Rue</label>
                                     <input v-model="settings.company_street" class="input-field" placeholder="Nom de la rue">
                                 </div>
@@ -48,14 +48,21 @@
                                 </div>
                                   <div>
                                       <label class="block text-sm text-gray-600 mb-1">Pays</label>
-                                      <input v-model="settings.company_country" class="input-field" placeholder="France">
+                                      <select v-model="settings.company_country" class="input-field">
+                                          <option value="Belgium">Belgique</option>
+                                          <option value="France">France</option>
+                                          <option value="Netherlands">Pays-Bas</option>
+                                          <option value="Germany">Allemagne</option>
+                                          <option value="Luxembourg">Luxembourg</option>
+                                          <option value="Switzerland">Suisse</option>
+                                      </select>
                                   </div>
                             </div>
                         </div>
                     </div>
 
 
-                    <div class="form-button-group">
+                    <div class="form-button-group mt-6">
                         <button type="submit" class="btn-primary" :disabled="loading">
                             {{ loading ? 'Sauvegarde...' : 'Sauvegarder' }}
                         </button>
