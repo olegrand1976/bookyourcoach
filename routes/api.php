@@ -329,6 +329,174 @@ Route::prefix('admin')->group(function () {
     ]);
 });
 
+    // Route pour créer un nouvel utilisateur
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        // Validation des données
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Construire le nom complet
+        $fullName = trim($request->first_name . ' ' . $request->last_name);
+
+        $newUser = App\Models\User::create([
+            'name' => $fullName,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'email' => $request->email,
+            'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+            'role' => $request->role,
+            'phone' => $request->phone,
+            'birth_date' => $request->birth_date,
+            'street' => $request->street,
+            'street_number' => $request->street_number,
+            'postal_code' => $request->postal_code,
+            'city' => $request->city,
+            'country' => $request->country,
+            'is_active' => true,
+            'status' => 'active',
+        ]);
+
+        return response()->json($newUser, 201);
+    });
+    
+    // Route pour mettre à jour un utilisateur
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $targetUser = App\Models\User::findOrFail($id);
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
+            'role' => 'sometimes|required|in:admin,teacher,student',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Préparer les données de mise à jour
+        $updateData = $request->only([
+            'first_name', 'last_name', 'email', 'role', 'phone', 
+            'birth_date', 'street', 'street_number', 'postal_code', 
+            'city', 'country'
+        ]);
+        
+        // Reconstruire le nom complet si first_name ou last_name sont modifiés
+        if (isset($updateData['first_name']) || isset($updateData['last_name'])) {
+            $firstName = $updateData['first_name'] ?? $targetUser->first_name;
+            $lastName = $updateData['last_name'] ?? $targetUser->last_name;
+            $updateData['name'] = trim($firstName . ' ' . $lastName);
+        }
+        
+        // Ajouter le mot de passe si fourni
+        if ($request->filled('password')) {
+            $updateData['password'] = \Illuminate\Support\Facades\Hash::make($request->password);
+        }
+        
+        $targetUser->update($updateData);
+
+        return response()->json($targetUser);
+    });
+    
+    // Route pour basculer le statut d'un utilisateur
+    Route::patch('/users/{id}/toggle-status', function($id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $targetUser = App\Models\User::findOrFail($id);
+
+        // Empêcher la désactivation du dernier admin
+        if ($targetUser->role === 'admin' && $targetUser->is_active) {
+            $activeAdmins = App\Models\User::where('role', 'admin')->where('is_active', true)->count();
+            if ($activeAdmins <= 1) {
+                return response()->json(['message' => 'Impossible de désactiver le dernier administrateur'], 422);
+            }
+        }
+
+        $targetUser->is_active = !$targetUser->is_active;
+        $targetUser->status = $targetUser->is_active ? 'active' : 'inactive';
+        $targetUser->save();
+
+        return response()->json($targetUser);
+    });
+
     Route::put('/settings/{type}', function(Request $request, $type) {
         $token = request()->header('Authorization');
 
