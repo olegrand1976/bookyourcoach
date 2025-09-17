@@ -503,7 +503,7 @@ const _routes = [
     name: "profile",
     path: "/profile",
     meta: { "middleware": "auth" },
-    component: () => import('./profile--ko0HkIT.mjs')
+    component: () => import('./profile-DCsdkcK0.mjs')
   },
   {
     name: "register",
@@ -590,7 +590,7 @@ const _routes = [
     name: "club-students",
     path: "/club/students",
     meta: { "middleware": ["auth"] },
-    component: () => import('./students-DCNbmp71.mjs')
+    component: () => import('./students-Dm_eIvcI.mjs')
   },
   {
     name: "club-teachers",
