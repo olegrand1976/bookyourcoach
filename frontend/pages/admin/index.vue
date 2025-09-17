@@ -238,14 +238,18 @@
             <label class="block text-sm font-medium text-gray-700">Téléphone</label>
             <input v-model="newClub.phone" type="tel" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700">Rue</label>
-              <input v-model="newClub.street" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+              <input v-model="newClub.street" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="Nom de la rue">
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700">Numéro</label>
-              <input v-model="newClub.street_number" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+              <input v-model="newClub.street_number" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="123">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Boîte</label>
+              <input v-model="newClub.street_box" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="A, B, 1, 2...">
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -257,10 +261,10 @@
               <label class="block text-sm font-medium text-gray-700">Ville</label>
               <input v-model="newClub.city" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Pays</label>
-              <input v-model="newClub.country" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" value="France">
-            </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Pays</label>
+                <input v-model="newClub.country" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="France">
+              </div>
           </div>
           <div class="modal-button-group">
             <button type="button" @click="showCreateClubModal = false" class="btn-secondary">Annuler</button>
@@ -320,6 +324,7 @@ const newClub = ref({
     phone: '', 
     street: '', 
     street_number: '', 
+    street_box: '',
     postal_code: '', 
     city: '', 
     country: 'France',
@@ -405,7 +410,9 @@ async function createUser() {
 
 async function createClub() {
     try {
-        await $api.post('/admin/clubs', newClub.value)
+        console.log('🔍 Données envoyées:', newClub.value)
+        const response = await $api.post('/admin/clubs', newClub.value)
+        console.log('✅ Réponse API:', response)
         showToast('Club créé avec succès', 'success')
         showCreateClubModal.value = false
         // Reset form
@@ -415,6 +422,7 @@ async function createClub() {
             phone: '', 
             street: '', 
             street_number: '', 
+            street_box: '',
             postal_code: '', 
             city: '', 
             country: 'France',
@@ -422,17 +430,19 @@ async function createClub() {
             website: ''
         }
         // Re-fetch stats
-        const response = await $api.get('/admin/stats')
-        if (response.data.stats) {
+        const statsResponse = await $api.get('/admin/stats')
+        if (statsResponse.data.stats) {
             stats.value = {
-                users: response.data.stats.total_users || 0,
-                teachers: response.data.stats.total_teachers || 0,
-                students: response.data.stats.total_students || 0,
-                clubs: response.data.stats.total_clubs || 0,
+                users: statsResponse.data.stats.total_users || 0,
+                teachers: statsResponse.data.stats.total_teachers || 0,
+                students: statsResponse.data.stats.total_students || 0,
+                clubs: statsResponse.data.stats.total_clubs || 0,
             }
         }
     } catch (error) {
-        showToast(error.data?.message || "Erreur lors de la création du club.", 'error')
+        console.error('❌ Erreur création club:', error)
+        console.error('❌ Détails erreur:', error.response?.data)
+        showToast(error.response?.data?.message || error.message || "Erreur lors de la création du club.", 'error')
     }
 }
 </script>

@@ -1,0 +1,28 @@
+<svg width="80" height="30" viewBox="0 0 80 30" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient -->
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8B5A3C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A0522D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Icône cheval stylisée -->
+  <g transform="translate(2, 6)">
+    <!-- Corps -->
+    <ellipse cx="8" cy="9" rx="6" ry="4" fill="url(#logoGrad)"/>
+    <!-- Tête -->
+    <ellipse cx="13" cy="7" rx="2.5" ry="3" fill="url(#logoGrad)"/>
+    <!-- Crinière -->
+    <path d="M 11 4 Q 12 2 13 4 Q 14 2 15 4" stroke="#654321" stroke-width="1" fill="none"/>
+    <!-- Pattes -->
+    <rect x="4" y="12" width="1" height="4" fill="#654321"/>
+    <rect x="6" y="12" width="1" height="4" fill="#654321"/>
+    <rect x="10" y="12" width="1" height="4" fill="#654321"/>
+    <rect x="12" y="12" width="1" height="4" fill="#654321"/>
+  </g>
+  
+  <!-- Texte -->
+  <text x="22" y="13" font-family="Georgia, serif" font-size="8" font-weight="bold" fill="#8B5A3C">Book</text>
+  <text x="22" y="22" font-family="Georgia, serif" font-size="8" font-weight="bold" fill="#A0522D">Coach</text>
+</svg>

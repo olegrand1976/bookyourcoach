@@ -58,6 +58,8 @@ class User extends Authenticatable
         'phone',
         'street',
         'street_number',
+        'street_box',
+        'address',
         'postal_code',
         'city',
         'country',
@@ -181,5 +183,40 @@ class User extends Authenticatable
     public function isClub(): bool
     {
         return $this->hasRole('club') || $this->clubs()->exists();
+    }
+
+    /**
+     * Boot method to automatically build the full address
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($user) {
+            // Construire l'adresse complète automatiquement
+            $addressParts = array_filter([
+                $user->street,
+                $user->street_number,
+                $user->street_box
+            ]);
+            $user->address = implode(' ', $addressParts);
+        });
+    }
+
+    /**
+     * Get the full address as a single string
+     */
+    public function getFullAddressAttribute(): string
+    {
+        $parts = array_filter([
+            $this->street,
+            $this->street_number,
+            $this->street_box,
+            $this->postal_code,
+            $this->city,
+            $this->country
+        ]);
+
+        return implode(', ', $parts);
     }
 }
