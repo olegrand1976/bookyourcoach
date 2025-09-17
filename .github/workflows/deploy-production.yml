@@ -361,9 +361,9 @@ jobs:
         
         chmod 600 ~/.ssh/config
 
-    - name: 📤 Déploiement sur le serveur
+    - name: 📤 Déploiement sur le serveur avec Reverse Proxy
       run: |
-        echo "🚀 Déploiement des fichiers sur le serveur..."
+        echo "🚀 Déploiement des fichiers sur le serveur avec architecture reverse proxy..."
         
         # Création du répertoire de déploiement
         ssh production-server "mkdir -p /srv/activibe && cd /srv/activibe"
@@ -374,22 +374,35 @@ jobs:
         scp update-env.sh production-server:/srv/activibe/
         scp auto-deploy.sh production-server:/srv/activibe/
         
-        # Exécution du script de déploiement
-        echo "🎯 Exécution du déploiement automatique..."
-        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && ./auto-deploy.sh '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}' '$APP_KEY'"
+        # Copie des scripts de déploiement pour reverse proxy
+        echo "📁 Copie des scripts de déploiement reverse proxy..."
+        scp deploy_production_server.sh production-server:/srv/activibe/
+        scp test_production_containers.sh production-server:/srv/activibe/
+        scp DEPLOYMENT-PRODUCTION-SERVER.md production-server:/srv/activibe/
+        
+        # Exécution du script de déploiement avec reverse proxy
+        echo "🎯 Exécution du déploiement automatique avec reverse proxy..."
+        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && chmod +x deploy_production_server.sh && chmod +x test_production_containers.sh && ./auto-deploy.sh '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}' '$APP_KEY'"
 
-    - name: 🧪 Tests post-déploiement
+    - name: 🧪 Tests post-déploiement avec Reverse Proxy
       run: |
-        echo "🔍 Tests de vérification post-déploiement..."
+        echo "🔍 Tests de vérification post-déploiement avec architecture reverse proxy..."
         
         # Test de connectivité des services
         echo "🌐 Test des services sur le serveur..."
         
-        # Test application (port 8080)
-        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
-          echo "✅ Application (port 8080) : OK"
+        # Test frontend (port 3000)
+        if ssh production-server "curl -f http://localhost:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend (port 3000) : OK"
         else
-          echo "⚠️  Application (port 8080) : KO (peut nécessiter plus de temps)"
+          echo "⚠️  Frontend (port 3000) : KO (peut nécessiter plus de temps)"
+        fi
+        
+        # Test API backend (port 8080)
+        if ssh production-server "curl -f http://localhost:8080/api/auth/login" >/dev/null 2>&1; then
+          echo "✅ API Backend (port 8080) : OK"
+        else
+          echo "⚠️  API Backend (port 8080) : KO (peut nécessiter plus de temps)"
         fi
         
         # Test Neo4j (port 7474)
@@ -399,21 +412,42 @@ jobs:
           echo "⚠️  Neo4j (port 7474) : KO"
         fi
         
+        # Test de l'IP privée
+        echo "🏠 Test de l'IP privée 10.0.0.244..."
+        if ssh production-server "curl -f http://10.0.0.244:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend sur 10.0.0.244:3000 : OK"
+        else
+          echo "⚠️  Frontend sur 10.0.0.244:3000 : KO"
+        fi
+        
+        if ssh production-server "curl -f http://10.0.0.244:8080/api/auth/login" >/dev/null 2>&1; then
+          echo "✅ API sur 10.0.0.244:8080 : OK"
+        else
+          echo "⚠️  API sur 10.0.0.244:8080 : KO"
+        fi
+        
         # Affichage de l'état des containers
         echo "📊 État des containers :"
         ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
+        
+        # Exécution du script de test
+        echo "🧪 Exécution du script de test des conteneurs..."
+        ssh production-server "cd /srv/activibe && ./test_production_containers.sh"
 
     - name: 📧 Notification de succès
       if: success()
       run: |
         echo "🎉 DÉPLOIEMENT RÉUSSI !"
         echo ""
-        echo "🌐 L'application BookYourCoach est maintenant accessible :"
-        echo "   • Frontend Nuxt.js : http://${{ vars.SERVER_HOST }}:3000"
-        echo "   • Backend Laravel API : http://${{ vars.SERVER_HOST }}:8080"
-        echo "   • phpMyAdmin : http://${{ vars.SERVER_HOST }}:8082"
-        echo "   • Neo4j : http://${{ vars.SERVER_HOST }}:7474"
-        echo "   • Infiswap Front (préservé) : http://${{ vars.SERVER_HOST }}:80"
+        echo "🌐 L'application Acti'Vibe est maintenant accessible :"
+        echo "   • Frontend Nuxt.js : http://10.0.0.244:3000 (via reverse proxy)"
+        echo "   • Backend Laravel API : http://10.0.0.244:8080 (via reverse proxy)"
+        echo "   • phpMyAdmin : http://10.0.0.244:8082"
+        echo "   • Neo4j : http://10.0.0.244:7474"
+        echo ""
+        echo "🔧 Configuration requise sur le reverse proxy externe :"
+        echo "   • activibe.be/ -> 10.0.0.244:3000"
+        echo "   • activibe.be/api/* -> 10.0.0.244:8080/api/*"
         echo ""
         echo "🐳 Image déployée : ${{ env.IMAGE_NAME }}:${{ github.sha }}"
         echo "📅 Date : $(date)"
