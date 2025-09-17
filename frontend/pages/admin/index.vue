@@ -238,35 +238,39 @@
             <label class="block text-sm font-medium text-gray-700">Téléphone</label>
             <input v-model="newClub.phone" type="tel" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Rue</label>
-              <input v-model="newClub.street" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="Nom de la rue">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Numéro</label>
-              <input v-model="newClub.street_number" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="123">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Boîte</label>
-              <input v-model="newClub.street_box" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="A, B, 1, 2...">
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Code postal</label>
-              <input v-model="newClub.postal_code" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Ville</label>
-              <input v-model="newClub.city" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
-            </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Adresse</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700">Pays</label>
-                <input v-model="newClub.country" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" placeholder="France">
+                <label class="block text-xs text-gray-500 mb-1">Rue</label>
+                <input v-model="newClub.street" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nom de la rue">
               </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Numéro</label>
+                <input v-model="newClub.street_number" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="92, 92/A, 92B...">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Code postal</label>
+                <input v-model="newClub.postal_code" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Ville</label>
+                <input v-model="newClub.city" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Bruxelles">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Pays</label>
+                <select v-model="newClub.country" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="Belgium">Belgique</option>
+                  <option value="France">France</option>
+                  <option value="Netherlands">Pays-Bas</option>
+                  <option value="Germany">Allemagne</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div class="modal-button-group">
+          <div class="form-button-group">
             <button type="button" @click="showCreateClubModal = false" class="btn-secondary">Annuler</button>
             <button type="submit" class="btn-primary">Créer</button>
           </div>
@@ -324,10 +328,9 @@ const newClub = ref({
     phone: '', 
     street: '', 
     street_number: '', 
-    street_box: '',
     postal_code: '', 
     city: '', 
-    country: 'France',
+    country: 'Belgium',
     description: '',
     website: ''
 })
@@ -422,10 +425,9 @@ async function createClub() {
             phone: '', 
             street: '', 
             street_number: '', 
-            street_box: '',
             postal_code: '', 
             city: '', 
-            country: 'France',
+            country: 'Belgium',
             description: '',
             website: ''
         }
