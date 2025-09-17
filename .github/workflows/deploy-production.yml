@@ -342,18 +342,24 @@ jobs:
         echo "🔧 Création des scripts de déploiement..."
         echo '#!/bin/bash' > deploy_production_server.sh
         echo 'echo "Deploiement des Conteneurs Docker"' >> deploy_production_server.sh
-        echo 'docker-compose down 2>/dev/null || true' >> deploy_production_server.sh
-        echo 'docker-compose pull' >> deploy_production_server.sh
-        echo 'docker-compose up -d' >> deploy_production_server.sh
+        echo 'docker compose down 2>/dev/null || true' >> deploy_production_server.sh
+        echo 'docker compose pull' >> deploy_production_server.sh
+        echo 'docker compose up -d' >> deploy_production_server.sh
         echo 'sleep 30' >> deploy_production_server.sh
-        echo 'docker-compose ps' >> deploy_production_server.sh
+        echo 'docker compose ps' >> deploy_production_server.sh
         echo 'echo "Deploiement termine !"' >> deploy_production_server.sh
         
         echo '#!/bin/bash' > test_production_containers.sh
         echo 'echo "Test des Conteneurs en Production"' >> test_production_containers.sh
         echo 'docker ps | grep activibe' >> test_production_containers.sh
         echo 'curl -f http://localhost:3000 >/dev/null 2>&1 && echo "Frontend OK" || echo "Frontend KO"' >> test_production_containers.sh
+        echo 'echo "Test API avec diagnostic..."' >> test_production_containers.sh
+        echo 'curl -v http://localhost:8080/api/auth/login 2>&1 | head -10' >> test_production_containers.sh
         echo 'curl -f http://localhost:8080/api/auth/login >/dev/null 2>&1 && echo "API OK" || echo "API KO"' >> test_production_containers.sh
+        echo 'echo "Test API directe..."' >> test_production_containers.sh
+        echo 'curl -f http://localhost:8080 >/dev/null 2>&1 && echo "Backend OK" || echo "Backend KO"' >> test_production_containers.sh
+        echo 'echo "Logs backend (dernieres 5 lignes):"' >> test_production_containers.sh
+        echo 'docker logs --tail=5 activibe-backend 2>/dev/null || echo "Pas de logs backend"' >> test_production_containers.sh
         echo 'echo "Tests termines !"' >> test_production_containers.sh
         
         chmod +x deploy_production_server.sh
