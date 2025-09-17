@@ -5,7 +5,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     if (to.path.startsWith('/teacher/') || to.path.startsWith('/student/') || to.path.startsWith('/admin') || to.path.startsWith('/club/')) {
         // console.log('🛡️ Route protégée détectée:', to.path)
         
-        // Initialiser l'authentification côté serveur
+        // Initialiser l'authentification côté serveur avec Sanctum
         const { authStore, initializeServerAuth } = useAuth()
         await initializeServerAuth()
         

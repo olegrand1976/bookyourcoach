@@ -56,21 +56,23 @@ class AuthControllerSimple extends Controller
             ], 422);
         }
 
-        $user = User::where('email', $request->email)->first();
+        // Utiliser l'authentification Sanctum pour les SPA
+        if (auth()->attempt($request->only('email', 'password'))) {
+            $user = auth()->user();
+            
+            // Créer un token pour l'API
+            $token = $user->createToken('api-token')->plainTextToken;
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid credentials'
-            ], 401);
+                'message' => 'Login successful',
+                'user' => $user,
+                'token' => $token
+            ], 200);
         }
 
-        $token = $user->createToken('test-token')->plainTextToken;
-
         return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-            'token' => $token
-        ], 200);
+            'message' => 'Invalid credentials'
+        ], 401);
     }
 
     public function logout(Request $request): JsonResponse
