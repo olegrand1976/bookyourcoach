@@ -61,7 +61,7 @@ class AuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation failed',
+                'message' => 'Erreur de validation',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -108,7 +108,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'User registered successfully',
+            'message' => 'Utilisateur créé avec succès',
             'user' => $user,
             'token' => $token
         ], 201);
@@ -156,7 +156,7 @@ class AuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation failed',
+                'message' => 'Erreur de validation',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -181,7 +181,7 @@ class AuthController extends Controller
             }
 
             return response()->json([
-                'message' => 'Invalid credentials'
+                'message' => 'Identifiants invalides'
             ], 401);
         }
 
@@ -204,7 +204,7 @@ class AuthController extends Controller
             }
 
             return response()->json([
-                'message' => 'Account is not active'
+                'message' => 'Compte inactif'
             ], 401);
         }
 
@@ -233,7 +233,7 @@ class AuthController extends Controller
         $userData['is_admin'] = $user->isAdmin();
 
         return response()->json([
-            'message' => 'Login successful',
+            'message' => 'Connexion réussie',
             'user' => $userData,
             'token' => $token
         ]);
@@ -279,7 +279,7 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Logout successful'
+            'message' => 'Déconnexion réussie'
         ]);
     }
 
