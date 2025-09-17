@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Api\AuthControllerSimple;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
@@ -928,6 +929,49 @@ Route::prefix('admin')->group(function () {
             ]);
 
             return response()->json($club, 201);
+        });
+
+        // Route pour réinitialiser le mot de passe d'un utilisateur
+        Route::post('/users/{id}/reset-password', function($id) {
+            $token = request()->header('Authorization');
+
+            if (!$token || !str_starts_with($token, 'Bearer ')) {
+                return response()->json(['message' => 'Missing token'], 401);
+            }
+
+            $token = substr($token, 7);
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+            if (!$personalAccessToken) {
+                return response()->json(['message' => 'Invalid token'], 401);
+            }
+
+            $adminUser = $personalAccessToken->tokenable;
+
+            if (!$adminUser || $adminUser->role !== 'admin') {
+                return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+            }
+
+            // Trouver l'utilisateur
+            $user = App\Models\User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            // Générer un nouveau mot de passe temporaire
+            $newPassword = 'temp' . rand(1000, 9999);
+            $user->password = Hash::make($newPassword);
+            $user->save();
+
+            return response()->json([
+                'message' => 'Password reset successfully',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email
+                ],
+                'temporary_password' => $newPassword
+            ], 200);
         });
         
         Route::patch('/users/{id}/role', function($id) {

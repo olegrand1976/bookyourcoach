@@ -139,6 +139,9 @@
                                         <button @click="editUser(user)" class="table-action-btn table-action-btn-edit">
                                             Modifier
                                         </button>
+                                        <button @click="resetUserPassword(user)" class="table-action-btn table-action-btn-view">
+                                            🔑 Mot de passe
+                                        </button>
                                         <button @click="toggleUserStatus(user)"
                                             :class="user.is_active ? 'table-action-btn table-action-btn-delete' : 'table-action-btn table-action-btn-view'">
                                             {{ user.is_active ? 'Désactiver' : 'Activer' }}
@@ -569,6 +572,29 @@ const toggleUserStatus = async (user) => {
         console.error('Erreur lors du changement de statut:', error)
         console.error('Détails de l\'erreur:', error.response?.data)
         alert('Erreur lors du changement de statut: ' + (error.response?.data?.message || error.message))
+    }
+}
+
+const resetUserPassword = async (user) => {
+    if (!confirm(`Êtes-vous sûr de vouloir réinitialiser le mot de passe de ${user.name} (${user.email}) ?`)) {
+        return
+    }
+
+    try {
+        const { $api } = useNuxtApp()
+        const response = await $api.post(`/admin/users/${user.id}/reset-password`)
+        console.log('Réponse de la réinitialisation:', response)
+
+        if (response.data && response.data.temporary_password) {
+            const tempPassword = response.data.temporary_password
+            alert(`Mot de passe réinitialisé avec succès !\n\nNouveau mot de passe temporaire : ${tempPassword}\n\nVeuillez le communiquer à l'utilisateur.`)
+        } else {
+            alert('Mot de passe réinitialisé avec succès !')
+        }
+    } catch (error) {
+        console.error('Erreur lors de la réinitialisation du mot de passe:', error)
+        console.error('Détails de l\'erreur:', error.response?.data)
+        alert('Erreur lors de la réinitialisation: ' + (error.response?.data?.message || error.message))
     }
 }
 
