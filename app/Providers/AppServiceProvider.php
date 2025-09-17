@@ -11,7 +11,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\Neo4jService::class, function ($app) {
+            try {
+                return new \App\Services\Neo4jService();
+            } catch (\Exception $e) {
+                // Si Neo4j n'est pas disponible, retourner un service mock
+                return new class {
+                    public function __call($method, $args) {
+                        return ['error' => 'Neo4j service not available'];
+                    }
+                };
+            }
+        });
     }
 
     /**
