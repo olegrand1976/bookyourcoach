@@ -59,7 +59,6 @@ class User extends Authenticatable
         'street',
         'street_number',
         'street_box',
-        'address',
         'postal_code',
         'city',
         'country',
@@ -186,27 +185,17 @@ class User extends Authenticatable
     }
 
     /**
-     * Boot method to automatically build the full address
+     * Boot method
      */
     protected static function boot()
     {
         parent::boot();
-
-        static::saving(function ($user) {
-            // Construire l'adresse complète automatiquement
-            $addressParts = array_filter([
-                $user->street,
-                $user->street_number,
-                $user->street_box
-            ]);
-            $user->address = implode(' ', $addressParts);
-        });
     }
 
     /**
      * Get the full address as a single string
      */
-    public function getFullAddressAttribute(): string
+    public function getCompleteAddressAttribute(): string
     {
         $parts = array_filter([
             $this->street,

@@ -30,12 +30,14 @@ class AdminControllerTest extends TestCase
         User::factory()->count(5)->create();
         Club::factory()->count(3)->create();
 
-        $stats = $this->adminController->getStats();
+        $response = $this->adminController->getStats();
+        $responseData = json_decode($response->getContent(), true);
 
-        $this->assertArrayHasKey('users', $stats);
-        $this->assertArrayHasKey('clubs', $stats);
-        $this->assertEquals(5, $stats['users']);
-        $this->assertEquals(3, $stats['clubs']);
+        $this->assertArrayHasKey('stats', $responseData);
+        $this->assertArrayHasKey('users', $responseData['stats']);
+        $this->assertArrayHasKey('clubs', $responseData['stats']);
+        $this->assertEquals(5, $responseData['stats']['users']);
+        $this->assertEquals(3, $responseData['stats']['clubs']);
     }
 
     /**
@@ -49,9 +51,12 @@ class AdminControllerTest extends TestCase
         User::factory()->create(['role' => 'student']);
 
         $request = new \Illuminate\Http\Request(['role' => 'teacher']);
-        $users = $this->adminController->getUsers($request);
+        $response = $this->adminController->getUsers($request);
+        $responseData = json_decode($response->getContent(), true);
 
-        $this->assertInstanceOf(\Illuminate\Pagination\LengthAwarePaginator::class, $users);
+        $this->assertArrayHasKey('data', $responseData);
+        $this->assertArrayHasKey('current_page', $responseData);
+        $this->assertCount(1, $responseData['data']); // Un seul teacher
     }
 
     /**
@@ -67,10 +72,11 @@ class AdminControllerTest extends TestCase
             'data_type' => 'string'
         ]);
 
-        $settings = $this->adminController->getSettings();
+        $response = $this->adminController->getSettings('general');
+        $responseData = json_decode($response->getContent(), true);
 
-        $this->assertArrayHasKey('general', $settings);
-        $this->assertEquals('BookYourCoach', $settings['general']['app_name']);
+        $this->assertArrayHasKey('general', $responseData);
+        $this->assertEquals('BookYourCoach', $responseData['general']['app_name']);
     }
 
     /**
@@ -82,7 +88,8 @@ class AdminControllerTest extends TestCase
 
         $this->assertEquals(200, $response->getStatusCode());
         $responseData = json_decode($response->getContent(), true);
-        $this->assertTrue($responseData['success']);
+        $this->assertArrayHasKey('message', $responseData);
+        $this->assertEquals('Cache vidé avec succès', $responseData['message']);
     }
 
     /**

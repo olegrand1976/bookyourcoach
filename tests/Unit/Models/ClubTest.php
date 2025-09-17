@@ -21,7 +21,11 @@ class ClubTest extends TestCase
         $clubData = [
             'name' => 'Club Équestre de Paris',
             'description' => 'Un club d\'équitation situé à Paris',
-            'address' => '123 Rue de la Selle, 75001 Paris',
+            'street' => 'Rue de la Selle',
+            'street_number' => '123',
+            'city' => 'Paris',
+            'postal_code' => '75001',
+            'country' => 'France',
             'phone' => '01 23 45 67 89',
             'email' => 'contact@club-paris.fr',
             'max_students' => 100,
@@ -34,7 +38,7 @@ class ClubTest extends TestCase
         $this->assertInstanceOf(Club::class, $club);
         $this->assertEquals($clubData['name'], $club->name);
         $this->assertEquals($clubData['description'], $club->description);
-        $this->assertEquals($clubData['address'], $club->address);
+        $this->assertEquals('Rue de la Selle 123', $club->address); // Construit automatiquement
         $this->assertEquals($clubData['phone'], $club->phone);
         $this->assertEquals($clubData['email'], $club->email);
         $this->assertEquals($clubData['max_students'], $club->max_students);
@@ -296,6 +300,9 @@ class ClubTest extends TestCase
             'name' => 'Club Équestre de Lyon',
             'description' => 'Un club d\'équitation situé à Lyon',
             'address' => '456 Avenue du Cheval, 69000 Lyon',
+            'city' => 'Lyon',
+            'postal_code' => '69000',
+            'country' => 'France',
             'phone' => '04 78 90 12 34',
             'email' => 'contact@club-lyon.fr',
             'max_students' => 80,
@@ -307,7 +314,7 @@ class ClubTest extends TestCase
 
         $this->assertEquals('Club Équestre de Lyon', $club->name);
         $this->assertEquals('Un club d\'équitation situé à Lyon', $club->description);
-        $this->assertEquals('456 Avenue du Cheval, 69000 Lyon', $club->address);
+        $this->assertEquals($clubData['address'], $club->address);
         $this->assertEquals('04 78 90 12 34', $club->phone);
         $this->assertEquals('contact@club-lyon.fr', $club->email);
         $this->assertEquals(80, $club->max_students);
