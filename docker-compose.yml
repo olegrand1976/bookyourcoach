@@ -57,6 +57,25 @@ services:
     networks:
       - app-network
 
+  # MySQL local pour développement
+  mysql-local:
+    image: mysql:8.0
+    container_name: activibe-mysql-local
+    restart: unless-stopped
+    ports:
+      - "3308:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=book_your_coach_local
+      - MYSQL_USER=activibe_user
+      - MYSQL_PASSWORD=activibe_password
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - app-network
+    command: --default-authentication-plugin=mysql_native_password
+
   # Neo4j pour analyses graphiques
   neo4j:
     image: neo4j:5.15-community
@@ -86,6 +105,8 @@ volumes:
   neo4j_import:
     driver: local
   neo4j_plugins:
+    driver: local
+  mysql_local_data:
     driver: local
   app_storage:
     driver: local

@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthControllerSimple;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
-use App\Http\Controllers\Api\GraphAnalyticsController;
+// use App\Http\Controllers\Api\GraphAnalyticsController;
 
 // Routes publiques (CORS géré par config/cors.php)
 Route::get('/activity-types', function() {
@@ -1173,17 +1173,18 @@ Route::prefix('admin')->group(function () {
 
 // Routes Graph Analytics (Neo4j)
 Route::prefix('graph')->middleware(['auth:sanctum'])->group(function () {
-    Route::get('/dashboard', [GraphAnalyticsController::class, 'getDashboard']);
-    Route::get('/network-stats', [GraphAnalyticsController::class, 'getNetworkStats']);
-    Route::get('/top-teachers', [GraphAnalyticsController::class, 'getTopTeachers']);
-    Route::get('/skills-network', [GraphAnalyticsController::class, 'getSkillsNetwork']);
-    Route::get('/student-progress', [GraphAnalyticsController::class, 'getStudentProgress']);
-    Route::get('/recommendations', [GraphAnalyticsController::class, 'getRecommendations']);
-    Route::post('/teacher-matching', [GraphAnalyticsController::class, 'getTeacherMatching']);
-    Route::post('/teacher-performance', [GraphAnalyticsController::class, 'getTeacherPerformance']);
-    Route::post('/predict-success', [GraphAnalyticsController::class, 'predictStudentSuccess']);
-    Route::get('/visualization', [GraphAnalyticsController::class, 'getGraphVisualization']);
-    Route::post('/sync', [GraphAnalyticsController::class, 'syncAllData']);
-    Route::get('/status', [GraphAnalyticsController::class, 'getStatus']);
+    // Routes temporairement commentées à cause du problème de dépendance Neo4j
+    // Route::get('/dashboard', [GraphAnalyticsController::class, 'getDashboard']);                                                                           
+    // Route::get('/network-stats', [GraphAnalyticsController::class, 'getNetworkStats']);                                                                    
+    // Route::get('/top-teachers', [GraphAnalyticsController::class, 'getTopTeachers']);                                                                      
+    // Route::get('/skills-network', [GraphAnalyticsController::class, 'getSkillsNetwork']);                                                                  
+    // Route::get('/student-progress', [GraphAnalyticsController::class, 'getStudentProgress']);                                                              
+    // Route::get('/recommendations', [GraphAnalyticsController::class, 'getRecommendations']);                                                               
+    // Route::post('/teacher-matching', [GraphAnalyticsController::class, 'getTeacherMatching']);                                                             
+    // Route::post('/teacher-performance', [GraphAnalyticsController::class, 'getTeacherPerformance']);                                                       
+    // Route::post('/predict-success', [GraphAnalyticsController::class, 'predictStudentSuccess']);                                                           
+    // Route::get('/visualization', [GraphAnalyticsController::class, 'getGraphVisualization']);                                                              
+    // Route::post('/sync', [GraphAnalyticsController::class, 'syncAllData']);
+    // Route::get('/status', [GraphAnalyticsController::class, 'getStatus']);
 });
 
