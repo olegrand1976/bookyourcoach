@@ -7,7 +7,7 @@
           <div class="flex items-center">
             <NuxtLink to="/"
               class="flex items-center space-x-3 text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
-              <img src="/images/logo-activibe.svg" alt="activibe" class="h-12 w-auto" />
+              <Logo size="sm" />
             </NuxtLink>
           </div>
 
@@ -44,7 +44,7 @@ anuuel                  <NuxtLink v-if="isAdmin" to="/admin"
                   </NuxtLink>
                   <NuxtLink v-else-if="isStudent" to="/student/dashboard"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
-                    <span>📊</span>
+                    <span>👨‍🎓</span>
                     <span>Tableau de bord</span>
                   </NuxtLink>
 
@@ -178,6 +178,7 @@ anuuel                  <NuxtLink v-if="isAdmin" to="/admin"
 
 <script setup>
 import { ChevronDownIcon } from '@heroicons/vue/24/outline'
+import Logo from '@/components/Logo.vue'
 
 // Utiliser le store d'authentification
 const authStore = useAuthStore()
