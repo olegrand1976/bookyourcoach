@@ -62,7 +62,7 @@ class AuthControllerSimple extends Controller
         
         if ($isLocal) {
             // Mode local : authentification par session simple
-            if (!Auth::attempt($request->only('email', 'password'))) {
+            if (!Auth::guard('web')->attempt($request->only('email', 'password'))) {
                 return response()->json([
                     'message' => 'Invalid credentials'
                 ], 401);
@@ -80,7 +80,7 @@ class AuthControllerSimple extends Controller
             ], 200);
         } else {
             // Mode production : authentification Sanctum SPA
-            if (Auth::attempt($request->only('email', 'password'))) {
+            if (Auth::guard('web')->attempt($request->only('email', 'password'))) {
                 $user = Auth::user();
                 
                 // Créer un token pour l'API
