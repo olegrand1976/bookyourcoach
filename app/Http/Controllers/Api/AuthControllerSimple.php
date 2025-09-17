@@ -110,8 +110,34 @@ class AuthControllerSimple extends Controller
         
         $user = $personalAccessToken->tokenable;
 
+        // Récupérer les données directement depuis la base de données pour éviter les boucles
+        $userData = \DB::table('users')->where('id', $user->id)->first();
+
         return response()->json([
-            'user' => $user
+            'user' => [
+                'id' => $userData->id,
+                'name' => $userData->name,
+                'first_name' => $userData->first_name,
+                'last_name' => $userData->last_name,
+                'email' => $userData->email,
+                'role' => $userData->role,
+                'phone' => $userData->phone,
+                'street' => $userData->street,
+                'street_number' => $userData->street_number,
+                'street_box' => $userData->street_box,
+                'postal_code' => $userData->postal_code,
+                'city' => $userData->city,
+                'country' => $userData->country,
+                'birth_date' => $userData->birth_date,
+                'status' => $userData->status,
+                'is_active' => $userData->is_active,
+                'can_act_as_teacher' => $userData->role === 'admin' || $userData->role === 'teacher',
+                'can_act_as_student' => $userData->role === 'admin' || $userData->role === 'student',
+                'is_admin' => $userData->role === 'admin',
+                'email_verified_at' => $userData->email_verified_at,
+                'created_at' => $userData->created_at,
+                'updated_at' => $userData->updated_at,
+            ]
         ], 200);
     }
 }
