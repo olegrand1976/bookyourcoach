@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Api\AuthControllerSimple;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
-// use App\Http\Controllers\Api\GraphAnalyticsController;
+use App\Http\Controllers\Api\GraphAnalyticsController;
 
 // Routes publiques (CORS géré par config/cors.php)
 Route::get('/activity-types', function() {
@@ -21,10 +21,25 @@ Route::post('/auth/register', [AuthControllerSimple::class, 'register']);
 Route::post('/auth/login', [AuthControllerSimple::class, 'login']);
 Route::get('/auth/user-test', [AuthControllerSimple::class, 'userTest']);
 
+// Route user en dehors du groupe pour éviter les middlewares
+Route::get('/auth/user', [AuthControllerSimple::class, 'user']);
+
+// Route de test pour isoler le problème
+Route::get('/auth/user-simple', function() {
+    return response()->json([
+        'user' => [
+            'id' => 2,
+            'name' => 'Sophie Martin',
+            'email' => 'sophie.martin@activibe.com',
+            'role' => 'teacher',
+            'is_active' => true,
+        ]
+    ], 200);
+});
+
 // Routes protégées avec authentification manuelle
 Route::group([], function () {
     Route::post('/auth/logout', [AuthControllerSimple::class, 'logout']);
-    Route::get('/auth/user', [AuthControllerSimple::class, 'user']);
     
     // Routes utilisateurs
     Route::get('/users', function() {
