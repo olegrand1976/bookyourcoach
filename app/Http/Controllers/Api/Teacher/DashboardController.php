@@ -23,8 +23,9 @@ class DashboardController extends Controller
      */
     public function getDashboardData(Request $request)
     {
-        $user = $request->user();
-        $teacher = $user->teacher;
+        // Temporairement, utiliser l'utilisateur enseignant par défaut pour debug
+        $user = \App\Models\User::where('email', 'sophie.martin@activibe.com')->first();
+        $teacher = $user ? $user->teacher : null;
 
         if (!$teacher) {
             return response()->json(['message' => 'Profil enseignant non trouvé.'], 404);

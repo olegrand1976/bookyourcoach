@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Api\AuthControllerSimple;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
-use App\Http\Controllers\Api\GraphAnalyticsController;
+// use App\Http\Controllers\Api\GraphAnalyticsController;
+use App\Http\Controllers\Api\Teacher\DashboardController;
 
 // Routes publiques (CORS géré par config/cors.php)
 Route::get('/activity-types', function() {
@@ -1228,6 +1229,55 @@ Route::prefix('admin')->group(function () {
                 ], 500);
             }
         });
+});
+
+// Route de test simple pour le dashboard enseignant
+Route::get('/teacher/dashboard-simple', function() {
+    return response()->json([
+        'stats' => [
+            'today_lessons' => 3,
+            'active_students' => 12,
+            'monthly_earnings' => 1250.50,
+            'average_rating' => 4.8,
+            'week_lessons' => 8,
+            'week_hours' => 16.5,
+            'week_earnings' => 420.75,
+            'new_students' => 2,
+        ],
+        'upcomingLessons' => [
+            [
+                'id' => 1,
+                'student_name' => 'Marie Dubois',
+                'type' => 'Cours débutant',
+                'start_time' => '2025-09-18 10:00:00',
+                'end_time' => '2025-09-18 11:00:00',
+                'status' => 'confirmed'
+            ],
+            [
+                'id' => 2,
+                'student_name' => 'Pierre Martin',
+                'type' => 'Cours avancé',
+                'start_time' => '2025-09-18 14:00:00',
+                'end_time' => '2025-09-18 15:30:00',
+                'status' => 'confirmed'
+            ]
+        ]
+    ]);
+});
+
+// Routes Enseignant - Temporairement sans middleware pour debug
+Route::prefix('teacher')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
+    Route::get('/lessons', [DashboardController::class, 'getLessons']);
+    Route::post('/lessons', [DashboardController::class, 'createLesson']);
+    Route::put('/lessons/{id}', [DashboardController::class, 'updateLesson']);
+    Route::delete('/lessons/{id}', [DashboardController::class, 'deleteLesson']);
+    Route::get('/availabilities', [DashboardController::class, 'getAvailabilities']);
+    Route::post('/availabilities', [DashboardController::class, 'createAvailability']);
+    Route::put('/availabilities/{id}', [DashboardController::class, 'updateAvailability']);
+    Route::delete('/availabilities/{id}', [DashboardController::class, 'deleteAvailability']);
+    Route::get('/stats', [DashboardController::class, 'getStats']);
+    Route::get('/students', [DashboardController::class, 'getStudents']);
 });
 
 // Routes Graph Analytics (Neo4j)

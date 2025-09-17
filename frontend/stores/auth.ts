@@ -136,7 +136,7 @@ export const useAuthStore = defineStore('auth', {
             try {
                 const { $api } = useNuxtApp()
                 // console.log('🔍 [FETCH USER] Appel API /auth/user...')
-                const response = await $api.get('/auth/user-test')
+                const response = await $api.get('/auth/user')
                 // console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response.data, null, 2))
 
                 this.user = response.data.user || response.data
