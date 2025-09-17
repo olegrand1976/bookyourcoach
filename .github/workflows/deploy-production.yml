@@ -339,11 +339,8 @@ jobs:
 
         chmod +x auto-deploy.sh
 
-        echo "🔧 Copie des scripts de déploiement..."
-        cp deploy_production_server_simple.sh deploy_production_server.sh
-        cp test_production_containers_simple.sh test_production_containers.sh
-        chmod +x deploy_production_server.sh
-        chmod +x test_production_containers.sh
+        echo "🔧 Génération des scripts de déploiement..."
+        ./generate_scripts.sh
 
         echo "✅ Fichiers de configuration générés avec succès !"
 
