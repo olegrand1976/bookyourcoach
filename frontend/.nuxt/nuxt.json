@@ -1,9 +1,9 @@
 {
-  "_hash": "FTze_Yl6DoZAXhFTJTgcCMAVt-NmDS67n70AFyY1ygA",
+  "_hash": "ALY1Nsy1T7udTLoncgFTw0A6RmKoHholhfG9oWdeneM",
   "project": {
-    "rootDir": "/app"
+    "rootDir": "/home/olivier/projets/bookyourcoach/frontend"
   },
   "versions": {
-    "nuxt": "3.19.1"
+    "nuxt": "3.17.7"
   }
 }
