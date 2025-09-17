@@ -45,11 +45,24 @@ export const useAuthStore = defineStore('auth', {
             try {
                 const { $api } = useNuxtApp()
                 // console.log('🔑 [LOGIN] Appel API /auth/login...')
-                const response = await $api.post('/auth/login', credentials)
-                // console.log('🔑 [LOGIN] Réponse API:', response.data)
+                
+                // Utiliser $fetch avec credentials pour envoyer les cookies
+                const response = await $fetch('/auth/login', {
+                    method: 'POST',
+                    baseURL: useRuntimeConfig().public.apiBase,
+                    body: credentials,
+                    credentials: 'include', // Important pour Sanctum
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                
+                // console.log('🔑 [LOGIN] Réponse API:', response)
 
-                this.token = response.data.token
-                this.user = response.data.user
+                this.token = response.token
+                this.user = response.user
                 this.isAuthenticated = true
 
                 // console.log('🔑 [LOGIN] Utilisateur connecté:', {
@@ -68,7 +81,7 @@ export const useAuthStore = defineStore('auth', {
                 tokenCookie.value = this.token
                 // console.log('🔑 [LOGIN] Token stocké dans cookie')
 
-                return response.data
+                return response
             } catch (error) {
                 console.error('🔑 [LOGIN] Erreur de connexion:', error)
                 throw error
@@ -134,12 +147,21 @@ export const useAuthStore = defineStore('auth', {
             if (!this.token) return
 
             try {
-                const { $api } = useNuxtApp()
-                // console.log('🔍 [FETCH USER] Appel API /auth/user...')
-                const response = await $api.get('/auth/user')
-                // console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response.data, null, 2))
+                // Utiliser $fetch avec credentials pour envoyer les cookies de session
+                const response = await $fetch('/auth/user', {
+                    method: 'GET',
+                    baseURL: useRuntimeConfig().public.apiBase,
+                    credentials: 'include', // Important pour Sanctum
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                })
+                
+                // console.log('🔍 [FETCH USER] Réponse complète:', JSON.stringify(response, null, 2))
 
-                this.user = response.data.user || response.data
+                this.user = response.user || response
                 this.isAuthenticated = true
 
                 // console.log('🔍 [FETCH USER] User assigné:', {
@@ -159,7 +181,7 @@ export const useAuthStore = defineStore('auth', {
                 // console.error('🔍 [FETCH USER] Erreur lors de la récupération de l\'utilisateur:', error)
 
                 // Si c'est une erreur 401 (token expiré), déconnecter silencieusement
-                if (error.response?.status === 401) {
+                if (error.status === 401 || error.response?.status === 401) {
                     this.user = null
                     this.token = null
                     this.isAuthenticated = false
@@ -200,7 +222,7 @@ export const useAuthStore = defineStore('auth', {
                         }
                     }
 
-                    // Vérifier la validité du token de manière synchrone
+                    // Vérifier la validité du token
                     try {
                         // console.log('🔍 [AUTH DEBUG] Début vérification token...')
                         const isValid = await this.verifyToken()
@@ -234,7 +256,7 @@ export const useAuthStore = defineStore('auth', {
                 await this.fetchUser()
                 return true
             } catch (error: any) {
-                if (error.response?.status === 401) {
+                if (error.status === 401 || error.response?.status === 401) {
                     // Nettoyer les données d'authentification
                     this.user = null
                     this.token = null

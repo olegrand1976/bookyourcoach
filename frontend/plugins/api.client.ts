@@ -5,9 +5,11 @@ export default defineNuxtPlugin(() => {
 
     const api = axios.create({
         baseURL: config.public.apiBase,
+        withCredentials: true, // Important pour Sanctum
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
         }
     })
 
