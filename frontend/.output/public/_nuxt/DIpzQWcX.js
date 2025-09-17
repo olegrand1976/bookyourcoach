@@ -1,0 +1,1 @@
+import{af as u,f,ag as c,q as a}from"./qntuUWic.js";const A=u(async(d,m)=>{let e,i;const t=f();if(t.loading&&([e,i]=c(()=>new Promise(n=>{const o=t.$onAction(({name:s,after:r})=>{s==="initializeAuth"&&r(()=>{o(),n()})})})),await e,i()),!t.isAuthenticated)return a("/login");if(!t.isAdmin)return a("/")});export{A as default};
