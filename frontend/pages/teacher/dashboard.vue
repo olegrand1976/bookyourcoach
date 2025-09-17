@@ -202,7 +202,8 @@ const upcomingLessons = ref([])
 onMounted(async () => {
     loading.value = true
     try {
-        const response = await $api.get('/teacher/dashboard')
+        // Temporairement utiliser la route simple pour contourner le problème d'authentification
+        const response = await $api.get('/teacher/dashboard-simple')
         stats.value = response.data.stats
         upcomingLessons.value = response.data.upcomingLessons
     } catch (error) {

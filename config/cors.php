@@ -21,6 +21,8 @@ return [
 
     'allowed_origins' => [
         env('FRONTEND_URL', 'http://localhost:3000'),
+        'http://localhost:3000', // Frontend local
+        'http://127.0.0.1:3000', // Frontend local (127.0.0.1)
         'https://activibe.be', // Domaine de production
         'https://www.activibe.be', // Domaine de production avec www
         'http://activibe.be', // Domaine de production (HTTP)
@@ -28,7 +30,6 @@ return [
         'http://10.0.0.244:3000', // Frontend sur IP privée
         'http://localhost:3001',
         'http://localhost:3004', // Ajout pour l'application Flutter web
-        'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:3004', // Ajout pour l'application Flutter web
         'http://localhost:8080', // Ajout pour Nginx

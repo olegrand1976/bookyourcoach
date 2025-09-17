@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env.local
+    environment:
+      - FRONTEND_URL=http://localhost:3000
     ports:
       # API Backend accessible en interne et externe
       - "8080:80"
@@ -20,6 +22,7 @@ services:
       - ./app:/var/www/html/app
       - ./database/seeders:/var/www/html/database/seeders
       - ./database/factories:/var/www/html/database/factories
+      - ./routes:/var/www/html/routes
     depends_on:
       - neo4j
       - mysql-local
@@ -39,6 +42,7 @@ services:
       - NUXT_API_BASE=http://localhost:8080/api
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
+      - FRONTEND_URL=http://localhost:3000
     depends_on:
       - backend
     networks:
