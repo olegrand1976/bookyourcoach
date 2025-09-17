@@ -289,6 +289,171 @@ Route::prefix('admin')->group(function () {
         ]);
     });
     
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        // Validation des données
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'role' => 'required|in:admin,teacher,student',
+            'password' => 'required|string|min:8|confirmed',
+            'password_confirmation' => 'required|string|min:8'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        
+        try {
+            $newUser = App\Models\User::create([
+                'name' => $request->first_name . ' ' . $request->last_name,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'birth_date' => $request->birth_date,
+                'street' => $request->street,
+                'street_number' => $request->street_number,
+                'postal_code' => $request->postal_code,
+                'city' => $request->city,
+                'country' => $request->country,
+                'role' => $request->role,
+                'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+                'is_active' => true,
+                'status' => 'active',
+            ]);
+            
+            // Log de l'action
+            App\Models\AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'user_created',
+                'model_type' => 'User',
+                'model_id' => $newUser->id,
+                'data' => ['name' => $newUser->name, 'email' => $newUser->email, 'role' => $newUser->role],
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Utilisateur créé avec succès',
+                'user' => $newUser
+            ], 201);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de l\'utilisateur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+    
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+        
+        $userToUpdate = App\Models\User::findOrFail($id);
+        
+        // Validation des données
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'sometimes|required|string|max:255',
+            'last_name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:10',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'role' => 'sometimes|required|in:admin,teacher,student',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        
+        try {
+            $oldData = $userToUpdate->toArray();
+            
+            $updateData = $request->only([
+                'first_name', 'last_name', 'email', 'phone', 'birth_date',
+                'street', 'street_number', 'postal_code', 'city', 'country', 'role'
+            ]);
+            
+            if (isset($updateData['first_name']) || isset($updateData['last_name'])) {
+                $firstName = $updateData['first_name'] ?? $userToUpdate->first_name;
+                $lastName = $updateData['last_name'] ?? $userToUpdate->last_name;
+                $updateData['name'] = $firstName . ' ' . $lastName;
+            }
+            
+            $userToUpdate->update($updateData);
+            
+            // Log de l'action
+            App\Models\AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'user_updated',
+                'model_type' => 'User',
+                'model_id' => $userToUpdate->id,
+                'data' => ['old' => $oldData, 'new' => $userToUpdate->toArray()],
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Utilisateur mis à jour avec succès',
+                'user' => $userToUpdate
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de l\'utilisateur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+    
     Route::put('/users/{id}/status', function(Request $request, $id) {
         $token = request()->header('Authorization');
         
