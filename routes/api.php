@@ -288,6 +288,135 @@ Route::prefix('admin')->group(function () {
             'to' => $users->lastItem()
         ]);
     });
+
+    Route::post('/users', function(Request $request) {
+        $token = request()->header('Authorization');
+
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = $personalAccessToken->tokenable;
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'role' => 'required|in:admin,teacher,student,club',
+            'password' => 'required|string|min:8|confirmed',
+            'phone' => 'nullable|string|max:50',
+            'street' => 'nullable|string|max:255',
+            'street_number' => 'nullable|string|max:50',
+            'postal_code' => 'nullable|string|max:20',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'birth_date' => 'nullable|date',
+            'is_active' => 'sometimes|boolean',
+            'status' => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = $validator->validated();
+        $data['name'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        if (!array_key_exists('is_active', $data)) {
+            $data['is_active'] = true;
+        }
+
+        $createdUser = App\Models\User::create($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur créé avec succès',
+            'user' => $createdUser
+        ], 201);
+    });
+
+    Route::put('/users/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+
+        $user = $personalAccessToken->tokenable;
+
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+        }
+
+        $rules = [
+            'first_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|max:255|unique:users,email,' . $id,
+            'role' => 'sometimes|in:admin,teacher,student,club',
+            'password' => 'nullable|string|min:8|confirmed',
+            'phone' => 'sometimes|nullable|string|max:50',
+            'street' => 'sometimes|nullable|string|max:255',
+            'street_number' => 'sometimes|nullable|string|max:50',
+            'postal_code' => 'sometimes|nullable|string|max:20',
+            'city' => 'sometimes|nullable|string|max:100',
+            'country' => 'sometimes|nullable|string|max:100',
+            'birth_date' => 'sometimes|nullable|date',
+            'is_active' => 'sometimes|boolean',
+            'status' => 'sometimes|nullable|string|max:50',
+        ];
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $targetUser = App\Models\User::findOrFail($id);
+        $data = $validator->validated();
+
+        // If name components are being updated, refresh the full name
+        if (array_key_exists('first_name', $data) || array_key_exists('last_name', $data)) {
+            $first = array_key_exists('first_name', $data) ? $data['first_name'] : ($targetUser->first_name ?? '');
+            $last = array_key_exists('last_name', $data) ? $data['last_name'] : ($targetUser->last_name ?? '');
+            $data['name'] = trim($first . ' ' . $last);
+        }
+
+        // If password is empty string or null, do not update it
+        if (array_key_exists('password', $data) && (!$data['password'])) {
+            unset($data['password']);
+        }
+
+        $targetUser->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur mis à jour avec succès',
+            'user' => $targetUser
+        ]);
+    });
     
     Route::put('/users/{id}/status', function(Request $request, $id) {
         $token = request()->header('Authorization');
