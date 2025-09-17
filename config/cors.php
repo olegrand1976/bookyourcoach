@@ -21,8 +21,6 @@ return [
 
     'allowed_origins' => [
         env('FRONTEND_URL', 'http://localhost:3000'),
-        'http://91.134.77.98:3000', // Ajout pour la production
-        'https://91.134.77.98:3000', // Ajout pour la production (HTTPS)
         'https://activibe.be', // Domaine de production
         'https://www.activibe.be', // Domaine de production avec www
         'http://activibe.be', // Domaine de production (HTTP)
