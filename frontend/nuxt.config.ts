@@ -8,6 +8,10 @@ export default defineNuxtConfig({
         // '@nuxtjs/i18n' // Temporairement désactivé pour résoudre le problème de build
     ],
 
+    css: [
+        '~/assets/css/buttons.css'
+    ],
+
     googleFonts: {
         families: {
             Inter: [400, 500, 600, 700]

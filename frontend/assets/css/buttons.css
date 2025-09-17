@@ -1,0 +1,136 @@
+/* Styles uniformes pour les boutons */
+
+/* Classes de base pour les boutons */
+.btn-primary {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed;
+}
+
+.btn-danger {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 disabled:bg-red-300 disabled:cursor-not-allowed;
+}
+
+.btn-success {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-not-allowed;
+}
+
+.btn-warning {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-white bg-yellow-600 border border-transparent rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 disabled:bg-yellow-300 disabled:cursor-not-allowed;
+}
+
+.btn-outline {
+  @apply inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed;
+}
+
+/* Tailles de boutons */
+.btn-sm {
+  @apply px-3 py-1.5 text-xs;
+}
+
+.btn-md {
+  @apply px-6 py-2 text-sm;
+}
+
+.btn-lg {
+  @apply px-8 py-3 text-base;
+}
+
+/* Boutons pleine largeur */
+.btn-full {
+  @apply w-full;
+}
+
+/* États de chargement */
+.btn-loading {
+  @apply relative;
+}
+
+.btn-loading::after {
+  content: '';
+  @apply absolute inset-0 flex items-center justify-center;
+}
+
+/* Styles pour les formulaires */
+.form-button-group {
+  @apply flex justify-end space-x-4 pt-6 border-t border-gray-200;
+}
+
+.form-button-group-center {
+  @apply flex justify-center space-x-4 pt-6 border-t border-gray-200;
+}
+
+.form-button-group-left {
+  @apply flex justify-start space-x-4 pt-6 border-t border-gray-200;
+}
+
+/* Styles pour les boutons d'action dans les tableaux */
+.table-action-btn {
+  @apply inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-200;
+}
+
+.table-action-btn-edit {
+  @apply text-blue-700 bg-blue-100 hover:bg-blue-200;
+}
+
+.table-action-btn-delete {
+  @apply text-red-700 bg-red-100 hover:bg-red-200;
+}
+
+.table-action-btn-view {
+  @apply text-green-700 bg-green-100 hover:bg-green-200;
+}
+
+/* Styles pour les boutons de navigation */
+.nav-button {
+  @apply inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200;
+}
+
+.nav-button-active {
+  @apply bg-blue-50 text-blue-700 border-blue-300;
+}
+
+/* Styles pour les boutons de modal */
+.modal-button-group {
+  @apply flex justify-end space-x-4 pt-4;
+}
+
+.modal-button-group-center {
+  @apply flex justify-center space-x-4 pt-4;
+}
+
+/* Styles pour les boutons de statut */
+.status-button {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-button-active {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-button-inactive {
+  @apply bg-red-100 text-red-800;
+}
+
+.status-button-pending {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+/* Styles pour les boutons d'icône */
+.icon-button {
+  @apply inline-flex items-center justify-center p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors duration-200;
+}
+
+.icon-button-primary {
+  @apply text-blue-600 hover:text-blue-700 hover:bg-blue-50;
+}
+
+.icon-button-danger {
+  @apply text-red-600 hover:text-red-700 hover:bg-red-50;
+}
+
+.icon-button-success {
+  @apply text-green-600 hover:text-green-700 hover:bg-green-50;
+}
