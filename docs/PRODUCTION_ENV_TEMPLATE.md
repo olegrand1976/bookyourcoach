@@ -4,17 +4,17 @@
 
 ```bash
 # Configuration Sanctum (IMPORTANT pour l'authentification)
-SANCTUM_STATEFUL_DOMAINS=91.134.77.98:3000,91.134.77.98:8080,localhost:3000,127.0.0.1:3000
+SANCTUM_STATEFUL_DOMAINS=activibe.be,www.activibe.be,localhost:3000,127.0.0.1:3000
 
 # Configuration CORS
-FRONTEND_URL=http://91.134.77.98:3000
-CORS_ALLOWED_ORIGINS=http://91.134.77.98:3000,http://91.134.77.98:8080
+FRONTEND_URL=https://activibe.be
+CORS_ALLOWED_ORIGINS=https://activibe.be,https://www.activibe.be
 
 # Configuration de session (modifier)
 SESSION_DRIVER=redis
-SESSION_DOMAIN=91.134.77.98
+SESSION_DOMAIN=.activibe.be
 SESSION_PATH=/
-SESSION_SECURE=false
+SESSION_SECURE=true
 SESSION_HTTP_ONLY=true
 SESSION_SAME_SITE=lax
 
@@ -38,14 +38,14 @@ Changez `LOG_LEVEL=debug` vers `LOG_LEVEL=error` pour réduire les logs en produ
 
 1. **Test de connexion API :**
 ```bash
-curl -X POST http://91.134.77.98:8080/api/auth/login \
+curl -X POST https://activibe.be/api/auth/login \
      -H "Content-Type: application/json" \
      -d '{"email":"sophie.martin@activibe.com","password":"password"}'
 ```
 
 2. **Test du frontend :**
 ```bash
-curl -I http://91.134.77.98:3000
+curl -I https://activibe.be
 ```
 
 3. **Vérification des cookies de session :**
