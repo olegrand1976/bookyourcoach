@@ -3,9 +3,9 @@
     <!-- Hero Section -->
     <section class="relative py-20 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto text-center">
-        <h1 class="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-          🏊‍♀️ activibe
-        </h1>
+        <div class="flex justify-center mb-6">
+          <Logo size="lg" />
+        </div>
         <p class="text-xl md:text-2xl text-gray-700 mb-8 max-w-3xl mx-auto">
           Réservez vos cours d'équitation et de natation avec les meilleurs instructeurs
         </p>
@@ -69,6 +69,7 @@
 </template>
 
 <script setup>
+import Logo from '~/components/Logo.vue'
 definePageMeta({
   layout: 'minimal'
 })
