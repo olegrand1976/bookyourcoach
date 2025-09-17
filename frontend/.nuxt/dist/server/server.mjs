@@ -453,7 +453,7 @@ const _routes = [
     name: "profile",
     path: "/profile",
     meta: { "middleware": "auth" },
-    component: () => import("./_nuxt/profile--ko0HkIT.js")
+    component: () => import("./_nuxt/profile-DCsdkcK0.js")
   },
   {
     name: "register",
@@ -540,7 +540,7 @@ const _routes = [
     name: "club-students",
     path: "/club/students",
     meta: { "middleware": ["auth"] },
-    component: () => import("./_nuxt/students-DCNbmp71.js")
+    component: () => import("./_nuxt/students-Dm_eIvcI.js")
   },
   {
     name: "club-teachers",

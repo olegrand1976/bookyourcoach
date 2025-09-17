@@ -444,7 +444,31 @@ async function createClub() {
     } catch (error) {
         console.error('❌ Erreur création club:', error)
         console.error('❌ Détails erreur:', error.response?.data)
-        showToast(error.response?.data?.message || error.message || "Erreur lors de la création du club.", 'error')
+        
+        // Gestion des erreurs de validation détaillées
+        if (error.response?.status === 422 && error.response?.data?.errors) {
+            const errors = error.response.data.errors
+            let errorMessages = []
+            
+            // Collecter tous les messages d'erreur
+            for (const [field, messages] of Object.entries(errors)) {
+                if (Array.isArray(messages)) {
+                    errorMessages.push(...messages)
+                } else {
+                    errorMessages.push(messages)
+                }
+            }
+            
+            // Afficher le premier message d'erreur
+            if (errorMessages.length > 0) {
+                showToast(errorMessages[0], 'error')
+            } else {
+                showToast('Erreur de validation', 'error')
+            }
+        } else {
+            // Erreur générale
+            showToast(error.response?.data?.message || error.message || "Erreur lors de la création du club.", 'error')
+        }
     }
 }
 </script>

@@ -1,1 +1,0 @@
-import{c as n,a as t,o as a}from"./C0TLcctm.js";const r={__name:"test",setup(l){return(o,e)=>(a(),n("div",null,e[0]||(e[0]=[t("h1",null,"Test Page",-1),t("p",null,"Cette page fonctionne-t-elle ?",-1)])))}};export{r as default};
