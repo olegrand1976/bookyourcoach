@@ -57,18 +57,46 @@ class AuthControllerSimple extends Controller
             ], 422);
         }
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        // Vérifier l'environnement
+        $isLocal = app()->environment('local');
+        
+        if ($isLocal) {
+            // Mode local : authentification par session simple
+            if (!Auth::attempt($request->only('email', 'password'))) {
+                return response()->json([
+                    'message' => 'Invalid credentials'
+                ], 401);
+            }
+
+            $user = Auth::user();
+            
+            // Créer un token pour l'API locale
+            $token = $user->createToken('local-api-token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Login successful',
+                'user' => $user,
+                'token' => $token
+            ], 200);
+        } else {
+            // Mode production : authentification Sanctum SPA
+            if (Auth::attempt($request->only('email', 'password'))) {
+                $user = Auth::user();
+                
+                // Créer un token pour l'API
+                $token = $user->createToken('api-token')->plainTextToken;
+
+                return response()->json([
+                    'message' => 'Login successful',
+                    'user' => $user,
+                    'token' => $token
+                ], 200);
+            }
+
             return response()->json([
                 'message' => 'Invalid credentials'
             ], 401);
         }
-
-        $user = Auth::user();
-
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-        ], 200);
     }
 
     public function logout(Request $request): JsonResponse
@@ -85,6 +113,9 @@ class AuthControllerSimple extends Controller
         if ($personalAccessToken) {
             $personalAccessToken->delete();
         }
+
+        // Déconnecter de la session aussi
+        Auth::logout();
 
         return response()->json([
             'message' => 'Logout successful'
