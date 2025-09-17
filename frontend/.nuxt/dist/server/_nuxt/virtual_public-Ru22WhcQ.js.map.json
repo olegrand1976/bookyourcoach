@@ -1,1 +1,0 @@
-{"file":"virtual_public-Ru22WhcQ.js","mappings":";AAAuD,MAAA,aAAe,gBAAgB,2BAA2B;","names":[],"sources":["../../../../virtual:public?%2Fimages%2Flogo-activibe.svg"],"sourcesContent":["import { publicAssetsURL } from '#internal/nuxt/paths';export default publicAssetsURL(\"/images/logo-activibe.svg\")"],"version":3}
