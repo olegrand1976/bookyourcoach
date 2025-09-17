@@ -1,15 +1,21 @@
 import { ref, readonly } from 'vue'
+import { useNuxtApp } from 'nuxt/app'
 
 /**
  * Composable pour la gestion des paramètres système
  */
 export const useSettings = () => {
+    type ApiClient = {
+        get: (url: string, config?: unknown) => Promise<any>
+        put: (url: string, data?: unknown, config?: unknown) => Promise<any>
+    }
     // État réactif pour les paramètres
     const settings = ref({
         platform_name: 'activibe',
         contact_email: 'contact@activibe.fr',
         contact_phone: '+32 2 123 45 67',
         company_address: 'Rue de l\'Équitation 123\n1000 Bruxelles\nBelgique',
+        company_country: 'Belgium',
         timezone: 'Europe/Brussels',
         logo_url: '/logo-activibe.svg',
         favicon_url: '/favicon.ico'
@@ -18,7 +24,7 @@ export const useSettings = () => {
     // Charger les paramètres depuis l'API
     const loadSettings = async () => {
         try {
-            const { $api } = useNuxtApp()
+            const { $api } = useNuxtApp() as unknown as { $api: ApiClient }
             const response = await $api.get('/admin/settings/general')
 
             if (response.data) {
@@ -33,7 +39,7 @@ export const useSettings = () => {
     // Sauvegarder les paramètres
     const saveSettings = async (newSettings: Partial<typeof settings.value>) => {
         try {
-            const { $api } = useNuxtApp()
+            const { $api } = useNuxtApp() as unknown as { $api: ApiClient }
             const response = await $api.put('/admin/settings/general', newSettings)
 
             if (response.data?.message) {
