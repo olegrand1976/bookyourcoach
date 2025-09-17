@@ -11,7 +11,7 @@
                         </h1>
                         <p class="mt-2 text-gray-600">Gérez tous les utilisateurs de la plateforme</p>
                     </div>
-                    <button @click="showCreateModal = true" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center">
+                    <button @click="showCreateModal = true" class="btn-primary btn-lg flex items-center">
                         <span class="mr-2">➕</span>
                         Nouvel utilisateur
                     </button>
@@ -47,7 +47,7 @@
                         <input v-model="filters.postal_code" type="text" placeholder="Ex: 1000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div class="flex items-end">
-                        <button @click="loadUsers" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 w-full">
+                        <button @click="loadUsers" class="btn-secondary btn-full">
                             Filtrer
                         </button>
                     </div>
@@ -136,11 +136,11 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex space-x-2">
-                                        <button @click="editUser(user)" class="text-indigo-600 hover:text-indigo-900">
+                                        <button @click="editUser(user)" class="table-action-btn table-action-btn-edit">
                                             Modifier
                                         </button>
                                         <button @click="toggleUserStatus(user)"
-                                            :class="user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'">
+                                            :class="user.is_active ? 'table-action-btn table-action-btn-delete' : 'table-action-btn table-action-btn-view'">
                                             {{ user.is_active ? 'Désactiver' : 'Activer' }}
                                         </button>
                                     </div>
@@ -271,9 +271,9 @@
                             <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe *</label>
                             <input v-model="userForm.password_confirmation" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                         </div>
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" @click="closeModal" class="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700">Annuler</button>
-                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+                        <div class="form-button-group">
+                            <button type="button" @click="closeModal" class="btn-secondary">Annuler</button>
+                            <button type="submit" class="btn-primary">
                                 {{ showEditModal ? 'Modifier' : 'Créer' }}
                             </button>
                         </div>

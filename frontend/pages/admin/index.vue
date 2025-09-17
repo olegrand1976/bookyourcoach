@@ -212,9 +212,9 @@
               </div>
             </div>
             
-            <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-              <button type="button" @click="showCreateUserModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Annuler</button>
-              <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">Créer l'utilisateur</button>
+            <div class="form-button-group">
+              <button type="button" @click="showCreateUserModal = false" class="btn-secondary">Annuler</button>
+              <button type="submit" class="btn-primary">Créer l'utilisateur</button>
             </div>
           </form>
         </div>
@@ -238,13 +238,33 @@
             <label class="block text-sm font-medium text-gray-700">Téléphone</label>
             <input v-model="newClub.phone" type="tel" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Adresse</label>
-            <textarea v-model="newClub.address" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" rows="3"></textarea>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Rue</label>
+              <input v-model="newClub.street" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Numéro</label>
+              <input v-model="newClub.street_number" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+            </div>
           </div>
-          <div class="flex justify-end space-x-4 pt-4">
-            <button type="button" @click="showCreateClubModal = false" class="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg">Annuler</button>
-            <button type="submit" class="px-6 py-2 text-white bg-blue-600 rounded-lg">Créer</button>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Code postal</label>
+              <input v-model="newClub.postal_code" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Ville</label>
+              <input v-model="newClub.city" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Pays</label>
+              <input v-model="newClub.country" type="text" class="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg" value="France">
+            </div>
+          </div>
+          <div class="modal-button-group">
+            <button type="button" @click="showCreateClubModal = false" class="btn-secondary">Annuler</button>
+            <button type="submit" class="btn-primary">Créer</button>
           </div>
         </form>
       </div>
@@ -294,7 +314,18 @@ const newUser = ref({
     password: '', 
     password_confirmation: '' 
 })
-const newClub = ref({ name: '', email: '', phone: '', address: '' })
+const newClub = ref({ 
+    name: '', 
+    email: '', 
+    phone: '', 
+    street: '', 
+    street_number: '', 
+    postal_code: '', 
+    city: '', 
+    country: 'France',
+    description: '',
+    website: ''
+})
 
 // Fetch data
 onMounted(async () => {
@@ -378,7 +409,18 @@ async function createClub() {
         showToast('Club créé avec succès', 'success')
         showCreateClubModal.value = false
         // Reset form
-        newClub.value = { name: '', email: '', phone: '', address: '' }
+        newClub.value = { 
+            name: '', 
+            email: '', 
+            phone: '', 
+            street: '', 
+            street_number: '', 
+            postal_code: '', 
+            city: '', 
+            country: 'France',
+            description: '',
+            website: ''
+        }
         // Re-fetch stats
         const response = await $api.get('/admin/stats')
         if (response.data.stats) {

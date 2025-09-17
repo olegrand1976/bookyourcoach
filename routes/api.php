@@ -874,6 +874,60 @@ Route::prefix('admin')->group(function () {
             ]);
         });
         
+        // Route pour créer un nouveau club
+        Route::post('/clubs', function(Request $request) {
+            $token = request()->header('Authorization');
+            
+            if (!$token || !str_starts_with($token, 'Bearer ')) {
+                return response()->json(['message' => 'Missing token'], 401);
+            }
+            
+            $token = substr($token, 7);
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            
+            if (!$personalAccessToken) {
+                return response()->json(['message' => 'Invalid token'], 401);
+            }
+            
+            $user = $personalAccessToken->tokenable;
+            
+            if (!$user || $user->role !== 'admin') {
+                return response()->json(['message' => 'Access denied - Admin rights required'], 403);
+            }
+            
+            // Validation des données
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:clubs',
+                'phone' => 'nullable|string|max:20',
+                'address' => 'nullable|string|max:500',
+                'city' => 'nullable|string|max:100',
+                'postal_code' => 'nullable|string|max:10',
+                'country' => 'nullable|string|max:100',
+                'description' => 'nullable|string',
+                'website' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $club = App\Models\Club::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'city' => $request->city,
+                'postal_code' => $request->postal_code,
+                'country' => $request->country ?? 'France',
+                'description' => $request->description,
+                'website' => $request->website,
+                'is_active' => true,
+            ]);
+
+            return response()->json($club, 201);
+        });
+        
         Route::patch('/users/{id}/role', function($id) {
             $token = request()->header('Authorization');
             

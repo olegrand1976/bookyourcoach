@@ -64,6 +64,7 @@ jobs:
     - name: 📝 Génération des fichiers de configuration
       run: |
         echo "🔧 Création du fichier docker-compose.yml (version simplifiée)..."
+        echo "⚠️  ATTENTION: La configuration serveur est maintenant stable - pas de modification des fichiers"
         cat > docker-compose.yml << 'EOF'
         version: "3.8"
 
@@ -97,7 +98,9 @@ jobs:
               # Frontend accessible sur le port 3000
               - "3000:3000"
             environment:
-              - NUXT_PUBLIC_API_BASE=http://activibe-backend:80/api
+              # Configuration pour le navigateur (utilise le reverse proxy externe pour éviter Mixed Block)
+              - NUXT_PUBLIC_API_BASE=https://activibe.be/api
+              # Configuration côté serveur pour Docker (communication interne)
               - NUXT_API_BASE=http://activibe-backend:80/api
               - NITRO_HOST=0.0.0.0
               - NITRO_PORT=3000
@@ -394,21 +397,13 @@ jobs:
         # Création du répertoire de déploiement
         ssh production-server "mkdir -p /srv/activibe && cd /srv/activibe"
         
-        # Copie des fichiers de configuration
-        echo "📁 Copie des fichiers de configuration..."
-        scp docker-compose.yml production-server:/srv/activibe/
-        scp update-env.sh production-server:/srv/activibe/
-        scp auto-deploy.sh production-server:/srv/activibe/
+        # Déploiement simplifié - configuration serveur stable
+        echo "📁 Configuration serveur stable - déploiement des images uniquement..."
+        echo "⚠️  ATTENTION: Les fichiers de configuration ne sont plus modifiés sur le serveur"
         
-        # Copie des scripts de déploiement pour reverse proxy
-        echo "📁 Copie des scripts de déploiement reverse proxy..."
-        scp deploy_production_server.sh production-server:/srv/activibe/
-        scp test_production_containers.sh production-server:/srv/activibe/
-        scp DEPLOYMENT-PRODUCTION-SERVER.md production-server:/srv/activibe/
-        
-        # Exécution du script de déploiement avec reverse proxy
-        echo "🎯 Exécution du déploiement automatique avec reverse proxy..."
-        ssh production-server "cd /srv/activibe && chmod +x auto-deploy.sh && chmod +x update-env.sh && chmod +x deploy_production_server.sh && chmod +x test_production_containers.sh && ./auto-deploy.sh '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}' '$APP_KEY'"
+        # Pull et redémarrage des conteneurs uniquement
+        echo "🎯 Pull des nouvelles images et redémarrage des conteneurs..."
+        ssh production-server "cd /srv/activibe && docker compose pull && docker compose up -d"
 
     - name: 🧪 Tests post-déploiement avec Reverse Proxy
       run: |

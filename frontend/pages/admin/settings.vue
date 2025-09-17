@@ -27,12 +27,35 @@
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-gray-700 mb-1">Adresse de la société</label>
-                            <textarea v-model="settings.company_address" class="input-field" rows="3"></textarea>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Rue</label>
+                                    <input v-model="settings.company_street" class="input-field" placeholder="Nom de la rue">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Numéro</label>
+                                    <input v-model="settings.company_street_number" class="input-field" placeholder="Numéro">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Code postal</label>
+                                    <input v-model="settings.company_postal_code" class="input-field" placeholder="Code postal">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Ville</label>
+                                    <input v-model="settings.company_city" class="input-field" placeholder="Ville">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">Pays</label>
+                                    <input v-model="settings.company_country" class="input-field" placeholder="Pays" value="France">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
 
-                    <div class="mt-6 flex justify-end">
+                    <div class="form-button-group">
                         <button type="submit" class="btn-primary" :disabled="loading">
                             {{ loading ? 'Sauvegarde...' : 'Sauvegarder' }}
                         </button>
