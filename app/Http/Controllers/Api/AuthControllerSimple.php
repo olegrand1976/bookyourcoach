@@ -83,13 +83,9 @@ class AuthControllerSimple extends Controller
             if (Auth::guard('web')->attempt($request->only('email', 'password'))) {
                 $user = Auth::user();
                 
-                // Créer un token pour l'API
-                $token = $user->createToken('api-token')->plainTextToken;
-
                 return response()->json([
                     'message' => 'Login successful',
-                    'user' => $user,
-                    'token' => $token
+                    'user' => $user
                 ], 200);
             }
 

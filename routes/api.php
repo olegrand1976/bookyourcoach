@@ -20,7 +20,7 @@ Route::get('/activity-types', function() {
 // Authentification
 Route::post('/auth/register', [AuthControllerSimple::class, 'register']);
 Route::post('/auth/login', [AuthControllerSimple::class, 'login']);
-Route::get('/auth/user-test', [AuthControllerSimple::class, 'userTest']);
+//Route::get('/auth/user-test', [AuthControllerSimple::class, 'userTest']);
 
 // Route user en dehors du groupe pour éviter les middlewares
 Route::get('/auth/user', [AuthControllerSimple::class, 'user']);
