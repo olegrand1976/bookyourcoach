@@ -412,9 +412,13 @@ jobs:
         # Création du répertoire de déploiement
         ssh production-server "mkdir -p /srv/activibe && cd /srv/activibe"
         
-        # Déploiement simplifié - configuration serveur stable
-        echo "📁 Configuration serveur stable - déploiement des images uniquement..."
-        echo "⚠️  ATTENTION: Les fichiers de configuration ne sont plus modifiés sur le serveur"
+        # Déploiement avec mise à jour du docker-compose.yml
+        echo "📁 Mise à jour du docker-compose.yml et déploiement des images..."
+        echo "✅ Le docker-compose.yml sera mis à jour avec les volumes nécessaires"
+        
+        # Copie du docker-compose.yml avec les volumes
+        echo "📋 Copie du docker-compose.yml avec les volumes nécessaires..."
+        scp docker-compose.yml production-server:/srv/activibe/docker-compose.yml
         
         # Pull intelligent et redémarrage des conteneurs
         echo "🎯 Pull intelligent des nouvelles images et redémarrage des conteneurs..."
