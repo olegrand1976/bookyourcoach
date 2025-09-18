@@ -11,6 +11,7 @@ services:
     ports:
       # API Backend accessible en interne et externe
       - "8080:80"
+      - "8001:8000"  # Serveur PHP intégré pour développement local
     volumes:
       - app_storage:/var/www/storage
       - app_bootstrap_cache:/var/www/bootstrap/cache
@@ -30,9 +31,9 @@ services:
       # Frontend accessible sur le port 3000
       - "3000:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=https://activibe.be/api
-      - NUXT_API_BASE=https://activibe.be/api
-      - FRONTEND_URL=https://activibe.be
+      - NUXT_PUBLIC_API_BASE=${FRONTEND_API_BASE:-http://localhost:8001/api}
+      - NUXT_API_BASE=${FRONTEND_API_BASE:-http://localhost:8001/api}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
     depends_on:

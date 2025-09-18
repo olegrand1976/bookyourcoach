@@ -15,7 +15,11 @@ RUN apk add --no-cache \
     libpng-dev \
     libzip-dev \
     icu-dev \
-    oniguruma-dev
+    oniguruma-dev \
+    autoconf \
+    gcc \
+    g++ \
+    make
 
 # Installer les extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -28,6 +32,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         gd \
         intl \
         bcmath
+
+# Installer l'extension phpredis
+RUN pecl install redis \
+    && docker-php-ext-enable redis
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
