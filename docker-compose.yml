@@ -17,6 +17,8 @@ services:
       - app_bootstrap_cache:/var/www/bootstrap/cache
       - ./cert.pem:/var/www/html/cert.pem:ro
       - ./.env.local:/var/www/html/.env:ro
+      - ./app:/var/www/html/app:ro
+      - ./config:/var/www/html/config:ro
     depends_on:
       - neo4j
     networks:
