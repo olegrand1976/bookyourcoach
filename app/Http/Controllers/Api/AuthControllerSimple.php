@@ -60,39 +60,23 @@ class AuthControllerSimple extends Controller
         // Vérifier l'environnement
         $isLocal = app()->environment('local');
         
-        if ($isLocal) {
-            // Mode local : authentification par session simple
-            if (!Auth::guard('web')->attempt($request->only('email', 'password'))) {
-                return response()->json([
-                    'message' => 'Invalid credentials'
-                ], 401);
-            }
-
+        // Authentification simple sans guard spécifique
+        if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
             
-            // Créer un token pour l'API locale
-            $token = $user->createToken('local-api-token')->plainTextToken;
+            // Créer un token Sanctum
+            $token = $user->createToken('api-token')->plainTextToken;
 
             return response()->json([
                 'message' => 'Login successful',
                 'user' => $user,
                 'token' => $token
             ], 200);
-        } else {
-            // Mode production : authentification Sanctum SPA
-            if (Auth::guard('web')->attempt($request->only('email', 'password'))) {
-                $user = Auth::user();
-                
-                return response()->json([
-                    'message' => 'Login successful',
-                    'user' => $user
-                ], 200);
-            }
-
-            return response()->json([
-                'message' => 'Invalid credentials'
-            ], 401);
         }
+
+        return response()->json([
+            'message' => 'Invalid credentials'
+        ], 401);
     }
 
     public function logout(Request $request): JsonResponse
