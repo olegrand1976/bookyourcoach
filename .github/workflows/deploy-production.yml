@@ -416,9 +416,9 @@ jobs:
         echo "📁 Configuration serveur stable - déploiement des images uniquement..."
         echo "⚠️  ATTENTION: Les fichiers de configuration ne sont plus modifiés sur le serveur"
         
-        # Pull et redémarrage des conteneurs uniquement
-        echo "🎯 Pull des nouvelles images et redémarrage des conteneurs..."
-        ssh production-server "cd /srv/activibe && docker compose pull && docker compose up -d"
+        # Pull intelligent et redémarrage des conteneurs
+        echo "🎯 Pull intelligent des nouvelles images et redémarrage des conteneurs..."
+        ssh production-server "cd /srv/activibe && docker compose down && docker compose pull && docker compose up -d"
 
     - name: 🧪 Tests post-déploiement avec Reverse Proxy
       run: |
