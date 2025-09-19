@@ -6,7 +6,7 @@
         <div class="flex justify-between h-20">
           <div class="flex items-center">
             <NuxtLink to="/admin" class="flex items-center space-x-3 text-xl font-bold text-gray-900">
-              <img src="/images/logo-activibe.svg" alt="Acti'Vibe" class="h-12 w-auto" />
+              <img src="/logo-activibe.svg" alt="Acti'Vibe" class="h-12 w-auto" />
               <span class="bg-red-100 text-red-700 text-sm font-semibold px-2.5 py-1 rounded-full">Admin</span>
             </NuxtLink>
           </div>
