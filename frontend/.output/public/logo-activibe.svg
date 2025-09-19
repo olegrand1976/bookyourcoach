@@ -1,0 +1,37 @@
+<svg width="200" height="80" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="80" fill="white"/>
+  
+  <!-- Dynamic graphic above the text -->
+  <g transform="translate(20, 15)">
+    <!-- Flowing blue lines/waves -->
+    <path d="M0,10 Q15,5 30,10 T60,10" stroke="#4A90E2" stroke-width="3" fill="none" opacity="0.8"/>
+    <path d="M5,15 Q20,8 35,15 T65,15" stroke="#4A90E2" stroke-width="2" fill="none" opacity="0.6"/>
+    <path d="M10,20 Q25,12 40,20 T70,20" stroke="#4A90E2" stroke-width="2.5" fill="none" opacity="0.7"/>
+    
+    <!-- Abstract figure (swimmer/motion) -->
+    <circle cx="25" cy="12" r="3" fill="#4A90E2"/>
+    <path d="M22,12 Q25,8 28,12" stroke="#4A90E2" stroke-width="2" fill="none"/>
+    <path d="M20,15 Q25,18 30,15" stroke="#4A90E2" stroke-width="1.5" fill="none"/>
+    
+    <!-- Yellow dots/splashes -->
+    <circle cx="15" cy="8" r="1.5" fill="#FFD700"/>
+    <circle cx="45" cy="6" r="1" fill="#FFD700"/>
+    <circle cx="35" cy="18" r="1.2" fill="#FFD700"/>
+    <circle cx="55" cy="12" r="0.8" fill="#FFD700"/>
+    <circle cx="25" cy="22" r="1" fill="#FFD700"/>
+  </g>
+  
+  <!-- Brand name "activibe" -->
+  <text x="20" y="50" font-family="Arial, sans-serif" font-size="24" font-weight="bold">
+    <tspan fill="#2C5AA0">acti</tspan><tspan fill="#4A90E2">vibe</tspan>
+  </text>
+  
+  <!-- Dot above 'i' in lighter blue -->
+  <circle cx="32" cy="35" r="2" fill="#4A90E2"/>
+  
+  <!-- Tagline -->
+  <text x="20" y="70" font-family="Arial, sans-serif" font-size="12" fill="#FFD700" font-style="italic">
+    Ton énergie, ton rythme, ta vibe !
+  </text>
+</svg>
