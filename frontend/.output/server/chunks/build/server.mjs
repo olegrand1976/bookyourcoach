@@ -503,7 +503,7 @@ const _routes = [
     name: "profile",
     path: "/profile",
     meta: { "middleware": "auth" },
-    component: () => import('./profile-DpA2zYR-.mjs')
+    component: () => import('./profile-CKXhMTjf.mjs')
   },
   {
     name: "register",
@@ -595,7 +595,7 @@ const _routes = [
     name: "club-students",
     path: "/club/students",
     meta: { "middleware": ["auth"] },
-    component: () => import('./students-Dm_eIvcI.mjs')
+    component: () => import('./students-BAH1TAF0.mjs')
   },
   {
     name: "club-teachers",
@@ -655,6 +655,24 @@ const _routes = [
     path: "/student/bookings",
     meta: { ...__nuxt_page_meta$3 || {}, ...{ "middleware": ["auth", "student"] } },
     component: () => import('./bookings-Bvy6qGWj.mjs')
+  },
+  {
+    name: "teacher-earnings",
+    path: "/teacher/earnings",
+    meta: { "middleware": ["auth"] },
+    component: () => import('./earnings-vHS4vap_.mjs')
+  },
+  {
+    name: "teacher-schedule",
+    path: "/teacher/schedule",
+    meta: { "middleware": ["auth"] },
+    component: () => import('./schedule-UxBLhqHp.mjs')
+  },
+  {
+    name: "teacher-students",
+    path: "/teacher/students",
+    meta: { "middleware": ["auth"] },
+    component: () => import('./students-BwMO4Wtt.mjs')
   },
   {
     name: "student-dashboard",
@@ -1619,6 +1637,22 @@ const useAuthStore = /* @__PURE__ */ defineStore("auth", {
     isAdmin: (state) => {
       var _a;
       return ((_a = state.user) == null ? void 0 : _a.role) === "admin";
+    },
+    isTeacher: (state) => {
+      var _a;
+      return ((_a = state.user) == null ? void 0 : _a.role) === "teacher";
+    },
+    isStudent: (state) => {
+      var _a;
+      return ((_a = state.user) == null ? void 0 : _a.role) === "student";
+    },
+    isClub: (state) => {
+      var _a;
+      return ((_a = state.user) == null ? void 0 : _a.role) === "club";
+    },
+    userName: (state) => {
+      var _a, _b;
+      return ((_a = state.user) == null ? void 0 : _a.name) || ((_b = state.user) == null ? void 0 : _b.first_name) || "Utilisateur";
     }
   },
   actions: {
@@ -1648,6 +1682,7 @@ const useAuthStore = /* @__PURE__ */ defineStore("auth", {
         });
         tokenCookie.value = this.token;
         console.log("🔑 [LOGIN] Token stocké dans cookie");
+        if (false) ;
         return response;
       } catch (error) {
         console.error("🔑 [LOGIN] Erreur de connexion:", error);
@@ -1737,7 +1772,7 @@ const plugins = [
 ];
 const layouts = {
   admin: defineAsyncComponent(() => import('./admin-DxevGnX9.mjs').then((m) => m.default || m)),
-  default: defineAsyncComponent(() => import('./default-THbuJuld.mjs').then((m) => m.default || m)),
+  default: defineAsyncComponent(() => import('./default-CNfPsqWg.mjs').then((m) => m.default || m)),
   minimal: defineAsyncComponent(() => import('./minimal-cfHQtHy8.mjs').then((m) => m.default || m)),
   student: defineAsyncComponent(() => import('./student-nP7acbYI.mjs').then((m) => m.default || m))
 };
