@@ -99,11 +99,6 @@ export default defineNuxtConfig({
     },
 
     vite: {
-        build: {
-            rollupOptions: {
-                external: []
-            }
-        },
         server: {
             hmr: {
                 protocol: 'ws',
