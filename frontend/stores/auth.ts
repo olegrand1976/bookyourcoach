@@ -11,7 +11,11 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     canActAsTeacher: (state) => state.user?.role === 'teacher' || state.user?.role === 'admin',
     canActAsStudent: (state) => state.user?.role === 'student' || state.user?.role === 'admin',
-    isAdmin: (state) => state.user?.role === 'admin'
+    isAdmin: (state) => state.user?.role === 'admin',
+    isTeacher: (state) => state.user?.role === 'teacher',
+    isStudent: (state) => state.user?.role === 'student',
+    isClub: (state) => state.user?.role === 'club',
+    userName: (state) => state.user?.name || state.user?.first_name || 'Utilisateur'
   },
 
   actions: {
@@ -46,6 +50,13 @@ export const useAuthStore = defineStore('auth', {
         })
         tokenCookie.value = this.token
         console.log('🔑 [LOGIN] Token stocké dans cookie')
+
+        // Sauvegarder les données utilisateur localement
+        if (process.client) {
+          const userDataToSave = JSON.stringify(this.user)
+          localStorage.setItem('user-data', userDataToSave)
+          console.log('�� [LOGIN] Données sauvées en localStorage')
+        }
 
         return response
       } catch (error) {

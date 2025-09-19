@@ -203,6 +203,7 @@ const loadProfileData = async () => {
                 console.log('User fetched from API:', response.data)
             } catch (error) {
                 console.error('Erreur lors de la récupération de l\'utilisateur:', error)
+                // Ne pas afficher d'erreur toast ici, juste retourner
                 return
             }
         } else {
@@ -251,7 +252,8 @@ const loadProfileData = async () => {
         }
     } catch (error) {
         console.error('Erreur lors du chargement du profil:', error)
-        toast.error('Erreur lors du chargement du profil')
+        // Ne pas afficher d'erreur toast pour éviter les messages répétitifs
+        // toast.error('Erreur lors du chargement du profil')
     }
 }
 
