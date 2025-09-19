@@ -159,8 +159,8 @@
             <!-- Adresse -->
             <div>
               <label class="block text-sm font-medium text-gray-700">Adresse</label>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
                   <label class="block text-xs text-gray-500 mb-1">Rue</label>
                   <input v-model="newUser.street" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nom de la rue">
                 </div>
@@ -212,9 +212,9 @@
               </div>
             </div>
             
-            <div class="form-button-group">
+            <div class="form-button-group mt-6">
               <button type="button" @click="showCreateUserModal = false" class="btn-secondary">Annuler</button>
-              <button type="submit" class="btn-primary">Créer l'utilisateur</button>
+              <button type="submit" class="btn-primary">Créer</button>
             </div>
           </form>
         </div>
