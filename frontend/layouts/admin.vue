@@ -93,6 +93,40 @@ onUnmounted(() => {
 })
 
 const logout = async () => {
-  await authStore.logout()
+  console.log('🚪 [ADMIN LAYOUT] Début de la déconnexion')
+  
+  // Fermer le menu utilisateur
+  userMenuOpen.value = false
+  
+  try {
+    // Appeler la déconnexion du store
+    await authStore.logout()
+    console.log('🚪 [ADMIN LAYOUT] Store logout terminé')
+    
+    // Attendre un peu pour que les changements se propagent
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Forcer la redirection
+    await navigateTo('/login')
+    console.log('🚪 [ADMIN LAYOUT] Redirection vers /login')
+    
+  } catch (error) {
+    console.error(' [ADMIN LAYOUT] Erreur lors de la déconnexion:', error)
+    
+    // Nettoyage manuel en cas d'erreur
+    authStore.user = null
+    authStore.token = null
+    authStore.isAuthenticated = false
+    
+    const tokenCookie = useCookie('auth-token')
+    tokenCookie.value = null
+    
+    if (process.client) {
+      localStorage.removeItem('user-data')
+    }
+    
+    // Redirection forcée vers la page de connexion
+    window.location.href = '/login'
+  }
 }
 </script>
