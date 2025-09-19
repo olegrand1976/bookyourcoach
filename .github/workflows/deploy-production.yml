@@ -368,7 +368,7 @@ jobs:
         echo 'echo "Deploiement termine !"' >> deploy_production_server.sh
         
         echo '#!/bin/bash' > test_production_containers.sh
-        echo 'echo "�� Script de test des conteneurs en production"' >> test_production_containers.sh
+        echo 'echo "🧪 Script de test des conteneurs en production"' >> test_production_containers.sh
         echo 'echo "=============================================="' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
         echo '# Fonction de log' >> test_production_containers.sh
@@ -386,7 +386,7 @@ jobs:
         echo '}' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
         echo '# Test des conteneurs' >> test_production_containers.sh
-        echo 'log_info "Vérification de l\'état des conteneurs..."' >> test_production_containers.sh
+        echo 'log_info "Vérification de l'\''état des conteneurs..."' >> test_production_containers.sh
         echo 'docker compose ps' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
         echo '# Test de connectivité' >> test_production_containers.sh
@@ -407,17 +407,17 @@ jobs:
         echo 'fi' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
         echo '# Neo4j' >> test_production_containers.sh
-        echo 'if curl -f -H \'Accept: application/json\' http://localhost:7474 >/dev/null 2>&1; then' >> test_production_containers.sh
+        echo 'if curl -f -H '\''Accept: application/json'\'' http://localhost:7474 >/dev/null 2>&1; then' >> test_production_containers.sh
         echo '    log_success "Neo4j accessible"' >> test_production_containers.sh
         echo 'else' >> test_production_containers.sh
         echo '    log_warning "Neo4j non accessible"' >> test_production_containers.sh
         echo 'fi' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
-        echo '# Test de l\'API Laravel' >> test_production_containers.sh
-        echo 'log_info "Test de l\'API Laravel..."' >> test_production_containers.sh
+        echo '# Test de l'\''API Laravel' >> test_production_containers.sh
+        echo 'log_info "Test de l'\''API Laravel..."' >> test_production_containers.sh
         echo 'if curl -s -X POST http://localhost:8080/api/auth/login \\' >> test_production_containers.sh
         echo '    -H "Content-Type: application/json" \\' >> test_production_containers.sh
-        echo '    -d \'{"email":"test@test.com","password":"test"}\' | grep -q "Invalid credentials"; then' >> test_production_containers.sh
+        echo '    -d '\''{"email":"test@test.com","password":"test"}'\'' | grep -q "Invalid credentials"; then' >> test_production_containers.sh
         echo '    log_success "API Laravel fonctionnelle"' >> test_production_containers.sh
         echo 'else' >> test_production_containers.sh
         echo '    log_warning "API Laravel non fonctionnelle"' >> test_production_containers.sh
@@ -427,7 +427,7 @@ jobs:
         echo 'log_info "Vérification des volumes Docker..."' >> test_production_containers.sh
         echo 'docker volume ls | grep activibe' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
-        echo 'echo " Tests terminés"' >> test_production_containers.sh
+        echo 'echo "🧪 Tests terminés"' >> test_production_containers.sh
         echo '' >> test_production_containers.sh
         echo 'echo "Deploiement termine !"' >> test_production_containers.sh
         
