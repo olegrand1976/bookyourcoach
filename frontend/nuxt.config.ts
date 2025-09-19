@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     ],
 
     css: [
+        '~/assets/css/main.css',
         '~/assets/css/buttons.css'
     ],
 
@@ -57,8 +58,6 @@ export default defineNuxtConfig({
         apiBase: process.env.NUXT_API_BASE || (process.env.NODE_ENV === 'production' ? 'http://activibe-backend:80/api' : 'http://localhost:8080/api')
     },
 
-    css: ['~/assets/css/main.css'],
-
     tailwindcss: {
         config: {
             theme: {
@@ -100,6 +99,11 @@ export default defineNuxtConfig({
     },
 
     vite: {
+        build: {
+            rollupOptions: {
+                external: []
+            }
+        },
         server: {
             hmr: {
                 protocol: 'ws',

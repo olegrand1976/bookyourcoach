@@ -35,7 +35,6 @@
         "cytoscape-cose-bilkent": "^4.1.0",
         "cytoscape-dagre": "^2.5.0",
         "cytoscape-popper": "^4.0.1",
-        "pinia": "^2.1.7",
-        "vue-toastification": "^2.0.0-rc.5"
+        "pinia": "^2.1.7"
     }
 }
