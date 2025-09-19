@@ -368,17 +368,68 @@ jobs:
         echo 'echo "Deploiement termine !"' >> deploy_production_server.sh
         
         echo '#!/bin/bash' > test_production_containers.sh
-        echo 'echo "Test des Conteneurs en Production"' >> test_production_containers.sh
-        echo 'docker ps | grep activibe' >> test_production_containers.sh
-        echo 'curl -f http://localhost:3000 >/dev/null 2>&1 && echo "Frontend OK" || echo "Frontend KO"' >> test_production_containers.sh
-        echo 'echo "Test API avec diagnostic..."' >> test_production_containers.sh
-        echo 'curl -v http://localhost:8080/api/auth/login 2>&1 | head -10' >> test_production_containers.sh
-        echo 'curl -f http://localhost:8080/api/auth/login >/dev/null 2>&1 && echo "API OK" || echo "API KO"' >> test_production_containers.sh
-        echo 'echo "Test API directe..."' >> test_production_containers.sh
-        echo 'curl -f http://localhost:8080 >/dev/null 2>&1 && echo "Backend OK" || echo "Backend KO"' >> test_production_containers.sh
-        echo 'echo "Logs backend (dernieres 5 lignes):"' >> test_production_containers.sh
-        echo 'docker logs --tail=5 activibe-backend 2>/dev/null || echo "Pas de logs backend"' >> test_production_containers.sh
-        echo 'echo "Tests termines !"' >> test_production_containers.sh
+        echo 'echo "�� Script de test des conteneurs en production"' >> test_production_containers.sh
+        echo 'echo "=============================================="' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Fonction de log' >> test_production_containers.sh
+        echo 'log_info() {' >> test_production_containers.sh
+        echo '    echo "ℹ️  $1"' >> test_production_containers.sh
+        echo '}' >> test_production_containers.sh
+        echo 'log_success() {' >> test_production_containers.sh
+        echo '    echo "✅ $1"' >> test_production_containers.sh
+        echo '}' >> test_production_containers.sh
+        echo 'log_warning() {' >> test_production_containers.sh
+        echo '    echo "⚠️  $1"' >> test_production_containers.sh
+        echo '}' >> test_production_containers.sh
+        echo 'log_error() {' >> test_production_containers.sh
+        echo '    echo "❌ $1"' >> test_production_containers.sh
+        echo '}' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Test des conteneurs' >> test_production_containers.sh
+        echo 'log_info "Vérification de l\'état des conteneurs..."' >> test_production_containers.sh
+        echo 'docker compose ps' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Test de connectivité' >> test_production_containers.sh
+        echo 'log_info "Tests de connectivité..."' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Frontend' >> test_production_containers.sh
+        echo 'if curl -f http://localhost:3000 >/dev/null 2>&1; then' >> test_production_containers.sh
+        echo '    log_success "Frontend accessible"' >> test_production_containers.sh
+        echo 'else' >> test_production_containers.sh
+        echo '    log_warning "Frontend non accessible"' >> test_production_containers.sh
+        echo 'fi' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Backend' >> test_production_containers.sh
+        echo 'if curl -f http://localhost:8080 >/dev/null 2>&1; then' >> test_production_containers.sh
+        echo '    log_success "Backend accessible"' >> test_production_containers.sh
+        echo 'else' >> test_production_containers.sh
+        echo '    log_warning "Backend non accessible"' >> test_production_containers.sh
+        echo 'fi' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Neo4j' >> test_production_containers.sh
+        echo 'if curl -f -H \'Accept: application/json\' http://localhost:7474 >/dev/null 2>&1; then' >> test_production_containers.sh
+        echo '    log_success "Neo4j accessible"' >> test_production_containers.sh
+        echo 'else' >> test_production_containers.sh
+        echo '    log_warning "Neo4j non accessible"' >> test_production_containers.sh
+        echo 'fi' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Test de l\'API Laravel' >> test_production_containers.sh
+        echo 'log_info "Test de l\'API Laravel..."' >> test_production_containers.sh
+        echo 'if curl -s -X POST http://localhost:8080/api/auth/login \\' >> test_production_containers.sh
+        echo '    -H "Content-Type: application/json" \\' >> test_production_containers.sh
+        echo '    -d \'{"email":"test@test.com","password":"test"}\' | grep -q "Invalid credentials"; then' >> test_production_containers.sh
+        echo '    log_success "API Laravel fonctionnelle"' >> test_production_containers.sh
+        echo 'else' >> test_production_containers.sh
+        echo '    log_warning "API Laravel non fonctionnelle"' >> test_production_containers.sh
+        echo 'fi' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo '# Vérification des volumes' >> test_production_containers.sh
+        echo 'log_info "Vérification des volumes Docker..."' >> test_production_containers.sh
+        echo 'docker volume ls | grep activibe' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo 'echo " Tests terminés"' >> test_production_containers.sh
+        echo '' >> test_production_containers.sh
+        echo 'echo "Deploiement termine !"' >> test_production_containers.sh
         
         chmod +x deploy_production_server.sh
         chmod +x test_production_containers.sh
@@ -428,8 +479,12 @@ jobs:
       run: |
         echo "🔍 Tests de vérification post-déploiement avec architecture reverse proxy..."
         
+        # Attendre que les services soient complètement prêts
+        echo "⏳ Attente du démarrage complet des services (60 secondes)..."
+        sleep 60
+        
         # Test de connectivité des services
-        echo "🌐 Test des services sur le serveur..."
+        echo " Test des services sur le serveur..."
         
         # Test frontend (port 3000)
         if ssh production-server "curl -f http://localhost:3000" >/dev/null 2>&1; then
@@ -438,29 +493,29 @@ jobs:
           echo "⚠️  Frontend (port 3000) : KO (peut nécessiter plus de temps)"
         fi
         
-        # Test API backend (port 8080)
-        if ssh production-server "curl -f http://localhost:8080/api/auth/login" >/dev/null 2>&1; then
+        # Test API backend (port 8080) - test de connectivité simple
+        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
           echo "✅ API Backend (port 8080) : OK"
         else
           echo "⚠️  API Backend (port 8080) : KO (peut nécessiter plus de temps)"
         fi
         
-        # Test Neo4j (port 7474)
-        if ssh production-server "curl -f http://localhost:7474" >/dev/null 2>&1; then
+        # Test Neo4j (port 7474) - test de connectivité avec headers
+        if ssh production-server "curl -f -H 'Accept: application/json' http://localhost:7474" >/dev/null 2>&1; then
           echo "✅ Neo4j (port 7474) : OK"
         else
           echo "⚠️  Neo4j (port 7474) : KO"
         fi
         
         # Test de l'IP privée
-        echo "🏠 Test de l'IP privée 10.0.0.244..."
+        echo " Test de l'IP privée 10.0.0.244..."
         if ssh production-server "curl -f http://10.0.0.244:3000" >/dev/null 2>&1; then
           echo "✅ Frontend sur 10.0.0.244:3000 : OK"
         else
           echo "⚠️  Frontend sur 10.0.0.244:3000 : KO"
         fi
         
-        if ssh production-server "curl -f http://10.0.0.244:8080/api/auth/login" >/dev/null 2>&1; then
+        if ssh production-server "curl -f http://10.0.0.244:8080" >/dev/null 2>&1; then
           echo "✅ API sur 10.0.0.244:8080 : OK"
         else
           echo "⚠️  API sur 10.0.0.244:8080 : KO"
@@ -470,14 +525,27 @@ jobs:
         echo "📊 État des containers :"
         ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
         
-        # Exécution du script de test
-        echo "🧪 Exécution du script de test des conteneurs..."
-        ssh production-server "cd /srv/activibe && ./test_production_containers.sh"
+        # Logs des conteneurs pour diagnostic
+        echo "📋 Logs récents des conteneurs..."
+        echo "=== Logs Backend ==="
+        ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-backend"
+        echo "=== Logs Frontend ==="
+        ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-frontend"
+        echo "=== Logs Neo4j ==="
+        ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-neo4j"
+        
+        # Test API fonctionnel (POST vers login)
+        echo "🧪 Test fonctionnel de l'API..."
+        if ssh production-server 'curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"'; then
+          echo "✅ API fonctionnelle (endpoint login répond)"
+        else
+          echo "⚠️  API non fonctionnelle (endpoint login ne répond pas correctement)"
+        fi
 
     - name: 📧 Notification de succès
       if: success()
       run: |
-        echo "🎉 DÉPLOIEMENT RÉUSSI !"
+        echo "�� DÉPLOIEMENT RÉUSSI !"
         echo ""
         echo "🌐 L'application Acti'Vibe est maintenant accessible :"
         echo "   • Frontend Nuxt.js : http://10.0.0.244:3000 (via reverse proxy)"
