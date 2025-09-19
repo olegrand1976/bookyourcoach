@@ -60,10 +60,10 @@ class AuthControllerSimple extends Controller
         // Vérifier l'environnement
         $isLocal = app()->environment('local');
         
-        // Authentification simple sans guard spécifique
-        if (Auth::attempt($request->only('email', 'password'))) {
-            $user = Auth::user();
-            
+        // Authentification manuelle pour éviter le problème de guard
+        $user = User::where('email', $request->email)->first();
+        
+        if ($user && Hash::check($request->password, $user->password)) {
             // Créer un token Sanctum
             $token = $user->createToken('api-token')->plainTextToken;
 
