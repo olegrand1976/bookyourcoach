@@ -7,7 +7,7 @@
           <div class="flex items-center">
             <NuxtLink to="/"
               class="flex items-center space-x-3 text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
-              <img src="/images/logo-activibe.svg" alt="activibe" class="h-12 w-auto" />
+              <img src="/logo-activibe.svg" alt="activibe" class="h-12 w-auto" />
             </NuxtLink>
           </div>
 
