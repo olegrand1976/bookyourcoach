@@ -91,6 +91,9 @@ export const useAuthStore = defineStore('auth', {
       }
 
       console.log('🚪 [LOGOUT] Déconnexion terminée')
+      
+      // Rediriger vers la page d'accueil après déconnexion
+      await navigateTo('/')
     },
 
     async fetchUser() {

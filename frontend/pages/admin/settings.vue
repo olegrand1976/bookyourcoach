@@ -55,7 +55,7 @@
                     </div>
 
 
-                    <div class="form-button-group">
+                    <div class="form-button-group mt-6">
                         <button type="submit" class="btn-primary" :disabled="loading">
                             {{ loading ? 'Sauvegarde...' : 'Sauvegarder' }}
                         </button>
