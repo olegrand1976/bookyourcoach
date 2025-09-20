@@ -1,0 +1,277 @@
+name: 🧪 Tests Serveur
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type de tests à exécuter'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - connectivity
+        - api
+        - containers
+      verbose:
+        description: 'Mode verbeux (plus de détails)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  COMPOSE_FILE: docker-compose.yml
+
+jobs:
+  test-connectivity:
+    name: 🔌 Tests de Connectivité
+    runs-on: ubuntu-latest
+    if: inputs.test_type == 'all' || inputs.test_type == 'connectivity'
+    
+    steps:
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 🔌 Tests de connectivité
+      run: |
+        echo "🔍 Tests de connectivité des services..."
+        
+        # Test frontend (port 3000)
+        echo "🔌 Test du Frontend (port 3000)..."
+        if ssh production-server "curl -f http://localhost:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend (port 3000) : Accessible"
+        else
+          echo "❌ Frontend (port 3000) : Non accessible"
+          exit 1
+        fi
+        
+        # Test API backend (port 8080)
+        echo "🔌 Test du Backend API (port 8080)..."
+        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
+          echo "✅ Backend API (port 8080) : Accessible"
+        else
+          echo "❌ Backend API (port 8080) : Non accessible"
+          exit 1
+        fi
+        
+        # Test Neo4j (port 7474)
+        echo "🔌 Test de Neo4j (port 7474)..."
+        if ssh production-server "curl -f -H 'Accept: application/json' http://localhost:7474" >/dev/null 2>&1; then
+          echo "✅ Neo4j (port 7474) : Accessible"
+        else
+          echo "❌ Neo4j (port 7474) : Non accessible"
+          exit 1
+        fi
+        
+        # Test phpMyAdmin (port 8082)
+        echo "🔌 Test de phpMyAdmin (port 8082)..."
+        if ssh production-server "curl -f http://localhost:8082" >/dev/null 2>&1; then
+          echo "✅ phpMyAdmin (port 8082) : Accessible"
+        else
+          echo "❌ phpMyAdmin (port 8082) : Non accessible"
+          exit 1
+        fi
+        
+        # Test de l'IP privée
+        echo "🔌 Test de l'IP privée 10.0.0.244..."
+        if ssh production-server "curl -f http://10.0.0.244:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend sur 10.0.0.244:3000 : Accessible"
+        else
+          echo "❌ Frontend sur 10.0.0.244:3000 : Non accessible"
+          exit 1
+        fi
+        
+        if ssh production-server "curl -f http://10.0.0.244:8080" >/dev/null 2>&1; then
+          echo "✅ API sur 10.0.0.244:8080 : Accessible"
+        else
+          echo "❌ API sur 10.0.0.244:8080 : Non accessible"
+          exit 1
+        fi
+        
+        echo "✅ Tous les tests de connectivité ont réussi !"
+
+  test-api:
+    name: 🧪 Tests API
+    runs-on: ubuntu-latest
+    if: inputs.test_type == 'all' || inputs.test_type == 'api'
+    
+    steps:
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 🧪 Tests API Laravel
+      run: |
+        echo "🧪 Tests de l'API Laravel..."
+        
+        # Test de l'endpoint de login
+        echo "🔐 Test de l'endpoint de login..."
+        if ssh production-server 'curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"'; then
+          echo "✅ Endpoint de login : Fonctionnel"
+        else
+          echo "❌ Endpoint de login : Non fonctionnel"
+          exit 1
+        fi
+        
+        # Test de l'endpoint d'activités
+        echo "🏃 Test de l'endpoint d'activités..."
+        if ssh production-server 'curl -s -X GET http://localhost:8080/api/activity-types | grep -q "success"'; then
+          echo "✅ Endpoint d'activités : Fonctionnel"
+        else
+          echo "❌ Endpoint d'activités : Non fonctionnel"
+          exit 1
+        fi
+        
+        # Test de l'endpoint de santé
+        echo "💚 Test de l'endpoint de santé..."
+        if ssh production-server 'curl -s -X GET http://localhost:8080/api/health 2>/dev/null || curl -s -X GET http://localhost:8080/ | grep -q "Laravel"'; then
+          echo "✅ Endpoint de santé : Fonctionnel"
+        else
+          echo "❌ Endpoint de santé : Non fonctionnel"
+          exit 1
+        fi
+        
+        echo "✅ Tous les tests API ont réussi !"
+
+  test-containers:
+    name: 🐳 Tests des Conteneurs
+    runs-on: ubuntu-latest
+    if: inputs.test_type == 'all' || inputs.test_type == 'containers'
+    
+    steps:
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 🐳 Tests des conteneurs
+      run: |
+        echo "🐳 Tests des conteneurs Docker..."
+        
+        # Vérification de l'état des conteneurs
+        echo "📊 État des conteneurs :"
+        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
+        
+        # Vérification des conteneurs en cours d'exécution
+        echo "🔄 Vérification des conteneurs en cours d'exécution..."
+        for container in activibe-backend activibe-frontend activibe-phpmyadmin activibe-neo4j; do
+          if ssh production-server "docker ps --format '{{.Names}}' | grep -q '^$container$'"; then
+            echo "✅ $container : En cours d'exécution"
+          else
+            echo "❌ $container : Non en cours d'exécution"
+            exit 1
+          fi
+        done
+        
+        # Vérification des volumes
+        echo "💾 Vérification des volumes Docker..."
+        ssh production-server "docker volume ls | grep activibe"
+        
+        # Vérification des réseaux
+        echo "🌐 Vérification des réseaux Docker..."
+        ssh production-server "docker network ls | grep activibe"
+        
+        # Test des logs (dernières 10 lignes)
+        if [[ "${{ inputs.verbose }}" == "true" ]]; then
+          echo "📋 Logs récents des conteneurs..."
+          echo "=== Logs Backend ==="
+          ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-backend"
+          echo "=== Logs Frontend ==="
+          ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-frontend"
+          echo "=== Logs Neo4j ==="
+          ssh production-server "cd /srv/activibe && docker logs --tail=10 activibe-neo4j"
+        fi
+        
+        echo "✅ Tous les tests des conteneurs ont réussi !"
+
+  summary:
+    name: 📊 Résumé des Tests
+    runs-on: ubuntu-latest
+    needs: [test-connectivity, test-api, test-containers]
+    if: always()
+    
+    steps:
+    - name: 📊 Résumé final
+      run: |
+        echo "🧪 RÉSUMÉ DES TESTS"
+        echo "=================="
+        echo ""
+        
+        if [[ "${{ needs.test-connectivity.result }}" == "success" ]]; then
+          echo "✅ Tests de connectivité : SUCCÈS"
+        else
+          echo "❌ Tests de connectivité : ÉCHEC"
+        fi
+        
+        if [[ "${{ needs.test-api.result }}" == "success" ]]; then
+          echo "✅ Tests API : SUCCÈS"
+        else
+          echo "❌ Tests API : ÉCHEC"
+        fi
+        
+        if [[ "${{ needs.test-containers.result }}" == "success" ]]; then
+          echo "✅ Tests des conteneurs : SUCCÈS"
+        else
+          echo "❌ Tests des conteneurs : ÉCHEC"
+        fi
+        
+        echo ""
+        echo "📅 Date : $(date)"
+        echo "🔧 Type de tests : ${{ inputs.test_type }}"
+        echo "📝 Mode verbeux : ${{ inputs.verbose }}"
+        
+        # Déterminer le résultat global
+        if [[ "${{ needs.test-connectivity.result }}" == "success" && "${{ needs.test-api.result }}" == "success" && "${{ needs.test-containers.result }}" == "success" ]]; then
+          echo ""
+          echo "🎉 TOUS LES TESTS ONT RÉUSSI !"
+          exit 0
+        else
+          echo ""
+          echo "❌ CERTAINS TESTS ONT ÉCHOUÉ !"
+          exit 1
+        fi

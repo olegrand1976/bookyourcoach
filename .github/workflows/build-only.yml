@@ -1,0 +1,141 @@
+name: 🏗️ Build Images Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Forcer la reconstruction complète (sans cache)'
+        required: false
+        default: 'false'
+        type: boolean
+      build_backend:
+        description: 'Builder le backend Laravel'
+        required: false
+        default: 'true'
+        type: boolean
+      build_frontend:
+        description: 'Builder le frontend Nuxt.js'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  DOCKER_REGISTRY: docker.io
+  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
+  FRONTEND_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend
+
+jobs:
+  build-backend:
+    name: 🏗️ Build Backend Laravel
+    runs-on: ubuntu-latest
+    if: inputs.build_backend == 'true'
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Configuration Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Connexion DockerHub
+      uses: docker/login-action@v3
+      with:
+        registry: docker.io
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+    
+    - name: 🏗️ Build Backend
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: |
+          ${{ env.IMAGE_NAME }}:latest
+          ${{ env.IMAGE_NAME }}:build-$(date +%Y%m%d-%H%M%S)
+        cache-from: ${{ inputs.force_rebuild == 'false' && 'type=gha,scope=backend' || '' }}
+        cache-to: ${{ inputs.force_rebuild == 'false' && 'type=gha,mode=max,scope=backend' || '' }}
+        no-cache: ${{ inputs.force_rebuild == 'true' }}
+
+    - name: 📋 Résumé Backend
+      run: |
+        echo "✅ Backend Laravel construit avec succès !"
+        echo "🏗️ Image: ${{ env.IMAGE_NAME }}:latest"
+        echo "📦 Digest: ${{ steps.build.outputs.digest }}"
+
+  build-frontend:
+    name: 🎨 Build Frontend Nuxt.js
+    runs-on: ubuntu-latest
+    if: inputs.build_frontend == 'true'
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Configuration Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Connexion DockerHub
+      uses: docker/login-action@v3
+      with:
+        registry: docker.io
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+    
+    - name: 🎨 Build Frontend
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        platforms: linux/amd64
+        push: true
+        tags: |
+          ${{ env.FRONTEND_IMAGE_NAME }}:latest
+          ${{ env.FRONTEND_IMAGE_NAME }}:build-$(date +%Y%m%d-%H%M%S)
+        cache-from: ${{ inputs.force_rebuild == 'false' && 'type=gha,scope=frontend' || '' }}
+        cache-to: ${{ inputs.force_rebuild == 'false' && 'type=gha,mode=max,scope=frontend' || '' }}
+        no-cache: ${{ inputs.force_rebuild == 'true' }}
+
+    - name: 📋 Résumé Frontend
+      run: |
+        echo "✅ Frontend Nuxt.js construit avec succès !"
+        echo "🎨 Image: ${{ env.FRONTEND_IMAGE_NAME }}:latest"
+        echo "📦 Digest: ${{ steps.build.outputs.digest }}"
+
+  summary:
+    name: 📊 Résumé du Build
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: always()
+    
+    steps:
+    - name: 📊 Résumé final
+      run: |
+        echo "🏗️ RÉSUMÉ DU BUILD"
+        echo "=================="
+        echo ""
+        
+        if [[ "${{ needs.build-backend.result }}" == "success" ]]; then
+          echo "✅ Backend Laravel : SUCCÈS"
+          echo "   Image: ${{ env.IMAGE_NAME }}:latest"
+        else
+          echo "❌ Backend Laravel : ÉCHEC"
+        fi
+        
+        if [[ "${{ needs.build-frontend.result }}" == "success" ]]; then
+          echo "✅ Frontend Nuxt.js : SUCCÈS"
+          echo "   Image: ${{ env.FRONTEND_IMAGE_NAME }}:latest"
+        else
+          echo "❌ Frontend Nuxt.js : ÉCHEC"
+        fi
+        
+        echo ""
+        echo "📅 Date : $(date)"
+        echo "🔄 Force rebuild : ${{ inputs.force_rebuild }}"
