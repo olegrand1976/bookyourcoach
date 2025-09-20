@@ -1,0 +1,422 @@
+name: 🚀 Déploiement Serveur
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Tag de l\'image à déployer (laisser vide pour latest)'
+        required: false
+        default: 'latest'
+        type: string
+      skip_tests:
+        description: 'Ignorer les tests post-déploiement'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  DOCKER_REGISTRY: docker.io
+  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
+  FRONTEND_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend
+  COMPOSE_FILE: docker-compose.yml
+
+jobs:
+  prepare:
+    name: 🔍 Préparation
+    runs-on: ubuntu-latest
+    outputs:
+      backend_tag: ${{ steps.prepare.outputs.backend_tag }}
+      frontend_tag: ${{ steps.prepare.outputs.frontend_tag }}
+    
+    steps:
+    - name: 🔍 Préparation des tags
+      id: prepare
+      run: |
+        # Déterminer les tags à utiliser
+        if [[ -n "${{ inputs.image_tag }}" && "${{ inputs.image_tag }}" != "latest" ]]; then
+          echo "backend_tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          echo "frontend_tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+        else
+          echo "backend_tag=latest" >> $GITHUB_OUTPUT
+          echo "frontend_tag=latest" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "🔍 Tags préparés :"
+        echo "  - Backend: ${{ steps.prepare.outputs.backend_tag }}"
+        echo "  - Frontend: ${{ steps.prepare.outputs.frontend_tag }}"
+
+  generate-config:
+    name: ⚙️ Génération Configuration
+    runs-on: ubuntu-latest
+    needs: prepare
+    outputs:
+      config_files: ${{ steps.generate.outputs.files }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Génération des fichiers de configuration
+      id: generate
+      run: |
+        echo "🔧 Génération des fichiers de configuration..."
+        
+        # Générer APP_KEY
+        APP_KEY=$(openssl rand -base64 32)
+        
+        # Créer docker-compose.yml
+        cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
+        services:
+          # Backend Laravel API
+          backend:
+            image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
+            container_name: activibe-backend
+            restart: unless-stopped
+            env_file:
+              - ./.env
+            ports:
+              - "8080:80"
+            volumes:
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
+              - /srv/activibe/.env:/var/www/html/.env:ro
+            depends_on:
+              - neo4j
+            networks:
+              - app-network
+
+          # Frontend Nuxt.js
+          frontend:
+            image: ${FRONTEND_IMAGE_NAME:-${{ env.FRONTEND_IMAGE_NAME }}:latest}
+            container_name: activibe-frontend
+            restart: unless-stopped
+            ports:
+              - "3000:3000"
+            environment:
+              - NUXT_PUBLIC_API_BASE=https://activibe.be/api
+              - NUXT_API_BASE=http://activibe-backend:80/api
+              - NITRO_HOST=0.0.0.0
+              - NITRO_PORT=3000
+            depends_on:
+              - backend
+            networks:
+              - app-network
+
+          # phpMyAdmin
+          phpmyadmin:
+            image: phpmyadmin:latest
+            container_name: activibe-phpmyadmin
+            restart: unless-stopped
+            ports:
+              - "8082:80"
+            environment:
+              - PMA_HOST=${DB_HOST}
+              - PMA_PORT=${DB_PORT}
+              - PMA_USER=${DB_USERNAME}
+              - PMA_PASSWORD=${DB_PASSWORD}
+              - UPLOAD_LIMIT=256M
+              - MEMORY_LIMIT=512M
+            networks:
+              - app-network
+
+          # Neo4j
+          neo4j:
+            image: neo4j:5.15-community
+            container_name: activibe-neo4j
+            restart: unless-stopped
+            ports:
+              - "7474:7474"
+              - "7687:7687"
+            environment:
+              - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+              - NEO4J_PLUGINS=["apoc"]
+              - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+              - NEO4J_dbms_security_procedures_allowlist=apoc.*
+            volumes:
+              - neo4j_data:/data
+              - neo4j_logs:/logs
+              - neo4j_import:/var/lib/neo4j/import
+              - neo4j_plugins:/plugins
+            networks:
+              - app-network
+
+        volumes:
+          neo4j_data:
+            driver: local
+          neo4j_logs:
+            driver: local
+          neo4j_import:
+            driver: local
+          neo4j_plugins:
+            driver: local
+          app_storage:
+            driver: local
+          app_bootstrap_cache:
+            driver: local
+
+        networks:
+          app-network:
+            driver: bridge
+        EOF
+
+        # Créer le script de mise à jour .env
+        cat > update-env.sh << 'EOF'
+        #!/bin/bash
+        if [[ -f ".env" ]]; then
+            current_key=$(grep "^APP_KEY=" .env | cut -d'=' -f2)
+            if [[ -n "$current_key" && "$current_key" != "base64:\$(openssl rand -base64 32)" && "$current_key" =~ ^base64:[A-Za-z0-9+/]{43}=?$ ]]; then
+                echo "✅ APP_KEY valide trouvée - conservation de la clé existante"
+            else
+                echo "📝 APP_KEY manquante ou invalide - génération d'une nouvelle clé..."
+                if grep -q "^APP_KEY=" .env; then
+                    sed -i "s/^APP_KEY=.*/APP_KEY=base64:$1/" .env
+                else
+                    echo "APP_KEY=base64:$1" >> .env
+                fi
+                echo "✅ Nouvelle APP_KEY générée avec succès"
+            fi
+        else
+            echo "❌ Fichier .env non trouvé"
+            exit 1
+        fi
+        EOF
+        
+        chmod +x update-env.sh
+
+        # Créer le script de déploiement
+        cat > auto-deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Couleurs
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[1;33m'
+        BLUE='\033[0;34m'
+        NC='\033[0m'
+
+        log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+        log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+        log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+        log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+        COMPOSE_FILE="docker-compose.yml"
+        ENV_FILE=".env"
+
+        log_step "🚀 Démarrage du déploiement automatique..."
+
+        # Arrêt propre des containers existants
+        log_info "🛑 Arrêt des containers existants..."
+        if [[ -f "$COMPOSE_FILE" ]]; then
+            docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+        fi
+
+        # Nettoyage des ressources orphelines
+        log_info "🧹 Nettoyage des ressources orphelines..."
+        docker container prune -f 2>/dev/null || true
+        docker network prune -f 2>/dev/null || true
+
+        # Mise à jour de APP_KEY dans .env
+        log_info "🔑 Mise à jour de APP_KEY..."
+        if [[ -f "update-env.sh" && -f ".env" ]]; then
+            ./update-env.sh "$1"
+        else
+            log_warning "⚠️  Impossible de mettre à jour APP_KEY - fichiers manquants"
+        fi
+
+        # Pull des images
+        log_info "📥 Récupération des dernières images Docker..."
+        source ".env"
+        docker pull "$2:$3" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "$4:$5" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Démarrage avec docker compose
+        log_info "🚀 Démarrage des conteneurs..."
+        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+        # Attente du démarrage
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
+
+        # Vérification de l'état des services
+        log_step "🔍 Vérification de l'état des services..."
+        docker compose -f "$COMPOSE_FILE" ps
+
+        log_step "✅ Déploiement automatique terminé !"
+        EOF
+        
+        chmod +x auto-deploy.sh
+
+        echo "files=docker-compose.yml,update-env.sh,auto-deploy.sh" >> $GITHUB_OUTPUT
+        echo "✅ Fichiers de configuration générés avec succès !"
+
+  deploy:
+    name: 🚀 Déploiement Serveur
+    runs-on: ubuntu-latest
+    needs: [prepare, generate-config]
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 📤 Déploiement des fichiers
+      run: |
+        echo "🚀 Déploiement des fichiers sur le serveur..."
+        
+        # Création du répertoire de déploiement
+        ssh production-server "mkdir -p /srv/activibe && cd /srv/activibe"
+        
+        # Copie des fichiers de configuration
+        echo "📋 Copie des fichiers de configuration..."
+        scp docker-compose.yml production-server:/srv/activibe/docker-compose.yml
+        scp update-env.sh production-server:/srv/activibe/update-env.sh
+        scp auto-deploy.sh production-server:/srv/activibe/auto-deploy.sh
+        
+        # Exécution du déploiement
+        echo "🎯 Exécution du déploiement..."
+        ssh production-server "cd /srv/activibe && chmod +x *.sh && ./auto-deploy.sh '$(openssl rand -base64 32)' '${{ env.IMAGE_NAME }}' '${{ needs.prepare.outputs.backend_tag }}' '${{ env.FRONTEND_IMAGE_NAME }}' '${{ needs.prepare.outputs.frontend_tag }}'"
+
+  test-deployment:
+    name: 🧪 Tests Post-Déploiement
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy]
+    if: inputs.skip_tests == 'false'
+    
+    steps:
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 🧪 Tests de connectivité
+      run: |
+        echo "🔍 Tests de vérification post-déploiement..."
+        
+        # Attendre que les services soient prêts
+        echo "⏳ Attente du démarrage complet des services (60 secondes)..."
+        sleep 60
+        
+        # Test de connectivité des services
+        echo "🔌 Test des services sur le serveur..."
+        
+        # Test frontend (port 3000)
+        if ssh production-server "curl -f http://localhost:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend (port 3000) : OK"
+        else
+          echo "⚠️  Frontend (port 3000) : KO"
+        fi
+        
+        # Test API backend (port 8080)
+        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
+          echo "✅ API Backend (port 8080) : OK"
+        else
+          echo "⚠️  API Backend (port 8080) : KO"
+        fi
+        
+        # Test Neo4j (port 7474)
+        if ssh production-server "curl -f -H 'Accept: application/json' http://localhost:7474" >/dev/null 2>&1; then
+          echo "✅ Neo4j (port 7474) : OK"
+        else
+          echo "⚠️  Neo4j (port 7474) : KO"
+        fi
+        
+        # Test de l'IP privée
+        echo "🔌 Test de l'IP privée 10.0.0.244..."
+        if ssh production-server "curl -f http://10.0.0.244:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend sur 10.0.0.244:3000 : OK"
+        else
+          echo "⚠️  Frontend sur 10.0.0.244:3000 : KO"
+        fi
+        
+        if ssh production-server "curl -f http://10.0.0.244:8080" >/dev/null 2>&1; then
+          echo "✅ API sur 10.0.0.244:8080 : OK"
+        else
+          echo "⚠️  API sur 10.0.0.244:8080 : KO"
+        fi
+        
+        # Affichage de l'état des containers
+        echo "📊 État des containers :"
+        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
+        
+        # Test API fonctionnel
+        echo "🧪 Test fonctionnel de l'API..."
+        if ssh production-server 'curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"'; then
+          echo "✅ API fonctionnelle (endpoint login répond)"
+        else
+          echo "⚠️  API non fonctionnelle (endpoint login ne répond pas correctement)"
+        fi
+
+  notify:
+    name: 📧 Notifications
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy, test-deployment]
+    if: always()
+    
+    steps:
+    - name: 📧 Notification de succès
+      if: needs.deploy.result == 'success' && (needs.test-deployment.result == 'success' || needs.test-deployment.result == 'skipped')
+      run: |
+        echo "🎉 DÉPLOIEMENT RÉUSSI !"
+        echo ""
+        echo "🌐 L'application Acti'Vibe est maintenant accessible :"
+        echo "   • Frontend Nuxt.js : http://10.0.0.244:3000"
+        echo "   • Backend Laravel API : http://10.0.0.244:8080"
+        echo "   • phpMyAdmin : http://10.0.0.244:8082"
+        echo "   • Neo4j : http://10.0.0.244:7474"
+        echo ""
+        echo "🐳 Images déployées :"
+        echo "   • Backend: ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.backend_tag }}"
+        echo "   • Frontend: ${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.frontend_tag }}"
+        echo "📅 Date : $(date)"
+
+    - name: 🚨 Notification d'échec
+      if: needs.deploy.result == 'failure' || needs.test-deployment.result == 'failure'
+      run: |
+        echo "❌ ÉCHEC DU DÉPLOIEMENT !"
+        echo ""
+        echo "🔍 Vérifiez les logs ci-dessus pour identifier le problème."
+        echo "📋 Points à vérifier :"
+        echo "   • Connexion SSH au serveur"
+        echo "   • Variables d'environnement GitHub"
+        echo "   • Disponibilité de DockerHub"
+        echo "   • État du serveur de production"
+        echo ""
+        echo "🆘 En cas de problème persistant, connectez-vous manuellement :"
+        echo "   ssh ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_HOST }}"
+        echo "   cd /srv/activibe && ./auto-deploy.sh"
