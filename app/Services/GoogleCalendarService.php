@@ -16,9 +16,14 @@ class GoogleCalendarService
     public function __construct()
     {
         $this->client = new Client();
-        $this->client->setApplicationName('Activibe Calendar');
+        $this->client->setApplicationName(config('services.google.calendar.application_name', 'Activibe Calendar'));
         $this->client->setScopes(Calendar::CALENDAR);
-        $this->client->setAuthConfig(config('services.google.calendar.credentials'));
+        
+        // Configuration OAuth2
+        $this->client->setClientId(config('services.google.calendar.client_id'));
+        $this->client->setClientSecret(config('services.google.calendar.client_secret'));
+        $this->client->setRedirectUri(config('services.google.calendar.redirect_uri'));
+        
         $this->client->setAccessType('offline');
         $this->client->setPrompt('select_account consent');
         

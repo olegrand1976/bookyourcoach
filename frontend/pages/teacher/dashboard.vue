@@ -216,14 +216,24 @@ onMounted(async () => {
 
 // Methods
 const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit'
-    })
+    if (!dateString) return 'Date non définie'
+    
+    try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) {
+            return 'Date invalide'
+        }
+        return date.toLocaleDateString('fr-FR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    } catch (error) {
+        console.error('Erreur de formatage de date:', error, dateString)
+        return 'Date invalide'
+    }
 }
 
 const getStatusClass = (status) => {
