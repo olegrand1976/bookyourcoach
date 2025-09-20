@@ -193,61 +193,193 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Titre du cours</label>
               <input v-model="newLesson.title" type="text" required
+                :placeholder="getLessonTitlePlaceholder()"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <p class="text-xs text-gray-500 mt-1">
+                Sera automatiquement rempli selon l'élève et le type sélectionnés
+              </p>
+              <div v-if="newLesson.title && newLesson.title !== getLessonTitlePlaceholder()" class="text-xs text-green-600 mt-1">
+                ✅ Titre personnalisé
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Élève</label>
               <select v-model="newLesson.student_id" required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Sélectionner un élève</option>
+                <option v-if="students.length === 0" value="" disabled>
+                  {{ students.length === 0 ? 'Chargement des élèves...' : 'Aucun élève trouvé' }}
+                </option>
                 <option v-for="student in students" :key="student.id" :value="student.id">
-                  {{ student.name }}
+                  {{ student.name }} ({{ student.level }})
                 </option>
               </select>
+              <p v-if="students.length === 0" class="text-xs text-gray-500 mt-1">
+                Les élèves sont récupérés depuis les clubs où vous enseignez
+              </p>
+              <p v-else class="text-xs text-green-600 mt-1">
+                ✅ {{ students.length }} élève{{ students.length > 1 ? 's' : '' }} disponible{{ students.length > 1 ? 's' : '' }}
+              </p>
             </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input v-model="newLesson.date" type="date" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ newLesson.date ? `Cours prévu le ${new Date(newLesson.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` : 'Sélectionnez une date' }}
+                </p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Heure</label>
                 <input v-model="newLesson.time" type="time" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ newLesson.time ? `Début à ${newLesson.time}` : 'Sélectionnez une heure' }}
+                </p>
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Durée (minutes)</label>
-              <input v-model="newLesson.duration" type="number" min="30" max="180" step="30" required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
+                <select v-model="newLesson.duration" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">1 heure</option>
+                  <option value="90">1h30</option>
+                  <option value="120">2 heures</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ newLesson.duration ? `Fin prévue à ${getEndTime()}` : 'Sélectionnez une durée' }}
+                </p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
+                <select v-model="newLesson.type" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="lesson">Cours particulier</option>
+                  <option value="group">Cours de groupe</option>
+                  <option value="training">Entraînement</option>
+                  <option value="competition">Compétition</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">
+                  Le titre et la description seront automatiquement remplis selon le type sélectionné
+                </p>
+              </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
-              <select v-model="newLesson.type" required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="lesson">Cours particulier</option>
-                <option value="group">Cours de groupe</option>
-                <option value="training">Entraînement</option>
-                <option value="competition">Compétition</option>
-              </select>
-            </div>
+
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea v-model="newLesson.description" rows="3"
+                :placeholder="getLessonDescriptionPlaceholder()"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              <p class="text-xs text-gray-500 mt-1">
+                Sera automatiquement remplie avec un template selon le type de cours
+              </p>
+              <div v-if="newLesson.description && newLesson.description !== getLessonDescriptionPlaceholder()" class="text-xs text-green-600 mt-1">
+                ✅ Description personnalisée
+              </div>
+            </div>
+            
+            <!-- Informations supplémentaires -->
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <h4 class="text-sm font-medium text-blue-900 mb-2">💡 Conseils pour un bon cours</h4>
+              <ul class="text-xs text-blue-700 space-y-1">
+                <li>• Précisez les objectifs d'apprentissage</li>
+                <li>• Listez le matériel nécessaire</li>
+                <li>• Notez les exercices prévus</li>
+                <li>• Ajoutez des observations sur l'élève</li>
+              </ul>
+            </div>
+            
+            <!-- Résumé du cours -->
+            <div v-if="newLesson.student_id && newLesson.date && newLesson.time" class="bg-green-50 border border-green-200 rounded-md p-3">
+              <h4 class="text-sm font-medium text-green-900 mb-2">📅 Résumé du cours</h4>
+              <div class="text-xs text-green-700 space-y-1">
+                <div><strong>Élève:</strong> {{ students.find(s => s.id == newLesson.student_id)?.name }}</div>
+                <div><strong>Date:</strong> {{ new Date(newLesson.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}</div>
+                <div><strong>Horaires:</strong> {{ newLesson.time }} - {{ getEndTime() }}</div>
+                <div><strong>Durée:</strong> {{ newLesson.duration }} minutes</div>
+                <div><strong>Type:</strong> {{ getLessonTypeLabel(newLesson.type) }}</div>
+              </div>
             </div>
           </div>
-          <div class="flex justify-end space-x-3 mt-6">
-            <button type="button" @click="showAddLessonModal = false"
-              class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
-              Annuler
-            </button>
-            <button type="submit" :disabled="isAddingLesson"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50">
-              {{ isAddingLesson ? 'Ajout...' : 'Ajouter' }}
-            </button>
-          </div>
+                      <div class="flex justify-end space-x-3 mt-6">
+              <button type="button" @click="showAddLessonModal = false"
+                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+                Annuler
+              </button>
+              <button type="submit" :disabled="isAddingLesson || !isFormValid"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {{ isAddingLesson ? 'Ajout...' : 'Ajouter le cours' }}
+              </button>
+            </div>
+            
+            <!-- Indicateur de validation -->
+            <div v-if="!isFormValid" class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p class="text-xs text-yellow-700">
+                ⚠️ Veuillez remplir tous les champs obligatoires pour ajouter le cours
+              </p>
+            </div>
+            
+            <!-- Indicateur de succès -->
+            <div v-if="isFormValid" class="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
+              <p class="text-xs text-green-700">
+                ✅ Formulaire complet - Prêt à ajouter le cours
+              </p>
+            </div>
+            
+            <!-- Informations de debug -->
+            <div v-if="process.env.NODE_ENV === 'development'" class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+              <p class="text-xs text-gray-600">
+                <strong>Debug:</strong> Élèves chargés: {{ students.length }}, Formulaire valide: {{ isFormValid }}
+              </p>
+            </div>
+            
+            <!-- Aide contextuelle -->
+            <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+              <p class="text-xs text-blue-700">
+                💡 <strong>Astuce:</strong> Cliquez sur le bouton "+" d'un jour du calendrier pour pré-remplir la date
+              </p>
+            </div>
+            
+            <!-- Informations sur les erreurs -->
+            <div v-if="students.length === 0" class="mt-3 p-2 bg-red-50 border border-red-200 rounded-md">
+              <p class="text-xs text-red-700">
+                ❌ <strong>Problème:</strong> Aucun élève trouvé. Vérifiez que vous êtes bien associé à des clubs avec des élèves.
+              </p>
+            </div>
+            
+            <!-- Informations sur les clubs -->
+            <div v-if="teacherClubs.length > 0" class="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
+              <p class="text-xs text-green-700">
+                ✅ <strong>Clubs associés:</strong> {{ teacherClubs.map(c => c.name).join(', ') }}
+              </p>
+            </div>
+            
+            <!-- Informations sur les élèves -->
+            <div v-if="students.length > 0" class="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
+              <p class="text-xs text-green-700">
+                ✅ <strong>Élèves disponibles:</strong> {{ students.map(s => s.name).join(', ') }}
+              </p>
+            </div>
+            
+            <!-- Informations sur le formulaire -->
+            <div class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+              <p class="text-xs text-gray-600">
+                <strong>État du formulaire:</strong> {{ isFormValid ? 'Complet' : 'Incomplet' }} | 
+                <strong>Élèves:</strong> {{ students.length }} | 
+                <strong>Clubs:</strong> {{ teacherClubs.length }}
+              </p>
+            </div>
+            
+            <!-- Informations sur les erreurs de chargement -->
+            <div v-if="students.length === 0 && teacherClubs.length === 0" class="mt-3 p-2 bg-red-50 border border-red-200 rounded-md">
+              <p class="text-xs text-red-700">
+                ❌ <strong>Erreur de chargement:</strong> Impossible de charger les données. Vérifiez votre connexion.
+              </p>
+            </div>
         </form>
       </div>
     </div>
@@ -463,8 +595,20 @@ const loadStudents = async () => {
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/students')
     students.value = response.data.students || []
+    
+    if (students.value.length === 0) {
+      console.warn('Aucun élève trouvé. Vérifiez que vous êtes bien associé à des clubs avec des élèves.')
+    }
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
+    // Afficher un message d'erreur plus explicite
+    if (error.response?.status === 401) {
+      console.error('Erreur d\'authentification. Veuillez vous reconnecter.')
+    } else if (error.response?.status === 403) {
+      console.error('Accès refusé. Vérifiez vos permissions.')
+    } else {
+      console.error('Erreur de connexion. Vérifiez votre connexion internet.')
+    }
   }
 }
 
@@ -546,6 +690,62 @@ const syncWithGoogle = async () => {
   }
 }
 
+const getLessonTitlePlaceholder = () => {
+  const type = newLesson.value.type
+  const studentName = students.value.find(s => s.id == newLesson.value.student_id)?.name || 'élève'
+  
+  const titles = {
+    lesson: `Cours particulier avec ${studentName}`,
+    group: 'Cours de groupe',
+    training: 'Séance d\'entraînement',
+    competition: 'Préparation compétition'
+  }
+  
+  return titles[type] || 'Titre du cours'
+}
+
+const getLessonDescriptionPlaceholder = () => {
+  const type = newLesson.value.type
+  const studentName = students.value.find(s => s.id == newLesson.value.student_id)?.name || 'l\'élève'
+  
+  const descriptions = {
+    lesson: `Objectifs: Améliorer les techniques de base\nExercices: [Détaillez les exercices prévus]\nMatériel: [Listez le matériel nécessaire]\nNotes: [Observations sur ${studentName}]`,
+    group: 'Objectifs: [Objectifs du groupe]\nExercices: [Exercices collectifs]\nMatériel: [Matériel nécessaire]\nParticipants: [Nombre d\'élèves attendus]',
+    training: 'Objectifs: [Objectifs de l\'entraînement]\nExercices: [Exercices spécifiques]\nIntensité: [Niveau d\'intensité]\nDurée: [Durée des exercices]',
+    competition: 'Objectifs: [Préparation compétition]\nExercices: [Exercices de préparation]\nStratégie: [Stratégie de compétition]\nMatériel: [Matériel de compétition]'
+  }
+  
+  return descriptions[type] || 'Décrivez le contenu du cours...'
+}
+
+const getEndTime = () => {
+  if (!newLesson.value.time || !newLesson.value.duration) return ''
+  
+  const startTime = new Date(`2000-01-01T${newLesson.value.time}`)
+  const endTime = new Date(startTime.getTime() + newLesson.value.duration * 60000)
+  
+  return endTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getLessonTypeLabel = (type) => {
+  const labels = {
+    lesson: 'Cours particulier',
+    group: 'Cours de groupe',
+    training: 'Entraînement',
+    competition: 'Compétition'
+  }
+  return labels[type] || type
+}
+
+const isFormValid = computed(() => {
+  return newLesson.value.title && 
+         newLesson.value.student_id && 
+         newLesson.value.date && 
+         newLesson.value.time && 
+         newLesson.value.duration && 
+         newLesson.value.type
+})
+
 // Lifecycle
 onMounted(() => {
   loadCalendarEvents()
@@ -556,5 +756,30 @@ onMounted(() => {
 // Watchers
 watch(currentDate, () => {
   loadCalendarEvents()
+})
+
+// Auto-remplir le titre et la description quand l'élève ou le type change
+watch(() => [newLesson.value.student_id, newLesson.value.type], () => {
+  if (newLesson.value.student_id && newLesson.value.type) {
+    // Auto-remplir le titre si vide
+    if (!newLesson.value.title) {
+      newLesson.value.title = getLessonTitlePlaceholder()
+    }
+    
+    // Auto-remplir la description si vide
+    if (!newLesson.value.description) {
+      newLesson.value.description = getLessonDescriptionPlaceholder()
+    }
+  }
+}, { deep: true })
+
+// Auto-remplir la date et l'heure quand on ouvre le modal depuis un jour spécifique
+watch(showAddLessonModal, (newValue) => {
+  if (newValue && newLesson.value.date) {
+    // Si on a une date, on peut suggérer une heure par défaut
+    if (!newLesson.value.time) {
+      newLesson.value.time = '09:00'
+    }
+  }
 })
 </script>
