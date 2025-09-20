@@ -72,7 +72,7 @@
                     <span>Élèves</span>
                   </NuxtLink>
 
-                  <NuxtLink :to="authStore.user?.role === 'club' ? '/club/profile' : '/profile'"
+                  <NuxtLink :to="getProfileRoute()"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👤</span>
                     <span>Profil</span>
@@ -194,6 +194,22 @@ const showUserMenu = computed(() => isAuthenticated.value)
 
 const toggleUserMenu = () => {
   userMenuOpen.value = !userMenuOpen.value
+}
+
+const getProfileRoute = () => {
+  const role = authStore.user?.role
+  switch (role) {
+    case 'teacher':
+      return '/teacher/profile'
+    case 'student':
+      return '/student/profile'
+    case 'club':
+      return '/club/profile'
+    case 'admin':
+      return '/admin/profile'
+    default:
+      return '/profile'
+  }
 }
 
 const handleLogout = async () => {

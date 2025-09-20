@@ -24,6 +24,58 @@ Route::post('/auth/login', [AuthControllerSimple::class, 'login']);
 // Route user en dehors du groupe pour éviter les middlewares
 Route::get('/auth/user', [AuthControllerSimple::class, 'user']);
 
+// Route de diagnostic pour l'erreur 500
+Route::get('/auth/user-debug', function(Request $request) {
+    try {
+        \Log::info('Route /auth/user-debug appelée');
+        
+        $token = $request->header('Authorization');
+        \Log::info('Token reçu: ' . ($token ? 'Présent' : 'Absent'));
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Token manquant ou format invalide'], 401);
+        }
+        
+        $token = substr($token, 7);
+        \Log::info('Token nettoyé: ' . substr($token, 0, 10) . '...');
+        
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Token Sanctum non trouvé'], 401);
+        }
+        
+        \Log::info('Token Sanctum trouvé pour user ID: ' . $personalAccessToken->tokenable_id);
+        
+        $user = $personalAccessToken->tokenable;
+        \Log::info('User model récupéré: ' . $user->id);
+        
+        $userData = \DB::table('users')->where('id', $user->id)->first();
+        
+        if (!$userData) {
+            return response()->json(['error' => 'User non trouvé en DB pour ID: ' . $user->id], 404);
+        }
+        
+        return response()->json([
+            'success' => true,
+            'user_id' => $userData->id,
+            'user_name' => $userData->name,
+            'user_email' => $userData->email,
+            'user_role' => $userData->role
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /auth/user-debug: ' . $e->getMessage());
+        \Log::error('Stack trace: ' . $e->getTraceAsString());
+        return response()->json([
+            'error' => 'Erreur interne',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ], 500);
+    }
+});
+
 // Route de test pour isoler le problème
 Route::get('/auth/user-simple', function() {
     return response()->json([
