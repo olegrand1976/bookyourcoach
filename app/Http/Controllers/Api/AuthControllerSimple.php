@@ -107,27 +107,40 @@ class AuthControllerSimple extends Controller
     public function user(Request $request): JsonResponse
     {
         try {
+            Log::info('AuthControllerSimple::user - Début de la méthode');
+            
             $token = $request->header('Authorization');
+            Log::info('AuthControllerSimple::user - Token reçu: ' . ($token ? 'Présent' : 'Absent'));
             
             if (!$token || !str_starts_with($token, 'Bearer ')) {
+                Log::warning('AuthControllerSimple::user - Token manquant ou format invalide');
                 return response()->json(['error' => 'Unauthenticated'], 401);
             }
             
             $token = substr($token, 7);
+            Log::info('AuthControllerSimple::user - Token nettoyé: ' . substr($token, 0, 10) . '...');
+            
             $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
             
             if (!$personalAccessToken) {
+                Log::warning('AuthControllerSimple::user - Token Sanctum non trouvé');
                 return response()->json(['error' => 'Unauthenticated'], 401);
             }
             
+            Log::info('AuthControllerSimple::user - Token Sanctum trouvé pour user ID: ' . $personalAccessToken->tokenable_id);
+            
             $user = $personalAccessToken->tokenable;
+            Log::info('AuthControllerSimple::user - User model récupéré: ' . $user->id);
 
             // Récupérer les données directement depuis la base de données pour éviter les boucles
             $userData = DB::table('users')->where('id', $user->id)->first();
             
             if (!$userData) {
+                Log::error('AuthControllerSimple::user - User non trouvé en DB pour ID: ' . $user->id);
                 return response()->json(['error' => 'User not found'], 404);
             }
+
+            Log::info('AuthControllerSimple::user - User data récupéré: ' . $userData->name . ' (' . $userData->email . ')');
 
             return response()->json([
                 'user' => [
@@ -157,7 +170,8 @@ class AuthControllerSimple extends Controller
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error in AuthControllerSimple::user: ' . $e->getMessage());
-            return response()->json(['error' => 'Internal server error'], 500);
+            Log::error('Error stack trace: ' . $e->getTraceAsString());
+            return response()->json(['error' => 'Internal server error', 'message' => $e->getMessage()], 500);
         }
     }
 }
