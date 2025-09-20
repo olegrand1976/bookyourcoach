@@ -281,6 +281,201 @@ jobs:
         
         chmod 600 ~/.ssh/config
 
+    - name: ⚙️ Génération des fichiers de configuration
+      run: |
+        echo "🔧 Génération des fichiers de configuration..."
+        
+        # Générer APP_KEY
+        APP_KEY=$(openssl rand -base64 32)
+        
+        # Créer docker-compose.yml
+        cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
+        services:
+          # Backend Laravel API
+          backend:
+            image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
+            container_name: activibe-backend
+            restart: unless-stopped
+            env_file:
+              - ./.env
+            ports:
+              - "8080:80"
+            volumes:
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
+              - /srv/activibe/.env:/var/www/html/.env:ro
+            depends_on:
+              - neo4j
+            networks:
+              - app-network
+
+          # Frontend Nuxt.js
+          frontend:
+            image: ${FRONTEND_IMAGE_NAME:-${{ env.FRONTEND_IMAGE_NAME }}:latest}
+            container_name: activibe-frontend
+            restart: unless-stopped
+            ports:
+              - "3000:3000"
+            environment:
+              - NUXT_PUBLIC_API_BASE=https://activibe.be/api
+              - NUXT_API_BASE=http://activibe-backend:80/api
+              - NITRO_HOST=0.0.0.0
+              - NITRO_PORT=3000
+            depends_on:
+              - backend
+            networks:
+              - app-network
+
+          # phpMyAdmin
+          phpmyadmin:
+            image: phpmyadmin:latest
+            container_name: activibe-phpmyadmin
+            restart: unless-stopped
+            ports:
+              - "8082:80"
+            environment:
+              - PMA_HOST=${DB_HOST}
+              - PMA_PORT=${DB_PORT}
+              - PMA_USER=${DB_USERNAME}
+              - PMA_PASSWORD=${DB_PASSWORD}
+              - UPLOAD_LIMIT=256M
+              - MEMORY_LIMIT=512M
+            networks:
+              - app-network
+
+          # Neo4j
+          neo4j:
+            image: neo4j:5.15-community
+            container_name: activibe-neo4j
+            restart: unless-stopped
+            ports:
+              - "7474:7474"
+              - "7687:7687"
+            environment:
+              - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+              - NEO4J_PLUGINS=["apoc"]
+              - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+              - NEO4J_dbms_security_procedures_allowlist=apoc.*
+            volumes:
+              - neo4j_data:/data
+              - neo4j_logs:/logs
+              - neo4j_import:/var/lib/neo4j/import
+              - neo4j_plugins:/plugins
+            networks:
+              - app-network
+
+        volumes:
+          neo4j_data:
+            driver: local
+          neo4j_logs:
+            driver: local
+          neo4j_import:
+            driver: local
+          neo4j_plugins:
+            driver: local
+          app_storage:
+            driver: local
+          app_bootstrap_cache:
+            driver: local
+
+        networks:
+          app-network:
+            driver: bridge
+        EOF
+
+        # Créer le script de mise à jour .env
+        cat > update-env.sh << 'EOF'
+        #!/bin/bash
+        if [[ -f ".env" ]]; then
+            current_key=$(grep "^APP_KEY=" .env | cut -d'=' -f2)
+            if [[ -n "$current_key" && "$current_key" != "base64:\$(openssl rand -base64 32)" && "$current_key" =~ ^base64:[A-Za-z0-9+/]{43}=?$ ]]; then
+                echo "✅ APP_KEY valide trouvée - conservation de la clé existante"
+            else
+                echo "📝 APP_KEY manquante ou invalide - génération d'une nouvelle clé..."
+                if grep -q "^APP_KEY=" .env; then
+                    sed -i "s/^APP_KEY=.*/APP_KEY=base64:$1/" .env
+                else
+                    echo "APP_KEY=base64:$1" >> .env
+                fi
+                echo "✅ Nouvelle APP_KEY générée avec succès"
+            fi
+        else
+            echo "❌ Fichier .env non trouvé"
+            exit 1
+        fi
+        EOF
+        
+        chmod +x update-env.sh
+
+        # Créer le script de déploiement
+        cat > auto-deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Couleurs
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[1;33m'
+        BLUE='\033[0;34m'
+        NC='\033[0m'
+
+        log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+        log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+        log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+        log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+        COMPOSE_FILE="docker-compose.yml"
+        ENV_FILE=".env"
+
+        log_step "🚀 Démarrage du déploiement automatique..."
+
+        # Arrêt propre des containers existants
+        log_info "🛑 Arrêt des containers existants..."
+        if [[ -f "$COMPOSE_FILE" ]]; then
+            docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+        fi
+
+        # Nettoyage des ressources orphelines
+        log_info "🧹 Nettoyage des ressources orphelines..."
+        docker container prune -f 2>/dev/null || true
+        docker network prune -f 2>/dev/null || true
+
+        # Mise à jour de APP_KEY dans .env
+        log_info "🔑 Mise à jour de APP_KEY..."
+        if [[ -f "update-env.sh" && -f ".env" ]]; then
+            ./update-env.sh "$1"
+        else
+            log_warning "⚠️  Impossible de mettre à jour APP_KEY - fichiers manquants"
+        fi
+
+        # Pull des images
+        log_info "📥 Récupération des dernières images Docker..."
+        source ".env"
+        docker pull "$2:$3" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "$4:$5" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Démarrage avec docker compose
+        log_info "🚀 Démarrage des conteneurs..."
+        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+        # Attente du démarrage
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
+
+        # Vérification de l'état des services
+        log_step "🔍 Vérification de l'état des services..."
+        docker compose -f "$COMPOSE_FILE" ps
+
+        log_step "✅ Déploiement automatique terminé !"
+        EOF
+        
+        chmod +x auto-deploy.sh
+
+        echo "✅ Fichiers de configuration générés avec succès !"
+
     - name: 📤 Déploiement des fichiers
       run: |
         echo "🚀 Déploiement des fichiers sur le serveur..."
