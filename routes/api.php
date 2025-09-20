@@ -264,6 +264,172 @@ Route::post('/teacher/calendar/sync-google', function(Request $request) {
     }
 });
 
+// Routes pour le calendrier étudiant
+Route::get('/student/calendar', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        $calendarId = $request->query('calendar_id', 'personal');
+        
+        // Récupérer les événements selon le calendrier sélectionné
+        if ($calendarId === 'personal') {
+            // Récupérer les cours réservés par l'étudiant
+            $bookings = \DB::table('bookings')
+                ->join('lessons', 'bookings.lesson_id', '=', 'lessons.id')
+                ->join('users as teachers', 'lessons.teacher_id', '=', 'teachers.id')
+                ->where('bookings.student_id', $user->id)
+                ->select('lessons.*', 'teachers.name as teacher_name', 'bookings.id as booking_id')
+                ->orderBy('lessons.start_time')
+                ->get();
+            
+            // Récupérer les leçons disponibles
+            $availableLessons = \DB::table('lessons')
+                ->join('users as teachers', 'lessons.teacher_id', '=', 'teachers.id')
+                ->where('lessons.start_time', '>', now())
+                ->whereNotIn('lessons.id', function($query) use ($user) {
+                    $query->select('lesson_id')
+                        ->from('bookings')
+                        ->where('student_id', $user->id);
+                })
+                ->select('lessons.*', 'teachers.name as teacher_name')
+                ->orderBy('lessons.start_time')
+                ->get();
+            
+            $events = $bookings->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'start' => $item->start_time,
+                    'end' => $item->end_time,
+                    'type' => 'booking',
+                    'teacher' => ['name' => $item->teacher_name],
+                    'location' => $item->location,
+                    'description' => $item->description
+                ];
+            })->concat($availableLessons->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'start' => $item->start_time,
+                    'end' => $item->end_time,
+                    'type' => 'lesson',
+                    'teacher' => ['name' => $item->teacher_name],
+                    'location' => $item->location,
+                    'description' => $item->description
+                ];
+            }));
+        } else {
+            // Récupérer les événements pour un club spécifique
+            $events = \DB::table('lessons')
+                ->join('users as teachers', 'lessons.teacher_id', '=', 'teachers.id')
+                ->where('lessons.club_id', $calendarId)
+                ->where('lessons.start_time', '>', now())
+                ->select('lessons.*', 'teachers.name as teacher_name')
+                ->orderBy('lessons.start_time')
+                ->get()
+                ->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'title' => $item->title,
+                        'start' => $item->start_time,
+                        'end' => $item->end_time,
+                        'type' => 'lesson',
+                        'teacher' => ['name' => $item->teacher_name],
+                        'location' => $item->location,
+                        'description' => $item->description
+                    ];
+                });
+        }
+        
+        return response()->json([
+            'success' => true,
+            'events' => $events
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /student/calendar: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::get('/student/clubs', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer les clubs de l'étudiant
+        $clubs = \DB::table('club_students')
+            ->join('clubs', 'club_students.club_id', '=', 'clubs.id')
+            ->where('club_students.student_id', $user->id)
+            ->select('clubs.id', 'clubs.name', 'clubs.description')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'clubs' => $clubs
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /student/clubs: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::post('/student/calendar/sync-google', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        $calendarId = $request->input('calendar_id', 'personal');
+        
+        // TODO: Implémenter la synchronisation avec Google Calendar
+        // Pour l'instant, on simule la synchronisation
+        
+        \Log::info("Synchronisation Google Calendar pour l'étudiant {$user->id}, calendrier: {$calendarId}");
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Synchronisation Google Calendar en cours...'
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /student/calendar/sync-google: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
 // Routes pour l'intégration Google Calendar
 Route::get('/google-calendar/auth-url', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getAuthUrl']);
 Route::post('/google-calendar/callback', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'handleCallback']);
@@ -273,6 +439,18 @@ Route::post('/google-calendar/events', [\App\Http\Controllers\Api\GoogleCalendar
 Route::put('/google-calendar/events/{eventId}', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'updateEvent']);
 Route::delete('/google-calendar/events/{eventId}', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'deleteEvent']);
 Route::get('/google-calendar/events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getEvents']);
+
+// Routes pour l'intégration Google Calendar des enseignants
+Route::get('/teacher/google-calendar/auth-url', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getAuthUrl']);
+Route::post('/teacher/google-calendar/callback', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'handleCallback']);
+Route::get('/teacher/google-calendar/calendars', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getCalendars']);
+Route::post('/teacher/google-calendar/sync-events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'syncEvents']);
+
+// Routes pour l'intégration Google Calendar des étudiants
+Route::get('/student/google-calendar/auth-url', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getAuthUrl']);
+Route::post('/student/google-calendar/callback', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'handleCallback']);
+Route::get('/student/google-calendar/calendars', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getCalendars']);
+Route::post('/student/google-calendar/sync-events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'syncEvents']);
 
 // Route de diagnostic pour l'erreur 500
 Route::get('/auth/user-debug', function(Request $request) {
