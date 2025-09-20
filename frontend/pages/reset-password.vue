@@ -139,10 +139,10 @@ const validationErrors = ref([])
 // Récupérer les paramètres de l'URL si présents
 onMounted(() => {
   if (route.query.email) {
-    form.email = route.query.email as string
+    form.email = String(route.query.email)
   }
   if (route.query.token) {
-    form.token = route.query.token as string
+    form.token = String(route.query.token)
   }
 })
 
@@ -204,7 +204,7 @@ const handleResetPassword = async () => {
     setTimeout(() => {
       navigateTo('/login')
     }, 3000)
-  } catch (err: any) {
+    } catch (err) {
     console.error('Erreur lors de la réinitialisation:', err)
 
     let errorMessage = 'Une erreur est survenue'

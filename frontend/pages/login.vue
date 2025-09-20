@@ -281,7 +281,7 @@ const handleForgotPassword = async () => {
     setTimeout(() => {
       closeForgotPassword()
     }, 3000)
-  } catch (err: any) {
+  } catch (err) {
     console.error('Erreur lors de la demande de réinitialisation:', err)
     
     if (err.response?.data?.message) {
