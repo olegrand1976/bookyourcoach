@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Tag de l\'image à déployer (laisser vide pour latest)'
+        description: 'Tag de l image à déployer (laisser vide pour latest)'
         required: false
         default: 'latest'
         type: string
