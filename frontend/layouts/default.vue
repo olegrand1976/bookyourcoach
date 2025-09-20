@@ -48,7 +48,7 @@
                     <span>Tableau de bord</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher/dashboard"
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>🏇</span>
                     <span>Espace Enseignant</span>
