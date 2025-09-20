@@ -524,8 +524,8 @@ jobs:
         echo "🔍 Tests de vérification post-déploiement..."
         
         # Attendre que les services soient prêts
-        echo "⏳ Attente du démarrage complet des services (60 secondes)..."
-        sleep 60
+        echo "⏳ Attente du démarrage complet des services (30 secondes)..."
+        sleep 30
         
         # Test de connectivité des services
         echo "🔌 Test des services sur le serveur..."

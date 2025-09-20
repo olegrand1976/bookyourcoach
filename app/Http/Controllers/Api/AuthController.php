@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use App\Models\Teacher;
 use App\Models\Student;
@@ -152,6 +155,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email',
             'password' => 'required|string',
+            'remember' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -208,7 +212,16 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Créer le token avec une durée différente selon "Se souvenir de moi"
+        $remember = $request->boolean('remember', false);
+        $tokenName = $remember ? 'remember_token' : 'auth_token';
+        
+        // Si "Se souvenir de moi" est activé, créer un token avec une durée plus longue
+        if ($remember) {
+            $token = $user->createToken($tokenName, ['*'], now()->addDays(30))->plainTextToken;
+        } else {
+            $token = $user->createToken($tokenName)->plainTextToken;
+        }
 
         // Log des connexions réussies
         try {
@@ -235,7 +248,8 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Connexion réussie',
             'user' => $userData,
-            'token' => $token
+            'token' => $token,
+            'remember' => $remember
         ]);
     }
 
@@ -316,6 +330,162 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => $userData
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/api/auth/forgot-password",
+     *      operationId="forgotPassword",
+     *      tags={"Authentication"},
+     *      summary="Demande de réinitialisation de mot de passe",
+     *      description="Envoie un email avec un lien de réinitialisation de mot de passe",
+     *      @OA\RequestBody(
+     *          required=true,
+     *          @OA\JsonContent(
+     *              required={"email"},
+     *              @OA\Property(property="email", type="string", format="email", example="john@example.com")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="Email de réinitialisation envoyé",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="message", type="string", example="Email de réinitialisation envoyé")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=404,
+     *          description="Email non trouvé",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="message", type="string", example="Email non trouvé")
+     *          )
+     *      )
+     * )
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erreur de validation',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Email non trouvé'
+            ], 404);
+        }
+
+        // Générer un token de réinitialisation
+        $token = Str::random(64);
+        
+        // Stocker le token dans la base de données
+        \DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'token' => Hash::make($token),
+                'created_at' => now()
+            ]
+        );
+
+        // Envoyer l'email (pour l'instant, on log juste)
+        // TODO: Implémenter l'envoi d'email réel
+        \Log::info("Token de réinitialisation pour {$request->email}: {$token}");
+
+        return response()->json([
+            'message' => 'Email de réinitialisation envoyé'
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *      path="/api/auth/reset-password",
+     *      operationId="resetPassword",
+     *      tags={"Authentication"},
+     *      summary="Réinitialisation de mot de passe",
+     *      description="Réinitialise le mot de passe avec le token fourni",
+     *      @OA\RequestBody(
+     *          required=true,
+     *          @OA\JsonContent(
+     *              required={"email","token","password","password_confirmation"},
+     *              @OA\Property(property="email", type="string", format="email", example="john@example.com"),
+     *              @OA\Property(property="token", type="string", example="abc123..."),
+     *              @OA\Property(property="password", type="string", format="password", example="newpassword123"),
+     *              @OA\Property(property="password_confirmation", type="string", format="password", example="newpassword123")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="Mot de passe réinitialisé avec succès",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="message", type="string", example="Mot de passe réinitialisé avec succès")
+     *          )
+     *      ),
+     *      @OA\Response(
+     *          response=400,
+     *          description="Token invalide ou expiré",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="message", type="string", example="Token invalide ou expiré")
+     *          )
+     *      )
+     * )
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erreur de validation',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Vérifier le token
+        $passwordReset = \DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$passwordReset || !Hash::check($request->token, $passwordReset->token)) {
+            return response()->json([
+                'message' => 'Token invalide ou expiré'
+            ], 400);
+        }
+
+        // Vérifier que le token n'est pas expiré (60 minutes)
+        if (now()->diffInMinutes($passwordReset->created_at) > 60) {
+            return response()->json([
+                'message' => 'Token expiré'
+            ], 400);
+        }
+
+        // Mettre à jour le mot de passe
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // Supprimer le token utilisé
+        \DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->delete();
+
+        // Révoquer tous les tokens existants de l'utilisateur
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => 'Mot de passe réinitialisé avec succès'
         ]);
     }
 }

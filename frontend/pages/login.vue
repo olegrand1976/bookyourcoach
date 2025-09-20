@@ -47,9 +47,9 @@
             </div>
 
             <div class="text-sm">
-              <a href="#" class="font-medium text-blue-400 bg-blue-600:text-yellow-600">
+              <button type="button" @click="showForgotPassword = true" class="font-medium text-blue-400 bg-blue-600:text-yellow-600 hover:text-blue-500">
                 Mot de passe oublié ?
-              </a>
+              </button>
             </div>
           </div>
 
@@ -81,6 +81,61 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal Mot de passe oublié -->
+    <div v-if="showForgotPassword" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Mot de passe oublié</h3>
+          
+          <form @submit.prevent="handleForgotPassword">
+            <div class="mb-4">
+              <label for="forgot-email" class="block text-sm font-medium text-gray-700 mb-2">
+                Adresse email
+              </label>
+              <input 
+                id="forgot-email" 
+                v-model="forgotPasswordForm.email" 
+                type="email" 
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Votre adresse email"
+              />
+            </div>
+
+            <div v-if="forgotPasswordError" class="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
+              <div class="text-sm text-red-600">
+                {{ forgotPasswordError }}
+              </div>
+            </div>
+
+            <div v-if="forgotPasswordSuccess" class="mb-4 bg-green-50 border border-green-200 rounded-md p-3">
+              <div class="text-sm text-green-600">
+                {{ forgotPasswordSuccess }}
+              </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+              <button 
+                type="button" 
+                @click="closeForgotPassword"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Annuler
+              </button>
+              <button 
+                type="submit" 
+                :disabled="forgotPasswordLoading"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                <span v-if="forgotPasswordLoading">Envoi en cours...</span>
+                <span v-else>Envoyer</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -104,6 +159,15 @@ const form = reactive({
 const loading = ref(false)
 const error = ref('')
 const validationErrors = ref([])
+
+// Variables pour "Mot de passe oublié"
+const showForgotPassword = ref(false)
+const forgotPasswordLoading = ref(false)
+const forgotPasswordError = ref('')
+const forgotPasswordSuccess = ref('')
+const forgotPasswordForm = reactive({
+  email: ''
+})
 
 // Fonction de validation renforcée
 const validateForm = () => {
@@ -140,7 +204,8 @@ const handleLogin = async () => {
   try {
     await authStore.login({
       email: form.email,
-      password: form.password
+      password: form.password,
+      remember: form.remember
     })
 
     showToast('Connexion réussie', 'success')
@@ -200,4 +265,41 @@ watchEffect(() => {
     }
   }
 })
+
+// Fonctions pour "Mot de passe oublié"
+const handleForgotPassword = async () => {
+  forgotPasswordLoading.value = true
+  forgotPasswordError.value = ''
+  forgotPasswordSuccess.value = ''
+
+  try {
+    await authStore.forgotPassword(forgotPasswordForm.email)
+    forgotPasswordSuccess.value = 'Un email de réinitialisation a été envoyé à votre adresse email.'
+    forgotPasswordForm.email = ''
+    
+    // Fermer la modale après 3 secondes
+    setTimeout(() => {
+      closeForgotPassword()
+    }, 3000)
+  } catch (err: any) {
+    console.error('Erreur lors de la demande de réinitialisation:', err)
+    
+    if (err.response?.data?.message) {
+      forgotPasswordError.value = err.response.data.message
+    } else if (err.response?.status === 404) {
+      forgotPasswordError.value = 'Aucun compte trouvé avec cette adresse email.'
+    } else {
+      forgotPasswordError.value = 'Une erreur est survenue. Veuillez réessayer.'
+    }
+  } finally {
+    forgotPasswordLoading.value = false
+  }
+}
+
+const closeForgotPassword = () => {
+  showForgotPassword.value = false
+  forgotPasswordForm.email = ''
+  forgotPasswordError.value = ''
+  forgotPasswordSuccess.value = ''
+}
 </script>

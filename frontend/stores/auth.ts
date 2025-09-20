@@ -19,7 +19,7 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async login(credentials: { email: string, password: string }) {
+    async login(credentials: { email: string, password: string, remember?: boolean }) {
       console.log('🔑 [LOGIN] Début de la connexion avec:', credentials.email)
       this.loading = true
       
@@ -42,14 +42,17 @@ export const useAuthStore = defineStore('auth', {
         this.user = response.user
         this.isAuthenticated = true
 
-        // Stocker le token dans un cookie
+        // Stocker le token dans un cookie avec durée selon "Se souvenir de moi"
+        const remember = credentials.remember || false
+        const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7 // 30 jours ou 7 jours
+        
         const tokenCookie = useCookie('auth-token', {
           httpOnly: false,
           secure: false,
-          maxAge: 60 * 60 * 24 * 7 // 7 jours
+          maxAge: maxAge
         })
         tokenCookie.value = this.token
-        console.log('🔑 [LOGIN] Token stocké dans cookie')
+        console.log('🔑 [LOGIN] Token stocké dans cookie (remember:', remember, ', durée:', maxAge, 's)')
 
         // Sauvegarder les données utilisateur localement
         if (process.client) {
@@ -183,6 +186,54 @@ export const useAuthStore = defineStore('auth', {
         } else {
           console.log('🔍 [AUTH DEBUG] Aucun token trouvé')
         }
+      }
+    },
+
+    async forgotPassword(email: string) {
+      console.log('🔑 [FORGOT PASSWORD] Demande de réinitialisation pour:', email)
+      
+      try {
+        const config = useRuntimeConfig()
+        
+        const response = await $fetch('/auth/forgot-password', {
+          method: 'POST',
+          baseURL: config.public.apiBase,
+          body: { email },
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        })
+        
+        console.log('🔑 [FORGOT PASSWORD] Réponse:', response)
+        return response
+      } catch (error) {
+        console.error('🔑 [FORGOT PASSWORD] Erreur:', error)
+        throw error
+      }
+    },
+
+    async resetPassword(data: { email: string, token: string, password: string, password_confirmation: string }) {
+      console.log('🔑 [RESET PASSWORD] Réinitialisation pour:', data.email)
+      
+      try {
+        const config = useRuntimeConfig()
+        
+        const response = await $fetch('/auth/reset-password', {
+          method: 'POST',
+          baseURL: config.public.apiBase,
+          body: data,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        })
+        
+        console.log('🔑 [RESET PASSWORD] Réponse:', response)
+        return response
+      } catch (error) {
+        console.error('🔑 [RESET PASSWORD] Erreur:', error)
+        throw error
       }
     }
   }
