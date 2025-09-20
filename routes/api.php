@@ -61,9 +61,12 @@ Route::get('/auth/user-debug', function(Request $request) {
         return response()->json([
             'success' => true,
             'user_id' => $userData->id,
-            'user_name' => $userData->name,
+            'user_name' => $userData->name ?? 'Non renseigné',
             'user_email' => $userData->email,
-            'user_role' => $userData->role
+            'user_role' => $userData->role,
+            'user_phone' => $userData->phone ?? null,
+            'user_city' => $userData->city ?? null,
+            'user_country' => $userData->country ?? null
         ], 200);
         
     } catch (\Exception $e) {
