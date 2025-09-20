@@ -11,19 +11,19 @@ WORKDIR /app
 FROM base AS deps
 
 # Copier les fichiers de configuration des dépendances
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Installer les dépendances de production seulement
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Stage 3: Tests et validation
 FROM base AS test
 
 # Copier les fichiers de configuration
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Installer toutes les dépendances (dev + prod)
-RUN npm ci
+RUN npm install
 
 # Copier le code source
 COPY . .
@@ -35,10 +35,10 @@ RUN npm run test:unit || echo "Tests unitaires non configurés, continuons..."
 FROM base AS builder
 
 # Copier les fichiers de configuration
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Installer toutes les dépendances pour le build
-RUN npm ci
+RUN npm install
 
 # Copier le code source
 COPY . .
