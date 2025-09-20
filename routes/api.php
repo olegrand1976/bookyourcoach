@@ -704,6 +704,7 @@ Route::group([], function () {
             'experience_years' => 'nullable|integer|min:0',
             'certifications' => 'nullable|string|max:500',
             'hourly_rate' => 'nullable|numeric|min:0',
+            'bio' => 'nullable|string|max:1000',
             // Student specific
             'riding_level' => 'nullable|string|max:50',
             'course_preferences' => 'nullable|string|max:500',
@@ -749,6 +750,7 @@ Route::group([], function () {
                 'experience_years' => $request->experience_years,
                 'certifications' => $request->certifications,
                 'hourly_rate' => $request->hourly_rate,
+                'bio' => $request->bio,
                 'updated_at' => now(),
             ];
             
