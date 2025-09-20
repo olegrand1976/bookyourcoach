@@ -35,6 +35,11 @@ class GoogleCalendarService
      */
     public function getAuthUrl(): string
     {
+        // Configuration explicite des paramètres OAuth2
+        $this->client->setAccessType('offline');
+        $this->client->setPrompt('select_account consent');
+        $this->client->setIncludeGrantedScopes(true);
+        
         return $this->client->createAuthUrl();
     }
 
