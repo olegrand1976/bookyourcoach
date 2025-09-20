@@ -62,12 +62,12 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations professionnelles</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Discipline principale</label>
-                <p class="text-gray-900">{{ teacherData?.discipline || 'Non renseigné' }}</p>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Spécialités</label>
+                <p class="text-gray-900">{{ teacherData?.specialties || 'Non renseigné' }}</p>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Niveau d'expérience</label>
-                <p class="text-gray-900">{{ teacherData?.experience_level || 'Non renseigné' }}</p>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+                <p class="text-gray-900">{{ teacherData?.experience_years ? `${teacherData.experience_years} ans` : 'Non renseigné' }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Tarif horaire</label>
@@ -87,7 +87,15 @@
           <div>
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Description</h2>
             <div class="bg-gray-50 rounded-lg p-4">
-              <p class="text-gray-700">{{ teacherData?.description || 'Aucune description renseignée' }}</p>
+              <p class="text-gray-700">{{ teacherData?.bio || 'Aucune description renseignée' }}</p>
+            </div>
+          </div>
+
+          <!-- Certifications -->
+          <div v-if="teacherData?.certifications">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Certifications</h2>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <p class="text-gray-700">{{ teacherData.certifications }}</p>
             </div>
           </div>
 
@@ -154,8 +162,8 @@ const loadProfileData = async () => {
 
 // Modifier le profil
 const editProfile = () => {
-  // TODO: Implémenter la modification du profil
-  console.log('Modification du profil - à implémenter')
+  // Rediriger vers la page d'édition du profil
+  navigateTo('/teacher/profile/edit')
 }
 
 // Watcher pour recharger les données si l'utilisateur change
