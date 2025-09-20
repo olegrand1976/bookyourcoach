@@ -19,6 +19,8 @@ Route::get('/activity-types', function() {
 // Authentification
 Route::post('/auth/register', [AuthControllerSimple::class, 'register']);
 Route::post('/auth/login', [AuthControllerSimple::class, 'login']);
+Route::post('/auth/forgot-password', [AuthControllerSimple::class, 'forgotPassword']);
+Route::post('/auth/reset-password', [AuthControllerSimple::class, 'resetPassword']);
 //Route::get('/auth/user-test', [AuthControllerSimple::class, 'userTest']);
 
 // Route user en dehors du groupe pour éviter les middlewares
