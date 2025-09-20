@@ -22,11 +22,19 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
 # Test results
 test-results/
 playwright-report/
-coverage/
-.nyc_output/
 
 # IDE
 .vscode/
@@ -51,6 +59,9 @@ desktop.ini
 *.old
 *.orig
 
+# Lock files (keep package-lock.json for consistency)
+# package-lock.json - KEEP for Node.js dependencies
+
 # Test files (keep actual tests, ignore temporary test files)
 test_*.js
 test_*.cjs
@@ -62,16 +73,3 @@ debug_*.html
 *-FIXED.md
 Agents.md
 SOLUTION_*.md
-
-# Git
-.git/
-.gitignore
-
-# Docker
-Dockerfile*
-.dockerignore
-docker-compose*.yml
-
-# Runtime files
-*.pid
-*.sock
