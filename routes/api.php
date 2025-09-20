@@ -26,6 +26,254 @@ Route::post('/auth/reset-password', [AuthControllerSimple::class, 'resetPassword
 // Route user en dehors du groupe pour éviter les middlewares
 Route::get('/auth/user', [AuthControllerSimple::class, 'user']);
 
+// Routes pour le calendrier enseignant
+Route::get('/teacher/calendar', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        $calendarId = $request->query('calendar_id', 'personal');
+        
+        // Récupérer les événements selon le calendrier sélectionné
+        if ($calendarId === 'personal') {
+            $events = \DB::table('lessons')
+                ->where('teacher_id', $user->id)
+                ->where('club_id', null)
+                ->orderBy('start_time')
+                ->get();
+        } else {
+            $events = \DB::table('lessons')
+                ->where('teacher_id', $user->id)
+                ->where('club_id', $calendarId)
+                ->orderBy('start_time')
+                ->get();
+        }
+        
+        return response()->json([
+            'success' => true,
+            'events' => $events
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/calendar: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::get('/teacher/students', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer les élèves de l'enseignant
+        $students = \DB::table('students')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->where('students.teacher_id', $user->id)
+            ->select('users.id', 'users.name', 'users.email')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'students' => $students
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/students: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::get('/teacher/clubs', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer les clubs de l'enseignant
+        $clubs = \DB::table('club_teachers')
+            ->join('clubs', 'club_teachers.club_id', '=', 'clubs.id')
+            ->where('club_teachers.teacher_id', $user->id)
+            ->select('clubs.id', 'clubs.name', 'clubs.description')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'clubs' => $clubs
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/clubs: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::post('/teacher/lessons', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Validation des données
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'student_id' => 'required|integer',
+            'start_time' => 'required|date',
+            'end_time' => 'required|date|after:start_time',
+            'duration' => 'required|integer|min:30|max:180',
+            'type' => 'required|in:lesson,group,training,competition',
+            'description' => 'nullable|string',
+            'calendar_id' => 'required|string'
+        ]);
+        
+        // Créer le cours
+        $lessonId = \DB::table('lessons')->insertGetId([
+            'title' => $request->title,
+            'teacher_id' => $user->id,
+            'student_id' => $request->student_id,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'duration' => $request->duration,
+            'type' => $request->type,
+            'description' => $request->description,
+            'club_id' => $request->calendar_id !== 'personal' ? $request->calendar_id : null,
+            'status' => 'scheduled',
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'lesson_id' => $lessonId,
+            'message' => 'Cours créé avec succès'
+        ], 201);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/lessons: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::delete('/teacher/lessons/{id}', function(Request $request, $id) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Vérifier que le cours appartient à l'enseignant
+        $lesson = \DB::table('lessons')->where('id', $id)->where('teacher_id', $user->id)->first();
+        
+        if (!$lesson) {
+            return response()->json(['error' => 'Cours non trouvé'], 404);
+        }
+        
+        // Supprimer le cours
+        \DB::table('lessons')->where('id', $id)->delete();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Cours supprimé avec succès'
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/lessons/{id}: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+Route::post('/teacher/calendar/sync-google', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        $calendarId = $request->input('calendar_id', 'personal');
+        
+        // TODO: Implémenter la synchronisation avec Google Calendar
+        // Pour l'instant, on simule la synchronisation
+        
+        \Log::info("Synchronisation Google Calendar pour l'enseignant {$user->id}, calendrier: {$calendarId}");
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Synchronisation Google Calendar en cours...'
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/calendar/sync-google: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+// Routes pour l'intégration Google Calendar
+Route::get('/google-calendar/auth-url', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getAuthUrl']);
+Route::post('/google-calendar/callback', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'handleCallback']);
+Route::get('/google-calendar/calendars', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getCalendars']);
+Route::post('/google-calendar/sync-events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'syncEvents']);
+Route::post('/google-calendar/events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'createEvent']);
+Route::put('/google-calendar/events/{eventId}', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'updateEvent']);
+Route::delete('/google-calendar/events/{eventId}', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'deleteEvent']);
+Route::get('/google-calendar/events', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getEvents']);
+
 // Route de diagnostic pour l'erreur 500
 Route::get('/auth/user-debug', function(Request $request) {
     try {

@@ -3,26 +3,32 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Header -->
             <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900">
-                    Mon Planning
-                </h1>
-                <p class="mt-2 text-gray-600">
-                    Gérez vos disponibilités et vos créneaux de cours
-                </p>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">
+                            Mon Planning
+                        </h1>
+                        <p class="mt-2 text-gray-600">
+                            Gérez vos disponibilités et vos créneaux de cours
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <NuxtLink to="/teacher/dashboard" 
+                            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                            <span>←</span>
+                            <span class="ml-2">Retour au dashboard</span>
+                        </NuxtLink>
+                    </div>
+                </div>
             </div>
 
-            <!-- Contenu temporaire -->
-            <div class="bg-white rounded-lg shadow p-8 text-center">
-                <div class="text-6xl mb-4">📅</div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">Planning en cours de développement</h2>
-                <p class="text-gray-600 mb-6">
-                    Cette fonctionnalité sera bientôt disponible pour gérer votre planning.
-                </p>
-                <NuxtLink to="/teacher/dashboard" 
-                    class="btn-primary bg-blue-600 text-white">
-                    Retour au dashboard
-                </NuxtLink>
+            <!-- Intégration Google Calendar -->
+            <div class="mb-8">
+                <GoogleCalendarIntegration :teacher-id="authStore.user?.id" />
             </div>
+
+            <!-- Calendrier -->
+            <TeacherCalendar :teacher-id="authStore.user?.id" />
         </div>
     </div>
 </template>
