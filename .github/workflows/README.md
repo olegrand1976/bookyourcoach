@@ -9,7 +9,7 @@ Ce dossier contient plusieurs workflows GitHub Actions pour gérer le build, le 
 **Workflow principal** qui combine build et déploiement avec des jobs séparés.
 
 **Déclencheurs :**
-- Push sur la branche `main`
+- Push sur la branche `main` (automatique)
 - Déclenchement manuel avec options
 
 **Options de déclenchement manuel :**
@@ -30,7 +30,7 @@ Ce dossier contient plusieurs workflows GitHub Actions pour gérer le build, le 
 **Workflow dédié** uniquement au build des images Docker.
 
 **Déclencheurs :**
-- Déclenchement manuel uniquement
+- Déclenchement manuel uniquement (pas de push automatique)
 
 **Options :**
 - `force_rebuild` : Forcer la reconstruction complète (sans cache)
@@ -47,7 +47,7 @@ Ce dossier contient plusieurs workflows GitHub Actions pour gérer le build, le 
 **Workflow dédié** uniquement au déploiement sur le serveur.
 
 **Déclencheurs :**
-- Déclenchement manuel uniquement
+- Déclenchement manuel uniquement (pas de push automatique)
 
 **Options :**
 - `image_tag` : Tag de l'image à déployer (par défaut: latest)
@@ -65,7 +65,7 @@ Ce dossier contient plusieurs workflows GitHub Actions pour gérer le build, le 
 **Workflow dédié** uniquement aux tests du serveur.
 
 **Déclencheurs :**
-- Déclenchement manuel uniquement
+- Déclenchement manuel uniquement (pas de push automatique)
 
 **Options :**
 - `test_type` : Type de tests à exécuter (all, connectivity, api, containers)
@@ -79,31 +79,32 @@ Ce dossier contient plusieurs workflows GitHub Actions pour gérer le build, le 
 
 ## 🎯 Cas d'Usage
 
-### Scénario 1 : Déploiement Complet
+### Scénario 1 : Déploiement Complet (Automatique)
 ```bash
-# Déclencher le workflow modulaire
-# Tous les jobs s'exécutent dans l'ordre
+# Push sur la branche main
+git push origin main
+# Le workflow modulaire se déclenche automatiquement
 ```
 
-### Scénario 2 : Build Seulement
+### Scénario 2 : Build Seulement (Manuel)
 ```bash
-# Déclencher build-only.yml
+# Déclencher build-only.yml manuellement
 # Ou déclencher deploy-production-modular.yml avec skip_deploy=true
 ```
 
-### Scénario 3 : Déploiement Seulement
+### Scénario 3 : Déploiement Seulement (Manuel)
 ```bash
-# Déclencher deploy-only.yml
+# Déclencher deploy-only.yml manuellement
 # Ou déclencher deploy-production-modular.yml avec skip_build=true
 ```
 
-### Scénario 4 : Tests Seulement
+### Scénario 4 : Tests Seulement (Manuel)
 ```bash
-# Déclencher test-only.yml
+# Déclencher test-only.yml manuellement
 # Utile pour vérifier l'état du serveur sans redéployer
 ```
 
-### Scénario 5 : Build Forcé
+### Scénario 5 : Build Forcé (Manuel)
 ```bash
 # Déclencher build-only.yml avec force_rebuild=true
 # Utile après des changements majeurs
