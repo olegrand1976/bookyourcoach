@@ -331,7 +331,7 @@
             </div>
             
             <!-- Informations de debug -->
-            <div v-if="process.env.NODE_ENV === 'development'" class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+            <div v-if="isDevelopment" class="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
               <p class="text-xs text-gray-600">
                 <strong>Debug:</strong> Élèves chargés: {{ students.length }}, Formulaire valide: {{ isFormValid }}
               </p>
@@ -456,6 +456,10 @@ const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const hours = Array.from({ length: 24 }, (_, i) => i)
 
 // Computed
+const isDevelopment = computed(() => {
+  return import.meta.env.DEV
+})
+
 const currentPeriodTitle = computed(() => {
   if (currentView.value === 'month') {
     return currentDate.value.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
