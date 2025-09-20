@@ -6,11 +6,13 @@ setup.log
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Environment files
 .env
 .env.backup
 .env.production
+.env.local
 
 # IDE & Editor files
 .phpactor.json
@@ -19,6 +21,9 @@ Thumbs.db
 /.nova
 /.vscode
 /.zed
+*.swp
+*.swo
+*~
 
 # PHP & Laravel
 .phpunit.result.cache
@@ -37,17 +42,21 @@ Homestead.yaml
 /node_modules
 npm-debug.log
 yarn-error.log
-package-lock.json
+yarn-debug.log
+pnpm-debug.log
 
 # Build & Temporary files
 /public/build
 cookies.txt
 debug_auth.html
+*.tmp
+*.temp
+*.cache
 
 # Test & Debug scripts
-*.sh
 test_*.js
 test_*.cjs
+test_*.html
 test-*.txt
 debug-*.sh
 dev-*.sh
@@ -63,6 +72,7 @@ TESTS-FRONTEND-COMPLETE.md
 ITERATION-COMPLETE.md
 LOGO-UPLOAD-COMPLETE.md
 Agents.md
+SOLUTION_*.md
 
 # Copilot workspace copy
 /copilot/
@@ -72,3 +82,37 @@ docker-compose-new.yml
 
 # Docker persisted data
 /docker-data/
+
+# Frontend build artifacts
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+
+# Mobile build artifacts
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/.pub-cache/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Lock files (keep composer.lock and package-lock.json for consistency)
+# composer.lock - KEEP for PHP dependencies
+# package-lock.json - KEEP for Node.js dependencies
+# pubspec.lock - KEEP for Flutter dependencies
+
+# Test results and coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Runtime files
+*.pid
+*.sock

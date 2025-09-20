@@ -1,3 +1,7 @@
+# =============================================================================
+# Dockerfile Frontend Nuxt.js - BookYourCoach
+# =============================================================================
+
 # Stage 1: Base avec Node.js
 FROM node:20-alpine AS base
 
@@ -7,14 +11,14 @@ RUN apk add --no-cache libc6-compat
 # Définir le répertoire de travail
 WORKDIR /app
 
-# Stage 2: Dépendances
+# Stage 2: Dépendances de production
 FROM base AS deps
 
 # Copier les fichiers de configuration des dépendances
 COPY package.json package-lock.json ./
 
 # Installer les dépendances de production seulement
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Stage 3: Tests et validation
 FROM base AS test
@@ -23,7 +27,7 @@ FROM base AS test
 COPY package.json package-lock.json ./
 
 # Installer toutes les dépendances (dev + prod)
-RUN npm install
+RUN npm ci
 
 # Copier le code source
 COPY . .
@@ -38,7 +42,7 @@ FROM base AS builder
 COPY package.json package-lock.json ./
 
 # Installer toutes les dépendances pour le build
-RUN npm install
+RUN npm ci
 
 # Copier le code source
 COPY . .

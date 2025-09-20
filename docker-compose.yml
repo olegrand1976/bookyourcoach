@@ -1,9 +1,16 @@
+# =============================================================================
+# Docker Compose - BookYourCoach
+# Configuration de production avec services backend et frontend
+# =============================================================================
+
 version: "3.8"
 
 services:
+  # =============================================================================
   # Backend Laravel API
+  # =============================================================================
   backend:
-    image: ${IMAGE_NAME:-olegrand1976/activibe-app:latest}
+    image: ${BACKEND_IMAGE:-olegrand1976/activibe-app:latest}
     container_name: activibe-backend
     restart: unless-stopped
     env_file:
@@ -23,10 +30,18 @@ services:
       - neo4j
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # =============================================================================
   # Frontend Nuxt.js
+  # =============================================================================
   frontend:
-    image: ${FRONTEND_IMAGE_NAME:-olegrand1976/activibe-frontend:latest}
+    image: ${FRONTEND_IMAGE:-olegrand1976/activibe-frontend:latest}
     container_name: activibe-frontend
     restart: unless-stopped
     ports:
@@ -38,12 +53,22 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
+      - NODE_ENV=production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # phpMyAdmin pour administrer la base de données OVH
+  # =============================================================================
+  # phpMyAdmin pour administrer la base de données
+  # =============================================================================
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: activibe-phpmyadmin
@@ -60,8 +85,12 @@ services:
       - MEMORY_LIMIT=512M
     networks:
       - app-network
+    depends_on:
+      - mysql-local
 
+  # =============================================================================
   # MySQL local pour développement
+  # =============================================================================
   mysql-local:
     image: mysql:8.0
     container_name: activibe-mysql-local
@@ -79,8 +108,16 @@ services:
     networks:
       - app-network
     command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # =============================================================================
   # Neo4j pour analyses graphiques
+  # =============================================================================
   neo4j:
     image: neo4j:5.15-community
     container_name: activibe-neo4j
@@ -100,7 +137,16 @@ services:
       - neo4j_plugins:/plugins
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   neo4j_data:
     driver: local
@@ -117,6 +163,12 @@ volumes:
   app_bootstrap_cache:
     driver: local
 
+# =============================================================================
+# Réseaux
+# =============================================================================
 networks:
   app-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

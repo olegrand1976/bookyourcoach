@@ -125,6 +125,184 @@ Route::group([], function () {
         ], 201);
     });
     
+    // Route de test pour le profil (utilisée par le frontend)
+    Route::get('/profile-test', function() {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer les données de profil
+        $profile = \DB::table('profiles')->where('user_id', $user->id)->first();
+        
+        $response = [
+            'profile' => $profile ? [
+                'id' => $profile->id,
+                'user_id' => $profile->user_id,
+                'phone' => $profile->phone,
+                'address' => $profile->address,
+                'city' => $profile->city,
+                'postal_code' => $profile->postal_code,
+                'country' => $profile->country,
+                'date_of_birth' => $profile->date_of_birth,
+                'created_at' => $profile->created_at,
+                'updated_at' => $profile->updated_at,
+            ] : null
+        ];
+        
+        // Ajouter les données spécifiques au rôle
+        if ($user->role === 'teacher') {
+            $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+            $response['teacher'] = $teacher ? [
+                'id' => $teacher->id,
+                'user_id' => $teacher->user_id,
+                'specialties' => $teacher->specialties,
+                'experience_years' => $teacher->experience_years,
+                'certifications' => $teacher->certifications,
+                'hourly_rate' => $teacher->hourly_rate,
+                'bio' => $teacher->bio,
+                'is_available' => $teacher->is_available,
+                'created_at' => $teacher->created_at,
+                'updated_at' => $teacher->updated_at,
+            ] : null;
+        }
+        
+        if ($user->role === 'student') {
+            $student = \DB::table('students')->where('user_id', $user->id)->first();
+            $response['student'] = $student ? [
+                'id' => $student->id,
+                'user_id' => $student->user_id,
+                'level' => $student->level,
+                'course_preferences' => $student->course_preferences,
+                'emergency_contact' => $student->emergency_contact,
+                'medical_notes' => $student->medical_notes,
+                'created_at' => $student->created_at,
+                'updated_at' => $student->updated_at,
+            ] : null;
+        }
+        
+        return response()->json($response, 200);
+    });
+    
+    Route::put('/profile-test', function(Request $request) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Validation des données
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
+            'birth_date' => 'nullable|date',
+            // Teacher specific
+            'specialties' => 'nullable|string|max:500',
+            'experience_years' => 'nullable|integer|min:0',
+            'certifications' => 'nullable|string|max:500',
+            'hourly_rate' => 'nullable|numeric|min:0',
+            // Student specific
+            'riding_level' => 'nullable|string|max:50',
+            'course_preferences' => 'nullable|string|max:500',
+            'emergency_contact' => 'nullable|string|max:255',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        // Mettre à jour les données utilisateur de base
+        \DB::table('users')->where('id', $user->id)->update([
+            'name' => $request->name,
+            'email' => $request->email,
+            'updated_at' => now(),
+        ]);
+        
+        // Mettre à jour ou créer le profil
+        $profileData = [
+            'user_id' => $user->id,
+            'phone' => $request->phone,
+            'date_of_birth' => $request->birth_date,
+            'updated_at' => now(),
+        ];
+        
+        $existingProfile = \DB::table('profiles')->where('user_id', $user->id)->first();
+        
+        if ($existingProfile) {
+            \DB::table('profiles')->where('user_id', $user->id)->update($profileData);
+        } else {
+            $profileData['created_at'] = now();
+            \DB::table('profiles')->insert($profileData);
+        }
+        
+        // Mettre à jour les données spécifiques au rôle
+        if ($user->role === 'teacher') {
+            $teacherData = [
+                'user_id' => $user->id,
+                'specialties' => $request->specialties,
+                'experience_years' => $request->experience_years,
+                'certifications' => $request->certifications,
+                'hourly_rate' => $request->hourly_rate,
+                'updated_at' => now(),
+            ];
+            
+            $existingTeacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+            
+            if ($existingTeacher) {
+                \DB::table('teachers')->where('user_id', $user->id)->update($teacherData);
+            } else {
+                $teacherData['created_at'] = now();
+                \DB::table('teachers')->insert($teacherData);
+            }
+        }
+        
+        if ($user->role === 'student') {
+            $studentData = [
+                'user_id' => $user->id,
+                'level' => $request->riding_level,
+                'course_preferences' => $request->course_preferences,
+                'emergency_contact' => $request->emergency_contact,
+                'updated_at' => now(),
+            ];
+            
+            $existingStudent = \DB::table('students')->where('user_id', $user->id)->first();
+            
+            if ($existingStudent) {
+                \DB::table('students')->where('user_id', $user->id)->update($studentData);
+            } else {
+                $studentData['created_at'] = now();
+                \DB::table('students')->insert($studentData);
+            }
+        }
+        
+        return response()->json([
+            'message' => 'Profile updated successfully'
+        ], 200);
+    });
+    
     Route::get('/profiles/{id}', function($id) {
         $token = request()->header('Authorization');
         

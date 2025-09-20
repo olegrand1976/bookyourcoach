@@ -10,22 +10,30 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 bootstrap/cache/*
+.phpunit.cache
+.phpunit.result.cache
 
 # Fichiers de développement
 .env
 .env.local
 .env.development
 .env.testing
+.env.production
 
 # Tests
 tests/
 phpunit.xml
 .phpunit.result.cache
+test_*.js
+test_*.cjs
+test_*.html
+test-*.txt
 
 # Documentation
 docs/
 *.md
 !README.md
+!README-DEPLOYMENT.md
 
 # Git
 .git/
@@ -40,9 +48,16 @@ docker-data/
 # Scripts de développement (sauf ceux nécessaires pour Docker)
 *.sh
 !docker/*.sh
+!scripts/*.sh
 
-# Frontend (pour simplifier le build)
-frontend/
+# Frontend build artifacts
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+
+# Mobile (pas nécessaire pour le backend)
 mobile/
 flutter/
 
@@ -50,17 +65,37 @@ flutter/
 *.log
 *.tmp
 *.temp
+*.cache
+*.bak
+*.backup
+*.old
+*.orig
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Backup
-*.bak
-*.backup
+# Runtime files
+*.pid
+*.sock
+
+# Copilot workspace
+/copilot/
+
+# Test results
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Build artifacts
+/public/build
+/public/hot

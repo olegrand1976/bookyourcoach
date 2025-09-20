@@ -9,6 +9,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AuthControllerSimple extends Controller
 {
@@ -104,49 +106,58 @@ class AuthControllerSimple extends Controller
 
     public function user(Request $request): JsonResponse
     {
-        $token = $request->header('Authorization');
-        
-        if (!$token || !str_starts_with($token, 'Bearer ')) {
-            return response()->json(['error' => 'Unauthenticated'], 401);
-        }
-        
-        $token = substr($token, 7);
-        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-        
-        if (!$personalAccessToken) {
-            return response()->json(['error' => 'Unauthenticated'], 401);
-        }
-        
-        $user = $personalAccessToken->tokenable;
+        try {
+            $token = $request->header('Authorization');
+            
+            if (!$token || !str_starts_with($token, 'Bearer ')) {
+                return response()->json(['error' => 'Unauthenticated'], 401);
+            }
+            
+            $token = substr($token, 7);
+            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+            
+            if (!$personalAccessToken) {
+                return response()->json(['error' => 'Unauthenticated'], 401);
+            }
+            
+            $user = $personalAccessToken->tokenable;
 
-        // Récupérer les données directement depuis la base de données pour éviter les boucles
-        $userData = \DB::table('users')->where('id', $user->id)->first();
+            // Récupérer les données directement depuis la base de données pour éviter les boucles
+            $userData = DB::table('users')->where('id', $user->id)->first();
+            
+            if (!$userData) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
 
-        return response()->json([
-            'user' => [
-                'id' => $userData->id,
-                'name' => $userData->name,
-                'first_name' => $userData->first_name,
-                'last_name' => $userData->last_name,
-                'email' => $userData->email,
-                'role' => $userData->role,
-                'phone' => $userData->phone,
-                'street' => $userData->street,
-                'street_number' => $userData->street_number,
-                'street_box' => $userData->street_box,
-                'postal_code' => $userData->postal_code,
-                'city' => $userData->city,
-                'country' => $userData->country,
-                'birth_date' => $userData->birth_date,
-                'status' => $userData->status,
-                'is_active' => $userData->is_active,
-                'can_act_as_teacher' => $userData->role === 'admin' || $userData->role === 'teacher',
-                'can_act_as_student' => $userData->role === 'admin' || $userData->role === 'student',
-                'is_admin' => $userData->role === 'admin',
-                'email_verified_at' => $userData->email_verified_at,
-                'created_at' => $userData->created_at,
-                'updated_at' => $userData->updated_at,
-            ]
-        ], 200);
+            return response()->json([
+                'user' => [
+                    'id' => $userData->id,
+                    'name' => $userData->name,
+                    'first_name' => $userData->first_name,
+                    'last_name' => $userData->last_name,
+                    'email' => $userData->email,
+                    'role' => $userData->role,
+                    'phone' => $userData->phone,
+                    'street' => $userData->street,
+                    'street_number' => $userData->street_number,
+                    'street_box' => $userData->street_box,
+                    'postal_code' => $userData->postal_code,
+                    'city' => $userData->city,
+                    'country' => $userData->country,
+                    'birth_date' => $userData->birth_date,
+                    'status' => $userData->status,
+                    'is_active' => $userData->is_active,
+                    'can_act_as_teacher' => $userData->role === 'admin' || $userData->role === 'teacher',
+                    'can_act_as_student' => $userData->role === 'admin' || $userData->role === 'student',
+                    'is_admin' => $userData->role === 'admin',
+                    'email_verified_at' => $userData->email_verified_at,
+                    'created_at' => $userData->created_at,
+                    'updated_at' => $userData->updated_at,
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error in AuthControllerSimple::user: ' . $e->getMessage());
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
     }
 }
