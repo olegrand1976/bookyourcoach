@@ -301,7 +301,7 @@ jobs:
   test-deployment:
     name: 🧪 Tests Post-Déploiement
     runs-on: ubuntu-latest
-    needs: [prepare, deploy]
+    needs: [prepare, deploy, generate-config]
     if: inputs.skip_tests == 'false'
     
     steps:
