@@ -86,11 +86,16 @@ Route::get('/teacher/students', function(Request $request) {
         
         $user = $personalAccessToken->tokenable;
         
-        // Récupérer les élèves de l'enseignant
-        $students = \DB::table('students')
+        // Récupérer les élèves de l'enseignant via les clubs partagés
+        $students = \DB::table('club_teachers')
+            ->join('club_students', 'club_teachers.club_id', '=', 'club_students.club_id')
+            ->join('students', 'club_students.student_id', '=', 'students.id')
             ->join('users', 'students.user_id', '=', 'users.id')
-            ->where('students.teacher_id', $user->id)
-            ->select('users.id', 'users.name', 'users.email')
+            ->where('club_teachers.teacher_id', $user->id)
+            ->where('club_teachers.is_active', true)
+            ->where('club_students.is_active', true)
+            ->select('users.id', 'users.name', 'users.email', 'students.level')
+            ->distinct()
             ->get();
         
         return response()->json([
