@@ -149,7 +149,11 @@ import { ref, onMounted, computed } from 'vue'
 const props = defineProps({
   teacherId: {
     type: Number,
-    required: true
+    required: false
+  },
+  studentId: {
+    type: Number,
+    required: false
   }
 })
 
@@ -182,7 +186,8 @@ const connectGoogleCalendar = () => {
 const proceedWithConnection = async () => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get('/google-calendar/auth-url')
+    const endpoint = props.teacherId ? '/teacher/google-calendar/auth-url' : '/student/google-calendar/auth-url'
+    const response = await $api.get(endpoint)
     
     if (response.data.success) {
       // Rediriger vers Google
@@ -210,7 +215,8 @@ const disconnectGoogleCalendar = async () => {
 const loadConnectionStatus = async () => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get('/google-calendar/calendars')
+    const endpoint = props.teacherId ? '/teacher/google-calendar/calendars' : '/student/google-calendar/calendars'
+    const response = await $api.get(endpoint)
     
     if (response.data.success) {
       isConnected.value = true
@@ -238,7 +244,8 @@ const syncNow = async () => {
     isSyncing.value = true
     const { $api } = useNuxtApp()
     
-    const response = await $api.post('/google-calendar/sync-events', {
+    const endpoint = props.teacherId ? '/teacher/google-calendar/sync-events' : '/student/google-calendar/sync-events'
+    const response = await $api.post(endpoint, {
       calendar_id: selectedGoogleCalendar.value
     })
     
@@ -309,7 +316,8 @@ if (process.client) {
 const handleGoogleCallback = async (code) => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.post('/google-calendar/callback', { code })
+    const endpoint = props.teacherId ? '/teacher/google-calendar/callback' : '/student/google-calendar/callback'
+    const response = await $api.post(endpoint, { code })
     
     if (response.data.success) {
       isConnected.value = true

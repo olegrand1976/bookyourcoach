@@ -113,6 +113,21 @@
           </NuxtLink>
 
           <NuxtLink 
+            to="/student/schedule" 
+            class="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+          >
+            <div class="flex-shrink-0">
+              <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-orange-900">Mon planning</p>
+              <p class="text-xs text-orange-700">Voir mon calendrier</p>
+            </div>
+          </NuxtLink>
+
+          <NuxtLink 
             to="/student/preferences" 
             class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
           >
