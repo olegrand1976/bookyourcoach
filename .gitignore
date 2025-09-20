@@ -44,6 +44,7 @@ npm-debug.log
 yarn-error.log
 yarn-debug.log
 pnpm-debug.log
+# Note: package-lock.json is kept for dependency consistency
 
 # Build & Temporary files
 /public/build
