@@ -45,4 +45,11 @@ return [
         ],
     ],
 
+    'google' => [
+        'calendar' => [
+            'credentials' => env('GOOGLE_CALENDAR_CREDENTIALS_PATH'),
+            'redirect_uri' => env('GOOGLE_CALENDAR_REDIRECT_URI'),
+        ],
+    ],
+
 ];
