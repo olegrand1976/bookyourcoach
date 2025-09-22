@@ -106,8 +106,7 @@ Route::get('/teacher/students', function(Request $request) {
         // Récupérer les élèves de l'enseignant avec informations détaillées
         $students = \DB::table('students')
             ->join('users', 'students.user_id', '=', 'users.id')
-            ->join('lesson_student', 'students.id', '=', 'lesson_student.student_id')
-            ->join('lessons', 'lesson_student.lesson_id', '=', 'lessons.id')
+            ->join('lessons', 'students.id', '=', 'lessons.student_id')
             ->leftJoin('clubs', 'students.club_id', '=', 'clubs.id')
             ->where('lessons.teacher_id', $teacher->id)
             ->select(
@@ -285,8 +284,7 @@ Route::get('/teacher/earnings', function(Request $request) {
         
         // Construire la requête de base
         $baseQuery = \DB::table('lessons')
-            ->join('lesson_student', 'lessons.id', '=', 'lesson_student.lesson_id')
-            ->join('students', 'lesson_student.student_id', '=', 'students.id')
+            ->join('students', 'lessons.student_id', '=', 'students.id')
             ->join('users', 'students.user_id', '=', 'users.id')
             ->leftJoin('clubs', 'students.club_id', '=', 'clubs.id')
             ->leftJoin('course_types', 'lessons.course_type_id', '=', 'course_types.id')
@@ -304,8 +302,8 @@ Route::get('/teacher/earnings', function(Request $request) {
         $totalStats = $baseQuery->clone()
             ->select(
                 \DB::raw('COUNT(DISTINCT lessons.id) as total_lessons'),
-                \DB::raw('SUM(lesson_student.price) as total_earnings'),
-                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+                \DB::raw('SUM(lessons.price) as total_earnings'),
+                \DB::raw('AVG(lessons.price) as average_per_lesson')
             )
             ->first();
         
@@ -314,8 +312,8 @@ Route::get('/teacher/earnings', function(Request $request) {
             ->whereNull('students.club_id')
             ->select(
                 \DB::raw('COUNT(DISTINCT lessons.id) as personal_lessons_count'),
-                \DB::raw('SUM(lesson_student.price) as personal_earnings'),
-                \DB::raw('AVG(lesson_student.price) as personal_average_per_lesson')
+                \DB::raw('SUM(lessons.price) as personal_earnings'),
+                \DB::raw('AVG(lessons.price) as personal_average_per_lesson')
             )
             ->first();
         
@@ -326,8 +324,8 @@ Route::get('/teacher/earnings', function(Request $request) {
                 'clubs.id',
                 'clubs.name',
                 \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
-                \DB::raw('SUM(lesson_student.price) as total_earnings'),
-                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+                \DB::raw('SUM(lessons.price) as total_earnings'),
+                \DB::raw('AVG(lessons.price) as average_per_lesson')
             )
             ->groupBy('clubs.id', 'clubs.name')
             ->get();
@@ -338,8 +336,8 @@ Route::get('/teacher/earnings', function(Request $request) {
                 'users.id',
                 'users.name',
                 \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
-                \DB::raw('SUM(lesson_student.price) as total_earnings'),
-                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+                \DB::raw('SUM(lessons.price) as total_earnings'),
+                \DB::raw('AVG(lessons.price) as average_per_lesson')
             )
             ->groupBy('users.id', 'users.name')
             ->orderBy('total_earnings', 'desc')
@@ -351,8 +349,8 @@ Route::get('/teacher/earnings', function(Request $request) {
                 'course_types.id',
                 'course_types.name',
                 \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
-                \DB::raw('SUM(lesson_student.price) as total_earnings'),
-                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+                \DB::raw('SUM(lessons.price) as total_earnings'),
+                \DB::raw('AVG(lessons.price) as average_per_lesson')
             )
             ->groupBy('course_types.id', 'course_types.name')
             ->get();
