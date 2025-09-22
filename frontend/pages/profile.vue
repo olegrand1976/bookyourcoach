@@ -262,6 +262,12 @@ onMounted(async () => {
     console.log('onMounted - authStore.user:', authStore.user)
     console.log('onMounted - authStore.isAuthenticated:', authStore.isAuthenticated)
 
+    // Rediriger les enseignants vers leur page de profil dédiée
+    if (authStore.isTeacher) {
+        await navigateTo('/teacher/profile')
+        return
+    }
+
     // Toujours essayer de charger les données
     await loadProfileData()
 })

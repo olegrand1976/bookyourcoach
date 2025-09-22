@@ -126,7 +126,7 @@
                             </div>
                         </NuxtLink>
 
-                        <NuxtLink to="/profile"
+                        <NuxtLink to="/teacher/profile"
                             class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                             <span class="text-xl mr-3">👤</span>
                             <div>
