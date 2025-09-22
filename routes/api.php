@@ -103,14 +103,24 @@ Route::get('/teacher/students', function(Request $request) {
             ], 200);
         }
         
-        // Récupérer les élèves de l'enseignant via les cours
+        // Récupérer les élèves de l'enseignant avec informations détaillées
         $students = \DB::table('students')
             ->join('users', 'students.user_id', '=', 'users.id')
             ->join('lesson_student', 'students.id', '=', 'lesson_student.student_id')
             ->join('lessons', 'lesson_student.lesson_id', '=', 'lessons.id')
+            ->leftJoin('clubs', 'students.club_id', '=', 'clubs.id')
             ->where('lessons.teacher_id', $teacher->id)
-            ->select('users.id', 'users.name', 'users.email')
-            ->distinct()
+            ->select(
+                'users.id',
+                'users.name',
+                'users.email',
+                'students.level',
+                'students.club_id',
+                'clubs.name as club_name',
+                \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
+                \DB::raw('MAX(lessons.start_time) as last_lesson')
+            )
+            ->groupBy('users.id', 'users.name', 'users.email', 'students.level', 'students.club_id', 'clubs.name')
             ->get();
         
         return response()->json([
@@ -120,6 +130,103 @@ Route::get('/teacher/students', function(Request $request) {
         
     } catch (\Exception $e) {
         \Log::error('Erreur dans /teacher/students: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
+// Détails d'un élève spécifique
+Route::get('/teacher/students/{studentId}', function(Request $request, $studentId) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json(['error' => 'Profil enseignant non trouvé'], 404);
+        }
+        
+        // Vérifier que l'élève appartient à cet enseignant
+        $studentExists = \DB::table('students')
+            ->join('lesson_student', 'students.id', '=', 'lesson_student.student_id')
+            ->join('lessons', 'lesson_student.lesson_id', '=', 'lessons.id')
+            ->where('students.user_id', $studentId)
+            ->where('lessons.teacher_id', $teacher->id)
+            ->exists();
+        
+        if (!$studentExists) {
+            return response()->json(['error' => 'Élève non trouvé ou non autorisé'], 404);
+        }
+        
+        // Récupérer les détails de l'élève
+        $student = \DB::table('students')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->leftJoin('clubs', 'students.club_id', '=', 'clubs.id')
+            ->where('users.id', $studentId)
+            ->select(
+                'users.id',
+                'users.name',
+                'users.email',
+                'students.level',
+                'students.club_id',
+                'clubs.name as club_name',
+                'students.emergency_contacts',
+                'students.medical_info'
+            )
+            ->first();
+        
+        // Récupérer les statistiques de l'élève
+        $stats = \DB::table('lessons')
+            ->join('lesson_student', 'lessons.id', '=', 'lesson_student.lesson_id')
+            ->join('students', 'lesson_student.student_id', '=', 'students.id')
+            ->where('students.user_id', $studentId)
+            ->where('lessons.teacher_id', $teacher->id)
+            ->select(
+                \DB::raw('COUNT(*) as lessons_count'),
+                \DB::raw('SUM(CASE WHEN lessons.status = "completed" THEN 1 ELSE 0 END) as completed_lessons'),
+                \DB::raw('SUM(CASE WHEN lessons.status = "scheduled" AND lessons.start_time > NOW() THEN 1 ELSE 0 END) as upcoming_lessons'),
+                \DB::raw('SUM(TIMESTAMPDIFF(MINUTE, lessons.start_time, lessons.end_time)) / 60 as total_hours')
+            )
+            ->first();
+        
+        // Récupérer les derniers cours
+        $recentLessons = \DB::table('lessons')
+            ->join('lesson_student', 'lessons.id', '=', 'lesson_student.lesson_id')
+            ->join('students', 'lesson_student.student_id', '=', 'students.id')
+            ->where('students.user_id', $studentId)
+            ->where('lessons.teacher_id', $teacher->id)
+            ->select('lessons.id', 'lessons.notes as title', 'lessons.start_time', 'lessons.status')
+            ->orderBy('lessons.start_time', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Combiner les données
+        $studentData = (array) $student;
+        $studentData['lessons_count'] = $stats->lessons_count;
+        $studentData['completed_lessons'] = $stats->completed_lessons;
+        $studentData['upcoming_lessons'] = $stats->upcoming_lessons;
+        $studentData['total_hours'] = round($stats->total_hours, 1);
+        $studentData['recent_lessons'] = $recentLessons;
+        
+        return response()->json([
+            'success' => true,
+            'student' => $studentData
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/students/{id}: ' . $e->getMessage());
         return response()->json(['error' => 'Erreur interne'], 500);
     }
 });
