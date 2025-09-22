@@ -78,11 +78,11 @@ class TeacherTestDataSeeder extends Seeder
         if (!$teacherProfile) {
             DB::table('teachers')->insert([
                 'user_id' => $sophie->id,
-                'specialties' => 'Dressage, Saut d\'obstacles, Équitation de loisir',
-                'experience_years' => 8,
-                'hourly_rate' => 45.00,
-                'bio' => 'Enseignante passionnée avec 8 ans d\'expérience. Spécialisée dans le dressage et le saut d\'obstacles.',
-                'certifications' => 'BEES 1, Galop 7',
+                'specialties' => json_encode(['dressage', 'saut d\'obstacles']),
+                'experience_years' => 12,
+                'hourly_rate' => 60.00,
+                'bio' => 'Instructrice passionnée spécialisée en dressage classique et saut d\'obstacles.',
+                'certifications' => json_encode(['BEES 2', 'Galop 7 FFE']),
                 'created_at' => now(),
                 'updated_at' => now()
             ]);

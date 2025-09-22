@@ -216,13 +216,13 @@ const loadProfileData = async () => {
       
       // Remplir le formulaire avec les données existantes
       form.value = {
-        name: authStore.user?.name || '',
-        email: authStore.user?.email || '',
+        name: profile?.name || authStore.user?.name || '',
+        email: profile?.email || authStore.user?.email || '',
         phone: profile?.phone || '',
-        birth_date: profile?.date_of_birth || '',
-        specialties: teacher?.specialties || '',
+        birth_date: profile?.birth_date || '',
+        specialties: teacher?.specialties ? (Array.isArray(teacher.specialties) ? teacher.specialties.join(', ') : teacher.specialties) : '',
         experience_years: teacher?.experience_years || null,
-        certifications: teacher?.certifications || '',
+        certifications: teacher?.certifications ? (Array.isArray(teacher.certifications) ? teacher.certifications.join(', ') : teacher.certifications) : '',
         hourly_rate: teacher?.hourly_rate || null,
         bio: teacher?.bio || ''
       }
@@ -231,7 +231,7 @@ const loadProfileData = async () => {
     console.error('Erreur lors du chargement du profil:', err)
     // Afficher une notification d'erreur
     const { showToast } = useToast()
-    showToast('Impossible de charger les données du profil', 'error')
+    showToast('Impossible de charger les données du profil', { type: 'error' })
   }
 }
 
@@ -247,7 +247,7 @@ const updateProfile = async () => {
     if (response.data) {
       // Afficher un message de succès
       const { showToast } = useToast()
-      showToast('Profil mis à jour avec succès', 'success')
+      showToast('Profil mis à jour avec succès', { type: 'success' })
       
       // Rediriger vers la page du profil
       await navigateTo('/teacher/profile')
@@ -259,7 +259,7 @@ const updateProfile = async () => {
       errors.value = err.response.data.errors
     } else {
       const { showToast } = useToast()
-      showToast('Erreur lors de la mise à jour du profil', 'error')
+      showToast('Erreur lors de la mise à jour du profil', { type: 'error' })
     }
   } finally {
     loading.value = false
