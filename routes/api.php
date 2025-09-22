@@ -231,6 +231,171 @@ Route::get('/teacher/students/{studentId}', function(Request $request, $studentI
     }
 });
 
+// Revenus de l'enseignant
+Route::get('/teacher/earnings', function(Request $request) {
+    try {
+        $token = $request->header('Authorization');
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
+        
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json(['error' => 'Profil enseignant non trouvé'], 404);
+        }
+        
+        // Déterminer la période
+        $period = $request->query('period', 'current_month');
+        $startDate = null;
+        $endDate = null;
+        
+        switch ($period) {
+            case 'current_month':
+                $startDate = now()->startOfMonth();
+                $endDate = now()->endOfMonth();
+                break;
+            case 'last_month':
+                $startDate = now()->subMonth()->startOfMonth();
+                $endDate = now()->subMonth()->endOfMonth();
+                break;
+            case 'current_quarter':
+                $startDate = now()->startOfQuarter();
+                $endDate = now()->endOfQuarter();
+                break;
+            case 'current_year':
+                $startDate = now()->startOfYear();
+                $endDate = now()->endOfYear();
+                break;
+            case 'custom':
+                $startDate = $request->query('start_date') ? \Carbon\Carbon::parse($request->query('start_date')) : null;
+                $endDate = $request->query('end_date') ? \Carbon\Carbon::parse($request->query('end_date')) : null;
+                break;
+        }
+        
+        // Construire la requête de base
+        $baseQuery = \DB::table('lessons')
+            ->join('lesson_student', 'lessons.id', '=', 'lesson_student.lesson_id')
+            ->join('students', 'lesson_student.student_id', '=', 'students.id')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->leftJoin('clubs', 'students.club_id', '=', 'clubs.id')
+            ->leftJoin('course_types', 'lessons.course_type_id', '=', 'course_types.id')
+            ->where('lessons.teacher_id', $teacher->id);
+        
+        // Appliquer les filtres de date
+        if ($startDate) {
+            $baseQuery->where('lessons.start_time', '>=', $startDate);
+        }
+        if ($endDate) {
+            $baseQuery->where('lessons.start_time', '<=', $endDate);
+        }
+        
+        // Statistiques générales
+        $totalStats = $baseQuery->clone()
+            ->select(
+                \DB::raw('COUNT(DISTINCT lessons.id) as total_lessons'),
+                \DB::raw('SUM(lesson_student.price) as total_earnings'),
+                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+            )
+            ->first();
+        
+        // Revenus personnels (sans club)
+        $personalStats = $baseQuery->clone()
+            ->whereNull('students.club_id')
+            ->select(
+                \DB::raw('COUNT(DISTINCT lessons.id) as personal_lessons_count'),
+                \DB::raw('SUM(lesson_student.price) as personal_earnings'),
+                \DB::raw('AVG(lesson_student.price) as personal_average_per_lesson')
+            )
+            ->first();
+        
+        // Revenus par club
+        $earningsByClub = $baseQuery->clone()
+            ->whereNotNull('students.club_id')
+            ->select(
+                'clubs.id',
+                'clubs.name',
+                \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
+                \DB::raw('SUM(lesson_student.price) as total_earnings'),
+                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+            )
+            ->groupBy('clubs.id', 'clubs.name')
+            ->get();
+        
+        // Revenus par élève
+        $earningsByStudent = $baseQuery->clone()
+            ->select(
+                'users.id',
+                'users.name',
+                \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
+                \DB::raw('SUM(lesson_student.price) as total_earnings'),
+                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+            )
+            ->groupBy('users.id', 'users.name')
+            ->orderBy('total_earnings', 'desc')
+            ->get();
+        
+        // Revenus par type de cours
+        $earningsByCourseType = $baseQuery->clone()
+            ->select(
+                'course_types.id',
+                'course_types.name',
+                \DB::raw('COUNT(DISTINCT lessons.id) as lessons_count'),
+                \DB::raw('SUM(lesson_student.price) as total_earnings'),
+                \DB::raw('AVG(lesson_student.price) as average_per_lesson')
+            )
+            ->groupBy('course_types.id', 'course_types.name')
+            ->get();
+        
+        // Détail des cours
+        $detailedLessons = $baseQuery->clone()
+            ->select(
+                'lessons.id',
+                'lessons.start_time',
+                'lessons.end_time',
+                'lessons.status',
+                'lessons.notes as title',
+                'users.name as student_name',
+                'course_types.name as course_type_name',
+                'clubs.name as club_name',
+                \DB::raw('TIMESTAMPDIFF(MINUTE, lessons.start_time, lessons.end_time) as duration'),
+                'lesson_student.price as earnings'
+            )
+            ->orderBy('lessons.start_time', 'desc')
+            ->limit(50)
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'total_earnings' => $totalStats->total_earnings || 0,
+            'total_lessons' => $totalStats->total_lessons || 0,
+            'average_per_lesson' => $totalStats->average_per_lesson || 0,
+            'personal_earnings' => $personalStats->personal_earnings || 0,
+            'personal_lessons_count' => $personalStats->personal_lessons_count || 0,
+            'personal_average_per_lesson' => $personalStats->personal_average_per_lesson || 0,
+            'club_earnings' => $earningsByClub->sum('total_earnings'),
+            'earnings_by_club' => $earningsByClub,
+            'earnings_by_student' => $earningsByStudent,
+            'earnings_by_course_type' => $earningsByCourseType,
+            'detailed_lessons' => $detailedLessons
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur dans /teacher/earnings: ' . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne'], 500);
+    }
+});
+
 Route::get('/teacher/clubs', function(Request $request) {
     try {
         $token = $request->header('Authorization');
