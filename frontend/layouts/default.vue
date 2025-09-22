@@ -122,16 +122,16 @@
           <!-- Logo et description -->
           <div class="md:col-span-2">
             <div class="flex items-center space-x-3 mb-4">
-              <span class="text-2xl">🐎</span>
+<span class="text-2xl">⚽</span>
               <span class="text-xl font-bold">BookYourCoach</span>
             </div>
             <p class="text-gray-100/80 mb-4">
-              La plateforme de référence pour réserver vos cours d'équitation et de natation avec les meilleurs instructeurs.
+              La plateforme de référence pour réserver vos cours de sports avec les meilleurs clubs et enseignants!
             </p>
             <div class="flex space-x-4">
               <span class="text-2xl">🏆</span>
-              <span class="text-2xl">🏇</span>
-              <span class="text-2xl">⛑️</span>
+              <span class="text-2xl">🏃</span>
+              <span class="text-2xl">💪</span>
             </div>
           </div>
 
@@ -159,9 +159,9 @@
           <div>
             <h4 class="font-semibold text-blue-400 mb-4">Contact</h4>
             <ul class="space-y-2 text-gray-100/80">
-              <li>📧 contact@bookyourcoach.com</li>
-              <li>📞 +33 1 23 45 67 89</li>
-              <li>🏠 Paris, France</li>
+              <li>📧 o.legrand@ll-it-sc.be</li>
+              <li>📞 +32 478.02.33.77</li>
+              <li>🏠 Waudrez, Belgique</li>
             </ul>
           </div>
         </div>

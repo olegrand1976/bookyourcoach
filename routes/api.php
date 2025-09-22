@@ -44,20 +44,27 @@ Route::get('/teacher/calendar', function(Request $request) {
         $user = $personalAccessToken->tokenable;
         $calendarId = $request->query('calendar_id', 'personal');
         
-        // Récupérer les événements selon le calendrier sélectionné
-        if ($calendarId === 'personal') {
-            $events = \DB::table('lessons')
-                ->where('teacher_id', $user->id)
-                ->where('club_id', null)
-                ->orderBy('start_time')
-                ->get();
-        } else {
-            $events = \DB::table('lessons')
-                ->where('teacher_id', $user->id)
-                ->where('club_id', $calendarId)
-                ->orderBy('start_time')
-                ->get();
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json([
+                'success' => true,
+                'events' => []
+            ], 200);
         }
+        
+        // Récupérer les événements (tous les cours de l'enseignant pour l'instant)
+        $events = \DB::table('lessons')
+            ->leftJoin('users', 'lessons.student_id', '=', 'users.id')
+            ->where('lessons.teacher_id', $teacher->id)
+            ->select(
+                'lessons.*',
+                'users.name as student_name',
+                'lessons.notes as title'
+            )
+            ->orderBy('lessons.start_time')
+            ->get();
         
         return response()->json([
             'success' => true,
@@ -86,6 +93,7 @@ Route::get('/teacher/students', function(Request $request) {
         
         $user = $personalAccessToken->tokenable;
         
+<<<<<<< HEAD
         // Récupérer les élèves de l'enseignant via les clubs partagés
         $students = \DB::table('club_teachers')
             ->join('club_students', 'club_teachers.club_id', '=', 'club_students.club_id')
@@ -95,6 +103,25 @@ Route::get('/teacher/students', function(Request $request) {
             ->where('club_teachers.is_active', true)
             ->where('club_students.is_active', true)
             ->select('users.id', 'users.name', 'users.email', 'students.level')
+=======
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json([
+                'success' => true,
+                'students' => []
+            ], 200);
+        }
+        
+        // Récupérer les élèves de l'enseignant via les cours
+        $students = \DB::table('students')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->join('lesson_student', 'students.id', '=', 'lesson_student.student_id')
+            ->join('lessons', 'lesson_student.lesson_id', '=', 'lessons.id')
+            ->where('lessons.teacher_id', $teacher->id)
+            ->select('users.id', 'users.name', 'users.email')
+>>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
             ->distinct()
             ->get();
         
@@ -125,10 +152,20 @@ Route::get('/teacher/clubs', function(Request $request) {
         
         $user = $personalAccessToken->tokenable;
         
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json([
+                'success' => true,
+                'clubs' => []
+            ], 200);
+        }
+        
         // Récupérer les clubs de l'enseignant
         $clubs = \DB::table('club_teachers')
             ->join('clubs', 'club_teachers.club_id', '=', 'clubs.id')
-            ->where('club_teachers.teacher_id', $user->id)
+            ->where('club_teachers.teacher_id', $teacher->id)
             ->select('clubs.id', 'clubs.name', 'clubs.description')
             ->get();
         
@@ -159,33 +196,62 @@ Route::post('/teacher/lessons', function(Request $request) {
         
         $user = $personalAccessToken->tokenable;
         
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json(['error' => 'Profil enseignant non trouvé'], 404);
+        }
+        
         // Validation des données
         $request->validate([
             'title' => 'required|string|max:255',
             'student_id' => 'required|integer',
             'start_time' => 'required|date',
             'end_time' => 'required|date|after:start_time',
-            'duration' => 'required|integer|min:30|max:180',
+            'duration' => 'required|integer|min:15|max:180',
             'type' => 'required|in:lesson,group,training,competition',
-            'description' => 'nullable|string',
             'calendar_id' => 'required|string'
         ]);
         
+        // Mappage des types vers les course_type_id
+        $typeMapping = [
+            'lesson' => 1,
+            'group' => 2,
+            'training' => 3,
+            'competition' => 4
+        ];
+        
         // Créer le cours
         $lessonId = \DB::table('lessons')->insertGetId([
-            'title' => $request->title,
-            'teacher_id' => $user->id,
+            'teacher_id' => $teacher->id,
             'student_id' => $request->student_id,
+            'course_type_id' => $typeMapping[$request->type],
+            'location_id' => 1, // Location par défaut
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
-            'duration' => $request->duration,
-            'type' => $request->type,
-            'description' => $request->description,
-            'club_id' => $request->calendar_id !== 'personal' ? $request->calendar_id : null,
             'status' => 'scheduled',
+            'notes' => $request->title,
+            'price' => 45.00,
+            'payment_status' => 'pending',
             'created_at' => now(),
             'updated_at' => now()
         ]);
+        
+        // Récupérer l'ID de l'étudiant depuis la table students
+        $studentRecord = \DB::table('students')->where('user_id', $request->student_id)->first();
+        
+        if ($studentRecord) {
+            // Lier l'étudiant au cours
+            \DB::table('lesson_student')->insert([
+                'lesson_id' => $lessonId,
+                'student_id' => $studentRecord->id,
+                'status' => 'confirmed',
+                'price' => 45.00,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
         
         return response()->json([
             'success' => true,
@@ -215,8 +281,15 @@ Route::delete('/teacher/lessons/{id}', function(Request $request, $id) {
         
         $user = $personalAccessToken->tokenable;
         
+        // Récupérer l'ID enseignant depuis la table teachers
+        $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
+        
+        if (!$teacher) {
+            return response()->json(['error' => 'Profil enseignant non trouvé'], 404);
+        }
+        
         // Vérifier que le cours appartient à l'enseignant
-        $lesson = \DB::table('lessons')->where('id', $id)->where('teacher_id', $user->id)->first();
+        $lesson = \DB::table('lessons')->where('id', $id)->where('teacher_id', $teacher->id)->first();
         
         if (!$lesson) {
             return response()->json(['error' => 'Cours non trouvé'], 404);

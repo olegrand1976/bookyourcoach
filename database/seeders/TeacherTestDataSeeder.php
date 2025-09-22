@@ -34,18 +34,14 @@ class TeacherTestDataSeeder extends Seeder
             $this->command->error("❌ Profil enseignant non trouvé pour Sophie");
         }
 
-        // 4. Créer des élèves pour chaque club
+        // 4. Créer des élèves pour chaque club  
         $club1Students = $this->createStudentsForClub($club1->id, 3);
         $club2Students = $this->createStudentsForClub($club2->id, 4);
+        $allStudents = $club1Students->merge($club2Students);
         $this->command->info("✅ Élèves créés: {$club1Students->count()} pour {$club1->name}, {$club2Students->count()} pour {$club2->name}");
 
-        // 5. Lier les élèves à Sophie
-        $allStudents = $club1Students->merge($club2Students);
-        $this->linkStudentsToTeacher($allStudents, $sophie->id);
-        $this->command->info("✅ Tous les élèves liés à Sophie");
-
-        // 6. Créer des cours pour Sophie
-        $this->createLessonsForTeacher($sophie->id, $allStudents, $club1->id, $club2->id);
+        // 5. Créer des cours pour Sophie avec les élèves
+        $this->createLessonsForTeacher($teacherRecord->id, $allStudents, $club1->id, $club2->id);
         $this->command->info("✅ Cours créés pour Sophie");
 
         $this->command->info('🎉 Données de test créées avec succès !');
@@ -156,7 +152,13 @@ class TeacherTestDataSeeder extends Seeder
             // Vérifier si l'élève existe déjà
             $existingUser = DB::table('users')->where('email', $email)->first();
             if ($existingUser) {
-                $students->push($existingUser);
+                // Récupérer l'ID de l'enregistrement student
+                $existingStudent = DB::table('students')->where('user_id', $existingUser->id)->first();
+                if ($existingStudent) {
+                    $userData = (array) $existingUser;
+                    $userData['student_id'] = $existingStudent->id;
+                    $students->push((object) $userData);
+                }
                 continue;
             }
 
@@ -178,50 +180,34 @@ class TeacherTestDataSeeder extends Seeder
             ]);
 
             // Créer le profil étudiant
-            DB::table('students')->insert([
+            $studentId = DB::table('students')->insertGetId([
                 'user_id' => $userId,
-                'club_id' => $clubId,
                 'level' => $this->getRandomLevel(),
                 'emergency_contacts' => json_encode([
                     'name' => 'Parent ' . $lastName,
                     'phone' => '+32 2 ' . rand(100, 999) . ' ' . rand(10, 99) . ' ' . rand(10, 99)
                 ]),
                 'medical_info' => 'Aucune allergie connue',
+                'club_id' => $clubId,
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
 
             $user = DB::table('users')->where('id', $userId)->first();
-            $students->push($user);
+            // Ajouter l'ID de l'enregistrement student comme propriété
+            $userData = (array) $user;
+            $userData['student_id'] = $studentId;
+            $students->push((object) $userData);
         }
 
         return $students;
     }
 
-    private function linkStudentsToTeacher($students, $teacherId)
-    {
-        foreach ($students as $student) {
-            // Vérifier si la liaison existe déjà
-            $existing = DB::table('student_teachers')
-                ->where('student_id', $student->id)
-                ->where('teacher_id', $teacherId)
-                ->first();
-
-            if (!$existing) {
-                DB::table('student_teachers')->insert([
-                    'student_id' => $student->id,
-                    'teacher_id' => $teacherId,
-                    'status' => 'active',
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-        }
-    }
 
     private function createLessonsForTeacher($teacherId, $students, $club1Id, $club2Id)
     {
-        $lessonTypes = ['lesson', 'group', 'training', 'competition'];
+        $courseTypeIds = [1, 2, 3, 4]; // IDs des course_types créés
+        $locationIds = [1, 2, 3, 4]; // IDs des locations créées
         $lessonTitles = [
             'Cours de dressage',
             'Saut d\'obstacles',
@@ -255,7 +241,8 @@ class TeacherTestDataSeeder extends Seeder
                     }
                     
                     $student = $students->random();
-                    $lessonType = $lessonTypes[rand(0, count($lessonTypes) - 1)];
+                    $courseTypeId = $courseTypeIds[rand(0, count($courseTypeIds) - 1)];
+                    $locationId = $locationIds[rand(0, count($locationIds) - 1)];
                     $title = $lessonTitles[rand(0, count($lessonTitles) - 1)];
                     
                     // Déterminer le club (ou calendrier personnel)
@@ -266,17 +253,27 @@ class TeacherTestDataSeeder extends Seeder
                         $clubId = rand(1, 2) === 1 ? $club1Id : $club2Id;
                     }
                     
-                    DB::table('lessons')->insert([
-                        'title' => $title,
+                    // Créer le cours
+                    $lessonId = DB::table('lessons')->insertGetId([
                         'teacher_id' => $teacherId,
-                        'student_id' => $student->id,
-                        'club_id' => $clubId,
+                        'student_id' => $student->student_id, // Utiliser l'ID de l'enregistrement student
+                        'course_type_id' => $courseTypeId,
+                        'location_id' => $locationId,
                         'start_time' => $startTime,
                         'end_time' => $endTime,
-                        'duration' => $duration,
-                        'type' => $lessonType,
                         'status' => 'scheduled',
-                        'description' => 'Cours de ' . $lessonType . ' avec ' . $student->name,
+                        'notes' => 'Cours de ' . $title . ' avec ' . $student->name,
+                        'price' => 45.00,
+                        'payment_status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                    
+                    // Lier l'étudiant au cours
+                    DB::table('lesson_student')->insert([
+                        'lesson_id' => $lessonId,
+                        'student_id' => $student->student_id,
+                        'status' => 'confirmed',
                         'price' => 45.00,
                         'created_at' => now(),
                         'updated_at' => now()
@@ -317,7 +314,7 @@ class TeacherTestDataSeeder extends Seeder
 
     private function getRandomLevel()
     {
-        $levels = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
+        $levels = ['debutant', 'intermediaire', 'avance', 'expert'];
         return $levels[array_rand($levels)];
     }
 }
