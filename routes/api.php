@@ -93,17 +93,6 @@ Route::get('/teacher/students', function(Request $request) {
         
         $user = $personalAccessToken->tokenable;
         
-<<<<<<< HEAD
-        // Récupérer les élèves de l'enseignant via les clubs partagés
-        $students = \DB::table('club_teachers')
-            ->join('club_students', 'club_teachers.club_id', '=', 'club_students.club_id')
-            ->join('students', 'club_students.student_id', '=', 'students.id')
-            ->join('users', 'students.user_id', '=', 'users.id')
-            ->where('club_teachers.teacher_id', $user->id)
-            ->where('club_teachers.is_active', true)
-            ->where('club_students.is_active', true)
-            ->select('users.id', 'users.name', 'users.email', 'students.level')
-=======
         // Récupérer l'ID enseignant depuis la table teachers
         $teacher = \DB::table('teachers')->where('user_id', $user->id)->first();
         
@@ -121,7 +110,6 @@ Route::get('/teacher/students', function(Request $request) {
             ->join('lessons', 'lesson_student.lesson_id', '=', 'lessons.id')
             ->where('lessons.teacher_id', $teacher->id)
             ->select('users.id', 'users.name', 'users.email')
->>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
             ->distinct()
             ->get();
         
