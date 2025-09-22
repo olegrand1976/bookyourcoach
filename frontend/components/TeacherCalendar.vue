@@ -191,21 +191,6 @@
         <form @submit.prevent="addLesson">
           <div class="space-y-4">
             <div>
-<<<<<<< HEAD
-              <label class="block text-sm font-medium text-gray-700 mb-1">Titre du cours</label>
-              <input v-model="newLesson.title" type="text" required
-                :placeholder="getLessonTitlePlaceholder()"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <p class="text-xs text-gray-500 mt-1">
-                Sera automatiquement rempli selon l'élève et le type sélectionnés
-              </p>
-              <div v-if="newLesson.title && newLesson.title !== getLessonTitlePlaceholder()" class="text-xs text-green-600 mt-1">
-                ✅ Titre personnalisé
-              </div>
-            </div>
-            <div>
-=======
->>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
               <label class="block text-sm font-medium text-gray-700 mb-1">Élève</label>
               <select v-model="newLesson.student_id" required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -242,73 +227,6 @@
                 </p>
               </div>
             </div>
-<<<<<<< HEAD
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
-                <select v-model="newLesson.duration" required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="30">30 minutes</option>
-                  <option value="45">45 minutes</option>
-                  <option value="60">1 heure</option>
-                  <option value="90">1h30</option>
-                  <option value="120">2 heures</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-1">
-                  {{ newLesson.duration ? `Fin prévue à ${getEndTime()}` : 'Sélectionnez une durée' }}
-                </p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
-                <select v-model="newLesson.type" required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="lesson">Cours particulier</option>
-                  <option value="group">Cours de groupe</option>
-                  <option value="training">Entraînement</option>
-                  <option value="competition">Compétition</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-1">
-                  Le titre et la description seront automatiquement remplis selon le type sélectionné
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea v-model="newLesson.description" rows="3"
-                :placeholder="getLessonDescriptionPlaceholder()"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-              <p class="text-xs text-gray-500 mt-1">
-                Sera automatiquement remplie avec un template selon le type de cours
-              </p>
-              <div v-if="newLesson.description && newLesson.description !== getLessonDescriptionPlaceholder()" class="text-xs text-green-600 mt-1">
-                ✅ Description personnalisée
-              </div>
-            </div>
-            
-            <!-- Informations supplémentaires -->
-            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
-              <h4 class="text-sm font-medium text-blue-900 mb-2">💡 Conseils pour un bon cours</h4>
-              <ul class="text-xs text-blue-700 space-y-1">
-                <li>• Précisez les objectifs d'apprentissage</li>
-                <li>• Listez le matériel nécessaire</li>
-                <li>• Notez les exercices prévus</li>
-                <li>• Ajoutez des observations sur l'élève</li>
-              </ul>
-            </div>
-            
-            <!-- Résumé du cours -->
-            <div v-if="newLesson.student_id && newLesson.date && newLesson.time" class="bg-green-50 border border-green-200 rounded-md p-3">
-              <h4 class="text-sm font-medium text-green-900 mb-2">📅 Résumé du cours</h4>
-              <div class="text-xs text-green-700 space-y-1">
-                <div><strong>Élève:</strong> {{ students.find(s => s.id == newLesson.student_id)?.name }}</div>
-                <div><strong>Date:</strong> {{ new Date(newLesson.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}</div>
-                <div><strong>Horaires:</strong> {{ newLesson.time }} - {{ getEndTime() }}</div>
-                <div><strong>Durée:</strong> {{ newLesson.duration }} minutes</div>
-                <div><strong>Type:</strong> {{ getLessonTypeLabel(newLesson.type) }}</div>
-              </div>
-            </div>
-=======
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
               <select v-model="newLesson.duration" required
@@ -335,7 +253,27 @@
                 <option value="competition">Compétition</option>
               </select>
             </div>
->>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
+            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <h4 class="text-sm font-medium text-blue-900 mb-2">💡 Conseils pour un bon cours</h4>
+              <ul class="text-xs text-blue-700 space-y-1">
+                <li>• Précisez les objectifs d'apprentissage</li>
+                <li>• Listez le matériel nécessaire</li>
+                <li>• Notez les exercices prévus</li>
+                <li>• Ajoutez des observations sur l'élève</li>
+              </ul>
+            </div>
+            
+            <!-- Résumé du cours -->
+            <div v-if="newLesson.student_id && newLesson.date && newLesson.time" class="bg-green-50 border border-green-200 rounded-md p-3">
+              <h4 class="text-sm font-medium text-green-900 mb-2">📅 Résumé du cours</h4>
+              <div class="text-xs text-green-700 space-y-1">
+                <div><strong>Élève:</strong> {{ students.find(s => s.id == newLesson.student_id)?.name }}</div>
+                <div><strong>Date:</strong> {{ new Date(newLesson.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}</div>
+                <div><strong>Horaires:</strong> {{ newLesson.time }} - {{ getEndTime() }}</div>
+                <div><strong>Durée:</strong> {{ newLesson.duration }} minutes</div>
+                <div><strong>Type:</strong> {{ getLessonTypeLabel(newLesson.type) }}</div>
+              </div>
+            </div>
           </div>
                       <div class="flex justify-end space-x-3 mt-6">
               <button type="button" @click="showAddLessonModal = false"
