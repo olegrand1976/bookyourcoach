@@ -695,18 +695,20 @@ Route::group([], function () {
         $profile = \DB::table('profiles')->where('user_id', $user->id)->first();
         
         $response = [
-            'profile' => $profile ? [
-                'id' => $profile->id,
-                'user_id' => $profile->user_id,
-                'phone' => $profile->phone,
-                'address' => $profile->address,
-                'city' => $profile->city,
-                'postal_code' => $profile->postal_code,
-                'country' => $profile->country,
-                'date_of_birth' => $profile->date_of_birth,
-                'created_at' => $profile->created_at,
-                'updated_at' => $profile->updated_at,
-            ] : null
+            'profile' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $profile ? $profile->phone : $user->phone,
+                'birth_date' => $profile ? $profile->date_of_birth : null,
+                'address' => $profile ? $profile->address : null,
+                'city' => $profile ? $profile->city : null,
+                'postal_code' => $profile ? $profile->postal_code : null,
+                'country' => $profile ? $profile->country : null,
+                'status' => $user->status ?? 'active',
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+            ]
         ];
         
         // Ajouter les données spécifiques au rôle
@@ -810,11 +812,24 @@ Route::group([], function () {
         
         // Mettre à jour les données spécifiques au rôle
         if ($user->role === 'teacher') {
+            // Convertir les spécialités et certifications en JSON si elles sont des chaînes séparées par des virgules
+            $specialties = $request->specialties;
+            if (is_string($specialties) && strpos($specialties, ',') !== false) {
+                $specialtiesArray = array_map('trim', explode(',', $specialties));
+                $specialties = json_encode($specialtiesArray);
+            }
+            
+            $certifications = $request->certifications;
+            if (is_string($certifications) && strpos($certifications, ',') !== false) {
+                $certificationsArray = array_map('trim', explode(',', $certifications));
+                $certifications = json_encode($certificationsArray);
+            }
+            
             $teacherData = [
                 'user_id' => $user->id,
-                'specialties' => $request->specialties,
+                'specialties' => $specialties,
                 'experience_years' => $request->experience_years,
-                'certifications' => $request->certifications,
+                'certifications' => $certifications,
                 'hourly_rate' => $request->hourly_rate,
                 'bio' => $request->bio,
                 'updated_at' => now(),

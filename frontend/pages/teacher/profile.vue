@@ -63,7 +63,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Spécialités</label>
-                <p class="text-gray-900">{{ teacherData?.specialties || 'Non renseigné' }}</p>
+                <div v-if="teacherData?.specialties" class="flex flex-wrap gap-2">
+                  <span v-for="specialty in getSpecialtiesArray(teacherData.specialties)" :key="specialty"
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {{ specialty }}
+                  </span>
+                </div>
+                <p v-else class="text-gray-500">Non renseigné</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
@@ -94,8 +100,11 @@
           <!-- Certifications -->
           <div v-if="teacherData?.certifications">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Certifications</h2>
-            <div class="bg-gray-50 rounded-lg p-4">
-              <p class="text-gray-700">{{ teacherData.certifications }}</p>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="certification in getCertificationsArray(teacherData.certifications)" :key="certification"
+                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                🏆 {{ certification }}
+              </span>
             </div>
           </div>
 
@@ -164,6 +173,47 @@ const loadProfileData = async () => {
 const editProfile = () => {
   // Rediriger vers la page d'édition du profil
   navigateTo('/teacher/profile/edit')
+}
+
+// Fonctions utilitaires pour convertir les données JSON
+const getSpecialtiesArray = (specialties) => {
+  if (!specialties) return []
+  
+  try {
+    // Si c'est déjà un tableau
+    if (Array.isArray(specialties)) return specialties
+    
+    // Si c'est une chaîne JSON
+    if (typeof specialties === 'string') {
+      const parsed = JSON.parse(specialties)
+      return Array.isArray(parsed) ? parsed : [specialties]
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Erreur lors du parsing des spécialités:', error)
+    return [specialties]
+  }
+}
+
+const getCertificationsArray = (certifications) => {
+  if (!certifications) return []
+  
+  try {
+    // Si c'est déjà un tableau
+    if (Array.isArray(certifications)) return certifications
+    
+    // Si c'est une chaîne JSON
+    if (typeof certifications === 'string') {
+      const parsed = JSON.parse(certifications)
+      return Array.isArray(parsed) ? parsed : [certifications]
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Erreur lors du parsing des certifications:', error)
+    return [certifications]
+  }
 }
 
 // Watcher pour recharger les données si l'utilisateur change
