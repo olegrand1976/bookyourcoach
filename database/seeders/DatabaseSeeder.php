@@ -38,6 +38,10 @@ class DatabaseSeeder extends Seeder
         $this->command->info('🎯 Création des données de démonstration...');
         $this->call(DemoDataSeeder::class);
 
+        // 7. Données de test pour les clubs
+        $this->command->info('🏇 Création des données de test pour les clubs...');
+        $this->call(ClubTestDataSeeder::class);
+
         $this->command->info('✅ Seeding terminé avec succès !');
         $this->command->line('');
         $this->command->info('🔑 Comptes de test créés :');
