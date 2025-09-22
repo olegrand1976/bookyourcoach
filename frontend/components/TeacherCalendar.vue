@@ -191,6 +191,7 @@
         <form @submit.prevent="addLesson">
           <div class="space-y-4">
             <div>
+<<<<<<< HEAD
               <label class="block text-sm font-medium text-gray-700 mb-1">Titre du cours</label>
               <input v-model="newLesson.title" type="text" required
                 :placeholder="getLessonTitlePlaceholder()"
@@ -203,6 +204,8 @@
               </div>
             </div>
             <div>
+=======
+>>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
               <label class="block text-sm font-medium text-gray-700 mb-1">Élève</label>
               <select v-model="newLesson.student_id" required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -239,6 +242,7 @@
                 </p>
               </div>
             </div>
+<<<<<<< HEAD
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
@@ -304,6 +308,34 @@
                 <div><strong>Type:</strong> {{ getLessonTypeLabel(newLesson.type) }}</div>
               </div>
             </div>
+=======
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
+              <select v-model="newLesson.duration" required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="15">15 minutes</option>
+                <option value="20">20 minutes</option>
+                <option value="25">25 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="35">35 minutes</option>
+                <option value="40">40 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="50">50 minutes</option>
+                <option value="55">55 minutes</option>
+                <option value="60">1 heure</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
+              <select v-model="newLesson.type" required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="lesson">Cours particulier</option>
+                <option value="group">Cours de groupe</option>
+                <option value="training">Entraînement</option>
+                <option value="competition">Compétition</option>
+              </select>
+            </div>
+>>>>>>> bd91496e (- Ajout d'un Seeder pour Teacher)
           </div>
                       <div class="flex justify-end space-x-3 mt-6">
               <button type="button" @click="showAddLessonModal = false"
@@ -442,13 +474,11 @@ const teacherClubs = ref([])
 
 // Nouveau cours
 const newLesson = ref({
-  title: '',
   student_id: '',
   date: '',
   time: '',
   duration: 60,
-  type: 'lesson',
-  description: ''
+  type: 'lesson'
 })
 
 // Constantes
@@ -631,8 +661,22 @@ const addLesson = async () => {
     isAddingLesson.value = true
     const { $api } = useNuxtApp()
     
+    // Trouver le nom de l'élève sélectionné
+    const selectedStudent = students.value.find(s => s.id == newLesson.value.student_id)
+    const studentName = selectedStudent ? selectedStudent.name : 'Élève'
+    
+    // Générer un titre automatiquement
+    const typeLabels = {
+      lesson: 'Cours particulier',
+      group: 'Cours de groupe', 
+      training: 'Entraînement',
+      competition: 'Compétition'
+    }
+    const title = `${typeLabels[newLesson.value.type]} - ${studentName}`
+    
     const lessonData = {
       ...newLesson.value,
+      title: title,
       start_time: new Date(`${newLesson.value.date}T${newLesson.value.time}`).toISOString(),
       end_time: new Date(new Date(`${newLesson.value.date}T${newLesson.value.time}`).getTime() + newLesson.value.duration * 60000).toISOString(),
       calendar_id: selectedCalendar.value
@@ -645,13 +689,11 @@ const addLesson = async () => {
     
     // Réinitialiser le formulaire
     newLesson.value = {
-      title: '',
       student_id: '',
       date: '',
       time: '',
       duration: 60,
-      type: 'lesson',
-      description: ''
+      type: 'lesson'
     }
     
     showAddLessonModal.value = false
