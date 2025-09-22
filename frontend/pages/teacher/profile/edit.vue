@@ -147,10 +147,12 @@
 
           <!-- Actions -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <NuxtLink to="/teacher/profile"
+            <button
+              type="button"
+              @click="goBack"
               class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
               Annuler
-            </NuxtLink>
+            </button>
             <button
               type="submit"
               :disabled="loading"
@@ -191,6 +193,17 @@ const form = ref({
   hourly_rate: null,
   bio: ''
 })
+
+// Retour à la page précédente
+const goBack = () => {
+  // Utiliser l'historique du navigateur pour revenir en arrière
+  if (process.client && window.history.length > 1) {
+    window.history.back()
+  } else {
+    // Fallback vers la page du profil si pas d'historique
+    navigateTo('/teacher/profile')
+  }
+}
 
 // Vérifier que l'utilisateur est un enseignant
 onMounted(() => {
