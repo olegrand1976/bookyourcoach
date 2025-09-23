@@ -8,9 +8,6 @@
             <h1 class="text-3xl font-bold text-gray-900">
               Nouveau cours
             </h1>
-            <p class="mt-2 text-gray-600">
-              Créer un nouveau cours pour votre club
-            </p>
           </div>
           <button 
             @click="navigateTo('/club/dashboard')"
@@ -44,17 +41,31 @@
             <label for="teacher" class="block text-sm font-medium text-gray-700 mb-2">
               Enseignant *
             </label>
-            <select
-              id="teacher"
-              v-model="form.teacher_id"
-              required
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="">Sélectionner un enseignant</option>
-              <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-                {{ teacher.name }}
-              </option>
-            </select>
+            <div class="relative">
+              <input
+                id="teacher"
+                v-model="teacherSearch"
+                type="text"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Rechercher un enseignant..."
+                @input="searchTeachers"
+                @focus="showTeacherDropdown = true"
+                @blur="hideTeacherDropdown"
+              />
+              <div v-if="showTeacherDropdown && filteredTeachers.length > 0" 
+                   class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div v-for="teacher in filteredTeachers" 
+                     :key="teacher.id"
+                     @click="selectTeacher(teacher)"
+                     class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0">
+                  <div class="font-medium text-gray-900">{{ teacher.name }}</div>
+                  <div class="text-sm text-gray-600">{{ teacher.email }}</div>
+                  <div class="text-sm text-blue-600">{{ teacher.specialties }}</div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" v-model="form.teacher_id" />
           </div>
 
           <!-- Élève -->
@@ -62,17 +73,31 @@
             <label for="student" class="block text-sm font-medium text-gray-700 mb-2">
               Élève *
             </label>
-            <select
-              id="student"
-              v-model="form.student_id"
-              required
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="">Sélectionner un élève</option>
-              <option v-for="student in students" :key="student.id" :value="student.id">
-                {{ student.name }}
-              </option>
-            </select>
+            <div class="relative">
+              <input
+                id="student"
+                v-model="studentSearch"
+                type="text"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Rechercher un élève..."
+                @input="searchStudents"
+                @focus="showStudentDropdown = true"
+                @blur="hideStudentDropdown"
+              />
+              <div v-if="showStudentDropdown && filteredStudents.length > 0" 
+                   class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div v-for="student in filteredStudents" 
+                     :key="student.id"
+                     @click="selectStudent(student)"
+                     class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0">
+                  <div class="font-medium text-gray-900">{{ student.name }}</div>
+                  <div class="text-sm text-gray-600">{{ student.email }}</div>
+                  <div class="text-sm text-emerald-600">{{ getLevelLabel(student.level) }}</div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" v-model="form.student_id" />
           </div>
 
           <!-- Date et heure -->
@@ -112,13 +137,12 @@
               id="duration"
               v-model="form.duration"
               required
+              @change="updatePrice"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
-              <option value="30">30 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="60">1 heure</option>
-              <option value="90">1h30</option>
-              <option value="120">2 heures</option>
+              <option v-for="duration in availableDurations" :key="duration" :value="duration">
+                {{ formatDuration(duration) }}
+              </option>
             </select>
           </div>
 
@@ -131,6 +155,7 @@
               id="type"
               v-model="form.type"
               required
+              @change="updatePrice"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="lesson">Cours individuel</option>
@@ -205,16 +230,33 @@ definePageMeta({
 const loading = ref(false)
 const teachers = ref([])
 const students = ref([])
+const teacherSearch = ref('')
+const studentSearch = ref('')
+const showTeacherDropdown = ref(false)
+const showStudentDropdown = ref(false)
+const filteredTeachers = ref([])
+const filteredStudents = ref([])
+
+// Configuration des prix par défaut selon le type et la durée
+const defaultPrices = {
+  lesson: { 15: 25, 30: 40, 45: 55, 60: 70 }, // Cours individuel
+  group: { 15: 15, 30: 25, 45: 35, 60: 45 },  // Cours de groupe
+  training: { 15: 20, 30: 35, 45: 50, 60: 65 }, // Entraînement
+  competition: { 15: 30, 30: 50, 45: 70, 60: 90 } // Compétition
+}
+
+// Durées disponibles selon le type de cours
+const availableDurations = ref([15, 30, 45, 60])
 
 const form = ref({
   title: '',
   teacher_id: '',
   student_id: '',
-  date: '',
+  date: new Date().toISOString().split('T')[0], // Date du jour
   time: '',
   duration: '60',
   type: 'lesson',
-  price: '45.00',
+  price: '70.00', // Prix par défaut pour cours individuel 1h
   notes: ''
 })
 
@@ -223,17 +265,107 @@ const loadData = async () => {
   try {
     // Pour l'instant, utiliser des données de test
     teachers.value = [
-      { id: 1, name: 'Sophie Martin' },
-      { id: 2, name: 'Pierre Dubois' }
+      { id: 1, name: 'Sophie Martin', email: 'sophie.martin@activibe.com', specialties: 'Équitation, Dressage' },
+      { id: 2, name: 'Pierre Dubois', email: 'pierre.dubois@activibe.com', specialties: 'Saut d\'obstacles, Cross' },
+      { id: 3, name: 'Marie Leroy', email: 'marie.leroy@activibe.com', specialties: 'Équitation western' }
     ]
     
     students.value = [
-      { id: 1, name: 'Marie Dupont' },
-      { id: 2, name: 'Jean Martin' },
-      { id: 3, name: 'Emma Rousseau' }
+      { id: 1, name: 'Marie Dupont', email: 'marie.dupont@example.com', level: 'debutant' },
+      { id: 2, name: 'Jean Martin', email: 'jean.martin@example.com', level: 'intermediaire' },
+      { id: 3, name: 'Emma Rousseau', email: 'emma.rousseau@example.com', level: 'avance' },
+      { id: 4, name: 'Lucas Petit', email: 'lucas.petit@example.com', level: 'debutant' }
     ]
+    
+    filteredTeachers.value = teachers.value
+    filteredStudents.value = students.value
   } catch (error) {
     console.error('Erreur lors du chargement des données:', error)
+  }
+}
+
+// Fonctions d'autocomplétion pour les enseignants
+const searchTeachers = () => {
+  if (!teacherSearch.value) {
+    filteredTeachers.value = teachers.value
+  } else {
+    filteredTeachers.value = teachers.value.filter(teacher =>
+      teacher.name.toLowerCase().includes(teacherSearch.value.toLowerCase()) ||
+      teacher.email.toLowerCase().includes(teacherSearch.value.toLowerCase()) ||
+      teacher.specialties.toLowerCase().includes(teacherSearch.value.toLowerCase())
+    )
+  }
+}
+
+const selectTeacher = (teacher) => {
+  form.value.teacher_id = teacher.id
+  teacherSearch.value = teacher.name
+  showTeacherDropdown.value = false
+}
+
+const hideTeacherDropdown = () => {
+  setTimeout(() => {
+    showTeacherDropdown.value = false
+  }, 200)
+}
+
+// Fonctions d'autocomplétion pour les élèves
+const searchStudents = () => {
+  if (!studentSearch.value) {
+    filteredStudents.value = students.value
+  } else {
+    filteredStudents.value = students.value.filter(student =>
+      student.name.toLowerCase().includes(studentSearch.value.toLowerCase()) ||
+      student.email.toLowerCase().includes(studentSearch.value.toLowerCase())
+    )
+  }
+}
+
+const selectStudent = (student) => {
+  form.value.student_id = student.id
+  studentSearch.value = student.name
+  showStudentDropdown.value = false
+}
+
+const hideStudentDropdown = () => {
+  setTimeout(() => {
+    showStudentDropdown.value = false
+  }, 200)
+}
+
+// Fonction pour formater la durée
+const formatDuration = (minutes) => {
+  if (minutes < 60) {
+    return `${minutes} minutes`
+  } else {
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    if (remainingMinutes === 0) {
+      return `${hours}h`
+    } else {
+      return `${hours}h${remainingMinutes}`
+    }
+  }
+}
+
+// Fonction pour obtenir le label du niveau
+const getLevelLabel = (level) => {
+  const labels = {
+    debutant: '🌱 Débutant',
+    intermediaire: '📈 Intermédiaire',
+    avance: '⭐ Avancé',
+    expert: '🏆 Expert'
+  }
+  return labels[level] || level
+}
+
+// Fonction pour mettre à jour le prix selon le type et la durée
+const updatePrice = () => {
+  const type = form.value.type
+  const duration = parseInt(form.value.duration)
+  
+  if (defaultPrices[type] && defaultPrices[type][duration]) {
+    form.value.price = defaultPrices[type][duration].toFixed(2)
   }
 }
 
