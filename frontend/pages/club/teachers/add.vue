@@ -214,14 +214,14 @@ const addTeacher = async () => {
     
     console.log('Ajout de l\'enseignant:', data)
     
-    // TODO: Appeler l'API pour ajouter l'enseignant
-    // const response = await $fetch('/api/club/add-teacher', {
-    //   method: 'POST',
-    //   body: data
-    // })
+    // Appeler l'API pour ajouter l'enseignant
+    const config = useRuntimeConfig()
+    const response = await $fetch(`${config.public.apiBase}/club/add-teacher`, {
+      method: 'POST',
+      body: data
+    })
     
-    // Simulation de succès
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    console.log('✅ Enseignant ajouté:', response)
     
     // Rediriger vers le dashboard avec un message de succès
     await navigateTo('/club/dashboard')

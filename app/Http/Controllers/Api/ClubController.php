@@ -308,4 +308,144 @@ class ClubController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get club profile data
+     */
+    public function getProfile()
+    {
+        // Pour le test, utiliser un club par défaut
+        $club = \App\Models\Club::first();
+        
+        if (!$club) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun club trouvé dans la base de données'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'club' => [
+                    'id' => $club->id,
+                    'name' => $club->name,
+                    'email' => $club->email,
+                    'phone' => $club->phone,
+                    'address' => $club->address,
+                    'city' => $club->city,
+                    'postal_code' => $club->postal_code,
+                    'country' => $club->country,
+                    'website' => $club->website,
+                    'description' => $club->description,
+                    'facilities' => $club->facilities,
+                    'disciplines' => $club->disciplines,
+                    'max_students' => $club->max_students,
+                    'subscription_price' => $club->subscription_price,
+                    'is_active' => $club->is_active
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Get custom specialties
+     */
+    public function getCustomSpecialties()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'specialties' => [
+                    'Équitation classique',
+                    'Dressage',
+                    'Saut d\'obstacles',
+                    'Cross',
+                    'Équitation western',
+                    'Équitation de loisir',
+                    'Équitation thérapeutique',
+                    'Attelage',
+                    'Voltige'
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Get disciplines
+     */
+    public function getDisciplines()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'disciplines' => [
+                    'Équitation',
+                    'Dressage',
+                    'Saut d\'obstacles',
+                    'Cross',
+                    'Équitation western',
+                    'Attelage',
+                    'Voltige'
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Create a new lesson
+     */
+    public function createLesson(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'title' => 'required|string|max:255',
+            'teacher_id' => 'required|integer',
+            'student_id' => 'required|integer',
+            'start_time' => 'required|date',
+            'end_time' => 'required|date|after:start_time',
+            'duration' => 'required|integer|min:15|max:60',
+            'type' => 'required|in:lesson,group,training,competition',
+            'price' => 'required|numeric|min:0',
+            'notes' => 'nullable|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Pour l'instant, simuler la création du cours
+            $lessonData = [
+                'id' => rand(1000, 9999),
+                'title' => $request->title,
+                'teacher_id' => $request->teacher_id,
+                'student_id' => $request->student_id,
+                'start_time' => $request->start_time,
+                'end_time' => $request->end_time,
+                'duration' => $request->duration,
+                'type' => $request->type,
+                'price' => $request->price,
+                'notes' => $request->notes,
+                'status' => 'scheduled',
+                'created_at' => now()
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cours créé avec succès',
+                'data' => $lessonData
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création du cours',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -2286,6 +2286,12 @@ Route::prefix('club')->group(function () {
     Route::post('/add-teacher', [\App\Http\Controllers\Api\ClubController::class, 'addTeacher']);
     Route::post('/add-student', [\App\Http\Controllers\Api\ClubController::class, 'addStudent']);
     Route::put('/update', [\App\Http\Controllers\Api\ClubController::class, 'updateClub']);
+    
+    // Routes supplémentaires pour le profil club
+    Route::get('/profile-test', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
+    Route::get('/custom-specialties', [\App\Http\Controllers\Api\ClubController::class, 'getCustomSpecialties']);
+    Route::get('/disciplines', [\App\Http\Controllers\Api\ClubController::class, 'getDisciplines']);
+    Route::post('/lessons', [\App\Http\Controllers\Api\ClubController::class, 'createLesson']);
 });
 
 // Routes Enseignant - Temporairement sans middleware pour debug
