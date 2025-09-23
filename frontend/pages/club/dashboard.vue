@@ -23,7 +23,7 @@
               <span>QR Code</span>
             </button>
             <button 
-              @click="showAddTeacherModal = true"
+              @click="navigateTo('/club/teachers/add')"
               class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,7 +32,7 @@
               <span>Enseignant</span>
             </button>
             <button 
-              @click="showAddStudentModal = true"
+              @click="navigateTo('/club/students/add')"
               class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 font-medium flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,38 +171,6 @@
           </p>
         </div>
 
-        <!-- Actions rapides -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Actions rapides</h3>
-            <div class="p-2 bg-orange-100 rounded-lg">
-              <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-              </svg>
-            </div>
-          </div>
-          <div class="space-y-3">
-            <button 
-              @click="showAddLessonModal = true"
-              class="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center justify-center space-x-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-              </svg>
-              <span>Nouveau cours</span>
-            </button>
-            <NuxtLink 
-              to="/club/profile"
-              class="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center justify-center space-x-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-              <span>Paramètres</span>
-            </NuxtLink>
-          </div>
-        </div>
       </div>
 
       <!-- Sections récentes -->
@@ -224,7 +192,7 @@
               </svg>
               <p>Aucun enseignant pour le moment</p>
               <button 
-                @click="showAddTeacherModal = true"
+                @click="navigateTo('/club/teachers/add')"
                 class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Ajouter le premier
@@ -272,7 +240,7 @@
               </svg>
               <p>Aucun élève pour le moment</p>
               <button 
-                @click="showAddStudentModal = true"
+                @click="navigateTo('/club/students/add')"
                 class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
               >
                 Ajouter le premier
@@ -310,7 +278,7 @@
           <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold text-gray-900">Cours récents</h3>
             <button 
-              @click="showAddLessonModal = true"
+              @click="navigateTo('/club/lessons/new')"
               class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
             >
               Nouveau cours
@@ -324,7 +292,7 @@
             </svg>
             <p>Aucun cours programmé</p>
             <button 
-              @click="showAddLessonModal = true"
+              @click="navigateTo('/club/lessons/new')"
               class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
             >
               Programmer le premier
@@ -359,9 +327,6 @@
       </div>
     </div>
 
-    <!-- Modals -->
-    <AddTeacherModal v-if="showAddTeacherModal" @close="showAddTeacherModal = false" @success="loadDashboardData" />
-    <AddStudentModal v-if="showAddStudentModal" @close="showAddStudentModal = false" @success="loadDashboardData" />
   </div>
 </template>
 
@@ -377,10 +342,6 @@ const stats = ref(null)
 const recentTeachers = ref([])
 const recentStudents = ref([])
 const recentLessons = ref([])
-const showAddTeacherModal = ref(false)
-const showAddStudentModal = ref(false)
-const showAddLessonModal = ref(false)
-const showFinancialDetails = ref(false)
 
 const loadDashboardData = async () => {
   try {

@@ -2278,6 +2278,16 @@ Route::get('/teacher/dashboard-simple', function() {
     ]);
 });
 
+// Routes Club
+Route::prefix('club')->group(function () {
+    Route::get('/dashboard-test', [\App\Http\Controllers\Api\ClubController::class, 'dashboard']);
+    Route::get('/teachers', [\App\Http\Controllers\Api\ClubController::class, 'teachers']);
+    Route::get('/students', [\App\Http\Controllers\Api\ClubController::class, 'students']);
+    Route::post('/add-teacher', [\App\Http\Controllers\Api\ClubController::class, 'addTeacher']);
+    Route::post('/add-student', [\App\Http\Controllers\Api\ClubController::class, 'addStudent']);
+    Route::put('/update', [\App\Http\Controllers\Api\ClubController::class, 'updateClub']);
+});
+
 // Routes Enseignant - Temporairement sans middleware pour debug
 Route::prefix('teacher')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
