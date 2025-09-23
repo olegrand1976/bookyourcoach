@@ -392,14 +392,14 @@ const createLesson = async () => {
     
     console.log('Données du cours à créer:', lessonData)
     
-    // TODO: Appeler l'API pour créer le cours
-    // const response = await $fetch('/api/club/lessons', {
-    //   method: 'POST',
-    //   body: lessonData
-    // })
+    // Appeler l'API pour créer le cours
+    const config = useRuntimeConfig()
+    const response = await $fetch(`${config.public.apiBase}/club/lessons`, {
+      method: 'POST',
+      body: lessonData
+    })
     
-    // Simulation de succès
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    console.log('✅ Cours créé:', response)
     
     // Rediriger vers le dashboard avec un message de succès
     await navigateTo('/club/dashboard')
