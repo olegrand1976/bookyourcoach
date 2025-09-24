@@ -45,6 +45,11 @@ fi
 echo ""
 echo "🌱 Exécution du seeder ClubTestDataSeeder..."
 
+# Configuration temporaire pour l'accès local à MySQL Docker
+echo "🔧 Configuration temporaire pour l'accès local à MySQL..."
+export DB_HOST=127.0.0.1
+export DB_PORT=3308
+
 # Exécuter le seeder
 php artisan db:seed --class=ClubTestDataSeeder
 
