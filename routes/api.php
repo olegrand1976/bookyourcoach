@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthControllerSimple;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\FileUploadController;
 use App\Http\Controllers\Api\Teacher\DashboardController;
+use App\Http\Controllers\Api\ClubDashboardController;
 
 // Routes publiques (CORS géré par config/cors.php)
 Route::get('/activity-types', function() {
@@ -132,6 +133,9 @@ Route::get('/teacher/students', function(Request $request) {
         return response()->json(['error' => 'Erreur interne'], 500);
     }
 });
+
+// Routes pour les clubs
+Route::get('/club/dashboard', [ClubDashboardController::class, 'dashboard']);
 
 // Détails d'un élève spécifique
 Route::get('/teacher/students/{studentId}', function(Request $request, $studentId) {
@@ -2287,11 +2291,16 @@ Route::prefix('club')->group(function () {
     Route::post('/add-student', [\App\Http\Controllers\Api\ClubController::class, 'addStudent']);
     Route::put('/update', [\App\Http\Controllers\Api\ClubController::class, 'updateClub']);
     
-    // Routes supplémentaires pour le profil club
-    Route::get('/profile-test', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
-    Route::get('/custom-specialties', [\App\Http\Controllers\Api\ClubController::class, 'getCustomSpecialties']);
-    Route::get('/disciplines', [\App\Http\Controllers\Api\ClubController::class, 'getDisciplines']);
-    Route::post('/lessons', [\App\Http\Controllers\Api\ClubController::class, 'createLesson']);
+        // Routes supplémentaires pour le profil club
+        Route::get('/profile-test', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
+        Route::get('/custom-specialties', [\App\Http\Controllers\Api\ClubController::class, 'getCustomSpecialties']);
+        Route::get('/disciplines', [\App\Http\Controllers\Api\ClubController::class, 'getDisciplines']);
+        Route::post('/lessons', [\App\Http\Controllers\Api\ClubController::class, 'createLesson']);
+        
+        // Routes pour les tests de données
+        Route::get('/test-stats', [\App\Http\Controllers\Api\ClubController::class, 'getTestStats']);
+        Route::get('/test-clubs', [\App\Http\Controllers\Api\ClubController::class, 'getTestClubs']);
+        Route::get('/test-club-details/{id}', [\App\Http\Controllers\Api\ClubController::class, 'getTestClubDetails']);
 });
 
 // Routes Enseignant - Temporairement sans middleware pour debug
