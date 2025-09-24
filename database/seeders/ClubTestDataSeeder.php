@@ -233,7 +233,7 @@ class ClubTestDataSeeder extends Seeder
                 $teacher = DB::table('users')->where('id', $userId)->first();
                 $teachers->push($teacher);
 
-                // Créer le profil enseignant
+            // Créer le profil enseignant
                 $teacherProfileId = DB::table('teachers')->insertGetId([
                     'user_id' => $userId,
                     'club_id' => $club->id,
@@ -310,7 +310,7 @@ class ClubTestDataSeeder extends Seeder
                 $student = DB::table('users')->where('id', $userId)->first();
                 $students->push($student);
 
-                // Créer le profil étudiant
+            // Créer le profil étudiant
                 $studentProfileId = DB::table('students')->insertGetId([
                     'user_id' => $userId,
                     'club_id' => $club->id,
