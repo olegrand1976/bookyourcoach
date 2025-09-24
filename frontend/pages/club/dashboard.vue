@@ -1,6 +1,42 @@
 <template>
   <div class="min-h-screen bg-gray-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Indicateur de chargement -->
+    <div v-if="isLoading" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-600">Chargement des données du dashboard...</p>
+      </div>
+    </div>
+
+    <!-- Message d'erreur -->
+    <div v-if="hasError && !isLoading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800">Erreur de chargement</h3>
+            <div class="mt-2 text-sm text-red-700">
+              <p>{{ errorMessage }}</p>
+            </div>
+            <div class="mt-4">
+              <button 
+                @click="loadDashboardData"
+                class="bg-red-100 text-red-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+              >
+                Réessayer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div v-if="!hasError && !isLoading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header avec navigation -->
       <div class="mb-8">
         <div class="flex items-center justify-between">
@@ -326,6 +362,7 @@
         </div>
       </div>
     </div>
+    </div>
 
   </div>
 </template>
@@ -342,9 +379,16 @@ const stats = ref(null)
 const recentTeachers = ref([])
 const recentStudents = ref([])
 const recentLessons = ref([])
+const isLoading = ref(true)
+const hasError = ref(false)
+const errorMessage = ref('')
 
 const loadDashboardData = async () => {
   try {
+    isLoading.value = true
+    hasError.value = false
+    errorMessage.value = ''
+    
     console.log('🔄 Chargement des données du dashboard club...')
     
     const config = useRuntimeConfig()
@@ -362,9 +406,41 @@ const loadDashboardData = async () => {
       console.log('📊 Stats chargées:', stats.value)
     } else {
       console.error('❌ Format de réponse invalide:', response)
+      const { error } = useToast()
+      error('Format de réponse invalide du serveur', 'Erreur de données')
+      hasError.value = true
+      errorMessage.value = 'Format de réponse invalide du serveur'
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des données:', error)
+    
+    hasError.value = true
+    const { error: showError, warning } = useToast()
+    
+    // Gestion spécifique des erreurs HTTP
+    if (error.statusCode === 401) {
+      errorMessage.value = 'Votre session a expiré. Veuillez vous reconnecter.'
+      showError('Votre session a expiré. Veuillez vous reconnecter.', 'Session expirée')
+      // Rediriger vers la page de connexion
+      await navigateTo('/login')
+    } else if (error.statusCode === 403) {
+      errorMessage.value = 'Vous n\'avez pas les permissions pour accéder à cette page.'
+      showError('Vous n\'avez pas les permissions pour accéder à cette page.', 'Accès refusé')
+    } else if (error.statusCode === 404) {
+      errorMessage.value = 'Aucun club n\'est associé à votre compte. Contactez l\'administrateur.'
+      warning('Aucun club n\'est associé à votre compte. Contactez l\'administrateur.', 'Club non trouvé')
+    } else if (error.statusCode === 500) {
+      errorMessage.value = 'Une erreur serveur s\'est produite. Veuillez réessayer plus tard.'
+      showError('Une erreur serveur s\'est produite. Veuillez réessayer plus tard.', 'Erreur serveur')
+    } else if (error.statusCode >= 400) {
+      errorMessage.value = `Erreur ${error.statusCode}: ${error.statusMessage || 'Erreur inconnue'}`
+      showError(`Erreur ${error.statusCode}: ${error.statusMessage || 'Erreur inconnue'}`, 'Erreur de communication')
+    } else {
+      errorMessage.value = 'Impossible de charger les données du dashboard. Vérifiez votre connexion.'
+      showError('Impossible de charger les données du dashboard. Vérifiez votre connexion.', 'Erreur de connexion')
+    }
+  } finally {
+    isLoading.value = false
   }
 }
 
