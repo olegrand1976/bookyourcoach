@@ -448,4 +448,125 @@ class ClubController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get test statistics for all data
+     */
+    public function getTestStats()
+    {
+        try {
+            // Compter les données réelles dans la base
+            $clubsCount = \App\Models\Club::count();
+            $usersCount = \App\Models\User::count();
+            $lessonsCount = \App\Models\Lesson::count();
+            $paymentsCount = \App\Models\Payment::count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'clubs' => $clubsCount,
+                    'users' => $usersCount,
+                    'lessons' => $lessonsCount,
+                    'payments' => $paymentsCount
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement des statistiques',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all clubs for testing
+     */
+    public function getTestClubs()
+    {
+        try {
+            $clubs = \App\Models\Club::select([
+                'id', 'name', 'email', 'phone', 'address', 'city', 
+                'postal_code', 'country', 'website', 'description', 
+                'facilities', 'disciplines', 'is_active', 'created_at'
+            ])->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $clubs
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement des clubs',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get detailed club information for testing
+     */
+    public function getTestClubDetails($id)
+    {
+        try {
+            $club = \App\Models\Club::find($id);
+            
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Statistiques du club
+            $teachersCount = \App\Models\User::where('club_id', $id)
+                ->where('role', 'teacher')
+                ->count();
+                
+            $studentsCount = \App\Models\User::where('club_id', $id)
+                ->where('role', 'student')
+                ->count();
+                
+            $lessonsCount = \App\Models\Lesson::whereHas('teacher', function($query) use ($id) {
+                $query->where('club_id', $id);
+            })->count();
+            
+            $completedLessonsCount = \App\Models\Lesson::whereHas('teacher', function($query) use ($id) {
+                $query->where('club_id', $id);
+            })->where('status', 'completed')->count();
+            
+            $totalRevenue = \App\Models\Payment::whereHas('lesson.teacher', function($query) use ($id) {
+                $query->where('club_id', $id);
+            })->where('status', 'completed')->sum('amount');
+            
+            $monthlyRevenue = \App\Models\Payment::whereHas('lesson.teacher', function($query) use ($id) {
+                $query->where('club_id', $id);
+            })->where('status', 'completed')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount');
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'club' => $club,
+                    'stats' => [
+                        'teachers' => $teachersCount,
+                        'students' => $studentsCount,
+                        'lessons' => $lessonsCount,
+                        'completed_lessons' => $completedLessonsCount,
+                        'total_revenue' => number_format($totalRevenue, 2),
+                        'monthly_revenue' => number_format($monthlyRevenue, 2)
+                    ]
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du chargement des détails du club',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
