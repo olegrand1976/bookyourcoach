@@ -221,7 +221,7 @@ onMounted(() => {
 const loadProfileData = async () => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get('/profile-test')
+    const response = await $api.get('/profile')
     
     if (response.data) {
       const profile = response.data.profile
@@ -255,7 +255,7 @@ const updateProfile = async () => {
     errors.value = {}
     
     const { $api } = useNuxtApp()
-    const response = await $api.put('/profile-test', form.value)
+    const response = await $api.put('/profile', form.value)
     
     if (response.data) {
       // Afficher un message de succès

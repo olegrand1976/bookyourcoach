@@ -315,7 +315,7 @@ const loadClubSpecializations = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
-    const response = await $fetch(`${config.public.apiBase}/club/profile-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/profile`)
     if (response.club && response.club.disciplines) {
       // Convertir les disciplines du club en spécialisations
       clubSpecializations.value = response.club.disciplines.map(discipline => {
@@ -374,7 +374,7 @@ const addTeacher = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
-    const response = await $fetch(`${config.public.apiBase}/club/teachers-test`, {
+    const response = await $fetch(`${config.public.apiBase}/club/teachers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenCookie.value}`,
