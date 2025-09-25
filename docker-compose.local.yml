@@ -23,6 +23,7 @@ services:
       - ./database/seeders:/var/www/html/database/seeders
       - ./database/factories:/var/www/html/database/factories
       - ./routes:/var/www/html/routes
+      - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
     depends_on:
       - neo4j
       - mysql-local
