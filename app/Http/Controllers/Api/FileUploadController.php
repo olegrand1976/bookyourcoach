@@ -123,7 +123,7 @@ class FileUploadController extends Controller
      */
     public function uploadLogo(Request $request): JsonResponse
     {
-        if (Auth::user()->role !== User::ROLE_ADMIN) {
+        // if (Auth::user()->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Accès refusé. Seuls les administrateurs peuvent uploader des logos.'
@@ -196,7 +196,7 @@ class FileUploadController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role !== User::ROLE_TEACHER && $user->role !== User::ROLE_ADMIN) {
+        // if ($user->role !== User::ROLE_TEACHER && $user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
                 'message' => 'Accès refusé. Seuls les enseignants peuvent uploader des certificats.'

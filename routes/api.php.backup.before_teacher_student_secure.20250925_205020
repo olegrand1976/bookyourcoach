@@ -924,6 +924,19 @@ Route::prefix('club')->middleware('auth:sanctum')->group(function () {
 });
 
 // Routes Enseignant - Temporairement sans middleware pour debug
+Route::prefix('teacher')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
+    Route::get('/lessons', [DashboardController::class, 'getLessons']);
+    Route::post('/lessons', [DashboardController::class, 'createLesson']);
+    Route::put('/lessons/{id}', [DashboardController::class, 'updateLesson']);
+    Route::delete('/lessons/{id}', [DashboardController::class, 'deleteLesson']);
+    Route::get('/availabilities', [DashboardController::class, 'getAvailabilities']);
+    Route::post('/availabilities', [DashboardController::class, 'createAvailability']);
+    Route::put('/availabilities/{id}', [DashboardController::class, 'updateAvailability']);
+    Route::delete('/availabilities/{id}', [DashboardController::class, 'deleteAvailability']);
+    Route::get('/stats', [DashboardController::class, 'getStats']);
+    Route::get('/students', [DashboardController::class, 'getStudents']);
+});
 
 
 
@@ -1176,52 +1189,5 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Upload avec authentification
     Route::post('/upload/logo', [FileUploadController::class, 'uploadLogo']);
-});
-
-
-// Routes teacher sécurisées avec middlewares appropriés
-Route::prefix('teacher')->middleware(['auth:sanctum', 'teacher'])->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\Api\TeacherController::class, 'dashboard']);
-    Route::get('/calendar', [\App\Http\Controllers\Api\TeacherController::class, 'getCalendar']);
-    Route::get('/students', [\App\Http\Controllers\Api\TeacherController::class, 'getStudents']);
-    Route::post('/lessons', [\App\Http\Controllers\Api\TeacherController::class, 'createLesson']);
-    Route::get('/earnings', [\App\Http\Controllers\Api\TeacherController::class, 'getEarnings']);
-    Route::get('/availabilities', [\App\Http\Controllers\Api\TeacherController::class, 'getAvailabilities']);
-    Route::post('/availabilities', [\App\Http\Controllers\Api\TeacherController::class, 'createAvailability']);
-    
-    // Routes existantes avec middlewares
-    Route::get('/availabilities', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getAvailabilities']);
-    Route::post('/availabilities', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'createAvailability']);
-    Route::put('/availabilities/{id}', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'updateAvailability']);
-    Route::delete('/availabilities/{id}', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'deleteAvailability']);
-    Route::get('/calendar', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getCalendar']);
-    Route::get('/lessons', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getLessons']);
-    Route::post('/lessons', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'createLesson']);
-    Route::put('/lessons/{id}', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'updateLesson']);
-    Route::delete('/lessons/{id}', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'deleteLesson']);
-    Route::get('/students', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getStudents']);
-    Route::get('/earnings', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getEarnings']);
-    Route::get('/profile', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'getProfile']);
-    Route::put('/profile', [\App\Http\Controllers\Api\Teacher\DashboardController::class, 'updateProfile']);
-    Route::post('/upload/certificate', [\App\Http\Controllers\Api\FileUploadController::class, 'uploadCertificate']);
-});
-
-
-// Routes student sécurisées avec middlewares appropriés
-Route::prefix('student')->middleware(['auth:sanctum', 'student'])->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\Api\StudentController::class, 'dashboard']);
-    Route::get('/calendar', [\App\Http\Controllers\Api\StudentController::class, 'getCalendar']);
-    Route::get('/clubs', [\App\Http\Controllers\Api\StudentController::class, 'getClubs']);
-    Route::post('/book-lesson', [\App\Http\Controllers\Api\StudentController::class, 'bookLesson']);
-    Route::get('/lessons', [\App\Http\Controllers\Api\StudentController::class, 'getLessons']);
-    Route::get('/profile', [\App\Http\Controllers\Api\StudentController::class, 'getProfile']);
-    Route::post('/calendar/sync-google', [\App\Http\Controllers\Api\StudentController::class, 'syncGoogleCalendar']);
-    
-    // Routes Google Calendar existantes
-    Route::get('/google-calendar/auth-url', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getAuthUrl']);
-    Route::get('/google-calendar/calendars', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'getCalendars']);
-    Route::post('/google-calendar/callback', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'handleCallback']);
-    Route::post('/google-calendar/sync', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'syncEvents']);
-    Route::delete('/google-calendar/disconnect', [\App\Http\Controllers\Api\GoogleCalendarController::class, 'disconnect']);
 });
 
