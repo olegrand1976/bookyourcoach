@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'teacher' => \App\Http\Middleware\TeacherMiddleware::class,
             'student' => \App\Http\Middleware\StudentMiddleware::class,
             'club' => \App\Http\Middleware\ClubMiddleware::class,
+            'force.json' => \App\Http\Middleware\ForceJsonResponse::class,
+        ]);
+        
+        // Appliquer le middleware ForceJsonResponse à toutes les routes API
+        $middleware->group('api', [
+            \App\Http\Middleware\ForceJsonResponse::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
