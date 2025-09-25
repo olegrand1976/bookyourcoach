@@ -3,14 +3,12 @@
 # Configuration de production avec services backend et frontend
 # =============================================================================
 
-version: "3.8"
-
 services:
   # =============================================================================
   # Backend Laravel API
   # =============================================================================
   backend:
-    image: ${BACKEND_IMAGE:-olegrand1976/activibe-app:latest}
+    image: olegrand1976/activibe-app:latest
     container_name: activibe-backend
     restart: unless-stopped
     env_file:
@@ -29,7 +27,7 @@ services:
     depends_on:
       - neo4j
     networks:
-      - app-network
+      - bookyourcoach-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
@@ -41,16 +39,16 @@ services:
   # Frontend Nuxt.js
   # =============================================================================
   frontend:
-    image: ${FRONTEND_IMAGE:-olegrand1976/activibe-frontend:latest}
+    image: olegrand1976/activibe-frontend:latest
     container_name: activibe-frontend
     restart: unless-stopped
     ports:
       # Frontend accessible sur le port 3000
       - "3000:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=${FRONTEND_API_BASE:-http://localhost:8001/api}
-      - NUXT_API_BASE=${FRONTEND_API_BASE:-http://localhost:8001/api}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      - NUXT_API_BASE=http://localhost:8080/api
+      - FRONTEND_URL=http://localhost:3000
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
       - NODE_ENV=production
@@ -58,7 +56,7 @@ services:
       backend:
         condition: service_healthy
     networks:
-      - app-network
+      - bookyourcoach-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -84,7 +82,7 @@ services:
       - UPLOAD_LIMIT=256M
       - MEMORY_LIMIT=512M
     networks:
-      - app-network
+      - bookyourcoach-network
     depends_on:
       - mysql-local
 
@@ -106,7 +104,7 @@ services:
       - mysql_local_data:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     networks:
-      - app-network
+      - bookyourcoach-network
     command: --default-authentication-plugin=mysql_native_password
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -136,7 +134,7 @@ services:
       - neo4j_import:/var/lib/neo4j/import
       - neo4j_plugins:/plugins
     networks:
-      - app-network
+      - bookyourcoach-network
     healthcheck:
       test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
       interval: 30s
@@ -167,8 +165,8 @@ volumes:
 # Réseaux
 # =============================================================================
 networks:
-  app-network:
+  bookyourcoach-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.30.0.0/16

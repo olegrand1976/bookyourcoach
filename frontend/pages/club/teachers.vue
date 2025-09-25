@@ -372,7 +372,7 @@ const loadTeachers = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
     
     if (response.success && response.data && response.data.recentTeachers) {
       teachers.value = response.data.recentTeachers

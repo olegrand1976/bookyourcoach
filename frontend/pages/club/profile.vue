@@ -295,7 +295,7 @@ const editingSpecialtyId = ref(null)
 const loadClubData = async () => {
   try {
     const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/profile-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/profile`)
     
     if (response.club) {
       const club = response.club
@@ -420,7 +420,7 @@ const updateClub = async () => {
       disciplines: selectedDisciplines.value
     }
     
-    await $fetch(`${config.public.apiBase}/club/profile-test`, {
+    await $fetch(`${config.public.apiBase}/club/profile`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${tokenCookie.value}`,
