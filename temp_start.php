@@ -866,89 +866,24 @@ Route::get('/auth/user-simple', function() {
 });
 
 // Routes protégées avec authentification manuelle
-
-
-// Route de test simple pour le dashboard enseignant
-Route::get('/teacher/dashboard-simple', function() {
-    return response()->json([
-        'stats' => [
-            'today_lessons' => 3,
-            'active_students' => 12,
-            'monthly_earnings' => 1250.50,
-            'average_rating' => 4.8,
-            'week_lessons' => 8,
-            'week_hours' => 16.5,
-            'week_earnings' => 420.75,
-            'new_students' => 2,
-        ],
-        'upcomingLessons' => [
-            [
-                'id' => 1,
-                'student_name' => 'Marie Dubois',
-                'type' => 'Cours débutant',
-                'start_time' => '2025-09-18 10:00:00',
-                'end_time' => '2025-09-18 11:00:00',
-                'status' => 'confirmed'
-            ],
-            [
-                'id' => 2,
-                'student_name' => 'Pierre Martin',
-                'type' => 'Cours avancé',
-                'start_time' => '2025-09-18 14:00:00',
-                'end_time' => '2025-09-18 15:30:00',
-                'status' => 'confirmed'
-            ]
-        ]
-    ]);
-});
-
-// Routes Club
-Route::prefix('club')->middleware('auth:sanctum')->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\Api\ClubController::class, 'dashboard']);
-    Route::get('/teachers', [\App\Http\Controllers\Api\ClubController::class, 'teachers']);
-    Route::get('/students', [\App\Http\Controllers\Api\ClubController::class, 'students']);
-    Route::post('/add-teacher', [\App\Http\Controllers\Api\ClubController::class, 'addTeacher']);
-    Route::post('/add-student', [\App\Http\Controllers\Api\ClubController::class, 'addStudent']);
-    Route::put('/update', [\App\Http\Controllers\Api\ClubController::class, 'updateClub']);
-    
-        // Routes supplémentaires pour le profil club
-        Route::get('/profile', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
-        Route::get('/custom-specialties', [\App\Http\Controllers\Api\ClubController::class, 'getCustomSpecialties']);
-        Route::get('/disciplines', [\App\Http\Controllers\Api\ClubController::class, 'getDisciplines']);
-        Route::post('/lessons', [\App\Http\Controllers\Api\ClubController::class, 'createLesson']);
-        
-        // Routes pour les tests de données
-        Route::get('/test-stats', [\App\Http\Controllers\Api\ClubController::class, 'getTestStats']);
-        Route::get('/test-clubs', [\App\Http\Controllers\Api\ClubController::class, 'getTestClubs']);
-        Route::get('/test-club-details/{id}', [\App\Http\Controllers\Api\ClubController::class, 'getTestClubDetails']);
-});
-
-// Routes Enseignant - Temporairement sans middleware pour debug
-Route::prefix('teacher')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'getDashboardData']);
-    Route::get('/lessons', [DashboardController::class, 'getLessons']);
-    Route::post('/lessons', [DashboardController::class, 'createLesson']);
-    Route::put('/lessons/{id}', [DashboardController::class, 'updateLesson']);
-    Route::delete('/lessons/{id}', [DashboardController::class, 'deleteLesson']);
-    Route::get('/availabilities', [DashboardController::class, 'getAvailabilities']);
-    Route::post('/availabilities', [DashboardController::class, 'createAvailability']);
-    Route::put('/availabilities/{id}', [DashboardController::class, 'updateAvailability']);
-    Route::delete('/availabilities/{id}', [DashboardController::class, 'deleteAvailability']);
-    Route::get('/stats', [DashboardController::class, 'getStats']);
-    Route::get('/students', [DashboardController::class, 'getStudents']);
-});
-
-
-
-// Routes admin (séparées pour la maintenabilité)
-require __DIR__.'/admin.php';
-
-// Routes protégées avec middlewares appropriés
-Route::middleware('auth:sanctum')->group(function () {
+Route::group([], function () {
     Route::post('/auth/logout', [AuthControllerSimple::class, 'logout']);
     
-    // Routes utilisateurs (pour les utilisateurs authentifiés)
+    // Routes utilisateurs
     Route::get('/users', function() {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
         return response()->json([
             'users' => App\Models\User::all()
         ]);
@@ -956,13 +891,39 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Routes profils
     Route::get('/profiles', function() {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
         return response()->json([
             'profiles' => App\Models\Profile::all()
         ]);
     });
     
     Route::post('/profiles', function(Request $request) {
-        $user = auth()->user();
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
         
         // Validation des données
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
@@ -983,6 +944,7 @@ Route::middleware('auth:sanctum')->group(function () {
         }
         
         $request->merge(['user_id' => $user->id]);
+        
         $profile = App\Models\Profile::create($request->all());
         
         return response()->json([
@@ -993,7 +955,20 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Route pour le profil (utilisée par le frontend)
     Route::get('/profile', function() {
-        $user = auth()->user();
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
         
         // Récupérer les données de profil
         $profile = \DB::table('profiles')->where('user_id', $user->id)->first();
@@ -1050,7 +1025,20 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::put('/profile', function(Request $request) {
-        $user = auth()->user();
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
+        $user = $personalAccessToken->tokenable;
         
         // Validation des données
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
@@ -1161,6 +1149,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::get('/profiles/{id}', function($id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
         $profile = App\Models\Profile::with('user')->findOrFail($id);
         
         return response()->json([
@@ -1169,6 +1170,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::put('/profiles/{id}', function(Request $request, $id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
         $profile = App\Models\Profile::findOrFail($id);
         $profile->update($request->all());
         
@@ -1179,6 +1193,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::delete('/profiles/{id}', function($id) {
+        $token = request()->header('Authorization');
+        
+        if (!$token || !str_starts_with($token, 'Bearer ')) {
+            return response()->json(['message' => 'Missing token'], 401);
+        }
+        
+        $token = substr($token, 7);
+        $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+        
+        if (!$personalAccessToken) {
+            return response()->json(['message' => 'Invalid token'], 401);
+        }
+        
         $profile = App\Models\Profile::findOrFail($id);
         $profile->delete();
         
@@ -1191,3 +1218,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/upload/logo', [FileUploadController::class, 'uploadLogo']);
 });
 
+// Routes admin avec middlewares appropriés et contrôleur propre
+Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {

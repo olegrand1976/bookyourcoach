@@ -19,9 +19,9 @@ class ClubController extends Controller
     /**
      * Get club dashboard data
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
         $club = $user->clubs()->first();
         
         if (!$club) {

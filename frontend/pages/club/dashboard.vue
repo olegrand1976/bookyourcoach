@@ -390,8 +390,33 @@ const loadDashboardData = async () => {
     
     console.log('🔄 Chargement des données du dashboard club...')
     
+    // Utiliser $fetch uniquement côté client pour éviter les problèmes SSR
+    if (process.server) {
+      console.log('🔴 Côté serveur - pas de chargement des données')
+      return
+    }
+    
     const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
+    
+    // Récupérer le token d'authentification
+    const tokenCookie = useCookie('auth-token')
+    const token = tokenCookie.value
+    
+    if (!token) {
+      console.error('❌ Aucun token d\'authentification trouvé')
+      const { error } = useToast()
+      error('Session expirée. Veuillez vous reconnecter.', 'Authentification requise')
+      await navigateTo('/login')
+      return
+    }
+    
+    const response = await $fetch(`${config.public.apiBase}/club/dashboard`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
     
     console.log('✅ Données reçues:', response)
     
