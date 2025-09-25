@@ -115,7 +115,7 @@ class User extends Authenticatable
      */
     public function isTeacher(): bool
     {
-        return $this->hasRole(self::ROLE_TEACHER) || $this->teacher()->exists();
+        return $this->hasRole(self::ROLE_TEACHER);
     }
 
     /**
@@ -123,7 +123,7 @@ class User extends Authenticatable
      */
     public function isStudent(): bool
     {
-        return $this->hasRole(self::ROLE_STUDENT) || $this->student()->exists();
+        return $this->hasRole(self::ROLE_STUDENT);
     }
 
     /**
@@ -131,7 +131,7 @@ class User extends Authenticatable
      */
     public function canActAsTeacher(): bool
     {
-        return $this->isAdmin() || $this->role === self::ROLE_TEACHER || $this->teacher()->exists();
+        return $this->isAdmin() || $this->role === self::ROLE_TEACHER;
     }
 
     /**
@@ -139,7 +139,7 @@ class User extends Authenticatable
      */
     public function canActAsStudent(): bool
     {
-        return $this->isAdmin() || $this->role === self::ROLE_STUDENT || $this->student()->exists();
+        return $this->isAdmin() || $this->role === self::ROLE_STUDENT;
     }
 
     /**
@@ -181,7 +181,7 @@ class User extends Authenticatable
      */
     public function isClub(): bool
     {
-        return $this->hasRole('club') || $this->clubs()->exists();
+        return $this->hasRole('club');
     }
 
     /**
