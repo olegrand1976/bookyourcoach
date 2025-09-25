@@ -149,7 +149,7 @@ const isRegenerating = ref(false)
 const loadClubData = async () => {
   try {
     const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
     
     if (response.success && response.data && response.data.club) {
       club.value = response.data.club

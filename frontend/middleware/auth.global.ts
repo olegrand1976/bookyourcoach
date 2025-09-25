@@ -5,6 +5,24 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (to.path.startsWith('/teacher/') || to.path.startsWith('/student/') || to.path.startsWith('/admin') || to.path.startsWith('/club/')) {
     console.log('🛡️ Route protégée détectée:', to.path)
     
+    // Côté serveur, vérifier les cookies directement
+    if (process.server) {
+      console.log('🔴 Plugin auth: côté serveur - pas d\'initialisation')
+      
+      // Vérifier si un token existe dans les cookies
+      const token = useCookie('auth-token')
+      if (!token.value) {
+        console.log('❌ Pas de token côté serveur, redirection vers /login')
+        return navigateTo('/login')
+      }
+      
+      // Pour le SSR, on fait confiance au token côté serveur
+      // La validation complète se fera côté client
+      console.log('✅ Token présent côté serveur, autorisation temporaire')
+      return
+    }
+    
+    // Côté client, initialiser l'authentification complète
     const { useAuthStore } = await import('~/stores/auth')
     const authStore = useAuthStore()
     
@@ -52,6 +70,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   
   // Redirection automatique selon le rôle pour les utilisateurs authentifiés
   if (to.path === '/dashboard') {
+    // Côté serveur, redirection basique
+    if (process.server) {
+      return navigateTo('/login')
+    }
+    
     const { useAuthStore } = await import('~/stores/auth')
     const authStore = useAuthStore()
     

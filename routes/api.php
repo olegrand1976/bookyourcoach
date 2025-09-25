@@ -948,8 +948,8 @@ Route::group([], function () {
         ], 201);
     });
     
-    // Route de test pour le profil (utilisée par le frontend)
-    Route::get('/profile-test', function() {
+    // Route pour le profil (utilisée par le frontend)
+    Route::get('/profile', function() {
         $token = request()->header('Authorization');
         
         if (!$token || !str_starts_with($token, 'Bearer ')) {
@@ -1019,7 +1019,7 @@ Route::group([], function () {
         return response()->json($response, 200);
     });
     
-    Route::put('/profile-test', function(Request $request) {
+    Route::put('/profile', function(Request $request) {
         $token = request()->header('Authorization');
         
         if (!$token || !str_starts_with($token, 'Bearer ')) {
@@ -2284,7 +2284,7 @@ Route::get('/teacher/dashboard-simple', function() {
 
 // Routes Club
 Route::prefix('club')->group(function () {
-    Route::get('/dashboard-test', [\App\Http\Controllers\Api\ClubController::class, 'dashboard']);
+    Route::get('/dashboard', [\App\Http\Controllers\Api\ClubController::class, 'dashboard']);
     Route::get('/teachers', [\App\Http\Controllers\Api\ClubController::class, 'teachers']);
     Route::get('/students', [\App\Http\Controllers\Api\ClubController::class, 'students']);
     Route::post('/add-teacher', [\App\Http\Controllers\Api\ClubController::class, 'addTeacher']);
@@ -2292,7 +2292,7 @@ Route::prefix('club')->group(function () {
     Route::put('/update', [\App\Http\Controllers\Api\ClubController::class, 'updateClub']);
     
         // Routes supplémentaires pour le profil club
-        Route::get('/profile-test', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
+        Route::get('/profile', [\App\Http\Controllers\Api\ClubController::class, 'getProfile']);
         Route::get('/custom-specialties', [\App\Http\Controllers\Api\ClubController::class, 'getCustomSpecialties']);
         Route::get('/disciplines', [\App\Http\Controllers\Api\ClubController::class, 'getDisciplines']);
         Route::post('/lessons', [\App\Http\Controllers\Api\ClubController::class, 'createLesson']);

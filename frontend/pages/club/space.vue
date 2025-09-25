@@ -174,7 +174,7 @@ const loadClubData = async () => {
     console.log('🔄 Chargement des données de l\'espace club...')
     
     const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
     
     console.log('✅ Données reçues:', response)
     
