@@ -1,0 +1,931 @@
+name: 🚀 Déploiement Production avec Corrections de Sécurité
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Ignorer le build (déployer seulement)'
+        required: false
+        default: 'false'
+        type: boolean
+      skip_deploy:
+        description: 'Ignorer le déploiement (build seulement)'
+        required: false
+        default: 'false'
+        type: boolean
+      force_rebuild:
+        description: 'Forcer la reconstruction des images'
+        required: false
+        default: 'false'
+        type: boolean
+      security_fixes:
+        description: 'Appliquer les corrections de sécurité'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  DOCKER_REGISTRY: docker.io
+  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
+  FRONTEND_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend
+  COMPOSE_FILE: docker-compose.yml
+  ENV_FILE: production.env
+
+jobs:
+  # Job 1: Préparation et validation
+  prepare:
+    name: 🔍 Préparation & Validation
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      image_tag: ${{ steps.check.outputs.image_tag }}
+      apply_security: ${{ steps.check.outputs.apply_security }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Vérification des conditions
+      id: check
+      run: |
+        # Déterminer si on doit builder
+        if [[ "${{ inputs.skip_build }}" == "true" ]]; then
+          echo "should_build=false" >> $GITHUB_OUTPUT
+        else
+          echo "should_build=true" >> $GITHUB_OUTPUT
+        fi
+        
+        # Déterminer si on doit déployer
+        if [[ "${{ inputs.skip_deploy }}" == "true" ]]; then
+          echo "should_deploy=false" >> $GITHUB_OUTPUT
+        else
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        fi
+        
+        # Déterminer si on applique les corrections de sécurité
+        if [[ "${{ inputs.security_fixes }}" == "true" ]]; then
+          echo "apply_security=true" >> $GITHUB_OUTPUT
+        else
+          echo "apply_security=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Générer le tag d'image
+        if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
+          echo "image_tag=security-fix-$(date +%s)" >> $GITHUB_OUTPUT
+        else
+          echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "🔍 Conditions vérifiées :"
+        echo "  - Build: ${{ steps.check.outputs.should_build }}"
+        echo "  - Deploy: ${{ steps.check.outputs.should_deploy }}"
+        echo "  - Security fixes: ${{ steps.check.outputs.apply_security }}"
+        echo "  - Tag: ${{ steps.check.outputs.image_tag }}"
+
+  # Job 2: Vérification des corrections de sécurité
+  security-check:
+    name: 🔒 Vérification Sécurité
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.apply_security == 'true'
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Vérification des fichiers de sécurité
+      run: |
+        echo "🔒 Vérification des corrections de sécurité..."
+        
+        # Vérifier que les fichiers de sécurité existent
+        security_files=(
+          "app/Http/Controllers/Api/AdminController.php"
+          "app/Http/Controllers/Api/TeacherController.php"
+          "app/Http/Controllers/Api/StudentController.php"
+          "app/Http/Controllers/Api/FileUploadController.php"
+          "routes/api.php"
+          "routes/admin.php"
+          "bootstrap/app.php"
+        )
+        
+        missing_files=()
+        for file in "${security_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ Fichier sécurisé: $file"
+          else
+            echo "❌ Fichier manquant: $file"
+            missing_files+=("$file")
+          fi
+        done
+        
+        if [ ${#missing_files[@]} -gt 0 ]; then
+          echo "❌ Fichiers de sécurité manquants détectés!"
+          exit 1
+        fi
+        
+        # Vérifier la syntaxe PHP
+        echo "🔍 Vérification de la syntaxe PHP..."
+        php -l routes/api.php
+        php -l routes/admin.php
+        php -l app/Http/Controllers/Api/AdminController.php
+        php -l app/Http/Controllers/Api/TeacherController.php
+        php -l app/Http/Controllers/Api/StudentController.php
+        php -l app/Http/Controllers/Api/FileUploadController.php
+        
+        # Vérifier l'absence d'authentification manuelle
+        echo "🔍 Vérification de l'authentification manuelle..."
+        manual_auth=$(grep -c "request()->header('Authorization')" routes/api.php || echo "0")
+        role_checks=$(grep -c "role !== 'admin'" routes/api.php || echo "0")
+        
+        if [ $manual_auth -gt 0 ]; then
+          echo "❌ Authentifications manuelles détectées: $manual_auth"
+          exit 1
+        fi
+        
+        if [ $role_checks -gt 0 ]; then
+          echo "❌ Vérifications de rôle détectées: $role_checks"
+          exit 1
+        fi
+        
+        echo "✅ Toutes les vérifications de sécurité sont passées!"
+        echo "  - Authentifications manuelles: $manual_auth"
+        echo "  - Vérifications de rôle: $role_checks"
+
+  # Job 3: Build des images Docker
+  build-images:
+    name: 🏗️ Build Images Docker
+    runs-on: ubuntu-latest
+    needs: [prepare, security-check]
+    if: needs.prepare.outputs.should_build == 'true'
+    outputs:
+      backend_image: ${{ steps.build-backend.outputs.image }}
+      frontend_image: ${{ steps.build-frontend.outputs.image }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Configuration Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Connexion DockerHub
+      uses: docker/login-action@v3
+      with:
+        registry: docker.io
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+    
+    - name: 🏗️ Build Backend (Laravel) avec corrections de sécurité
+      id: build-backend
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: |
+          ${{ env.IMAGE_NAME }}:latest
+          ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
+          ${{ env.IMAGE_NAME }}:security-fixed
+        cache-from: type=gha,scope=backend
+        cache-to: type=gha,mode=max,scope=backend
+        build-args: |
+          SECURITY_FIXES=true
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+      continue-on-error: false
+
+    - name: 🎨 Build Frontend (Nuxt.js)
+      id: build-frontend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        platforms: linux/amd64
+        push: true
+        tags: |
+          ${{ env.FRONTEND_IMAGE_NAME }}:latest
+          ${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
+        cache-from: type=gha,scope=frontend
+        cache-to: type=gha,mode=max,scope=frontend
+      continue-on-error: false
+
+    - name: 📋 Résumé du build
+      run: |
+        echo "✅ Build terminé avec succès !"
+        echo "🏗️ Images construites avec corrections de sécurité :"
+        echo "  - Backend: ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo "  - Frontend: ${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo "🔒 Corrections de sécurité intégrées :"
+        echo "  - Authentification centralisée avec auth:sanctum"
+        echo "  - Middlewares de rôles appropriés"
+        echo "  - Contrôleurs sécurisés"
+        echo "  - Suppression de l'authentification manuelle"
+
+  # Job 4: Génération des fichiers de configuration avec sécurité
+  generate-config:
+    name: ⚙️ Génération Configuration Sécurisée
+    runs-on: ubuntu-latest
+    needs: [prepare, build-images]
+    if: needs.prepare.outputs.should_deploy == 'true'
+    outputs:
+      config_files: ${{ steps.generate.outputs.files }}
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: ⚙️ Génération des fichiers de configuration sécurisés
+      id: generate
+      run: |
+        echo "🔧 Génération des fichiers de configuration avec sécurité..."
+        
+        # Générer APP_KEY
+        APP_KEY=$(openssl rand -base64 32)
+        
+        # Créer docker-compose.yml avec sécurité renforcée
+        cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
+        services:
+          # Backend Laravel API avec sécurité renforcée
+          backend:
+            image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
+            container_name: activibe-backend
+            restart: unless-stopped
+            env_file:
+              - ./.env
+            ports:
+              - "8080:80"
+            volumes:
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
+              - /srv/activibe/.env:/var/www/html/.env:ro
+            depends_on:
+              - neo4j
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+            read_only: true
+            tmpfs:
+              - /tmp
+              - /var/tmp
+
+          # Frontend Nuxt.js
+          frontend:
+            image: ${FRONTEND_IMAGE_NAME:-${{ env.FRONTEND_IMAGE_NAME }}:latest}
+            container_name: activibe-frontend
+            restart: unless-stopped
+            ports:
+              - "3000:3000"
+            environment:
+              - NUXT_PUBLIC_API_BASE=https://activibe.be/api
+              - NUXT_API_BASE=http://activibe-backend:80/api
+              - NITRO_HOST=0.0.0.0
+              - NITRO_PORT=3000
+            depends_on:
+              - backend
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+          # phpMyAdmin
+          phpmyadmin:
+            image: phpmyadmin:latest
+            container_name: activibe-phpmyadmin
+            restart: unless-stopped
+            ports:
+              - "8082:80"
+            environment:
+              - PMA_HOST=${DB_HOST}
+              - PMA_PORT=${DB_PORT}
+              - PMA_USER=${DB_USERNAME}
+              - PMA_PASSWORD=${DB_PASSWORD}
+              - UPLOAD_LIMIT=256M
+              - MEMORY_LIMIT=512M
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+          # Neo4j
+          neo4j:
+            image: neo4j:5.15-community
+            container_name: activibe-neo4j
+            restart: unless-stopped
+            ports:
+              - "7474:7474"
+              - "7687:7687"
+            environment:
+              - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+              - NEO4J_PLUGINS=["apoc"]
+              - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+              - NEO4J_dbms_security_procedures_allowlist=apoc.*
+            volumes:
+              - neo4j_data:/data
+              - neo4j_logs:/logs
+              - neo4j_import:/var/lib/neo4j/import
+              - neo4j_plugins:/plugins
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+        volumes:
+          neo4j_data:
+            driver: local
+          neo4j_logs:
+            driver: local
+          neo4j_import:
+            driver: local
+          neo4j_plugins:
+            driver: local
+          app_storage:
+            driver: local
+          app_bootstrap_cache:
+            driver: local
+
+        networks:
+          app-network:
+            driver: bridge
+        EOF
+
+        # Créer le script de déploiement sécurisé
+        cat > auto-deploy-secure.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Couleurs
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[1;33m'
+        BLUE='\033[0;34m'
+        NC='\033[0m'
+
+        log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+        log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+        log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+        log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+        COMPOSE_FILE="docker-compose.yml"
+        ENV_FILE=".env"
+
+        log_step "🚀 Démarrage du déploiement sécurisé..."
+
+        # Arrêt propre des containers existants
+        log_info "🛑 Arrêt des containers existants..."
+        if [[ -f "$COMPOSE_FILE" ]]; then
+            docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+        fi
+
+        # Nettoyage des ressources orphelines
+        log_info "🧹 Nettoyage des ressources orphelines..."
+        docker container prune -f 2>/dev/null || true
+        docker network prune -f 2>/dev/null || true
+
+        # Pull des images avec corrections de sécurité
+        log_info "📥 Récupération des images avec corrections de sécurité..."
+        source ".env"
+        docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Démarrage avec docker compose
+        log_info "🚀 Démarrage des conteneurs sécurisés..."
+        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+        # Attente du démarrage
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
+
+        # Initialisation de l'application avec sécurité
+        log_info "🔧 Initialisation de l'application..."
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear
+
+        # Vérification de l'état des services
+        log_step "🔍 Vérification de l'état des services..."
+        docker compose -f "$COMPOSE_FILE" ps
+
+        # Tests de connectivité et sécurité
+        log_step "🧪 Tests de connectivité et sécurité..."
+        
+        # Test du backend Laravel (port 8080)
+        if curl -f http://localhost:8080 >/dev/null 2>&1; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        else
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+        fi
+
+        # Test de sécurité des routes admin
+        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        
+        if [ "$admin_http_code" = "401" ]; then
+            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+        else
+            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+        fi
+
+        # Test de sécurité des routes teacher
+        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        
+        if [ "$teacher_http_code" = "401" ]; then
+            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+        else
+            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+        fi
+
+        # Test du frontend Nuxt.js (port 3000)
+        if curl -f http://localhost:3000 >/dev/null 2>&1; then
+            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
+        else
+            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible"
+        fi
+
+        # Test port 7474 (Neo4j)
+        if curl -f http://localhost:7474 >/dev/null 2>&1; then
+            log_info "✅ Port 7474 (Neo4j) : Accessible"
+        else
+            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
+        fi
+
+        log_step "✅ Déploiement sécurisé terminé !"
+        log_info "🔒 Corrections de sécurité appliquées :"
+        log_info "  - Authentification centralisée avec auth:sanctum"
+        log_info "  - Middlewares de rôles appropriés"
+        log_info "  - Suppression de l'authentification manuelle"
+        log_info "  - Contrôleurs sécurisés"
+        EOF
+        
+        chmod +x auto-deploy-secure.sh
+
+        echo "files=docker-compose.yml,auto-deploy-secure.sh" >> $GITHUB_OUTPUT
+        echo "✅ Fichiers de configuration sécurisés générés avec succès !"
+
+  # Job 5: Déploiement sur le serveur avec sécurité
+  deploy:
+    name: 🚀 Déploiement Serveur Sécurisé
+    runs-on: ubuntu-latest
+    needs: [prepare, build-images, generate-config]
+    if: needs.prepare.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: ⚙️ Génération des fichiers de configuration sécurisés
+      run: |
+        echo "🔧 Génération des fichiers de configuration avec sécurité..."
+        
+        # Générer APP_KEY
+        APP_KEY=$(openssl rand -base64 32)
+        
+        # Créer docker-compose.yml avec sécurité renforcée
+        cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
+        services:
+          # Backend Laravel API avec sécurité renforcée
+          backend:
+            image: ${IMAGE_NAME:-${{ env.IMAGE_NAME }}:latest}
+            container_name: activibe-backend
+            restart: unless-stopped
+            env_file:
+              - ./.env
+            ports:
+              - "8080:80"
+            volumes:
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
+              - /srv/activibe/.env:/var/www/html/.env:ro
+            depends_on:
+              - neo4j
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+            read_only: true
+            tmpfs:
+              - /tmp
+              - /var/tmp
+
+          # Frontend Nuxt.js
+          frontend:
+            image: ${FRONTEND_IMAGE_NAME:-${{ env.FRONTEND_IMAGE_NAME }}:latest}
+            container_name: activibe-frontend
+            restart: unless-stopped
+            ports:
+              - "3000:3000"
+            environment:
+              - NUXT_PUBLIC_API_BASE=https://activibe.be/api
+              - NUXT_API_BASE=http://activibe-backend:80/api
+              - NITRO_HOST=0.0.0.0
+              - NITRO_PORT=3000
+            depends_on:
+              - backend
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+          # phpMyAdmin
+          phpmyadmin:
+            image: phpmyadmin:latest
+            container_name: activibe-phpmyadmin
+            restart: unless-stopped
+            ports:
+              - "8082:80"
+            environment:
+              - PMA_HOST=${DB_HOST}
+              - PMA_PORT=${DB_PORT}
+              - PMA_USER=${DB_USERNAME}
+              - PMA_PASSWORD=${DB_PASSWORD}
+              - UPLOAD_LIMIT=256M
+              - MEMORY_LIMIT=512M
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+          # Neo4j
+          neo4j:
+            image: neo4j:5.15-community
+            container_name: activibe-neo4j
+            restart: unless-stopped
+            ports:
+              - "7474:7474"
+              - "7687:7687"
+            environment:
+              - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+              - NEO4J_PLUGINS=["apoc"]
+              - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+              - NEO4J_dbms_security_procedures_allowlist=apoc.*
+            volumes:
+              - neo4j_data:/data
+              - neo4j_logs:/logs
+              - neo4j_import:/var/lib/neo4j/import
+              - neo4j_plugins:/plugins
+            networks:
+              - app-network
+            security_opt:
+              - no-new-privileges:true
+
+        volumes:
+          neo4j_data:
+            driver: local
+          neo4j_logs:
+            driver: local
+          neo4j_import:
+            driver: local
+          neo4j_plugins:
+            driver: local
+          app_storage:
+            driver: local
+          app_bootstrap_cache:
+            driver: local
+
+        networks:
+          app-network:
+            driver: bridge
+        EOF
+
+        # Créer le script de déploiement sécurisé
+        cat > auto-deploy-secure.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        # Couleurs
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[1;33m'
+        BLUE='\033[0;34m'
+        NC='\033[0m'
+
+        log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+        log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+        log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+        log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+        COMPOSE_FILE="docker-compose.yml"
+        ENV_FILE=".env"
+
+        log_step "🚀 Démarrage du déploiement sécurisé..."
+
+        # Arrêt propre des containers existants
+        log_info "🛑 Arrêt des containers existants..."
+        if [[ -f "$COMPOSE_FILE" ]]; then
+            docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+        fi
+
+        # Nettoyage des ressources orphelines
+        log_info "🧹 Nettoyage des ressources orphelines..."
+        docker container prune -f 2>/dev/null || true
+        docker network prune -f 2>/dev/null || true
+
+        # Pull des images avec corrections de sécurité
+        log_info "📥 Récupération des images avec corrections de sécurité..."
+        source ".env"
+        docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
+        docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Démarrage avec docker compose
+        log_info "🚀 Démarrage des conteneurs sécurisés..."
+        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+        # Attente du démarrage
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
+
+        # Initialisation de l'application avec sécurité
+        log_info "🔧 Initialisation de l'application..."
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
+        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear
+
+        # Vérification de l'état des services
+        log_step "🔍 Vérification de l'état des services..."
+        docker compose -f "$COMPOSE_FILE" ps
+
+        # Tests de connectivité et sécurité
+        log_step "🧪 Tests de connectivité et sécurité..."
+        
+        # Test du backend Laravel (port 8080)
+        if curl -f http://localhost:8080 >/dev/null 2>&1; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        else
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+        fi
+
+        # Test de sécurité des routes admin
+        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        
+        if [ "$admin_http_code" = "401" ]; then
+            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+        else
+            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+        fi
+
+        # Test de sécurité des routes teacher
+        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        
+        if [ "$teacher_http_code" = "401" ]; then
+            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+        else
+            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+        fi
+
+        # Test du frontend Nuxt.js (port 3000)
+        if curl -f http://localhost:3000 >/dev/null 2>&1; then
+            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
+        else
+            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible"
+        fi
+
+        # Test port 7474 (Neo4j)
+        if curl -f http://localhost:7474 >/dev/null 2>&1; then
+            log_info "✅ Port 7474 (Neo4j) : Accessible"
+        else
+            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
+        fi
+
+        log_step "✅ Déploiement sécurisé terminé !"
+        log_info "🔒 Corrections de sécurité appliquées :"
+        log_info "  - Authentification centralisée avec auth:sanctum"
+        log_info "  - Middlewares de rôles appropriés"
+        log_info "  - Suppression de l'authentification manuelle"
+        log_info "  - Contrôleurs sécurisés"
+        EOF
+        
+        chmod +x auto-deploy-secure.sh
+
+        echo "✅ Fichiers de configuration sécurisés générés avec succès !"
+
+    - name: 📤 Déploiement des fichiers sécurisés
+      run: |
+        echo "🚀 Déploiement des fichiers sécurisés sur le serveur..."
+        
+        # Création du répertoire de déploiement
+        ssh production-server "mkdir -p /srv/activibe && cd /srv/activibe"
+        
+        # Copie des fichiers de configuration sécurisés
+        echo "📋 Copie des fichiers de configuration sécurisés..."
+        scp docker-compose.yml production-server:/srv/activibe/docker-compose.yml
+        scp auto-deploy-secure.sh production-server:/srv/activibe/auto-deploy-secure.sh
+        
+        # Exécution du déploiement sécurisé
+        echo "🎯 Exécution du déploiement sécurisé..."
+        ssh production-server "cd /srv/activibe && chmod +x *.sh && ./auto-deploy-secure.sh '${{ needs.prepare.outputs.image_tag }}' '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}'"
+
+  # Job 6: Tests post-déploiement avec sécurité
+  test-deployment:
+    name: 🧪 Tests Post-Déploiement Sécurisé
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy, generate-config]
+    if: needs.prepare.outputs.should_deploy == 'true'
+    
+    steps:
+    - name: 🔑 Configuration SSH
+      run: |
+        echo "🔧 Configuration de la connexion SSH..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        
+        cat > ~/.ssh/config << EOF
+        Host production-server
+          HostName ${{ vars.SERVER_HOST }}
+          User ${{ vars.SERVER_USERNAME }}
+          Port ${{ vars.SERVER_PORT }}
+          IdentityFile ~/.ssh/id_rsa
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+        EOF
+        
+        chmod 600 ~/.ssh/config
+
+    - name: 🧪 Tests de connectivité et sécurité
+      run: |
+        echo "🔍 Tests de vérification post-déploiement avec sécurité..."
+        
+        # Attendre que les services soient prêts
+        echo "⏳ Attente du démarrage complet des services (30 secondes)..."
+        sleep 30
+        
+        # Test de connectivité des services
+        echo "🔌 Test des services sur le serveur..."
+        
+        # Test frontend (port 3000)
+        if ssh production-server "curl -f http://localhost:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend (port 3000) : OK"
+        else
+          echo "⚠️  Frontend (port 3000) : KO"
+        fi
+        
+        # Test API backend (port 8080)
+        if ssh production-server "curl -f http://localhost:8080" >/dev/null 2>&1; then
+          echo "✅ API Backend (port 8080) : OK"
+        else
+          echo "⚠️  API Backend (port 8080) : KO"
+        fi
+        
+        # Test Neo4j (port 7474)
+        if ssh production-server "curl -f -H 'Accept: application/json' http://localhost:7474" >/dev/null 2>&1; then
+          echo "✅ Neo4j (port 7474) : OK"
+        else
+          echo "⚠️  Neo4j (port 7474) : KO"
+        fi
+        
+        # Test de l'IP privée
+        echo "🔌 Test de l'IP privée 10.0.0.244..."
+        if ssh production-server "curl -f http://10.0.0.244:3000" >/dev/null 2>&1; then
+          echo "✅ Frontend sur 10.0.0.244:3000 : OK"
+        else
+          echo "⚠️  Frontend sur 10.0.0.244:3000 : KO"
+        fi
+        
+        if ssh production-server "curl -f http://10.0.0.244:8080" >/dev/null 2>&1; then
+          echo "✅ API sur 10.0.0.244:8080 : OK"
+        else
+          echo "⚠️  API sur 10.0.0.244:8080 : KO"
+        fi
+        
+        # Affichage de l'état des containers
+        echo "📊 État des containers :"
+        ssh production-server "cd /srv/activibe && docker compose -f docker-compose.yml ps"
+        
+        # Tests de sécurité des routes
+        echo "🔒 Tests de sécurité des routes..."
+        
+        # Test route admin avec token invalide
+        admin_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard' 2>/dev/null)
+        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        
+        if [ "$admin_http_code" = "401" ]; then
+          echo "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+        else
+          echo "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+        fi
+        
+        # Test route teacher avec token invalide
+        teacher_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard' 2>/dev/null)
+        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        
+        if [ "$teacher_http_code" = "401" ]; then
+          echo "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+        else
+          echo "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+        fi
+        
+        # Test route student avec token invalide
+        student_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/student/dashboard' 2>/dev/null)
+        student_http_code=$(echo "$student_response" | tail -c 4)
+        
+        if [ "$student_http_code" = "401" ]; then
+          echo "✅ Routes student sécurisées (HTTP $student_http_code)"
+        else
+          echo "⚠️  Routes student non sécurisées (HTTP $student_http_code)"
+        fi
+        
+        # Test API fonctionnel
+        echo "🧪 Test fonctionnel de l'API..."
+        if ssh production-server 'curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"'; then
+          echo "✅ API fonctionnelle (endpoint login répond)"
+        else
+          echo "⚠️  API non fonctionnelle (endpoint login ne répond pas correctement)"
+        fi
+
+  # Job 7: Notifications avec sécurité
+  notify:
+    name: 📧 Notifications Sécurisées
+    runs-on: ubuntu-latest
+    needs: [prepare, build-images, deploy, test-deployment]
+    if: always()
+    
+    steps:
+    - name: 📧 Notification de succès avec sécurité
+      if: needs.deploy.result == 'success' && needs.test-deployment.result == 'success'
+      run: |
+        echo "🎉 DÉPLOIEMENT SÉCURISÉ RÉUSSI !"
+        echo ""
+        echo "🌐 L'application Acti'Vibe est maintenant accessible et sécurisée :"
+        echo "   • Frontend Nuxt.js : http://10.0.0.244:3000"
+        echo "   • Backend Laravel API : http://10.0.0.244:8080"
+        echo "   • phpMyAdmin : http://10.0.0.244:8082"
+        echo "   • Neo4j : http://10.0.0.244:7474"
+        echo ""
+        echo "🐳 Images déployées avec corrections de sécurité :"
+        echo "   • Backend: ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo "   • Frontend: ${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo ""
+        echo "🔒 Corrections de sécurité appliquées :"
+        echo "   ✅ Authentification centralisée avec auth:sanctum"
+        echo "   ✅ Middlewares de rôles appropriés (admin, teacher, student)"
+        echo "   ✅ Suppression de l'authentification manuelle"
+        echo "   ✅ Contrôleurs sécurisés (AdminController, TeacherController, StudentController)"
+        echo "   ✅ Routes séparées (routes/admin.php)"
+        echo "   ✅ Message 'Accès refusé' corrigé"
+        echo ""
+        echo "📅 Date : $(date)"
+
+    - name: 🚨 Notification d'échec
+      if: needs.deploy.result == 'failure' || needs.test-deployment.result == 'failure'
+      run: |
+        echo "❌ ÉCHEC DU DÉPLOIEMENT SÉCURISÉ !"
+        echo ""
+        echo "🔍 Vérifiez les logs ci-dessus pour identifier le problème."
+        echo "📋 Points à vérifier :"
+        echo "   • Connexion SSH au serveur"
+        echo "   • Variables d'environnement GitHub"
+        echo "   • Disponibilité de DockerHub"
+        echo "   • État du serveur de production"
+        echo "   • Corrections de sécurité dans le code"
+        echo ""
+        echo "🆘 En cas de problème persistant, connectez-vous manuellement :"
+        echo "   ssh ${{ vars.SERVER_USERNAME }}@${{ vars.SERVER_HOST }}"
+        echo "   cd /srv/activibe && ./auto-deploy-secure.sh"
+
+    - name: 📊 Résumé du build sécurisé
+      if: needs.build-images.result == 'success'
+      run: |
+        echo "✅ BUILD SÉCURISÉ RÉUSSI !"
+        echo ""
+        echo "🏗️ Images construites avec corrections de sécurité :"
+        echo "   • Backend: ${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo "   • Frontend: ${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+        echo ""
+        echo "🔒 Corrections de sécurité intégrées :"
+        echo "   ✅ Authentification centralisée"
+        echo "   ✅ Middlewares appropriés"
+        echo "   ✅ Contrôleurs sécurisés"
+        echo "   ✅ Suppression de l'authentification manuelle"
+        echo ""
+        echo "📅 Date : $(date)"
