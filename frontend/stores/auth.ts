@@ -156,6 +156,13 @@ export const useAuthStore = defineStore('auth', {
       console.log('🔍 [AUTH DEBUG] Début initializeAuth')
       
       if (process.client) {
+        // Si déjà authentifié et que l'objet user existe, ne rien faire.
+        // Cela évite de revérifier inutilement juste après la connexion.
+        if (this.isAuthenticated && this.user) {
+          console.log('🔍 [AUTH DEBUG] Déjà authentifié et user présent, on ignore.')
+          return
+        }
+
         const tokenCookie = useCookie('auth-token')
         console.log('🔍 [AUTH DEBUG] Token cookie:', tokenCookie.value ? 'présent' : 'absent')
 
