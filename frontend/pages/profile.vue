@@ -219,7 +219,7 @@ const loadProfileData = async () => {
     // Load additional profile data from API
     try {
         const { $api } = useNuxtApp()
-        const response = await $api.get('/profile-test')
+        const response = await $api.get('/profile')
 
         if (response.data.profile) {
             const profile = response.data.profile
@@ -285,7 +285,7 @@ const updateProfile = async () => {
 
     try {
         const { $api } = useNuxtApp()
-        await $api.put('/profile-test', form)
+        await $api.put('/profile', form)
 
         toast.success('Profil mis à jour avec succès')
 

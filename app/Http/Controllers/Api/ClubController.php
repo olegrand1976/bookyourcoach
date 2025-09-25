@@ -21,14 +21,14 @@ class ClubController extends Controller
      */
     public function dashboard()
     {
-        // Pour le test, utiliser un club par défaut
-        $club = \App\Models\Club::first();
+        $user = auth()->user();
+        $club = $user->clubs()->first();
         
         if (!$club) {
             return response()->json([
                 'success' => false,
-                'message' => 'Aucun club trouvé dans la base de données'
-            ], 404);
+                'message' => 'User is not associated with any club.'
+            ], 403);
         }
 
         // Données de test pour le dashboard
@@ -314,14 +314,14 @@ class ClubController extends Controller
      */
     public function getProfile()
     {
-        // Pour le test, utiliser un club par défaut
-        $club = \App\Models\Club::first();
+        $user = auth()->user();
+        $club = $user->clubs()->first();
         
         if (!$club) {
             return response()->json([
                 'success' => false,
-                'message' => 'Aucun club trouvé dans la base de données'
-            ], 404);
+                'message' => 'User is not associated with any club.'
+            ], 403);
         }
 
         return response()->json([

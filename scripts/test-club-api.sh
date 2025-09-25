@@ -27,7 +27,7 @@ echo ""
 
 # Test de connexion
 echo "🔐 Test de connexion..."
-LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8081/api/auth/login \
+LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$MANAGER_EMAIL\",\"password\":\"password\"}")
 
@@ -47,7 +47,7 @@ echo ""
 
 # Test de l'API dashboard
 echo "📊 Test de l'API dashboard..."
-DASHBOARD_RESPONSE=$(curl -s -X GET http://localhost:8081/api/club/dashboard \
+DASHBOARD_RESPONSE=$(curl -s -X GET http://localhost:8080/api/club/dashboard \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json")
 

@@ -49,8 +49,8 @@ class DatabaseSeeder extends Seeder
         $this->command->line('   Enseignants: sophie.martin@activibe.com / password123');
         $this->command->line('   Élèves: alice.durand@email.com / password123');
         $this->command->line('');
-        $this->command->info('🌐 Application disponible sur : http://localhost:8081');
-        $this->command->info('📖 Documentation API : http://localhost:8081/docs');
+        $this->command->info('🌐 Application disponible sur : http://localhost:8080');
+        $this->command->info('📖 Documentation API : http://localhost:8080/docs');
         $this->command->info('🗄️ PHPMyAdmin : http://localhost:8082');
     }
 }

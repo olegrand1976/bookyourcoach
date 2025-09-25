@@ -354,7 +354,7 @@ const loadClubDisciplines = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
-    const response = await $fetch(`${config.public.apiBase}/club/profile-test`)
+    const response = await $fetch(`${config.public.apiBase}/club/profile`)
     if (response.club && response.club.disciplines) {
       availableDisciplines.value = response.club.disciplines
     }
@@ -423,7 +423,7 @@ const addStudent = async () => {
     }
     
     // Créer l'étudiant d'abord
-    const response = await $fetch(`${config.public.apiBase}/club/students-test`, {
+    const response = await $fetch(`${config.public.apiBase}/club/students`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenCookie.value}`,
