@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '~/stores/auth'
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
@@ -13,7 +14,10 @@ export default defineNuxtPlugin(() => {
 
   // Intercepteur pour ajouter le token d'authentification
   api.interceptors.request.use((config) => {
-    const token = useCookie('auth-token').value
+    const authStore = useAuthStore()
+    const cookieToken = useCookie('auth-token').value
+    // Utilise le token du store s'il est disponible (juste après le login) ou celui du cookie
+    const token = authStore.token || cookieToken
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

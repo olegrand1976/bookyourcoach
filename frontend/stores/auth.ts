@@ -54,6 +54,9 @@ export const useAuthStore = defineStore('auth', {
         tokenCookie.value = this.token
         console.log('🔑 [LOGIN] Token stocké dans cookie (remember:', remember, ', durée:', maxAge, 's)')
 
+        // Mettre à jour l'état utilisateur immédiatement pour éviter les race conditions
+        await this.fetchUser()
+
         // Sauvegarder les données utilisateur localement
         if (process.client) {
           const userDataToSave = JSON.stringify(this.user)
