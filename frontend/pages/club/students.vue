@@ -392,17 +392,25 @@ const getActivityIcon = (activityTypeId) => {
 // Charger les élèves et spécialités
 const loadStudents = async () => {
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    console.log('🔄 Chargement des élèves...')
     
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/students')
     
-    if (response.success && response.data) {
-      students.value = response.data.recentStudents || []
+    console.log('✅ Élèves reçus:', response)
+    
+    if (response.data.success && response.data.data) {
+      students.value = response.data.data
       
       // Charger aussi les spécialités disponibles
-      if (response.data.club && response.data.club.disciplines) {
-        availableDisciplines.value = response.data.club.disciplines
+      try {
+        const disciplinesResponse = await $api.get('/disciplines')
+        if (disciplinesResponse.data.success && disciplinesResponse.data.data) {
+          availableDisciplines.value = disciplinesResponse.data.data
+        }
+      } catch (disciplineError) {
+        console.warn('⚠️ Impossible de charger les disciplines:', disciplineError)
       }
     }
   } catch (error) {

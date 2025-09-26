@@ -23,14 +23,8 @@ export default defineNuxtPlugin(() => {
                     authStore.token = null
                     authStore.isAuthenticated = false
 
-                    // Nettoyer les cookies et localStorage
-                    const tokenCookie = useCookie('auth-token')
-                    tokenCookie.value = null
-
-                    if (process.client) {
-                        localStorage.removeItem('auth-token')
-                        localStorage.removeItem('user-data')
-                    }
+                    // Nettoyer le store via clearAuth
+                    authStore.clearAuth()
 
                     // Rediriger vers la page de connexion avec un message
                     const currentRoute = router.currentRoute.value

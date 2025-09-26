@@ -18,7 +18,7 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 
 # Installer les dépendances de production seulement
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
 # Stage 3: Tests et validation
 FROM base AS test

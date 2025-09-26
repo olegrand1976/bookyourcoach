@@ -3,7 +3,11 @@ version: "3.8"
 services:
   # Backend Laravel API - Configuration locale
   backend:
-    image: ${IMAGE_NAME:-olegrand1976/activibe-app:latest}
+    # L'image sera construite localement à partir du Dockerfile à la racine
+    # image: ${IMAGE_NAME:-olegrand1976/activibe-app:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: activibe-backend-local
     restart: unless-stopped
     env_file:
@@ -30,20 +34,29 @@ services:
     networks:
       - app-network
 
-  # Frontend Nuxt.js
+  # Frontend Nuxt.js - MODE DÉVELOPPEMENT AVEC CODE LOCAL
   frontend:
-    image: ${FRONTEND_IMAGE_NAME:-olegrand1976/activibe-frontend:latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: activibe-frontend-local
     restart: unless-stopped
     ports:
       # Frontend accessible sur le port 3000
       - "3000:3000"
+    volumes:
+      # MONTER LE CODE LOCAL pour développement en temps réel
+      - "./frontend:/app"
+      - "/app/node_modules"
+      - "/app/.nuxt"
+      - "/app/.output"
     environment:
       - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
       - NUXT_API_BASE=http://localhost:8080/api
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
       - FRONTEND_URL=http://localhost:3000
+      - NODE_ENV=development
     depends_on:
       - backend
     networks:

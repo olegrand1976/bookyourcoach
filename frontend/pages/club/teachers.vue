@@ -369,13 +369,16 @@ const getSpecializationLabel = (spec) => {
 // Charger les enseignants
 const loadTeachers = async () => {
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    console.log('🔄 Chargement des enseignants...')
     
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/teachers')
     
-    if (response.success && response.data && response.data.recentTeachers) {
-      teachers.value = response.data.recentTeachers
+    console.log('✅ Enseignants reçus:', response)
+    
+    if (response.data.success && response.data.data) {
+      teachers.value = response.data.data
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des enseignants:', error)
