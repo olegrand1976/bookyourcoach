@@ -48,14 +48,14 @@ Route::get('/activity-types', function() {
     return response()->json([
         'success' => true,
         'data' => [
-            ['id' => 1, 'name' => 'Équitation', 'icon' => '🐎', 'description' => 'Sports équestres et monte à cheval'],
-            ['id' => 2, 'name' => 'Natation', 'icon' => '🏊‍♀️', 'description' => 'Sports aquatiques et natation'],
-            ['id' => 3, 'name' => 'Fitness', 'icon' => '💪', 'description' => 'Musculation et remise en forme'],
-            ['id' => 4, 'name' => 'Sports collectifs', 'icon' => '⚽', 'description' => 'Football, basketball, volleyball'],
-            ['id' => 5, 'name' => 'Arts martiaux', 'icon' => '🥋', 'description' => 'Karaté, judo, taekwondo'],
-            ['id' => 6, 'name' => 'Danse', 'icon' => '💃', 'description' => 'Danse classique, moderne, hip-hop'],
-            ['id' => 7, 'name' => 'Tennis', 'icon' => '🎾', 'description' => 'Tennis de table et tennis'],
-            ['id' => 8, 'name' => 'Gymnastique', 'icon' => '🤸‍♀️', 'description' => 'Gymnastique artistique et rythmique'],
+            ['id' => 1, 'name' => 'Équitation', 'icon' => 'horse', 'description' => 'Sports équestres et monte à cheval'],
+            ['id' => 2, 'name' => 'Natation', 'icon' => 'swimmer', 'description' => 'Sports aquatiques et natation'],
+            ['id' => 3, 'name' => 'Fitness', 'icon' => 'dumbbell', 'description' => 'Musculation et remise en forme'],
+            ['id' => 4, 'name' => 'Sports collectifs', 'icon' => 'futbol', 'description' => 'Football, basketball, volleyball'],
+            ['id' => 5, 'name' => 'Arts martiaux', 'icon' => 'fist-raised', 'description' => 'Karaté, judo, taekwondo'],
+            ['id' => 6, 'name' => 'Danse', 'icon' => 'music', 'description' => 'Danse classique, moderne, hip-hop'],
+            ['id' => 7, 'name' => 'Tennis', 'icon' => 'table-tennis', 'description' => 'Tennis de table et tennis'],
+            ['id' => 8, 'name' => 'Gymnastique', 'icon' => 'child', 'description' => 'Gymnastique artistique et rythmique'],
         ]
     ]);
 });
@@ -74,13 +74,11 @@ Route::get('/disciplines', function() {
             ['id' => 7, 'name' => 'Équitation de loisir', 'activity_type_id' => 1],
             
             // Natation (activity_type_id: 2)
-            ['id' => 11, 'name' => 'Nage libre', 'activity_type_id' => 2],
-            ['id' => 12, 'name' => 'Brasse', 'activity_type_id' => 2],
-            ['id' => 13, 'name' => 'Papillon', 'activity_type_id' => 2],
-            ['id' => 14, 'name' => 'Dos crawlé', 'activity_type_id' => 2],
-            ['id' => 15, 'name' => 'Natation synchronisée', 'activity_type_id' => 2],
-            ['id' => 16, 'name' => 'Water-polo', 'activity_type_id' => 2],
-            ['id' => 17, 'name' => 'Aquagym', 'activity_type_id' => 2],
+            ['id' => 11, 'name' => 'Cours individuel enfant', 'activity_type_id' => 2, 'description' => 'Cours de natation individuel pour enfants (6-12 ans)'],
+            ['id' => 12, 'name' => 'Cours individuel adulte', 'activity_type_id' => 2, 'description' => 'Cours de natation individuel pour adultes'],
+            ['id' => 13, 'name' => 'Cours aquagym', 'activity_type_id' => 2, 'description' => 'Cours de gymnastique aquatique'],
+            ['id' => 14, 'name' => 'Cours collectif enfant', 'activity_type_id' => 2, 'description' => 'Cours de natation en groupe pour enfants'],
+            ['id' => 15, 'name' => 'Cours collectif adulte', 'activity_type_id' => 2, 'description' => 'Cours de natation en groupe pour adultes'],
             
             // Fitness (activity_type_id: 3)
             ['id' => 21, 'name' => 'Musculation', 'activity_type_id' => 3],

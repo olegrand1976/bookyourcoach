@@ -92,7 +92,7 @@ class ClubController extends Controller
             $updateData = $request->only([
                 'name', 'description', 'email', 'phone', 'street', 'street_number',
                 'city', 'postal_code', 'country', 'website', 'facilities', 
-                'disciplines', 'max_students', 'subscription_price'
+                'disciplines', 'discipline_settings', 'max_students', 'subscription_price'
             ]);
             
             // Encoder les arrays en JSON si nécessaire
@@ -101,6 +101,9 @@ class ClubController extends Controller
             }
             if (isset($updateData['disciplines']) && is_array($updateData['disciplines'])) {
                 $updateData['disciplines'] = json_encode($updateData['disciplines']);
+            }
+            if (isset($updateData['discipline_settings']) && is_array($updateData['discipline_settings'])) {
+                $updateData['discipline_settings'] = json_encode($updateData['discipline_settings']);
             }
             
             DB::table('clubs')
