@@ -716,6 +716,12 @@ const loadClubData = async () => {
         }
       }
       
+      // Si c'est un nouveau profil (needs_setup), afficher un message informatif
+      if (club.needs_setup) {
+        console.log('🆕 Nouveau profil club détecté - configuration initiale requise')
+        toast.info('Bienvenue ! Configurez votre profil club ci-dessous.', 'Configuration initiale')
+      }
+      
       // Charger les disciplines sélectionnées (avec parsing JSON si nécessaire)
       if (club.disciplines) {
         try {
