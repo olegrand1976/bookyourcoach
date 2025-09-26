@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Club Authentication Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            padding: 10px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .info {
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test de Correction - Authentification Club</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Contexte du Problème</h3>
+            <p><strong>Problème identifié :</strong> Déconnexion automatique lors de l'accès à <code>/club/profile</code></p>
+            <p><strong>Cause :</strong> Le contrôleur ClubController retournait une erreur 404 quand l'utilisateur avec le rôle 'club' n'avait pas d'entrée dans la table 'club_managers'</p>
+            <p><strong>Solution :</strong> Retourner un profil par défaut au lieu d'une erreur 404</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Tests de l'API Club</h3>
+            
+            <button onclick="testClubAuth()">1. Tester l'authentification Club</button>
+            <button onclick="testClubProfile()">2. Tester GET /club/profile</button>
+            <button onclick="testClubProfileUpdate()">3. Tester PUT /club/profile</button>
+            <button onclick="runAllTests()">▶️ Lancer tous les tests</button>
+            
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Résultats des Tests</h3>
+            <div id="summary">Aucun test exécuté</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Configuration</h3>
+            <label for="apiUrl">URL de l'API:</label>
+            <input type="text" id="apiUrl" value="http://localhost:8081/api" style="width: 300px; padding: 5px; margin: 5px;">
+            <br>
+            <label for="testEmail">Email de test (club):</label>
+            <input type="email" id="testEmail" value="club@test.com" style="width: 200px; padding: 5px; margin: 5px;">
+            <br>
+            <label for="testPassword">Mot de passe:</label>
+            <input type="password" id="testPassword" value="password" style="width: 200px; padding: 5px; margin: 5px;">
+        </div>
+    </div>
+
+    <script>
+        let token = null;
+        const results = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('testResults');
+            const entry = document.createElement('div');
+            entry.className = `test-section ${type}`;
+            entry.innerHTML = `<span class="status">[${timestamp}]</span> ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            results.push({ timestamp, message, type });
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summary = document.getElementById('summary');
+            const successCount = results.filter(r => r.type === 'success').length;
+            const errorCount = results.filter(r => r.type === 'error').length;
+            const warningCount = results.filter(r => r.type === 'warning').length;
+            
+            summary.innerHTML = `
+                <strong>Résumé des tests:</strong>
+                ✅ Succès: ${successCount} | 
+                ❌ Erreurs: ${errorCount} | 
+                ⚠️ Avertissements: ${warningCount} | 
+                📊 Total: ${results.length}
+            `;
+        }
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const config = {
+                method,
+                headers
+            };
+
+            if (body) {
+                config.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}${endpoint}`, config);
+                const data = await response.json();
+                
+                return {
+                    status: response.status,
+                    ok: response.ok,
+                    data
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    ok: false,
+                    error: error.message
+                };
+            }
+        }
+
+        async function testClubAuth() {
+            log('🔐 Test de connexion club...', 'info');
+            
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            const result = await makeRequest('/auth/login', 'POST', {
+                email,
+                password
+            });
+
+            if (result.ok && result.data.access_token) {
+                token = result.data.access_token;
+                const user = result.data.user;
+                log(`✅ Connexion réussie pour ${user.email} (rôle: ${user.role})`, 'success');
+                log(`🔑 Token obtenu: ${token.substring(0, 20)}...`, 'info');
+                return true;
+            } else {
+                log(`❌ Échec de la connexion: ${result.data?.message || result.error}`, 'error');
+                return false;
+            }
+        }
+
+        async function testClubProfile() {
+            if (!token) {
+                log('⚠️ Aucun token disponible. Effectuez d\'abord la connexion.', 'warning');
+                return false;
+            }
+
+            log('👤 Test de récupération du profil club...', 'info');
+            
+            const result = await makeRequest('/club/profile');
+
+            if (result.ok) {
+                const profile = result.data.data;
+                log(`✅ Profil récupéré avec succès`, 'success');
+                
+                if (profile.needs_setup) {
+                    log(`🆕 Nouveau profil détecté - configuration initiale requise`, 'warning');
+                } else {
+                    log(`📊 Club existant: ${profile.name || 'Sans nom'}`, 'info');
+                }
+                
+                log(`📄 Données: ${JSON.stringify(profile, null, 2)}`, 'info');
+                return true;
+            } else {
+                log(`❌ Échec récupération profil: ${result.data?.message || result.error} (Status: ${result.status})`, 'error');
+                return false;
+            }
+        }
+
+        async function testClubProfileUpdate() {
+            if (!token) {
+                log('⚠️ Aucun token disponible. Effectuez d\'abord la connexion.', 'warning');
+                return false;
+            }
+
+            log('💾 Test de mise à jour du profil club...', 'info');
+            
+            const testData = {
+                name: 'Club de Test Automatique',
+                email: 'club@example.com',
+                description: 'Club créé automatiquement via le test de correction',
+                city: 'Paris',
+                country: 'France',
+                is_active: true,
+                activity_types: [1, 2], // Équitation et Natation
+                disciplines: [1, 11], // Dressage et Cours individuel enfant
+                discipline_settings: {
+                    1: { duration: 45, price: 35.00, min_participants: 1, max_participants: 2 },
+                    11: { duration: 30, price: 25.00, min_participants: 1, max_participants: 1 }
+                }
+            };
+            
+            const result = await makeRequest('/club/profile', 'PUT', testData);
+
+            if (result.ok) {
+                log(`✅ Profil mis à jour avec succès`, 'success');
+                log(`📝 Message: ${result.data.message}`, 'info');
+                return true;
+            } else {
+                log(`❌ Échec mise à jour profil: ${result.data?.message || result.error} (Status: ${result.status})`, 'error');
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            log('🚀 Début de la série complète de tests...', 'info');
+            
+            // Réinitialiser
+            token = null;
+            
+            // Test 1: Authentification
+            const authSuccess = await testClubAuth();
+            if (!authSuccess) {
+                log('❌ Arrêt des tests suite à l\'échec de l\'authentification', 'error');
+                return;
+            }
+
+            // Petite pause
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Test 2: Récupération du profil
+            const profileSuccess = await testClubProfile();
+            
+            // Petite pause
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Test 3: Mise à jour du profil
+            const updateSuccess = await testClubProfileUpdate();
+            
+            // Petite pause
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Test 4: Vérification après mise à jour
+            log('🔄 Vérification du profil après mise à jour...', 'info');
+            await testClubProfile();
+
+            // Résumé final
+            if (authSuccess && profileSuccess && updateSuccess) {
+                log('🎉 Tous les tests ont réussi ! Le problème de déconnexion devrait être résolu.', 'success');
+            } else {
+                log('⚠️ Certains tests ont échoué. Vérifiez les détails ci-dessus.', 'warning');
+            }
+        }
+
+        // Log initial
+        log('🔧 Interface de test de la correction d\'authentification club prête', 'info');
+        log('💡 La correction permet aux utilisateurs avec le rôle "club" d\'accéder à leur profil même sans entrée dans club_managers', 'info');
+    </script>
+</body>
+</html>
