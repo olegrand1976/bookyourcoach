@@ -4,7 +4,7 @@
       <!-- Header -->
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 flex items-center">
-          <span class="text-4xl mr-3">🏢</span>
+          <Icon name="building" class="text-4xl mr-3 text-blue-600" />
           Profil du Club
         </h1>
         <p class="mt-2 text-gray-600">Gérez les informations et activités de votre club</p>
@@ -16,7 +16,7 @@
           <!-- Informations générales -->
           <div class="border-b border-gray-200 pb-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <span class="text-xl mr-2">📋</span>
+              <Icon name="info" class="text-xl mr-2 text-gray-600" />
               Informations générales
             </h2>
 
@@ -56,7 +56,7 @@
           <!-- Adresse -->
           <div class="border-b border-gray-200 pb-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <span class="text-xl mr-2">📍</span>
+              <Icon name="location" class="text-xl mr-2 text-red-500" />
               Adresse
             </h2>
 
@@ -87,6 +87,114 @@
             </div>
           </div>
 
+          <!-- Configuration des cours -->
+          <div v-if="selectedDisciplines.length > 0" class="border-b border-gray-200 pb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Icon name="settings" class="text-xl mr-2 text-gray-600" />
+              Configuration des cours
+            </h2>
+            <p class="text-sm text-gray-600 mb-4">
+              Configurez la durée et le prix par défaut pour chaque type de cours que vous proposez.
+            </p>
+
+            <div class="space-y-4">
+              <div v-for="disciplineId in selectedDisciplines" :key="disciplineId" class="bg-white border border-gray-200 rounded-lg p-4">
+                <div class="flex items-start justify-between mb-4">
+                  <div class="flex items-center">
+                    <Icon :name="getActivityById(getDisciplineById(disciplineId)?.activity_type_id)?.icon" class="text-lg mr-2 text-blue-600" />
+                    <div>
+                      <h4 class="font-medium text-gray-900">{{ getDisciplineById(disciplineId)?.name }}</h4>
+                      <p class="text-sm text-gray-500">{{ getActivityById(getDisciplineById(disciplineId)?.activity_type_id)?.name }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      ⏱️ Durée par défaut
+                    </label>
+                    <select 
+                      v-model="disciplineSettings[disciplineId].duration"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option v-for="duration in availableDurations" :key="duration" :value="duration">
+                        {{ formatDuration(duration) }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      💰 Prix par défaut (€)
+                    </label>
+                    <input 
+                      v-model.number="disciplineSettings[disciplineId].price"
+                      type="number" 
+                      step="0.01" 
+                      min="0"
+                      placeholder="25.00"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                  </div>
+
+                  <div class="flex items-end">
+                    <div class="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 w-full">
+                      <div class="font-medium text-gray-700 mb-1 flex items-center">
+                        <Icon name="lightbulb" class="mr-1 text-yellow-500" />
+                        Calcul automatique
+                      </div>
+                      <div v-if="disciplineSettings[disciplineId].duration && disciplineSettings[disciplineId].price">
+                        {{ (disciplineSettings[disciplineId].price / disciplineSettings[disciplineId].duration * 60).toFixed(2) }}€/heure
+                      </div>
+                      <div v-else class="text-gray-400">Renseignez durée et prix</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Informations complémentaires -->
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <Icon name="users" class="mr-1 text-blue-500" />
+                      Participants (min - max)
+                    </label>
+                    <div class="flex items-center space-x-2">
+                      <input 
+                        v-model.number="disciplineSettings[disciplineId].min_participants"
+                        type="number" 
+                        min="1"
+                        placeholder="1"
+                        class="w-1/2 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                      <span class="text-gray-500">à</span>
+                      <input 
+                        v-model.number="disciplineSettings[disciplineId].max_participants"
+                        type="number" 
+                        min="1"
+                        placeholder="8"
+                        class="w-1/2 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <Icon name="note" class="mr-1 text-gray-500" />
+                      Notes (optionnel)
+                    </label>
+                    <input 
+                      v-model="disciplineSettings[disciplineId].notes"
+                      type="text" 
+                      placeholder="Matériel fourni, niveau requis..."
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Section Horaires de fonctionnement -->
           <div class="border-b border-gray-200 pb-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -107,15 +215,17 @@
                   <div class="space-x-2">
                     <button 
                       @click="addPeriod(dayIndex)"
-                      class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                      class="bg-emerald-600 text-white px-3 py-1 rounded text-sm hover:bg-emerald-700"
                     >
-                      ➕ Ajouter
+                      <Icon name="plus" class="mr-1" />
+                      Ajouter
                     </button>
                     <button 
                       @click="showRecurrenceModal = true; selectedDay = dayIndex"
-                      class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                      class="bg-cyan-600 text-white px-3 py-1 rounded text-sm hover:bg-cyan-700"
                     >
-                      🔄 Récurrent
+                      <Icon name="sync" class="mr-1" />
+                      Récurrent
                     </button>
                   </div>
                 </div>
@@ -126,14 +236,16 @@
                     <div v-for="(period, periodIndex) in day.periods" :key="period.id" 
                          class="bg-blue-50 border border-blue-200 rounded p-3">
                       <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium">
-                          📅 Période {{ periodIndex + 1 }}: {{ period.startHour }}:{{ period.startMinute }} - {{ period.endHour }}:{{ period.endMinute }}
+                        <span class="text-sm font-medium flex items-center">
+                          <Icon name="calendar-day" class="mr-1 text-blue-500" />
+                          Période {{ periodIndex + 1 }}: {{ period.startHour }}:{{ period.startMinute }} - {{ period.endHour }}:{{ period.endMinute }}
                         </span>
                         <button 
                           @click="removePeriod(dayIndex, periodIndex)"
                           class="text-red-500 hover:text-red-700 text-sm"
                         >
-                          🗑️ Supprimer
+                          <Icon name="trash" class="mr-1" />
+                          Supprimer
                         </button>
                       </div>
                       
@@ -156,12 +268,16 @@
                   </div>
                   
                   <div v-else class="text-center py-4 text-gray-500">
-                    <p class="text-sm">🔒 Aucune période configurée</p>
+                    <p class="text-sm flex items-center justify-center">
+                      <Icon name="clock" class="mr-1 text-gray-400" />
+                      Aucune période configurée
+                    </p>
                     <button 
                       @click="addPeriod(dayIndex)"
-                      class="mt-2 bg-green-500 text-white px-3 py-1 rounded text-sm"
+                      class="mt-2 bg-emerald-600 text-white px-3 py-1 rounded text-sm hover:bg-emerald-700"
                     >
-                      ➕ Ajouter une période
+                      <Icon name="plus" class="mr-1" />
+                      Ajouter une période
                     </button>
                   </div>
                 </div>
@@ -172,7 +288,10 @@
           <!-- Modal Récurrence -->
           <div v-if="showRecurrenceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">🔄 Appliquer à d'autres jours</h3>
+              <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Icon name="sync" class="mr-2 text-blue-500" />
+                Appliquer à d'autres jours
+              </h3>
               <p class="text-sm text-gray-600 mb-4">
                 Copiez les périodes de <strong>{{ scheduleConfig[selectedDay]?.name }}</strong> vers d'autres jours :
               </p>
@@ -203,7 +322,7 @@
                 </button>
                 <button 
                   @click="applyRecurrenceFromSelection"
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  class="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors"
                 >
                   Appliquer
                 </button>
@@ -214,7 +333,7 @@
           <!-- Activités du club -->
           <div class="border-b border-gray-200 pb-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <span class="text-xl mr-2">🏃‍♀️</span>
+              <Icon name="running" class="text-xl mr-2 text-green-600" />
               Activités proposées
             </h2>
 
@@ -231,7 +350,7 @@
                          type="checkbox" 
                          class="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded">
                   <label :for="'activity-' + activity.id" class="ml-3 flex items-center cursor-pointer">
-                    <span class="text-2xl mr-2">{{ activity.icon }}</span>
+                    <Icon :name="activity.icon" class="text-2xl mr-2 text-blue-600" />
                     <div>
                       <div class="font-medium text-gray-900">{{ activity.name }}</div>
                       <div class="text-sm text-gray-500">{{ activity.description }}</div>
@@ -244,11 +363,11 @@
             <!-- Spécialités par activité -->
             <div v-if="selectedActivities.length > 0" class="mt-6">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="text-md font-medium text-gray-900">Spécialités par activité</h3>
+                <h3 class="text-md font-medium text-gray-900">Cours proposés par activité</h3>
                 <button
                   v-if="!showAddSpecialtyForm"
                   @click="showAddSpecialtyForm = true"
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                  class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors flex items-center space-x-2 text-sm"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -268,7 +387,7 @@
               <div v-for="activityId in selectedActivities" :key="activityId" class="mb-4">
                 <div class="bg-gray-50 p-4 rounded-lg">
                   <h4 class="font-medium text-gray-900 mb-2 flex items-center">
-                    <span class="text-lg mr-2">{{ getActivityById(activityId)?.icon }}</span>
+                    <Icon :name="getActivityById(activityId)?.icon" class="text-lg mr-2 text-green-600" />
                     {{ getActivityById(activityId)?.name }}
                   </h4>
                   
@@ -328,7 +447,7 @@
                               'px-2 py-1 text-xs rounded transition-colors',
                               customSpecialty.is_active 
                                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                             ]"
                             :title="customSpecialty.is_active ? 'Désactiver' : 'Activer'"
                           >
@@ -366,7 +485,7 @@
               Annuler
             </button>
             <button type="submit" :disabled="loading"
-                    class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center w-48">
+                    class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center w-48">
               <svg v-if="loading" class="animate-spin h-4 w-4 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -381,7 +500,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import AddCustomSpecialtyForm from '~/components/AddCustomSpecialtyForm.vue'
@@ -529,6 +648,33 @@ const selectedCustomSpecialties = ref([])
 const showAddSpecialtyForm = ref(false)
 const editingSpecialtyId = ref(null)
 
+// Configuration des cours par discipline
+const disciplineSettings = ref({})
+
+// Durées disponibles par tranches de 5 minutes (15min à 1h)
+const availableDurations = computed(() => {
+  const durations = []
+  for (let duration = 15; duration <= 60; duration += 5) {
+    durations.push(duration)
+  }
+  return durations
+})
+
+// Formatage de l'affichage des durées
+const formatDuration = (duration) => {
+  if (duration < 60) {
+    return `${duration} minutes`
+  } else {
+    const hours = Math.floor(duration / 60)
+    const minutes = duration % 60
+    if (minutes === 0) {
+      return `${hours}h`
+    } else {
+      return `${hours}h${minutes.toString().padStart(2, '0')}`
+    }
+  }
+}
+
 // Charger les données
 const loadClubData = async () => {
   try {
@@ -584,6 +730,19 @@ const loadClubData = async () => {
           selectedDisciplines.value = []
         }
       }
+
+      // Charger les paramètres des disciplines (avec parsing JSON si nécessaire)
+      if (club.discipline_settings) {
+        try {
+          const settings = typeof club.discipline_settings === 'string' 
+            ? JSON.parse(club.discipline_settings) 
+            : club.discipline_settings
+          disciplineSettings.value = settings || {}
+        } catch (e) {
+          console.warn('Erreur parsing discipline_settings:', e)
+          disciplineSettings.value = {}
+        }
+      }
     }
   } catch (error) {
     console.error('Erreur lors du chargement du profil:', error)
@@ -617,6 +776,10 @@ const getActivityById = (id) => {
   return availableActivities.value.find(activity => activity.id === id)
 }
 
+const getDisciplineById = (id) => {
+  return availableDisciplines.value.find(discipline => discipline.id === id)
+}
+
 const getDisciplinesByActivity = (activityId) => {
   return availableDisciplines.value.filter(discipline => discipline.activity_type_id === activityId)
 }
@@ -625,6 +788,34 @@ const getCustomSpecialtiesByActivity = (activityId) => {
   // Affiche toutes les spécialités, actives ou non
   return customSpecialties.value.filter(specialty => specialty.activity_type_id === activityId)
 }
+
+// Initialiser les paramètres pour une nouvelle discipline
+const initializeDisciplineSettings = (disciplineId) => {
+  if (!disciplineSettings.value[disciplineId]) {
+    const discipline = getDisciplineById(disciplineId)
+    disciplineSettings.value[disciplineId] = {
+      duration: discipline?.duration_minutes || 45, // Durée par défaut
+      price: discipline?.base_price || 25.00, // Prix par défaut
+      min_participants: discipline?.min_participants || 1,
+      max_participants: discipline?.max_participants || 8,
+      notes: ''
+    }
+  }
+}
+
+// Watcher pour initialiser les paramètres des nouvelles disciplines
+watch(selectedDisciplines, (newDisciplines) => {
+  newDisciplines.forEach(disciplineId => {
+    initializeDisciplineSettings(disciplineId)
+  })
+  
+  // Nettoyer les paramètres des disciplines désélectionnées
+  Object.keys(disciplineSettings.value).forEach(disciplineId => {
+    if (!newDisciplines.includes(parseInt(disciplineId))) {
+      delete disciplineSettings.value[disciplineId]
+    }
+  })
+}, { immediate: true })
 
 // Charger les spécialités personnalisées
 const loadCustomSpecialties = async () => {
@@ -679,7 +870,8 @@ const updateClub = async () => {
     const updateData = {
       ...form.value,
       activity_types: selectedActivities.value,
-      disciplines: selectedDisciplines.value
+      disciplines: selectedDisciplines.value,
+      discipline_settings: disciplineSettings.value
     }
     
     // Utiliser $api qui inclut automatiquement le token via l'intercepteur

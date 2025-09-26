@@ -10,7 +10,8 @@ export default defineNuxtConfig({
 
     css: [
         '~/assets/css/main.css',
-        '~/assets/css/buttons.css'
+        '~/assets/css/buttons.css',
+        '@fortawesome/fontawesome-svg-core/styles.css'
     ],
 
     googleFonts: {

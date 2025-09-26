@@ -17,7 +17,7 @@
               Connexion
             </NuxtLink>
             <NuxtLink to="/register"
-              class="btn-primary bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
+              class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
               🏇 Inscription
             </NuxtLink>
           </div>

@@ -25,7 +25,7 @@
             <div class="mt-4">
               <button 
                 @click="loadDashboardData"
-                class="bg-red-100 text-red-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                class="bg-cyan-100 text-cyan-800 px-4 py-2 rounded-md text-sm font-medium hover:bg-cyan-200 transition-colors"
               >
                 Réessayer
               </button>
@@ -229,7 +229,7 @@
               <p>Aucun enseignant pour le moment</p>
               <button 
                 @click="navigateTo('/club/teachers/add')"
-                class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
               >
                 Ajouter le premier
               </button>
@@ -325,7 +325,7 @@
               </button>
               <button 
                 @click="navigateTo('/club/lessons/new')"
-                class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
               >
                 Nouveau cours
               </button>
@@ -340,7 +340,7 @@
             <p>Aucun cours programmé</p>
             <button 
               @click="navigateTo('/club/lessons/new')"
-              class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+              class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
             >
               Programmer le premier
             </button>

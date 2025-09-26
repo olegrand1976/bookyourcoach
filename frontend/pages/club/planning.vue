@@ -11,7 +11,7 @@
           <div class="flex items-center space-x-3">
             <button 
               @click="showOpenSlotModal = true"
-              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              class="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -20,7 +20,7 @@
             </button>
             <button 
               @click="showCreateLessonModal = true"
-              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -69,6 +69,29 @@
 
     <!-- Planning Calendrier -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <!-- Légende des créneaux -->
+      <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <h3 class="text-sm font-medium text-gray-900 mb-3">Légende des créneaux</h3>
+        <div class="flex flex-wrap gap-4 text-xs">
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-gray-100 border-l-4 border-gray-400 rounded mr-2"></div>
+            <span class="text-gray-600">🔒 Club fermé</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-yellow-50 border-l-4 border-yellow-400 rounded mr-2"></div>
+            <span class="text-gray-600">⏰ Disponible (à ouvrir)</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-green-50 border-l-4 border-green-500 rounded mr-2"></div>
+            <span class="text-gray-600">✅ Ouvert pour cours</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-100 border-l-4 border-blue-500 rounded mr-2"></div>
+            <span class="text-gray-600">📚 Cours programmé</span>
+          </div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-lg shadow-lg overflow-hidden">
         <!-- En-têtes des jours -->
         <div class="grid grid-cols-8 bg-gray-50 border-b border-gray-200">
@@ -103,20 +126,28 @@
                 <div class="text-xs opacity-75">{{ lesson.student_name }}</div>
               </div>
 
-            <!-- Créneaux fermés (non ouverts) -->
-            <div v-if="!isSlotOpen(day.date, hour)"
-                 class="absolute inset-1 bg-gray-100 border-l-4 border-gray-400 rounded p-2 text-xs text-gray-600"
+            <!-- Créneaux fermés (hors périodes d'ouverture) -->
+            <div v-if="!isInClubSchedule(day.date, hour)"
+                 class="absolute inset-1 bg-gray-100 border-l-4 border-gray-400 rounded p-2 text-xs text-gray-500"
             >
-              <div class="font-medium">⏰ Fermé</div>
-              <div class="text-xs">Pas ouvert</div>
+              <div class="font-medium">🔒 Fermé</div>
+              <div class="text-xs">Club fermé</div>
             </div>
 
-            <!-- Créneaux ouverts (disponibles) -->
-            <div v-if="isSlotOpen(day.date, hour) && getLessonsForSlot(day.date, hour).length === 0"
-                 class="absolute inset-1 bg-green-50 border-l-4 border-green-400 rounded p-2 text-xs text-green-700"
+            <!-- Créneaux ouverts mais pas disponibles pour cours -->
+            <div v-else-if="isInClubSchedule(day.date, hour) && !isSlotOpen(day.date, hour)"
+                 class="absolute inset-1 bg-yellow-50 border-l-4 border-yellow-400 rounded p-2 text-xs text-yellow-700"
             >
-              <div class="font-medium">✅ Ouvert</div>
-              <div class="text-xs">Disponible</div>
+              <div class="font-medium">⏰ Disponible</div>
+              <div class="text-xs">Ouvrir créneaux</div>
+            </div>
+
+            <!-- Créneaux ouverts et disponibles -->
+            <div v-else-if="isSlotOpen(day.date, hour) && getLessonsForSlot(day.date, hour).length === 0"
+                 class="absolute inset-1 bg-green-50 border-l-4 border-green-500 rounded p-2 text-xs text-green-700"
+            >
+              <div class="font-medium">✅ Disponible</div>
+              <div class="text-xs">Réserver cours</div>
             </div>
 
               <!-- Indicateur de sélection -->
@@ -166,7 +197,7 @@
                   v-model="openForm.startHour"
                   class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
-                  <option v-for="hour in hours" :key="hour" :value="hour">{{ hour }}h</option>
+                  <option v-for="hour in availableHours" :key="hour" :value="hour">{{ hour }}h</option>
                 </select>
                 <select 
                   v-model="openForm.startMinute"
@@ -184,7 +215,7 @@
                   v-model="openForm.endHour"
                   class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
-                  <option v-for="hour in hours" :key="hour" :value="hour">{{ hour }}h</option>
+                  <option v-for="hour in availableHours" :key="hour" :value="hour">{{ hour }}h</option>
                 </select>
                 <select 
                   v-model="openForm.endMinute"
@@ -197,16 +228,55 @@
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Durée par cours (minutes)</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Sport</label>
             <select 
-              v-model="openForm.lessonDuration"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              v-model="openForm.activityTypeId"
+              @change="openForm.disciplineId = ''"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
             >
-              <option value="30">30 minutes</option>
-              <option value="60">60 minutes</option>
-              <option value="90">90 minutes</option>
-              <option value="120">120 minutes</option>
+              <option value="">Sélectionner un sport</option>
+              <option v-for="activity in clubActivities" :key="activity.id" :value="activity.id">
+                {{ activity.name }}
+              </option>
             </select>
+          </div>
+
+          <div v-if="openForm.activityTypeId">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
+            <select 
+              v-model="openForm.disciplineId"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Sélectionner un type de cours</option>
+              <option v-for="discipline in availableDisciplinesForActivity" :key="discipline.id" :value="discipline.id">
+                {{ discipline.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Informations sur le cours sélectionné -->
+          <div v-if="selectedDisciplineSettings" class="bg-blue-50 p-4 rounded-lg">
+            <h4 class="font-medium text-blue-900 mb-2">Paramètres du cours</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="text-blue-700 font-medium">Durée :</span>
+                <span class="ml-1">{{ lessonDuration }} minutes</span>
+              </div>
+              <div>
+                <span class="text-blue-700 font-medium">Prix :</span>
+                <span class="ml-1">{{ selectedDisciplineSettings.price }}€</span>
+              </div>
+              <div>
+                <span class="text-blue-700 font-medium">Participants :</span>
+                <span class="ml-1">{{ selectedDisciplineSettings.min_participants || 1 }} - {{ selectedDisciplineSettings.max_participants || 10 }}</span>
+              </div>
+              <div v-if="selectedDisciplineSettings.notes">
+                <span class="text-blue-700 font-medium">Notes :</span>
+                <span class="ml-1">{{ selectedDisciplineSettings.notes }}</span>
+              </div>
+            </div>
           </div>
           
           <div>
@@ -240,8 +310,8 @@
           </button>
           <button 
             @click="openRecurrentSlots"
-            :disabled="openForm.selectedDays.length === 0 || !computedStartTime || !computedEndTime"
-            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="openForm.selectedDays.length === 0 || !computedStartTime || !computedEndTime || !openForm.activityTypeId || !openForm.disciplineId"
+            class="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Ouvrir les créneaux
           </button>
@@ -355,7 +425,7 @@
           <button 
             @click="createLesson"
             :disabled="!lessonForm.date || !lessonForm.time || !lessonForm.teacherId"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Créer le cours
           </button>
@@ -379,6 +449,8 @@ const lessons = ref([])
 const openSlots = ref([]) // Créneaux ouverts récurrents
 const teachers = ref([])
 const students = ref([])
+const clubProfile = ref(null) // Profil du club avec horaires et disciplines
+const availableDisciplines = ref([]) // Disciplines disponibles du club
 
 // Modals
 const showOpenSlotModal = ref(false)
@@ -402,13 +474,145 @@ const openForm = ref({
   startMinute: '00',
   endHour: '18',
   endMinute: '00',
-  lessonDuration: '60',
+  activityTypeId: '', // Sport sélectionné
+  disciplineId: '', // Spécialité sélectionnée pour ce sport
   description: ''
 })
 
 // Computed pour les heures complètes
 const computedStartTime = computed(() => `${openForm.value.startHour}:${openForm.value.startMinute}`)
 const computedEndTime = computed(() => `${openForm.value.endHour}:${openForm.value.endMinute}`)
+
+// Computed properties pour les données du profil
+const availableHours = computed(() => {
+  if (!clubProfile.value?.schedule_config) return hours
+  
+  // Extraire les heures min/max des horaires d'ouverture du club
+  let minHour = 24, maxHour = 0
+  
+  clubProfile.value.schedule_config.forEach(day => {
+    if (day.periods && day.periods.length > 0) {
+      day.periods.forEach(period => {
+        const startHour = parseInt(period.startHour)
+        const endHour = parseInt(period.endHour)
+        if (startHour < minHour) minHour = startHour
+        if (endHour > maxHour) maxHour = endHour
+      })
+    }
+  })
+  
+  // Si aucun horaire défini, utiliser les heures par défaut
+  if (minHour === 24) return hours
+  
+  // Générer les heures dans la plage définie
+  const result = []
+  for (let i = minHour; i <= maxHour; i++) {
+    result.push(i.toString().padStart(2, '0'))
+  }
+  return result
+})
+
+const selectedDisciplineSettings = computed(() => {
+  if (!openForm.value.disciplineId || !clubProfile.value?.discipline_settings) {
+    return null
+  }
+  return clubProfile.value.discipline_settings[openForm.value.disciplineId] || null
+})
+
+const lessonDuration = computed(() => {
+  return selectedDisciplineSettings.value?.duration || 60
+})
+
+// Computed properties pour les activités et disciplines
+const clubActivities = computed(() => {
+  if (!clubProfile.value?.disciplines) return []
+  
+  try {
+    // Récupérer les disciplines sélectionnées du club
+    const disciplineIds = typeof clubProfile.value.disciplines === 'string' 
+      ? JSON.parse(clubProfile.value.disciplines) 
+      : clubProfile.value.disciplines
+    
+    if (!Array.isArray(disciplineIds)) return []
+    
+    // Extraire les activity_type_id uniques des disciplines sélectionnées
+    const activityTypeIds = new Set()
+    
+    disciplineIds.forEach(disciplineId => {
+      const id = typeof disciplineId === 'object' ? disciplineId.id : disciplineId
+      const discipline = availableDisciplines.value.find(d => d.id === parseInt(id))
+      if (discipline && discipline.activity_type_id) {
+        activityTypeIds.add(discipline.activity_type_id)
+      }
+    })
+    
+    // Retourner les activités uniques
+    return Array.from(activityTypeIds).map(activityTypeId => ({
+      id: activityTypeId,
+      name: getActivityName(activityTypeId),
+      icon: getActivityIcon(activityTypeId)
+    }))
+  } catch (e) {
+    console.warn('Erreur parsing disciplines du club:', e)
+    return []
+  }
+})
+
+const availableDisciplinesForActivity = computed(() => {
+  if (!openForm.value.activityTypeId || !clubProfile.value?.disciplines) return []
+  
+  try {
+    // Récupérer les disciplines sélectionnées du club
+    const clubDisciplineIds = typeof clubProfile.value.disciplines === 'string' 
+      ? JSON.parse(clubProfile.value.disciplines) 
+      : clubProfile.value.disciplines
+    
+    if (!Array.isArray(clubDisciplineIds)) return []
+    
+    // Convertir en nombres si nécessaire
+    const clubDisciplineIdNumbers = clubDisciplineIds.map(id => 
+      typeof id === 'object' ? id.id : parseInt(id)
+    )
+    
+    // Filtrer les disciplines pour cette activité ET que le club propose
+    return availableDisciplines.value.filter(discipline => 
+      discipline.activity_type_id === parseInt(openForm.value.activityTypeId) &&
+      clubDisciplineIdNumbers.includes(discipline.id)
+    )
+  } catch (e) {
+    console.warn('Erreur parsing disciplines du club pour filtrage:', e)
+    return []
+  }
+})
+
+// Fonctions utilitaires pour récupérer les noms et icônes des activités
+const getActivityName = (activityTypeId) => {
+  const activityNames = {
+    1: 'Équitation',
+    2: 'Natation', 
+    3: 'Fitness',
+    4: 'Sports collectifs',
+    5: 'Arts martiaux',
+    6: 'Danse',
+    7: 'Tennis',
+    8: 'Gymnastique'
+  }
+  return activityNames[activityTypeId] || `Activité ${activityTypeId}`
+}
+
+const getActivityIcon = (activityTypeId) => {
+  const activityIcons = {
+    1: 'horse',
+    2: 'swimmer', 
+    3: 'dumbbell',
+    4: 'futbol',
+    5: 'fist-raised',
+    6: 'music',
+    7: 'table-tennis',
+    8: 'child'
+  }
+  return activityIcons[activityTypeId] || 'star'
+}
 
 const lessonForm = ref({
   date: '',
@@ -421,19 +625,51 @@ const lessonForm = ref({
   notes: ''
 })
 
-// Configuration des créneaux horaires (par 5 minutes)
-const generateTimeSlots = () => {
+// Configuration des créneaux horaires basée sur le profil du club
+const timeSlots = computed(() => {
+  if (!clubProfile.value?.schedule_config) {
+    // Fallback: générer les créneaux par défaut (6h-22h)
+    const slots = []
+    for (let hour = 6; hour <= 22; hour++) {
+      for (let minute = 0; minute < 60; minute += 5) {
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        slots.push(timeStr)
+      }
+    }
+    return slots
+  }
+  
+  // Extraire les heures min/max de toutes les périodes configurées
+  let minHour = 24, maxHour = 0
+  
+  clubProfile.value.schedule_config.forEach(day => {
+    if (day.periods && day.periods.length > 0) {
+      day.periods.forEach(period => {
+        const startHour = parseInt(period.startHour)
+        const endHour = parseInt(period.endHour)
+        if (startHour < minHour) minHour = startHour
+        if (endHour > maxHour) maxHour = endHour
+      })
+    }
+  })
+  
+  // Si aucune période définie, utiliser les heures par défaut
+  if (minHour === 24) {
+    minHour = 6
+    maxHour = 22
+  }
+  
+  // Générer les créneaux de 5 minutes dans la plage configurée
   const slots = []
-  for (let hour = 6; hour <= 22; hour++) {
+  for (let hour = minHour; hour <= maxHour; hour++) {
     for (let minute = 0; minute < 60; minute += 5) {
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
       slots.push(timeStr)
     }
   }
+  
   return slots
-}
-
-const timeSlots = generateTimeSlots()
+})
 
 // Heures et minutes pour les selects
 const hours = Array.from({ length: 17 }, (_, i) => (i + 6).toString().padStart(2, '0')) // 06-22
@@ -496,9 +732,14 @@ const formatDate = (dateStr) => {
 
 // Gestion des créneaux
 const selectSlot = (date, hour) => {
-  // Vérifier si le créneau est ouvert avant de permettre la création
+  // Vérifier le type de créneau pour donner un message approprié
+  if (!isInClubSchedule(date, hour)) {
+    alert('Ce créneau est en dehors des heures d\'ouverture du club. Configurez d\'abord les horaires dans le profil.')
+    return
+  }
+  
   if (!isSlotOpen(date, hour)) {
-    alert('Ce créneau n\'est pas ouvert. Vous devez d\'abord ouvrir des créneaux récurrents.')
+    alert('Ce créneau n\'est pas ouvert pour les cours. Utilisez "Ouvrir créneaux" pour le rendre disponible.')
     return
   }
   
@@ -512,7 +753,33 @@ const isSlotSelected = (date, hour) => {
   return selectedSlot.value?.date === date && selectedSlot.value?.hour === hour
 }
 
+// Vérifier si un créneau est dans les périodes d'ouverture du club
+const isInClubSchedule = (date, hour) => {
+  if (!clubProfile.value?.schedule_config) return true // Si pas de config, tout est ouvert par défaut
+  
+  const dayOfWeek = new Date(date).getDay()
+  const scheduleConfig = clubProfile.value.schedule_config
+  const dayConfig = scheduleConfig[dayOfWeek === 0 ? 6 : dayOfWeek - 1] // Convertir dimanche=0 vers index 6
+  
+  if (!dayConfig || !dayConfig.periods || dayConfig.periods.length === 0) {
+    return false // Pas de périodes configurées pour ce jour
+  }
+  
+  // Vérifier si l'heure est dans une des périodes d'ouverture du jour
+  return dayConfig.periods.some(period => {
+    const startTime = `${period.startHour}:${period.startMinute}`
+    const endTime = `${period.endHour}:${period.endMinute}`
+    return hour >= startTime && hour < endTime
+  })
+}
+
 const isSlotOpen = (date, hour) => {
+  // D'abord vérifier si c'est dans les horaires du club
+  if (!isInClubSchedule(date, hour)) {
+    return false
+  }
+  
+  // Ensuite vérifier les créneaux spécifiquement ouverts pour des cours
   const dayOfWeek = new Date(date).getDay()
   
   return openSlots.value.some(slot => {
@@ -548,8 +815,30 @@ const timeToMinutes = (time) => {
 
 const getLessonsForSlot = (date, hour) => {
   return lessons.value.filter(lesson => {
-    const lessonDate = lesson.start_time.split(' ')[0]
-    const lessonHour = lesson.start_time.split(' ')[1].substring(0, 5)
+    if (!lesson.start_time) return false
+    
+    // Parse both ISO format (2025-09-23T09:00:00.000000Z) and traditional format (2025-09-23 09:00:00)
+    let lessonDate, lessonHour
+    
+    if (lesson.start_time.includes('T')) {
+      // ISO format: 2025-09-23T09:00:00.000000Z
+      const [datePart, timePart] = lesson.start_time.split('T')
+      lessonDate = datePart
+      lessonHour = timePart.substring(0, 5) // Get HH:MM
+    } else if (lesson.start_time.includes(' ')) {
+      // Traditional format: 2025-09-23 09:00:00
+      const [datePart, timePart] = lesson.start_time.split(' ')
+      lessonDate = datePart
+      lessonHour = timePart.substring(0, 5) // Get HH:MM
+    } else {
+      // Fallback: try to parse as date object
+      const lessonDateTime = new Date(lesson.start_time)
+      if (isNaN(lessonDateTime.getTime())) return false
+      
+      lessonDate = lessonDateTime.toISOString().split('T')[0]
+      lessonHour = lessonDateTime.toISOString().split('T')[1].substring(0, 5)
+    }
+    
     return lessonDate === date && lessonHour === hour
   })
 }
@@ -569,13 +858,18 @@ const openRecurrentSlots = async () => {
   try {
     console.log('✅ Ouverture des créneaux récurrents:', openForm.value)
     
+    const selectedDiscipline = availableDisciplines.value.find(d => d.id === parseInt(openForm.value.disciplineId))
+    
     // Ajouter localement (en attendant l'API backend)
     const newOpenSlot = {
       id: Date.now(), // ID temporaire
       days: [...openForm.value.selectedDays],
       startTime: computedStartTime.value,
       endTime: computedEndTime.value,
-      lessonDuration: parseInt(openForm.value.lessonDuration),
+      disciplineId: openForm.value.disciplineId,
+      disciplineName: selectedDiscipline?.name || '',
+      lessonDuration: lessonDuration.value,
+      price: selectedDisciplineSettings.value?.price || 0,
       description: openForm.value.description,
       isActive: true
     }
@@ -591,7 +885,8 @@ const openRecurrentSlots = async () => {
       startMinute: '00',
       endHour: '18',
       endMinute: '00',
-      lessonDuration: '60',
+      activityTypeId: '',
+      disciplineId: '',
       description: ''
     }
     
@@ -680,12 +975,54 @@ const loadTeachersAndStudents = async () => {
   }
 }
 
+const loadClubProfile = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    
+    // Charger le profil du club
+    const profileResponse = await $api.get('/club/profile')
+    if (profileResponse.data.success) {
+      clubProfile.value = profileResponse.data.data
+      
+      // Parser les données JSON si elles sont stockées sous forme de chaînes
+      if (typeof clubProfile.value.schedule_config === 'string') {
+        try {
+          clubProfile.value.schedule_config = JSON.parse(clubProfile.value.schedule_config)
+        } catch (e) {
+          clubProfile.value.schedule_config = []
+        }
+      }
+      
+      if (typeof clubProfile.value.discipline_settings === 'string') {
+        try {
+          clubProfile.value.discipline_settings = JSON.parse(clubProfile.value.discipline_settings)
+        } catch (e) {
+          clubProfile.value.discipline_settings = {}
+        }
+      }
+      
+      console.log('✅ Profil club chargé:', clubProfile.value)
+    }
+    
+    // Charger les disciplines disponibles
+    const disciplinesResponse = await $api.get('/disciplines')
+    if (disciplinesResponse.data.success) {
+      availableDisciplines.value = disciplinesResponse.data.data
+      console.log('✅ Disciplines chargées:', availableDisciplines.value)
+    }
+    
+  } catch (error) {
+    console.error('Erreur lors du chargement du profil du club:', error)
+  }
+}
+
 // Initialisation
 onMounted(async () => {
   console.log('🚀 Initialisation du planning club')
   await Promise.all([
     loadPlanningData(),
-    loadTeachersAndStudents()
+    loadTeachersAndStudents(),
+    loadClubProfile()
   ])
 })
 </script>
