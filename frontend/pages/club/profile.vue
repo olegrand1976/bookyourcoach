@@ -87,6 +87,130 @@
             </div>
           </div>
 
+          <!-- Section Horaires de fonctionnement -->
+          <div class="border-b border-gray-200 pb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Horaires de fonctionnement
+            </h2>
+            <p class="text-sm text-gray-600 mb-4">
+              Configurez vos créneaux d'ouverture par jour de la semaine. Seuls ces créneaux permettront la réservation de cours.
+            </p>
+
+            <!-- Configuration des horaires -->
+            <div class="space-y-4">
+              <div v-for="(day, dayIndex) in scheduleConfig" :key="day.name" class="bg-white border border-gray-300 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="font-bold text-gray-900">{{ day.name }}</h3>
+                  <div class="space-x-2">
+                    <button 
+                      @click="addPeriod(dayIndex)"
+                      class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                    >
+                      ➕ Ajouter
+                    </button>
+                    <button 
+                      @click="showRecurrenceModal = true; selectedDay = dayIndex"
+                      class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                    >
+                      🔄 Récurrent
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Version simplifiée des périodes -->
+                <div class="space-y-2">
+                  <div v-if="day.periods && day.periods.length > 0">
+                    <div v-for="(period, periodIndex) in day.periods" :key="period.id" 
+                         class="bg-blue-50 border border-blue-200 rounded p-3">
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">
+                          📅 Période {{ periodIndex + 1 }}: {{ period.startHour }}:{{ period.startMinute }} - {{ period.endHour }}:{{ period.endMinute }}
+                        </span>
+                        <button 
+                          @click="removePeriod(dayIndex, periodIndex)"
+                          class="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          🗑️ Supprimer
+                        </button>
+                      </div>
+                      
+                      <!-- Selects simplifiés -->
+                      <div class="grid grid-cols-4 gap-2 mt-2">
+                        <select v-model="period.startHour" class="border rounded px-2 py-1 text-sm">
+                          <option v-for="hour in hours" :key="hour" :value="hour">{{ hour }}h</option>
+                        </select>
+                        <select v-model="period.startMinute" class="border rounded px-2 py-1 text-sm">
+                          <option v-for="minute in minutes" :key="minute" :value="minute">{{ minute }}</option>
+                        </select>
+                        <select v-model="period.endHour" class="border rounded px-2 py-1 text-sm">
+                          <option v-for="hour in hours" :key="hour" :value="hour">{{ hour }}h</option>
+                        </select>
+                        <select v-model="period.endMinute" class="border rounded px-2 py-1 text-sm">
+                          <option v-for="minute in minutes" :key="minute" :value="minute">{{ minute }}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div v-else class="text-center py-4 text-gray-500">
+                    <p class="text-sm">🔒 Aucune période configurée</p>
+                    <button 
+                      @click="addPeriod(dayIndex)"
+                      class="mt-2 bg-green-500 text-white px-3 py-1 rounded text-sm"
+                    >
+                      ➕ Ajouter une période
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Récurrence -->
+          <div v-if="showRecurrenceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 class="text-lg font-semibold text-gray-900 mb-4">🔄 Appliquer à d'autres jours</h3>
+              <p class="text-sm text-gray-600 mb-4">
+                Copiez les périodes de <strong>{{ scheduleConfig[selectedDay]?.name }}</strong> vers d'autres jours :
+              </p>
+              
+              <div class="space-y-2 mb-6">
+                <label v-for="(day, dayIndex) in scheduleConfig" :key="day.name" 
+                       class="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input 
+                    :value="dayIndex"
+                    type="checkbox"
+                    :checked="dayIndex === selectedDay"
+                    :disabled="dayIndex === selectedDay"
+                    @change="handleRecurrenceSelection"
+                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  >
+                  <span class="text-sm" :class="dayIndex === selectedDay ? 'font-bold text-blue-600' : ''">
+                    {{ day.name }} {{ dayIndex === selectedDay ? '(source)' : '' }}
+                  </span>
+                </label>
+              </div>
+              
+              <div class="flex items-center justify-end space-x-3">
+                <button 
+                  @click="showRecurrenceModal = false"
+                  class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  @click="applyRecurrenceFromSelection"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Appliquer
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Activités du club -->
           <div class="border-b border-gray-200 pb-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -281,6 +405,120 @@ const form = ref({
   is_active: true
 })
 
+// Configuration des horaires avec périodes dynamiques
+const scheduleConfig = ref([
+  { 
+    name: 'Lundi', 
+    dayIndex: 1, 
+    periods: [
+      { id: 1, startHour: '08', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 2, startHour: '14', startMinute: '00', endHour: '18', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Mardi', 
+    dayIndex: 2, 
+    periods: [
+      { id: 3, startHour: '08', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 4, startHour: '14', startMinute: '00', endHour: '18', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Mercredi', 
+    dayIndex: 3, 
+    periods: [
+      { id: 5, startHour: '08', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 6, startHour: '14', startMinute: '00', endHour: '18', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Jeudi', 
+    dayIndex: 4, 
+    periods: [
+      { id: 7, startHour: '08', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 8, startHour: '14', startMinute: '00', endHour: '18', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Vendredi', 
+    dayIndex: 5, 
+    periods: [
+      { id: 9, startHour: '08', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 10, startHour: '14', startMinute: '00', endHour: '18', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Samedi', 
+    dayIndex: 6, 
+    periods: [
+      { id: 11, startHour: '09', startMinute: '00', endHour: '12', endMinute: '00' },
+      { id: 12, startHour: '14', startMinute: '00', endHour: '17', endMinute: '00' }
+    ]
+  },
+  { 
+    name: 'Dimanche', 
+    dayIndex: 0, 
+    periods: []
+  }
+])
+
+// Heures et minutes pour les selects
+const hours = Array.from({ length: 17 }, (_, i) => (i + 6).toString().padStart(2, '0')) // 06-22
+const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
+
+// Gestion des périodes
+const showRecurrenceModal = ref(false)
+const selectedDay = ref(null)
+const selectedTargetDays = ref([])
+let nextPeriodId = 100
+
+// Fonctions pour gérer les périodes
+const addPeriod = (dayIndex) => {
+  const newPeriod = {
+    id: nextPeriodId++,
+    startHour: '09',
+    startMinute: '00',
+    endHour: '17',
+    endMinute: '00'
+  }
+  scheduleConfig.value[dayIndex].periods.push(newPeriod)
+}
+
+const removePeriod = (dayIndex, periodIndex) => {
+  scheduleConfig.value[dayIndex].periods.splice(periodIndex, 1)
+}
+
+const handleRecurrenceSelection = (event) => {
+  const dayIndex = parseInt(event.target.value)
+  if (event.target.checked) {
+    selectedTargetDays.value.push(dayIndex)
+  } else {
+    selectedTargetDays.value = selectedTargetDays.value.filter(d => d !== dayIndex)
+  }
+}
+
+const applyRecurrenceFromSelection = () => {
+  if (selectedDay.value !== null && selectedTargetDays.value.length > 0) {
+    const sourceDay = scheduleConfig.value[selectedDay.value]
+    const sourcePeriods = JSON.parse(JSON.stringify(sourceDay.periods)) // Clone profond
+    
+    selectedTargetDays.value.forEach(targetDayIndex => {
+      if (targetDayIndex !== selectedDay.value) {
+        // Réassigner des IDs uniques
+        const newPeriods = sourcePeriods.map(period => ({
+          ...period,
+          id: nextPeriodId++
+        }))
+        scheduleConfig.value[targetDayIndex].periods = newPeriods
+      }
+    })
+  }
+  
+  showRecurrenceModal.value = false
+  selectedTargetDays.value = []
+  selectedDay.value = null
+}
+
 // Activités et spécialités
 const availableActivities = ref([])
 const availableDisciplines = ref([])
@@ -317,14 +555,34 @@ const loadClubData = async () => {
         is_active: club.is_active !== false
       }
       
-      // Charger les activités sélectionnées
+      // Charger les activités sélectionnées (avec parsing JSON si nécessaire)
       if (club.activity_types) {
-        selectedActivities.value = club.activity_types.map(activity => activity.id)
+        try {
+          const activities = typeof club.activity_types === 'string' 
+            ? JSON.parse(club.activity_types) 
+            : club.activity_types
+          selectedActivities.value = Array.isArray(activities) 
+            ? activities.map(activity => typeof activity === 'object' ? activity.id : activity)
+            : []
+        } catch (e) {
+          console.warn('Erreur parsing activity_types:', e)
+          selectedActivities.value = []
+        }
       }
       
-      // Charger les disciplines sélectionnées
+      // Charger les disciplines sélectionnées (avec parsing JSON si nécessaire)
       if (club.disciplines) {
-        selectedDisciplines.value = club.disciplines.map(discipline => discipline.id)
+        try {
+          const disciplines = typeof club.disciplines === 'string' 
+            ? JSON.parse(club.disciplines) 
+            : club.disciplines
+          selectedDisciplines.value = Array.isArray(disciplines) 
+            ? disciplines.map(discipline => typeof discipline === 'object' ? discipline.id : discipline)
+            : []
+        } catch (e) {
+          console.warn('Erreur parsing disciplines:', e)
+          selectedDisciplines.value = []
+        }
       }
     }
   } catch (error) {

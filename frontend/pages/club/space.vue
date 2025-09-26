@@ -46,7 +46,10 @@
         </div>
 
         <!-- Planning des Cours -->
-        <div class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer">
+        <div 
+          @click="navigateTo('/club/planning')"
+          class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer"
+        >
           <div class="flex items-center mb-4">
             <div class="p-3 bg-purple-100 rounded-lg">
               <EquestrianIcon icon="calendar" :size="24" class="text-purple-600" />
