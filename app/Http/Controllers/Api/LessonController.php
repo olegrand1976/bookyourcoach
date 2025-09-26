@@ -78,11 +78,11 @@ class LessonController extends Controller
             $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location']);
 
             // Filtrage selon le rôle de l'utilisateur
-            if ($user->isTeacher()) {
+            if ($user->role === 'teacher') {
                 $query->whereHas('teacher', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
-            } elseif ($user->isStudent()) {
+            } elseif ($user->role === 'student') {
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -170,7 +170,7 @@ class LessonController extends Controller
             ]);
 
             // Pour les étudiants, on assigne automatiquement leur student_id
-            if ($user->role === User::ROLE_STUDENT) {
+            if ($user->role === 'student') {
                 $student = $user->student;
                 if (!$student) {
                     return response()->json([
@@ -256,11 +256,11 @@ class LessonController extends Controller
             $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location']);
 
             // Vérifier les permissions selon le rôle
-            if ($user->isTeacher()) {
+            if ($user->role === 'teacher') {
                 $query->whereHas('teacher', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
-            } elseif ($user->isStudent()) {
+            } elseif ($user->role === 'student') {
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -338,11 +338,11 @@ class LessonController extends Controller
             $query = Lesson::query();
 
             // Vérifier les permissions selon le rôle
-            if ($user->isTeacher()) {
+            if ($user->role === 'teacher') {
                 $query->whereHas('teacher', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
-            } elseif ($user->isStudent()) {
+            } elseif ($user->role === 'student') {
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -427,11 +427,11 @@ class LessonController extends Controller
             $query = Lesson::query();
 
             // Vérifier les permissions selon le rôle
-            if ($user->isTeacher()) {
+            if ($user->role === 'teacher') {
                 $query->whereHas('teacher', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
-            } elseif ($user->isStudent()) {
+            } elseif ($user->role === 'student') {
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -507,7 +507,7 @@ class LessonController extends Controller
             $user = Auth::user();
 
             // Vérifier que l'utilisateur a le droit de voir ces cours
-            if ($user->isStudent()) {
+            if ($user->role === 'student') {
                 $student = $user->student;
                 if (!$student || $student->id != $id) {
                     return response()->json([

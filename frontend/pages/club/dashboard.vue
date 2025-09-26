@@ -313,12 +313,23 @@
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
           <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold text-gray-900">Cours récents</h3>
-            <button 
-              @click="navigateTo('/club/lessons/new')"
-              class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-            >
-              Nouveau cours
-            </button>
+            <div class="flex items-center space-x-2">
+              <button 
+                @click="navigateTo('/club/planning')"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center space-x-1"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span>Planning</span>
+              </button>
+              <button 
+                @click="navigateTo('/club/lessons/new')"
+                class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              >
+                Nouveau cours
+              </button>
+            </div>
           </div>
         </div>
         <div class="p-6">

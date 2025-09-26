@@ -82,3 +82,12 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/teachers', [ClubController::class, 'getTeachers']);
     Route::get('/students', [ClubController::class, 'getStudents']);
 });
+
+// Routes pour les cours (lessons) - accessibles aux clubs, enseignants et étudiants
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
+    Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
+    Route::get('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'show']);
+    Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
+    Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
+});
