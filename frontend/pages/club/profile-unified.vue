@@ -204,11 +204,16 @@ const selectedDisciplines = ref([])
 // Charger les données
 const loadClubData = async () => {
   try {
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/profile`)
+    console.log('🔄 Chargement du profil club unifié...')
     
-    if (response.user && response.user.club) {
-      const club = response.user.club
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/profile')
+    
+    console.log('✅ Profil club unifié reçu:', response)
+    
+    if (response.data.success && response.data.data) {
+      const club = response.data.data
       form.value = {
         name: club.name || '',
         email: club.email || '',
@@ -279,8 +284,7 @@ const getDisciplinesByActivity = (activityId) => {
 const updateClub = async () => {
   loading.value = true
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    console.log('🔄 Mise à jour du profil club unifié...')
     
     const updateData = {
       ...form.value,
@@ -288,14 +292,11 @@ const updateClub = async () => {
       disciplines: selectedDisciplines.value
     }
     
-    await $fetch(`${config.public.apiBase}/club/profile`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${tokenCookie.value}`,
-        'Content-Type': 'application/json'
-      },
-      body: updateData
-    })
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    await $api.put('/club/profile', updateData)
+    
+    console.log('✅ Profil club unifié mis à jour avec succès')
     
     // Rediriger vers le dashboard
     await navigateTo('/club/dashboard')

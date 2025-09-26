@@ -15,11 +15,12 @@ export default defineNuxtPlugin(() => {
   // Intercepteur pour ajouter le token d'authentification
   api.interceptors.request.use((config) => {
     const authStore = useAuthStore()
-    const cookieToken = useCookie('auth-token').value
-    // Utilise le token du store s'il est disponible (juste après le login) ou celui du cookie
-    const token = authStore.token || cookieToken
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    
+    if (authStore.token) {
+      config.headers.Authorization = `Bearer ${authStore.token}`
+      console.log('🚀 [API SIMPLIFIÉ] Token ajouté du store:', authStore.token.substring(0, 10) + '...')
+    } else {
+      console.log('🚀 [API SIMPLIFIÉ] Pas de token dans store')
     }
     return config
   })
@@ -29,10 +30,10 @@ export default defineNuxtPlugin(() => {
     (response) => response,
     (error) => {
       if (error.response?.status === 401) {
-        // Token expiré ou invalide
-        console.warn('Token invalide détecté par l\'intercepteur API')
-        const tokenCookie = useCookie('auth-token')
-        tokenCookie.value = null
+        // Token expiré ou invalide - nettoyer le store
+        console.warn('Token invalide détecté par l\'intercepteur API - nettoyage du store')
+        const authStore = useAuthStore()
+        authStore.clearAuth()
       }
       return Promise.reject(error)
     }

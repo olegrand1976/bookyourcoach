@@ -36,10 +36,13 @@ services:
       start_period: 40s
 
   # =============================================================================
-  # Frontend Nuxt.js
+  # Frontend Nuxt.js - PRODUCTION avec CODE LOCAL
   # =============================================================================
   frontend:
-    image: olegrand1976/activibe-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
     container_name: activibe-frontend
     restart: unless-stopped
     ports:

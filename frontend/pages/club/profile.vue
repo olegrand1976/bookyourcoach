@@ -294,11 +294,16 @@ const editingSpecialtyId = ref(null)
 // Charger les données
 const loadClubData = async () => {
   try {
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/profile`)
+    console.log('🔄 Chargement du profil club...')
     
-    if (response.club) {
-      const club = response.club
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/profile')
+    
+    console.log('✅ Profil club reçu:', response)
+    
+    if (response.data.success && response.data.data) {
+      const club = response.data.data
       form.value = {
         name: club.name || '',
         email: club.email || '',
@@ -366,11 +371,16 @@ const getCustomSpecialtiesByActivity = (activityId) => {
 // Charger les spécialités personnalisées
 const loadCustomSpecialties = async () => {
   try {
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/custom-specialties`)
+    console.log('🔄 Chargement des spécialités personnalisées...')
     
-    if (response.success) {
-      customSpecialties.value = response.data
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/custom-specialties')
+    
+    console.log('✅ Spécialités reçues:', response)
+    
+    if (response.data.success) {
+      customSpecialties.value = response.data.data
     }
   } catch (error) {
     console.error('Erreur lors du chargement des spécialités personnalisées:', error)
@@ -383,16 +393,11 @@ const toggleCustomSpecialty = async (specialtyId) => {
     const specialty = customSpecialties.value.find(s => s.id === specialtyId)
     if (!specialty) return
 
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    console.log('🔄 Basculement spécialité:', specialtyId)
     
-    await $fetch(`${config.public.apiBase}/club/custom-specialty/${specialtyId}/toggle`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${tokenCookie.value}`,
-        'Content-Type': 'application/json'
-      }
-    })
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    await $api.patch(`/club/custom-specialty/${specialtyId}/toggle`)
 
     // Mettre à jour localement
     specialty.is_active = !specialty.is_active
@@ -411,8 +416,7 @@ const toggleCustomSpecialty = async (specialtyId) => {
 const updateClub = async () => {
   loading.value = true
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    console.log('🔄 Mise à jour du profil club...')
     
     const updateData = {
       ...form.value,
@@ -420,14 +424,11 @@ const updateClub = async () => {
       disciplines: selectedDisciplines.value
     }
     
-    await $fetch(`${config.public.apiBase}/club/profile`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${tokenCookie.value}`,
-        'Content-Type': 'application/json'
-      },
-      body: updateData
-    })
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
+    await $api.put('/club/profile', updateData)
+    
+    console.log('✅ Profil club mis à jour avec succès')
     
     // Afficher le message de succès
     toast.success('Profil du club mis à jour avec succès', 'Sauvegarde réussie')

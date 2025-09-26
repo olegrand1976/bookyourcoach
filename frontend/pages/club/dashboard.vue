@@ -369,9 +369,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-definePageMeta({
-  middleware: ['auth']
-})
+// Le middleware global 'auth.global.ts' gère déjà la protection de cette route.
+// definePageMeta({
+//   middleware: ['auth']
+// })
 
 const club = ref(null)
 const stats = ref(null)
@@ -382,6 +383,9 @@ const isLoading = ref(true)
 const hasError = ref(false)
 const errorMessage = ref('')
 
+// Récupérer l'instance $api injectée par le plugin
+const { $api } = useNuxtApp()
+
 const loadDashboardData = async () => {
   try {
     isLoading.value = true
@@ -390,42 +394,22 @@ const loadDashboardData = async () => {
     
     console.log('🔄 Chargement des données du dashboard club...')
     
-    // Utiliser $fetch uniquement côté client pour éviter les problèmes SSR
     if (process.server) {
       console.log('🔴 Côté serveur - pas de chargement des données')
       return
     }
     
-    const config = useRuntimeConfig()
-    
-    // Récupérer le token d'authentification
-    const tokenCookie = useCookie('auth-token')
-    const token = tokenCookie.value
-    
-    if (!token) {
-      console.error('❌ Aucun token d\'authentification trouvé')
-      const { error } = useToast()
-      error('Session expirée. Veuillez vous reconnecter.', 'Authentification requise')
-      await navigateTo('/login')
-      return
-    }
-    
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    })
+    // Utilisation de $api qui inclut automatiquement le token via l'intercepteur
+    const response = await $api.get('/club/dashboard')
     
     console.log('✅ Données reçues:', response)
     
-    if (response.success && response.data) {
-      club.value = response.data.club
-      stats.value = response.data.stats
-      recentTeachers.value = response.data.recentTeachers
-      recentStudents.value = response.data.recentStudents
-      recentLessons.value = response.data.recentLessons || []
+    if (response.data.success && response.data.data) {
+      club.value = response.data.data.club
+      stats.value = response.data.data.stats
+      recentTeachers.value = response.data.data.recentTeachers
+      recentStudents.value = response.data.data.recentStudents
+      recentLessons.value = response.data.data.recentLessons || []
       
       console.log('📊 Stats chargées:', stats.value)
     } else {
@@ -441,24 +425,25 @@ const loadDashboardData = async () => {
     hasError.value = true
     const { error: showError, warning } = useToast()
     
-    // Gestion spécifique des erreurs HTTP
-    if (error.statusCode === 401) {
+    // La structure de l'erreur avec Axios est dans error.response
+    const statusCode = error.response?.status
+    
+    if (statusCode === 401) {
       errorMessage.value = 'Votre session a expiré. Veuillez vous reconnecter.'
       showError('Votre session a expiré. Veuillez vous reconnecter.', 'Session expirée')
-      // Rediriger vers la page de connexion
       await navigateTo('/login')
-    } else if (error.statusCode === 403) {
+    } else if (statusCode === 403) {
       errorMessage.value = 'Vous n\'avez pas les permissions pour accéder à cette page.'
       showError('Vous n\'avez pas les permissions pour accéder à cette page.', 'Accès refusé')
-    } else if (error.statusCode === 404) {
+    } else if (statusCode === 404) {
       errorMessage.value = 'Aucun club n\'est associé à votre compte. Contactez l\'administrateur.'
       warning('Aucun club n\'est associé à votre compte. Contactez l\'administrateur.', 'Club non trouvé')
-    } else if (error.statusCode === 500) {
+    } else if (statusCode === 500) {
       errorMessage.value = 'Une erreur serveur s\'est produite. Veuillez réessayer plus tard.'
       showError('Une erreur serveur s\'est produite. Veuillez réessayer plus tard.', 'Erreur serveur')
-    } else if (error.statusCode >= 400) {
-      errorMessage.value = `Erreur ${error.statusCode}: ${error.statusMessage || 'Erreur inconnue'}`
-      showError(`Erreur ${error.statusCode}: ${error.statusMessage || 'Erreur inconnue'}`, 'Erreur de communication')
+    } else if (statusCode >= 400) {
+      errorMessage.value = `Erreur ${statusCode}: ${error.response?.data?.message || 'Erreur inconnue'}`
+      showError(`Erreur ${statusCode}: ${error.response?.data?.message || 'Erreur inconnue'}`, 'Erreur de communication')
     } else {
       errorMessage.value = 'Impossible de charger les données du dashboard. Vérifiez votre connexion.'
       showError('Impossible de charger les données du dashboard. Vérifiez votre connexion.', 'Erreur de connexion')
