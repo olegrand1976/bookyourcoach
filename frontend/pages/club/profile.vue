@@ -76,97 +76,158 @@
           </div>
         </section>
 
-        <!-- Activités et Disciplines -->
+        <!-- Activités, Disciplines et Configuration des cours -->
         <section class="border-b pb-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Activités et Disciplines</h2>
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Activités, Disciplines et Cours</h2>
+          <p class="text-sm text-gray-600 mb-4">
+            Sélectionnez les activités proposées, puis les disciplines et configurez leurs tarifs
+          </p>
           
-          <!-- Sélection des activités -->
-          <div class="mb-6">
-            <h3 class="font-medium text-gray-900 mb-3">Activités proposées</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label v-for="activity in activities" :key="activity.id"
-                     class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                     :class="selectedActivityIds.includes(activity.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'">
-                <input type="checkbox" :value="activity.id" v-model="selectedActivityIds"
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                <span class="ml-3 font-medium text-gray-900">{{ activity.name }}</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Disciplines par activité sélectionnée -->
-          <div v-if="selectedActivityIds.length > 0" class="space-y-4">
-            <h3 class="font-medium text-gray-900 mb-3">Disciplines proposées</h3>
-            <div v-for="activityId in selectedActivityIds" :key="activityId" class="bg-gray-50 p-4 rounded-lg">
-              <h4 class="font-medium text-gray-900 mb-2">{{ getActivityName(activityId) }}</h4>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                <label v-for="discipline in getDisciplinesByActivityId(activityId)" :key="discipline.id"
-                       class="flex items-center p-2 text-sm">
-                  <input type="checkbox" :value="discipline.id" v-model="selectedDisciplineIds"
-                         class="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2" />
-                  <span class="text-gray-700">{{ discipline.name }}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Configuration des cours -->
-        <section v-if="selectedDisciplineIds.length > 0" class="border-b pb-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuration des cours</h2>
-          <p class="text-sm text-gray-600 mb-4">Configurez la durée et le prix pour chaque discipline</p>
-          
-          <div class="space-y-4">
-            <template v-for="disciplineId in selectedDisciplineIds" :key="disciplineId">
-            <div v-if="settings[disciplineId]"
-                 class="bg-white border border-gray-200 rounded-lg p-4">
-              <h4 class="font-medium text-gray-900 mb-3">{{ getDisciplineName(disciplineId) }}</h4>
+          <!-- Structure en arbre -->
+          <div class="space-y-3">
+            <div v-for="activity in activities" :key="activity.id" 
+                 class="border border-gray-200 rounded-lg overflow-hidden">
               
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Durée (minutes)</label>
-                  <select v-model.number="settings[disciplineId].duration"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                    <option :value="15">15 minutes</option>
-                    <option :value="30">30 minutes</option>
-                    <option :value="45">45 minutes</option>
-                    <option :value="60">1 heure</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                  <input v-model.number="settings[disciplineId].price" type="number" step="0.01" min="0"
-                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div class="flex items-end">
-                  <div class="w-full text-sm text-gray-600 bg-gray-50 rounded-md p-3">
-                    <div class="font-medium">Prix/heure</div>
-                    <div class="text-lg font-bold text-blue-600">
-                      {{ calculatePricePerHour(disciplineId) }}€/h
+              <!-- Niveau 1: Activité -->
+              <label class="flex items-center p-4 bg-white hover:bg-gray-50 cursor-pointer transition-colors"
+                     :class="selectedActivityIds.includes(activity.id) ? 'bg-blue-50' : ''">
+                <input type="checkbox" :value="activity.id" v-model="selectedActivityIds"
+                       class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                <span class="ml-3 text-lg font-semibold text-gray-900">
+                  {{ activity.name }}
+                </span>
+                <span v-if="selectedActivityIds.includes(activity.id)" 
+                      class="ml-auto text-sm text-blue-600 font-medium">
+                  {{ getDisciplinesByActivityId(activity.id).filter(d => selectedDisciplineIds.includes(d.id)).length }} 
+                  discipline(s) sélectionnée(s)
+                </span>
+              </label>
+
+              <!-- Niveau 2: Disciplines (affichées si l'activité est sélectionnée) -->
+              <div v-if="selectedActivityIds.includes(activity.id)" 
+                   class="bg-gray-50 border-t border-gray-200">
+                
+                <div v-for="discipline in getDisciplinesByActivityId(activity.id)" 
+                     :key="discipline.id" 
+                     class="border-b border-gray-200 last:border-b-0">
+                  
+                  <!-- Niveau 2: Checkbox discipline -->
+                  <label class="flex items-center p-3 pl-12 hover:bg-gray-100 cursor-pointer transition-colors"
+                         :class="selectedDisciplineIds.includes(discipline.id) ? 'bg-blue-50' : ''">
+                    <div class="flex items-center mr-3 text-gray-400">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </div>
+                    <input type="checkbox" :value="discipline.id" v-model="selectedDisciplineIds"
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                    <span class="ml-2 font-medium text-gray-900">{{ discipline.name }}</span>
+                    <span v-if="selectedDisciplineIds.includes(discipline.id) && settings[discipline.id]" 
+                          class="ml-auto text-sm text-gray-600">
+                      {{ settings[discipline.id].duration }}min · {{ settings[discipline.id].price }}€
+                    </span>
+                  </label>
+
+                  <!-- Niveau 3: Configuration du cours (affichée si la discipline est sélectionnée) -->
+                  <div v-if="selectedDisciplineIds.includes(discipline.id) && settings[discipline.id]" 
+                       class="bg-white p-4 pl-20 border-t border-gray-100">
+                    
+                    <div class="mb-3">
+                      <h5 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Configuration du cours
+                      </h5>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
+                        <select v-model.number="settings[discipline.id].duration"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                          <option :value="15">15 minutes</option>
+                          <option :value="30">30 minutes</option>
+                          <option :value="45">45 minutes</option>
+                          <option :value="60">1 heure</option>
+                          <option :value="90">1h30</option>
+                          <option :value="120">2 heures</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                        <input v-model.number="settings[discipline.id].price" 
+                               type="number" step="0.01" min="0"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                      
+                      <div class="flex items-end">
+                        <div class="w-full text-sm bg-blue-50 border border-blue-200 rounded-md p-3">
+                          <div class="text-xs font-medium text-gray-600">Prix/heure</div>
+                          <div class="text-xl font-bold text-blue-600">
+                            {{ calculatePricePerHour(discipline.id) }}€
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                          Participants (min - max)
+                        </label>
+                        <div class="flex space-x-2">
+                          <input v-model.number="settings[discipline.id].min_participants" 
+                                 type="number" min="1"
+                                 placeholder="Min"
+                                 class="w-1/2 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+                          <input v-model.number="settings[discipline.id].max_participants" 
+                                 type="number" min="1"
+                                 placeholder="Max"
+                                 class="w-1/2 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                          Notes (optionnel)
+                        </label>
+                        <input v-model="settings[discipline.id].notes" 
+                               type="text"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                               placeholder="Matériel fourni, niveau requis..." />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Participants (min - max)</label>
-                  <div class="flex space-x-2">
-                    <input v-model.number="settings[disciplineId].min_participants" type="number" min="1"
-                           class="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-                    <input v-model.number="settings[disciplineId].max_participants" type="number" min="1"
-                           class="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optionnel)</label>
-                  <input v-model="settings[disciplineId].notes" type="text"
-                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                         placeholder="Matériel fourni, niveau requis..." />
+                <!-- Message si aucune discipline sélectionnée -->
+                <div v-if="getDisciplinesByActivityId(activity.id).filter(d => selectedDisciplineIds.includes(d.id)).length === 0"
+                     class="p-4 pl-12 text-sm text-gray-500 italic">
+                  Aucune discipline sélectionnée pour cette activité
                 </div>
               </div>
             </div>
-            </template>
+
+            <!-- Message si aucune activité disponible -->
+            <div v-if="activities.length === 0" class="text-center py-8 text-gray-500">
+              <p>Aucune activité disponible</p>
+            </div>
+          </div>
+
+          <!-- Résumé -->
+          <div v-if="selectedActivityIds.length > 0" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-start">
+              <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div class="flex-1 text-sm">
+                <p class="font-medium text-gray-900 mb-1">Résumé de votre configuration</p>
+                <p class="text-gray-700">
+                  <strong>{{ selectedActivityIds.length }}</strong> activité(s) · 
+                  <strong>{{ selectedDisciplineIds.length }}</strong> discipline(s) · 
+                  <strong>{{ Object.keys(settings).length }}</strong> cours configuré(s)
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -213,6 +274,7 @@ import { useToast } from '~/composables/useToast'
 const toast = useToast()
 const isLoading = ref(true)
 const isSaving = ref(false)
+const isInitialLoad = ref(true) // Pour éviter que le watcher n'interfère au chargement
 
 // Données brutes de l'API
 const activities = ref([])
@@ -254,6 +316,19 @@ const getDisciplinesByActivityId = (activityId) => {
   return disciplines.value.filter(d => d.activity_type_id === activityId)
 }
 
+// Log pour debug de l'affichage
+watch([activities, selectedActivityIds], ([newActivities, newSelectedIds]) => {
+  if (newActivities.length > 0 && !isLoading.value) {
+    console.log('🎨 RENDU: État des activités')
+    console.log('  - Activités disponibles:', newActivities.map(a => `${a.id}: ${a.name}`))
+    console.log('  - selectedActivityIds:', newSelectedIds)
+    console.log('  - Activités qui devraient être cochées:', newSelectedIds.map(id => {
+      const act = newActivities.find(a => a.id === id)
+      return act ? `${id}: ${act.name}` : `${id}: INTROUVABLE`
+    }))
+  }
+}, { immediate: true })
+
 const calculatePricePerHour = (disciplineId) => {
   const s = settings.value[disciplineId]
   if (!s || !s.duration || !s.price) return '0.00'
@@ -264,6 +339,11 @@ const calculatePricePerHour = (disciplineId) => {
 // WATCHERS - Gestion automatique des settings
 // ============================================================================
 watch(selectedDisciplineIds, (newIds, oldIds) => {
+  // Ne rien faire pendant le chargement initial pour éviter d'écraser les données du serveur
+  if (isInitialLoad.value) {
+    return
+  }
+  
   // Ajouter les settings pour les nouvelles disciplines
   newIds.forEach(id => {
     if (!settings.value[id]) {
@@ -326,17 +406,6 @@ async function loadData() {
       formData.country = club.country || ''
       formData.is_active = club.is_active !== false
       
-      // Traiter les activités
-      if (club.activity_types) {
-        const activityData = typeof club.activity_types === 'string' 
-          ? JSON.parse(club.activity_types) 
-          : club.activity_types
-        selectedActivityIds.value = Array.isArray(activityData) 
-          ? activityData.map(a => typeof a === 'object' ? a.id : a)
-          : []
-      }
-      
-<<<<<<< HEAD
       // Si c'est un nouveau profil (needs_setup), afficher un message informatif
       if (club.needs_setup) {
         console.log('🆕 Nouveau profil club détecté - configuration initiale requise')
@@ -344,21 +413,32 @@ async function loadData() {
       }
       
       // Charger les disciplines sélectionnées (avec parsing JSON si nécessaire)
-=======
-      // Traiter les disciplines - CONVERSION NOM → ID
->>>>>>> 38415038 (add midification on profile)
+      console.log('🔍 ÉTAPE 1: Traitement des disciplines')
+      console.log('  - club.disciplines présent:', !!club.disciplines)
+      console.log('  - Type:', typeof club.disciplines)
+      console.log('  - Valeur brute:', club.disciplines)
+      
       if (club.disciplines) {
         const disciplineData = typeof club.disciplines === 'string' 
           ? JSON.parse(club.disciplines) 
           : club.disciplines
         
-        console.log('📋 Disciplines brutes:', disciplineData)
+        console.log('📋 Disciplines après parsing:', disciplineData)
+        console.log('  - Est un tableau?', Array.isArray(disciplineData))
+        console.log('  - Longueur:', disciplineData?.length)
         
         if (Array.isArray(disciplineData)) {
           selectedDisciplineIds.value = disciplineData
             .map(item => {
-              if (typeof item === 'number') return item // Déjà un ID
-              if (typeof item === 'object' && item.id) return item.id // Objet avec ID
+              console.log('  - Traitement item:', item, 'Type:', typeof item)
+              if (typeof item === 'number') {
+                console.log('    → ID numérique:', item)
+                return item // Déjà un ID
+              }
+              if (typeof item === 'object' && item.id) {
+                console.log('    → Objet avec ID:', item.id)
+                return item.id // Objet avec ID
+              }
               
               // Nom de discipline → chercher l'ID
               if (typeof item === 'string') {
@@ -376,46 +456,171 @@ async function loadData() {
             .filter(id => id !== null)
         }
         
-        console.log('✅ Disciplines converties:', selectedDisciplineIds.value)
+        console.log('✅ selectedDisciplineIds.value après conversion:', selectedDisciplineIds.value)
+        console.log('  - Type:', typeof selectedDisciplineIds.value)
+        console.log('  - Valeurs:', JSON.stringify(selectedDisciplineIds.value))
+      } else {
+        console.warn('⚠️ Aucune discipline dans le profil club')
       }
       
-      // Traiter les settings - CONVERSION NOM → ID
+      // Déduire les activités depuis les disciplines sélectionnées
+      // (car le backend ne renvoie pas toujours activity_types)
+      console.log('🔍 ÉTAPE 2: Déduction des activités depuis les disciplines')
+      console.log('  - selectedDisciplineIds.value.length:', selectedDisciplineIds.value.length)
+      console.log('  - selectedDisciplineIds.value:', selectedDisciplineIds.value)
+      console.log('  - disciplines.value disponibles:', disciplines.value.length)
+      
+      if (selectedDisciplineIds.value.length > 0) {
+        const uniqueActivityIds = new Set()
+        selectedDisciplineIds.value.forEach(disciplineId => {
+          console.log(`  - Recherche discipline ID ${disciplineId}`)
+          const discipline = disciplines.value.find(d => d.id === disciplineId)
+          console.log(`    → Trouvée:`, discipline)
+          if (discipline && discipline.activity_type_id) {
+            console.log(`    → activity_type_id: ${discipline.activity_type_id}`)
+            uniqueActivityIds.add(discipline.activity_type_id)
+          } else {
+            console.warn(`    ⚠️ Pas d'activity_type_id pour discipline ${disciplineId}`)
+          }
+        })
+        
+        console.log('  - uniqueActivityIds Set:', uniqueActivityIds)
+        selectedActivityIds.value = Array.from(uniqueActivityIds)
+        console.log('✅ selectedActivityIds.value après déduction:', selectedActivityIds.value)
+        console.log('  - Type:', typeof selectedActivityIds.value)
+        console.log('  - Valeurs:', JSON.stringify(selectedActivityIds.value))
+      } else {
+        console.warn('⚠️ Aucune discipline sélectionnée pour déduire les activités')
+      }
+      
+      // Si activity_types est fourni explicitement, l'utiliser (prioritaire)
+      if (club.activity_types) {
+        const activityData = typeof club.activity_types === 'string' 
+          ? JSON.parse(club.activity_types) 
+          : club.activity_types
+        const explicitActivityIds = Array.isArray(activityData) 
+          ? activityData.map(a => typeof a === 'object' ? a.id : a)
+          : []
+        if (explicitActivityIds.length > 0) {
+          selectedActivityIds.value = explicitActivityIds
+          console.log('✅ Activités explicites utilisées:', selectedActivityIds.value)
+        }
+      }
+      
+      // Traiter les settings - Gère les IDs numériques ET les noms
+      console.log('🔍 ÉTAPE 3: Traitement des settings')
+      console.log('  - club.discipline_settings présent:', !!club.discipline_settings)
+      console.log('  - Type:', typeof club.discipline_settings)
+      
       if (club.discipline_settings) {
         const settingsData = typeof club.discipline_settings === 'string' 
           ? JSON.parse(club.discipline_settings) 
           : club.discipline_settings
         
-        console.log('📋 Settings bruts:', settingsData)
+        console.log('📋 Settings après parsing:', settingsData)
+        console.log('  - Type:', typeof settingsData)
+        console.log('  - Clés:', Object.keys(settingsData))
         
         if (typeof settingsData === 'object') {
-          // Convertir les clés (noms) en IDs
           Object.entries(settingsData).forEach(([key, value]) => {
-            // Chercher l'ID de la discipline par son nom
-            const found = disciplines.value.find(d => 
-              d.name.toLowerCase().trim() === key.toLowerCase().trim()
-            )
+            console.log(`  - Traitement clé "${key}":`, value)
+            let disciplineId = null
             
-            if (found && selectedDisciplineIds.value.includes(found.id)) {
-              settings.value[found.id] = {
+            // Cas 1: La clé est déjà un ID numérique (ex: "11", "12")
+            const numericKey = parseInt(key)
+            console.log(`    → numericKey: ${numericKey}, isNaN: ${isNaN(numericKey)}`)
+            
+            if (!isNaN(numericKey)) {
+              const foundDiscipline = disciplines.value.find(d => d.id === numericKey)
+              console.log(`    → Discipline trouvée pour ID ${numericKey}:`, foundDiscipline)
+              
+              if (foundDiscipline) {
+                disciplineId = numericKey
+                console.log(`  ✓ Settings ID ${key} (déjà numérique)`)
+              }
+            }
+            
+            // Cas 2: La clé est un nom de discipline (ex: "Dressage")
+            if (disciplineId === null) {
+              const found = disciplines.value.find(d => 
+                d.name.toLowerCase().trim() === key.toLowerCase().trim()
+              )
+              if (found) {
+                disciplineId = found.id
+                console.log(`  ✓ Settings "${key}" → ID ${found.id}`)
+              } else {
+                console.warn(`  ⚠️ Settings pour "${key}" : discipline introuvable`)
+              }
+            }
+            
+            // Stocker les settings si la discipline est valide et sélectionnée
+            console.log(`    → disciplineId final: ${disciplineId}`)
+            console.log(`    → Est dans selectedDisciplineIds?`, selectedDisciplineIds.value.includes(disciplineId))
+            
+            if (disciplineId && selectedDisciplineIds.value.includes(disciplineId)) {
+              const settingToStore = {
                 duration: value.duration || 45,
                 price: value.price || 25.00,
                 min_participants: value.min_participants || 1,
                 max_participants: value.max_participants || 8,
                 notes: value.notes || ''
               }
-              console.log(`  ✓ Settings "${key}" → ID ${found.id}`)
+              console.log(`    → Stockage settings pour ID ${disciplineId}:`, settingToStore)
+              settings.value[disciplineId] = settingToStore
+            } else {
+              console.warn(`    ⚠️ Settings non stockés pour ${key} (disciplineId: ${disciplineId})`)
             }
           })
         }
         
-        console.log('✅ Settings convertis:', settings.value)
+        console.log('✅ settings.value après conversion:', settings.value)
+        console.log('  - Clés:', Object.keys(settings.value))
+      } else {
+        console.warn('⚠️ Aucun discipline_settings dans le profil club')
       }
+      
+      // Créer des settings par défaut pour les disciplines sélectionnées qui n'en ont pas
+      console.log('🔍 ÉTAPE 4: Création des settings par défaut manquants')
+      selectedDisciplineIds.value.forEach(id => {
+        console.log(`  - Vérification discipline ID ${id}`)
+        console.log(`    → A déjà des settings?`, !!settings.value[id])
+        if (!settings.value[id]) {
+          settings.value[id] = {
+            duration: 45,
+            price: 25.00,
+            min_participants: 1,
+            max_participants: 8,
+            notes: ''
+          }
+          console.log(`  ➕ Settings par défaut créés pour discipline ID ${id}`)
+        }
+      })
+      
+      // RÉSUMÉ FINAL
+      console.log('═══════════════════════════════════════════════')
+      console.log('📊 RÉSUMÉ FINAL DU CHARGEMENT')
+      console.log('═══════════════════════════════════════════════')
+      console.log('✅ Activités sélectionnées:', selectedActivityIds.value)
+      console.log('   Détail:', selectedActivityIds.value.map(id => {
+        const act = activities.value.find(a => a.id === id)
+        return act ? `${id}: ${act.name}` : `${id}: ???`
+      }))
+      console.log('✅ Disciplines sélectionnées:', selectedDisciplineIds.value)
+      console.log('   Détail:', selectedDisciplineIds.value.map(id => {
+        const disc = disciplines.value.find(d => d.id === id)
+        return disc ? `${id}: ${disc.name}` : `${id}: ???`
+      }))
+      console.log('✅ Settings configurés:', Object.keys(settings.value))
+      console.log('   Détail:', settings.value)
+      console.log('═══════════════════════════════════════════════')
     }
   } catch (error) {
     console.error('❌ Erreur chargement:', error)
     toast.error('Erreur lors du chargement des données')
   } finally {
     isLoading.value = false
+    // Réactiver le watcher après le chargement initial
+    isInitialLoad.value = false
   }
 }
 
