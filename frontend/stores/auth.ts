@@ -248,6 +248,46 @@ export const useAuthStore = defineStore('auth', {
         
         console.log('🚀 [CLEAR ULTRA SIMPLE] Cookies nettoyés')
       }
+    },
+
+    async forgotPassword(email: string) {
+      console.log('🚀 [FORGOT PASSWORD] Demande de réinitialisation pour:', email)
+      
+      try {
+        const config = useRuntimeConfig()
+        const response = await $fetch(`${config.public.apiBase}/auth/forgot-password`, {
+          method: 'POST',
+          body: { email }
+        })
+        
+        console.log('🚀 [FORGOT PASSWORD] Email envoyé avec succès')
+        return response
+      } catch (error) {
+        console.error('🚀 [FORGOT PASSWORD] Erreur:', error)
+        throw error
+      }
+    },
+
+    async resetPassword(token: string, password: string, password_confirmation: string) {
+      console.log('🚀 [RESET PASSWORD] Réinitialisation du mot de passe')
+      
+      try {
+        const config = useRuntimeConfig()
+        const response = await $fetch(`${config.public.apiBase}/auth/reset-password`, {
+          method: 'POST',
+          body: { 
+            token, 
+            password, 
+            password_confirmation 
+          }
+        })
+        
+        console.log('🚀 [RESET PASSWORD] Mot de passe réinitialisé avec succès')
+        return response
+      } catch (error) {
+        console.error('🚀 [RESET PASSWORD] Erreur:', error)
+        throw error
+      }
     }
   }
 })

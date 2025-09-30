@@ -104,6 +104,13 @@ export default defineNuxtConfig({
             hmr: {
                 protocol: 'ws',
                 host: 'localhost',
+            },
+            watch: {
+                ignored: [
+                    '**/vendor/**',
+                    '**/node_modules/**',
+                    '**/.git/**'
+                ]
             }
         }
     }
