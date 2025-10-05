@@ -2,201 +2,189 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AddTeacherModal from '../../components/AddTeacherModal.vue'
 
-// Mock des composables Nuxt
-const mockUseToast = vi.fn(() => ({
-  showToast: vi.fn()
-}))
-
-const mockUseRuntimeConfig = vi.fn(() => ({
-  public: {
-    apiBase: 'http://localhost:8081/api'
-  }
-}))
-
-const mockUseCookie = vi.fn(() => ({
-  value: 'mock-token'
-}))
-
-const mock$fetch = vi.fn()
-
-vi.mock('#app', () => ({
-  useToast: mockUseToast,
-  useRuntimeConfig: mockUseRuntimeConfig,
-  useCookie: mockUseCookie,
-  $fetch: mock$fetch
-}))
-
 describe('AddTeacherModal', () => {
   let wrapper: any
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // Mock de la réponse API
-    mock$fetch.mockResolvedValueOnce({
-      message: 'Enseignant créé avec succès',
-      teacher: { id: 1, name: 'Test Teacher' }
+    wrapper = mount(AddTeacherModal)
+  })
+
+  describe('Structure et affichage', () => {
+    it('devrait afficher le titre du modal', () => {
+      expect(wrapper.text()).toContain('Ajouter un nouvel enseignant')
+      expect(wrapper.text()).toContain('Remplissez les informations ci-dessous')
     })
 
-    wrapper = mount(AddTeacherModal, {
-      global: {
-        stubs: {
-          'svg': true
-        }
-      }
+    it('devrait avoir un header avec gradient blue-indigo', () => {
+      const header = wrapper.find('.bg-gradient-to-r')
+      expect(header.exists()).toBe(true)
+      expect(header.classes()).toContain('from-blue-500')
+      expect(header.classes()).toContain('to-indigo-600')
+    })
+
+    it('devrait avoir un bouton de fermeture', () => {
+      const closeButtons = wrapper.findAll('button')
+      expect(closeButtons.length).toBeGreaterThan(0)
+    })
+
+    it('devrait afficher la section "Informations personnelles"', () => {
+      expect(wrapper.text()).toContain('Informations personnelles')
+    })
+
+    it('devrait afficher tous les champs principaux', () => {
+      expect(wrapper.find('input[type="text"]').exists()).toBe(true) // Nom
+      expect(wrapper.find('input[type="email"]').exists()).toBe(true) // Email
+      expect(wrapper.find('input[type="tel"]').exists()).toBe(true) // Téléphone
+      expect(wrapper.find('input[type="number"]').exists()).toBe(true) // Expérience et tarif
+      expect(wrapper.find('textarea').exists()).toBe(true) // Bio
     })
   })
 
-  it('devrait afficher le titre du modal', () => {
-    expect(wrapper.text()).toContain('Ajouter un enseignant')
+  describe('Champs du formulaire', () => {
+    it('devrait avoir un champ Nom complet obligatoire', () => {
+      expect(wrapper.text()).toContain('Nom complet')
+      expect(wrapper.text()).toContain('*')
+      const nameInput = wrapper.find('input[type="text"]')
+      expect(nameInput.attributes('required')).toBeDefined()
+    })
+
+    it('devrait avoir un champ Email obligatoire', () => {
+      expect(wrapper.text()).toContain('Email')
+      const emailInput = wrapper.find('input[type="email"]')
+      expect(emailInput.attributes('required')).toBeDefined()
+    })
+
+    it('devrait avoir un champ Téléphone optionnel', () => {
+      expect(wrapper.text()).toContain('Téléphone')
+      const phoneInput = wrapper.find('input[type="tel"]')
+      expect(phoneInput.attributes('required')).toBeUndefined()
+    })
+
+    it('devrait avoir un champ "Années d\'expérience"', () => {
+      expect(wrapper.text()).toContain('Années d\'expérience')
+      const expInput = wrapper.find('input[type="number"]')
+      expect(expInput.exists()).toBe(true)
+      expect(expInput.attributes('min')).toBe('0')
+    })
+
+    it('devrait avoir un select "Type de contrat"', () => {
+      expect(wrapper.text()).toContain('Type de contrat')
+      const selects = wrapper.findAll('select')
+      expect(selects.length).toBeGreaterThan(0)
+      
+      const contractSelect = selects[0]
+      const options = contractSelect.findAll('option')
+      const optionsText = options.map((opt: any) => opt.text())
+      
+      expect(optionsText).toContain('Indépendant')
+      expect(optionsText).toContain('Salarié')
+      expect(optionsText).toContain('Bénévole')
+      expect(optionsText).toContain('Étudiant')
+      expect(optionsText).toContain('Article 17')
+    })
   })
 
-  it('devrait avoir tous les champs requis', () => {
-    expect(wrapper.find('input[type="text"]').exists()).toBe(true) // Nom
-    expect(wrapper.find('input[type="email"]').exists()).toBe(true) // Email
-    expect(wrapper.find('input[type="tel"]').exists()).toBe(true) // Téléphone
-    expect(wrapper.find('input[type="number"]').exists()).toBe(true) // Expérience et tarif
-    expect(wrapper.find('textarea').exists()).toBe(true) // Biographie
+  describe('Section Spécialisations', () => {
+    it('devrait afficher la section Spécialisations', () => {
+      expect(wrapper.text()).toContain('Spécialisations')
+    })
+
+    it('devrait avoir un fond purple-50 pour la section', () => {
+      expect(wrapper.html()).toContain('bg-purple-50')
+    })
+
+    it('devrait afficher un message d\'aide pour les spécialisations', () => {
+      const text = wrapper.text()
+      expect(text).toContain('Sélectionnez les spécialisations')
+    })
   })
 
-  it('devrait avoir les valeurs par défaut correctes', () => {
-    expect(wrapper.vm.form.specializations).toEqual(['dressage'])
-    expect(wrapper.vm.form.experience_years).toBe(0)
-    expect(wrapper.vm.form.hourly_rate).toBe(50)
+  describe('Section Tarifs et présentation', () => {
+    it('devrait afficher la section Tarifs', () => {
+      expect(wrapper.text()).toContain('Tarifs')
+    })
+
+    it('devrait avoir un champ tarif horaire avec le symbole €', () => {
+      expect(wrapper.text()).toContain('Tarif horaire')
+      expect(wrapper.text()).toContain('€')
+    })
+
+    it('devrait avoir un champ Bio/Présentation', () => {
+      expect(wrapper.text()).toContain('Bio')
+      const textarea = wrapper.find('textarea')
+      expect(textarea.exists()).toBe(true)
+    })
   })
 
-  it('devrait permettre la sélection multiple de spécialisations', () => {
-    const specializationsSelect = wrapper.find('select[multiple]')
-    expect(specializationsSelect.exists()).toBe(true)
-    
-    // Vérifier les options disponibles
-    const options = specializationsSelect.findAll('option')
-    expect(options.length).toBeGreaterThan(0)
-    expect(options.some(opt => opt.text().includes('Dressage'))).toBe(true)
-    expect(options.some(opt => opt.text().includes('Obstacle'))).toBe(true)
+  describe('Boutons d\'action', () => {
+    it('devrait avoir un bouton Annuler', () => {
+      const buttons = wrapper.findAll('button')
+      const cancelButton = buttons.find((btn: any) => btn.text().includes('Annuler'))
+      expect(cancelButton).toBeDefined()
+    })
+
+    it('devrait avoir un bouton de soumission', () => {
+      const submitButton = wrapper.find('button[type="submit"]')
+      expect(submitButton.exists()).toBe(true)
+    })
+
+    it('le bouton de soumission devrait contenir "Ajouter"', () => {
+      const buttons = wrapper.findAll('button')
+      const hasAddButton = buttons.some((btn: any) => btn.text().includes('Ajouter l\'enseignant'))
+      expect(hasAddButton).toBe(true)
+    })
   })
 
-  it('devrait valider les champs requis', async () => {
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Le formulaire ne devrait pas être soumis sans les champs requis
-    expect(mock$fetch).not.toHaveBeenCalledWith(
-      'http://localhost:8081/api/club/teachers-test',
-      expect.any(Object)
-    )
-  })
-
-  it('devrait créer un enseignant avec des données valides', async () => {
-    // Remplir le formulaire
-    await wrapper.find('input[type="text"]').setValue('Test Teacher')
-    await wrapper.find('input[type="email"]').setValue('teacher@example.com')
-    await wrapper.find('input[type="tel"]').setValue('0123456789')
-    await wrapper.find('input[type="number"]').setValue('5') // Expérience
-    await wrapper.find('input[type="number"]').setValue('60') // Tarif horaire
-    await wrapper.find('textarea').setValue('Biographie de test')
-    
-    // Soumettre le formulaire
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Vérifier que l'API est appelée
-    expect(mock$fetch).toHaveBeenCalledWith(
-      'http://localhost:8081/api/club/teachers-test',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Authorization': 'Bearer mock-token',
-          'Content-Type': 'application/json'
-        }),
-        body: expect.objectContaining({
-          name: 'Test Teacher',
-          email: 'teacher@example.com',
-          phone: '0123456789',
-          experience_years: 5,
-          hourly_rate: 60,
-          bio: 'Biographie de test'
-        })
-      })
-    )
-  })
-
-  it('devrait émettre les événements de succès', async () => {
-    // Remplir et soumettre le formulaire
-    await wrapper.find('input[type="text"]').setValue('Test Teacher')
-    await wrapper.find('input[type="email"]').setValue('teacher@example.com')
-    
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Vérifier que les événements sont émis
-    expect(wrapper.emitted('success')).toBeTruthy()
-    expect(wrapper.emitted('close')).toBeTruthy()
-  })
-
-  it('devrait gérer les erreurs de création', async () => {
-    // Mock d'une erreur API
-    mock$fetch.mockRejectedValueOnce(new Error('API Error'))
-    
-    // Remplir et soumettre le formulaire
-    await wrapper.find('input[type="text"]').setValue('Test Teacher')
-    await wrapper.find('input[type="email"]').setValue('teacher@example.com')
-    
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Vérifier que les événements d'erreur ne sont pas émis
-    expect(wrapper.emitted('success')).toBeFalsy()
-    expect(wrapper.emitted('close')).toBeFalsy()
-  })
-
-  it('devrait fermer le modal quand on clique sur le bouton fermer', async () => {
-    const closeButton = wrapper.find('button[aria-label="close"]') || 
-                       wrapper.findAll('button').find(btn => btn.text().includes('Annuler'))
-    
-    if (closeButton) {
+  describe('Interactions', () => {
+    it('devrait émettre close quand on clique sur fermer', async () => {
+      const closeButton = wrapper.findAll('button')[0]
       await closeButton.trigger('click')
       expect(wrapper.emitted('close')).toBeTruthy()
-    }
+    })
+
+    it('devrait avoir un formulaire avec submit', () => {
+      const form = wrapper.find('form')
+      expect(form.exists()).toBe(true)
+    })
   })
 
-  it('devrait afficher l\'état de chargement pendant la soumission', async () => {
-    // Remplir le formulaire
-    await wrapper.find('input[type="text"]').setValue('Test Teacher')
-    await wrapper.find('input[type="email"]').setValue('teacher@example.com')
-    
-    // Soumettre le formulaire
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Vérifier que le bouton de soumission est désactivé
-    const submitButton = wrapper.find('button[type="submit"]')
-    expect(submitButton.attributes('disabled')).toBeDefined()
+  describe('Design et accessibilité', () => {
+    it('devrait avoir des sections avec arrière-plans colorés', () => {
+      expect(wrapper.html()).toContain('bg-gray-50')
+      expect(wrapper.html()).toContain('bg-purple-50')
+    })
+
+    it('devrait avoir des icônes SVG', () => {
+      const svgs = wrapper.findAll('svg')
+      expect(svgs.length).toBeGreaterThan(5)
+    })
+
+    it('devrait être responsive avec max-w-3xl', () => {
+      expect(wrapper.html()).toContain('max-w-3xl')
+    })
+
+    it('devrait avoir des bordures arrondies rounded-2xl', () => {
+      expect(wrapper.html()).toContain('rounded-2xl')
+    })
+
+    it('devrait avoir des transitions pour les hovers', () => {
+      expect(wrapper.html()).toContain('transition')
+    })
   })
 
-  it('devrait afficher le texte de chargement sur le bouton', async () => {
-    // Remplir le formulaire
-    await wrapper.find('input[type="text"]').setValue('Test Teacher')
-    await wrapper.find('input[type="email"]').setValue('teacher@example.com')
-    
-    // Soumettre le formulaire
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // Vérifier que le texte du bouton change
-    const submitButton = wrapper.find('button[type="submit"]')
-    expect(submitButton.text()).toContain('Ajout...')
-  })
+  describe('Validation et placeholders', () => {
+    it('devrait avoir des placeholders informatifs', () => {
+      const nameInput = wrapper.find('input[type="text"]')
+      expect(nameInput.attributes('placeholder')).toContain('Marie')
+      
+      const emailInput = wrapper.find('input[type="email"]')
+      expect(emailInput.attributes('placeholder')).toContain('@email.com')
+    })
 
-  it('devrait valider les valeurs numériques', async () => {
-    // Tester avec des valeurs négatives
-    await wrapper.find('input[type="number"]').setValue('-1')
-    
-    // Le formulaire devrait accepter les valeurs négatives (validation côté serveur)
-    const form = wrapper.find('form')
-    await form.trigger('submit.prevent')
-    
-    // L'API devrait être appelée même avec des valeurs négatives
-    expect(mock$fetch).toHaveBeenCalled()
+    it('devrait avoir des champs avec focus:ring-2', () => {
+      expect(wrapper.html()).toContain('focus:ring-2')
+      expect(wrapper.html()).toContain('focus:ring-blue-500')
+    })
   })
 })

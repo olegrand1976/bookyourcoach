@@ -143,12 +143,17 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
                         <select v-model.number="settings[discipline.id].duration"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                          <!-- Paliers de 5 minutes de 15 à 60 min -->
                           <option :value="15">15 minutes</option>
+                          <option :value="20">20 minutes</option>
+                          <option :value="25">25 minutes</option>
                           <option :value="30">30 minutes</option>
+                          <option :value="35">35 minutes</option>
+                          <option :value="40">40 minutes</option>
                           <option :value="45">45 minutes</option>
-                          <option :value="60">1 heure</option>
-                          <option :value="90">1h30</option>
-                          <option :value="120">2 heures</option>
+                          <option :value="50">50 minutes</option>
+                          <option :value="55">55 minutes</option>
+                          <option :value="60">1 heure (60 min)</option>
                         </select>
                       </div>
                       

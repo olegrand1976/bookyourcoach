@@ -26,7 +26,7 @@ class TeacherFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(['role' => User::ROLE_TEACHER]),
+            'user_id' => User::factory(['role' => 'teacher']),
             'specialties' => fake()->randomElements(['dressage', 'obstacle', 'cross', 'voltige', 'attelage'], fake()->numberBetween(1, 3)),
             'experience_years' => fake()->numberBetween(1, 30),
             'certifications' => fake()->randomElements(['FFE Galop 7', 'BPJEPS', 'CQP ASA', 'DE JEPS', 'Instructeur FFE'], fake()->numberBetween(1, 3)),

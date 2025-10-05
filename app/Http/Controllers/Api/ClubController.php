@@ -152,7 +152,7 @@ class ClubController extends Controller
                     $updateData = $request->only([
                         'name', 'description', 'email', 'phone', 'address',
                         'city', 'postal_code', 'country', 'website', 'is_active',
-                        'activity_types', 'disciplines', 'discipline_settings'
+                        'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
                     ]);
                     
                     // Encoder les arrays en JSON si nécessaire
@@ -164,6 +164,9 @@ class ClubController extends Controller
                     }
                     if (isset($updateData['discipline_settings']) && is_array($updateData['discipline_settings'])) {
                         $updateData['discipline_settings'] = json_encode($updateData['discipline_settings']);
+                    }
+                    if (isset($updateData['schedule_config']) && is_array($updateData['schedule_config'])) {
+                        $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
                     }
                     
                     // Valeurs par défaut
@@ -203,7 +206,7 @@ class ClubController extends Controller
             $updateData = $request->only([
                 'name', 'description', 'email', 'phone', 'address',
                 'city', 'postal_code', 'country', 'website', 'is_active',
-                'activity_types', 'disciplines', 'discipline_settings'
+                'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
             ]);
             
             // Encoder les arrays en JSON si nécessaire
@@ -215,6 +218,9 @@ class ClubController extends Controller
             }
             if (isset($updateData['discipline_settings']) && is_array($updateData['discipline_settings'])) {
                 $updateData['discipline_settings'] = json_encode($updateData['discipline_settings']);
+            }
+            if (isset($updateData['schedule_config']) && is_array($updateData['schedule_config'])) {
+                $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
             }
             
             $updateData['updated_at'] = now();
@@ -304,7 +310,7 @@ class ClubController extends Controller
                 ->where('club_teachers.club_id', $clubManager->club_id)
                 ->where('club_teachers.is_active', true)
                 ->select(
-                    'users.id',
+                    'teachers.id',  // Corrigé : retourner teachers.id au lieu de users.id
                     'users.name',
                     'users.email',
                     'teachers.hourly_rate',
@@ -350,7 +356,7 @@ class ClubController extends Controller
                 ->where('club_students.club_id', $clubManager->club_id)
                 ->where('club_students.is_active', true)
                 ->select(
-                    'users.id',
+                    'students.id',  // Corrigé : retourner students.id au lieu de users.id
                     'users.name',
                     'users.email',
                     'students.level',

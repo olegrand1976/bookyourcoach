@@ -163,6 +163,11 @@
         </div>
       </div>
 
+      <!-- Analyse Prédictive IA -->
+      <div class="mb-8">
+        <PredictiveAnalysis />
+      </div>
+
       <!-- Métriques avancées -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <!-- Taux d'occupation -->
@@ -379,6 +384,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import PredictiveAnalysis from '~/components/AI/PredictiveAnalysis.vue'
 
 // Le middleware global 'auth.global.ts' gère déjà la protection de cette route.
 // definePageMeta({

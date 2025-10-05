@@ -16,7 +16,7 @@ class ClubSettingsController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);
@@ -37,7 +37,7 @@ class ClubSettingsController extends Controller
     public function getByCategory(Request $request, $category)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);
@@ -57,7 +57,7 @@ class ClubSettingsController extends Controller
     public function update(Request $request, $featureKey)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);
@@ -95,7 +95,7 @@ class ClubSettingsController extends Controller
     public function bulkUpdate(Request $request)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);
@@ -340,7 +340,7 @@ class ClubSettingsController extends Controller
     public function resetToDefaults(Request $request)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);

@@ -3,22 +3,20 @@ export default defineNuxtConfig({
 
     modules: [
         '@nuxtjs/tailwindcss',
-        '@pinia/nuxt',
-        '@nuxtjs/google-fonts'
+        '@pinia/nuxt'
         // '@nuxtjs/i18n' // Temporairement désactivé pour résoudre le problème de build
     ],
 
     css: [
         '~/assets/css/main.css',
         '~/assets/css/buttons.css',
-        '@fortawesome/fontawesome-svg-core/styles.css'
+        '@fortawesome/fontawesome-svg-core/styles.css',
+        // Fonts locales via Fontsource (beaucoup plus rapide que Google Fonts)
+        '@fontsource/inter/400.css',
+        '@fontsource/inter/500.css',
+        '@fontsource/inter/600.css',
+        '@fontsource/inter/700.css'
     ],
-
-    googleFonts: {
-        families: {
-            Inter: [400, 500, 600, 700]
-        }
-    },
 
     // Configuration i18n temporairement commentée
     // i18n: {
@@ -78,6 +76,7 @@ export default defineNuxtConfig({
                         }
                     },
                     fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
                         serif: ['Merriweather', 'ui-serif', 'Georgia'],
                     },
                     backgroundImage: {

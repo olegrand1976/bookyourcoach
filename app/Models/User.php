@@ -43,4 +43,38 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Get the clubs associated with this user (for club managers).
+     */
+    public function clubs()
+    {
+        return $this->belongsToMany(Club::class, 'club_managers')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the first club associated with this user (helper method).
+     */
+    public function getFirstClub()
+    {
+        return $this->clubs()->first();
+    }
+
+    /**
+     * Get the teacher profile for this user.
+     */
+    public function teacher()
+    {
+        return $this->hasOne(Teacher::class);
+    }
+
+    /**
+     * Get the student profile for this user.
+     */
+    public function student()
+    {
+        return $this->hasOne(Student::class);
+    }
 }

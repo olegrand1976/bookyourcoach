@@ -54,6 +54,7 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
+        pull: true
         tags: |
           ${{ env.IMAGE_NAME }}:latest
           ${{ env.IMAGE_NAME }}:build-$(date +%Y%m%d-%H%M%S)
@@ -96,6 +97,7 @@ jobs:
         context: ./frontend
         platforms: linux/amd64
         push: true
+        pull: true
         tags: |
           ${{ env.FRONTEND_IMAGE_NAME }}:latest
           ${{ env.FRONTEND_IMAGE_NAME }}:build-$(date +%Y%m%d-%H%M%S)

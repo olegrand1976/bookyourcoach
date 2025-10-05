@@ -27,6 +27,10 @@ global.useRuntimeConfig = vi.fn(() => ({
     }
 }))
 
+global.useCookie = vi.fn((name) => ({
+    value: name === 'auth-token' ? 'mock-token' : null
+}))
+
 // Mock Vue Composition API
 global.ref = vi.fn((value) => ({
     value,
@@ -56,7 +60,8 @@ global.useToast = vi.fn(() => ({
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
-    warning: vi.fn()
+    warning: vi.fn(),
+    showToast: vi.fn() // Ajout de showToast pour compatibilité
 }))
 
 // Mock useSettings composable
@@ -66,9 +71,13 @@ global.useSettings = vi.fn(() => ({
     theme: 'light',
     setTheme: vi.fn(),
     settings: {
-        platform_name: 'activibe',
-        platform_description: 'Plateforme de réservation de coachs équestres'
-    }
+        value: {
+            platform_name: 'BookYourCoach',
+            platform_description: 'La plateforme de référence pour réserver vos cours de sports',
+            logo_url: '/logo-activibe.svg'
+        }
+    },
+    loadSettings: vi.fn()
 }))
 
 // Mock useI18n composable
@@ -93,7 +102,12 @@ global.useLazyFetch = vi.fn(() => ({
     refresh: vi.fn()
 }))
 
-global.$fetch = vi.fn()
+global.$fetch = vi.fn(() => Promise.resolve({
+    club: {
+        disciplines: [],
+        specializations: []
+    }
+}))
 
 // Mock Heroicons
 vi.mock('@heroicons/vue/24/outline', () => ({
