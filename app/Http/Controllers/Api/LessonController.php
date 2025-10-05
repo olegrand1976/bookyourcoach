@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Models\Teacher;
+use App\Models\SubscriptionInstance;
+use App\Models\ClubOpenSlot;
 use App\Notifications\LessonBookedNotification;
 use App\Notifications\LessonCancelledNotification;
 use App\Jobs\SendLessonReminderJob;
@@ -86,6 +89,19 @@ class LessonController extends Controller
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
+            } elseif ($user->role === 'club') {
+                // Les clubs voient uniquement les cours de leurs enseignants
+                $club = $user->getFirstClub();
+                if ($club) {
+                    $query->whereHas('teacher', function ($q) use ($club) {
+                        $q->whereHas('clubs', function ($clubQuery) use ($club) {
+                            $clubQuery->where('clubs.id', $club->id);
+                        });
+                    });
+                } else {
+                    // Si le club n'existe pas, ne retourner aucun cours
+                    $query->whereRaw('1 = 0');
+                }
             }
             // Les admins voient tous les cours
 
@@ -159,18 +175,36 @@ class LessonController extends Controller
         try {
             $user = Auth::user();
 
+            // Validation de base avec date moins stricte
             $validated = $request->validate([
                 'teacher_id' => 'required|exists:teachers,id',
                 'course_type_id' => 'required|exists:course_types,id',
                 'location_id' => 'nullable|exists:locations,id',
-                'start_time' => 'required|date|after:now',
+                'start_time' => 'required|date|after_or_equal:today',
                 'duration' => 'nullable|integer|min:15|max:180',
                 'price' => 'nullable|numeric|min:0',
                 'notes' => 'nullable|string|max:1000'
             ]);
 
-            // Pour les étudiants, on assigne automatiquement leur student_id
-            if ($user->role === 'student') {
+            // Vérifications spécifiques selon le rôle
+            if ($user->role === 'club') {
+                // Pour les clubs, vérifier que le teacher appartient au club
+                $club = $user->getFirstClub();
+                if ($club) {
+                    $teacher = Teacher::find($validated['teacher_id']);
+                    if (!$teacher || !$teacher->clubs()->where('clubs.id', $club->id)->exists()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'L\'enseignant sélectionné n\'appartient pas à votre club'
+                        ], 422);
+                    }
+                }
+                // Pour les clubs, student_id peut être fourni
+                $validated = array_merge($validated, $request->validate([
+                    'student_id' => 'nullable|exists:students,id'
+                ]));
+            } elseif ($user->role === 'student') {
+                // Pour les étudiants, on assigne automatiquement leur student_id
                 $student = $user->student;
                 if (!$student) {
                     return response()->json([
@@ -188,7 +222,20 @@ class LessonController extends Controller
 
             $validated['status'] = 'pending';
 
+            // Vérifier la capacité du créneau si c'est pour un club
+            if ($user->role === 'club') {
+                $club = $user->getFirstClub();
+                if ($club) {
+                    $this->checkSlotCapacity($validated['start_time'], $club->id);
+                }
+            }
+
             $lesson = Lesson::create($validated);
+
+            // Essayer de consommer un abonnement si l'élève en a un actif
+            if (isset($validated['student_id'])) {
+                $this->tryConsumeSubscription($lesson);
+            }
 
             // Envoyer les notifications
             $this->sendBookingNotifications($lesson);
@@ -205,16 +252,28 @@ class LessonController extends Controller
                 'message' => 'Cours créé avec succès'
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation error in Lesson store:', [
+                'errors' => $e->errors(),
+                'request' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            Log::error('Exception in Lesson store:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création du cours',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'debug' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
     }
@@ -573,6 +632,100 @@ class LessonController extends Controller
             }
         } catch (\Exception $e) {
             Log::error("Erreur lors de l'envoi des notifications d'annulation: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Essaie de consommer un abonnement actif pour ce cours
+     */
+    private function tryConsumeSubscription(Lesson $lesson): void
+    {
+        try {
+            if (!$lesson->student_id || !$lesson->course_type_id) {
+                return;
+            }
+
+            // Récupérer les instances d'abonnements actifs où l'élève est inscrit
+            $subscriptionInstances = SubscriptionInstance::where('status', 'active')
+                ->whereHas('students', function ($query) use ($lesson) {
+                    $query->where('students.id', $lesson->student_id);
+                })
+                ->with(['subscription.courseTypes', 'students'])
+                ->get();
+
+            // Trouver la première instance valide pour ce type de cours
+            foreach ($subscriptionInstances as $subscriptionInstance) {
+                $subscriptionInstance->checkAndUpdateStatus();
+                
+                // Si le statut n'est plus actif après la vérification, passer au suivant
+                if ($subscriptionInstance->status !== 'active') {
+                    continue;
+                }
+
+                // Vérifier si ce cours fait partie de l'abonnement
+                $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
+                
+                if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
+                    // Consommer un cours de cet abonnement
+                    $subscriptionInstance->consumeLesson($lesson);
+                    
+                    $studentNames = $subscriptionInstance->students->pluck('user.name')->join(', ');
+                    Log::info("Cours {$lesson->id} consommé depuis l'abonnement partagé {$subscriptionInstance->id} (élèves: {$studentNames})");
+                    
+                    return; // Un seul abonnement consommé par cours
+                }
+            }
+
+            Log::info("Aucun abonnement actif trouvé pour le cours {$lesson->id} (élève {$lesson->student_id}, type {$lesson->course_type_id})");
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas faire échouer la création du cours
+            Log::error("Erreur lors de la consommation de l'abonnement: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Vérifie que le créneau n'est pas complet avant de créer un cours
+     */
+    private function checkSlotCapacity(string $startTime, int $clubId): void
+    {
+        try {
+            $startDateTime = Carbon::parse($startTime);
+            $dayOfWeek = $startDateTime->dayOfWeek;
+            $time = $startDateTime->format('H:i');
+            $date = $startDateTime->format('Y-m-d');
+            
+            // Trouver le créneau ouvert correspondant
+            $openSlot = ClubOpenSlot::where('club_id', $clubId)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('start_time', '<=', $time)
+                ->where('end_time', '>', $time)
+                ->first();
+            
+            if (!$openSlot) {
+                // Pas de créneau défini, on autorise (pour compatibilité)
+                return;
+            }
+            
+            // Compter les cours déjà existants sur cette plage horaire pour cette date
+            $existingLessonsCount = Lesson::whereDate('start_time', $date)
+                ->whereTime('start_time', '>=', $openSlot->start_time)
+                ->whereTime('start_time', '<', $openSlot->end_time)
+                ->whereHas('teacher.clubs', function ($query) use ($clubId) {
+                    $query->where('clubs.id', $clubId);
+                })
+                ->count();
+            
+            if ($existingLessonsCount >= $openSlot->max_capacity) {
+                throw new \Exception("Ce créneau est complet ({$existingLessonsCount}/{$openSlot->max_capacity} cours). Impossible d'ajouter un nouveau cours.");
+            }
+            
+        } catch (\Exception $e) {
+            // Si c'est notre exception de capacité, la propager
+            if (str_contains($e->getMessage(), 'complet')) {
+                throw $e;
+            }
+            // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
+            Log::warning("Erreur lors de la vérification de capacité du créneau: " . $e->getMessage());
         }
     }
 }

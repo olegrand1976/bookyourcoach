@@ -10,13 +10,13 @@
           </div>
           <div class="flex items-center space-x-3">
             <button 
-              @click="showOpenSlotModal = true"
-              class="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors flex items-center space-x-2"
+              @click="openAddSlotModal()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
               </svg>
-              <span>Ouvrir créneaux</span>
+              <span>Ajouter un créneau</span>
             </button>
             <button 
               @click="showCreateLessonModal = true"
@@ -32,24 +32,51 @@
       </div>
     </div>
 
-    <!-- Navigation semaine -->
+    <!-- Navigation avec choix de vue -->
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8">
       <div class="max-w-7xl mx-auto py-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+          <!-- Mode d'affichage -->
+          <div class="flex items-center bg-gray-100 rounded-lg p-1">
+            <button 
+              @click="viewMode = 'day'"
+              :class="[
+                'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                viewMode === 'day' 
+                  ? 'bg-white text-blue-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              Jour
+            </button>
+            <button 
+              @click="viewMode = 'week'"
+              :class="[
+                'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                viewMode === 'week' 
+                  ? 'bg-white text-blue-600 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              Semaine
+            </button>
+          </div>
+          
+          <!-- Navigation -->
           <div class="flex items-center space-x-4">
             <button 
-              @click="previousWeek"
+              @click="viewMode === 'week' ? previousWeek() : previousDay()"
               class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
               </svg>
             </button>
-            <h2 class="text-lg font-semibold text-gray-900">
-              {{ formatWeekRange(currentWeek) }}
+            <h2 class="text-lg font-semibold text-gray-900 min-w-[200px] text-center">
+              {{ viewMode === 'week' ? formatWeekRange(currentWeek) : formatDayTitle(currentDay) }}
             </h2>
             <button 
-              @click="nextWeek"
+              @click="viewMode === 'week' ? nextWeek() : nextDay()"
               class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,9 +84,10 @@
               </svg>
             </button>
           </div>
+          
           <button 
             @click="goToToday"
-            class="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+            class="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
           >
             Aujourd'hui
           </button>
@@ -69,252 +97,431 @@
 
     <!-- Planning Calendrier -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <!-- Légende des créneaux -->
+      <!-- Légende et informations -->
+      <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-5 mb-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Guide d'utilisation
+          </h3>
+          </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="flex items-start gap-3 bg-white/70 rounded-lg p-3">
+            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+          </div>
+            <div>
+              <div class="font-semibold text-gray-900 mb-1">Créer un cours</div>
+              <p class="text-xs text-gray-600">Cliquez sur n'importe quelle case pour créer un nouveau cours</p>
+          </div>
+          </div>
+          
+          <div class="flex items-start gap-3 bg-white/70 rounded-lg p-3">
+            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-900 mb-1">Cours simultanés</div>
+              <p class="text-xs text-gray-600">Les cours au même horaire s'affichent côte à côte</p>
+        </div>
+      </div>
+
+      <!-- Liste modifiable des créneaux ouverts -->
       <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-        <h3 class="text-sm font-medium text-gray-900 mb-3">Légende des créneaux</h3>
-        <div class="flex flex-wrap gap-4 text-xs">
-          <div class="flex items-center">
-            <div class="w-4 h-4 bg-gray-100 border-l-4 border-gray-400 rounded mr-2"></div>
-            <span class="text-gray-600">🔒 Club fermé</span>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-900">Créneaux ouverts (modifiables)</h3>
+          <button @click="showAddSlotModal = true" class="text-blue-600 hover:text-blue-800 text-sm">+ Ajouter</button>
           </div>
-          <div class="flex items-center">
-            <div class="w-4 h-4 bg-yellow-50 border-l-4 border-yellow-400 rounded mr-2"></div>
-            <span class="text-gray-600">⏰ Disponible (à ouvrir)</span>
-          </div>
-          <div class="flex items-center">
-            <div class="w-4 h-4 bg-green-50 border-l-4 border-green-500 rounded mr-2"></div>
-            <span class="text-gray-600">✅ Ouvert pour cours</span>
-          </div>
-          <div class="flex items-center">
-            <div class="w-4 h-4 bg-blue-100 border-l-4 border-blue-500 rounded mr-2"></div>
-            <span class="text-gray-600">📚 Cours programmé</span>
+        <div v-if="availableSlots.length === 0" class="text-sm text-gray-500">Aucun créneau pour le moment.</div>
+        <div v-else class="divide-y divide-gray-100">
+          <div v-for="slot in availableSlots" :key="slot.id" class="py-3 grid grid-cols-12 gap-3 items-center">
+            <!-- Jour -->
+            <div class="col-span-2">
+              <select v-if="slot.editing"
+                      v-model.number="editBuffer[slot.id].day_of_week"
+                      class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                <option :value="1">Lundi</option>
+                <option :value="2">Mardi</option>
+                <option :value="3">Mercredi</option>
+                <option :value="4">Jeudi</option>
+                <option :value="5">Vendredi</option>
+                <option :value="6">Samedi</option>
+                <option :value="0">Dimanche</option>
+              </select>
+              <span v-else class="text-sm text-gray-800 font-medium">{{ getDayName(slot.day_of_week) }}</span>
+            </div>
+            <!-- Heures -->
+            <div class="col-span-2 flex items-center gap-1">
+              <template v-if="slot.editing">
+                <input v-model="editBuffer[slot.id].start_time" type="time" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                <span class="text-gray-400 text-xs">→</span>
+                <input v-model="editBuffer[slot.id].end_time" type="time" class="border border-gray-300 rounded px-2 py-1 text-sm">
+              </template>
+              <span v-else class="text-sm text-gray-600">{{ slot.start_time }} - {{ slot.end_time }}</span>
+            </div>
+            <!-- Discipline -->
+            <div class="col-span-4">
+              <template v-if="slot.editing">
+                <select v-model="editBuffer[slot.id].discipline_id" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                  <option :value="null">(Aucune)</option>
+                  <option v-for="d in availableDisciplines" :key="d.id" :value="d.id">{{ d.name }}</option>
+                </select>
+              </template>
+              <div v-else class="text-sm text-gray-800 truncate" :title="(availableDisciplines.find(d=>d.id===slot.discipline_id)?.name) || '—'">
+                {{ (availableDisciplines.find(d=>d.id===slot.discipline_id)?.name) || '—' }}
+              </div>
+            </div>
+            <!-- Capacité -->
+            <div class="col-span-1 text-center">
+              <template v-if="slot.editing">
+                <input v-model.number="editBuffer[slot.id].max_capacity" type="number" min="1" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+              </template>
+              <span v-else class="text-sm text-gray-600 font-medium">{{ slot.max_capacity }}</span>
+            </div>
+            <!-- Actions -->
+            <div class="col-span-3 flex justify-end gap-1">
+              <template v-if="slot.editing">
+                <button @click="saveSlotEdit(slot)" class="text-emerald-600 hover:text-emerald-800 text-xs px-2 py-1 rounded">✓</button>
+                <button @click="cancelSlotEdit(slot)" class="text-gray-500 hover:text-gray-700 text-xs px-2 py-1 rounded">✕</button>
+              </template>
+              <template v-else>
+                <button 
+                  @click="openAddSlotModal(slot)" 
+                  class="text-purple-600 hover:text-purple-800 text-xs px-2 py-1 rounded hover:bg-purple-50"
+                  title="Dupliquer ce créneau"
+                >
+                  📋
+                </button>
+                <button @click="startSlotEdit(slot)" class="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50" title="Éditer">✏️</button>
+                <button @click="confirmDeleteSlot(slot)" class="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded hover:bg-red-50" title="Supprimer">🗑️</button>
+              </template>
+            </div>
           </div>
         </div>
-      </div>
+            </div>
+            
+          <div class="flex items-start gap-3 bg-white/70 rounded-lg p-3">
+            <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+          </div>
+            <div>
+              <div class="font-semibold text-gray-900 mb-1">Voir les détails</div>
+              <p class="text-xs text-gray-600">Cliquez sur un cours pour afficher toutes les informations</p>
+        </div>
+            </div>
+        </div>
+              </div>
 
-      <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div class="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
         <!-- En-têtes des jours -->
-        <div class="grid grid-cols-8 bg-gray-50 border-b border-gray-200">
-          <div class="p-4 text-center text-sm font-medium text-gray-500">Horaires</div>
-          <div v-for="day in weekDays" :key="day.date" class="p-4 text-center border-l border-gray-200">
-            <div class="text-sm font-medium text-gray-900">{{ day.name }}</div>
-            <div class="text-xs text-gray-500 mt-1">{{ formatDate(day.date) }}</div>
+        <div :class="viewMode === 'week' ? 'grid grid-cols-8' : 'flex'" class="bg-gradient-to-b from-gray-50 to-gray-100 border-b-2 border-gray-300">
+          <div class="p-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center justify-center" :class="viewMode === 'week' ? '' : 'w-20 flex-shrink-0'">
+            Horaires
           </div>
-        </div>
+          <div v-for="day in displayDays" :key="day.date" 
+               class="p-4 text-center border-l border-gray-300 transition-colors"
+               :class="[isToday(day.date) ? 'bg-blue-50' : '', viewMode === 'day' ? 'flex-1' : '']"
+          >
+            <div class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+              {{ day.name }}
+            </div>
+            <div class="text-lg font-bold mt-1"
+                 :class="isToday(day.date) ? 'text-blue-600' : 'text-gray-700'"
+            >
+              {{ formatDate(day.date) }}
+            </div>
+            <div v-if="isToday(day.date)" class="text-xs text-blue-600 font-medium mt-1">
+              Aujourd'hui
+            </div>
+          </div>
+            </div>
 
-        <!-- Grille des créneaux -->
-        <div class="relative">
-          <div v-for="hour in timeSlots" :key="hour" class="grid grid-cols-8 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-            <!-- Colonne horaire -->
-            <div class="p-4 text-center text-sm text-gray-600 bg-gray-50 border-r border-gray-200">
-              {{ hour }}
+        <!-- Grille des créneaux - Style Google Calendar épuré -->
+        <div class="relative overflow-y-auto" style="max-height: calc(100vh - 400px);">
+          <!-- Grille de fond minimaliste -->
+          <div class="relative" :style="{ height: `${hourRanges.length * 60}px` }">
+            <!-- Lignes horaires légères -->
+            <div v-for="(hour, index) in hourRanges" :key="`hour-${hour}`" 
+                 class="absolute left-0 right-0 border-b border-gray-100"
+                 :style="{ top: `${index * 60}px`, height: '60px' }">
+              
+              <!-- Grille adaptative -->
+              <div :class="viewMode === 'week' ? 'grid grid-cols-8' : 'flex'" class="h-full">
+                <!-- Colonne horaire -->
+                <div class="relative bg-gray-50/50 border-r border-gray-200" :class="viewMode === 'week' ? '' : 'w-20 flex-shrink-0'">
+                  <span class="absolute -top-2 right-2 text-xs font-medium text-gray-500 bg-white px-1">
+                    {{ hour }}:00
+                  </span>
+            </div>
+
+                <!-- Colonnes des jours -->
+                <div v-for="(day, dayIndex) in displayDays" :key="`grid-${day.date}-${hour}`" 
+                     :class="[
+                       'relative border-l border-gray-100 transition-colors group',
+                       viewMode === 'day' ? 'flex-1' : '',
+                       {
+                         'bg-today': isToday(day.date),
+                         'cursor-pointer hover:bg-blue-50/10': !isSlotFull(day.date, hour),
+                         'cursor-not-allowed bg-gray-100/50 opacity-60': isSlotFull(day.date, hour)
+                       }
+                     ]"
+                     @click="!isSlotFull(day.date, hour) && selectTimeSlot(day.date, hour, 0)">
+                  
+                  <!-- Ligne de 30 minutes -->
+                  <div class="absolute top-1/2 left-0 right-0 border-t border-gray-50"></div>
+                  
+                  <!-- Indicateur "+" au hover pour créer un cours (seulement si pas plein) -->
+                  <div v-if="!isSlotFull(day.date, hour)" class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <div class="w-8 h-8 bg-blue-500/80 rounded-full flex items-center justify-center shadow-lg">
+                      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  <!-- Indicateur "COMPLET" pour les créneaux pleins -->
+                  <div v-else class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div class="px-2 py-1 bg-red-500/80 rounded text-xs font-medium text-white shadow">
+                      COMPLET
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <!-- Créneaux par jour -->
-            <div v-for="day in weekDays" :key="`${day.date}-${hour}`" 
-                 class="relative border-l border-gray-100 min-h-[60px] group cursor-pointer hover:bg-blue-50 transition-colors"
-                 @click="selectSlot(day.date, hour)"
-            >
-              <!-- Cours existants -->
-              <div v-for="lesson in getLessonsForSlot(day.date, hour)" 
+            <!-- Créneaux ouverts - overlay visuel -->
+            <div v-for="(day, dayIndex) in displayDays" :key="`openslots-${day.date}`"
+                 class="absolute top-0 pointer-events-none"
+                 :style="{ 
+                   left: `${((dayIndex + 1) / totalColumns) * 100}%`, 
+                   width: `${(1 / totalColumns) * 100}%`,
+                   height: '100%'
+                 }">
+              <div v-for="slot in getOpenSlotsForDay(day.date)" :key="slot.id"
+                   class="absolute left-0 right-0 rounded-md overflow-hidden pointer-events-none"
+                   :style="getOpenSlotPosition(slot)">
+                <!-- Fond du créneau -->
+                <div :class="[
+                  'absolute inset-0 border border-dashed',
+                  getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
+                    ? 'border-red-500 bg-red-50/40'
+                    : 'border-green-500 bg-green-50/40'
+                ]"></div>
+                
+                <!-- Affichage adaptatif selon le nombre de places -->
+                
+                <!-- Si <= 8 places : Divisions visuelles individuelles -->
+                <div v-if="slot.max_capacity <= 8" class="absolute inset-0 flex">
+                  <div v-for="i in slot.max_capacity" :key="`slot-${slot.id}-${i}`"
+                       :class="[
+                         'flex-1 border-r border-dashed transition-all',
+                         i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot)
+                           ? 'bg-red-500/30'
+                           : 'bg-green-500/15 hover:bg-green-500/25',
+                         i === slot.max_capacity ? 'border-r-0' : '',
+                         getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
+                           ? 'border-red-400'
+                           : 'border-green-400'
+                       ]"
+                       :title="`Position ${i}`">
+                    <!-- Numéro de position pour petits nombres -->
+                    <span v-if="slot.max_capacity <= 6" 
+                          class="flex items-center justify-center h-full text-[9px] font-bold opacity-40">
+                      {{ i }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Si > 8 places : Barre de progression avec indicateurs -->
+                <div v-else class="absolute inset-0 flex flex-col justify-center px-1">
+                  <!-- Barre de progression -->
+                  <div class="relative h-4 bg-white/50 rounded-full overflow-hidden border border-green-400">
+                    <div :class="[
+                           'h-full transition-all duration-500',
+                           getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
+                             ? 'bg-gradient-to-r from-red-400 to-red-600'
+                             : 'bg-gradient-to-r from-green-400 to-green-600'
+                         ]"
+                         :style="{ width: `${(getUsedSlotsForDateTime(day.date, slot.start_time, slot) / slot.max_capacity) * 100}%` }">
+                    </div>
+                    <!-- Pourcentage -->
+                    <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700">
+                      {{ Math.round((getUsedSlotsForDateTime(day.date, slot.start_time, slot) / slot.max_capacity) * 100) }}%
+                    </div>
+                  </div>
+                  
+                  <!-- Mini indicateurs de positions (max 10 points) -->
+                  <div class="flex justify-center gap-0.5 mt-1">
+                    <div v-for="i in Math.min(slot.max_capacity, 10)" 
+                         :key="`dot-${slot.id}-${i}`"
+                         :class="[
+                           'w-1 h-1 rounded-full',
+                           i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot)
+                             ? 'bg-red-500'
+                             : 'bg-green-500'
+                         ]">
+                    </div>
+                    <span v-if="slot.max_capacity > 10" class="text-[8px] text-gray-500 ml-1">
+                      +{{ slot.max_capacity - 10 }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Texte d'information -->
+                <div :class="[
+                  'absolute inset-0 flex items-center justify-center text-[10px] font-medium pointer-events-none z-10',
+                  getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
+                    ? 'text-red-700'
+                    : 'text-green-700'
+                ]"
+                     :style="{ 
+                       marginTop: slot.max_capacity <= 8 ? '0' : '24px',
+                       paddingLeft: '4px',
+                       paddingRight: '4px'
+                     }">
+                  <span class="bg-white/90 px-2 py-0.5 rounded shadow-sm whitespace-nowrap max-w-full overflow-hidden">
+                    {{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity ? '🔴 COMPLET' : '✅ Ouvert' }} • 
+                    {{ slot.start_time }}-{{ slot.end_time }} • 
+                    <strong>{{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) }}/{{ slot.max_capacity }}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cours - positionnés en absolu avec support multi-colonnes -->
+            <div v-for="(day, dayIndex) in displayDays" :key="`lessons-${day.date}`"
+                 class="absolute top-0 pointer-events-none"
+                 :style="{ 
+                   left: `${((dayIndex + 1) / totalColumns) * 100}%`, 
+                   width: `${(1 / totalColumns) * 100}%`,
+                   height: '100%'
+                 }">
+              
+              <div v-for="lesson in getLessonsForDayWithColumns(day.date)" 
                    :key="lesson.id"
-                   class="absolute inset-1 rounded p-2 text-xs border-l-4"
-                   :class="getLessonClass(lesson)"
-              >
-                <div class="font-medium truncate">{{ lesson.title }}</div>
-                <div class="text-xs opacity-75">{{ lesson.teacher_name }}</div>
-                <div class="text-xs opacity-75">{{ lesson.student_name }}</div>
-              </div>
-
-            <!-- Créneaux fermés (hors périodes d'ouverture) -->
-            <div v-if="!isInClubSchedule(day.date, hour)"
-                 class="absolute inset-1 bg-gray-100 border-l-4 border-gray-400 rounded p-2 text-xs text-gray-500"
-            >
-              <div class="font-medium">🔒 Fermé</div>
-              <div class="text-xs">Club fermé</div>
+                   class="absolute rounded-xl border-l-4 shadow-lg hover:shadow-2xl transition-all cursor-pointer z-20 overflow-hidden pointer-events-auto"
+                   :class="[
+                     getLessonClass(lesson),
+                     lesson.totalColumns > 2 ? 'p-1.5 text-[10px]' : 'p-3 text-xs'
+                   ]"
+                   :style="getLessonPositionWithColumns(lesson)"
+                   @click.stop="viewLesson(lesson)"
+                   :title="`${lesson.title} - ${getLessonTime(lesson)}\n${lesson.teacher_name || ''}\n${lesson.student_name || ''}`">
+                
+                <div class="font-bold truncate mb-1 flex items-center gap-1">
+                  <span class="flex-1 truncate">{{ lesson.title }}</span>
+                  <span v-if="lesson.totalColumns > 2" class="text-[9px] opacity-60">
+                    {{ lesson.teacher_name?.split(' ')[0] }}
+                  </span>
             </div>
-
-            <!-- Créneaux ouverts mais pas disponibles pour cours -->
-            <div v-else-if="isInClubSchedule(day.date, hour) && !isSlotOpen(day.date, hour)"
-                 class="absolute inset-1 bg-yellow-50 border-l-4 border-yellow-400 rounded p-2 text-xs text-yellow-700"
-            >
-              <div class="font-medium">⏰ Disponible</div>
-              <div class="text-xs">Ouvrir créneaux</div>
+                
+                <div v-if="lesson.totalColumns <= 2" class="text-[11px] opacity-80 font-medium truncate mb-1">
+                  ⏰ {{ getLessonTime(lesson) }}
+          </div>
+          
+                <div v-if="lesson.teacher_name && lesson.totalColumns <= 2" class="text-[11px] opacity-75 truncate">
+                  👨‍🏫 {{ lesson.teacher_name }}
             </div>
-
-            <!-- Créneaux ouverts et disponibles -->
-            <div v-else-if="isSlotOpen(day.date, hour) && getLessonsForSlot(day.date, hour).length === 0"
-                 class="absolute inset-1 bg-green-50 border-l-4 border-green-500 rounded p-2 text-xs text-green-700"
-            >
-              <div class="font-medium">✅ Disponible</div>
-              <div class="text-xs">Réserver cours</div>
-            </div>
-
-              <!-- Indicateur de sélection -->
-              <div v-if="isSlotSelected(day.date, hour)"
-                   class="absolute inset-0 bg-blue-200 bg-opacity-50 border-2 border-blue-400 rounded"
-              ></div>
-
-              <!-- Indicateur hover -->
-              <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
+            
+                <div v-if="lesson.student_name && lesson.totalColumns === 1" class="text-[11px] opacity-75 truncate mt-0.5">
+                  👤 {{ lesson.student_name }}
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
-    </div>
+          </div>
 
-    <!-- Modal Ouvrir créneaux récurrents -->
-    <div v-if="showOpenSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Ouvrir des créneaux récurrents</h3>
-        <p class="text-sm text-gray-600 mb-6">Définissez les créneaux horaires où les cours peuvent avoir lieu de manière récurrente.</p>
-        
+    <!-- Modal : Ajouter un créneau disponible -->
+    <div v-if="showAddSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Ajouter un créneau disponible</h3>
         <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Jour(s) de la semaine</label>
-            <div class="grid grid-cols-4 gap-2">
-              <label v-for="day in weekDaysRecurrence" :key="day.value" class="flex items-center space-x-2 cursor-pointer">
-                <input 
-                  v-model="openForm.selectedDays"
-                  :value="day.value"
-                  type="checkbox"
-                  class="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                >
-                <span class="text-sm">{{ day.label }}</span>
-              </label>
-            </div>
-          </div>
-          
+              <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Jour de la semaine</label>
+            <select v-model="slotForm.day_of_week" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+              <option value="1">Lundi</option>
+              <option value="2">Mardi</option>
+              <option value="3">Mercredi</option>
+              <option value="4">Jeudi</option>
+              <option value="5">Vendredi</option>
+              <option value="6">Samedi</option>
+              <option value="0">Dimanche</option>
+            </select>
+              </div>
           <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Heure début</label>
-              <div class="grid grid-cols-2 gap-2">
-                <select 
-                  v-model="openForm.startHour"
-                  class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option v-for="hour in availableHours" :key="hour" :value="hour">{{ hour }}h</option>
-                </select>
-                <select 
-                  v-model="openForm.startMinute"
-                  class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option v-for="minute in minutes" :key="minute" :value="minute">{{ minute }}min</option>
-                </select>
+              <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Heure début</label>
+              <input v-model="slotForm.start_time" type="time" class="w-full border border-gray-300 rounded-lg px-3 py-2">
               </div>
-            </div>
-            
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Heure fin</label>
-              <div class="grid grid-cols-2 gap-2">
-                <select 
-                  v-model="openForm.endHour"
-                  class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option v-for="hour in availableHours" :key="hour" :value="hour">{{ hour }}h</option>
-                </select>
-                <select 
-                  v-model="openForm.endMinute"
-                  class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                >
-                  <option v-for="minute in minutes" :key="minute" :value="minute">{{ minute }}min</option>
-                </select>
+              <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Heure fin</label>
+              <input v-model="slotForm.end_time" type="time" class="w-full border border-gray-300 rounded-lg px-3 py-2">
               </div>
-            </div>
-          </div>
+              </div>
           
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Sport</label>
-            <select 
-              v-model="openForm.activityTypeId"
-              @change="openForm.disciplineId = ''"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            >
-              <option value="">Sélectionner un sport</option>
+          <!-- Sélection du sport (si le club a plusieurs sports) -->
+          <div v-if="clubActivities.length > 1">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Sport *</label>
+            <select v-model="slotForm.activity_type_id" @change="onActivityChange" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+              <option value="">Sélectionner un sport...</option>
               <option v-for="activity in clubActivities" :key="activity.id" :value="activity.id">
                 {{ activity.name }}
               </option>
             </select>
           </div>
-
-          <div v-if="openForm.activityTypeId">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
-            <select 
-              v-model="openForm.disciplineId"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            >
-              <option value="">Sélectionner un type de cours</option>
-              <option v-for="discipline in availableDisciplinesForActivity" :key="discipline.id" :value="discipline.id">
-                {{ discipline.name }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Informations sur le cours sélectionné -->
-          <div v-if="selectedDisciplineSettings" class="bg-blue-50 p-4 rounded-lg">
-            <h4 class="font-medium text-blue-900 mb-2">Paramètres du cours</h4>
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span class="text-blue-700 font-medium">Durée :</span>
-                <span class="ml-1">{{ lessonDuration }} minutes</span>
-              </div>
-              <div>
-                <span class="text-blue-700 font-medium">Prix :</span>
-                <span class="ml-1">{{ selectedDisciplineSettings.price }}€</span>
-              </div>
-              <div>
-                <span class="text-blue-700 font-medium">Participants :</span>
-                <span class="ml-1">{{ selectedDisciplineSettings.min_participants || 1 }} - {{ selectedDisciplineSettings.max_participants || 10 }}</span>
-              </div>
-              <div v-if="selectedDisciplineSettings.notes">
-                <span class="text-blue-700 font-medium">Notes :</span>
-                <span class="ml-1">{{ selectedDisciplineSettings.notes }}</span>
-              </div>
-            </div>
+          
+          <!-- Affichage du sport (si le club n'a qu'un seul sport) -->
+          <div v-else-if="clubActivities.length === 1" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Sport</label>
+            <p class="text-sm text-gray-900 font-medium">{{ clubActivities[0].name }}</p>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description (optionnel)</label>
-            <input 
-              v-model="openForm.description"
-              type="text" 
-              placeholder="Ex: Cours de dressage, Cours tous niveaux..."
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            >
+            <label class="block text-sm font-medium text-gray-700 mb-2">Type de cours</label>
+            <select 
+              v-model="slotForm.discipline_id" 
+              :disabled="filteredDisciplinesForSlot.length === 0" 
+              class="w-full border border-gray-300 rounded-lg px-3 py-2" 
+              :class="{'bg-gray-100 cursor-not-allowed': filteredDisciplinesForSlot.length === 0}">
+              <option value="">Sélectionner...</option>
+              <option v-for="discipline in filteredDisciplinesForSlot" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
+            </select>
+            <p v-if="clubActivities.length > 1 && !slotForm.activity_type_id" class="text-xs text-gray-500 mt-1">
+              Veuillez d'abord sélectionner un sport pour afficher les types de cours
+            </p>
+            <p v-else-if="filteredDisciplinesForSlot.length === 0" class="text-xs text-red-600 mt-1">
+              Aucun type de cours disponible
+            </p>
+            </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre maximum de cours simultanés</label>
+            <input v-model.number="slotForm.max_capacity" type="number" min="1" max="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
           </div>
-
-          <!-- Aperçu des créneaux -->
-          <div v-if="openForm.selectedDays.length > 0 && computedStartTime && computedEndTime" class="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 class="text-sm font-medium text-green-800 mb-2">Aperçu des créneaux :</h4>
-            <div class="text-sm text-green-700">
-              <div v-for="day in getSelectedDayLabels()" :key="day">
-                <strong>{{ day }} :</strong> {{ computedStartTime }} - {{ computedEndTime }} 
-                ({{ calculateTimeSlots() }} créneaux de {{ openForm.lessonDuration }}min)
+          <div class="grid grid-cols-2 gap-4">
+          <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Durée du cours (min)</label>
+              <input v-model.number="slotForm.duration" type="number" min="15" step="5" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Prix (€)</label>
+              <input v-model.number="slotForm.price" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2">
               </div>
             </div>
           </div>
-        </div>
-        
         <div class="flex items-center justify-end space-x-3 mt-6">
-          <button 
-            @click="showOpenSlotModal = false"
-            class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            Annuler
-          </button>
-          <button 
-            @click="openRecurrentSlots"
-            :disabled="openForm.selectedDays.length === 0 || !computedStartTime || !computedEndTime || !openForm.activityTypeId || !openForm.disciplineId"
-            class="bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Ouvrir les créneaux
-          </button>
+          <button @click="showAddSlotModal = false" class="px-4 py-2 text-gray-600 hover:text-gray-800">Annuler</button>
+          <button @click="saveSlot" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Enregistrer</button>
         </div>
       </div>
     </div>
@@ -336,48 +543,47 @@
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Heure</label>
-            <select 
-              v-model="lessonForm.time"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option v-for="time in timeSlots" :key="time" :value="time">{{ time }}</option>
-            </select>
+            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
+              {{ lessonForm.time }}
+              <span class="text-xs text-gray-500 ml-2">(définie par le créneau sélectionné)</span>
+            </div>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
-            <select 
-              v-model="lessonForm.duration"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="30">30 minutes</option>
-              <option value="60">1 heure</option>
-              <option value="90">1h30</option>
-              <option value="120">2 heures</option>
-            </select>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Durée (en minutes)</label>
+            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+              {{ lessonForm.duration }} minutes
+            </div>
+            <p class="text-xs text-gray-500 mt-1">La durée est définie par le créneau sélectionné</p>
           </div>
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
-            <input 
-              v-model="lessonForm.title"
-              type="text" 
-              placeholder="Ex: Dressage, Saut d'obstacles..."
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
+            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
+              {{ getSelectedSlotDisciplineName() || 'Défini par le créneau' }}
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Le type de cours est défini par le créneau sélectionné</p>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Enseignant</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Enseignant
+              <span v-if="availableTeachersForLesson.length < teachers.length" class="text-xs text-gray-500">
+                ({{ availableTeachersForLesson.length }} disponible{{ availableTeachersForLesson.length > 1 ? 's' : '' }})
+              </span>
+            </label>
             <select 
               v-model="lessonForm.teacherId"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Sélectionner un enseignant</option>
-              <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
+              <option v-for="teacher in availableTeachersForLesson" :key="teacher.id" :value="teacher.id">
                 {{ teacher.name }}
               </option>
             </select>
+            <p v-if="availableTeachersForLesson.length === 0" class="text-xs text-red-600 mt-1">
+              Aucun enseignant disponible sur ce créneau
+            </p>
           </div>
           
           <div>
@@ -395,13 +601,10 @@
           
           <div class="col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-            <input 
-              v-model="lessonForm.price"
-              type="number" 
-              step="0.01"
-              placeholder="50.00"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
+            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-semibold">
+              {{ lessonForm.price }}€
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Le prix est fixé automatiquement selon le créneau sélectionné</p>
           </div>
           
           <div class="col-span-2">
@@ -436,7 +639,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -444,17 +647,33 @@ definePageMeta({
 
 // État réactif
 const currentWeek = ref(new Date())
+const currentDay = ref(new Date())
+const viewMode = ref('day') // 'day' ou 'week'
 const selectedSlot = ref(null)
 const lessons = ref([])
-const openSlots = ref([]) // Créneaux ouverts récurrents
+// Créneaux ouverts (simples, par jour de semaine)
+const availableSlots = ref([])
 const teachers = ref([])
 const students = ref([])
 const clubProfile = ref(null) // Profil du club avec horaires et disciplines
 const availableDisciplines = ref([]) // Disciplines disponibles du club
+const availableCourseTypes = ref([]) // Types de cours disponibles
+const lastUsedTeacherId = ref(null) // Dernier enseignant utilisé
 
 // Modals
-const showOpenSlotModal = ref(false)
+const showAddSlotModal = ref(false)
 const showCreateLessonModal = ref(false)
+// Formulaire créneau
+const slotForm = ref({
+  day_of_week: '1',
+  start_time: '09:00',
+  end_time: '10:00',
+  activity_type_id: '', // Sport sélectionné
+  discipline_id: '',
+  max_capacity: 3,
+  duration: 60,
+  price: 25
+})
 
 // Jours de la semaine pour récurrence
 const weekDaysRecurrence = [
@@ -525,13 +744,46 @@ const lessonDuration = computed(() => {
 
 // Computed properties pour les activités et disciplines
 const clubActivities = computed(() => {
-  if (!clubProfile.value?.disciplines) return []
+  if (!clubProfile.value) return []
   
   try {
-    // Récupérer les disciplines sélectionnées du club
+    console.log('🔍 [clubActivities] Calcul des activités du club...')
+    console.log('  - activity_types:', clubProfile.value.activity_types)
+    console.log('  - disciplines:', clubProfile.value.disciplines)
+    
+    // Priorité 1 : Utiliser activity_types si présent
+    if (clubProfile.value.activity_types) {
+      const activityData = typeof clubProfile.value.activity_types === 'string' 
+        ? JSON.parse(clubProfile.value.activity_types) 
+        : clubProfile.value.activity_types
+      
+      console.log('  - activityData après parsing:', activityData)
+      
+      if (Array.isArray(activityData) && activityData.length > 0) {
+        const activityIds = activityData.map(a => typeof a === 'object' ? a.id : a)
+        const activities = activityIds.map(activityTypeId => ({
+          id: activityTypeId,
+          name: getActivityName(activityTypeId),
+          icon: getActivityIcon(activityTypeId)
+        })).filter(a => a.name) // Filtrer les activités invalides
+        
+        console.log('✅ [clubActivities] Activités depuis activity_types:', activities)
+        return activities
+      }
+    }
+    
+    // Priorité 2 : Déduire depuis les disciplines (fallback)
+    console.log('  - Fallback: déduction depuis les disciplines')
+    if (!clubProfile.value.disciplines) {
+      console.log('  - Aucune discipline trouvée')
+      return []
+    }
+    
     const disciplineIds = typeof clubProfile.value.disciplines === 'string' 
       ? JSON.parse(clubProfile.value.disciplines) 
       : clubProfile.value.disciplines
+    
+    console.log('  - disciplineIds après parsing:', disciplineIds)
     
     if (!Array.isArray(disciplineIds)) return []
     
@@ -542,18 +794,22 @@ const clubActivities = computed(() => {
       const id = typeof disciplineId === 'object' ? disciplineId.id : disciplineId
       const discipline = availableDisciplines.value.find(d => d.id === parseInt(id))
       if (discipline && discipline.activity_type_id) {
+        console.log(`  - Discipline ${id} -> activity_type ${discipline.activity_type_id}`)
         activityTypeIds.add(discipline.activity_type_id)
       }
     })
     
     // Retourner les activités uniques
-    return Array.from(activityTypeIds).map(activityTypeId => ({
+    const activities = Array.from(activityTypeIds).map(activityTypeId => ({
       id: activityTypeId,
       name: getActivityName(activityTypeId),
       icon: getActivityIcon(activityTypeId)
-    }))
+    })).filter(a => a.name) // Filtrer les activités invalides
+    
+    console.log('✅ [clubActivities] Activités déduites:', activities)
+    return activities
   } catch (e) {
-    console.warn('Erreur parsing disciplines du club:', e)
+    console.warn('Erreur parsing disciplines/activités du club:', e)
     return []
   }
 })
@@ -583,6 +839,88 @@ const availableDisciplinesForActivity = computed(() => {
     console.warn('Erreur parsing disciplines du club pour filtrage:', e)
     return []
   }
+})
+
+// Disciplines filtrées pour la modale d'ajout de créneau
+const filteredDisciplinesForSlot = computed(() => {
+  if (!clubProfile.value?.disciplines) return []
+  
+  try {
+    // Récupérer les disciplines sélectionnées du club
+    const clubDisciplineIds = typeof clubProfile.value.disciplines === 'string' 
+      ? JSON.parse(clubProfile.value.disciplines) 
+      : clubProfile.value.disciplines
+    
+    if (!Array.isArray(clubDisciplineIds)) return []
+    
+    // Convertir en nombres si nécessaire
+    const clubDisciplineIdNumbers = clubDisciplineIds.map(id => 
+      typeof id === 'object' ? id.id : parseInt(id)
+    )
+    
+    // Récupérer les IDs des activités sélectionnées
+    const selectedActivityIds = clubActivities.value.map(a => a.id)
+    
+    // Si le club a plusieurs sports et qu'un sport est sélectionné, filtrer par sport
+    if (clubActivities.value.length > 1 && slotForm.value.activity_type_id) {
+      return availableDisciplines.value.filter(discipline => 
+        discipline.activity_type_id === parseInt(slotForm.value.activity_type_id) &&
+        clubDisciplineIdNumbers.includes(discipline.id) &&
+        selectedActivityIds.includes(discipline.activity_type_id) // Vérifier que l'activité est sélectionnée
+      )
+    }
+    
+    // Si le club n'a qu'un seul sport, afficher toutes les disciplines de ce sport
+    if (clubActivities.value.length === 1) {
+      const activityId = clubActivities.value[0].id
+      return availableDisciplines.value.filter(discipline => 
+        discipline.activity_type_id === activityId &&
+        clubDisciplineIdNumbers.includes(discipline.id) &&
+        selectedActivityIds.includes(discipline.activity_type_id) // Vérifier que l'activité est sélectionnée
+      )
+    }
+    
+    // Par défaut, afficher uniquement les disciplines dont l'activité est sélectionnée
+    return availableDisciplines.value.filter(discipline => 
+      clubDisciplineIdNumbers.includes(discipline.id) &&
+      selectedActivityIds.includes(discipline.activity_type_id) // Vérifier que l'activité est sélectionnée
+    )
+  } catch (e) {
+    console.warn('Erreur parsing disciplines du club pour filtrage slot:', e)
+    return []
+  }
+})
+
+// Enseignants disponibles (non occupés) sur le créneau sélectionné
+const availableTeachersForLesson = computed(() => {
+  if (!lessonForm.value.date || !lessonForm.value.time) {
+    return teachers.value
+  }
+
+  // Obtenir les cours déjà programmés sur ce créneau
+  const lessonsAtSlot = lessons.value.filter(lesson => {
+    if (!lesson.start_time) return false
+    
+    // Extraire la date et l'heure du cours
+    let lessonDate, lessonTime
+    if (lesson.start_time.includes('T')) {
+      [lessonDate, lessonTime] = lesson.start_time.split('T')
+      lessonTime = lessonTime.substring(0, 5) // HH:MM
+    } else if (lesson.start_time.includes(' ')) {
+      [lessonDate, lessonTime] = lesson.start_time.split(' ')
+      lessonTime = lessonTime.substring(0, 5) // HH:MM
+    } else {
+      return false
+    }
+    
+    return lessonDate === lessonForm.value.date && lessonTime === lessonForm.value.time
+  })
+  
+  // IDs des enseignants déjà occupés
+  const occupiedTeacherIds = lessonsAtSlot.map(l => l.teacher_id).filter(id => id)
+  
+  // Retourner uniquement les enseignants disponibles
+  return teachers.value.filter(teacher => !occupiedTeacherIds.includes(teacher.id))
 })
 
 // Fonctions utilitaires pour récupérer les noms et icônes des activités
@@ -618,25 +956,82 @@ const lessonForm = ref({
   date: '',
   time: '',
   duration: '60',
-  title: '',
+  courseTypeId: '',
   teacherId: '',
   studentId: '',
-  price: '',
+  price: '50.00',
   notes: ''
 })
 
-// Configuration des créneaux horaires basée sur le profil du club
-const timeSlots = computed(() => {
+// Configuration des prix par type de cours et durée
+// Ces prix seront surchargés par les prix définis dans la base de données si disponibles
+const coursePrices = {
+  '1': { // Cours individuel (défaut)
+    '15': 20,
+    '20': 25,
+    '30': 35,
+    '45': 50,
+    '60': 65,
+    '90': 90
+  },
+  '2': { // Cours de groupe (défaut)
+    '15': 12,
+    '20': 15,
+    '30': 20,
+    '45': 30,
+    '60': 40,
+    '90': 55
+  },
+  '3': { // Entraînement (défaut)
+    '15': 25,
+    '20': 30,
+    '30': 40,
+    '45': 55,
+    '60': 70,
+    '90': 100
+  },
+  '4': { // Compétition (défaut)
+    '15': 30,
+    '20': 35,
+    '30': 50,
+    '45': 70,
+    '60': 90,
+    '90': 130
+  }
+}
+
+// Fonction pour mettre à jour le prix automatiquement
+const updateLessonPrice = () => {
+  const courseTypeId = lessonForm.value.courseTypeId
+  const duration = lessonForm.value.duration
+  
+  if (!courseTypeId) return
+  
+  // 1. Essayer d'utiliser le prix défini dans le type de cours (si durée correspond)
+  const courseType = availableCourseTypes.value.find(ct => ct.id.toString() === courseTypeId)
+  if (courseType && courseType.duration && courseType.price && courseType.duration.toString() === duration) {
+    lessonForm.value.price = courseType.price.toString()
+    return
+  }
+  
+  // 2. Sinon, utiliser la grille de prix par défaut
+  if (coursePrices[courseTypeId] && coursePrices[courseTypeId][duration]) {
+    lessonForm.value.price = coursePrices[courseTypeId][duration].toString()
+    return
+  }
+  
+  // 3. Calculer proportionnellement si le type de cours a un prix de base
+  if (courseType && courseType.price && courseType.duration) {
+    const pricePerMinute = parseFloat(courseType.price) / parseInt(courseType.duration)
+    lessonForm.value.price = (pricePerMinute * parseInt(duration)).toFixed(2)
+  }
+}
+
+// Configuration des heures à afficher (de 6h à 22h par défaut)
+const hourRanges = computed(() => {
   if (!clubProfile.value?.schedule_config) {
-    // Fallback: générer les créneaux par défaut (6h-22h)
-    const slots = []
-    for (let hour = 6; hour <= 22; hour++) {
-      for (let minute = 0; minute < 60; minute += 5) {
-        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-        slots.push(timeStr)
-      }
-    }
-    return slots
+    // Fallback: 6h-22h
+    return Array.from({ length: 17 }, (_, i) => i + 6)
   }
   
   // Extraire les heures min/max de toutes les périodes configurées
@@ -659,15 +1054,24 @@ const timeSlots = computed(() => {
     maxHour = 22
   }
   
-  // Générer les créneaux de 5 minutes dans la plage configurée
-  const slots = []
+  // Générer la liste des heures
+  const ranges = []
   for (let hour = minHour; hour <= maxHour; hour++) {
+    ranges.push(hour)
+  }
+  
+  return ranges
+})
+
+// Pour le select de temps dans les modals
+const timeSlots = computed(() => {
+  const slots = []
+  for (let hour = 6; hour <= 22; hour++) {
     for (let minute = 0; minute < 60; minute += 5) {
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
       slots.push(timeStr)
     }
   }
-  
   return slots
 })
 
@@ -695,6 +1099,26 @@ const weekDays = computed(() => {
   return days
 })
 
+// Jour unique pour la vue journée
+const singleDay = computed(() => {
+  const day = new Date(currentDay.value)
+  return [{
+    date: day.toISOString().split('T')[0],
+    name: day.toLocaleDateString('fr-FR', { weekday: 'long' }),
+    dayNumber: day.getDate()
+  }]
+})
+
+// Jours à afficher selon le mode
+const displayDays = computed(() => {
+  return viewMode.value === 'week' ? weekDays.value : singleDay.value
+})
+
+// Nombre total de colonnes (incluant la colonne horaires)
+const totalColumns = computed(() => {
+  return viewMode.value === 'week' ? 8 : 2
+})
+
 // Navigation semaine
 const previousWeek = () => {
   const newWeek = new Date(currentWeek.value)
@@ -710,8 +1134,25 @@ const nextWeek = () => {
   loadPlanningData()
 }
 
+// Navigation jour
+const previousDay = () => {
+  const newDay = new Date(currentDay.value)
+  newDay.setDate(newDay.getDate() - 1)
+  currentDay.value = newDay
+  loadPlanningData()
+}
+
+const nextDay = () => {
+  const newDay = new Date(currentDay.value)
+  newDay.setDate(newDay.getDate() + 1)
+  currentDay.value = newDay
+  loadPlanningData()
+}
+
 const goToToday = () => {
-  currentWeek.value = new Date()
+  const today = new Date()
+  currentWeek.value = today
+  currentDay.value = today
   loadPlanningData()
 }
 
@@ -725,27 +1166,162 @@ const formatWeekRange = (date) => {
   return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
 }
 
+const formatDayTitle = (date) => {
+  const day = new Date(date)
+  return day.toLocaleDateString('fr-FR', { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  })
+}
+
 const formatDate = (dateStr) => {
   const date = new Date(dateStr)
   return date.getDate()
 }
 
-// Gestion des créneaux
-const selectSlot = (date, hour) => {
-  // Vérifier le type de créneau pour donner un message approprié
-  if (!isInClubSchedule(date, hour)) {
-    alert('Ce créneau est en dehors des heures d\'ouverture du club. Configurez d\'abord les horaires dans le profil.')
+const isToday = (dateStr) => {
+  const today = new Date()
+  const date = new Date(dateStr)
+  return today.toISOString().split('T')[0] === date.toISOString().split('T')[0]
+}
+
+// Gestion des créneaux - nouvelle version flexible
+// Ouvrir la modal d'ajout de créneau avec préchargement intelligent
+const openAddSlotModal = (slotToDuplicate = null) => {
+  if (slotToDuplicate) {
+    // Dupliquer un créneau existant
+    console.log('🔄 Duplication du créneau:', slotToDuplicate)
+    
+    // Récupérer l'activity_type_id de la discipline
+    const discipline = availableDisciplines.value.find(d => d.id === slotToDuplicate.discipline_id)
+    
+    slotForm.value = {
+      day_of_week: slotToDuplicate.day_of_week.toString(),
+      start_time: slotToDuplicate.start_time,
+      end_time: slotToDuplicate.end_time,
+      activity_type_id: discipline?.activity_type_id?.toString() || 
+                        (clubActivities.value.length === 1 ? clubActivities.value[0].id.toString() : ''),
+      discipline_id: slotToDuplicate.discipline_id?.toString() || '',
+      max_capacity: slotToDuplicate.max_capacity || 3,
+      duration: slotToDuplicate.duration || 60,
+      price: parseFloat(slotToDuplicate.price) || 25
+    }
+    
+    console.log('✅ Formulaire préchargé:', slotForm.value)
+  } else if (availableSlots.value.length > 0) {
+    // Précharger avec les valeurs du dernier créneau créé
+    const lastSlot = availableSlots.value[availableSlots.value.length - 1]
+    const discipline = availableDisciplines.value.find(d => d.id === lastSlot.discipline_id)
+    
+    slotForm.value = {
+      day_of_week: '1', // Lundi par défaut
+      start_time: lastSlot.start_time || '09:00',
+      end_time: lastSlot.end_time || '10:00',
+      activity_type_id: discipline?.activity_type_id?.toString() || 
+                        (clubActivities.value.length === 1 ? clubActivities.value[0].id.toString() : ''),
+      discipline_id: lastSlot.discipline_id?.toString() || '',
+      max_capacity: lastSlot.max_capacity || 3,
+      duration: lastSlot.duration || 60,
+      price: parseFloat(lastSlot.price) || 25
+    }
+  } else {
+    // Réinitialiser avec des valeurs par défaut
+    slotForm.value = {
+      day_of_week: '1',
+      start_time: '09:00',
+      end_time: '10:00',
+      activity_type_id: clubActivities.value.length === 1 ? clubActivities.value[0].id.toString() : '',
+      discipline_id: '',
+      max_capacity: 3,
+      duration: 60,
+      price: 25
+    }
+  }
+  
+  showAddSlotModal.value = true
+}
+
+// Fonction pour récupérer les settings d'une discipline depuis le profil club
+const getDisciplineSettings = (disciplineId) => {
+  if (!clubProfile.value?.discipline_settings || !disciplineId) {
+    return { duration: 60, price: 25 }
+  }
+  
+  try {
+    const settings = typeof clubProfile.value.discipline_settings === 'string'
+      ? JSON.parse(clubProfile.value.discipline_settings)
+      : clubProfile.value.discipline_settings
+    
+    const disciplineSettings = settings[disciplineId]
+    if (disciplineSettings) {
+      return {
+        duration: disciplineSettings.duration || 60,
+        price: disciplineSettings.price || 25
+      }
+    }
+  } catch (e) {
+    console.warn('Erreur lors de la récupération des settings de la discipline:', e)
+  }
+  
+  return { duration: 60, price: 25 }
+}
+
+const selectTimeSlot = (date, hour, minute) => {
+  const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+  
+  // Trouver le créneau correspondant à cette date/heure (PRIORITÉ 1)
+  const dayOfWeek = new Date(date).getDay()
+  const slot = availableSlots.value.find(s => 
+    parseInt(s.day_of_week) === dayOfWeek && 
+    timeStr >= s.start_time && 
+    timeStr < s.end_time
+  )
+  
+  // Si aucun créneau ouvert n'existe, vérifier les horaires généraux du club
+  if (!slot) {
+    if (!isDayHourInSchedule(date, hour)) {
+      alert('Ce créneau est en dehors des heures d\'ouverture du club. Configurez d\'abord les horaires dans le profil.')
+      return
+    }
+    alert('Aucun créneau n\'est configuré pour cet horaire. Veuillez d\'abord ajouter un créneau disponible.')
     return
   }
   
-  if (!isSlotOpen(date, hour)) {
-    alert('Ce créneau n\'est pas ouvert pour les cours. Utilisez "Ouvrir créneaux" pour le rendre disponible.')
+  // Vérifier si le créneau n'est pas plein pour cette date/heure spécifique
+  const usedCount = getUsedSlotsForDateTime(date, hour, slot)
+  if (usedCount >= slot.max_capacity) {
+    alert(`Ce créneau est complet (${usedCount}/${slot.max_capacity} cours). Impossible d'ajouter un nouveau cours.`)
     return
   }
   
-  selectedSlot.value = { date, hour }
+  selectedSlot.value = { date, hour: timeStr, slot }
+  
+  // Précharger toutes les données du créneau dans le formulaire de cours
   lessonForm.value.date = date
-  lessonForm.value.time = hour
+  lessonForm.value.time = timeStr
+  lessonForm.value.duration = slot.duration?.toString() || '60'
+  lessonForm.value.price = slot.price?.toString() || '50.00'
+  lessonForm.value.courseTypeId = slot.discipline_id ? slot.discipline_id.toString() : ''
+  
+  // Réinitialiser les champs spécifiques au cours
+  lessonForm.value.studentId = ''
+  lessonForm.value.notes = ''
+  
+  // Présélectionner le dernier enseignant utilisé s'il est disponible
+  // On attendra que availableTeachersForLesson soit recalculé dans nextTick
+  setTimeout(() => {
+    if (lastUsedTeacherId.value && availableTeachersForLesson.value.find(t => t.id === lastUsedTeacherId.value)) {
+      lessonForm.value.teacherId = lastUsedTeacherId.value.toString()
+    } else if (availableTeachersForLesson.value.length === 1) {
+      // S'il n'y a qu'un seul enseignant disponible, le sélectionner automatiquement
+      lessonForm.value.teacherId = availableTeachersForLesson.value[0].id.toString()
+    } else {
+      lessonForm.value.teacherId = ''
+    }
+  }, 50)
+  
   showCreateLessonModal.value = true
 }
 
@@ -753,43 +1329,409 @@ const isSlotSelected = (date, hour) => {
   return selectedSlot.value?.date === date && selectedSlot.value?.hour === hour
 }
 
-// Vérifier si un créneau est dans les périodes d'ouverture du club
-const isInClubSchedule = (date, hour) => {
-  if (!clubProfile.value?.schedule_config) return true // Si pas de config, tout est ouvert par défaut
+// Vérifier si une heure est dans les horaires d'ouverture du club
+const isDayHourInSchedule = (date, hour) => {
+  if (!clubProfile.value?.schedule_config) return true
   
   const dayOfWeek = new Date(date).getDay()
   const scheduleConfig = clubProfile.value.schedule_config
-  const dayConfig = scheduleConfig[dayOfWeek === 0 ? 6 : dayOfWeek - 1] // Convertir dimanche=0 vers index 6
+  const dayConfig = scheduleConfig[dayOfWeek === 0 ? 6 : dayOfWeek - 1]
   
   if (!dayConfig || !dayConfig.periods || dayConfig.periods.length === 0) {
-    return false // Pas de périodes configurées pour ce jour
+    return false
   }
   
   // Vérifier si l'heure est dans une des périodes d'ouverture du jour
   return dayConfig.periods.some(period => {
-    const startTime = `${period.startHour}:${period.startMinute}`
-    const endTime = `${period.endHour}:${period.endMinute}`
-    return hour >= startTime && hour < endTime
+    const startHour = parseInt(period.startHour)
+    const endHour = parseInt(period.endHour)
+    return hour >= startHour && hour < endHour
   })
 }
 
-const isSlotOpen = (date, hour) => {
-  // D'abord vérifier si c'est dans les horaires du club
-  if (!isInClubSchedule(date, hour)) {
-    return false
-  }
-  
-  // Ensuite vérifier les créneaux spécifiquement ouverts pour des cours
-  const dayOfWeek = new Date(date).getDay()
-  
-  return openSlots.value.some(slot => {
-    // Vérifier si le jour correspond
-    if (!slot.days.includes(dayOfWeek)) return false
+// Récupérer tous les cours d'un jour donné
+const getLessonsForDay = (date) => {
+  return lessons.value.filter(lesson => {
+    if (!lesson.start_time) return false
     
-    // Vérifier si l'heure est dans la plage
-    return hour >= slot.startTime && hour < slot.endTime
+    let lessonDate
+    
+    if (lesson.start_time.includes('T')) {
+      lessonDate = lesson.start_time.split('T')[0]
+    } else if (lesson.start_time.includes(' ')) {
+      lessonDate = lesson.start_time.split(' ')[0]
+    } else {
+      const lessonDateTime = new Date(lesson.start_time)
+      if (isNaN(lessonDateTime.getTime())) return false
+      lessonDate = lessonDateTime.toISOString().split('T')[0]
+    }
+    
+    return lessonDate === date
   })
 }
+
+// Vérifier si deux cours se chevauchent
+const lessonsOverlap = (lesson1, lesson2) => {
+  const start1 = getLessonStartMinutes(lesson1)
+  const end1 = start1 + lesson1.duration
+  const start2 = getLessonStartMinutes(lesson2)
+  const end2 = start2 + lesson2.duration
+  
+  return start1 < end2 && start2 < end1
+}
+
+// Obtenir l'heure de début d'un cours en minutes depuis minuit
+const getLessonStartMinutes = (lesson) => {
+  let startHour, startMinute
+  
+  if (lesson.start_time.includes('T')) {
+    const timePart = lesson.start_time.split('T')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else if (lesson.start_time.includes(' ')) {
+    const timePart = lesson.start_time.split(' ')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else {
+    const lessonDateTime = new Date(lesson.start_time)
+    startHour = lessonDateTime.getHours()
+    startMinute = lessonDateTime.getMinutes()
+  }
+  
+  return startHour * 60 + startMinute
+}
+
+// Récupérer les cours d'un jour avec calcul des colonnes
+const getLessonsForDayWithColumns = (date) => {
+  const dayLessons = getLessonsForDay(date)
+  
+  if (dayLessons.length === 0) return []
+  
+  // Trier les cours par heure de début
+  const sortedLessons = [...dayLessons].sort((a, b) => {
+    return getLessonStartMinutes(a) - getLessonStartMinutes(b)
+  })
+  
+  // Attribuer des colonnes aux cours qui se chevauchent
+  const lessonsWithColumns = []
+  
+  sortedLessons.forEach(lesson => {
+    // Trouver tous les cours qui se chevauchent avec celui-ci
+    const overlappingLessons = lessonsWithColumns.filter(l => 
+      lessonsOverlap(lesson, l)
+    )
+    
+    if (overlappingLessons.length === 0) {
+      // Pas de chevauchement, colonne 0
+      lessonsWithColumns.push({
+        ...lesson,
+        column: 0,
+        totalColumns: 1
+      })
+    } else {
+      // Trouver la première colonne disponible
+      const usedColumns = overlappingLessons.map(l => l.column)
+      let column = 0
+      while (usedColumns.includes(column)) {
+        column++
+      }
+      
+      // Calculer le nombre total de colonnes nécessaires
+      const maxColumn = Math.max(...overlappingLessons.map(l => l.column), column)
+      const totalColumns = maxColumn + 1
+      
+      // Mettre à jour le totalColumns de tous les cours chevauchants
+      overlappingLessons.forEach(l => {
+        l.totalColumns = totalColumns
+      })
+      
+      lessonsWithColumns.push({
+        ...lesson,
+        column,
+        totalColumns
+      })
+    }
+  })
+  
+  return lessonsWithColumns
+}
+
+// Calculer la position d'un cours avec support des colonnes multiples
+const getLessonPositionWithColumns = (lesson) => {
+  if (!lesson.start_time || !lesson.duration) return { top: '0px', height: '60px', left: '4px', width: 'calc(100% - 8px)' }
+  
+  // Parser l'heure de début
+  let startHour, startMinute
+  
+  if (lesson.start_time.includes('T')) {
+    const timePart = lesson.start_time.split('T')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else if (lesson.start_time.includes(' ')) {
+    const timePart = lesson.start_time.split(' ')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else {
+    const lessonDateTime = new Date(lesson.start_time)
+    startHour = lessonDateTime.getHours()
+    startMinute = lessonDateTime.getMinutes()
+  }
+  
+  // Heure de début du calendrier
+  const calendarStartHour = hourRanges.value[0] || 6
+  
+  // Calculer le décalage depuis le début du calendrier en minutes
+  const offsetMinutes = (startHour - calendarStartHour) * 60 + startMinute
+  
+  // Chaque heure fait 60px de hauteur
+  const pixelsPerMinute = 60 / 60 // 1px par minute
+  const top = offsetMinutes * pixelsPerMinute
+  
+  // Calculer la hauteur en fonction de la durée
+  const height = lesson.duration * pixelsPerMinute
+  
+  // Calculer la largeur et la position en fonction des colonnes
+  const column = lesson.column || 0
+  const totalColumns = lesson.totalColumns || 1
+  
+  // Largeur = (100% / nombre de colonnes) - un petit gap
+  const widthPercent = 100 / totalColumns
+  const leftPercent = column * widthPercent
+  
+  // Ajouter un petit espacement entre les cours (2px de chaque côté)
+  const gapPx = 2
+  
+  return {
+    top: `${top}px`,
+    height: `${Math.max(height, 40)}px`,
+    left: `calc(${leftPercent}% + ${gapPx}px)`,
+    width: `calc(${widthPercent}% - ${gapPx * 2}px)`
+  }
+}
+
+// Formater l'heure d'affichage du cours
+const getLessonTime = (lesson) => {
+  if (!lesson.start_time || !lesson.duration) return ''
+  
+  let startHour, startMinute
+  
+  if (lesson.start_time.includes('T')) {
+    const timePart = lesson.start_time.split('T')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else if (lesson.start_time.includes(' ')) {
+    const timePart = lesson.start_time.split(' ')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else {
+    const lessonDateTime = new Date(lesson.start_time)
+    startHour = lessonDateTime.getHours()
+    startMinute = lessonDateTime.getMinutes()
+  }
+  
+  // Calculer l'heure de fin
+  const endMinutes = startMinute + lesson.duration
+  const endHour = startHour + Math.floor(endMinutes / 60)
+  const endMinute = endMinutes % 60
+  
+  return `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')} - ${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')} (${lesson.duration}min)`
+}
+
+// Créneaux ouverts - helpers
+const getOpenSlotsForDay = (date) => {
+  const dow = new Date(date).getDay()
+  return availableSlots.value.filter(s => parseInt(s.day_of_week) === dow)
+}
+
+const getOpenSlotPosition = (slot) => {
+  // Heure de début du calendrier (première heure affichée)
+  const calendarStartHour = hourRanges.value[0] || 6
+  
+  // Parser les heures de début et fin du créneau
+  const [startH, startM] = slot.start_time.split(':').map(n => parseInt(n))
+  const [endH, endM] = slot.end_time.split(':').map(n => parseInt(n))
+  
+  // Calculer les offsets en minutes depuis le début du calendrier
+  const startOffsetMinutes = (startH - calendarStartHour) * 60 + startM
+  const endOffsetMinutes = (endH - calendarStartHour) * 60 + endM
+  
+  // Convertir en pixels (1 minute = 1 pixel)
+  const topPixels = startOffsetMinutes
+  const heightPixels = Math.max(endOffsetMinutes - startOffsetMinutes, 20)
+  
+  // Debug log pour diagnostiquer les décalages
+  console.log('🎯 Position créneau:', {
+    slot: `${slot.start_time} - ${slot.end_time}`,
+    calendarStart: `${calendarStartHour}:00`,
+    startOffset: `${startOffsetMinutes}px`,
+    endOffset: `${endOffsetMinutes}px`,
+    top: `${topPixels}px`,
+    height: `${heightPixels}px`,
+    capacity: slot.max_capacity
+  })
+  
+  return { 
+    top: `${topPixels}px`, 
+    height: `${heightPixels}px` 
+  }
+}
+
+const getUsedSlots = (slot) => {
+  // Compte le nombre de cours qui démarrent dans la plage ouverte (pour le jour de la semaine)
+  return lessons.value.filter(lesson => {
+    const dt = lesson.start_time.includes('T') ? new Date(lesson.start_time) : new Date(lesson.start_time.replace(' ', 'T'))
+    const dow = dt.getDay()
+    const t = dt.toTimeString().substring(0,5)
+    return dow === parseInt(slot.day_of_week) && t >= slot.start_time && t < slot.end_time
+  }).length
+}
+
+// Compte les cours sur une date et heure spécifiques
+const getUsedSlotsForDateTime = (date, hour, slot) => {
+  if (!slot) return 0
+  
+  const timeStr = typeof hour === 'string' ? hour : `${hour.toString().padStart(2, '0')}:00`
+  
+  return lessons.value.filter(lesson => {
+    if (!lesson.start_time) return false
+    
+    // Extraire date et heure du cours
+    let lessonDate, lessonTime
+    if (lesson.start_time.includes('T')) {
+      [lessonDate, lessonTime] = lesson.start_time.split('T')
+      lessonTime = lessonTime.substring(0, 5)
+    } else if (lesson.start_time.includes(' ')) {
+      [lessonDate, lessonTime] = lesson.start_time.split(' ')
+      lessonTime = lessonTime.substring(0, 5)
+    } else {
+      return false
+    }
+    
+    // Vérifier si le cours est sur cette date ET dans la plage horaire du slot
+    return lessonDate === date && lessonTime >= slot.start_time && lessonTime < slot.end_time
+  }).length
+}
+
+// Vérifie si un créneau spécifique (date + heure) est complet OU inexistant
+const isSlotFull = (date, hour) => {
+  const dayOfWeek = new Date(date).getDay()
+  const timeStr = typeof hour === 'string' ? hour : `${hour.toString().padStart(2, '0')}:00`
+  
+  const slot = availableSlots.value.find(s => 
+    parseInt(s.day_of_week) === dayOfWeek && 
+    timeStr >= s.start_time && 
+    timeStr < s.end_time
+  )
+  
+  // Si aucun créneau n'existe pour cette heure, la case n'est pas cliquable
+  if (!slot) return true
+  
+  // Vérifier si le créneau est plein
+  return getUsedSlotsForDateTime(date, hour, slot) >= slot.max_capacity
+}
+
+
+const onActivityChange = () => {
+  // Réinitialiser la discipline sélectionnée quand le sport change
+  slotForm.value.discipline_id = ''
+}
+
+const saveSlot = async () => {
+  try {
+    // Validation : vérifier que le sport est sélectionné si nécessaire
+    if (clubActivities.value.length > 1 && !slotForm.value.activity_type_id) {
+      alert('Veuillez sélectionner un sport')
+      return
+    }
+    
+    // Validation : vérifier qu'un type de cours est sélectionné
+    if (!slotForm.value.discipline_id) {
+      alert('Veuillez sélectionner un type de cours')
+      return
+    }
+    
+    const { $api } = useNuxtApp()
+    
+    // Préparer les données pour l'API
+    const slotData = {
+      day_of_week: parseInt(slotForm.value.day_of_week),
+      start_time: slotForm.value.start_time,
+      end_time: slotForm.value.end_time,
+      discipline_id: slotForm.value.discipline_id ? parseInt(slotForm.value.discipline_id) : null,
+      max_capacity: parseInt(slotForm.value.max_capacity),
+      duration: parseInt(slotForm.value.duration),
+      price: parseFloat(slotForm.value.price)
+    }
+    
+    console.log('📤 Envoi du créneau:', slotData)
+    console.log('📋 Discipline sélectionnée:', {
+      id: slotData.discipline_id,
+      type: typeof slotData.discipline_id,
+      discipline: availableDisciplines.value.find(d => d.id === slotData.discipline_id)
+    })
+    console.log('📚 Toutes les disciplines disponibles:', availableDisciplines.value.map(d => ({
+      id: d.id,
+      name: d.name,
+      activity_type_id: d.activity_type_id
+    })))
+    console.log('🎯 La discipline 11 existe?', availableDisciplines.value.find(d => d.id === 11))
+    
+    // Appeler l'API backend
+    const response = await $api.post('/club/open-slots', slotData)
+    
+    if (response.data.success) {
+      console.log('✅ Créneau créé avec succès:', response.data.data)
+      
+      // Recharger les créneaux depuis l'API
+      await loadOpenSlots()
+      
+      showAddSlotModal.value = false
+      
+      // Réinitialiser le formulaire
+      slotForm.value = {
+        day_of_week: '1',
+        start_time: '09:00',
+        end_time: '10:00',
+        activity_type_id: '',
+        discipline_id: '',
+        max_capacity: 3,
+        duration: 60,
+        price: 25
+      }
+    }
+  } catch (e) {
+    console.error('Erreur lors de la création du créneau:', e)
+    console.error('Détails complets de l\'erreur:', {
+      status: e.response?.status,
+      statusText: e.response?.statusText,
+      data: e.response?.data,
+      errors: e.response?.data?.errors,
+      message: e.response?.data?.message
+    })
+    
+    if (e.response?.data?.errors) {
+      const errors = e.response.data.errors
+      console.error('🔴 Erreurs de validation détaillées:', errors)
+      
+      const errorMessages = Object.entries(errors)
+        .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+        .join('\n')
+      
+      alert(`Erreur de validation:\n\n${errorMessages}`)
+    } else if (e.response?.data?.message) {
+      alert(`Erreur: ${e.response.data.message}`)
+    } else {
+      alert('Erreur lors de la création du créneau.')
+    }
+  }
+}
+
 
 // Helpers pour la modal d'ouverture
 const getSelectedDayLabels = () => {
@@ -813,44 +1755,21 @@ const timeToMinutes = (time) => {
   return hours * 60 + minutes
 }
 
-const getLessonsForSlot = (date, hour) => {
-  return lessons.value.filter(lesson => {
-    if (!lesson.start_time) return false
-    
-    // Parse both ISO format (2025-09-23T09:00:00.000000Z) and traditional format (2025-09-23 09:00:00)
-    let lessonDate, lessonHour
-    
-    if (lesson.start_time.includes('T')) {
-      // ISO format: 2025-09-23T09:00:00.000000Z
-      const [datePart, timePart] = lesson.start_time.split('T')
-      lessonDate = datePart
-      lessonHour = timePart.substring(0, 5) // Get HH:MM
-    } else if (lesson.start_time.includes(' ')) {
-      // Traditional format: 2025-09-23 09:00:00
-      const [datePart, timePart] = lesson.start_time.split(' ')
-      lessonDate = datePart
-      lessonHour = timePart.substring(0, 5) // Get HH:MM
-    } else {
-      // Fallback: try to parse as date object
-      const lessonDateTime = new Date(lesson.start_time)
-      if (isNaN(lessonDateTime.getTime())) return false
-      
-      lessonDate = lessonDateTime.toISOString().split('T')[0]
-      lessonHour = lessonDateTime.toISOString().split('T')[1].substring(0, 5)
-    }
-    
-    return lessonDate === date && lessonHour === hour
-  })
-}
-
 const getLessonClass = (lesson) => {
   const statusClasses = {
-    'confirmed': 'bg-green-100 border-green-500 text-green-800',
-    'pending': 'bg-yellow-100 border-yellow-500 text-yellow-800',
-    'completed': 'bg-blue-100 border-blue-500 text-blue-800',
-    'cancelled': 'bg-gray-100 border-gray-500 text-gray-800'
+    'confirmed': 'bg-blue-100 border-blue-500 text-blue-900',
+    'pending': 'bg-yellow-100 border-yellow-500 text-yellow-900',
+    'completed': 'bg-green-100 border-green-500 text-green-900',
+    'cancelled': 'bg-gray-100 border-gray-400 text-gray-700 line-through'
   }
-  return statusClasses[lesson.status] || 'bg-gray-100 border-gray-500 text-gray-800'
+  return statusClasses[lesson.status] || 'bg-blue-100 border-blue-500 text-blue-900'
+}
+
+// Voir les détails d'un cours
+const viewLesson = (lesson) => {
+  // TODO: Implémenter l'affichage des détails du cours
+  console.log('Voir le cours:', lesson)
+  alert(`Cours: ${lesson.title}\nEnseignant: ${lesson.teacher_name}\nÉlève: ${lesson.student_name || 'Non assigné'}\nStatut: ${lesson.status}`)
 }
 
 // Actions
@@ -897,6 +1816,18 @@ const openRecurrentSlots = async () => {
   }
 }
 
+// Fonction pour vérifier si un créneau est ouvert et disponible
+const isSlotOpen = (date, time) => {
+  const dow = new Date(`${date}T${time}`).getDay()
+  const slot = availableSlots.value.find(s => 
+    parseInt(s.day_of_week) === dow && 
+    time >= s.start_time && 
+    time < s.end_time
+  )
+  if (!slot) return false
+  return getUsedSlotsCount(date, slot) < slot.max_capacity
+}
+
 const createLesson = async () => {
   try {
     console.log('📝 Création du cours:', lessonForm.value)
@@ -909,29 +1840,71 @@ const createLesson = async () => {
     
     const { $api } = useNuxtApp()
     
-    // Construire les données du cours
+    // Générer automatiquement le titre du cours
+    const disciplineName = getSelectedSlotDisciplineName()
+    const teacherName = teachers.value.find(t => t.id === parseInt(lessonForm.value.teacherId))?.name || ''
+    const studentName = lessonForm.value.studentId 
+      ? students.value.find(s => s.id === parseInt(lessonForm.value.studentId))?.name || ''
+      : ''
+    
+    let generatedTitle = disciplineName || 'Cours'
+    if (studentName) {
+      generatedTitle += ` - ${studentName}`
+    }
+    
+    // Récupérer le discipline_id du créneau sélectionné
+    const disciplineId = selectedSlot.value?.slot?.discipline_id || lessonForm.value.courseTypeId
+    
+    if (!disciplineId) {
+      alert('Type de cours manquant. Veuillez réessayer.')
+      return
+    }
+    
+    // Construire les données du cours selon l'API attendue
     const lessonData = {
-      title: lessonForm.value.title,
+      teacher_id: parseInt(lessonForm.value.teacherId),
+      student_id: lessonForm.value.studentId ? parseInt(lessonForm.value.studentId) : undefined,
+      course_type_id: parseInt(disciplineId),
       start_time: `${lessonForm.value.date} ${lessonForm.value.time}:00`,
       duration: parseInt(lessonForm.value.duration),
-      teacher_id: lessonForm.value.teacherId,
-      student_id: lessonForm.value.studentId || null,
       price: parseFloat(lessonForm.value.price),
-      notes: lessonForm.value.notes,
-      status: 'confirmed'
+      notes: lessonForm.value.notes || undefined
     }
+    
+    // Retirer les champs undefined pour ne pas les envoyer
+    Object.keys(lessonData).forEach(key => {
+      if (lessonData[key] === undefined) {
+        delete lessonData[key]
+      }
+    })
+    
+    console.log('📤 Données envoyées:', lessonData)
     
     const response = await $api.post('/lessons', lessonData)
     
     if (response.data.success) {
       console.log('✅ Cours créé avec succès')
+      
+      // Enregistrer le dernier enseignant utilisé
+      if (lessonForm.value.teacherId) {
+        lastUsedTeacherId.value = parseInt(lessonForm.value.teacherId)
+      }
+      
       await loadPlanningData() // Recharger les données
       showCreateLessonModal.value = false
-      lessonForm.value = { date: '', time: '', duration: '60', title: '', teacherId: '', studentId: '', price: '', notes: '' }
+      selectedSlot.value = null
+      lessonForm.value = { date: '', time: '', duration: '60', courseTypeId: '', teacherId: '', studentId: '', price: '50.00', notes: '' }
     }
     
   } catch (error) {
     console.error('Erreur lors de la création du cours:', error)
+    if (error.response?.data?.errors) {
+      console.error('Détails de validation:', error.response.data.errors)
+      const errorMessages = Object.values(error.response.data.errors).flat().join('\n')
+      alert(`Erreur de validation:\n${errorMessages}`)
+    } else {
+      alert('Erreur lors de la création du cours. Veuillez réessayer.')
+    }
   }
 }
 
@@ -940,9 +1913,17 @@ const loadPlanningData = async () => {
   try {
     const { $api } = useNuxtApp()
     
-    // Charger les cours de la semaine
-    const startDate = weekDays.value[0].date
-    const endDate = weekDays.value[6].date
+    // Charger les cours selon le mode d'affichage
+    let startDate, endDate
+    
+    if (viewMode.value === 'week') {
+      startDate = weekDays.value[0].date
+      endDate = weekDays.value[6].date
+    } else {
+      // Mode jour : charger uniquement le jour sélectionné
+      startDate = currentDay.value.toISOString().split('T')[0]
+      endDate = startDate
+    }
     
     const lessonsResponse = await $api.get(`/lessons?date_from=${startDate}&date_to=${endDate}`)
     if (lessonsResponse.data.success) {
@@ -979,8 +1960,12 @@ const loadClubProfile = async () => {
   try {
     const { $api } = useNuxtApp()
     
-    // Charger le profil du club
-    const profileResponse = await $api.get('/club/profile')
+    // Charger le profil du club ET les types de cours en parallèle
+    const [profileResponse, courseTypesResponse] = await Promise.all([
+      $api.get('/club/profile'),
+      $api.get('/course-types')
+    ])
+    
     if (profileResponse.data.success) {
       clubProfile.value = profileResponse.data.data
       
@@ -1009,6 +1994,16 @@ const loadClubProfile = async () => {
     if (disciplinesResponse.data.success) {
       availableDisciplines.value = disciplinesResponse.data.data
       console.log('✅ Disciplines chargées:', availableDisciplines.value)
+      console.log('📊 Résumé disciplines:', {
+        total: availableDisciplines.value.length,
+        ids: availableDisciplines.value.map(d => d.id),
+        disciplines: availableDisciplines.value.map(d => `${d.id}: ${d.name} (activity_type: ${d.activity_type_id})`)
+      })
+    }
+    
+    if (courseTypesResponse.data.success) {
+      availableCourseTypes.value = courseTypesResponse.data.data
+      console.log('✅ Types de cours chargés:', availableCourseTypes.value)
     }
     
   } catch (error) {
@@ -1016,13 +2011,168 @@ const loadClubProfile = async () => {
   }
 }
 
+// Charger les créneaux ouverts depuis l'API
+const loadOpenSlots = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const res = await $api.get('/club/open-slots')
+    if (res.data?.success) {
+      availableSlots.value = res.data.data || []
+      console.log('✅ Créneaux ouverts chargés:', availableSlots.value)
+    }
+  } catch (e) {
+    console.error('Erreur chargement open-slots:', e)
+  }
+}
+
+const deleteSlotById = async (slotId) => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.delete(`/club/open-slots/${slotId}`)
+    
+    if (response.data.success) {
+      console.log('✅ Créneau supprimé:', slotId)
+      // Recharger les créneaux
+      await loadOpenSlots()
+    }
+  } catch (e) {
+    console.error('Erreur suppression open-slot:', e)
+    alert('Suppression impossible')
+  }
+}
+
+// Édition inline des créneaux
+const editBuffer = ref({})
+
+const startSlotEdit = (slot) => {
+  editBuffer.value[slot.id] = {
+    day_of_week: parseInt(slot.day_of_week),
+    start_time: slot.start_time,
+    end_time: slot.end_time,
+    discipline_id: slot.discipline_id ?? null,
+    max_capacity: slot.max_capacity,
+    duration: slot.duration,
+    price: slot.price,
+  }
+  slot.editing = true
+}
+
+const cancelSlotEdit = (slot) => {
+  delete editBuffer.value[slot.id]
+  slot.editing = false
+}
+
+const saveSlotEdit = async (slot) => {
+  try {
+    const { $api } = useNuxtApp()
+    const payload = editBuffer.value[slot.id]
+    
+    // Préparer les données pour l'API
+    const updateData = {
+      day_of_week: parseInt(payload.day_of_week),
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      discipline_id: payload.discipline_id ? parseInt(payload.discipline_id) : null,
+      max_capacity: parseInt(payload.max_capacity),
+      duration: parseInt(payload.duration),
+      price: parseFloat(payload.price)
+    }
+    
+    console.log('📤 Mise à jour du créneau:', updateData)
+    
+    // Appeler l'API backend
+    const response = await $api.put(`/club/open-slots/${slot.id}`, updateData)
+    
+    if (response.data.success) {
+      console.log('✅ Créneau modifié:', response.data.data)
+      // Recharger les créneaux
+      await loadOpenSlots()
+      cancelSlotEdit(slot)
+    }
+  } catch (e) {
+    console.error('Erreur sauvegarde édition slot:', e)
+    if (e.response?.data?.errors) {
+      const errorMessages = Object.values(e.response.data.errors).flat().join('\n')
+      alert(`Erreur de validation:\n${errorMessages}`)
+    } else {
+      alert('Sauvegarde impossible')
+    }
+  }
+}
+
+const confirmDeleteSlot = async (slot) => {
+  if (!confirm('Supprimer ce créneau ?')) return
+  await deleteSlotById(slot.id)
+}
+
+// Fonctions utilitaires manquantes
+const getDayName = (dayOfWeek) => {
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+  return days[parseInt(dayOfWeek)] || 'Jour'
+}
+
+const getUsedSlotsCount = (date, openSlot) => {
+  const dow = new Date(date).getDay()
+  if (dow !== parseInt(openSlot.day_of_week)) return 0
+  
+  return lessons.value.filter(lesson => {
+    const dt = lesson.start_time.includes('T') ? new Date(lesson.start_time) : new Date(lesson.start_time.replace(' ', 'T'))
+    const lessonDow = dt.getDay()
+    const lessonTime = dt.toTimeString().substring(0,5)
+    return lessonDow === dow && lessonTime >= openSlot.start_time && lessonTime < openSlot.end_time
+  }).length
+}
+
+// Récupérer le nom de la discipline du créneau sélectionné
+const getSelectedSlotDisciplineName = () => {
+  if (!selectedSlot.value?.slot) return ''
+  const slot = selectedSlot.value.slot
+  const discipline = availableDisciplines.value.find(d => d.id === parseInt(slot.discipline_id))
+  return discipline?.name || ''
+}
+
+// Watch pour initialiser automatiquement le sport s'il n'y en a qu'un seul
+watch(() => clubActivities.value, (activities) => {
+  if (activities.length === 1 && !slotForm.value.activity_type_id) {
+    slotForm.value.activity_type_id = activities[0].id.toString()
+  }
+}, { immediate: true })
+
+// Watch pour pré-remplir automatiquement durée et prix quand une discipline est sélectionnée
+watch(() => slotForm.value.discipline_id, (newDisciplineId) => {
+  if (newDisciplineId) {
+    const settings = getDisciplineSettings(parseInt(newDisciplineId))
+    console.log('📝 Pré-remplissage automatique depuis les settings:', settings)
+    slotForm.value.duration = settings.duration
+    slotForm.value.price = settings.price
+  }
+})
+
+// Watch pour recharger les données quand on change de mode d'affichage
+watch(viewMode, () => {
+  loadPlanningData()
+})
+
 // Initialisation
 onMounted(async () => {
   console.log('🚀 Initialisation du planning club')
   await Promise.all([
     loadPlanningData(),
     loadTeachersAndStudents(),
-    loadClubProfile()
+    loadClubProfile(),
+    loadOpenSlots()
   ])
+  // Initialiser le prix par défaut
+  updateLessonPrice()
 })
 </script>
+
+<style scoped>
+.bg-today {
+  background-color: rgba(219, 234, 254, 0.15) !important;
+}
+
+.bg-today:hover {
+  background-color: rgba(219, 234, 254, 0.3) !important;
+}
+</style>

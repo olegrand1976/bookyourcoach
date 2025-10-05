@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\TeacherController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\ClubController;
 use App\Http\Controllers\Api\ClubDashboardController;
+use App\Http\Controllers\Api\ClubOpenSlotController;
+use App\Http\Controllers\Api\SubscriptionController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -131,6 +133,27 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/custom-specialties', [ClubController::class, 'getCustomSpecialties']);
     Route::get('/teachers', [ClubController::class, 'getTeachers']);
     Route::get('/students', [ClubController::class, 'getStudents']);
+    // Créneaux ouverts
+    Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
+    Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);
+    Route::put('/open-slots/{id}', [ClubOpenSlotController::class, 'update']);
+    Route::delete('/open-slots/{id}', [ClubOpenSlotController::class, 'destroy']);
+    // Abonnements
+    Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+    Route::post('/subscriptions', [SubscriptionController::class, 'store']);
+    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
+    Route::put('/subscriptions/{id}', [SubscriptionController::class, 'update']);
+    Route::delete('/subscriptions/{id}', [SubscriptionController::class, 'destroy']);
+    Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
+    Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
+    // Analyse prédictive IA
+    Route::get('/predictive-analysis', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getAnalysis']);
+    Route::get('/predictive-analysis/alerts', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getCriticalAlerts']);
+});
+
+// Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/course-types', [App\Http\Controllers\Api\CourseTypeController::class, 'index']);
 });
 
 // Routes pour les cours (lessons) - accessibles aux clubs, enseignants et étudiants

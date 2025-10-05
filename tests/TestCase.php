@@ -18,7 +18,7 @@ abstract class TestCase extends BaseTestCase
     protected function actingAsAdmin(): User
     {
         $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
+            'role' => 'admin',
             'status' => 'active',
             'is_active' => true,
         ]);
@@ -33,5 +33,87 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         return $admin;
+    }
+
+    /**
+     * Authentifie un utilisateur club et retourne l'instance.
+     */
+    protected function actingAsClub(): User
+    {
+        $user = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+
+        $club = \App\Models\Club::factory()->create();
+        
+        // Créer l'entrée dans club_managers
+        \Illuminate\Support\Facades\DB::table('club_managers')->insert([
+            'user_id' => $user->id,
+            'club_id' => $club->id,
+            'role' => 'owner',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        // Ajouter une propriété dynamique pour accéder au club facilement dans les tests
+        $user->club_id = $club->id;
+
+        Sanctum::actingAs($user);
+        
+        $this->withHeaders([
+            'Accept' => 'application/json',
+        ]);
+
+        return $user;
+    }
+
+    /**
+     * Authentifie un utilisateur enseignant et retourne l'instance.
+     */
+    protected function actingAsTeacher(): User
+    {
+        $user = User::factory()->create([
+            'role' => 'teacher',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+
+        \App\Models\Teacher::factory()->create([
+            'user_id' => $user->id,
+        ]);
+
+        Sanctum::actingAs($user);
+        
+        $this->withHeaders([
+            'Accept' => 'application/json',
+        ]);
+
+        return $user;
+    }
+
+    /**
+     * Authentifie un utilisateur élève et retourne l'instance.
+     */
+    protected function actingAsStudent(): User
+    {
+        $user = User::factory()->create([
+            'role' => 'student',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+
+        \App\Models\Student::factory()->create([
+            'user_id' => $user->id,
+        ]);
+
+        Sanctum::actingAs($user);
+        
+        $this->withHeaders([
+            'Accept' => 'application/json',
+        ]);
+
+        return $user;
     }
 }

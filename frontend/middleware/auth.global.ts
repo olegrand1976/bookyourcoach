@@ -1,3 +1,5 @@
+import { useAuthStore } from '~/stores/auth'
+
 export default defineNuxtRouteMiddleware(async (to, from) => {
   console.log('🔍 Middleware global - Route:', to.path)
   
@@ -23,7 +25,6 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
     
     // Côté client, initialiser l'authentification complète
-    const { useAuthStore } = await import('~/stores/auth')
     const authStore = useAuthStore()
     
     // Initialiser l'authentification
@@ -75,7 +76,6 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       return navigateTo('/login')
     }
     
-    const { useAuthStore } = await import('~/stores/auth')
     const authStore = useAuthStore()
     
     if (authStore.isAuthenticated && authStore.user) {

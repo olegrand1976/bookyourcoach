@@ -22,7 +22,7 @@ class FinancialDashboardController extends Controller
     public function getOverview(Request $request)
     {
         $user = $request->user();
-        $club = $user->club;
+        $club = $user->getFirstClub();
         
         if (!$club) {
             return response()->json(['message' => 'Club non trouvé'], 404);
