@@ -72,8 +72,8 @@ class ClubOpenSlotController extends Controller
 
             $validated = $request->validate([
                 'day_of_week' => 'required|integer|min:0|max:6',
-                'start_time' => 'required|date_format:H:i',
-                'end_time' => 'required|date_format:H:i|after:start_time',
+                'start_time' => 'required|date_format:H:i:s',
+                'end_time' => 'required|date_format:H:i:s|after:start_time',
                 'discipline_id' => 'nullable|exists:disciplines,id',
                 'max_capacity' => 'required|integer|min:1|max:50',
                 'duration' => 'required|integer|min:15|max:240',
@@ -133,8 +133,8 @@ class ClubOpenSlotController extends Controller
 
             $validated = $request->validate([
                 'day_of_week' => 'sometimes|integer|min:0|max:6',
-                'start_time' => 'sometimes|date_format:H:i',
-                'end_time' => 'sometimes|date_format:H:i|after:start_time',
+                'start_time' => 'sometimes|date_format:H:i:s',
+                'end_time' => 'sometimes|date_format:H:i:s|after:start_time',
                 'discipline_id' => 'nullable|exists:disciplines,id',
                 'max_capacity' => 'sometimes|integer|min:1|max:50',
                 'duration' => 'sometimes|integer|min:15|max:240',
