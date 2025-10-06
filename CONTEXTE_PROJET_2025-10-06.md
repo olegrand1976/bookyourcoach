@@ -383,6 +383,98 @@ curl -X POST http://localhost:8080/api/auth/login
 
 ---
 
+## ✅ 6. Plugin API Non Chargé ($api undefined) - RÉSOLU
+
+**Problème signalé**: Erreur lors de la connexion - `TypeError: can't access property "post", $api is undefined`
+
+**Erreur logs**:
+```
+🚀 [LOGIN ULTRA SIMPLE] Erreur: TypeError: can't access property "post", $api is undefined
+Response data: undefined
+Response status: undefined
+```
+
+**Cause**: Le plugin `api.client.ts` n'était pas enregistré par Nuxt après le redémarrage suite au changement du fichier `.env`. Le cache `.nuxt` contenait une ancienne configuration sans ce plugin.
+
+**Solution appliquée**:
+```bash
+# 1. Arrêt complet de Nuxt
+pkill -9 -f "nuxt dev"
+
+# 2. Nettoyage complet des caches Nuxt
+cd frontend
+rm -rf .nuxt .output node_modules/.cache
+
+# 3. Redémarrage Nuxt
+npm run dev
+
+# 4. Nettoyage caches Laravel
+php artisan route:clear
+php artisan config:clear
+php artisan cache:clear
+```
+
+**Vérification**:
+```bash
+# Le plugin est maintenant enregistré
+grep "api.client" .nuxt/types/plugins.d.ts
+# → InjectionType<typeof import("../../plugins/api.client")>
+```
+
+**Statut**: ✅ RÉSOLU - Le plugin $api est maintenant disponible dans toute l'application
+
+**Leçon**: Toujours nettoyer les caches `.nuxt`, `.output`, et `node_modules/.cache` après une modification du fichier `.env` ou des plugins.
+
+---
+
+## ✅ 7. Mise à Jour Nuxt 3.15.4 - RÉSOLU
+
+**Objectif**: Mettre à jour Nuxt vers la dernière version stable avec toutes les dépendances compatibles.
+
+**Versions mises à jour**:
+| Package | Avant | Après |
+|---------|-------|-------|
+| nuxt | 3.8.0 | **3.15.4** ✨ |
+| @nuxt/devtools | latest | 1.6.1 |
+| @nuxt/test-utils | 3.8.0 | 3.15.4 |
+| @nuxtjs/tailwindcss | 6.8.4 | 6.13.1 |
+| @playwright/test | 1.40.0 | 1.49.1 |
+| @vitejs/plugin-vue | 5.0.0 | 5.2.1 |
+| @vue/test-utils | 2.4.2 | 2.4.6 |
+| happy-dom | 12.10.3 | 15.11.7 |
+| @pinia/nuxt | 0.5.1 | 0.9.0 |
+
+**Tentative Nuxt 4.1.3**: Migration bloquée par un bug npm avec les optional dependencies (`oxc-parser`) sur Linux ([issue GitHub](https://github.com/npm/cli/issues/4828)). Nuxt 3.15.4 est la dernière version stable et parfaitement fonctionnelle.
+
+**Problèmes rencontrés et solutions**:
+1. **Erreur `defineNuxtConfig is not defined`**
+   - **Cause**: Cache jiti corrompu
+   - **Solution**: Nettoyage complet des caches (`rm -rf .nuxt .output node_modules/.cache node_modules/.vite`)
+
+2. **Erreur npm avec oxc-parser (Nuxt 4)**  
+   - **Cause**: Bug npm avec optional dependencies sur Linux
+   - **Solution**: Rester sur Nuxt 3.15.4 (dernière stable)
+
+**Commandes de nettoyage appliquées**:
+```bash
+# Frontend
+cd frontend
+rm -rf .nuxt .output node_modules/.cache node_modules/.vite
+npm install
+npx nuxt prepare
+
+# Backend
+php artisan route:clear
+php artisan config:clear
+php artisan cache:clear
+```
+
+**Statut**: ✅ RÉSOLU - Nuxt 3.15.4 fonctionne parfaitement avec toutes les dépendances à jour
+
+**Référence**: [Guide de migration Nuxt 4](https://nuxt.com/docs/4.x/getting-started/upgrade)
+
+---
+
 ## 📝 Notes Importantes
 
 ### Problème Nuxt Résolu
