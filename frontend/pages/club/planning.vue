@@ -384,11 +384,12 @@
                    @click.stop="viewLesson(lesson)"
                    :title="`${lesson.title || 'Cours'} - ${getLessonTime(lesson)}${lesson.teacher_name ? '\nEnseignant : ' + lesson.teacher_name : ''}${lesson.student_name ? '\nÉlève : ' + lesson.student_name : ''}`">
                 
-                <!-- Affichage condensé sur 1 ligne -->
+                <!-- Affichage condensé sur 1 ligne avec couleurs -->
                 <div class="font-semibold text-[11px] truncate leading-tight">
-                  {{ getLessonStartTime(lesson) }} • {{ formatTeacherName(lesson.teacher_name) }}
-                  <span v-if="lesson.student_name && lesson.totalColumns <= 2">
-                    • {{ lesson.student_name }}
+                  <span class="text-gray-800">{{ getLessonStartTime(lesson) }}</span>
+                  <span class="text-blue-600"> • {{ formatTeacherName(lesson.teacher_name) }}</span>
+                  <span v-if="lesson.student_name && lesson.totalColumns <= 2" class="text-green-600">
+                    • {{ formatTeacherName(lesson.student_name) }}
                   </span>
                 </div>
             </div>
@@ -1816,12 +1817,22 @@ const isSlotFull = (date, hour) => {
   
   // Si aucun créneau n'existe pour cette heure, la case n'est pas cliquable
   if (!slot) {
+    // Debug: Afficher pourquoi le slot n'est pas trouvé
+    if (dayOfWeek === 2 && timeStr === '09:00') { // Mardi 9h seulement
+      console.log(`❌ PAS DE SLOT pour ${date} ${timeStr} (jour ${dayOfWeek})`)
+    }
     return true
   }
   
   // Vérifier si le créneau est plein À CETTE HEURE SPÉCIFIQUE
   const usedCount = getUsedSlotsForDateTime(date, timeStr, slot)
   const isFull = usedCount >= slot.max_capacity
+  
+  // Debug: Afficher l'occupation
+  if (dayOfWeek === 2 && timeStr === '09:00') { // Mardi 9h seulement
+    console.log(`📊 Slot ${slot.id} à ${date} ${timeStr}: ${usedCount}/${slot.max_capacity} - ${isFull ? 'PLEIN' : 'DISPO'}`)
+  }
+  
   return isFull
 }
 
