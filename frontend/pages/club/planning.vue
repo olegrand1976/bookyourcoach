@@ -387,8 +387,8 @@
                 <!-- Affichage condensé sur 1 ligne avec couleurs -->
                 <div class="font-semibold text-[11px] truncate leading-tight">
                   <span class="text-gray-800">{{ getLessonStartTime(lesson) }}</span>
-                  <span class="text-blue-600"> • {{ formatTeacherName(lesson.teacher_name) }}</span>
-                  <span v-if="lesson.student_name && lesson.totalColumns <= 2" class="text-green-600">
+                  <span v-if="lesson.teacher_name" class="text-blue-600"> • {{ formatTeacherName(lesson.teacher_name) }}</span>
+                  <span v-if="lesson.student_name" class="text-green-600">
                     • {{ formatTeacherName(lesson.student_name) }}
                   </span>
                 </div>
