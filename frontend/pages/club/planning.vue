@@ -595,26 +595,43 @@
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Heure</label>
-            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
-              {{ lessonForm.time }}
-              <span class="text-xs text-gray-500 ml-2">(définie par le créneau sélectionné)</span>
-            </div>
+            <input 
+              v-model="lessonForm.time"
+              type="time" 
+              step="300"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+            <p class="text-xs text-gray-500 mt-1">Granularité : 5 minutes</p>
           </div>
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Durée (en minutes)</label>
-            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
-              {{ lessonForm.duration }} minutes
-            </div>
-            <p class="text-xs text-gray-500 mt-1">La durée est définie par le créneau sélectionné</p>
+            <input 
+              v-model.number="lessonForm.duration"
+              type="number" 
+              min="5"
+              step="5"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+            <p class="text-xs text-gray-500 mt-1">Durée modifiable (par tranches de 5 minutes)</p>
           </div>
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours</label>
-            <div class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
-              {{ getSelectedSlotDisciplineName() || 'Défini par le créneau' }}
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Le type de cours est défini par le créneau sélectionné</p>
+            <select 
+              v-model="lessonForm.courseTypeId"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Sélectionner un type</option>
+              <option v-for="type in availableCourseTypesForLesson" :key="type.id" :value="type.id">
+                {{ type.name }} 
+                <template v-if="type.is_individual">(individuel)</template>
+                <template v-else>({{ type.max_participants }} pers. max)</template>
+                - {{ type.duration_minutes }}min
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Discipline: {{ getSelectedSlotDisciplineName() || 'Défini par le créneau' }}</p>
           </div>
           
           <div>
@@ -975,6 +992,22 @@ const availableTeachersForLesson = computed(() => {
   
   // Retourner uniquement les enseignants disponibles
   return teachers.value.filter(teacher => !occupiedTeacherIds.includes(teacher.id))
+})
+
+// Types de cours disponibles pour la discipline du créneau sélectionné
+const availableCourseTypesForLesson = computed(() => {
+  // Récupérer la discipline du créneau sélectionné
+  const disciplineId = selectedSlot.value?.slot?.discipline_id
+  
+  if (!disciplineId) {
+    // Si pas de discipline spécifique, retourner les types génériques
+    return availableCourseTypes.value.filter(type => !type.discipline_id)
+  }
+  
+  // Filtrer les types de cours pour cette discipline + les types génériques
+  return availableCourseTypes.value.filter(type => 
+    !type.discipline_id || type.discipline_id === parseInt(disciplineId)
+  )
 })
 
 // Fonctions utilitaires pour récupérer les noms et icônes des activités
@@ -1361,7 +1394,12 @@ const selectTimeSlot = (date, hour, minute) => {
   lessonForm.value.time = timeStr
   lessonForm.value.duration = slot.duration?.toString() || '60'
   lessonForm.value.price = slot.price?.toString() || '50.00'
-  lessonForm.value.courseTypeId = slot.discipline_id ? slot.discipline_id.toString() : ''
+  
+  // Pré-sélectionner le premier type de cours disponible pour cette discipline
+  const availableTypes = availableCourseTypes.value.filter(type => 
+    !type.discipline_id || type.discipline_id === parseInt(slot.discipline_id)
+  )
+  lessonForm.value.courseTypeId = availableTypes.length > 0 ? availableTypes[0].id.toString() : ''
   
   // Réinitialiser les champs spécifiques au cours
   lessonForm.value.studentId = ''
@@ -1690,29 +1728,41 @@ const getUsedSlots = (slot) => {
 const getUsedSlotsForDateTime = (date, hour, slot) => {
   if (!slot) return 0
   
-  const timeStr = typeof hour === 'string' ? hour : `${hour.toString().padStart(2, '0')}:00`
+  // Normaliser l'heure de référence au format HH:MM:SS
+  const timeStr = typeof hour === 'string' 
+    ? (hour.length === 5 ? `${hour}:00` : hour)
+    : `${hour.toString().padStart(2, '0')}:00:00`
   
   return lessons.value.filter(lesson => {
-    if (!lesson.start_time) return false
+    if (!lesson.start_time || !lesson.duration) return false
     
     // Extraire date et heure du cours
-    let lessonDate, lessonTime
+    let lessonDate, lessonStartTime
     if (lesson.start_time.includes('T')) {
-      [lessonDate, lessonTime] = lesson.start_time.split('T')
-      lessonTime = lessonTime.substring(0, 5)
+      [lessonDate, lessonStartTime] = lesson.start_time.split('T')
+      lessonStartTime = lessonStartTime.substring(0, 8) // HH:MM:SS
     } else if (lesson.start_time.includes(' ')) {
-      [lessonDate, lessonTime] = lesson.start_time.split(' ')
-      lessonTime = lessonTime.substring(0, 5)
+      [lessonDate, lessonStartTime] = lesson.start_time.split(' ')
+      lessonStartTime = lessonStartTime.substring(0, 8) // HH:MM:SS
     } else {
       return false
     }
     
-    // Normaliser les bornes du slot au format HH:MM
-    const slotStart = slot.start_time.substring(0, 5)
-    const slotEnd = slot.end_time.substring(0, 5)
+    // Vérifier si le cours est sur la bonne date
+    if (lessonDate !== date) return false
     
-    // Vérifier si le cours est sur cette date ET dans la plage horaire du slot
-    return lessonDate === date && lessonTime >= slotStart && lessonTime < slotEnd
+    // Calculer l'heure de fin du cours (start + duration)
+    const [h, m, s] = lessonStartTime.split(':').map(Number)
+    const startMinutes = h * 60 + m
+    const endMinutes = startMinutes + parseInt(lesson.duration)
+    
+    const lessonEndHour = Math.floor(endMinutes / 60)
+    const lessonEndMinute = endMinutes % 60
+    const lessonEndTime = `${lessonEndHour.toString().padStart(2, '0')}:${lessonEndMinute.toString().padStart(2, '0')}:00`
+    
+    // Vérifier si l'heure de référence est dans la plage du cours
+    // Un cours occupe la tranche horaire si : timeStr >= lessonStartTime ET timeStr < lessonEndTime
+    return timeStr >= lessonStartTime && timeStr < lessonEndTime
   }).length
 }
 
@@ -1724,6 +1774,9 @@ const isSlotFull = (date, hour) => {
   const timeStr = typeof hour === 'string' 
     ? hour.substring(0, 5) 
     : `${hour.toString().padStart(2, '0')}:00`
+  
+  console.log(`🔍 isSlotFull - Date: ${date}, Hour: ${hour}, DayOfWeek: ${dayOfWeek}, TimeStr: ${timeStr}`)
+  console.log(`🔍 Available slots:`, availableSlots.value.map(s => ({id: s.id, day: s.day_of_week, start: s.start_time, end: s.end_time})))
   
   // Trouver le créneau qui contient cette heure
   const slot = availableSlots.value.find(s => {
@@ -1737,11 +1790,19 @@ const isSlotFull = (date, hour) => {
     return timeStr >= slotStart && timeStr < slotEnd
   })
   
+  console.log(`🔍 Slot trouvé:`, slot ? {id: slot.id, capacity: slot.max_capacity} : 'AUCUN')
+  
   // Si aucun créneau n'existe pour cette heure, la case n'est pas cliquable
-  if (!slot) return true
+  if (!slot) {
+    console.log(`❌ Aucun créneau trouvé pour ${date} ${timeStr} (jour ${dayOfWeek})`)
+    return true
+  }
   
   // Vérifier si le créneau est plein
-  return getUsedSlotsForDateTime(date, timeStr, slot) >= slot.max_capacity
+  const usedCount = getUsedSlotsForDateTime(date, timeStr, slot)
+  const isFull = usedCount >= slot.max_capacity
+  console.log(`📊 Créneau ${slot.id}: ${usedCount}/${slot.max_capacity} - ${isFull ? 'PLEIN' : 'DISPO'}`)
+  return isFull
 }
 
 
@@ -1927,13 +1988,27 @@ const openRecurrentSlots = async () => {
 // Fonction pour vérifier si un créneau est ouvert et disponible
 const isSlotOpen = (date, time) => {
   const dow = new Date(`${date}T${time}`).getDay()
-  const slot = availableSlots.value.find(s => 
-    parseInt(s.day_of_week) === dow && 
-    time >= s.start_time && 
-    time < s.end_time
-  )
-  if (!slot) return false
-  return getUsedSlotsCount(date, slot) < slot.max_capacity
+  
+  // Normaliser le format de l'heure (ajouter :00 si manquant)
+  const normalizedTime = time.length === 5 ? `${time}:00` : time
+  
+  const slot = availableSlots.value.find(s => {
+    const slotStart = s.start_time.substring(0, 8)
+    const slotEnd = s.end_time.substring(0, 8)
+    
+    return parseInt(s.day_of_week) === dow && 
+           normalizedTime >= slotStart && 
+           normalizedTime < slotEnd
+  })
+  
+  if (!slot) {
+    console.log(`⚠️ isSlotOpen: Aucun créneau trouvé pour ${date} ${time} (jour ${dow})`)
+    return false
+  }
+  
+  const usedCount = getUsedSlotsCount(date, slot)
+  console.log(`✅ isSlotOpen: Créneau ${slot.id} trouvé - ${usedCount}/${slot.max_capacity} utilisés`)
+  return usedCount < slot.max_capacity
 }
 
 const createLesson = async () => {
@@ -1960,11 +2035,9 @@ const createLesson = async () => {
       generatedTitle += ` - ${studentName}`
     }
     
-    // Récupérer le discipline_id du créneau sélectionné
-    const disciplineId = selectedSlot.value?.slot?.discipline_id || lessonForm.value.courseTypeId
-    
-    if (!disciplineId) {
-      alert('Type de cours manquant. Veuillez réessayer.')
+    // Vérifier que le type de cours est sélectionné
+    if (!lessonForm.value.courseTypeId) {
+      alert('Veuillez sélectionner un type de cours.')
       return
     }
     
@@ -1972,7 +2045,7 @@ const createLesson = async () => {
     const lessonData = {
       teacher_id: parseInt(lessonForm.value.teacherId),
       student_id: lessonForm.value.studentId ? parseInt(lessonForm.value.studentId) : undefined,
-      course_type_id: parseInt(disciplineId),
+      course_type_id: parseInt(lessonForm.value.courseTypeId),
       start_time: `${lessonForm.value.date} ${lessonForm.value.time}:00`,
       duration: parseInt(lessonForm.value.duration),
       price: parseFloat(lessonForm.value.price),
