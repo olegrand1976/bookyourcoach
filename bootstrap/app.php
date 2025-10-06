@@ -20,8 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'force.json' => \App\Http\Middleware\ForceJsonResponse::class,
         ]);
         
-        // Appliquer le middleware ForceJsonResponse à toutes les routes API
+        // Appliquer le middleware CORS et ForceJsonResponse à toutes les routes API
         $middleware->group('api', [
+            \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\ForceJsonResponse::class,
         ]);
     })
