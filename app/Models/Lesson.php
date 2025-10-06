@@ -54,7 +54,7 @@ class Lesson extends Model
         'rating' => 'integer'
     ];
 
-    protected $appends = ['teacher_name', 'student_name', 'duration'];
+    protected $appends = ['teacher_name', 'student_name', 'duration', 'title'];
 
     /**
      * Get the teacher for this lesson.
@@ -177,6 +177,27 @@ class Lesson extends Model
             return 0;
         }
         return $this->start_time->diffInMinutes($this->end_time);
+    }
+
+    /**
+     * Get title for API response.
+     */
+    public function getTitleAttribute(): string
+    {
+        $parts = [];
+        
+        // Ajouter le type de cours si disponible
+        if ($this->courseType) {
+            $parts[] = $this->courseType->name;
+        }
+        
+        // Ajouter le nom de l'élève si disponible
+        if ($this->student_name) {
+            $parts[] = $this->student_name;
+        }
+        
+        // Si aucune partie, retourner "Cours"
+        return !empty($parts) ? implode(' - ', $parts) : 'Cours';
     }
 
     /**

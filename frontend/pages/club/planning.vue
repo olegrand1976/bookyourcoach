@@ -382,26 +382,15 @@
                    ]"
                    :style="getLessonPositionWithColumns(lesson)"
                    @click.stop="viewLesson(lesson)"
-                   :title="`${lesson.title} - ${getLessonTime(lesson)}\n${lesson.teacher_name || ''}\n${lesson.student_name || ''}`">
+                   :title="`${lesson.title || 'Cours'} - ${getLessonTime(lesson)}${lesson.teacher_name ? '\nEnseignant : ' + lesson.teacher_name : ''}${lesson.student_name ? '\nÉlève : ' + lesson.student_name : ''}`">
                 
-                <div class="font-bold truncate mb-1 flex items-center gap-1">
-                  <span class="flex-1 truncate">{{ lesson.title }}</span>
-                  <span v-if="lesson.totalColumns > 2" class="text-[9px] opacity-60">
-                    {{ lesson.teacher_name?.split(' ')[0] }}
+                <!-- Affichage condensé sur 1 ligne -->
+                <div class="font-semibold text-[11px] truncate leading-tight">
+                  {{ getLessonStartTime(lesson) }} • {{ formatTeacherName(lesson.teacher_name) }}
+                  <span v-if="lesson.student_name && lesson.totalColumns <= 2">
+                    • {{ lesson.student_name }}
                   </span>
-            </div>
-                
-                <div v-if="lesson.totalColumns <= 2" class="text-[11px] opacity-80 font-medium truncate mb-1">
-                  ⏰ {{ getLessonTime(lesson) }}
-          </div>
-          
-                <div v-if="lesson.teacher_name && lesson.totalColumns <= 2" class="text-[11px] opacity-75 truncate">
-                  👨‍🏫 {{ lesson.teacher_name }}
-            </div>
-            
-                <div v-if="lesson.student_name && lesson.totalColumns === 1" class="text-[11px] opacity-75 truncate mt-0.5">
-                  👤 {{ lesson.student_name }}
-              </div>
+                </div>
             </div>
           </div>
           </div>
@@ -1667,6 +1656,44 @@ const getLessonTime = (lesson) => {
   return `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')} - ${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')} (${lesson.duration}min)`
 }
 
+// Obtenir uniquement l'heure de début d'un cours
+const getLessonStartTime = (lesson) => {
+  if (!lesson.start_time) return ''
+  
+  let startHour, startMinute
+  
+  if (lesson.start_time.includes('T')) {
+    const timePart = lesson.start_time.split('T')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else if (lesson.start_time.includes(' ')) {
+    const timePart = lesson.start_time.split(' ')[1]
+    const [h, m] = timePart.substring(0, 5).split(':')
+    startHour = parseInt(h)
+    startMinute = parseInt(m)
+  } else {
+    const lessonDateTime = new Date(lesson.start_time)
+    startHour = lessonDateTime.getHours()
+    startMinute = lessonDateTime.getMinutes()
+  }
+  
+  return `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`
+}
+
+// Formater le nom de l'enseignant : "Prénom N."
+const formatTeacherName = (fullName) => {
+  if (!fullName) return ''
+  
+  const parts = fullName.trim().split(' ')
+  if (parts.length === 1) return parts[0] // Si un seul mot, le retourner tel quel
+  
+  const firstName = parts[0]
+  const lastNameInitial = parts[parts.length - 1].charAt(0).toUpperCase()
+  
+  return `${firstName} ${lastNameInitial}.`
+}
+
 // Créneaux ouverts - helpers
 const getOpenSlotsForDay = (date) => {
   const dow = new Date(date).getDay()
@@ -1775,9 +1802,6 @@ const isSlotFull = (date, hour) => {
     ? hour.substring(0, 5) 
     : `${hour.toString().padStart(2, '0')}:00`
   
-  console.log(`🔍 isSlotFull - Date: ${date}, Hour: ${hour}, DayOfWeek: ${dayOfWeek}, TimeStr: ${timeStr}`)
-  console.log(`🔍 Available slots:`, availableSlots.value.map(s => ({id: s.id, day: s.day_of_week, start: s.start_time, end: s.end_time})))
-  
   // Trouver le créneau qui contient cette heure
   const slot = availableSlots.value.find(s => {
     if (parseInt(s.day_of_week) !== dayOfWeek) return false
@@ -1790,18 +1814,14 @@ const isSlotFull = (date, hour) => {
     return timeStr >= slotStart && timeStr < slotEnd
   })
   
-  console.log(`🔍 Slot trouvé:`, slot ? {id: slot.id, capacity: slot.max_capacity} : 'AUCUN')
-  
   // Si aucun créneau n'existe pour cette heure, la case n'est pas cliquable
   if (!slot) {
-    console.log(`❌ Aucun créneau trouvé pour ${date} ${timeStr} (jour ${dayOfWeek})`)
     return true
   }
   
-  // Vérifier si le créneau est plein
+  // Vérifier si le créneau est plein À CETTE HEURE SPÉCIFIQUE
   const usedCount = getUsedSlotsForDateTime(date, timeStr, slot)
   const isFull = usedCount >= slot.max_capacity
-  console.log(`📊 Créneau ${slot.id}: ${usedCount}/${slot.max_capacity} - ${isFull ? 'PLEIN' : 'DISPO'}`)
   return isFull
 }
 
