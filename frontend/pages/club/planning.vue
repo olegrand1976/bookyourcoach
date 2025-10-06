@@ -198,7 +198,7 @@
                 >
                   📋
                 </button>
-                <button @click="startSlotEdit(slot)" class="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50" title="Éditer">✏️</button>
+                <button @click="openEditSlotModal(slot)" class="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50" title="Éditer">✏️</button>
                 <button @click="confirmDeleteSlot(slot)" class="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded hover:bg-red-50" title="Supprimer">🗑️</button>
               </template>
             </div>
@@ -410,6 +410,7 @@
           </div>
 
     <!-- Modal : Ajouter un créneau disponible -->
+    <!-- Modale d'ajout de créneau -->
     <div v-if="showAddSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Ajouter un créneau disponible</h3>
@@ -489,6 +490,90 @@
         <div class="flex items-center justify-end space-x-3 mt-6">
           <button @click="showAddSlotModal = false" class="px-4 py-2 text-gray-600 hover:text-gray-800">Annuler</button>
           <button @click="saveSlot" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale d'édition de créneau -->
+    <div v-if="showEditSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Modifier le créneau</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Jour de la semaine</label>
+            <select v-model="slotForm.day_of_week" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+              <option value="1">Lundi</option>
+              <option value="2">Mardi</option>
+              <option value="3">Mercredi</option>
+              <option value="4">Jeudi</option>
+              <option value="5">Vendredi</option>
+              <option value="6">Samedi</option>
+              <option value="0">Dimanche</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Heure début</label>
+              <input v-model="slotForm.start_time" type="time" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Heure fin</label>
+              <input v-model="slotForm.end_time" type="time" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            </div>
+          </div>
+          
+          <!-- Sélection du sport (si le club a plusieurs sports) -->
+          <div v-if="clubActivities.length > 1">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Sport *</label>
+            <select v-model="slotForm.activity_type_id" @change="onActivityChange" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+              <option value="">Sélectionner un sport...</option>
+              <option v-for="activity in clubActivities" :key="activity.id" :value="activity.id">
+                {{ activity.name }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- Affichage du sport (si le club n'a qu'un seul sport) -->
+          <div v-else-if="clubActivities.length === 1" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Sport</label>
+            <p class="text-sm text-gray-900 font-medium">{{ clubActivities[0].name }}</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Type de cours</label>
+            <select 
+              v-model="slotForm.discipline_id" 
+              :disabled="filteredDisciplinesForSlot.length === 0" 
+              class="w-full border border-gray-300 rounded-lg px-3 py-2" 
+              :class="{'bg-gray-100 cursor-not-allowed': filteredDisciplinesForSlot.length === 0}">
+              <option value="">Sélectionner...</option>
+              <option v-for="discipline in filteredDisciplinesForSlot" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
+            </select>
+            <p v-if="clubActivities.length > 1 && !slotForm.activity_type_id" class="text-xs text-gray-500 mt-1">
+              Veuillez d'abord sélectionner un sport pour afficher les types de cours
+            </p>
+            <p v-else-if="filteredDisciplinesForSlot.length === 0" class="text-xs text-red-600 mt-1">
+              Aucun type de cours disponible
+            </p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre maximum de cours simultanés</label>
+            <input v-model.number="slotForm.max_capacity" type="number" min="1" max="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Durée du cours (min)</label>
+              <input v-model.number="slotForm.duration" type="number" min="15" step="5" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Prix (€)</label>
+              <input v-model.number="slotForm.price" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-end space-x-3 mt-6">
+          <button @click="closeEditSlotModal" class="px-4 py-2 text-gray-600 hover:text-gray-800">Annuler</button>
+          <button @click="updateSlot" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Modifier</button>
         </div>
       </div>
     </div>
@@ -629,6 +714,8 @@ const lastUsedTeacherId = ref(null) // Dernier enseignant utilisé
 
 // Modals
 const showAddSlotModal = ref(false)
+const showEditSlotModal = ref(false)
+const editingSlotId = ref(null)
 const showCreateLessonModal = ref(false)
 // Formulaire créneau
 const slotForm = ref({
@@ -2062,7 +2149,7 @@ const deleteSlotById = async (slotId) => {
   }
 }
 
-// Édition inline des créneaux
+// Édition inline des créneaux (gardé pour compatibilité)
 const editBuffer = ref({})
 
 const startSlotEdit = (slot) => {
@@ -2076,6 +2163,91 @@ const startSlotEdit = (slot) => {
     price: slot.price,
   }
   slot.editing = true
+}
+
+// Édition via modale (nouvelle méthode préférée)
+const openEditSlotModal = (slot) => {
+  editingSlotId.value = slot.id
+  
+  // Récupérer la discipline pour obtenir son activity_type_id
+  const discipline = availableDisciplines.value.find(d => d.id === slot.discipline_id)
+  
+  // Pré-remplir le formulaire avec les données du créneau
+  slotForm.value = {
+    day_of_week: slot.day_of_week?.toString() || '1',
+    start_time: slot.start_time || '09:00',
+    end_time: slot.end_time || '10:00',
+    activity_type_id: discipline ? discipline.activity_type_id.toString() : (clubActivities.value[0]?.id?.toString() || ''),
+    discipline_id: slot.discipline_id?.toString() || '',
+    max_capacity: slot.max_capacity || 5,
+    duration: slot.duration || 60,
+    price: slot.price || 50
+  }
+  
+  console.log('📝 Ouverture modale édition créneau:', {
+    slotId: slot.id,
+    slotData: slot,
+    formData: slotForm.value
+  })
+  
+  showEditSlotModal.value = true
+}
+
+const closeEditSlotModal = () => {
+  showEditSlotModal.value = false
+  editingSlotId.value = null
+  // Réinitialiser le formulaire
+  slotForm.value = {
+    day_of_week: '1',
+    start_time: '09:00',
+    end_time: '10:00',
+    activity_type_id: clubActivities.value[0]?.id?.toString() || '',
+    discipline_id: '',
+    max_capacity: 5,
+    duration: 60,
+    price: 50
+  }
+}
+
+const updateSlot = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    
+    // Validation
+    if (!slotForm.value.discipline_id) {
+      alert('Veuillez sélectionner un type de cours')
+      return
+    }
+    
+    const slotData = {
+      day_of_week: parseInt(slotForm.value.day_of_week),
+      start_time: slotForm.value.start_time,
+      end_time: slotForm.value.end_time,
+      discipline_id: slotForm.value.discipline_id ? parseInt(slotForm.value.discipline_id) : null,
+      max_capacity: parseInt(slotForm.value.max_capacity),
+      duration: parseInt(slotForm.value.duration),
+      price: parseFloat(slotForm.value.price)
+    }
+    
+    console.log('📤 Mise à jour du créneau ID', editingSlotId.value, ':', slotData)
+    
+    const response = await $api.put(`/club/open-slots/${editingSlotId.value}`, slotData)
+    
+    if (response.data.success) {
+      console.log('✅ Créneau modifié avec succès')
+      // Recharger les créneaux
+      await loadOpenSlots()
+      closeEditSlotModal()
+    }
+  } catch (error) {
+    console.error('Erreur lors de la modification du créneau:', error)
+    if (error.response?.data?.errors) {
+      const errorMessages = Object.values(error.response.data.errors).flat().join('\n')
+      alert(`Erreur de validation:\n\n${errorMessages}`)
+    } else {
+      alert('Erreur lors de la modification du créneau')
+    }
+  }
 }
 
 const cancelSlotEdit = (slot) => {
