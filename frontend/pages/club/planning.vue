@@ -298,7 +298,7 @@
               </div>
             </div>
             
-            <!-- Créneaux ouverts - overlay visuel -->
+            <!-- Créneaux ouverts - overlay visuel avec colonnes dynamiques -->
             <div v-for="(day, dayIndex) in displayDays" :key="`openslots-${day.date}`"
                  class="absolute top-0 pointer-events-none"
                  :style="{ 
@@ -311,88 +311,55 @@
                    :style="getOpenSlotPosition(slot)">
                 <!-- Fond du créneau -->
                 <div :class="[
-                  'absolute inset-0 border border-dashed',
+                  'absolute inset-0 border-2 border-dashed',
                   getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
-                    ? 'border-red-500 bg-red-50/40'
-                    : 'border-green-500 bg-green-50/40'
+                    ? 'border-red-500 bg-red-50/30'
+                    : 'border-green-500 bg-green-50/30'
                 ]"></div>
                 
-                <!-- Affichage adaptatif selon le nombre de places -->
-                
-                <!-- Si <= 8 places : Divisions visuelles individuelles -->
-                <div v-if="slot.max_capacity <= 8" class="absolute inset-0 flex">
+                <!-- Colonnes dynamiques pour TOUTES les capacités -->
+                <div class="absolute inset-0 flex">
                   <div v-for="i in slot.max_capacity" :key="`slot-${slot.id}-${i}`"
                        :class="[
-                         'flex-1 border-r border-dashed transition-all',
+                         'flex-1 border-r border-dashed transition-all relative',
                          i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot)
-                           ? 'bg-red-500/30'
-                           : 'bg-green-500/15 hover:bg-green-500/25',
+                           ? 'bg-red-500/20'
+                           : 'bg-green-500/10 hover:bg-green-500/20',
                          i === slot.max_capacity ? 'border-r-0' : '',
                          getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
                            ? 'border-red-400'
                            : 'border-green-400'
                        ]"
-                       :title="`Position ${i}`">
-                    <!-- Numéro de position pour petits nombres -->
-                    <span v-if="slot.max_capacity <= 6" 
-                          class="flex items-center justify-center h-full text-[9px] font-bold opacity-40">
+                       :title="`Position ${i}${i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot) ? ' - Occupée' : ' - Libre'}`">
+                    <!-- Numéro de position (adaptatif selon la largeur) -->
+                    <span v-if="slot.max_capacity <= 12" 
+                          class="absolute top-1 left-1/2 transform -translate-x-1/2 text-[9px] font-bold opacity-40 bg-white/70 px-1 rounded">
                       {{ i }}
                     </span>
-                  </div>
-                </div>
-                
-                <!-- Si > 8 places : Barre de progression avec indicateurs -->
-                <div v-else class="absolute inset-0 flex flex-col justify-center px-1">
-                  <!-- Barre de progression -->
-                  <div class="relative h-4 bg-white/50 rounded-full overflow-hidden border border-green-400">
-                    <div :class="[
-                           'h-full transition-all duration-500',
-                           getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
-                             ? 'bg-gradient-to-r from-red-400 to-red-600'
-                             : 'bg-gradient-to-r from-green-400 to-green-600'
-                         ]"
-                         :style="{ width: `${(getUsedSlotsForDateTime(day.date, slot.start_time, slot) / slot.max_capacity) * 100}%` }">
-                    </div>
-                    <!-- Pourcentage -->
-                    <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700">
-                      {{ Math.round((getUsedSlotsForDateTime(day.date, slot.start_time, slot) / slot.max_capacity) * 100) }}%
-                    </div>
-                  </div>
-                  
-                  <!-- Mini indicateurs de positions (max 10 points) -->
-                  <div class="flex justify-center gap-0.5 mt-1">
-                    <div v-for="i in Math.min(slot.max_capacity, 10)" 
-                         :key="`dot-${slot.id}-${i}`"
+                    <!-- Indicateur visuel pour colonnes étroites (> 12) -->
+                    <div v-else
                          :class="[
-                           'w-1 h-1 rounded-full',
-                           i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot)
-                             ? 'bg-red-500'
-                             : 'bg-green-500'
+                           'absolute top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full',
+                           i <= getUsedSlotsForDateTime(day.date, slot.start_time, slot) ? 'bg-red-500' : 'bg-green-500'
                          ]">
                     </div>
-                    <span v-if="slot.max_capacity > 10" class="text-[8px] text-gray-500 ml-1">
-                      +{{ slot.max_capacity - 10 }}
-                    </span>
                   </div>
                 </div>
                 
-                <!-- Texte d'information -->
+                <!-- Badge d'information en haut du créneau -->
                 <div :class="[
-                  'absolute inset-0 flex items-center justify-center text-[10px] font-medium pointer-events-none z-10',
+                  'absolute top-0 left-0 right-0 text-[10px] font-medium text-center py-1 z-10',
                   getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity
-                    ? 'text-red-700'
-                    : 'text-green-700'
-                ]"
-                     :style="{ 
-                       marginTop: slot.max_capacity <= 8 ? '0' : '24px',
-                       paddingLeft: '4px',
-                       paddingRight: '4px'
-                     }">
-                  <span class="bg-white/90 px-2 py-0.5 rounded shadow-sm whitespace-nowrap max-w-full overflow-hidden">
-                    {{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity ? '🔴 COMPLET' : '✅ Ouvert' }} • 
-                    {{ slot.start_time }}-{{ slot.end_time }} • 
-                    <strong>{{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) }}/{{ slot.max_capacity }}</strong>
+                    ? 'bg-red-500/90 text-white'
+                    : 'bg-green-500/90 text-white'
+                ]">
+                  <span class="font-bold">
+                    {{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) }}/{{ slot.max_capacity }}
                   </span>
+                  <span class="mx-1">•</span>
+                  <span>{{ slot.start_time.substring(0,5) }}-{{ slot.end_time.substring(0,5) }}</span>
+                  <span class="mx-1">•</span>
+                  <span>{{ getUsedSlotsForDateTime(day.date, slot.start_time, slot) >= slot.max_capacity ? 'COMPLET' : 'Ouvert' }}</span>
                 </div>
               </div>
             </div>
@@ -1403,55 +1370,69 @@ const getLessonStartMinutes = (lesson) => {
   return startHour * 60 + startMinute
 }
 
-// Récupérer les cours d'un jour avec calcul des colonnes
+// Récupérer les cours d'un jour avec calcul des colonnes basé sur les créneaux ouverts
 const getLessonsForDayWithColumns = (date) => {
   const dayLessons = getLessonsForDay(date)
   
   if (dayLessons.length === 0) return []
   
-  // Trier les cours par heure de début
-  const sortedLessons = [...dayLessons].sort((a, b) => {
-    return getLessonStartMinutes(a) - getLessonStartMinutes(b)
-  })
+  const dow = new Date(date).getDay()
+  const slotsForDay = availableSlots.value.filter(s => parseInt(s.day_of_week) === dow)
   
-  // Attribuer des colonnes aux cours qui se chevauchent
-  const lessonsWithColumns = []
-  
-  sortedLessons.forEach(lesson => {
-    // Trouver tous les cours qui se chevauchent avec celui-ci
-    const overlappingLessons = lessonsWithColumns.filter(l => 
-      lessonsOverlap(lesson, l)
+  // Pour chaque cours, trouver son créneau et sa position
+  const lessonsWithColumns = dayLessons.map(lesson => {
+    // Extraire l'heure de début du cours
+    let lessonStartTime
+    if (lesson.start_time.includes('T')) {
+      lessonStartTime = lesson.start_time.split('T')[1].substring(0, 5)
+    } else if (lesson.start_time.includes(' ')) {
+      lessonStartTime = lesson.start_time.split(' ')[1].substring(0, 5)
+    } else {
+      const dt = new Date(lesson.start_time)
+      lessonStartTime = `${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`
+    }
+    
+    // Trouver le créneau ouvert qui contient ce cours
+    const slot = slotsForDay.find(s => 
+      lessonStartTime >= s.start_time.substring(0, 5) && 
+      lessonStartTime < s.end_time.substring(0, 5)
     )
     
-    if (overlappingLessons.length === 0) {
-      // Pas de chevauchement, colonne 0
-      lessonsWithColumns.push({
+    if (!slot) {
+      // Cours hors créneau (ne devrait pas arriver)
+      return {
         ...lesson,
         column: 0,
-        totalColumns: 1
-      })
-    } else {
-      // Trouver la première colonne disponible
-      const usedColumns = overlappingLessons.map(l => l.column)
-      let column = 0
-      while (usedColumns.includes(column)) {
-        column++
+        totalColumns: 1,
+        slotId: null
       }
-      
-      // Calculer le nombre total de colonnes nécessaires
-      const maxColumn = Math.max(...overlappingLessons.map(l => l.column), column)
-      const totalColumns = maxColumn + 1
-      
-      // Mettre à jour le totalColumns de tous les cours chevauchants
-      overlappingLessons.forEach(l => {
-        l.totalColumns = totalColumns
-      })
-      
-      lessonsWithColumns.push({
-        ...lesson,
-        column,
-        totalColumns
-      })
+    }
+    
+    // Trouver tous les cours de ce créneau qui commencent en même temps ou avant
+    const coursesInSlot = dayLessons.filter(l => {
+      let lStartTime
+      if (l.start_time.includes('T')) {
+        lStartTime = l.start_time.split('T')[1].substring(0, 5)
+      } else if (l.start_time.includes(' ')) {
+        lStartTime = l.start_time.split(' ')[1].substring(0, 5)
+      } else {
+        const dt = new Date(l.start_time)
+        lStartTime = `${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`
+      }
+      return lStartTime >= slot.start_time.substring(0, 5) && 
+             lStartTime < slot.end_time.substring(0, 5) &&
+             l.id <= lesson.id // Cours avec ID inférieur ou égal (pour l'ordre)
+    })
+    
+    // La position du cours = l'index dans la liste des cours de ce créneau
+    const column = coursesInSlot.length - 1
+    
+    return {
+      ...lesson,
+      column,
+      totalColumns: slot.max_capacity,
+      slotId: slot.id,
+      slotCapacity: slot.max_capacity
     }
   })
   
@@ -1505,6 +1486,20 @@ const getLessonPositionWithColumns = (lesson) => {
   // Ajouter un petit espacement entre les cours (2px de chaque côté)
   const gapPx = 2
   
+  console.log('📍 Position cours:', {
+    lessonId: lesson.id,
+    title: lesson.title,
+    startTime: lesson.start_time,
+    parsed: { startHour, startMinute },
+    duration: lesson.duration,
+    calendarStartHour,
+    calculation: `(${startHour} - ${calendarStartHour}) * 60 + ${startMinute} = ${offsetMinutes}`,
+    result: {
+      top: `${top}px`,
+      height: `${Math.max(height, 40)}px`
+    }
+  })
+  
   return {
     top: `${top}px`,
     height: `${Math.max(height, 40)}px`,
@@ -1554,8 +1549,8 @@ const getOpenSlotPosition = (slot) => {
   const calendarStartHour = hourRanges.value[0] || 6
   
   // Parser les heures de début et fin du créneau
-  const [startH, startM] = slot.start_time.split(':').map(n => parseInt(n))
-  const [endH, endM] = slot.end_time.split(':').map(n => parseInt(n))
+  const [startH, startM, startS] = slot.start_time.split(':').map(n => parseInt(n))
+  const [endH, endM, endS] = slot.end_time.split(':').map(n => parseInt(n))
   
   // Calculer les offsets en minutes depuis le début du calendrier
   const startOffsetMinutes = (startH - calendarStartHour) * 60 + startM
@@ -1566,13 +1561,21 @@ const getOpenSlotPosition = (slot) => {
   const heightPixels = Math.max(endOffsetMinutes - startOffsetMinutes, 20)
   
   // Debug log pour diagnostiquer les décalages
-  console.log('🎯 Position créneau:', {
-    slot: `${slot.start_time} - ${slot.end_time}`,
-    calendarStart: `${calendarStartHour}:00`,
-    startOffset: `${startOffsetMinutes}px`,
-    endOffset: `${endOffsetMinutes}px`,
-    top: `${topPixels}px`,
-    height: `${heightPixels}px`,
+  console.log('🎯 Position créneau DÉTAILLÉ:', {
+    slotId: slot.id,
+    slotRaw: slot,
+    startTime: slot.start_time,
+    endTime: slot.end_time,
+    parsed: { startH, startM, endH, endM },
+    calendarStartHour,
+    calculation: {
+      startOffsetMinutes: `(${startH} - ${calendarStartHour}) * 60 + ${startM} = ${startOffsetMinutes}`,
+      endOffsetMinutes: `(${endH} - ${calendarStartHour}) * 60 + ${endM} = ${endOffsetMinutes}`,
+    },
+    result: {
+      top: `${topPixels}px`,
+      height: `${heightPixels}px`
+    },
     capacity: slot.max_capacity
   })
   
@@ -1613,27 +1616,41 @@ const getUsedSlotsForDateTime = (date, hour, slot) => {
       return false
     }
     
+    // Normaliser les bornes du slot au format HH:MM
+    const slotStart = slot.start_time.substring(0, 5)
+    const slotEnd = slot.end_time.substring(0, 5)
+    
     // Vérifier si le cours est sur cette date ET dans la plage horaire du slot
-    return lessonDate === date && lessonTime >= slot.start_time && lessonTime < slot.end_time
+    return lessonDate === date && lessonTime >= slotStart && lessonTime < slotEnd
   }).length
 }
 
 // Vérifie si un créneau spécifique (date + heure) est complet OU inexistant
 const isSlotFull = (date, hour) => {
   const dayOfWeek = new Date(date).getDay()
-  const timeStr = typeof hour === 'string' ? hour : `${hour.toString().padStart(2, '0')}:00`
   
-  const slot = availableSlots.value.find(s => 
-    parseInt(s.day_of_week) === dayOfWeek && 
-    timeStr >= s.start_time && 
-    timeStr < s.end_time
-  )
+  // Normaliser l'heure au format HH:MM
+  const timeStr = typeof hour === 'string' 
+    ? hour.substring(0, 5) 
+    : `${hour.toString().padStart(2, '0')}:00`
+  
+  // Trouver le créneau qui contient cette heure
+  const slot = availableSlots.value.find(s => {
+    if (parseInt(s.day_of_week) !== dayOfWeek) return false
+    
+    // Normaliser les heures du slot au format HH:MM
+    const slotStart = s.start_time.substring(0, 5)
+    const slotEnd = s.end_time.substring(0, 5)
+    
+    // Vérifier si timeStr est dans [slotStart, slotEnd)
+    return timeStr >= slotStart && timeStr < slotEnd
+  })
   
   // Si aucun créneau n'existe pour cette heure, la case n'est pas cliquable
   if (!slot) return true
   
   // Vérifier si le créneau est plein
-  return getUsedSlotsForDateTime(date, hour, slot) >= slot.max_capacity
+  return getUsedSlotsForDateTime(date, timeStr, slot) >= slot.max_capacity
 }
 
 

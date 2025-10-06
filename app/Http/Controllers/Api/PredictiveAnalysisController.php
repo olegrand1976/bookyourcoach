@@ -51,10 +51,12 @@ class PredictiveAnalysisController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
+            // Retourner 200 avec success=false pour permettre au frontend de gérer gracieusement
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la génération de l\'analyse'
-            ], 500);
+                'message' => 'Analyse prédictive temporairement indisponible. Vérifiez que Neo4j est démarré et que vous avez suffisamment de données historiques.',
+                'data' => null
+            ], 200);
         }
     }
 
@@ -85,10 +87,12 @@ class PredictiveAnalysisController extends Controller
                 'message' => $e->getMessage()
             ]);
 
+            // Retourner 200 avec success=false pour permettre au frontend de gérer gracieusement
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des alertes'
-            ], 500);
+                'message' => 'Alertes temporairement indisponibles',
+                'data' => []
+            ], 200);
         }
     }
 }
