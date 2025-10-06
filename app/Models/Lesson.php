@@ -54,6 +54,8 @@ class Lesson extends Model
         'rating' => 'integer'
     ];
 
+    protected $appends = ['teacher_name', 'student_name', 'duration'];
+
     /**
      * Get the teacher for this lesson.
      */
@@ -148,6 +150,33 @@ class Lesson extends Model
     public function getIsGroupLessonAttribute(): bool
     {
         return $this->students()->count() > 1;
+    }
+
+    /**
+     * Get teacher name for API response.
+     */
+    public function getTeacherNameAttribute(): ?string
+    {
+        return $this->teacher?->user?->name;
+    }
+
+    /**
+     * Get student name for API response.
+     */
+    public function getStudentNameAttribute(): ?string
+    {
+        return $this->student?->user?->name;
+    }
+
+    /**
+     * Get duration in minutes for API response.
+     */
+    public function getDurationAttribute(): int
+    {
+        if (!$this->start_time || !$this->end_time) {
+            return 0;
+        }
+        return $this->start_time->diffInMinutes($this->end_time);
     }
 
     /**

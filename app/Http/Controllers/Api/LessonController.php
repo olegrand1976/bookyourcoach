@@ -222,6 +222,17 @@ class LessonController extends Controller
 
             $validated['status'] = 'pending';
 
+            // Calculer end_time si duration est fourni
+            if (isset($validated['duration'])) {
+                $startTime = \Carbon\Carbon::parse($validated['start_time']);
+                $validated['end_time'] = $startTime->copy()->addMinutes($validated['duration'])->format('Y-m-d H:i:s');
+            } else {
+                // Durée par défaut de 60 minutes si non fournie
+                $startTime = \Carbon\Carbon::parse($validated['start_time']);
+                $validated['end_time'] = $startTime->copy()->addMinutes(60)->format('Y-m-d H:i:s');
+                $validated['duration'] = 60;
+            }
+
             // Vérifier la capacité du créneau si c'est pour un club
             if ($user->role === 'club') {
                 $club = $user->getFirstClub();
