@@ -1240,11 +1240,15 @@ const selectTimeSlot = (date, hour, minute) => {
   
   // Trouver le créneau correspondant à cette date/heure (PRIORITÉ 1)
   const dayOfWeek = new Date(date).getDay()
-  const slot = availableSlots.value.find(s => 
-    parseInt(s.day_of_week) === dayOfWeek && 
-    timeStr >= s.start_time && 
-    timeStr < s.end_time
-  )
+  const slot = availableSlots.value.find(s => {
+    if (parseInt(s.day_of_week) !== dayOfWeek) return false
+    
+    // Normaliser les heures du slot au format HH:MM pour comparaison
+    const slotStart = s.start_time.substring(0, 5)
+    const slotEnd = s.end_time.substring(0, 5)
+    
+    return timeStr >= slotStart && timeStr < slotEnd
+  })
   
   // Si aucun créneau ouvert n'existe, vérifier les horaires généraux du club
   if (!slot) {
