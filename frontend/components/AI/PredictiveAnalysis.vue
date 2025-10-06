@@ -48,13 +48,18 @@
       <svg class="w-20 h-20 mx-auto text-blue-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
-      <h3 class="text-xl font-bold text-gray-800 mb-2">Pas assez de données</h3>
-      <p class="text-gray-600 max-w-md mx-auto">
-        Continuez à enregistrer des cours pour que l'IA puisse générer des prédictions et recommandations pertinentes.
+      <h3 class="text-xl font-bold text-gray-800 mb-2">Analyse Prédictive Indisponible</h3>
+      <p class="text-gray-600 max-w-md mx-auto mb-4">
+        L'analyse prédictive nécessite plus de données historiques ou le service Neo4j.
       </p>
-      <p class="mt-4 text-sm text-blue-600 font-medium">
-        📊 Minimum recommandé : 20 cours sur les 8 dernières semaines
-      </p>
+      <div class="bg-white rounded-lg p-4 max-w-md mx-auto text-left">
+        <p class="text-sm text-gray-700 mb-2">💡 <strong>Pour activer cette fonctionnalité :</strong></p>
+        <ul class="text-sm text-gray-600 space-y-1 ml-4">
+          <li>• Enregistrez au moins 20 cours sur 8 semaines</li>
+          <li>• Vérifiez que Neo4j est démarré</li>
+          <li>• Patientez quelques minutes après l'ajout de cours</li>
+        </ul>
+      </div>
     </div>
 
     <!-- Analysis Results -->
@@ -196,9 +201,15 @@ const loadAnalysis = async () => {
     const response = await $api.get('/club/predictive-analysis')
     if (response.data.success && response.data.data) {
       analysis.value = response.data.data
+    } else {
+      // Pas assez de données ou service indisponible
+      console.log('Analyse prédictive indisponible:', response.data.message)
+      analysis.value = null
     }
   } catch (error) {
-    console.error('Erreur chargement analyse:', error)
+    // Gérer gracieusement toutes les erreurs (500, network, etc.)
+    console.warn('Analyse prédictive temporairement indisponible:', error.message)
+    analysis.value = null
   } finally {
     loading.value = false
   }
