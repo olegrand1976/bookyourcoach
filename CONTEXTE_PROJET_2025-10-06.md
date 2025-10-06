@@ -348,6 +348,41 @@ curl -X POST http://localhost:8080/api/auth/login
 
 ---
 
+## ✅ 5. Affichage Créneaux Calendrier (Frontend) - RÉSOLU
+
+**Problème signalé**: Les créneaux et cours s'affichent uniquement sur la moitié droite du calendrier en mode "day".
+
+**Erreur visuelle**: 
+```html
+<!-- Créneaux mal positionnés -->
+<div style="left: 50%; width: 50%; height: 100%;">
+```
+
+**Cause**: Le calcul de positionnement utilisait des pourcentages `(dayIndex + 1) / totalColumns` qui ne tenait pas compte de la largeur **fixe** de la colonne horaire (80px).
+
+**Solution appliquée**:
+```vue
+// Avant (incorrect)
+:style="{ 
+  left: `${((dayIndex + 1) / totalColumns) * 100}%`, 
+  width: `${(1 / totalColumns) * 100}%`
+}"
+
+// Après (correct)
+:style="{ 
+  left: viewMode === 'week' ? `${((dayIndex + 1) / totalColumns) * 100}%` : '80px', 
+  width: viewMode === 'week' ? `${(1 / totalColumns) * 100}%` : 'calc(100% - 80px)'
+}"
+```
+
+**Fichiers modifiés**: `frontend/pages/club/planning.vue` (2 sections corrigées)
+- Ligne 305-306 : Créneaux ouverts
+- Ligne 371-372 : Cours
+
+**Statut**: ✅ RÉSOLU - Les créneaux occupent maintenant toute la largeur disponible après la colonne horaire
+
+---
+
 ## 📝 Notes Importantes
 
 ### Problème Nuxt Résolu

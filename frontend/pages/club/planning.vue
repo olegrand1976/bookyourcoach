@@ -302,8 +302,8 @@
             <div v-for="(day, dayIndex) in displayDays" :key="`openslots-${day.date}`"
                  class="absolute top-0 pointer-events-none"
                  :style="{ 
-                   left: `${((dayIndex + 1) / totalColumns) * 100}%`, 
-                   width: `${(1 / totalColumns) * 100}%`,
+                   left: viewMode === 'week' ? `${((dayIndex + 1) / totalColumns) * 100}%` : '80px', 
+                   width: viewMode === 'week' ? `${(1 / totalColumns) * 100}%` : 'calc(100% - 80px)',
                    height: '100%'
                  }">
               <div v-for="slot in getOpenSlotsForDay(day.date)" :key="slot.id"
@@ -368,8 +368,8 @@
             <div v-for="(day, dayIndex) in displayDays" :key="`lessons-${day.date}`"
                  class="absolute top-0 pointer-events-none"
                  :style="{ 
-                   left: `${((dayIndex + 1) / totalColumns) * 100}%`, 
-                   width: `${(1 / totalColumns) * 100}%`,
+                   left: viewMode === 'week' ? `${((dayIndex + 1) / totalColumns) * 100}%` : '80px', 
+                   width: viewMode === 'week' ? `${(1 / totalColumns) * 100}%` : 'calc(100% - 80px)',
                    height: '100%'
                  }">
               
