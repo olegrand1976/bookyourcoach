@@ -20,4 +20,28 @@ class ClubOpenSlot extends Model
         'price',
         'is_active',
     ];
+
+    /**
+     * Get the club that owns this slot
+     */
+    public function club()
+    {
+        return $this->belongsTo(Club::class);
+    }
+
+    /**
+     * Get the discipline for this slot
+     */
+    public function discipline()
+    {
+        return $this->belongsTo(Discipline::class);
+    }
+
+    /**
+     * Get the course types associated with this slot
+     */
+    public function courseTypes()
+    {
+        return $this->belongsToMany(CourseType::class, 'club_open_slot_course_types');
+    }
 }

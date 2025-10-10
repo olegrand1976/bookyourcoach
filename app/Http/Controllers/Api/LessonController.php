@@ -252,9 +252,14 @@ class LessonController extends Controller
             $this->sendBookingNotifications($lesson);
 
             // Programmer un rappel 24h avant le cours
-            $reminderTime = Carbon::parse($lesson->start_time)->subHours(24);
-            if ($reminderTime->isFuture()) {
-                SendLessonReminderJob::dispatch($lesson)->delay($reminderTime);
+            try {
+                $reminderTime = Carbon::parse($lesson->start_time)->subHours(24);
+                if ($reminderTime->isFuture()) {
+                    SendLessonReminderJob::dispatch($lesson)->delay($reminderTime);
+                }
+            } catch (\Exception $e) {
+                // Logger l'erreur mais ne pas bloquer la création du cours
+                Log::warning("Impossible de programmer le rappel pour le cours {$lesson->id}: " . $e->getMessage());
             }
 
             return response()->json([

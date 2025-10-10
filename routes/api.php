@@ -136,8 +136,11 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);
+    Route::get('/open-slots/{id}', [ClubOpenSlotController::class, 'show']);
     Route::put('/open-slots/{id}', [ClubOpenSlotController::class, 'update']);
     Route::delete('/open-slots/{id}', [ClubOpenSlotController::class, 'destroy']);
+    // Gestion des types de cours pour les créneaux
+    Route::put('/open-slots/{id}/course-types', [ClubOpenSlotController::class, 'updateCourseTypes']);
     // Abonnements
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);

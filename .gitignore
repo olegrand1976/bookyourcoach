@@ -40,6 +40,8 @@ Homestead.yaml
 
 # Node.js
 /node_modules
+node_modules/
+**/node_modules/
 npm-debug.log
 yarn-error.log
 yarn-debug.log
@@ -61,6 +63,9 @@ test_*.html
 test-*.txt
 debug-*.sh
 dev-*.sh
+scripts/test_*.php
+scripts/diagnose_*.php
+scripts/visualize_*.php
 
 # Documentation temporaire
 *-COMPLETE.md
@@ -74,6 +79,10 @@ ITERATION-COMPLETE.md
 LOGO-UPLOAD-COMPLETE.md
 Agents.md
 SOLUTION_*.md
+CORRECTIONS_*.md
+*_RESUME.md
+OPTIMISATION_*.md
+GUIDE_*.md
 
 # Copilot workspace copy
 /copilot/
