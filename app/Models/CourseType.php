@@ -51,4 +51,12 @@ class CourseType extends Model
     {
         return $this->hasMany(Lesson::class);
     }
+
+    /**
+     * Get the club open slots that can use this course type
+     */
+    public function clubOpenSlots()
+    {
+        return $this->belongsToMany(ClubOpenSlot::class, 'club_open_slot_course_types');
+    }
 }

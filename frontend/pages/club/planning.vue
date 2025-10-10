@@ -245,6 +245,30 @@
           </div>
             </div>
 
+        <!-- 🎯 OPTIMISATION : Légende des codes couleurs -->
+        <div class="bg-gradient-to-r from-yellow-50 to-blue-50 border-2 border-yellow-300 rounded-lg p-3 mb-4 shadow-sm">
+          <div class="flex items-center gap-6 text-xs">
+            <div class="font-semibold text-gray-700 flex items-center gap-2">
+              <span>🎯</span>
+              <span>Guide d'optimisation :</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 bg-yellow-50 border-2 border-yellow-400 rounded"></div>
+              <span class="font-medium">⭐ À remplir en priorité</span>
+              <span class="text-gray-600">(heure déjà occupée)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 bg-blue-50 border border-gray-300 rounded"></div>
+              <span class="font-medium">💡 Disponible</span>
+              <span class="text-gray-600">(éviter si possible)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 bg-red-50 border border-gray-300 rounded"></div>
+              <span class="font-medium">🔴 Complet</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Grille des créneaux - Style Google Calendar épuré -->
         <div class="relative overflow-y-auto" style="max-height: calc(100vh - 400px);">
           <!-- Grille de fond minimaliste -->
@@ -268,6 +292,7 @@
                      :class="[
                        'relative border-l border-gray-100 transition-colors group',
                        viewMode === 'day' ? 'flex-1' : '',
+                       getOccupancyClass(day.date, hour),
                        {
                          'bg-today': isToday(day.date),
                          'cursor-pointer hover:bg-blue-50/10': !isSlotFull(day.date, hour),
@@ -278,6 +303,12 @@
                   
                   <!-- Ligne de 30 minutes -->
                   <div class="absolute top-1/2 left-0 right-0 border-t border-gray-50"></div>
+                  
+                  <!-- 🎯 OPTIMISATION : Indicateur de taux de remplissage -->
+                  <div v-if="getOccupancyIndicator(day.date, hour)" 
+                       class="absolute top-1 left-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/80 shadow-sm border border-gray-200 z-10 pointer-events-none">
+                    {{ getOccupancyIndicator(day.date, hour) }}
+                  </div>
                   
                   <!-- Indicateur "+" au hover pour créer un cours (seulement si pas plein) -->
                   <div v-if="!isSlotFull(day.date, hour)" class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -446,7 +477,7 @@
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Type de cours</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Discipline</label>
             <select 
               v-model="slotForm.discipline_id" 
               :disabled="filteredDisciplinesForSlot.length === 0" 
@@ -456,12 +487,39 @@
               <option v-for="discipline in filteredDisciplinesForSlot" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
             </select>
             <p v-if="clubActivities.length > 1 && !slotForm.activity_type_id" class="text-xs text-gray-500 mt-1">
-              Veuillez d'abord sélectionner un sport pour afficher les types de cours
+              Veuillez d'abord sélectionner un sport pour afficher les disciplines
             </p>
             <p v-else-if="filteredDisciplinesForSlot.length === 0" class="text-xs text-red-600 mt-1">
-              Aucun type de cours disponible
+              Aucune discipline disponible
             </p>
+          </div>
+          
+          <!-- Sélection des types de cours -->
+          <div v-if="slotForm.discipline_id && availableCourseTypesForSlot.length > 0">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Types de cours autorisés pour ce créneau
+              <span class="text-xs text-gray-500 font-normal">(sélection multiple)</span>
+            </label>
+            <div class="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              <label v-for="courseType in availableCourseTypesForSlot" 
+                     :key="courseType.id" 
+                     class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input 
+                  type="checkbox" 
+                  :value="courseType.id" 
+                  v-model="slotForm.course_type_ids"
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <span class="text-sm">
+                  {{ courseType.name }}
+                  <span v-if="courseType.duration_minutes" class="text-gray-500">({{ courseType.duration_minutes }}min)</span>
+                  <span v-if="courseType.price" class="text-gray-500"> - {{ courseType.price }}€</span>
+                </span>
+              </label>
             </div>
+            <p class="text-xs text-gray-500 mt-1">
+              Sélectionnez les types de cours qui peuvent être créés sur ce créneau
+            </p>
+          </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Nombre maximum de cours simultanés</label>
             <input v-model.number="slotForm.max_capacity" type="number" min="1" max="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
@@ -530,7 +588,7 @@
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Type de cours</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Discipline</label>
             <select 
               v-model="slotForm.discipline_id" 
               :disabled="filteredDisciplinesForSlot.length === 0" 
@@ -540,12 +598,40 @@
               <option v-for="discipline in filteredDisciplinesForSlot" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
             </select>
             <p v-if="clubActivities.length > 1 && !slotForm.activity_type_id" class="text-xs text-gray-500 mt-1">
-              Veuillez d'abord sélectionner un sport pour afficher les types de cours
+              Veuillez d'abord sélectionner un sport pour afficher les disciplines
             </p>
             <p v-else-if="filteredDisciplinesForSlot.length === 0" class="text-xs text-red-600 mt-1">
-              Aucun type de cours disponible
+              Aucune discipline disponible
             </p>
           </div>
+          
+          <!-- Sélection des types de cours -->
+          <div v-if="slotForm.discipline_id && availableCourseTypesForSlot.length > 0">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Types de cours autorisés pour ce créneau
+              <span class="text-xs text-gray-500 font-normal">(sélection multiple)</span>
+            </label>
+            <div class="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+              <label v-for="courseType in availableCourseTypesForSlot" 
+                     :key="courseType.id" 
+                     class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input 
+                  type="checkbox" 
+                  :value="courseType.id" 
+                  v-model="slotForm.course_type_ids"
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <span class="text-sm">
+                  {{ courseType.name }}
+                  <span v-if="courseType.duration_minutes" class="text-gray-500">({{ courseType.duration_minutes }}min)</span>
+                  <span v-if="courseType.price" class="text-gray-500"> - {{ courseType.price }}€</span>
+                </span>
+              </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              Sélectionnez les types de cours qui peuvent être créés sur ce créneau
+            </p>
+          </div>
+          
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Nombre maximum de cours simultanés</label>
             <input v-model.number="slotForm.max_capacity" type="number" min="1" max="10" class="w-full border border-gray-300 rounded-lg px-3 py-2">
@@ -571,7 +657,19 @@
     <!-- Modal Créer un cours -->
     <div v-if="showCreateLessonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
       <div class="bg-white rounded-lg p-6 w-full max-w-2xl my-8">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Nouveau cours</h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Nouveau cours</h3>
+          
+          <!-- 🎯 OPTIMISATION : Bouton suggérer créneau optimal -->
+          <button 
+            @click="suggestOptimalSlot" 
+            class="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-400 rounded-lg text-xs font-semibold text-yellow-800 transition-colors"
+            title="Suggère le meilleur créneau pour optimiser le remplissage et minimiser les coûts"
+          >
+            <span>⭐</span>
+            <span>Suggérer créneau optimal</span>
+          </button>
+        </div>
         
         <div class="grid grid-cols-2 gap-4">
           <div>
@@ -618,7 +716,8 @@
                 {{ type.name }} 
                 <template v-if="type.is_individual">(individuel)</template>
                 <template v-else>({{ type.max_participants }} pers. max)</template>
-                - {{ type.duration_minutes }}min
+                <template v-if="type.duration_minutes"> - {{ type.duration_minutes }}min</template>
+                <template v-if="type.price"> - {{ type.price }}€</template>
               </option>
             </select>
             <p class="text-xs text-gray-500 mt-1">Discipline: {{ getSelectedSlotDisciplineName() || 'Défini par le créneau' }}</p>
@@ -698,7 +797,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -733,7 +832,8 @@ const slotForm = ref({
   discipline_id: '',
   max_capacity: 3,
   duration: 60,
-  price: 25
+  price: 25,
+  course_type_ids: [] // Types de cours sélectionnés pour ce créneau
 })
 
 // Jours de la semaine pour récurrence
@@ -986,8 +1086,41 @@ const availableTeachersForLesson = computed(() => {
 
 // Types de cours disponibles pour la discipline du créneau sélectionné
 const availableCourseTypesForLesson = computed(() => {
-  // Récupérer la discipline du créneau sélectionné
+  console.log('🔍 Calcul availableCourseTypesForLesson:', {
+    selectedSlot: selectedSlot.value,
+    slotCourseTypes: selectedSlot.value?.slot?.courseTypes,
+    slotCourseTypesLength: selectedSlot.value?.slot?.courseTypes?.length
+  })
+  
+  // Si le créneau a des types de cours spécifiques assignés, les utiliser
+  if (selectedSlot.value?.slot?.courseTypes && selectedSlot.value.slot.courseTypes.length > 0) {
+    console.log('✅ Utilisation des types de cours du créneau:', selectedSlot.value.slot.courseTypes)
+    return selectedSlot.value.slot.courseTypes
+  }
+  
+  // Sinon, fallback sur le filtrage par discipline (comportement actuel)
   const disciplineId = selectedSlot.value?.slot?.discipline_id
+  
+  console.log('⚠️ Fallback sur filtrage par discipline:', disciplineId)
+  
+  if (!disciplineId) {
+    // Si pas de discipline spécifique, retourner les types génériques
+    const genericTypes = availableCourseTypes.value.filter(type => !type.discipline_id)
+    console.log('📋 Types génériques retournés:', genericTypes)
+    return genericTypes
+  }
+  
+  // Filtrer les types de cours pour cette discipline + les types génériques
+  const filteredTypes = availableCourseTypes.value.filter(type => 
+    !type.discipline_id || type.discipline_id === parseInt(disciplineId)
+  )
+  console.log('📋 Types filtrés par discipline retournés:', filteredTypes)
+  return filteredTypes
+})
+
+// Types de cours disponibles pour la discipline sélectionnée dans le formulaire de créneau
+const availableCourseTypesForSlot = computed(() => {
+  const disciplineId = slotForm.value.discipline_id
   
   if (!disciplineId) {
     // Si pas de discipline spécifique, retourner les types génériques
@@ -1027,6 +1160,67 @@ const getActivityIcon = (activityTypeId) => {
     8: 'child'
   }
   return activityIcons[activityTypeId] || 'star'
+}
+
+/**
+ * Calcule la prochaine heure disponible pour un cours
+ * @param {Object} slot - Le créneau sélectionné
+ * @param {String} date - La date du cours (YYYY-MM-DD)
+ * @param {Number} duration - La durée du cours en minutes
+ * @returns {String} L'heure au format HH:MM
+ */
+const calculateNextAvailableTime = (slot, date, duration) => {
+  console.log('🕐 Calcul de la prochaine heure disponible:', { slot, date, duration })
+  
+  if (!slot || !date || !duration) {
+    return slot?.start_time || '09:00'
+  }
+  
+  // Récupérer tous les cours existants pour ce créneau et cette date
+  const existingLessons = lessons.value.filter(lesson => {
+    const lessonDate = lesson.start_time.split(' ')[0]
+    return lessonDate === date
+  })
+  
+  console.log('📅 Cours existants pour cette date:', existingLessons)
+  
+  // Parser les heures de début et fin du créneau
+  const [slotStartHour, slotStartMinute] = slot.start_time.split(':').map(Number)
+  const [slotEndHour, slotEndMinute] = slot.end_time.split(':').map(Number)
+  
+  const slotStartMinutes = slotStartHour * 60 + slotStartMinute
+  const slotEndMinutes = slotEndHour * 60 + slotEndMinute
+  
+  // Générer toutes les heures possibles par pas de duration
+  const possibleTimes = []
+  for (let minutes = slotStartMinutes; minutes < slotEndMinutes; minutes += duration) {
+    const hour = Math.floor(minutes / 60)
+    const minute = minutes % 60
+    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+    possibleTimes.push({ timeStr, minutes })
+  }
+  
+  console.log('⏰ Heures possibles:', possibleTimes)
+  
+  // Pour chaque heure possible, compter combien de cours sont déjà présents
+  for (const time of possibleTimes) {
+    const coursCountAtThisTime = existingLessons.filter(lesson => {
+      const lessonTime = lesson.start_time.split(' ')[1].substring(0, 5)
+      return lessonTime === time.timeStr
+    }).length
+    
+    console.log(`   ${time.timeStr}: ${coursCountAtThisTime}/${slot.max_capacity} cours`)
+    
+    // Si cette heure n'est pas pleine, la retourner
+    if (coursCountAtThisTime < slot.max_capacity) {
+      console.log(`✅ Heure disponible trouvée: ${time.timeStr}`)
+      return time.timeStr
+    }
+  }
+  
+  // Si toutes les heures sont pleines, retourner la première heure du créneau
+  console.log('⚠️ Aucune heure disponible, retour à la première heure')
+  return possibleTimes[0]?.timeStr || slot.start_time
 }
 
 const lessonForm = ref({
@@ -1345,7 +1539,7 @@ const getDisciplineSettings = (disciplineId) => {
   return { duration: 60, price: 25 }
 }
 
-const selectTimeSlot = (date, hour, minute) => {
+const selectTimeSlot = async (date, hour, minute) => {
   const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
   
   // Trouver le créneau correspondant à cette date/heure (PRIORITÉ 1)
@@ -1370,26 +1564,58 @@ const selectTimeSlot = (date, hour, minute) => {
     return
   }
   
-  // Vérifier si le créneau n'est pas plein pour cette date/heure spécifique
-  const usedCount = getUsedSlotsForDateTime(date, hour, slot)
-  if (usedCount >= slot.max_capacity) {
+  selectedSlot.value = { date, hour: timeStr, slot }
+  
+  // Attendre que le computed availableCourseTypesForLesson soit mis à jour
+  await nextTick()
+  
+  // Auto-sélectionner le type de cours si un seul est disponible, sinon prendre le premier
+  const availableTypes = availableCourseTypesForLesson.value
+  
+  let selectedDuration = slot.duration || 60
+  
+  if (availableTypes.length === 1) {
+    // Un seul type disponible : sélection automatique
+    lessonForm.value.courseTypeId = availableTypes[0].id.toString()
+    const type = availableTypes[0]
+    selectedDuration = type.duration_minutes || slot.duration || 60
+    lessonForm.value.duration = selectedDuration.toString()
+    lessonForm.value.price = type.price?.toString() || slot.price?.toString() || '50.00'
+    console.log('✅ Type de cours auto-sélectionné (seul disponible):', type.name)
+  } else if (availableTypes.length > 1) {
+    // Plusieurs types disponibles : pré-sélectionner le premier
+    lessonForm.value.courseTypeId = availableTypes[0].id.toString()
+    const firstType = availableTypes[0]
+    selectedDuration = firstType.duration_minutes || slot.duration || 60
+    lessonForm.value.duration = selectedDuration.toString()
+    lessonForm.value.price = firstType.price?.toString() || slot.price?.toString() || '50.00'
+    console.log('📋 Premier type de cours pré-sélectionné:', firstType.name)
+  } else {
+    // Aucun type disponible
+    lessonForm.value.courseTypeId = ''
+    selectedDuration = slot.duration || 60
+    lessonForm.value.duration = selectedDuration.toString()
+    lessonForm.value.price = slot.price?.toString() || '50.00'
+    console.log('⚠️ Aucun type de cours disponible pour ce créneau')
+  }
+  
+  // Calculer la prochaine heure disponible en tenant compte de la durée et de la capacité
+  const nextAvailableTime = calculateNextAvailableTime(slot, date, selectedDuration)
+  
+  // Vérifier si l'heure calculée est la même que toutes les heures possibles (créneau complètement plein)
+  const isSlotFull = nextAvailableTime === timeStr && getUsedSlotsForDateTime(date, hour, slot) >= slot.max_capacity
+  
+  if (isSlotFull) {
+    const usedCount = getUsedSlotsForDateTime(date, hour, slot)
     alert(`Ce créneau est complet (${usedCount}/${slot.max_capacity} cours). Impossible d'ajouter un nouveau cours.`)
     return
   }
   
-  selectedSlot.value = { date, hour: timeStr, slot }
-  
-  // Précharger toutes les données du créneau dans le formulaire de cours
+  // Utiliser l'heure calculée
   lessonForm.value.date = date
-  lessonForm.value.time = timeStr
-  lessonForm.value.duration = slot.duration?.toString() || '60'
-  lessonForm.value.price = slot.price?.toString() || '50.00'
+  lessonForm.value.time = nextAvailableTime
   
-  // Pré-sélectionner le premier type de cours disponible pour cette discipline
-  const availableTypes = availableCourseTypes.value.filter(type => 
-    !type.discipline_id || type.discipline_id === parseInt(slot.discipline_id)
-  )
-  lessonForm.value.courseTypeId = availableTypes.length > 0 ? availableTypes[0].id.toString() : ''
+  console.log(`⏰ Heure positionnée sur: ${nextAvailableTime}`)
   
   // Réinitialiser les champs spécifiques au cours
   lessonForm.value.studentId = ''
@@ -1409,6 +1635,85 @@ const selectTimeSlot = (date, hour, minute) => {
   }, 50)
   
   showCreateLessonModal.value = true
+}
+
+// 🎯 OPTIMISATION : Suggérer le créneau optimal pour minimiser les coûts
+const suggestOptimalSlot = () => {
+  console.log('🎯 suggestOptimalSlot() appelé')
+  
+  // Si une date est déjà sélectionnée, suggérer pour cette date
+  // Convertir currentDay en format YYYY-MM-DD si c'est un objet Date
+  let targetDate = lessonForm.value.date
+  if (!targetDate) {
+    const dateObj = currentDay.value instanceof Date ? currentDay.value : new Date(currentDay.value)
+    targetDate = dateObj.toISOString().split('T')[0]
+  }
+  
+  console.log('📅 Date cible:', targetDate)
+  console.log('📅 Jour de la semaine:', new Date(targetDate).getDay())
+  console.log('📊 Créneaux disponibles:', availableSlots.value.length)
+  console.log('📊 Créneaux disponibles détails:', availableSlots.value)
+  console.log('📝 Cours existants:', lessons.value.length)
+  
+  // Obtenir les créneaux optimaux pour cette date
+  const suggestions = getOptimalTimeSlots(targetDate)
+  console.log('💡 Suggestions trouvées:', suggestions.length, suggestions)
+  
+  if (suggestions.length === 0) {
+    alert('Aucun créneau disponible pour cette date.')
+    return
+  }
+  
+  // Prendre la première suggestion (priorité max)
+  const bestSlot = suggestions[0]
+  
+  // Obtenir les noms des enseignants déjà utilisés dans cette plage
+  const teacherNames = bestSlot.teachersInSlot
+    .map(teacherId => {
+      const teacher = teachers.value.find(t => t.id === teacherId)
+      return teacher ? teacher.name : `Enseignant #${teacherId}`
+    })
+    .join(', ')
+  
+  // Message explicatif selon le statut
+  let message = ''
+  if (bestSlot.status === 'priority') {
+    message = `✨ Créneau optimal trouvé : ${bestSlot.timeStr}\n` +
+              `📍 Plage : ${bestSlot.slot.start_time.substring(0, 5)} - ${bestSlot.slot.end_time.substring(0, 5)}\n\n` +
+              `⭐ PRIORITÉ MAXIMALE - Remplissage vertical de cette plage\n` +
+              `📊 Occupation actuelle : ${bestSlot.used}/${bestSlot.total} cours dans cette plage (${Math.round(bestSlot.occupancyRate)}%)\n` +
+              (teacherNames ? `👥 Enseignants déjà dans cette plage : ${teacherNames}\n` : '') +
+              `\n💰 Avantages :\n` +
+              `  • Pas de nouveau coût de location (plage déjà ouverte)\n` +
+              `  • Optimisation du remplissage vertical\n` +
+              `  • ${bestSlot.available} place${bestSlot.available > 1 ? 's' : ''} disponible${bestSlot.available > 1 ? 's' : ''} dans cette plage\n` +
+              (teacherNames ? `  • Possibilité d'utiliser un enseignant déjà sur place\n` : '') +
+              `\n💡 Conseil : Privilégiez un enseignant déjà présent pour limiter les coûts\n\n` +
+              `Voulez-vous utiliser ce créneau ?`
+  } else if (bestSlot.status === 'empty') {
+    message = `💡 Créneau disponible : ${bestSlot.timeStr}\n` +
+              `📍 Plage : ${bestSlot.slot.start_time.substring(0, 5)} - ${bestSlot.slot.end_time.substring(0, 5)}\n\n` +
+              `⚠️ ATTENTION - Nouvelle plage horaire\n` +
+              `📊 Occupation actuelle : 0/${bestSlot.total} cours\n` +
+              `💰 Coûts supplémentaires :\n` +
+              `  • Location du bâtiment (nouvelle plage)\n` +
+              `  • Paiement de l'enseignant\n\n` +
+              `💡 Conseil : Vérifiez d'abord si vous pouvez remplir les plages déjà occupées\n\n` +
+              `Voulez-vous quand même utiliser ce créneau ?`
+  }
+  
+  if (confirm(message)) {
+    // Appliquer le créneau suggéré
+    selectTimeSlot(targetDate, bestSlot.hour, bestSlot.minute)
+    
+    // Si des enseignants sont déjà dans cette plage, suggérer le premier
+    if (bestSlot.teachersInSlot.length > 0) {
+      setTimeout(() => {
+        lessonForm.value.teacherId = bestSlot.teachersInSlot[0].toString()
+        alert(`💡 Enseignant pré-sélectionné : ${teacherNames.split(',')[0]}\n\nCet enseignant est déjà présent dans cette plage, ce qui optimise les coûts.`)
+      }, 100)
+    }
+  }
 }
 
 const isSlotSelected = (date, hour) => {
@@ -1794,6 +2099,198 @@ const getUsedSlotsForDateTime = (date, hour, slot) => {
   }).length
 }
 
+// 🎯 OPTIMISATION : Calculer le taux d'occupation par heure pour une journée
+const getHourlyOccupancy = (date) => {
+  const dayOfWeek = new Date(date).getDay()
+  const hourlyStats = {}
+  
+  // Pour chaque heure, calculer le taux d'occupation
+  hourRanges.value.forEach(hour => {
+    const timeStr = `${hour.toString().padStart(2, '0')}:00`
+    
+    // Trouver le créneau correspondant
+    const slot = availableSlots.value.find(s => {
+      if (parseInt(s.day_of_week) !== dayOfWeek) return false
+      const slotStart = s.start_time.substring(0, 5)
+      const slotEnd = s.end_time.substring(0, 5)
+      return timeStr >= slotStart && timeStr < slotEnd
+    })
+    
+    if (slot) {
+      const usedCount = getUsedSlotsForDateTime(date, hour, slot)
+      const occupancyRate = (usedCount / slot.max_capacity) * 100
+      
+      hourlyStats[hour] = {
+        used: usedCount,
+        total: slot.max_capacity,
+        available: slot.max_capacity - usedCount,
+        occupancyRate: occupancyRate,
+        slot: slot,
+        // Statut : priority (à remplir en priorité), partial (partiellement rempli), full (plein), empty (vide)
+        status: usedCount === 0 ? 'empty' : 
+                usedCount >= slot.max_capacity ? 'full' : 
+                usedCount >= 1 ? 'priority' : 'partial'
+      }
+    }
+  })
+  
+  return hourlyStats
+}
+
+// 🎯 OPTIMISATION : Suggérer les créneaux optimaux par PLAGE (open_slot)
+const getOptimalTimeSlots = (date, requestedDuration = null) => {
+  const dayOfWeek = new Date(date).getDay()
+  const suggestions = []
+  
+  // Récupérer la durée demandée (du type de cours sélectionné ou par défaut 60min)
+  const courseDuration = requestedDuration || parseInt(lessonForm.value.duration) || 60
+  
+  console.log(`🎯 Recherche de créneaux optimaux pour une durée de ${courseDuration} minutes`)
+  
+  // Pour chaque créneau disponible, générer toutes les heures possibles
+  availableSlots.value.forEach(slot => {
+    if (parseInt(slot.day_of_week) !== dayOfWeek) return
+    
+    // Parser les heures de début et fin du créneau
+    const [slotStartHour, slotStartMinute] = slot.start_time.substring(0, 5).split(':').map(Number)
+    const [slotEndHour, slotEndMinute] = slot.end_time.substring(0, 5).split(':').map(Number)
+    
+    const slotStartMinutes = slotStartHour * 60 + slotStartMinute
+    const slotEndMinutes = slotEndHour * 60 + slotEndMinute
+    
+    // Générer toutes les heures de début possibles (par tranches de 15 minutes) dans ce créneau
+    for (let startMinutes = slotStartMinutes; startMinutes < slotEndMinutes; startMinutes += 15) {
+      const endMinutes = startMinutes + courseDuration
+      
+      // Vérifier que le cours ne dépasse pas la fin du créneau
+      if (endMinutes > slotEndMinutes) {
+        console.log(`⚠️ Créneau ${Math.floor(startMinutes/60)}:${(startMinutes%60).toString().padStart(2, '0')} exclu: cours dépasserait la fin du créneau`)
+        continue
+      }
+      
+      const hour = Math.floor(startMinutes / 60)
+      const minute = startMinutes % 60
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      
+      // Compter les cours existants à cette heure précise
+      const lessonsAtThisTime = lessons.value.filter(lesson => {
+        if (!lesson.start_time) return false
+        
+        const lessonDate = lesson.start_time.split('T')[0] || lesson.start_time.split(' ')[0]
+        if (lessonDate !== date) return false
+        
+        const lessonTime = lesson.start_time.includes('T') 
+          ? lesson.start_time.split('T')[1].substring(0, 5)
+          : lesson.start_time.split(' ')[1].substring(0, 5)
+        
+        return lessonTime === timeStr
+      })
+      
+      const usedCount = lessonsAtThisTime.length
+      
+      // Vérifier si ce créneau a de la capacité disponible
+      if (usedCount >= slot.max_capacity) {
+        continue // Créneau plein, passer au suivant
+      }
+      
+      const available = slot.max_capacity - usedCount
+      
+      // Trouver les enseignants déjà utilisés à cette heure
+      const teachersAtThisTime = lessonsAtThisTime
+        .map(lesson => lesson.teacher_id)
+        .filter((id, index, self) => self.indexOf(id) === index)
+      
+      suggestions.push({
+        hour,
+        minute,
+        timeStr,
+        slot: slot,
+        used: usedCount,
+        total: slot.max_capacity,
+        available,
+        occupancyRate: (usedCount / slot.max_capacity) * 100,
+        teachersInSlot: teachersAtThisTime,
+        // PRIORITÉ selon les règles de gestion :
+        // 1. Plages déjà occupées (au moins 1 cours) = PRIORITÉ MAXIMALE
+        // 2. Plages vides (0 cours) = À ÉVITER
+        status: usedCount > 0 ? 'priority' : 'empty',
+        priority: usedCount > 0 ? 1 : 2,
+        // Score de préférence : plus il y a de cours, plus c'est prioritaire
+        preferenceScore: usedCount
+      })
+    }
+  })
+  
+  console.log('📊 Suggestions avant tri:', suggestions.map(s => ({
+    timeStr: s.timeStr,
+    used: s.used,
+    total: s.total,
+    priority: s.priority,
+    preferenceScore: s.preferenceScore
+  })))
+  
+  // Trier par :
+  // 1. Priorité (heures déjà occupées d'abord)
+  // 2. Score de préférence (heures les plus remplies d'abord) - DESCENDANT
+  // 3. Heure (plus tôt d'abord) - ASCENDANT
+  suggestions.sort((a, b) => {
+    // Priorité 1 = max priorité (heures déjà occupées)
+    if (a.priority !== b.priority) return a.priority - b.priority
+    
+    // Plus de cours = plus prioritaire (DESCENDANT)
+    if (a.preferenceScore !== b.preferenceScore) return b.preferenceScore - a.preferenceScore
+    
+    // Heure plus tôt = plus prioritaire (ASCENDANT)
+    if (a.hour !== b.hour) return a.hour - b.hour
+    return a.minute - b.minute
+  })
+  
+  console.log('📊 Suggestions après tri (OPTIMAL = plage la plus remplie):', suggestions.map(s => ({
+    timeStr: s.timeStr,
+    used: s.used,
+    total: s.total,
+    priority: s.priority,
+    preferenceScore: s.preferenceScore,
+    status: s.status
+  })))
+  
+  return suggestions
+}
+
+// 🎯 OPTIMISATION : Obtenir la classe CSS selon le taux d'occupation
+const getOccupancyClass = (date, hour) => {
+  const occupancy = getHourlyOccupancy(date)
+  const stats = occupancy[hour]
+  
+  if (!stats) return ''
+  
+  switch (stats.status) {
+    case 'priority':
+      return 'bg-yellow-50 border-l-4 border-yellow-400' // Jaune = À remplir en priorité
+    case 'empty':
+      return 'bg-blue-50' // Bleu léger = Disponible mais éviter si possible
+    case 'full':
+      return 'bg-red-50 opacity-60' // Rouge = Plein
+    default:
+      return ''
+  }
+}
+
+// 🎯 OPTIMISATION : Afficher l'indicateur de taux de remplissage
+const getOccupancyIndicator = (date, hour) => {
+  const occupancy = getHourlyOccupancy(date)
+  const stats = occupancy[hour]
+  
+  if (!stats) return ''
+  
+  const rate = Math.round(stats.occupancyRate)
+  const emoji = stats.status === 'priority' ? '⭐' : 
+                stats.status === 'empty' ? '💡' : 
+                stats.status === 'full' ? '🔴' : ''
+  
+  return `${emoji} ${stats.used}/${stats.total} (${rate}%)`
+}
+
 // Vérifie si un créneau spécifique (date + heure) est complet OU inexistant
 const isSlotFull = (date, hour) => {
   const dayOfWeek = new Date(date).getDay()
@@ -1887,6 +2384,20 @@ const saveSlot = async () => {
     
     if (response.data.success) {
       console.log('✅ Créneau créé avec succès:', response.data.data)
+      const createdSlot = response.data.data
+      
+      // Si des types de cours ont été sélectionnés, les assigner au créneau
+      if (slotForm.value.course_type_ids && slotForm.value.course_type_ids.length > 0) {
+        try {
+          await $api.put(`/club/open-slots/${createdSlot.id}/course-types`, {
+            course_type_ids: slotForm.value.course_type_ids
+          })
+          console.log('✅ Types de cours assignés au créneau')
+        } catch (error) {
+          console.error('⚠️ Erreur lors de l\'assignation des types de cours:', error)
+          // Ne pas bloquer la création du créneau si l'assignation échoue
+        }
+      }
       
       // Recharger les créneaux depuis l'API
       await loadOpenSlots()
@@ -1902,7 +2413,8 @@ const saveSlot = async () => {
         discipline_id: '',
         max_capacity: 3,
         duration: 60,
-        price: 25
+        price: 25,
+        course_type_ids: []
       }
     }
   } catch (e) {
@@ -2231,6 +2743,15 @@ const loadOpenSlots = async () => {
     if (res.data?.success) {
       availableSlots.value = res.data.data || []
       console.log('✅ Créneaux ouverts chargés:', availableSlots.value)
+      
+      // Debug: vérifier les courseTypes de chaque créneau
+      availableSlots.value.forEach(slot => {
+        console.log(`   Créneau ${slot.id} (${slot.start_time}-${slot.end_time}):`, {
+          discipline_id: slot.discipline_id,
+          courseTypes: slot.courseTypes,
+          courseTypes_count: slot.courseTypes?.length || 0
+        })
+      })
     }
   } catch (e) {
     console.error('Erreur chargement open-slots:', e)
@@ -2276,6 +2797,9 @@ const openEditSlotModal = (slot) => {
   // Récupérer la discipline pour obtenir son activity_type_id
   const discipline = availableDisciplines.value.find(d => d.id === slot.discipline_id)
   
+  // Extraire les IDs des types de cours si disponibles
+  const courseTypeIds = slot.courseTypes ? slot.courseTypes.map(ct => ct.id) : []
+  
   // Pré-remplir le formulaire avec les données du créneau
   slotForm.value = {
     day_of_week: slot.day_of_week?.toString() || '1',
@@ -2285,13 +2809,15 @@ const openEditSlotModal = (slot) => {
     discipline_id: slot.discipline_id?.toString() || '',
     max_capacity: slot.max_capacity || 5,
     duration: slot.duration || 60,
-    price: slot.price || 50
+    price: slot.price || 50,
+    course_type_ids: courseTypeIds
   }
   
   console.log('📝 Ouverture modale édition créneau:', {
     slotId: slot.id,
     slotData: slot,
-    formData: slotForm.value
+    formData: slotForm.value,
+    courseTypes: slot.courseTypes
   })
   
   showEditSlotModal.value = true
@@ -2309,7 +2835,8 @@ const closeEditSlotModal = () => {
     discipline_id: '',
     max_capacity: 5,
     duration: 60,
-    price: 50
+    price: 50,
+    course_type_ids: []
   }
 }
 
@@ -2339,6 +2866,20 @@ const updateSlot = async () => {
     
     if (response.data.success) {
       console.log('✅ Créneau modifié avec succès')
+      
+      // Mettre à jour les types de cours
+      if (slotForm.value.course_type_ids) {
+        try {
+          await $api.put(`/club/open-slots/${editingSlotId.value}/course-types`, {
+            course_type_ids: slotForm.value.course_type_ids
+          })
+          console.log('✅ Types de cours mis à jour')
+        } catch (error) {
+          console.error('⚠️ Erreur lors de la mise à jour des types de cours:', error)
+          // Ne pas bloquer si ça échoue
+        }
+      }
+      
       // Recharger les créneaux
       await loadOpenSlots()
       closeEditSlotModal()
@@ -2442,6 +2983,32 @@ watch(() => slotForm.value.discipline_id, (newDisciplineId) => {
     console.log('📝 Pré-remplissage automatique depuis les settings:', settings)
     slotForm.value.duration = settings.duration
     slotForm.value.price = settings.price
+  }
+})
+
+// 🎯 NOUVEAU : Watch pour mettre à jour automatiquement la durée et le prix quand le type de cours change
+watch(() => lessonForm.value.courseTypeId, (newCourseTypeId) => {
+  if (!newCourseTypeId) return
+  
+  const courseType = availableCourseTypes.value.find(ct => ct.id.toString() === newCourseTypeId)
+  
+  if (courseType) {
+    console.log('📝 Type de cours sélectionné:', courseType)
+    
+    // Mettre à jour la durée avec celle du type de cours (priorité absolue)
+    if (courseType.duration_minutes) {
+      lessonForm.value.duration = courseType.duration_minutes.toString()
+      console.log('✅ Durée mise à jour:', courseType.duration_minutes, 'minutes')
+    }
+    
+    // Mettre à jour le prix avec celui du type de cours
+    if (courseType.price) {
+      lessonForm.value.price = courseType.price.toString()
+      console.log('✅ Prix mis à jour:', courseType.price, '€')
+    } else {
+      // Si pas de prix défini, calculer proportionnellement
+      updateLessonPrice()
+    }
   }
 })
 
