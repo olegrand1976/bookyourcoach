@@ -16,6 +16,7 @@ class CourseType extends Model
         'name',
         'description',
         'duration_minutes',
+        'price',
         'is_individual',
         'max_participants',
         'is_active',
@@ -26,6 +27,7 @@ class CourseType extends Model
         'is_active' => 'boolean',
         'duration_minutes' => 'integer',
         'max_participants' => 'integer',
+        'price' => 'decimal:2',
     ];
 
     /**

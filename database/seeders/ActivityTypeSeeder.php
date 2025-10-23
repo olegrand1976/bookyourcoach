@@ -32,6 +32,7 @@ class ActivityTypeSeeder extends Seeder
                     'slug' => $activityType['slug'],
                     'icon' => $activityType['icon'] ?? null,
                     'description' => $activityType['description'] ?? null,
+                    'is_active' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]

@@ -186,6 +186,25 @@ class LessonController extends Controller
                 'notes' => 'nullable|string|max:1000'
             ]);
 
+            // 🔒 Validation : vérifier que la durée correspond au type de cours sélectionné
+            $courseType = \App\Models\CourseType::find($validated['course_type_id']);
+            if ($courseType && $courseType->duration_minutes) {
+                // Si une durée est fournie, elle doit correspondre à celle du type de cours
+                if (isset($validated['duration']) && $validated['duration'] != $courseType->duration_minutes) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "La durée du cours ({$validated['duration']} min) ne correspond pas à celle du type de cours sélectionné ({$courseType->duration_minutes} min). Veuillez sélectionner le bon type de cours.",
+                        'errors' => [
+                            'duration' => ["La durée doit être de {$courseType->duration_minutes} minutes pour le type de cours '{$courseType->name}'"]
+                        ]
+                    ], 422);
+                }
+                // Si aucune durée n'est fournie, utiliser celle du type de cours
+                if (!isset($validated['duration'])) {
+                    $validated['duration'] = $courseType->duration_minutes;
+                }
+            }
+
             // Vérifications spécifiques selon le rôle
             if ($user->role === 'club') {
                 // Pour les clubs, vérifier que le teacher appartient au club
@@ -198,6 +217,9 @@ class LessonController extends Controller
                             'message' => 'L\'enseignant sélectionné n\'appartient pas à votre club'
                         ], 422);
                     }
+                    
+                    // 🔧 CORRECTION : Ajouter automatiquement le club_id
+                    $validated['club_id'] = $club->id;
                 }
                 // Pour les clubs, student_id peut être fourni
                 $validated = array_merge($validated, $request->validate([
@@ -218,6 +240,17 @@ class LessonController extends Controller
                 $validated = array_merge($validated, $request->validate([
                     'student_id' => 'nullable|exists:students,id'
                 ]));
+                
+                // 🔧 CORRECTION : Pour les enseignants, déduire le club_id depuis le premier club du teacher
+                if ($user->role === 'teacher') {
+                    $teacher = Teacher::find($validated['teacher_id']);
+                    if ($teacher) {
+                        $firstClub = $teacher->clubs()->first();
+                        if ($firstClub) {
+                            $validated['club_id'] = $firstClub->id;
+                        }
+                    }
+                }
             }
 
             $validated['status'] = 'pending';
@@ -723,12 +756,11 @@ class LessonController extends Controller
             }
             
             // Compter les cours déjà existants sur cette plage horaire pour cette date
-            $existingLessonsCount = Lesson::whereDate('start_time', $date)
+            // 🔧 CORRECTION : Utilisation directe de club_id pour des requêtes plus performantes
+            $existingLessonsCount = Lesson::where('club_id', $clubId)
+                ->whereDate('start_time', $date)
                 ->whereTime('start_time', '>=', $openSlot->start_time)
                 ->whereTime('start_time', '<', $openSlot->end_time)
-                ->whereHas('teacher.clubs', function ($query) use ($clubId) {
-                    $query->where('clubs.id', $clubId);
-                })
                 ->count();
             
             if ($existingLessonsCount >= $openSlot->max_capacity) {
