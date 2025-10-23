@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourseType;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * @OA\Tag(
@@ -45,13 +46,84 @@ class CourseTypeController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $courseTypes = CourseType::all();
+            $user = Auth::user();
+            
+            // Si l'utilisateur est un club manager, retourner UNIQUEMENT les types de cours du club
+            if ($user && $user->role === 'club') {
+                $club = $user->getFirstClub();
+                
+                if (!$club) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Club non trouvé'
+                    ], 404);
+                }
+                
+                // ✅ CORRECTION : Utiliser le champ JSON disciplines au lieu de la relation
+                // car les données sont stockées dans clubs.disciplines (JSON) et non dans club_disciplines
+                $clubDisciplineIds = $club->disciplines ?? [];
+                
+                // Si le club n'a pas de disciplines, retourner les types génériques uniquement
+                if (empty($clubDisciplineIds)) {
+                    $courseTypes = CourseType::where('is_active', true)
+                        ->whereNull('discipline_id')  // Uniquement génériques
+                        ->orderBy('name')
+                        ->get();
+                    
+                    return response()->json([
+                        'success' => true,
+                        'data' => $courseTypes,
+                        'meta' => [
+                            'total' => $courseTypes->count(),
+                            'club_id' => $club->id,
+                            'club_disciplines' => [],
+                            'message' => 'Aucune discipline configurée pour ce club'
+                        ]
+                    ]);
+                }
+                
+                // Récupérer les types de cours liés aux disciplines du club + types génériques
+                $courseTypes = CourseType::where(function($query) use ($clubDisciplineIds) {
+                    // Types liés aux disciplines du club
+                    $query->whereIn('discipline_id', $clubDisciplineIds)
+                        // OU types génériques (sans discipline)
+                        ->orWhereNull('discipline_id');
+                })
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+                
+                \Log::info('CourseTypeController - Club courses filtered', [
+                    'club_id' => $club->id,
+                    'club_disciplines' => $clubDisciplineIds,
+                    'total_types' => $courseTypes->count(),
+                    'types' => $courseTypes->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'discipline_id' => $t->discipline_id])->toArray()
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'data' => $courseTypes,
+                    'meta' => [
+                        'total' => $courseTypes->count(),
+                        'club_id' => $club->id,
+                        'club_disciplines' => $clubDisciplineIds
+                    ]
+                ]);
+            }
+            
+            // Pour les admins et autres rôles : retourner TOUS les types de cours
+            $courseTypes = CourseType::orderBy('name')->get();
 
             return response()->json([
                 'success' => true,
                 'data' => $courseTypes
             ]);
         } catch (\Exception $e) {
+            \Log::error('CourseTypeController - Error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des types de cours',

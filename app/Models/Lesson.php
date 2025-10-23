@@ -32,6 +32,7 @@ class Lesson extends Model
     use HasFactory;
 
     protected $fillable = [
+        'club_id',
         'teacher_id',
         'student_id',
         'course_type_id',
@@ -55,6 +56,14 @@ class Lesson extends Model
     ];
 
     protected $appends = ['teacher_name', 'student_name', 'duration', 'title'];
+
+    /**
+     * Get the club for this lesson.
+     */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
+    }
 
     /**
      * Get the teacher for this lesson.

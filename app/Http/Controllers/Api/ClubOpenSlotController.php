@@ -190,9 +190,74 @@ class ClubOpenSlotController extends Controller
 
             $slots = $query->orderBy('day_of_week')->orderBy('start_time')->get();
 
+            // Récupérer les IDs des disciplines du club pour filtrer les types de cours
+            $clubDisciplineIds = [];
+            if ($user->role === 'club') {
+                $club = $user->getFirstClub();
+                $clubDisciplineIds = $club->disciplines ?? [];
+                
+                Log::info('ClubOpenSlotController::index - Filtrage par disciplines du club', [
+                    'club_id' => $club->id,
+                    'club_name' => $club->name,
+                    'club_disciplines_raw' => $club->disciplines,
+                    'club_disciplines_type' => gettype($club->disciplines),
+                    'club_disciplines_parsed' => $clubDisciplineIds,
+                    'is_array' => is_array($clubDisciplineIds),
+                    'count' => is_array($clubDisciplineIds) ? count($clubDisciplineIds) : 0
+                ]);
+            }
+
+            // Enrichir les données avec time_step et min_duration calculés
+            $enrichedSlots = $slots->map(function($slot) use ($clubDisciplineIds, $user) {
+                $courseTypes = $slot->courseTypes;
+                
+                // ✅ CORRECTION : Filtrer les types de cours par disciplines du club
+                if ($user->role === 'club' && !empty($clubDisciplineIds)) {
+                    $originalCount = $courseTypes->count();
+                    
+                    $courseTypes = $courseTypes->filter(function($courseType) use ($clubDisciplineIds, $slot) {
+                        // Garder les types génériques (sans discipline) OU ceux du club
+                        $keep = !$courseType->discipline_id || in_array($courseType->discipline_id, $clubDisciplineIds);
+                        
+                        Log::debug("Slot {$slot->id} - Type {$courseType->id} ({$courseType->name}): discipline={$courseType->discipline_id}, keep={$keep}");
+                        
+                        return $keep;
+                    })->values();
+                    
+                    Log::info("ClubOpenSlotController::index - Types filtrés pour slot {$slot->id}", [
+                        'slot_id' => $slot->id,
+                        'club_disciplines' => $clubDisciplineIds,
+                        'total_before' => $originalCount,
+                        'total_after' => $courseTypes->count(),
+                        'filtered_types' => $courseTypes->map(fn($ct) => "{$ct->id}:{$ct->name}(disc:{$ct->discipline_id})")->toArray()
+                    ]);
+                }
+                
+                // Calculer le pas de temps (PGCD des durées)
+                $durations = $courseTypes->pluck('duration_minutes')->filter()->toArray();
+                $timeStep = $this->calculateTimeStep($durations);
+                
+                // Trouver la durée minimale
+                $minDuration = !empty($durations) ? min($durations) : 60;
+                
+                // Trouver la durée maximale
+                $maxDuration = !empty($durations) ? max($durations) : 60;
+                
+                $slotData = $slot->toArray();
+                
+                // ✅ IMPORTANT : Remplacer les courseTypes par la version filtrée
+                $slotData['course_types'] = $courseTypes->toArray();
+                
+                $slotData['time_step'] = $timeStep;
+                $slotData['min_duration'] = $minDuration;
+                $slotData['max_duration'] = $maxDuration;
+                
+                return $slotData;
+            });
+
             return response()->json([
                 'success' => true,
-                'data' => $slots
+                'data' => $enrichedSlots
             ]);
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération des créneaux:', [
@@ -237,14 +302,16 @@ class ClubOpenSlotController extends Controller
                 'end_time' => 'required|date_format:H:i|after:start_time',
                 'discipline_id' => 'nullable|exists:disciplines,id',
                 'max_capacity' => 'required|integer|min:1|max:50',
+                'max_slots' => 'nullable|integer|min:1|max:100',
                 'duration' => 'required|integer|min:15',
                 'price' => 'required|numeric|min:0',
                 'is_active' => 'boolean'
             ]);
 
-            // Ajouter le club_id
+            // Ajouter le club_id et valeurs par défaut
             $validated['club_id'] = $club->id;
             $validated['is_active'] = $validated['is_active'] ?? true;
+            $validated['max_slots'] = $validated['max_slots'] ?? 1;
 
             $slot = ClubOpenSlot::create($validated);
 
@@ -314,6 +381,7 @@ class ClubOpenSlotController extends Controller
                 'end_time' => 'sometimes|date_format:H:i|after:start_time',
                 'discipline_id' => 'nullable|exists:disciplines,id',
                 'max_capacity' => 'sometimes|integer|min:1|max:50',
+                'max_slots' => 'sometimes|integer|min:1|max:100',
                 'duration' => 'sometimes|integer|min:15',
                 'price' => 'sometimes|numeric|min:0',
                 'is_active' => 'sometimes|boolean'
@@ -398,5 +466,44 @@ class ClubOpenSlotController extends Controller
                 'message' => 'Erreur lors de la suppression du créneau'
             ], 500);
         }
+    }
+
+    /**
+     * Calculer le PGCD de deux nombres
+     */
+    private function gcd(int $a, int $b): int
+    {
+        return $b === 0 ? $a : $this->gcd($b, $a % $b);
+    }
+
+    /**
+     * Calculer le PGCD d'un tableau de nombres
+     */
+    private function gcdArray(array $numbers): int
+    {
+        if (empty($numbers)) return 30;
+        if (count($numbers) === 1) return $numbers[0];
+
+        $result = $numbers[0];
+        for ($i = 1; $i < count($numbers); $i++) {
+            $result = $this->gcd($result, $numbers[$i]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Calculer le pas de temps basé sur les durées des types de cours
+     */
+    private function calculateTimeStep(array $durations): int
+    {
+        if (empty($durations)) {
+            return 30; // Valeur par défaut
+        }
+
+        $step = $this->gcdArray($durations);
+
+        // Assurer que le pas est raisonnable (entre 5 et 60 minutes)
+        return max(5, min($step, 60));
     }
 }

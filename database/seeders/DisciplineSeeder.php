@@ -74,8 +74,10 @@ class DisciplineSeeder extends Seeder
                 ['id' => $discipline['id']],
                 [
                     'name' => $discipline['name'],
+                    'slug' => \Illuminate\Support\Str::slug($discipline['name']),
                     'activity_type_id' => $discipline['activity_type_id'],
                     'description' => $discipline['description'] ?? null,
+                    'is_active' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]

@@ -16,6 +16,7 @@ class ClubOpenSlot extends Model
         'end_time',
         'discipline_id',
         'max_capacity',
+        'max_slots',
         'duration',
         'price',
         'is_active',
