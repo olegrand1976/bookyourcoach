@@ -253,7 +253,14 @@ class LessonController extends Controller
                 }
             }
 
-            $validated['status'] = 'pending';
+            // ✅ Définir le statut selon le rôle
+            // Les clubs confirment automatiquement leurs cours (ils gèrent le planning)
+            // Les élèves créent des cours "en attente" (nécessitent validation)
+            if ($user->role === 'club' || $user->role === 'teacher') {
+                $validated['status'] = 'confirmed';
+            } else {
+                $validated['status'] = 'pending';
+            }
 
             // Calculer end_time si duration est fourni
             if (isset($validated['duration'])) {
