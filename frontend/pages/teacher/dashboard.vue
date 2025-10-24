@@ -1,248 +1,371 @@
 <template>
-    <div class="min-h-screen bg-gray-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900">
-                    Dashboard Enseignant
-                </h1>
-                <p class="mt-2 text-gray-600">
-                    Bonjour {{ authStore.userName }}, gérez vos cours et votre planning
-                </p>
+  <div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Header -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">
+          Dashboard Enseignant
+        </h1>
+        <p class="mt-2 text-gray-600">
+          Bonjour {{ authStore.userName }}, gérez vos cours et votre planning
+        </p>
+      </div>
+
+      <!-- Notifications de remplacement -->
+      <div v-if="pendingReplacements.length > 0" class="mb-8">
+        <div class="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-6">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
-
-            <!-- Stats cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-2 bg-blue-100 rounded-lg">
-                            <EquestrianIcon name="helmet" :size="24" class="text-blue-600" />
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Cours aujourd'hui</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ stats.today_lessons }}</p>
-                        </div>
+            <div class="ml-3 flex-1">
+              <h3 class="text-lg font-medium text-orange-800">
+                {{ pendingReplacements.length }} demande(s) de remplacement en attente
+              </h3>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="replacement in pendingReplacements"
+                  :key="replacement.id"
+                  class="bg-white rounded-lg p-4 shadow-sm"
+                >
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="font-medium text-gray-900">
+                        {{ replacement.original_teacher?.user?.name }} demande un remplacement
+                      </p>
+                      <p class="text-sm text-gray-600">
+                        📅 {{ formatDate(replacement.lesson?.start_time) }} à {{ formatTime(replacement.lesson?.start_time) }}
+                      </p>
+                      <p class="text-sm text-gray-600">
+                        👤 Élève: {{ replacement.lesson?.student?.user?.name || 'Non assigné' }}
+                        <span v-if="replacement.lesson?.student?.age" class="text-gray-500">
+                          ({{ replacement.lesson.student.age }} ans)
+                        </span>
+                      </p>
+                      <p class="text-sm text-gray-500">Raison: {{ replacement.reason }}</p>
                     </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-2 bg-green-100 rounded-lg">
-                            <EquestrianIcon name="trophy" :size="24" class="text-green-600" />
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Élèves actifs</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ stats.active_students }}</p>
-                        </div>
+                    <div class="flex gap-2">
+                      <button
+                        @click="respondToReplacement(replacement.id, 'accept')"
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                      >
+                        ✓ Accepter
+                      </button>
+                      <button
+                        @click="respondToReplacement(replacement.id, 'reject')"
+                        class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      >
+                        ✗ Refuser
+                      </button>
                     </div>
+                  </div>
                 </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-2 bg-yellow-100 rounded-lg">
-                            <EquestrianIcon name="saddle" :size="24" class="text-yellow-600" />
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Revenus ce mois</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ stats.monthly_earnings }}€</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="p-2 bg-purple-100 rounded-lg">
-                            <span class="text-2xl">⭐</span>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">Note moyenne</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ stats.average_rating }}/5</p>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
-
-            <!-- Actions rapides -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                <!-- Prochains cours -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="p-6 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Prochains cours</h3>
-                    </div>
-                    <div class="p-6">
-                        <div v-if="upcomingLessons.length > 0" class="space-y-4">
-                            <div v-for="lesson in upcomingLessons" :key="lesson.id"
-                                class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                <div>
-                                    <p class="font-medium text-gray-900">{{ lesson.student_name }}</p>
-                                    <p class="text-sm text-gray-600">{{ lesson.type }} - {{ lesson.duration }}min</p>
-                                    <p class="text-sm text-gray-500">{{ formatDate(lesson.scheduled_at) }}</p>
-                                </div>
-                                <div class="text-right">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full"
-                                        :class="getStatusClass(lesson.status)">
-                                        {{ lesson.status }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div v-else class="text-center py-8">
-                            <EquestrianIcon name="helmet" :size="48" class="mx-auto text-gray-400 mb-4" />
-                            <p class="text-gray-500">Aucun cours planifié</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions rapides -->
-                <div class="bg-white rounded-lg shadow">
-                    <div class="p-6 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Actions rapides</h3>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <NuxtLink to="/teacher/schedule"
-                            class="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                            <EquestrianIcon name="helmet" :size="20" class="text-blue-600 mr-3" />
-                            <div>
-                                <p class="font-medium text-gray-900">Gérer mon planning</p>
-                                <p class="text-sm text-gray-600">Définir mes disponibilités</p>
-                            </div>
-                        </NuxtLink>
-
-                        <NuxtLink to="/teacher/students"
-                            class="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                            <EquestrianIcon name="trophy" :size="20" class="text-green-600 mr-3" />
-                            <div>
-                                <p class="font-medium text-gray-900">Mes élèves</p>
-                                <p class="text-sm text-gray-600">Suivi et progression</p>
-                            </div>
-                        </NuxtLink>
-
-                        <NuxtLink to="/teacher/earnings"
-                            class="flex items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
-                            <span class="text-xl mr-3">💰</span>
-                            <div>
-                                <p class="font-medium text-gray-900">Mes revenus</p>
-                                <p class="text-sm text-gray-600">Paiements et statistiques</p>
-                            </div>
-                        </NuxtLink>
-
-                        <NuxtLink to="/teacher/profile"
-                            class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                            <span class="text-xl mr-3">👤</span>
-                            <div>
-                                <p class="font-medium text-gray-900">Mon profil</p>
-                                <p class="text-sm text-gray-600">Informations personnelles</p>
-                            </div>
-                        </NuxtLink>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistiques détaillées -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Aperçu de la semaine</h3>
-                </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="text-center">
-                            <p class="text-2xl font-bold text-blue-600">{{ stats.week_lessons }}</p>
-                            <p class="text-sm text-gray-600">Cours cette semaine</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-2xl font-bold text-green-600">{{ stats.week_hours }}</p>
-                            <p class="text-sm text-gray-600">Heures enseignées</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-2xl font-bold text-yellow-600">{{ stats.week_earnings }}€</p>
-                            <p class="text-sm text-gray-600">Revenus de la semaine</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-2xl font-bold text-purple-600">{{ stats.new_students }}</p>
-                            <p class="text-sm text-gray-600">Nouveaux élèves</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-2 bg-blue-100 rounded-lg">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Cours aujourd'hui</p>
+              <p class="text-2xl font-bold text-gray-900">{{ todayLessons.length }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-2 bg-green-100 rounded-lg">
+              <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Total cours</p>
+              <p class="text-2xl font-bold text-gray-900">{{ lessons.length }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-2 bg-orange-100 rounded-lg">
+              <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Remplacements</p>
+              <p class="text-2xl font-bold text-gray-900">{{ allReplacements.length }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-2 bg-purple-100 rounded-lg">
+              <span class="text-2xl">⭐</span>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">Clubs</p>
+              <p class="text-2xl font-bold text-gray-900">{{ uniqueClubs.length }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mes cours -->
+      <div class="bg-white rounded-lg shadow mb-8">
+        <div class="p-6 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Mes cours</h3>
+        </div>
+        <div class="p-6">
+          <div v-if="loading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p class="text-gray-600 mt-4">Chargement...</p>
+          </div>
+
+          <div v-else-if="lessons.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Heure</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="lesson in lessons" :key="lesson.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ lesson.club?.name || 'N/A' }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{{ formatDate(lesson.start_time) }}</div>
+                    <div class="text-xs text-gray-500">{{ formatTime(lesson.start_time) }} - {{ formatTime(lesson.end_time) }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="text-sm text-gray-900">{{ lesson.course_type?.name || 'N/A' }}</div>
+                    <div class="text-xs text-gray-500">{{ lesson.duration }}min - {{ lesson.price }}€</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ lesson.student?.user?.name || 'Sans élève' }}
+                    </div>
+                    <div v-if="lesson.student?.age" class="text-xs text-gray-500">
+                      {{ lesson.student.age }} ans
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span :class="getStatusClass(lesson.status)" class="px-2 py-1 text-xs font-semibold rounded-full">
+                      {{ getStatusLabel(lesson.status) }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <button
+                      @click="openLessonDetails(lesson)"
+                      class="text-blue-600 hover:text-blue-900"
+                    >
+                      👁️ Voir
+                    </button>
+                    <button
+                      @click="openReplacementRequest(lesson)"
+                      class="text-orange-600 hover:text-orange-900"
+                    >
+                      🔄 Remplacer
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-else class="text-center py-8">
+            <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p class="text-gray-500">Aucun cours planifié</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modales -->
+      <LessonDetailsModal
+        :show="showDetailsModal"
+        :lesson="selectedLesson"
+        @close="showDetailsModal = false"
+        @request-replacement="openReplacementFromDetails"
+      />
+
+      <ReplacementRequestModal
+        :show="showReplacementModal"
+        :lesson="selectedLesson"
+        :available-teachers="availableTeachers"
+        @close="showReplacementModal = false"
+        @success="handleReplacementSuccess"
+      />
     </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import LessonDetailsModal from '~/components/teacher/LessonDetailsModal.vue'
+import ReplacementRequestModal from '~/components/teacher/ReplacementRequestModal.vue'
 
 definePageMeta({
-    middleware: ['auth']
+  middleware: ['auth']
 })
 
 const authStore = useAuthStore()
 const { $api } = useNuxtApp()
 
-// Fonction toast simple
-const showToast = (message, type = 'info') => {
-  console.log(`[${type.toUpperCase()}] ${message}`)
-  // TODO: Implémenter un vrai système de toast
-}
-
 // State
 const loading = ref(true)
-const stats = ref({
-    today_lessons: 0,
-    active_students: 0,
-    monthly_earnings: 0,
-    average_rating: 0,
-    week_lessons: 0,
-    week_hours: 0,
-    week_earnings: 0,
-    new_students: 0
-})
-const upcomingLessons = ref([])
+const lessons = ref<any[]>([])
+const allReplacements = ref<any[]>([])
+const availableTeachers = ref<any[]>([])
+const selectedLesson = ref<any | null>(null)
+const showDetailsModal = ref(false)
+const showReplacementModal = ref(false)
 
-// Fetch data
-onMounted(async () => {
-    loading.value = true
-    try {
-        // Temporairement utiliser la route simple pour contourner le problème d'authentification
-        const response = await $api.get('/teacher/dashboard-simple')
-        stats.value = response.data.stats
-        upcomingLessons.value = response.data.upcomingLessons
-    } catch (error) {
-        console.error("Erreur lors de la récupération des données du dashboard enseignant:", error)
-        showToast("Impossible de charger les données du dashboard.", 'error')
-    } finally {
-        loading.value = false
-    }
+// Computed
+const todayLessons = computed(() => {
+  const today = new Date().toISOString().split('T')[0]
+  return lessons.value.filter(lesson => {
+    const lessonDate = new Date(lesson.start_time).toISOString().split('T')[0]
+    return lessonDate === today
+  })
+})
+
+const pendingReplacements = computed(() => {
+  return allReplacements.value.filter(r => r.status === 'pending')
+})
+
+const uniqueClubs = computed(() => {
+  const clubs = lessons.value.map(l => l.club?.id).filter(Boolean)
+  return [...new Set(clubs)]
 })
 
 // Methods
-const formatDate = (dateString) => {
-    if (!dateString) return 'Date non définie'
-    
-    try {
-        const date = new Date(dateString)
-        if (isNaN(date.getTime())) {
-            return 'Date invalide'
-        }
-        return date.toLocaleDateString('fr-FR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            hour: '2-digit',
-            minute: '2-digit'
-        })
-    } catch (error) {
-        console.error('Erreur de formatage de date:', error, dateString)
-        return 'Date invalide'
-    }
+onMounted(async () => {
+  await loadData()
+})
+
+async function loadData() {
+  loading.value = true
+  try {
+    // Charger les cours
+    const lessonsResponse = await $api.get('/teacher/lessons')
+    lessons.value = lessonsResponse.data.data || []
+
+    // Charger les demandes de remplacement
+    const replacementsResponse = await $api.get('/teacher/lesson-replacements')
+    allReplacements.value = replacementsResponse.data.data || []
+
+    // Charger les enseignants disponibles
+    const teachersResponse = await $api.get('/teacher/teachers')
+    availableTeachers.value = teachersResponse.data.data || []
+
+    console.log('✅ Données chargées:', {
+      lessons: lessons.value.length,
+      replacements: allReplacements.value.length,
+      teachers: availableTeachers.value.length
+    })
+  } catch (error) {
+    console.error('❌ Erreur lors du chargement des données:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
-const getStatusClass = (status) => {
-    const classes = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-green-100 text-green-800',
-        completed: 'bg-blue-100 text-blue-800',
-        cancelled: 'bg-red-100 text-red-800',
-    }
-    return classes[status] || 'bg-gray-100 text-gray-800'
+function openLessonDetails(lesson: any) {
+  selectedLesson.value = lesson
+  showDetailsModal.value = true
+}
+
+function openReplacementRequest(lesson: any) {
+  selectedLesson.value = lesson
+  showReplacementModal.value = true
+}
+
+function openReplacementFromDetails() {
+  showDetailsModal.value = false
+  showReplacementModal.value = true
+}
+
+async function respondToReplacement(replacementId: number, action: 'accept' | 'reject') {
+  try {
+    const response = await $api.post(`/teacher/lesson-replacements/${replacementId}/respond`, {
+      action
+    })
+
+    console.log(`✅ Remplacement ${action === 'accept' ? 'accepté' : 'refusé'}`)
+    
+    // Recharger les données
+    await loadData()
+  } catch (error) {
+    console.error('❌ Erreur:', error)
+    alert('Erreur lors de la réponse à la demande')
+  }
+}
+
+async function handleReplacementSuccess() {
+  console.log('✅ Demande de remplacement envoyée avec succès')
+  await loadData()
+}
+
+function formatDate(datetime: string): string {
+  if (!datetime) return ''
+  const date = new Date(datetime)
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
+function formatTime(datetime: string): string {
+  if (!datetime) return ''
+  const date = new Date(datetime)
+  return date.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    'confirmed': '✓ Confirmé',
+    'pending': '⏳ Attente',
+    'cancelled': '✗ Annulé',
+    'completed': '✓ Terminé'
+  }
+  return labels[status] || status
+}
+
+function getStatusClass(status: string): string {
+  const classes: Record<string, string> = {
+    'confirmed': 'bg-green-100 text-green-800',
+    'pending': 'bg-yellow-100 text-yellow-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'completed': 'bg-blue-100 text-blue-800'
+  }
+  return classes[status] || 'bg-gray-100 text-gray-800'
 }
 </script>
