@@ -78,7 +78,7 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location']);
+            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
 
             // Filtrage selon le rôle de l'utilisateur
             if ($user->role === 'teacher') {

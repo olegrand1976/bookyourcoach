@@ -41,6 +41,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
 Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard']);
+    Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
+    Route::get('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'index']);
+    Route::post('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'store']);
+    Route::post('/lesson-replacements/{id}/respond', [App\Http\Controllers\Api\LessonReplacementController::class, 'respond']);
+    Route::delete('/lesson-replacements/{id}', [App\Http\Controllers\Api\LessonReplacementController::class, 'cancel']);
+    Route::get('/teachers', [App\Http\Controllers\Api\TeacherController::class, 'index']); // List des autres enseignants
 });
 
 Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(function () {
