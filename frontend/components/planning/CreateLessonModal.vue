@@ -48,6 +48,7 @@
               <option :value="null">Aucun étudiant assigné</option>
               <option v-for="student in students" :key="student.id" :value="student.id">
                 {{ student.user?.name || student.name }}
+                <template v-if="student.age"> ({{ student.age }} ans)</template>
               </option>
             </select>
           </div>

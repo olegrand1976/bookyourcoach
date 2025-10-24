@@ -9,7 +9,7 @@
               Ajouter un élève
             </h1>
             <p class="mt-2 text-gray-600">
-              Inviter un élève à rejoindre votre club
+              Créer un nouvel élève pour votre club
             </p>
           </div>
           <button 
@@ -24,6 +24,21 @@
       <!-- Formulaire -->
       <div class="bg-white rounded-xl shadow-lg p-8">
         <form @submit.prevent="addStudent" class="space-y-6">
+          <!-- Nom complet -->
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+              Nom complet *
+            </label>
+            <input
+              id="name"
+              v-model="form.name"
+              type="text"
+              required
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Jean Dupont"
+            />
+          </div>
+
           <!-- Email de l'élève -->
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
@@ -37,56 +52,87 @@
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               placeholder="eleve@example.com"
             />
-            <p class="mt-2 text-sm text-gray-500">
-              L'élève doit déjà avoir un compte sur la plateforme
-            </p>
           </div>
 
-          <!-- Message d'invitation -->
+          <!-- Mot de passe -->
           <div>
-            <label for="message" class="block text-sm font-medium text-gray-700 mb-2">
-              Message d'invitation (optionnel)
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+              Mot de passe *
+            </label>
+            <input
+              id="password"
+              v-model="form.password"
+              type="password"
+              required
+              minlength="8"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Minimum 8 caractères"
+            />
+          </div>
+
+          <!-- Date de naissance avec âge -->
+          <div>
+            <label for="date_of_birth" class="block text-sm font-medium text-gray-700 mb-2">
+              Date de naissance
+            </label>
+            <div class="flex items-center gap-4">
+              <input
+                id="date_of_birth"
+                v-model="form.date_of_birth"
+                type="date"
+                :max="maxDate"
+                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <span v-if="calculatedAge !== null" class="text-lg font-semibold text-emerald-600 whitespace-nowrap">
+                {{ calculatedAge }} ans
+              </span>
+            </div>
+          </div>
+
+          <!-- Niveau -->
+          <div>
+            <label for="level" class="block text-sm font-medium text-gray-700 mb-2">
+              Niveau
+            </label>
+            <select
+              id="level"
+              v-model="form.level"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            >
+              <option value="">Sélectionner un niveau</option>
+              <option value="debutant">🌱 Débutant</option>
+              <option value="intermediaire">📈 Intermédiaire</option>
+              <option value="avance">⭐ Avancé</option>
+              <option value="expert">🏆 Expert</option>
+            </select>
+          </div>
+
+          <!-- Objectifs -->
+          <div>
+            <label for="goals" class="block text-sm font-medium text-gray-700 mb-2">
+              Objectifs (optionnel)
             </label>
             <textarea
-              id="message"
-              v-model="form.message"
-              rows="4"
+              id="goals"
+              v-model="form.goals"
+              rows="3"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              placeholder="Message personnalisé pour l'invitation..."
+              placeholder="Les objectifs de l'élève..."
             ></textarea>
           </div>
 
-          <!-- Informations sur l'élève -->
-          <div class="bg-emerald-50 p-6 rounded-lg">
-            <h3 class="text-lg font-medium text-emerald-900 mb-4">
-              Informations sur l'élève
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-emerald-700 mb-2">
-                  Nom complet
-                </label>
-                <input
-                  v-model="studentInfo.name"
-                  type="text"
-                  readonly
-                  class="w-full px-4 py-3 border border-emerald-200 rounded-lg bg-emerald-50 text-emerald-900"
-                  placeholder="Nom de l'élève"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-emerald-700 mb-2">
-                  Niveau
-                </label>
-                <input
-                  v-model="studentInfo.level"
-                  type="text"
-                  readonly
-                  class="w-full px-4 py-3 border border-emerald-200 rounded-lg bg-emerald-50 text-emerald-900"
-                  placeholder="Niveau de l'élève"
-                />
-              </div>
-            </div>
+          <!-- Informations médicales -->
+          <div>
+            <label for="medical_info" class="block text-sm font-medium text-gray-700 mb-2">
+              Informations médicales (optionnel)
+            </label>
+            <textarea
+              id="medical_info"
+              v-model="form.medical_info"
+              rows="3"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Allergies, restrictions, etc..."
+            ></textarea>
           </div>
 
           <!-- Boutons -->
@@ -100,11 +146,11 @@
             </button>
             <button
               type="submit"
-              :disabled="loading || !studentInfo.name"
+              :disabled="loading"
               class="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span v-if="loading">Ajout en cours...</span>
-              <span v-else>Ajouter l'élève</span>
+              <span v-if="loading">Création en cours...</span>
+              <span v-else>Créer l'élève</span>
             </button>
           </div>
         </form>
@@ -134,7 +180,10 @@
                 </svg>
               </div>
               <div>
-                <p class="font-medium text-gray-900">{{ student.name }}</p>
+                <p class="font-medium text-gray-900">
+                  {{ student.name }}
+                  <span v-if="student.age" class="text-sm text-gray-500 ml-2">({{ student.age }} ans)</span>
+                </p>
                 <p class="text-sm text-gray-600">{{ student.email }}</p>
               </div>
             </div>
@@ -149,88 +198,78 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 definePageMeta({
   middleware: ['auth']
 })
 
+const { $api } = useNuxtApp()
 const loading = ref(false)
 const existingStudents = ref([])
 
 const form = ref({
-  email: '',
-  message: ''
-})
-
-const studentInfo = ref({
   name: '',
-  level: ''
+  email: '',
+  password: '',
+  date_of_birth: '',
+  level: '',
+  goals: '',
+  medical_info: ''
 })
 
-// Vérifier si l'élève existe
-const checkStudent = async () => {
-  if (!form.value.email) {
-    studentInfo.value = { name: '', level: '' }
-    return
-  }
+// Date maximale (aujourd'hui)
+const maxDate = computed(() => {
+  return new Date().toISOString().split('T')[0]
+})
 
-  try {
-    // TODO: Appeler l'API pour vérifier l'élève
-    // const response = await $fetch(`/api/students/check?email=${form.value.email}`)
-    
-    // Simulation de vérification
-    if (form.value.email === 'marie.dupont@example.com') {
-      studentInfo.value = {
-        name: 'Marie Dupont',
-        level: 'debutant'
-      }
-    } else if (form.value.email === 'jean.martin@example.com') {
-      studentInfo.value = {
-        name: 'Jean Martin',
-        level: 'intermediaire'
-      }
-    } else if (form.value.email === 'emma.rousseau@example.com') {
-      studentInfo.value = {
-        name: 'Emma Rousseau',
-        level: 'avance'
-      }
-    } else {
-      studentInfo.value = { name: '', level: '' }
-    }
-  } catch (error) {
-    console.error('Erreur lors de la vérification:', error)
-    studentInfo.value = { name: '', level: '' }
+// Calculer l'âge à partir de la date de naissance
+const calculatedAge = computed(() => {
+  if (!form.value.date_of_birth) return null
+  
+  const birthDate = new Date(form.value.date_of_birth)
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
   }
-}
+  
+  return age
+})
 
 // Ajouter l'élève
 const addStudent = async () => {
   loading.value = true
   
   try {
-    const data = {
-      email: form.value.email,
-      message: form.value.message
+    console.log('Création de l\'élève:', form.value)
+    
+    const response = await $api.post('/club/students', form.value)
+    
+    console.log('✅ Élève créé:', response.data)
+    
+    // Recharger la liste
+    await loadExistingStudents()
+    
+    // Réinitialiser le formulaire
+    form.value = {
+      name: '',
+      email: '',
+      password: '',
+      date_of_birth: '',
+      level: '',
+      goals: '',
+      medical_info: ''
     }
     
-    console.log('Ajout de l\'élève:', data)
-    
-    // Appeler l'API pour ajouter l'élève
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/add-student`, {
-      method: 'POST',
-      body: data
-    })
-    
-    console.log('✅ Élève ajouté:', response)
-    
-    // Rediriger vers le dashboard avec un message de succès
-    await navigateTo('/club/dashboard')
+    alert('✅ Élève créé avec succès!')
     
   } catch (error) {
-    console.error('Erreur lors de l\'ajout de l\'élève:', error)
-    alert('Erreur lors de l\'ajout de l\'élève. Veuillez réessayer.')
+    console.error('Erreur lors de la création de l\'élève:', error)
+    const errorMessage = error.response?.data?.message || 'Erreur lors de la création de l\'élève'
+    alert('❌ ' + errorMessage)
   } finally {
     loading.value = false
   }
@@ -239,15 +278,8 @@ const addStudent = async () => {
 // Charger les élèves existants
 const loadExistingStudents = async () => {
   try {
-    // TODO: Appeler l'API pour récupérer les élèves
-    // const response = await $fetch('/api/club/students')
-    
-    // Données de test
-    existingStudents.value = [
-      { id: 1, name: 'Marie Dupont', email: 'marie.dupont@example.com', level: 'debutant' },
-      { id: 2, name: 'Jean Martin', email: 'jean.martin@example.com', level: 'intermediaire' },
-      { id: 3, name: 'Emma Rousseau', email: 'emma.rousseau@example.com', level: 'avance' }
-    ]
+    const response = await $api.get('/club/students')
+    existingStudents.value = response.data.data || []
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
   }
@@ -263,9 +295,6 @@ const getLevelLabel = (level) => {
   }
   return labels[level] || level
 }
-
-// Watcher pour vérifier l'élève quand l'email change
-watch(() => form.value.email, checkStudent)
 
 onMounted(() => {
   loadExistingStudents()

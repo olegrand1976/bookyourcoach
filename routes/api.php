@@ -76,6 +76,8 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/custom-specialties', [ClubController::class, 'getCustomSpecialties']);
     Route::get('/teachers', [ClubController::class, 'getTeachers']);
     Route::get('/students', [ClubController::class, 'getStudents']);
+    Route::post('/students', [StudentController::class, 'store']);
+    Route::put('/students/{id}', [StudentController::class, 'update']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);

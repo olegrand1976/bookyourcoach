@@ -33,10 +33,20 @@
           @delete-slot="(slot) => deleteSlot(slot.id)"
         />
           
-        <!-- Bloc 3: Créneaux disponibles -->
+        <!-- Bloc 3: Créneaux disponibles OU Calendrier journalier -->
+        <DayCalendarView 
+          v-if="showDayCalendar && selectedSlotForCalendar"
+          :selected-slot="selectedSlotForCalendar"
+          :lessons="lessons"
+          @close="closeDayCalendar"
+          @create-lesson="openCreateLessonFromCalendar"
+          @select-lesson="openLessonModal"
+        />
+        
         <AvailableSlotsGrid 
+          v-else
           :slots="openSlots"
-          @select-slot="openCreateLessonModal"
+          @select-slot="openDayCalendar"
           @create-lesson="openCreateLessonModal()"
         />
         
@@ -369,6 +379,7 @@ import SlotsList from '~/components/planning/SlotsList.vue'
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
 import AvailableSlotsGrid from '~/components/planning/AvailableSlotsGrid.vue'
+import DayCalendarView from '~/components/planning/DayCalendarView.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -404,6 +415,9 @@ interface CourseType {
   is_individual: boolean
   max_participants: number | null
   is_active: boolean
+  duration?: number
+  duration_minutes?: number
+  price?: number
 }
 
 interface OpenSlot {
@@ -458,6 +472,8 @@ const showLessonModal = ref(false)
 const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
+const showDayCalendar = ref(false)
+const selectedSlotForCalendar = ref<OpenSlot | null>(null)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
@@ -1005,6 +1021,41 @@ function closeCreateLessonModal() {
   }, 100)
 }
 
+// Gestion du calendrier journalier
+function openDayCalendar(slot: OpenSlot) {
+  console.log('📅 [openDayCalendar] Ouverture calendrier pour créneau', slot.id)
+  selectedSlotForCalendar.value = slot
+  showDayCalendar.value = true
+}
+
+function closeDayCalendar() {
+  console.log('🚪 [closeDayCalendar] Fermeture calendrier')
+  showDayCalendar.value = false
+  selectedSlotForCalendar.value = null
+}
+
+function openCreateLessonFromCalendar(timeSlot: any, date: string) {
+  console.log('📝 [openCreateLessonFromCalendar] Création cours depuis calendrier', { timeSlot, date })
+  
+  // Préparer le formulaire avec les infos du créneau
+  selectedSlotForLesson.value = selectedSlotForCalendar.value
+  
+  // Pré-remplir le formulaire
+  lessonForm.value.date = date
+  lessonForm.value.time = timeSlot.start
+  lessonForm.value.start_time = `${date}T${timeSlot.start}`
+  
+  // Si le créneau a une durée et un prix, les utiliser
+  if (selectedSlotForCalendar.value?.duration) {
+    lessonForm.value.duration = selectedSlotForCalendar.value.duration
+  }
+  if (selectedSlotForCalendar.value?.price) {
+    lessonForm.value.price = selectedSlotForCalendar.value.price
+  }
+  
+  showCreateLessonModal.value = true
+}
+
 async function createLesson() {
   try {
     saving.value = true
@@ -1072,9 +1123,6 @@ async function createLesson() {
       console.log('✅ Cours créé:', response.data.data)
       await loadLessons()
       closeCreateLessonModal()
-      
-      // Message de succès
-      alert('✅ Cours créé avec succès!')
     } else {
       alert('❌ ' + (response.data.message || 'Erreur lors de la création du cours'))
     }

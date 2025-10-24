@@ -78,6 +78,23 @@
               
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">
+                  Date de naissance
+                </label>
+                <div class="flex items-center gap-3">
+                  <input 
+                    v-model="form.date_of_birth" 
+                    type="date" 
+                    :max="maxDate"
+                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  >
+                  <div v-if="calculatedAge !== null" class="flex items-center bg-emerald-100 px-4 py-3 rounded-lg min-w-[100px] justify-center">
+                    <span class="text-lg font-bold text-emerald-700">{{ calculatedAge }} ans</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">
                   Niveau <span class="text-gray-500 text-xs">(facultatif)</span>
                 </label>
                 <select 
@@ -330,7 +347,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 const emit = defineEmits(['close', 'success'])
 
@@ -343,9 +360,31 @@ const form = ref({
   name: '',
   email: '',
   phone: '',
+  date_of_birth: '',
   level: '',
   goals: '',
   medical_info: ''
+})
+
+// Date maximale (aujourd'hui)
+const maxDate = computed(() => {
+  return new Date().toISOString().split('T')[0]
+})
+
+// Calculer l'âge à partir de la date de naissance
+const calculatedAge = computed(() => {
+  if (!form.value.date_of_birth) return null
+  
+  const birthDate = new Date(form.value.date_of_birth)
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+  
+  return age
 })
 
 // Charger les spécialités du club
@@ -417,7 +456,13 @@ const addStudent = async () => {
     
     // Préparer les données de l'étudiant
     const studentData = {
-      ...form.value,
+      name: form.value.name,
+      email: form.value.email,
+      phone: form.value.phone,
+      date_of_birth: form.value.date_of_birth || null,
+      level: form.value.level,
+      goals: form.value.goals,
+      medical_info: form.value.medical_info,
       disciplines: selectedDisciplines.value,
       medical_documents: medicalDocuments.value.filter(doc => doc.document_type && doc.file)
     }

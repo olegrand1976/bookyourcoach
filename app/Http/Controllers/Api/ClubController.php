@@ -359,12 +359,22 @@ class ClubController extends Controller
                     'students.id',  // Corrigé : retourner students.id au lieu de users.id
                     'users.name',
                     'users.email',
+                    'students.date_of_birth',
                     'students.level',
                     'students.total_lessons',
                     'students.total_spent',
                     'club_students.joined_at'
                 )
-                ->get();
+                ->get()
+                ->map(function($student) {
+                    // Calculer l'âge si date_of_birth existe
+                    if ($student->date_of_birth) {
+                        $student->age = \Carbon\Carbon::parse($student->date_of_birth)->age;
+                    } else {
+                        $student->age = null;
+                    }
+                    return $student;
+                });
             
             return response()->json([
                 'success' => true,

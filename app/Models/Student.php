@@ -31,6 +31,7 @@ class Student extends Model
     protected $fillable = [
         'user_id',
         'club_id',
+        'date_of_birth',
         'level',
         'goals',
         'medical_info',
@@ -45,12 +46,15 @@ class Student extends Model
     ];
 
     protected $casts = [
+        'date_of_birth' => 'date',
         'emergency_contacts' => 'array',
         'preferred_disciplines' => 'array',
         'preferred_levels' => 'array',
         'preferred_formats' => 'array',
         'notifications_enabled' => 'boolean',
     ];
+
+    protected $appends = ['age'];
 
     /**
      * Get the user that owns the student profile.
@@ -162,5 +166,17 @@ class Student extends Model
             $total += $lesson->pivot->price ?? $lesson->price ?? 0;
         }
         return $total;
+    }
+
+    /**
+     * Get the age of the student based on date of birth.
+     */
+    public function getAgeAttribute(): ?int
+    {
+        if (!$this->date_of_birth) {
+            return null;
+        }
+        
+        return \Carbon\Carbon::parse($this->date_of_birth)->age;
     }
 }
