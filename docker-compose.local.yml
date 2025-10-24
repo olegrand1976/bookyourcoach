@@ -22,6 +22,7 @@ services:
       - app_bootstrap_cache:/var/www/bootstrap/cache
       - ./cert.pem:/var/www/html/cert.pem:ro
       - ./.env.local:/var/www/html/.env:ro
+      - ./config:/var/www/html/config
       - ./database/migrations:/var/www/html/database/migrations
       - ./app:/var/www/html/app
       - ./database/seeders:/var/www/html/database/seeders
