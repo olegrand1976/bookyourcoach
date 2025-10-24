@@ -22,321 +22,82 @@
 
       <!-- Content -->
       <div v-else class="space-y-6">
-        <!-- Bloc 1: Gestion des créneaux horaires -->
-        <div class="bg-white shadow rounded-lg p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">Créneaux horaires</h2>
-              <p class="text-sm text-gray-500 mt-1">Gérez vos créneaux disponibles pour les cours</p>
-            </div>
-            <button 
-              @click="openSlotModal()"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Nouveau créneau
-            </button>
-          </div>
-          
-          <!-- Liste des créneaux -->
-          <div v-if="openSlots.length > 0" class="space-y-3">
-            <div v-for="slot in openSlots" 
-                 :key="slot.id"
-                 class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <!-- Jour et horaire -->
-                  <div class="flex items-center gap-2 mb-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {{ getDayName(slot.day_of_week) }}
-                    </span>
-                    <span class="text-sm font-semibold text-gray-900">
-                      {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-                    </span>
-                  </div>
-          
-                  <!-- Discipline -->
-                  <h3 class="font-medium text-gray-900 mb-2">
-                    {{ slot.discipline?.name || 'Discipline non définie' }}
-                  </h3>
-
-                  <!-- Informations du créneau -->
-                  <div class="flex items-center gap-4 text-sm text-gray-500">
-                    <span v-if="slot.duration">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {{ slot.duration }} min
-                    </span>
-                    <span v-if="slot.price">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {{ formatPrice(slot.price) }} €
-                    </span>
-                    <span v-if="slot.max_capacity">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      {{ slot.max_capacity }} {{ slot.max_capacity === 1 ? 'participant' : 'participants' }}
-                    </span>
-                    <span v-if="slot.max_slots && slot.max_slots > 1" class="font-medium text-blue-600">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      × {{ slot.max_slots }} plages simultanées
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex flex-col items-end gap-2">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                        :class="slot.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
-                    {{ slot.is_active ? 'Actif' : 'Inactif' }}
-                  </span>
-                  <div class="flex gap-2">
-                    <button 
-                      @click="openSlotModal(slot)"
-                      class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Modifier">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button 
-                      @click="deleteSlot(slot.id)"
-                      class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Supprimer">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Message si aucun créneau -->
-          <div v-else class="text-center py-8">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">Aucun créneau horaire</h3>
-            <p class="mt-1 text-sm text-gray-500">
-              Créez vos premiers créneaux horaires pour organiser vos cours.
-            </p>
-          </div>
-        </div>
+        <!-- Bloc 1: Liste des cours disponibles (disciplines actives) -->
+        <DisciplinesList :disciplines="activeDisciplines" />
         
-        <!-- Bloc 2: Liste des cours disponibles -->
+        <!-- Bloc 2: Gestion des créneaux horaires -->
+        <SlotsList 
+          :slots="openSlots"
+          @create-slot="openSlotModal()"
+          @edit-slot="openSlotModal"
+          @delete-slot="(slot) => deleteSlot(slot.id)"
+        />
+          
+        <!-- Bloc 3: Créneaux disponibles -->
+        <AvailableSlotsGrid 
+          :slots="openSlots"
+          @select-slot="openCreateLessonModal"
+          @create-lesson="openCreateLessonModal()"
+        />
+        
+        <!-- Bloc 4: Cours programmés -->
         <div class="bg-white shadow rounded-lg p-6">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-900">Cours disponibles</h2>
-            <span class="text-sm text-gray-500">{{ activeDisciplines.length }} cours</span>
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">Cours programmés</h2>
+              <p class="text-sm text-gray-500 mt-1">
+                <span class="font-bold" :class="lessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
+                  {{ lessons.length }} cours programmé{{ lessons.length > 1 ? 's' : '' }}
+                </span>
+              </p>
+            </div>
           </div>
-          
+
           <!-- Liste des cours -->
-          <div v-if="activeDisciplines.length > 0" class="space-y-3">
-            <div v-for="discipline in activeDisciplines" 
-                 :key="discipline.id"
-                 class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+          <div v-if="lessons.length > 0" class="space-y-3">
+            <div 
+              v-for="lesson in lessons" 
+              :key="lesson.id"
+              @click="openLessonModal(lesson)"
+              class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+              :class="getLessonBorderClass(lesson)">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
-                  <h3 class="font-medium text-gray-900">{{ discipline.name }}</h3>
-                  <p v-if="discipline.description" class="text-sm text-gray-600 mt-1">
-                    {{ discipline.description }}
-                  </p>
-                  <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                    <span v-if="discipline.settings.duration">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-                      {{ discipline.settings.duration }} min
+                  <!-- Type et horaire -->
+                  <div class="flex items-center gap-3 mb-2">
+                    <h3 class="font-semibold text-gray-900">
+                      {{ lesson.course_type?.name || 'Cours' }}
+                    </h3>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                          :class="getStatusBadgeClass(lesson.status)">
+                      {{ getStatusLabel(lesson.status) }}
                     </span>
-                    <span v-if="discipline.settings.price">
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-                      {{ discipline.settings.price.toFixed(2) }} €
-                    </span>
-                    <span>
-                      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-                      {{ discipline.settings.min_participants }} - {{ discipline.settings.max_participants }} participants
-                    </span>
-          </div>
-                  <p v-if="discipline.settings.notes" class="text-xs text-gray-500 mt-2 italic">
-                    {{ discipline.settings.notes }}
-                  </p>
-            </div>
-                <!-- Badge de statut retiré car non pertinent ici -->
-        </div>
-      </div>
-    </div>
-
-          <!-- Message si aucun cours -->
-          <div v-else class="text-center py-8">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-gray-900">Aucun cours disponible</h3>
-            <p class="mt-1 text-sm text-gray-500">
-              Configurez les disciplines de votre club dans 
-              <NuxtLink to="/club/profile" class="text-blue-600 hover:underline">votre profil</NuxtLink>
-              pour voir les cours disponibles.
-            </p>
-          </div>
-          </div>
-          
-        <!-- Bloc 3: Calendrier Hebdomadaire -->
-        <div class="bg-white shadow rounded-lg p-6">
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">Calendrier Hebdomadaire</h2>
-              <span class="text-sm text-gray-500">
-                <span class="font-bold" :class="lessons.length > 0 ? 'text-green-600' : 'text-orange-600'">{{ lessons.length }} cours programmés</span>
-              </span>
-              <div v-if="lessons.length === 0" class="text-xs text-orange-600 mt-1">
-                ℹ️ Aucun cours programmé - Cliquez sur un créneau disponible pour ajouter un cours
-              </div>
-        </div>
-            <div class="flex gap-3">
-              <button 
-                @click="showCreateLessonModal = true"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-                Nouveau cours
-              </button>
-        </div>
-              </div>
-
-          <!-- Vue Calendrier -->
-          <div class="overflow-x-auto">
-            <!-- Légende -->
-            <div class="mb-4 flex items-center gap-6 text-sm">
-              <div class="flex items-center gap-2">
-                <div class="w-12 h-6 bg-blue-100/50 border-l-2 border-dashed border-blue-300 rounded"></div>
-                <span class="text-gray-700">Créneaux disponibles</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-12 h-6 bg-green-500 border-l-4 border-green-800 rounded"></div>
-                <span class="text-gray-700">Cours confirmés</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-12 h-6 bg-yellow-500 border-l-4 border-yellow-800 rounded"></div>
-                <span class="text-gray-700">Cours en attente</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-12 h-6 bg-gray-400 border-l-4 border-gray-700 rounded"></div>
-                <span class="text-gray-700">Cours terminés</span>
-            </div>
-            </div>
-            
-            <div class="min-w-[900px]">
-              <!-- En-tête des jours -->
-              <div class="grid grid-cols-8 gap-px bg-gray-200 mb-px sticky top-0 z-10">
-                <div class="bg-gradient-to-br from-gray-100 to-gray-50 p-3 text-center font-bold text-sm text-gray-600 border-b-2 border-gray-300">
-                  Horaire
-          </div>
-                <div v-for="day in 7" :key="day" 
-                     class="bg-gradient-to-br from-blue-50 to-white p-3 text-center border-b-2 border-blue-200">
-                  <div class="font-bold text-gray-900 text-base">{{ getDayName(day % 7) }}</div>
-          </div>
-        </div>
-
-              <!-- Grille horaire -->
-              <div class="grid grid-cols-8 gap-px bg-gray-200">
-                <template v-for="hour in timeSlots" :key="hour">
-                <!-- Colonne horaire -->
-                  <div class="bg-gradient-to-r from-gray-50 to-white p-3 text-sm text-gray-700 font-bold text-right border-r-2 border-gray-200">
-                    {{ hour }}
-            </div>
-
-                <!-- Colonnes des jours -->
-                  <div v-for="day in 7" :key="`${hour}-${day}`" 
-                       class="relative min-h-[80px] border-r border-b border-gray-100"
-                     :class="[
-                         isSlotActiveInCell(day % 7, hour) ? '' : 'bg-white'
-                       ]">
-                    
-                    <!-- CRÉNEAUX DISPONIBLES (arrière-plan très pâle) - Cliquables pour créer un cours -->
-                    <!-- Créneaux pour ce jour/heure (seulement à l'heure de début) -->
-                    <div v-for="slot in getSlotsForDayAndHour(day % 7, hour)" 
-                         :key="`slot-${slot.id}`"
-                         @click.stop="openCreateLessonModal(slot)"
-                         class="absolute inset-0 p-2 cursor-pointer transition-all hover:shadow-sm border-l-2 border-dashed opacity-40 hover:opacity-60 group"
-                         :class="getSlotColorClassMuted(slot)"
-                         :style="{ height: `${getSlotHeight(slot)}px`, zIndex: 5 }"
-                         title="Cliquez pour créer un cours">
-                      <div class="font-medium truncate text-[10px]">{{ slot.discipline?.name }}</div>
-                      <div class="text-[9px] mt-0.5 opacity-75">
-                        {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-                  </div>
-                      <div class="text-[9px] opacity-75">
-                        {{ slot.max_capacity }}p × {{ slot.max_slots || 1 }}
-                    </div>
-                      <!-- Indication pour ajouter un cours (apparaît au survol) -->
-                      <div class="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <div class="bg-white/90 px-2 py-1 rounded text-[10px] font-medium shadow-sm">
-                          + Ajouter un cours
-                        </div>
-                      </div>
                   </div>
                   
-                    <!-- Fond coloré pour les cellules qui sont dans la durée d'un créneau mais pas au début -->
-                    <div v-for="slot in getSlotsSpanningCell(day % 7, hour)" 
-                         :key="`span-slot-${slot.id}`"
-                         class="absolute inset-0 border-l-2 border-dashed opacity-30"
-                         :class="getSlotColorClassMuted(slot)"
-                         :style="{ zIndex: 4 }">
-                    </div>
-                    
-                    <!-- COURS RÉELS (couleurs vives au premier plan avec bordure épaisse) -->
-                    <!-- Cours pour ce jour/heure (seulement à l'heure de début) -->
-                    <div v-for="lesson in getLessonsForDayAndHour(day % 7, hour)" 
-                         :key="`lesson-${lesson.id}`"
-                         @click.stop="openLessonModal(lesson)"
-                         class="absolute inset-0 m-0.5 p-3 cursor-pointer transition-all hover:shadow-2xl hover:scale-[1.02] rounded-md shadow-lg"
-                         :class="getLessonColorClass(lesson)"
-                         :style="{ height: `${getLessonHeight(lesson) - 1}px`, zIndex: 20 }">
-                      <div class="font-bold truncate text-sm mb-1">{{ lesson.course_type?.name || 'Cours' }}</div>
-                      <div class="text-xs font-semibold truncate">
-                        👤 {{ lesson.student?.user?.name || 'Étudiant' }}
+                  <!-- Date et heure -->
+                  <div class="text-sm text-gray-600 mb-2">
+                    📅 {{ formatLessonDate(lesson.start_time) }} • 
+                    🕐 {{ formatLessonTime(lesson.start_time) }} - {{ formatLessonTime(lesson.end_time) }}
                   </div>
-                      <div class="text-xs truncate opacity-90">
-                        🎓 {{ lesson.teacher?.user?.name || 'Coach' }}
+                  
+                  <!-- Participants -->
+                  <div class="flex items-center gap-4 text-sm text-gray-600">
+                    <span>👤 {{ lesson.student?.user?.name || 'Aucun étudiant' }}</span>
+                    <span>🎓 {{ lesson.teacher?.user?.name || 'Coach' }}</span>
+                    <span v-if="lesson.price">💰 {{ formatPrice(lesson.price) }} €</span>
+                  </div>
                 </div>
-                      <div class="text-xs mt-1.5 font-medium">
-                        🕐 {{ new Date(lesson.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}
-                        - {{ new Date(lesson.end_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}
               </div>
-                      <div v-if="lesson.status" class="text-[10px] mt-1.5 font-bold uppercase tracking-wide px-2 py-0.5 bg-white/20 rounded inline-block">
-                        {{ lesson.status === 'confirmed' ? '✓ Confirmé' : 
-                           lesson.status === 'pending' ? '⏳ En attente' : 
-                           lesson.status === 'cancelled' ? '✗ Annulé' : 
-                           lesson.status === 'completed' ? '✓ Terminé' : lesson.status }}
-                  </div>
-                </div>
-                
-                    <!-- Fond coloré pour les cellules qui sont dans la durée d'un cours mais pas au début -->
-                    <div v-for="lesson in getLessonsSpanningCell(day % 7, hour)" 
-                         :key="`span-lesson-${lesson.id}`"
-                         class="absolute inset-0 m-0.5 rounded-md shadow-md"
-                         :class="getLessonColorClass(lesson)"
-                         :style="{ zIndex: 19 }">
             </div>
-            </div>
-                </template>
-        </div>
-      </div>
           </div>
-      </div> <!-- Fermeture du v-else class="space-y-6" -->
+
+          <!-- État vide -->
+          <div v-else class="text-center py-12 text-gray-500">
+            <div class="text-4xl mb-4">📚</div>
+            <p class="text-lg mb-2">Aucun cours programmé</p>
+            <p class="text-sm">Cliquez sur un créneau disponible pour créer votre premier cours</p>
+          </div>
+        </div> <!-- Fermeture du v-else class="space-y-6" -->
           
         <!-- Modale Créneau -->
         <div v-if="showSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -586,105 +347,28 @@
       </div>
       
       <!-- Modale Création de Cours -->
-      <div v-if="showCreateLessonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div class="p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-2xl font-bold text-gray-900">
-                Créer un nouveau cours
-              </h3>
-              <button @click="closeCreateLessonModal" class="text-gray-400 hover:text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Informations du créneau sélectionné -->
-            <div v-if="selectedSlotForLesson" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h4 class="font-semibold text-blue-900 mb-2">Créneau sélectionné</h4>
-              <div class="text-sm text-blue-800 space-y-1">
-                <p><strong>Jour :</strong> {{ getDayName(selectedSlotForLesson.day_of_week) }}</p>
-                <p><strong>Discipline :</strong> {{ selectedSlotForLesson.discipline?.name }}</p>
-              </div>
-            </div>
-
-            <!-- Formulaire -->
-            <form @submit.prevent="createLesson" class="space-y-4">
-              <!-- Enseignant -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Enseignant *</label>
-                <select v-model.number="lessonForm.teacher_id" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                  <option :value="null">Sélectionnez un enseignant</option>
-                  <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-                    {{ teacher.user?.name || teacher.name }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- Étudiant (optionnel) -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Étudiant (optionnel)</label>
-                <select v-model.number="lessonForm.student_id"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                  <option :value="null">Aucun étudiant assigné</option>
-                  <option v-for="student in students" :key="student.id" :value="student.id">
-                    {{ student.user?.name || student.name }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- Date et heure -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date et heure *</label>
-                <input v-model="lessonForm.start_time" type="datetime-local" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-              </div>
-
-              <!-- Durée -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Durée (minutes) *</label>
-                <input v-model.number="lessonForm.duration" type="number" min="15" step="5" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-              </div>
-
-              <!-- Prix -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€) *</label>
-                <input v-model.number="lessonForm.price" type="number" min="0" step="0.01" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-              </div>
-
-              <!-- Notes -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea v-model="lessonForm.notes" rows="3"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                          placeholder="Notes sur le cours..."></textarea>
-              </div>
-
-              <!-- Boutons -->
-              <div class="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" @click="closeCreateLessonModal"
-                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                  Annuler
-                </button>
-                <button type="submit" :disabled="saving"
-                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-                  {{ saving ? 'Création...' : 'Créer le cours' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <CreateLessonModal
+        :show="showCreateLessonModal"
+        :form="lessonForm"
+        :selected-slot="selectedSlotForLesson"
+        :teachers="teachers"
+        :students="students"
+        :course-types="filteredCourseTypes"
+        :available-days="availableDaysOfWeek"
+        :saving="saving"
+        @close="closeCreateLessonModal"
+        @submit="createLesson"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
+import SlotsList from '~/components/planning/SlotsList.vue'
+import DisciplinesList from '~/components/planning/DisciplinesList.vue'
+import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
+import AvailableSlotsGrid from '~/components/planning/AvailableSlotsGrid.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -776,21 +460,19 @@ const showCreateLessonModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
+const courseTypes = ref<any[]>([])
 const lessonForm = ref({
   teacher_id: null as number | null,
   student_id: null as number | null,
+  course_type_id: null as number | null,
+  date: '',
+  time: '',
   start_time: '',
   duration: 60,
   price: 0,
   notes: ''
 })
-
-// Créneaux horaires pour le calendrier (8h - 20h)
-const timeSlots = ref([
-  '08:00', '09:00', '10:00', '11:00', '12:00', 
-  '13:00', '14:00', '15:00', '16:00', '17:00', 
-  '18:00', '19:00', '20:00'
-])
+const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
 
 const slotForm = ref({
   day_of_week: 1,
@@ -807,6 +489,49 @@ const slotForm = ref({
 // Computed
 const activeDisciplines = computed(() => {
   return clubDisciplines.value.filter(d => d.is_active)
+})
+
+// Types de cours filtrés - Utilise les courseTypes du créneau sélectionné
+// au lieu de filtrer la liste globale (relation directe créneau → types)
+const filteredCourseTypes = computed(() => {
+  console.log('🔄 [filteredCourseTypes] Computed appelé', {
+    hasSlot: !!selectedSlotForLesson.value,
+    slotId: selectedSlotForLesson.value?.id,
+    slotDisciplineId: selectedSlotForLesson.value?.discipline_id,
+    slotHasCourseTypes: !!selectedSlotForLesson.value?.course_types,
+    modalOpen: showCreateLessonModal.value
+  })
+  
+  // Si la modale n'est pas ouverte, retourner un tableau vide
+  if (!showCreateLessonModal.value) {
+    console.log('⚠️ [filteredCourseTypes] Modale fermée → tableau vide')
+    return []
+  }
+  
+  // Si pas de créneau sélectionné, retourner tableau vide
+  if (!selectedSlotForLesson.value) {
+    console.log('⚠️ [filteredCourseTypes] Pas de créneau → tableau vide')
+    return []
+  }
+  
+  // ✅ SOLUTION : Utiliser directement les courseTypes du créneau
+  // (relation créneau → types de cours via table pivot)
+  const slotCourseTypes = selectedSlotForLesson.value.course_types || []
+  
+  console.log('🎯 [filteredCourseTypes] Types de cours du créneau', selectedSlotForLesson.value.id, ':', {
+    slotDisciplineId: selectedSlotForLesson.value.discipline_id,
+    slotDisciplineName: selectedSlotForLesson.value.discipline?.name,
+    courseTypesCount: slotCourseTypes.length,
+    courseTypes: slotCourseTypes.map(ct => ({ 
+      id: ct.id, 
+      name: ct.name,
+      discipline_id: ct.discipline_id,
+      duration: ct.duration,
+      price: ct.price
+    }))
+  })
+  
+  return slotCourseTypes
 })
 
 // Watcher pour initialiser les valeurs quand on sélectionne une discipline
@@ -827,6 +552,45 @@ watch(() => slotForm.value.discipline_id, (newDisciplineId) => {
         max_capacity: slotForm.value.max_capacity
       })
     }
+  }
+})
+
+// Watcher pour pré-remplir durée et prix quand on sélectionne un type de cours
+watch(() => lessonForm.value.course_type_id, (newCourseTypeId) => {
+  if (newCourseTypeId) {
+    const courseType = courseTypes.value.find(ct => ct.id === newCourseTypeId)
+    if (courseType) {
+      // Utiliser duration_minutes en priorité, puis duration
+      lessonForm.value.duration = courseType.duration_minutes || courseType.duration || 60
+      lessonForm.value.price = courseType.price || 0
+      console.log('✨ Durée et prix initialisés depuis type de cours:', {
+        name: courseType.name,
+        duration: lessonForm.value.duration,
+        price: lessonForm.value.price
+      })
+    }
+  }
+})
+
+// Watcher pour réinitialiser le type de cours quand le créneau change
+watch(() => selectedSlotForLesson.value, (newSlot, oldSlot) => {
+  // Si on change de créneau et que la discipline change
+  if (newSlot && oldSlot && newSlot.discipline_id !== oldSlot.discipline_id) {
+    // Réinitialiser le type de cours car les options disponibles ont changé
+    lessonForm.value.course_type_id = null
+    console.log('🔄 Type de cours réinitialisé suite au changement de créneau')
+  }
+})
+
+// Watcher pour mettre à jour les jours disponibles quand les créneaux changent
+watch(openSlots, () => {
+  updateAvailableDays()
+}, { deep: true })
+
+// Watcher pour combiner date et heure
+watch(() => [lessonForm.value.date, lessonForm.value.time], ([date, time]) => {
+  if (date && time) {
+    lessonForm.value.start_time = `${date}T${time}`
   }
 })
 
@@ -1025,6 +789,47 @@ async function loadStudents() {
   }
 }
 
+async function loadCourseTypes() {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/course-types')
+    
+    if (response.data.success) {
+      courseTypes.value = response.data.data
+      console.log('✅ Types de cours chargés:', courseTypes.value.length)
+      console.log('📋 Détail des types de cours:', courseTypes.value.map(ct => ({
+        id: ct.id,
+        name: ct.name,
+        discipline_id: ct.discipline_id,
+        duration_minutes: ct.duration_minutes,
+        price: ct.price
+      })))
+    }
+  } catch (err) {
+    console.error('Erreur chargement types de cours:', err)
+  }
+}
+
+// Calculer les jours de la semaine disponibles basés sur les créneaux
+function updateAvailableDays() {
+  const days = new Set<number>()
+  openSlots.value.forEach(slot => {
+    if (slot.is_active) {
+      days.add(slot.day_of_week)
+    }
+  })
+  availableDaysOfWeek.value = Array.from(days).sort()
+  console.log('📅 Jours disponibles:', availableDaysOfWeek.value)
+}
+
+// Vérifier si une date correspond à un jour disponible
+function isDateAvailable(dateStr: string): boolean {
+  if (!dateStr) return false
+  const date = new Date(dateStr)
+  const dayOfWeek = date.getDay()
+  return availableDaysOfWeek.value.includes(dayOfWeek)
+}
+
 // Gestion de la modale
 function openSlotModal(slot?: OpenSlot) {
     if (slot) {
@@ -1118,161 +923,22 @@ async function deleteSlot(id: number) {
   }
 }
 
-// Fonctions calendrier
-function getSlotsForDayAndHour(day: number, hour: string): OpenSlot[] {
-  return openSlots.value.filter(slot => {
-    if (slot.day_of_week !== day) return false
-    
-    const slotStartHour = formatTime(slot.start_time)
-    const hourPlusOne = `${String(parseInt(hour.split(':')[0]) + 1).padStart(2, '0')}:00`
-    
-    // Le créneau est affiché si son heure de début est dans cette tranche horaire
-    return slotStartHour >= hour && slotStartHour < hourPlusOne
-  })
-}
-
-function getSlotColorClass(slot: OpenSlot): string {
-  const disciplineColors = [
-    'bg-blue-400 text-white border-l-blue-700 hover:bg-blue-500',
-    'bg-green-400 text-white border-l-green-700 hover:bg-green-500',
-    'bg-purple-400 text-white border-l-purple-700 hover:bg-purple-500',
-    'bg-orange-400 text-white border-l-orange-700 hover:bg-orange-500',
-    'bg-pink-400 text-white border-l-pink-700 hover:bg-pink-500',
-    'bg-indigo-400 text-white border-l-indigo-700 hover:bg-indigo-500',
-    'bg-amber-400 text-gray-900 border-l-amber-700 hover:bg-amber-500',
-    'bg-red-400 text-white border-l-red-700 hover:bg-red-500',
-    'bg-cyan-400 text-white border-l-cyan-700 hover:bg-cyan-500',
-    'bg-teal-400 text-white border-l-teal-700 hover:bg-teal-500',
-    'bg-lime-400 text-gray-900 border-l-lime-700 hover:bg-lime-500',
-    'bg-rose-400 text-white border-l-rose-700 hover:bg-rose-500',
-  ]
-  
-  // Utiliser l'ID de la discipline pour choisir une couleur cohérente
-  const colorIndex = (slot.discipline_id || 0) % disciplineColors.length
-  return disciplineColors[colorIndex]
-}
-
-// Calcule la hauteur du créneau en pixels en fonction de sa durée
-function getSlotHeight(slot: OpenSlot): number {
-  const startTime = new Date(`2000-01-01 ${slot.start_time}`)
-  const endTime = new Date(`2000-01-01 ${slot.end_time}`)
-  const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
-  
-  // Hauteur de base d'une cellule (80px min-h) + bordures
-  const cellHeight = 81 // 80px + 1px bordure
-  return Math.round(durationHours * cellHeight)
-}
-
-// Vérifie si une cellule est occupée par un créneau (début ou span)
-function isSlotActiveInCell(day: number, hour: string): boolean {
-  return getSlotsForDayAndHour(day, hour).length > 0 || getSlotsSpanningCell(day, hour).length > 0
-}
-
-// Retourne les créneaux qui traversent cette cellule (mais ne commencent pas dans cette cellule)
-function getSlotsSpanningCell(day: number, hour: string): OpenSlot[] {
-  return openSlots.value.filter(slot => {
-    if (slot.day_of_week !== day) return false
-    
-    const slotStart = formatTime(slot.start_time)
-    const slotEnd = formatTime(slot.end_time)
-    const hourPlusOne = `${String(parseInt(hour.split(':')[0]) + 1).padStart(2, '0')}:00`
-    
-    // Le créneau traverse cette cellule s'il commence avant cette heure et finit après
-    return slotStart < hour && slotEnd > hour
-  })
-}
-
-// Fonctions pour les cours (lessons)
-function getLessonsForDayAndHour(day: number, hour: string): Lesson[] {
-  const filteredLessons = lessons.value.filter(lesson => {
-    const lessonDate = new Date(lesson.start_time)
-    const lessonDay = lessonDate.getDay()
-    
-    // Debug
-    if (lessons.value.length > 0 && day === 1 && hour === '09:00') {
-      console.log(`🔍 Filtrage lesson ID ${lesson.id}:`, {
-        lessonDay,
-        targetDay: day,
-        lessonStartTime: lesson.start_time,
-        lessonHour: lessonDate.getHours(),
-        targetHour: hour
-      })
-    }
-    
-    if (lessonDay !== day) return false
-    
-    const lessonStartHour = `${String(lessonDate.getHours()).padStart(2, '0')}:${String(lessonDate.getMinutes()).padStart(2, '0')}`
-    const hourPlusOne = `${String(parseInt(hour.split(':')[0]) + 1).padStart(2, '0')}:00`
-    
-    return lessonStartHour >= hour && lessonStartHour < hourPlusOne
-  })
-  
-  if (day === 1 && hour === '09:00' && lessons.value.length > 0) {
-    console.log(`📊 Résultat pour Lundi 09:00: ${filteredLessons.length} cours trouvés sur ${lessons.value.length} cours totaux`)
-  }
-  
-  return filteredLessons
-}
-
-function getLessonsSpanningCell(day: number, hour: string): Lesson[] {
-  return lessons.value.filter(lesson => {
-    const lessonStartDate = new Date(lesson.start_time)
-    const lessonEndDate = new Date(lesson.end_time)
-    const lessonDay = lessonStartDate.getDay()
-    
-    if (lessonDay !== day) return false
-    
-    const lessonStartHour = `${String(lessonStartDate.getHours()).padStart(2, '0')}:${String(lessonStartDate.getMinutes()).padStart(2, '0')}`
-    const lessonEndHour = `${String(lessonEndDate.getHours()).padStart(2, '0')}:${String(lessonEndDate.getMinutes()).padStart(2, '0')}`
-    
-    return lessonStartHour < hour && lessonEndHour > hour
-  })
-}
-
-function getLessonHeight(lesson: Lesson): number {
-  const startTime = new Date(lesson.start_time)
-  const endTime = new Date(lesson.end_time)
-  const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
-  
-  const cellHeight = 81
-  return Math.round(durationHours * cellHeight)
-}
-
-function getLessonColorClass(lesson: Lesson): string {
-  // Couleurs vives pour les cours réels avec bordure épaisse
-  const statusColors: Record<string, string> = {
-    'confirmed': 'bg-green-500 text-white border-l-[6px] border-l-green-800',
-    'pending': 'bg-yellow-500 text-gray-900 border-l-[6px] border-l-yellow-800',
-    'cancelled': 'bg-red-400 text-white border-l-[6px] border-l-red-800',
-    'completed': 'bg-gray-400 text-white border-l-[6px] border-l-gray-700'
-  }
-  
-  return statusColors[lesson.status] || 'bg-blue-500 text-white border-l-[6px] border-l-blue-800'
-}
-
-function getSlotColorClassMuted(slot: OpenSlot): string {
-  // Couleurs pâles pour les créneaux disponibles (en arrière-plan)
-  const disciplineColors = [
-    'bg-blue-100/50 text-blue-600 border-l-blue-300',
-    'bg-green-100/50 text-green-600 border-l-green-300',
-    'bg-purple-100/50 text-purple-600 border-l-purple-300',
-    'bg-orange-100/50 text-orange-600 border-l-orange-300',
-    'bg-pink-100/50 text-pink-600 border-l-pink-300',
-    'bg-indigo-100/50 text-indigo-600 border-l-indigo-300',
-    'bg-amber-100/50 text-amber-700 border-l-amber-300',
-    'bg-red-100/50 text-red-600 border-l-red-300',
-    'bg-cyan-100/50 text-cyan-600 border-l-cyan-300',
-    'bg-teal-100/50 text-teal-600 border-l-teal-300',
-    'bg-lime-100/50 text-lime-700 border-l-lime-300',
-    'bg-rose-100/50 text-rose-600 border-l-rose-300',
-  ]
-  
-  const colorIndex = (slot.discipline_id || 0) % disciplineColors.length
-  return disciplineColors[colorIndex]
-}
-
 function openCreateLessonModal(slot?: OpenSlot) {
+  console.log('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
+    hasSlot: !!slot,
+    slotId: slot?.id,
+    slotDisciplineId: slot?.discipline_id,
+    slotDisciplineName: slot?.discipline?.name,
+    totalCourseTypes: courseTypes.value.length,
+    currentSelectedSlot: selectedSlotForLesson.value?.id
+  })
+  
   selectedSlotForLesson.value = slot || null
+  
+  console.log('📝 [openCreateLessonModal] APRÈS mise à jour selectedSlotForLesson', {
+    newSelectedSlotId: selectedSlotForLesson.value?.id,
+    newSelectedSlotDisciplineId: selectedSlotForLesson.value?.discipline_id
+  })
   
   if (slot) {
     // Calculer la prochaine date correspondant au jour du créneau
@@ -1285,23 +951,58 @@ function openCreateLessonModal(slot?: OpenSlot) {
     const dateStr = nextDate.toISOString().split('T')[0]
     const timeStr = slot.start_time.substring(0, 5)
     
+    // Trouver le course_type correspondant à la discipline si possible
+    let courseTypeId = null
+    if (slot.discipline_id) {
+      const matchingCourseType = courseTypes.value.find(ct => ct.discipline_id === slot.discipline_id)
+      if (matchingCourseType) {
+        courseTypeId = matchingCourseType.id
+      }
+      console.log('🔍 Recherche type de cours pour discipline', slot.discipline_id, ':', {
+        found: !!matchingCourseType,
+        selectedId: courseTypeId,
+        allTypes: courseTypes.value.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id }))
+      })
+    }
+    
     lessonForm.value = {
       teacher_id: null,
       student_id: null,
+      course_type_id: courseTypeId,
+      date: dateStr,
+      time: timeStr,
       start_time: `${dateStr}T${timeStr}`,
       duration: slot.duration || 60,
       price: slot.price || 0,
       notes: ''
     }
+  } else {
+    // Réinitialiser le formulaire
+    lessonForm.value = {
+      teacher_id: null,
+      student_id: null,
+      course_type_id: null,
+      date: '',
+      time: '',
+      start_time: '',
+      duration: 60,
+      price: 0,
+      notes: ''
+    }
   }
   
   showCreateLessonModal.value = true
-  console.log('📝 Ouverture modale création cours pour créneau:', slot)
 }
 
 function closeCreateLessonModal() {
+  console.log('🚪 [closeCreateLessonModal] Fermeture modale')
   showCreateLessonModal.value = false
-  selectedSlotForLesson.value = null
+  // Ne pas réinitialiser selectedSlotForLesson immédiatement pour éviter
+  // que le computed retourne tous les types pendant la fermeture
+  setTimeout(() => {
+    selectedSlotForLesson.value = null
+    console.log('🧹 [closeCreateLessonModal] selectedSlotForLesson réinitialisé après délai')
+  }, 100)
 }
 
 async function createLesson() {
@@ -1309,22 +1010,54 @@ async function createLesson() {
     saving.value = true
     const { $api } = useNuxtApp()
     
+    // Validations
+    const validationErrors = []
+    
     if (!lessonForm.value.teacher_id) {
-      alert('Veuillez sélectionner un enseignant')
-      return
+      validationErrors.push('Veuillez sélectionner un enseignant')
     }
     
-    // Trouver un course_type correspondant à la discipline du créneau
-    let courseTypeId = null
-    if (selectedSlotForLesson.value?.discipline_id) {
-      // TODO: Récupérer le course_type de la discipline
-      // Pour l'instant, on laisse null et on gère côté backend
+    if (!lessonForm.value.course_type_id) {
+      validationErrors.push('Veuillez sélectionner un type de cours')
+    }
+    
+    if (!lessonForm.value.date || !lessonForm.value.time) {
+      validationErrors.push('Veuillez sélectionner une date et une heure')
+    }
+    
+    // Vérifier que la date correspond à un jour disponible
+    if (lessonForm.value.date && !isDateAvailable(lessonForm.value.date)) {
+      validationErrors.push('Cette date ne correspond à aucun créneau disponible pour ce jour de la semaine')
+    }
+    
+    // Vérifier la durée
+    if (!lessonForm.value.duration || lessonForm.value.duration < 15) {
+      validationErrors.push('La durée du cours doit être d\'au moins 15 minutes')
+    }
+    
+    // Vérifier le prix
+    if (lessonForm.value.price === null || lessonForm.value.price === undefined || lessonForm.value.price < 0) {
+      validationErrors.push('Le prix du cours doit être un nombre positif')
+    }
+    
+    // Vérifier que le type de cours correspond à la discipline du créneau
+    if (selectedSlotForLesson.value && lessonForm.value.course_type_id) {
+      const selectedCourseType = courseTypes.value.find(ct => ct.id === lessonForm.value.course_type_id)
+      if (selectedCourseType && selectedCourseType.discipline_id !== selectedSlotForLesson.value.discipline_id) {
+        validationErrors.push('Le type de cours sélectionné ne correspond pas à la discipline du créneau')
+      }
+    }
+    
+    // Afficher les erreurs s'il y en a
+    if (validationErrors.length > 0) {
+      alert('⚠️ Erreurs de validation:\n\n' + validationErrors.map((e, i) => `${i + 1}. ${e}`).join('\n'))
+      return
     }
     
     const payload = {
       teacher_id: lessonForm.value.teacher_id,
       student_id: lessonForm.value.student_id,
-      course_type_id: courseTypeId,
+      course_type_id: lessonForm.value.course_type_id,
       start_time: lessonForm.value.start_time,
       duration: lessonForm.value.duration,
       price: lessonForm.value.price,
@@ -1339,12 +1072,23 @@ async function createLesson() {
       console.log('✅ Cours créé:', response.data.data)
       await loadLessons()
       closeCreateLessonModal()
+      
+      // Message de succès
+      alert('✅ Cours créé avec succès!')
     } else {
-      alert(response.data.message || 'Erreur lors de la création du cours')
+      alert('❌ ' + (response.data.message || 'Erreur lors de la création du cours'))
     }
   } catch (err: any) {
     console.error('Erreur création cours:', err)
-    alert(err.response?.data?.message || 'Erreur lors de la création du cours')
+    const errorMessage = err.response?.data?.message || err.response?.data?.errors || 'Erreur lors de la création du cours'
+    
+    if (typeof errorMessage === 'object') {
+      // Formater les erreurs de validation Laravel
+      const errors = Object.entries(errorMessage).map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`).join('\n')
+      alert('❌ Erreurs de validation:\n\n' + errors)
+    } else {
+      alert('❌ ' + errorMessage)
+    }
   } finally {
     saving.value = false
   }
@@ -1425,6 +1169,51 @@ function formatPrice(price: any): string {
   return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2)
 }
 
+function formatLessonDate(datetime: string): string {
+  const date = new Date(datetime)
+  return date.toLocaleDateString('fr-FR', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })
+}
+
+function formatLessonTime(datetime: string): string {
+  const date = new Date(datetime)
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    'confirmed': '✓ Confirmé',
+    'pending': '⏳ En attente',
+    'cancelled': '✗ Annulé',
+    'completed': '✓ Terminé'
+  }
+  return labels[status] || status
+}
+
+function getStatusBadgeClass(status: string): string {
+  const classes: Record<string, string> = {
+    'confirmed': 'bg-green-100 text-green-800',
+    'pending': 'bg-yellow-100 text-yellow-800',
+    'cancelled': 'bg-red-100 text-red-800',
+    'completed': 'bg-gray-100 text-gray-600'
+  }
+  return classes[status] || 'bg-blue-100 text-blue-800'
+}
+
+function getLessonBorderClass(lesson: Lesson): string {
+  const classes: Record<string, string> = {
+    'confirmed': 'border-green-300 bg-green-50',
+    'pending': 'border-yellow-300 bg-yellow-50',
+    'cancelled': 'border-red-300 bg-red-50',
+    'completed': 'border-gray-300 bg-gray-50'
+  }
+  return classes[lesson.status] || 'border-blue-300 bg-blue-50'
+}
+
 // Lifecycle
 onMounted(async () => {
   await Promise.all([
@@ -1432,7 +1221,9 @@ onMounted(async () => {
     loadOpenSlots(),
     loadLessons(),
     loadTeachers(),
-    loadStudents()
+    loadStudents(),
+    loadCourseTypes()
   ])
+  updateAvailableDays()
 })
 </script>
