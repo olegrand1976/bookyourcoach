@@ -555,10 +555,34 @@ const selectEvent = (event) => {
 const loadCalendarEvents = async () => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get(`/teacher/calendar?calendar_id=${selectedCalendar.value}`)
-    events.value = response.data.events || []
+    console.log('📅 [TeacherCalendar] Chargement des cours...')
+    
+    // Utiliser la route /teacher/lessons qui existe déjà
+    const response = await $api.get('/teacher/lessons')
+    console.log('📅 [TeacherCalendar] Réponse API:', response.data)
+    
+    // Transformer les cours (lessons) en événements pour le calendrier
+    const lessons = response.data.data || []
+    console.log('📅 [TeacherCalendar] Cours récupérés:', lessons.length)
+    
+    events.value = lessons.map(lesson => ({
+      id: lesson.id,
+      title: `${lesson.course_type?.name || 'Cours'} - ${lesson.student?.user?.name || 'Élève'}`,
+      start_time: lesson.start_time,
+      end_time: lesson.end_time,
+      duration: Math.round((new Date(lesson.end_time) - new Date(lesson.start_time)) / 60000),
+      type: lesson.course_type?.is_individual ? 'lesson' : 'group',
+      student_name: lesson.student?.user?.name,
+      student_age: lesson.student?.age,
+      club_name: lesson.club?.name,
+      price: lesson.price,
+      status: lesson.status,
+      description: lesson.notes
+    }))
+    
+    console.log('📅 [TeacherCalendar] Événements transformés:', events.value.length)
   } catch (error) {
-    console.error('Erreur lors du chargement des événements:', error)
+    console.error('❌ [TeacherCalendar] Erreur lors du chargement des événements:', error)
   }
 }
 
@@ -722,8 +746,7 @@ const getLessonTypeLabel = (type) => {
 }
 
 const isFormValid = computed(() => {
-  return newLesson.value.title && 
-         newLesson.value.student_id && 
+  return newLesson.value.student_id && 
          newLesson.value.date && 
          newLesson.value.time && 
          newLesson.value.duration && 

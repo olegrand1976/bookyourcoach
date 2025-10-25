@@ -7,12 +7,20 @@ use Illuminate\Http\Request;
 use App\Models\LessonReplacement;
 use App\Models\Lesson;
 use App\Models\Teacher;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class LessonReplacementController extends Controller
 {
+    protected $notificationService;
+
+    public function __construct(NotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Liste des demandes de remplacement pour l'enseignant connecté
      */
@@ -33,7 +41,7 @@ class LessonReplacementController extends Controller
             // ou où on est le professeur d'origine
             $replacements = LessonReplacement::with([
                 'lesson.student.user',
-                'lesson.course_type',
+                'lesson.courseType',  // ✅ Correction: courseType au lieu de course_type
                 'lesson.club',
                 'originalTeacher.user',
                 'replacementTeacher.user'
@@ -51,10 +59,13 @@ class LessonReplacementController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des remplacements: ' . $e->getMessage());
+            Log::error('❌ [LessonReplacement] Erreur lors de la récupération des remplacements: ' . $e->getMessage());
+            Log::error('❌ [LessonReplacement] Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des remplacements'
+                'message' => 'Erreur lors de la récupération des remplacements',
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
     }
@@ -80,6 +91,14 @@ class LessonReplacementController extends Controller
                     'success' => false,
                     'message' => 'Profil enseignant introuvable'
                 ], 404);
+            }
+
+            // Vérifier qu'on ne se sélectionne pas soi-même comme remplaçant
+            if ($validated['replacement_teacher_id'] == $teacher->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous ne pouvez pas vous sélectionner comme remplaçant'
+                ], 400);
             }
 
             // Vérifier que le cours appartient bien à cet enseignant
@@ -147,12 +166,14 @@ class LessonReplacementController extends Controller
             // Charger les relations
             $replacement->load([
                 'lesson.student.user',
-                'lesson.course_type',
+                'lesson.courseType',
+                'lesson.club',
                 'originalTeacher.user',
                 'replacementTeacher.user'
             ]);
 
-            // TODO: Envoyer une notification au professeur de remplacement
+            // Envoyer une notification au professeur de remplacement
+            $this->notificationService->notifyReplacementRequest($replacement);
 
             return response()->json([
                 'success' => true,
@@ -233,7 +254,9 @@ class LessonReplacementController extends Controller
 
                     DB::commit();
 
-                    // TODO: Notifier le professeur d'origine
+                    // Notifier le professeur d'origine et le club
+                    $replacement->load(['lesson.club', 'originalTeacher.user', 'replacementTeacher.user']);
+                    $this->notificationService->notifyReplacementAccepted($replacement);
 
                     return response()->json([
                         'success' => true,
@@ -249,7 +272,9 @@ class LessonReplacementController extends Controller
 
                     DB::commit();
 
-                    // TODO: Notifier le professeur d'origine
+                    // Notifier le professeur d'origine
+                    $replacement->load(['originalTeacher.user', 'replacementTeacher.user']);
+                    $this->notificationService->notifyReplacementRejected($replacement);
 
                     return response()->json([
                         'success' => true,

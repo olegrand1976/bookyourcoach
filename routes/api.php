@@ -42,11 +42,21 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard']);
     Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
+    Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
+    Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     Route::get('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'index']);
     Route::post('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'store']);
     Route::post('/lesson-replacements/{id}/respond', [App\Http\Controllers\Api\LessonReplacementController::class, 'respond']);
     Route::delete('/lesson-replacements/{id}', [App\Http\Controllers\Api\LessonReplacementController::class, 'cancel']);
-    Route::get('/teachers', [App\Http\Controllers\Api\TeacherController::class, 'index']); // List des autres enseignants
+    Route::get('/teachers', [App\Http\Controllers\Api\TeacherController::class, 'index']); // Liste des autres enseignants
+    Route::get('/students', [App\Http\Controllers\Api\TeacherController::class, 'getStudents']); // Liste des élèves
+    Route::get('/clubs', [App\Http\Controllers\Api\TeacherController::class, 'getClubs']); // Liste des clubs
+    
+    // Notifications
+    Route::get('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
 });
 
 Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(function () {
@@ -107,6 +117,12 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     // Analyse prédictive IA
     Route::get('/predictive-analysis', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getAnalysis']);
     Route::get('/predictive-analysis/alerts', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getCriticalAlerts']);
+    
+    // Notifications
+    Route::get('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
 });
 
 // Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés

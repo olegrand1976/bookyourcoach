@@ -2,17 +2,68 @@
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">
-          Dashboard Enseignant
-        </h1>
-        <p class="mt-2 text-gray-600">
-          Bonjour {{ authStore.userName }}, gérez vos cours et votre planning
-        </p>
+      <div class="mb-8 flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Dashboard Enseignant
+          </h1>
+          <p class="mt-2 text-gray-600">
+            Bonjour {{ authStore.userName }}, gérez vos cours et votre planning
+          </p>
+        </div>
+        <NotificationBell />
+      </div>
+
+      <!-- Notifications de demandes envoyées -->
+      <div v-if="pendingReplacementsSent.length > 0" class="mb-8">
+        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <div class="ml-3 flex-1">
+              <h3 class="text-lg font-medium text-blue-800">
+                📤 {{ pendingReplacementsSent.length }} demande(s) en attente de réponse
+              </h3>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="replacement in pendingReplacementsSent"
+                  :key="replacement.id"
+                  class="bg-white rounded-lg p-4 shadow-sm"
+                >
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="font-medium text-gray-900">
+                        Vous avez demandé à {{ replacement.replacement_teacher?.user?.name }} de vous remplacer
+                      </p>
+                      <p class="text-sm text-gray-600">
+                        📅 {{ formatDate(replacement.lesson?.start_time) }} à {{ formatTime(replacement.lesson?.start_time) }}
+                      </p>
+                      <p class="text-sm text-gray-600">
+                        👤 Élève: {{ replacement.lesson?.student?.user?.name || 'Non assigné' }}
+                        <span v-if="replacement.lesson?.student?.age" class="text-gray-500">
+                          ({{ replacement.lesson.student.age }} ans)
+                        </span>
+                      </p>
+                      <p class="text-sm text-gray-500">Raison: {{ replacement.reason }}</p>
+                    </div>
+                    <div class="flex items-center">
+                      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                        ⏳ En attente
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Notifications de remplacement -->
-      <div v-if="pendingReplacements.length > 0" class="mb-8">
+      <div v-if="pendingReplacementsReceived.length > 0" class="mb-8">
         <div class="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-6">
           <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -22,11 +73,11 @@
             </div>
             <div class="ml-3 flex-1">
               <h3 class="text-lg font-medium text-orange-800">
-                {{ pendingReplacements.length }} demande(s) de remplacement en attente
+                🔔 {{ pendingReplacementsReceived.length }} demande(s) de remplacement à traiter
               </h3>
               <div class="mt-4 space-y-3">
                 <div
-                  v-for="replacement in pendingReplacements"
+                  v-for="replacement in pendingReplacementsReceived"
                   :key="replacement.id"
                   class="bg-white rounded-lg p-4 shadow-sm"
                 >
@@ -227,6 +278,7 @@
 import { ref, onMounted, computed } from 'vue'
 import LessonDetailsModal from '~/components/teacher/LessonDetailsModal.vue'
 import ReplacementRequestModal from '~/components/teacher/ReplacementRequestModal.vue'
+import NotificationBell from '~/components/NotificationBell.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -253,6 +305,25 @@ const todayLessons = computed(() => {
   })
 })
 
+// Demandes REÇUES (où je suis le remplaçant potentiel) - en attente de MA réponse
+const pendingReplacementsReceived = computed(() => {
+  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
+  return allReplacements.value.filter(r => 
+    r.status === 'pending' && 
+    r.replacement_teacher_id === teacherId
+  )
+})
+
+// Demandes ENVOYÉES (où je suis le demandeur) - en attente de réponse
+const pendingReplacementsSent = computed(() => {
+  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
+  return allReplacements.value.filter(r => 
+    r.status === 'pending' && 
+    r.original_teacher_id === teacherId
+  )
+})
+
+// Toutes les demandes en attente (pour la statistique)
 const pendingReplacements = computed(() => {
   return allReplacements.value.filter(r => r.status === 'pending')
 })
