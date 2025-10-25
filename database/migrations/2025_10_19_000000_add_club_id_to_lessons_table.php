@@ -27,7 +27,7 @@ return new class extends Migration
         DB::statement("
             UPDATE lessons l
             INNER JOIN teachers t ON l.teacher_id = t.id
-            INNER JOIN club_teacher ct ON t.id = ct.teacher_id
+            INNER JOIN club_teachers ct ON t.id = ct.teacher_id
             SET l.club_id = ct.club_id
             WHERE l.club_id IS NULL
         ");

@@ -86,29 +86,35 @@ class NotificationService
                 ]);
             }
 
-            // 2. Notifier le club
+            // 2. Notifier le club (administrateurs du club)
             $club = $lesson->club;
-            if ($club && $club->user) {
+            if ($club) {
                 $lessonDate = $lesson->start_time->format('d/m/Y à H:i');
                 
-                Notification::create([
-                    'user_id' => $club->user->id,
-                    'type' => 'club_replacement_accepted',
-                    'title' => 'ℹ️ Changement d\'enseignant',
-                    'message' => "{$replacementTeacher->user->name} remplacera {$originalTeacher->user->name} le {$lessonDate}",
-                    'data' => [
-                        'replacement_id' => $replacement->id,
-                        'lesson_id' => $lesson->id,
-                        'original_teacher_id' => $originalTeacher->id,
-                        'replacement_teacher_id' => $replacementTeacher->id,
-                        'lesson_date' => $lesson->start_time->toISOString(),
-                    ]
-                ]);
+                // Récupérer les administrateurs du club
+                $clubAdmins = $club->users()->wherePivot('is_admin', true)->get();
+                
+                foreach ($clubAdmins as $admin) {
+                    Notification::create([
+                        'user_id' => $admin->id,
+                        'type' => 'club_replacement_accepted',
+                        'title' => 'ℹ️ Changement d\'enseignant',
+                        'message' => "{$replacementTeacher->user->name} remplacera {$originalTeacher->user->name} le {$lessonDate}",
+                        'data' => [
+                            'replacement_id' => $replacement->id,
+                            'lesson_id' => $lesson->id,
+                            'original_teacher_id' => $originalTeacher->id,
+                            'replacement_teacher_id' => $replacementTeacher->id,
+                            'lesson_date' => $lesson->start_time->toISOString(),
+                        ]
+                    ]);
 
-                Log::info('✅ Notification acceptation créée pour club', [
-                    'replacement_id' => $replacement->id,
-                    'club' => $club->name
-                ]);
+                    Log::info('✅ Notification acceptation créée pour club admin', [
+                        'replacement_id' => $replacement->id,
+                        'club' => $club->name,
+                        'admin' => $admin->email
+                    ]);
+                }
             }
 
         } catch (\Exception $e) {
