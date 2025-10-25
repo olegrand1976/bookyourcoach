@@ -49,6 +49,8 @@
             </p>
           </div>
           <div class="flex items-center space-x-4">
+            <ClubNotificationBell />
+            
             <button 
               @click="navigateTo('/club/qr-code')"
               class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center space-x-2"
@@ -394,6 +396,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import PredictiveAnalysis from '~/components/AI/PredictiveAnalysis.vue'
+import ClubNotificationBell from '~/components/club/ClubNotificationBell.vue'
 
 // Le middleware global 'auth.global.ts' gère déjà la protection de cette route.
 // definePageMeta({
