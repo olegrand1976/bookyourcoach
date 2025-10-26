@@ -1,8 +1,9 @@
-name: 🚀 Déploiement Production Modulaire
+name: 🚀 Déploiement Production Modulaire (Manuel uniquement)
 
 on:
-  push:
-    branches: [ main ]
+  # Désactivé: utilisez deploy-production-security.yml pour les déploiements automatiques
+  # push:
+  #   branches: [ main ]
   workflow_dispatch:
     inputs:
       skip_build:
