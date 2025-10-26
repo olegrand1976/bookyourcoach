@@ -397,9 +397,37 @@ jobs:
         log_info "🚀 Démarrage des conteneurs sécurisés..."
         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
-        # Attente du démarrage
-        log_info "⏳ Attente du démarrage des services (30 secondes)..."
-        sleep 30
+        # Attente intelligente du démarrage des conteneurs
+        log_info "⏳ Attente du démarrage des services..."
+        
+        # Attendre que le conteneur backend soit complètement démarré
+        RETRIES=60  # 60 tentatives = 2 minutes max
+        RETRY_COUNT=0
+        while [ $RETRY_COUNT -lt $RETRIES ]; do
+          BACKEND_STATUS=$(docker compose -f "$COMPOSE_FILE" ps backend --format json | jq -r '.[0].State' 2>/dev/null || echo "unknown")
+          
+          if [ "$BACKEND_STATUS" = "running" ]; then
+            log_info "✅ Conteneur backend démarré et en état 'running'"
+            break
+          elif [ "$BACKEND_STATUS" = "restarting" ]; then
+            log_info "⏳ Conteneur backend en cours de redémarrage... (tentative $((RETRY_COUNT+1))/$RETRIES)"
+          else
+            log_info "⏳ Attente du démarrage du conteneur backend... État: $BACKEND_STATUS (tentative $((RETRY_COUNT+1))/$RETRIES)"
+          fi
+          
+          sleep 2
+          RETRY_COUNT=$((RETRY_COUNT+1))
+        done
+        
+        if [ $RETRY_COUNT -eq $RETRIES ]; then
+          log_error "❌ Le conteneur backend n'a pas démarré dans les temps impartis"
+          docker compose -f "$COMPOSE_FILE" logs backend --tail 50
+          exit 1
+        fi
+        
+        # Attendre encore 5 secondes pour que les services internes soient prêts
+        log_info "⏳ Attente de l'initialisation des services internes (5 secondes)..."
+        sleep 5
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
@@ -659,9 +687,37 @@ jobs:
         log_info "🚀 Démarrage des conteneurs sécurisés..."
         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
-        # Attente du démarrage
-        log_info "⏳ Attente du démarrage des services (30 secondes)..."
-        sleep 30
+        # Attente intelligente du démarrage des conteneurs
+        log_info "⏳ Attente du démarrage des services..."
+        
+        # Attendre que le conteneur backend soit complètement démarré
+        RETRIES=60  # 60 tentatives = 2 minutes max
+        RETRY_COUNT=0
+        while [ $RETRY_COUNT -lt $RETRIES ]; do
+          BACKEND_STATUS=$(docker compose -f "$COMPOSE_FILE" ps backend --format json | jq -r '.[0].State' 2>/dev/null || echo "unknown")
+          
+          if [ "$BACKEND_STATUS" = "running" ]; then
+            log_info "✅ Conteneur backend démarré et en état 'running'"
+            break
+          elif [ "$BACKEND_STATUS" = "restarting" ]; then
+            log_info "⏳ Conteneur backend en cours de redémarrage... (tentative $((RETRY_COUNT+1))/$RETRIES)"
+          else
+            log_info "⏳ Attente du démarrage du conteneur backend... État: $BACKEND_STATUS (tentative $((RETRY_COUNT+1))/$RETRIES)"
+          fi
+          
+          sleep 2
+          RETRY_COUNT=$((RETRY_COUNT+1))
+        done
+        
+        if [ $RETRY_COUNT -eq $RETRIES ]; then
+          log_error "❌ Le conteneur backend n'a pas démarré dans les temps impartis"
+          docker compose -f "$COMPOSE_FILE" logs backend --tail 50
+          exit 1
+        fi
+        
+        # Attendre encore 5 secondes pour que les services internes soient prêts
+        log_info "⏳ Attente de l'initialisation des services internes (5 secondes)..."
+        sleep 5
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
