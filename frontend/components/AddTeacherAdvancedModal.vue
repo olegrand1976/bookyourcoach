@@ -593,7 +593,7 @@ const createNewTeacher = async () => {
       bio: newTeacherForm.value.notes || null
     }
     
-    const response = await $fetch(`${config.public.apiBase}/club/create-teacher`, {
+    const response = await $fetch(`${config.public.apiBase}/club/teachers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenCookie.value}`,
