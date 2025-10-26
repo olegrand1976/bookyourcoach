@@ -67,6 +67,8 @@ Avant de commencer à travailler, tu étuidieras les dossiers docs et frontend/d
 # - `BEST_PRACTICES.md` : Conseils et pratiques recommandées pour le développement frontend.
 # - `SETUP_GUIDE.md` : Instructions pour configurer l'environnement de développement frontend.
 Avant de commencer à travailler, tu étuidieras les dossiers docs et frontend/docs pour bien comprendre les conventions de code, les composants réutilisables et les meilleures pratiques adoptées dans ce projet.
+## Boutons
+Privilégier toujours des styles icône + tooltip pour les actions courantes (ajouter, modifier, supprimer, etc.) afin de gagner de la place et d'améliorer l'ergonomie.
 
 
 
