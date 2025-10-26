@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\TeacherController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\ClubController;
@@ -36,7 +36,25 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', [AdminController::class, 'dashboard']);
+    Route::get('/stats', [AdminController::class, 'getStats']);
+    Route::get('/users', [AdminController::class, 'getUsers']);
+    Route::post('/users', [AdminController::class, 'createUser']);
+    Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+    Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
+    Route::get('/activities', [AdminController::class, 'getActivities']);
+    Route::get('/settings', [AdminController::class, 'getAllSettings']);
+    Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
+    Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
+    Route::get('/system-status', [AdminController::class, 'getSystemStatus']);
+    Route::post('/clear-cache', [AdminController::class, 'clearCache']);
+    Route::get('/audit-logs', [AdminController::class, 'getAuditLogs']);
+    Route::get('/clubs', [AdminController::class, 'getClubs']);
+    Route::post('/clubs', [AdminController::class, 'createClub']);
+    Route::get('/clubs/{id}', [AdminController::class, 'getClub']);
+    Route::put('/clubs/{id}', [AdminController::class, 'updateClub']);
+    Route::delete('/clubs/{id}', [AdminController::class, 'deleteClub']);
+    Route::post('/clubs/{id}/toggle-status', [AdminController::class, 'toggleClubStatus']);
+    Route::post('/clubs/upload-logo', [AdminController::class, 'uploadLogo']);
 });
 
 Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
