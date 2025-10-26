@@ -7,8 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
 use App\Models\User;
+use App\Models\Club;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
@@ -41,31 +43,69 @@ class AuthController extends Controller
         // Construire le nom complet
         $fullName = trim($request->first_name . ' ' . $request->last_name);
 
-        $user = User::create([
-            'name' => $fullName,
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-            'phone' => $request->phone,
-            'birth_date' => $request->birth_date,
-            'street' => $request->street,
-            'street_number' => $request->street_number,
-            'postal_code' => $request->postal_code,
-            'city' => $request->city,
-            'country' => $request->country ?? 'Belgium',
-            'is_active' => true,
-            'status' => 'active',
-        ]);
+        // Utiliser une transaction pour garantir la cohérence
+        DB::beginTransaction();
+        
+        try {
+            $user = User::create([
+                'name' => $fullName,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => $request->role,
+                'phone' => $request->phone,
+                'birth_date' => $request->birth_date,
+                'street' => $request->street,
+                'street_number' => $request->street_number,
+                'postal_code' => $request->postal_code,
+                'city' => $request->city,
+                'country' => $request->country ?? 'Belgium',
+                'is_active' => true,
+                'status' => 'active',
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            // Si c'est un club, créer automatiquement le club et lier l'utilisateur
+            if ($request->role === 'club') {
+                $club = Club::create([
+                    'name' => $request->club_name,
+                    'description' => $request->club_description,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'street' => $request->street,
+                    'street_number' => $request->street_number,
+                    'postal_code' => $request->postal_code,
+                    'city' => $request->city,
+                    'country' => $request->country ?? 'Belgium',
+                    'is_active' => true,
+                ]);
 
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ]);
+                // Lier l'utilisateur au club en tant que propriétaire et admin
+                $user->clubs()->attach($club->id, [
+                    'role' => 'owner',
+                    'is_admin' => true,
+                    'joined_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'user' => $user,
+                'club' => $request->role === 'club' ? $club : null,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de l\'inscription',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function login(Request $request)
