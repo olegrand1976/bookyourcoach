@@ -18,8 +18,10 @@ services:
       - "8080:80"
       - "8001:8000"  # Serveur PHP intégré pour développement local
     volumes:
-      - app_storage:/var/www/storage
-      - app_bootstrap_cache:/var/www/bootstrap/cache
+      # Volumes en écriture pour Laravel
+      - app_storage:/var/www/html/storage
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache
+      # Fichiers de configuration en lecture seule
       - ./cert.pem:/var/www/html/cert.pem:ro
       - ./.env.local:/var/www/html/.env:ro
       - ./app:/var/www/html/app:ro
