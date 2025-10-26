@@ -51,39 +51,40 @@ jobs:
     - name: 🔍 Vérification des conditions
       id: check
       run: |
-        # Déterminer si on doit builder
-        if [[ "${{ inputs.skip_build }}" == "true" ]]; then
+        # Déterminer si on doit builder (par défaut true sauf si explicitement false)
+        SKIP_BUILD="${{ inputs.skip_build }}"
+        if [[ "$SKIP_BUILD" == "true" ]]; then
           echo "should_build=false" >> $GITHUB_OUTPUT
         else
           echo "should_build=true" >> $GITHUB_OUTPUT
         fi
         
-        # Déterminer si on doit déployer
-        if [[ "${{ inputs.skip_deploy }}" == "true" ]]; then
+        # Déterminer si on doit déployer (par défaut true sauf si explicitement false)
+        SKIP_DEPLOY="${{ inputs.skip_deploy }}"
+        if [[ "$SKIP_DEPLOY" == "true" ]]; then
           echo "should_deploy=false" >> $GITHUB_OUTPUT
         else
           echo "should_deploy=true" >> $GITHUB_OUTPUT
         fi
         
-        # Déterminer si on applique les corrections de sécurité
-        if [[ "${{ inputs.security_fixes }}" == "true" ]]; then
-          echo "apply_security=true" >> $GITHUB_OUTPUT
-        else
+        # Déterminer si on applique les corrections de sécurité (par défaut true)
+        SECURITY_FIXES="${{ inputs.security_fixes }}"
+        if [[ "$SECURITY_FIXES" == "false" ]]; then
           echo "apply_security=false" >> $GITHUB_OUTPUT
+        else
+          echo "apply_security=true" >> $GITHUB_OUTPUT
         fi
         
         # Générer le tag d'image
-        if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
+        FORCE_REBUILD="${{ inputs.force_rebuild }}"
+        if [[ "$FORCE_REBUILD" == "true" ]]; then
           echo "image_tag=security-fix-$(date +%s)" >> $GITHUB_OUTPUT
         else
           echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
         fi
         
         echo "🔍 Conditions vérifiées :"
-        echo "  - Build: ${{ steps.check.outputs.should_build }}"
-        echo "  - Deploy: ${{ steps.check.outputs.should_deploy }}"
-        echo "  - Security fixes: ${{ steps.check.outputs.apply_security }}"
-        echo "  - Tag: ${{ steps.check.outputs.image_tag }}"
+        cat $GITHUB_OUTPUT
 
   # Job 2: Vérification des corrections de sécurité
   security-check:
