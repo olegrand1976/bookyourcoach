@@ -43,6 +43,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/users/{id}', [AdminController::class, 'updateUser']);
     Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole']);
     Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
+    Route::post('/users/{id}/create-club', [AdminController::class, 'createClubForUser']);
     Route::get('/activities', [AdminController::class, 'getActivities']);
     Route::get('/settings', [AdminController::class, 'getAllSettings']);
     Route::get('/settings/{type}', [AdminController::class, 'getSettings']);

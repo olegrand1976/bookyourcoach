@@ -92,7 +92,7 @@ class AdminController extends BaseController
      */
     public function getUsers(Request $request)
     {
-        $query = User::query();
+        $query = User::with(['clubs']); // Charger les clubs associés
 
         // Filtres
         if ($request->filled('search')) {
@@ -408,6 +408,78 @@ class AdminController extends BaseController
         ]);
 
         return response()->json($user);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/admin/users/{id}/create-club",
+     *     summary="Create a club for a user",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Club created successfully"),
+     *     @OA\Response(response=422, description="Validation error")
+     * )
+     */
+    public function createClubForUser($id)
+    {
+        $user = User::with(['clubs'])->findOrFail($id);
+
+        // Vérifier que l'utilisateur a le rôle "club"
+        if ($user->role !== 'club') {
+            return response()->json([
+                'message' => 'L\'utilisateur doit avoir le rôle "club" pour créer un club'
+            ], 422);
+        }
+
+        // Vérifier si l'utilisateur a déjà un club
+        if ($user->clubs()->count() > 0) {
+            return response()->json([
+                'message' => 'L\'utilisateur a déjà un club associé',
+                'club' => $user->clubs->first()
+            ], 422);
+        }
+
+        try {
+            $club = Club::create([
+                'name' => $user->name,
+                'description' => 'Club créé automatiquement',
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'street' => $user->street,
+                'street_number' => $user->street_number,
+                'postal_code' => $user->postal_code,
+                'city' => $user->city,
+                'country' => $user->country ?? 'Belgium',
+                'is_active' => true,
+            ]);
+
+            // Lier l'utilisateur au club en tant que propriétaire
+            $user->clubs()->attach($club->id, [
+                'role' => 'owner',
+                'is_admin' => true,
+                'joined_at' => now(),
+            ]);
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'club_created_for_user',
+                'model_type' => 'Club',
+                'model_id' => $club->id,
+                'data' => ['user_id' => $user->id, 'user_name' => $user->name],
+            ]);
+
+            return response()->json([
+                'message' => 'Club créé avec succès',
+                'club' => $club
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Erreur lors de la création du club',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

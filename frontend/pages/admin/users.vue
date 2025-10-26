@@ -138,16 +138,54 @@
                                     {{ formatDate(user.created_at) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div class="flex space-x-2">
-                                        <button @click="editUser(user)" class="table-action-btn table-action-btn-edit">
-                                            Modifier
+                                    <div class="flex space-x-2 justify-end">
+                                        <!-- Modifier -->
+                                        <button 
+                                            @click="editUser(user)" 
+                                            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="Modifier l'utilisateur"
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
                                         </button>
-                                        <button @click="resetUserPassword(user)" class="table-action-btn table-action-btn-view">
-                                            🔑 Mot de passe
+                                        
+                                        <!-- Créer club (si rôle club sans club) -->
+                                        <button 
+                                            v-if="user.role === 'club' && (!user.clubs || user.clubs.length === 0)"
+                                            @click="createClubForUser(user)" 
+                                            class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                            title="Créer un club pour cet utilisateur"
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
                                         </button>
-                                        <button @click="toggleUserStatus(user)"
-                                            :class="user.is_active ? 'table-action-btn table-action-btn-delete' : 'table-action-btn table-action-btn-view'">
-                                            {{ user.is_active ? 'Désactiver' : 'Activer' }}
+                                        
+                                        <!-- Mot de passe -->
+                                        <button 
+                                            @click="resetUserPassword(user)" 
+                                            class="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                            title="Réinitialiser le mot de passe"
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                            </svg>
+                                        </button>
+                                        
+                                        <!-- Activer/Désactiver -->
+                                        <button 
+                                            @click="toggleUserStatus(user)"
+                                            :class="user.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'"
+                                            class="p-2 rounded-lg transition-colors"
+                                            :title="user.is_active ? 'Désactiver l\'utilisateur' : 'Activer l\'utilisateur'"
+                                        >
+                                            <svg v-if="user.is_active" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                            </svg>
+                                            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </td>
@@ -717,6 +755,32 @@ const toggleUserStatus = async (user) => {
         console.error('Erreur lors du changement de statut:', error)
         console.error('Détails de l\'erreur:', error.response?.data)
         alert('Erreur lors du changement de statut: ' + (error.response?.data?.message || error.message))
+    }
+}
+
+const createClubForUser = async (user) => {
+    if (!confirm(`Créer un club pour ${user.name} ?`)) {
+        return
+    }
+    
+    try {
+        const { $api } = useNuxtApp()
+        const response = await $api.post(`/admin/users/${user.id}/create-club`)
+        console.log('Réponse de création de club:', response)
+
+        // Recharger la liste des utilisateurs pour afficher les changements
+        await loadUsers()
+        
+        alert('Club créé avec succès! L\'utilisateur peut maintenant se connecter à son dashboard club.')
+    } catch (error) {
+        console.error('Erreur lors de la création du club:', error)
+        console.error('Détails de l\'erreur:', error.response?.data)
+        
+        if (error.response?.data?.message) {
+            alert(error.response.data.message)
+        } else {
+            alert('Erreur lors de la création du club: ' + error.message)
+        }
     }
 }
 
