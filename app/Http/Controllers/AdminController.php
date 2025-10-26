@@ -119,6 +119,69 @@ class AdminController extends BaseController
     }
 
     /**
+     * @OA\Get(
+     *     path="/api/admin/users/{id}",
+     *     summary="Get single user details",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="User retrieved successfully"),
+     *     @OA\Response(response=404, description="User not found")
+     * )
+     */
+    public function getUser($id)
+    {
+        $user = User::with(['clubs'])->findOrFail($id);
+
+        // Si l'utilisateur a le rôle "club" mais n'a pas de club associé, en créer un automatiquement
+        $clubCreated = null;
+        if ($user->role === 'club' && $user->clubs()->count() === 0) {
+            try {
+                $club = Club::create([
+                    'name' => $user->name,
+                    'description' => 'Club créé automatiquement',
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'street' => $user->street,
+                    'street_number' => $user->street_number,
+                    'postal_code' => $user->postal_code,
+                    'city' => $user->city,
+                    'country' => $user->country ?? 'Belgium',
+                    'is_active' => true,
+                ]);
+
+                // Lier l'utilisateur au club en tant que propriétaire
+                $user->clubs()->attach($club->id, [
+                    'role' => 'owner',
+                    'is_admin' => true,
+                    'joined_at' => now(),
+                ]);
+
+                $clubCreated = $club;
+
+                // Recharger la relation clubs
+                $user->load('clubs');
+
+                // Log de la création du club
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'club_auto_created_on_view',
+                    'model_type' => 'Club',
+                    'model_id' => $club->id,
+                    'data' => ['user_id' => $user->id, 'user_name' => $user->name],
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Erreur lors de la création automatique du club à la consultation: ' . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'user' => $user,
+            'club_auto_created' => $clubCreated ? true : false
+        ]);
+    }
+
+    /**
      * @OA\Post(
      *     path="/api/admin/users",
      *     summary="Create a new user",
@@ -250,16 +313,63 @@ class AdminController extends BaseController
         
         $user->update($updateData);
 
+        // Si le rôle est changé vers "club" et que l'utilisateur n'a pas de club, en créer un
+        $clubCreated = null;
+        if (isset($updateData['role']) && $updateData['role'] === 'club' && $user->clubs()->count() === 0) {
+            try {
+                $club = Club::create([
+                    'name' => $user->name,
+                    'description' => 'Club créé automatiquement',
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'street' => $user->street,
+                    'street_number' => $user->street_number,
+                    'postal_code' => $user->postal_code,
+                    'city' => $user->city,
+                    'country' => $user->country ?? 'Belgium',
+                    'is_active' => true,
+                ]);
+
+                // Lier l'utilisateur au club en tant que propriétaire
+                $user->clubs()->attach($club->id, [
+                    'role' => 'owner',
+                    'is_admin' => true,
+                    'joined_at' => now(),
+                ]);
+
+                $clubCreated = $club;
+
+                // Log de la création du club
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'club_auto_created',
+                    'model_type' => 'Club',
+                    'model_id' => $club->id,
+                    'data' => ['user_id' => $user->id, 'user_name' => $user->name],
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Erreur lors de la création automatique du club: ' . $e->getMessage());
+            }
+        }
+
         // Log de l'action
         AuditLog::create([
             'user_id' => Auth::id(),
             'action' => 'user_updated',
             'model_type' => 'User',
             'model_id' => $user->id,
-            'data' => ['old' => $oldData, 'new' => $user->toArray()],
+            'data' => [
+                'old' => $oldData, 
+                'new' => $user->toArray(),
+                'club_created' => $clubCreated ? $clubCreated->id : null
+            ],
         ]);
 
-        return response()->json($user);
+        return response()->json([
+            'user' => $user,
+            'club' => $clubCreated,
+            'message' => $clubCreated ? 'Utilisateur modifié et club créé automatiquement' : null
+        ]);
     }
 
     /**
@@ -345,18 +455,64 @@ class AdminController extends BaseController
         $user->role = $newRole;
         $user->save();
 
+        // Si le nouveau rôle est "club" et que l'utilisateur n'a pas de club, en créer un
+        $clubCreated = null;
+        if ($newRole === 'club' && $user->clubs()->count() === 0) {
+            try {
+                $club = Club::create([
+                    'name' => $user->name,
+                    'description' => 'Club créé automatiquement',
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'street' => $user->street,
+                    'street_number' => $user->street_number,
+                    'postal_code' => $user->postal_code,
+                    'city' => $user->city,
+                    'country' => $user->country ?? 'Belgium',
+                    'is_active' => true,
+                ]);
+
+                // Lier l'utilisateur au club en tant que propriétaire
+                $user->clubs()->attach($club->id, [
+                    'role' => 'owner',
+                    'is_admin' => true,
+                    'joined_at' => now(),
+                ]);
+
+                $clubCreated = $club;
+
+                // Log de la création du club
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'club_auto_created',
+                    'model_type' => 'Club',
+                    'model_id' => $club->id,
+                    'data' => ['user_id' => $user->id, 'user_name' => $user->name],
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Erreur lors de la création automatique du club: ' . $e->getMessage());
+            }
+        }
+
         // Log de l'action
         AuditLog::create([
             'user_id' => Auth::id(),
             'action' => 'user_role_updated',
             'model_type' => 'User',
             'model_id' => $user->id,
-            'data' => ['old_role' => $oldRole, 'new_role' => $newRole],
+            'data' => [
+                'old_role' => $oldRole, 
+                'new_role' => $newRole,
+                'club_created' => $clubCreated ? $clubCreated->id : null
+            ],
         ]);
 
         return response()->json([
-            'message' => 'Rôle modifié avec succès',
-            'user' => $user
+            'message' => $clubCreated 
+                ? 'Rôle modifié avec succès et club créé automatiquement'
+                : 'Rôle modifié avec succès',
+            'user' => $user,
+            'club' => $clubCreated
         ]);
     }
 

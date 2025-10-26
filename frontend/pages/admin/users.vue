@@ -593,24 +593,61 @@ const createUser = async () => {
     }
 }
 
-const editUser = (user) => {
-    userForm.value = {
-        id: user.id,
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        email: user.email,
-        phone: user.phone || '',
-        birth_date: user.birth_date || '',
-        street: user.street || '',
-        street_number: user.street_number || '',
-        postal_code: user.postal_code || '',
-        city: user.city || '',
-        country: user.country || 'Belgium',
-        role: user.role,
-        password: '',
-        password_confirmation: ''
+const editUser = async (user) => {
+    try {
+        const { $api } = useNuxtApp()
+        
+        // Récupérer les détails de l'utilisateur via l'API
+        // Cela créera automatiquement un club si l'utilisateur a le rôle "club" mais n'a pas de club
+        const response = await $api.get(`/admin/users/${user.id}`)
+        
+        const userData = response.data.user || response.user || user
+        
+        // Afficher un message si un club a été créé automatiquement
+        if (response.data.club_auto_created || response.club_auto_created) {
+            console.log('✅ Club créé automatiquement pour l\'utilisateur:', userData.name)
+            // Optionnel: afficher une notification
+            // showToast('Club créé automatiquement pour cet utilisateur', 'success')
+        }
+        
+        userForm.value = {
+            id: userData.id,
+            first_name: userData.first_name || '',
+            last_name: userData.last_name || '',
+            email: userData.email,
+            phone: userData.phone || '',
+            birth_date: userData.birth_date || '',
+            street: userData.street || '',
+            street_number: userData.street_number || '',
+            postal_code: userData.postal_code || '',
+            city: userData.city || '',
+            country: userData.country || 'Belgium',
+            role: userData.role,
+            password: '',
+            password_confirmation: ''
+        }
+        showEditModal.value = true
+    } catch (error) {
+        console.error('Erreur lors de la récupération des détails de l\'utilisateur:', error)
+        // En cas d'erreur, utiliser les données de la liste
+        userForm.value = {
+            id: user.id,
+            first_name: user.first_name || '',
+            last_name: user.last_name || '',
+            email: user.email,
+            phone: user.phone || '',
+            birth_date: user.birth_date || '',
+            street: user.street || '',
+            street_number: user.street_number || '',
+            postal_code: user.postal_code || '',
+            city: user.city || '',
+            country: user.country || 'Belgium',
+            role: user.role,
+            password: '',
+            password_confirmation: ''
+        }
+        showEditModal.value = true
     }
-    showEditModal.value = true
 }
 
 const updateUser = async () => {

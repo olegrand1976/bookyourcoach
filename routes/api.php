@@ -38,6 +38,7 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     Route::get('/stats', [AdminController::class, 'getStats']);
     Route::get('/users', [AdminController::class, 'getUsers']);
+    Route::get('/users/{id}', [AdminController::class, 'getUser']);
     Route::post('/users', [AdminController::class, 'createUser']);
     Route::put('/users/{id}', [AdminController::class, 'updateUser']);
     Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole']);
