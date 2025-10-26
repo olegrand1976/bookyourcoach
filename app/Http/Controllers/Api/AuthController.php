@@ -18,17 +18,45 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'string', 'in:admin,teacher,student,club'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'birth_date' => ['nullable', 'date'],
+            'street' => ['nullable', 'string', 'max:255'],
+            'street_number' => ['nullable', 'string', 'max:20'],
+            'postal_code' => ['nullable', 'string', 'max:10'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'country' => ['nullable', 'string', 'max:255'],
+            // Champs spécifiques pour les clubs
+            'club_name' => ['required_if:role,club', 'string', 'max:255'],
+            'club_description' => ['nullable', 'string'],
+            // Champs spécifiques pour les enseignants
+            'specialties' => ['nullable', 'array'],
+            'experience_years' => ['nullable', 'integer', 'min:0'],
         ]);
 
+        // Construire le nom complet
+        $fullName = trim($request->first_name . ' ' . $request->last_name);
+
         $user = User::create([
-            'name' => $request->name,
+            'name' => $fullName,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'phone' => $request->phone,
+            'birth_date' => $request->birth_date,
+            'street' => $request->street,
+            'street_number' => $request->street_number,
+            'postal_code' => $request->postal_code,
+            'city' => $request->city,
+            'country' => $request->country ?? 'Belgium',
+            'is_active' => true,
+            'status' => 'active',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -36,6 +64,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'user' => $user,
         ]);
     }
 

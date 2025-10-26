@@ -43,11 +43,12 @@ class ClubController extends Controller
             ]);
             
             // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 \Log::warning('ClubController::getProfile - Aucun club_manager trouvé', [
                     'user_id' => $user->id,
                     'email' => $user->email
@@ -85,12 +86,12 @@ class ClubController extends Controller
             }
             
             $club = DB::table('clubs')
-                ->where('id', $clubManager->club_id)
+                ->where('id', $clubUser->club_id)
                 ->first();
             
             if (!$club) {
                 \Log::error('ClubController::getProfile - Club non trouvé', [
-                    'club_id' => $clubManager->club_id,
+                    'club_id' => $clubUser->club_id,
                     'user_id' => $user->id
                 ]);
                 
@@ -135,17 +136,18 @@ class ClubController extends Controller
             ]);
             
             // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 \Log::warning('ClubController::updateProfile - Aucun club_manager trouvé', [
                     'user_id' => $user->id,
                     'email' => $user->email
                 ]);
                 
-                // Si l'utilisateur a le rôle 'club' mais n'est pas dans club_managers,
+                // Si l'utilisateur a le rôle 'club' mais n'est pas dans club_user,
                 // créer un nouveau club et l'association
                 if ($user->role === 'club') {
                     // Préparer les données du club
@@ -176,11 +178,13 @@ class ClubController extends Controller
                     // Créer le nouveau club
                     $clubId = DB::table('clubs')->insertGetId($updateData);
                     
-                    // Créer l'association club_manager
-                    DB::table('club_managers')->insert([
+                    // Créer l'association club_user
+                    DB::table('club_user')->insert([
                         'club_id' => $clubId,
                         'user_id' => $user->id,
                         'role' => 'owner',
+                        'is_admin' => true,
+                        'joined_at' => now(),
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);
@@ -226,11 +230,11 @@ class ClubController extends Controller
             $updateData['updated_at'] = now();
             
             DB::table('clubs')
-                ->where('id', $clubManager->club_id)
+                ->where('id', $clubUser->club_id)
                 ->update($updateData);
             
             \Log::info('ClubController::updateProfile - Club mis à jour', [
-                'club_id' => $clubManager->club_id,
+                'club_id' => $clubUser->club_id,
                 'user_id' => $user->id
             ]);
             
@@ -258,11 +262,12 @@ class ClubController extends Controller
             $user = $request->user();
             
             // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 return response()->json([
                     'success' => false,
                     'data' => []
@@ -270,7 +275,7 @@ class ClubController extends Controller
             }
             
             $specialties = DB::table('club_custom_specialties')
-                ->where('club_id', $clubManager->club_id)
+                ->where('club_id', $clubUser->club_id)
                 ->where('is_active', true)
                 ->get();
             
@@ -293,11 +298,12 @@ class ClubController extends Controller
             $user = $request->user();
             
             // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Aucun club associé à cet utilisateur'
@@ -307,7 +313,7 @@ class ClubController extends Controller
             $teachers = DB::table('club_teachers')
                 ->join('teachers', 'club_teachers.teacher_id', '=', 'teachers.id')
                 ->join('users', 'teachers.user_id', '=', 'users.id')
-                ->where('club_teachers.club_id', $clubManager->club_id)
+                ->where('club_teachers.club_id', $clubUser->club_id)
                 ->where('club_teachers.is_active', true)
                 ->select(
                     'teachers.id',  // Corrigé : retourner teachers.id au lieu de users.id
@@ -339,11 +345,12 @@ class ClubController extends Controller
             $user = $request->user();
             
             // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Aucun club associé à cet utilisateur'
@@ -353,7 +360,7 @@ class ClubController extends Controller
             $students = DB::table('club_students')
                 ->join('students', 'club_students.student_id', '=', 'students.id')
                 ->join('users', 'students.user_id', '=', 'users.id')
-                ->where('club_students.club_id', $clubManager->club_id)
+                ->where('club_students.club_id', $clubUser->club_id)
                 ->where('club_students.is_active', true)
                 ->select(
                     'students.id',  // Corrigé : retourner students.id au lieu de users.id

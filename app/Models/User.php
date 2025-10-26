@@ -19,9 +19,20 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'role',
+        'phone',
+        'birth_date',
+        'street',
+        'street_number',
+        'postal_code',
+        'city',
+        'country',
+        'is_active',
+        'status',
     ];
 
     /**
@@ -42,6 +53,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'birth_date' => 'date',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -49,8 +62,8 @@ class User extends Authenticatable
      */
     public function clubs()
     {
-        return $this->belongsToMany(Club::class, 'club_managers')
-            ->withPivot('role')
+        return $this->belongsToMany(Club::class, 'club_user')
+            ->withPivot('role', 'is_admin', 'joined_at')
             ->withTimestamps();
     }
 

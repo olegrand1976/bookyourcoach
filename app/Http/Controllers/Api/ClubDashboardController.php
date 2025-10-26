@@ -42,12 +42,13 @@ class ClubDashboardController extends Controller
                 return response()->json(['message' => 'Access denied. Club role required.'], 403);
             }
             
-            // Récupérer le club associé à cet utilisateur
-            $clubManager = DB::table('club_managers')
+            // Récupérer le club associé à cet utilisateur via la table club_user
+            $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
+                ->where('is_admin', true)
                 ->first();
             
-            if (!$clubManager) {
+            if (!$clubUser) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Aucun club associé à cet utilisateur'
@@ -55,7 +56,7 @@ class ClubDashboardController extends Controller
             }
             
             $club = DB::table('clubs')
-                ->where('id', $clubManager->club_id)
+                ->where('id', $clubUser->club_id)
                 ->first();
             
             if (!$club) {
