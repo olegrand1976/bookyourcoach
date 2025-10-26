@@ -202,33 +202,194 @@
 
           <!-- Onglet Nouveau -->
           <div v-if="activeTab === 'new'" class="space-y-6">
-            <div class="bg-emerald-50 rounded-xl p-6">
-              <div class="flex items-center mb-4">
-                <div class="bg-emerald-100 p-2 rounded-lg mr-3">
-                  <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                  </svg>
-                </div>
-                <div>
-                  <h4 class="text-lg font-semibold text-gray-900">Créer un nouvel enseignant</h4>
-                  <p class="text-sm text-gray-600">Ajouter un enseignant qui n'existe pas encore</p>
+            <form @submit.prevent="createNewTeacher" class="space-y-6">
+              <!-- Informations personnelles -->
+              <div class="bg-emerald-50 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Informations personnelles</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Prénom -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prénom *</label>
+                    <input 
+                      v-model="newTeacherForm.first_name" 
+                      type="text" 
+                      required
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      placeholder="Jean"
+                    >
+                  </div>
+                  
+                  <!-- Nom -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+                    <input 
+                      v-model="newTeacherForm.last_name" 
+                      type="text" 
+                      required
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      placeholder="Dupont"
+                    >
+                  </div>
+                  
+                  <!-- Email -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <input 
+                      v-model="newTeacherForm.email" 
+                      type="email" 
+                      required
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      placeholder="jean.dupont@example.com"
+                    >
+                  </div>
+                  
+                  <!-- Téléphone -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                    <input 
+                      v-model="newTeacherForm.phone" 
+                      type="tel" 
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      placeholder="0470123456"
+                    >
+                  </div>
                 </div>
               </div>
-              
-              <div class="text-center py-8">
-                <svg class="mx-auto h-12 w-12 text-emerald-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                <h5 class="text-lg font-medium text-gray-900 mb-2">Créer un nouvel enseignant</h5>
-                <p class="text-gray-600 mb-6">Utilisez le formulaire de création d'enseignant</p>
+
+              <!-- Adresse -->
+              <div class="bg-blue-50 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Adresse</h4>
+                
+                <div class="grid grid-cols-1 gap-4">
+                  <!-- Rue et numéro -->
+                  <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Rue</label>
+                      <input 
+                        v-model="newTeacherForm.street" 
+                        type="text" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Rue de la Paix"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Numéro</label>
+                      <input 
+                        v-model="newTeacherForm.street_number" 
+                        type="text" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="12"
+                      >
+                    </div>
+                  </div>
+                  
+                  <!-- Code postal, Ville, Pays -->
+                  <div class="grid grid-cols-3 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Code postal</label>
+                      <input 
+                        v-model="newTeacherForm.postal_code" 
+                        type="text" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="1000"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                      <input 
+                        v-model="newTeacherForm.city" 
+                        type="text" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Bruxelles"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Pays</label>
+                      <select 
+                        v-model="newTeacherForm.country" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                      >
+                        <option value="Belgium">Belgique</option>
+                        <option value="France">France</option>
+                        <option value="Netherlands">Pays-Bas</option>
+                        <option value="Germany">Allemagne</option>
+                        <option value="Luxembourg">Luxembourg</option>
+                        <option value="Switzerland">Suisse</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Informations professionnelles -->
+              <div class="bg-purple-50 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Informations professionnelles</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Type de contrat -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Type de contrat</label>
+                    <select 
+                      v-model="newTeacherForm.contract_type" 
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors bg-white"
+                    >
+                      <option value="">Sélectionner...</option>
+                      <option value="volunteer">Bénévole</option>
+                      <option value="student">Étudiant</option>
+                      <option value="employee">Employé</option>
+                      <option value="freelance">Indépendant</option>
+                      <option value="intern">Stagiaire</option>
+                    </select>
+                  </div>
+                  
+                  <!-- Tarif horaire -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tarif horaire (€)</label>
+                    <input 
+                      v-model.number="newTeacherForm.hourly_rate" 
+                      type="number" 
+                      step="0.01"
+                      min="0"
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                      placeholder="35.00"
+                    >
+                  </div>
+                </div>
+                
+                <!-- Notes / Description -->
+                <div class="mt-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Notes / Description</label>
+                  <textarea 
+                    v-model="newTeacherForm.notes" 
+                    rows="4"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                    placeholder="Informations complémentaires, qualifications, expériences..."
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Boutons -->
+              <div class="flex justify-end space-x-3 pt-4">
                 <button 
-                  @click="openNewTeacherForm"
-                  class="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                  type="button"
+                  @click="resetNewTeacherForm"
+                  class="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
-                  Ouvrir le formulaire
+                  Réinitialiser
+                </button>
+                <button 
+                  type="submit"
+                  :disabled="loading"
+                  class="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 transition-colors font-medium flex items-center space-x-2"
+                >
+                  <svg v-if="loading" class="animate-spin h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  <span>{{ loading ? 'Création...' : 'Créer l\'enseignant' }}</span>
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>
@@ -248,6 +409,22 @@ const scannedUser = ref(null)
 const searchQuery = ref('')
 const searchResults = ref([])
 const isSearching = ref(false)
+
+// Formulaire de création d'enseignant
+const newTeacherForm = ref({
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+  street: '',
+  street_number: '',
+  postal_code: '',
+  city: '',
+  country: 'Belgium',
+  contract_type: '',
+  hourly_rate: null,
+  notes: ''
+})
 
 // Gestion du QR code
 const handleQrCodeInput = async () => {
@@ -388,9 +565,84 @@ const addSearchedTeacher = async (user) => {
   }
 }
 
-// Ouvrir le formulaire de création
-const openNewTeacherForm = () => {
-  emit('open-new-teacher')
-  emit('close')
+// Créer un nouvel enseignant
+const createNewTeacher = async () => {
+  loading.value = true
+  try {
+    const config = useRuntimeConfig()
+    const tokenCookie = useCookie('auth-token')
+    
+    // Construire le nom complet
+    const fullName = `${newTeacherForm.value.first_name} ${newTeacherForm.value.last_name}`.trim()
+    
+    // Préparer les données
+    const teacherData = {
+      name: fullName,
+      first_name: newTeacherForm.value.first_name,
+      last_name: newTeacherForm.value.last_name,
+      email: newTeacherForm.value.email,
+      phone: newTeacherForm.value.phone || null,
+      street: newTeacherForm.value.street || null,
+      street_number: newTeacherForm.value.street_number || null,
+      postal_code: newTeacherForm.value.postal_code || null,
+      city: newTeacherForm.value.city || null,
+      country: newTeacherForm.value.country,
+      role: 'teacher',
+      contract_type: newTeacherForm.value.contract_type || null,
+      hourly_rate: newTeacherForm.value.hourly_rate || null,
+      bio: newTeacherForm.value.notes || null
+    }
+    
+    const response = await $fetch(`${config.public.apiBase}/club/create-teacher`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tokenCookie.value}`,
+        'Content-Type': 'application/json'
+      },
+      body: teacherData
+    })
+    
+    console.log('✅ Enseignant créé avec succès:', response)
+    
+    // Afficher le toast de succès
+    const { showToast } = useToast()
+    showToast(`Enseignant ${fullName} créé avec succès !`, 'success')
+    
+    // Réinitialiser le formulaire
+    resetNewTeacherForm()
+    
+    // Émettre les événements
+    emit('success')
+    emit('close')
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la création de l\'enseignant:', error)
+    
+    // Afficher le toast d'erreur
+    const { showToast } = useToast()
+    const errorMessage = error.data?.message || 'Erreur lors de la création de l\'enseignant'
+    showToast(errorMessage, 'error')
+    
+  } finally {
+    loading.value = false
+  }
+}
+
+// Réinitialiser le formulaire
+const resetNewTeacherForm = () => {
+  newTeacherForm.value = {
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    street: '',
+    street_number: '',
+    postal_code: '',
+    city: '',
+    country: 'Belgium',
+    contract_type: '',
+    hourly_rate: null,
+    notes: ''
+  }
 }
 </script>
