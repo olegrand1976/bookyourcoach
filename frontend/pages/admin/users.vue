@@ -191,64 +191,136 @@
         </div>
 
         <!-- Create/Edit User Modal -->
-        <div v-if="showCreateModal || showEditModal"
-            class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-                <div class="mt-3">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        {{ showEditModal ? 'Modifier l\'utilisateur' : 'Créer un nouvel utilisateur' }}
-                    </h3>
-                    <form @submit.prevent="showEditModal ? updateUser() : createUser()" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Nom *</label>
-                                <input v-model="userForm.last_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Prénom *</label>
-                                <input v-model="userForm.first_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                            </div>
+        <Transition
+            enter-active-class="transition ease-out duration-200"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition ease-in duration-150"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="showCreateModal || showEditModal"
+                class="fixed inset-0 bg-gray-900 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-10 pb-10"
+                @click.self="closeModal">
+                <Transition
+                    enter-active-class="transition ease-out duration-200"
+                    enter-from-class="opacity-0 scale-95"
+                    enter-to-class="opacity-100 scale-100"
+                    leave-active-class="transition ease-in duration-150"
+                    leave-from-class="opacity-100 scale-100"
+                    leave-to-class="opacity-0 scale-95"
+                >
+                    <div class="relative w-full max-w-2xl shadow-xl rounded-xl bg-white my-auto">
+                        <!-- Header -->
+                        <div class="border-b border-gray-200 px-8 py-6">
+                            <h3 class="text-2xl font-semibold text-gray-900">
+                                {{ showEditModal ? 'Modifier l\'utilisateur' : 'Créer un nouvel utilisateur' }}
+                            </h3>
                         </div>
                         
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email *</label>
-                            <input v-model="userForm.email" type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Téléphone</label>
-                            <input v-model="userForm.phone" type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Date de naissance</label>
-                            <input v-model="userForm.birth_date" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Adresse</label>
+                        <!-- Body -->
+                        <div class="px-8 py-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+                            <form @submit.prevent="showEditModal ? updateUser() : createUser()" class="space-y-6">
+                        <!-- Informations personnelles -->
+                        <div class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Rue</label>
-                                    <input v-model="userForm.street" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nom de la rue">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom *</label>
+                                    <input 
+                                        v-model="userForm.last_name" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        required
+                                    >
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Numéro</label>
-                                    <input v-model="userForm.street_number" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="92, 92/A, 92B...">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Prénom *</label>
+                                    <input 
+                                        v-model="userForm.first_name" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        required
+                                    >
                                 </div>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                                <input 
+                                    v-model="userForm.email" 
+                                    type="email" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                    required
+                                >
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                                <input 
+                                    v-model="userForm.phone" 
+                                    type="tel" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                >
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date de naissance</label>
+                                <input 
+                                    v-model="userForm.birth_date" 
+                                    type="date" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                >
+                            </div>
+                        </div>
+                        
+                        <!-- Adresse -->
+                        <div class="space-y-4 border-t border-gray-100 pt-6">
+                            <label class="block text-base font-semibold text-gray-900">Adresse</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Code postal</label>
-                                    <input v-model="userForm.postal_code" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="1000">
+                                    <label class="block text-sm text-gray-600 mb-2">Rue</label>
+                                    <input 
+                                        v-model="userForm.street" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        placeholder="Rue de la Résistance"
+                                    >
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Ville</label>
-                                    <input v-model="userForm.city" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Bruxelles">
+                                    <label class="block text-sm text-gray-600 mb-2">Numéro</label>
+                                    <input 
+                                        v-model="userForm.street_number" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        placeholder="92 / A"
+                                    >
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-2">Code postal</label>
+                                    <input 
+                                        v-model="userForm.postal_code" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        placeholder="7131"
+                                    >
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Pays</label>
-                                    <select v-model="userForm.country" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <label class="block text-sm text-gray-600 mb-2">Ville</label>
+                                    <input 
+                                        v-model="userForm.city" 
+                                        type="text" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                        placeholder="Waudrez"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-2">Pays</label>
+                                    <select 
+                                        v-model="userForm.country" 
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                                    >
                                         <option value="Belgium">Belgique</option>
                                         <option value="France">France</option>
                                         <option value="Netherlands">Pays-Bas</option>
@@ -260,9 +332,14 @@
                             </div>
                         </div>
                         
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Rôle *</label>
-                            <select v-model="userForm.role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                        <!-- Rôle -->
+                        <div class="border-t border-gray-100 pt-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rôle *</label>
+                            <select 
+                                v-model="userForm.role" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white" 
+                                required
+                            >
                                 <option value="student">Élève</option>
                                 <option value="teacher">Enseignant</option>
                                 <option value="admin">Administrateur</option>
@@ -270,24 +347,49 @@
                             </select>
                         </div>
                         
-                        <div v-if="!showEditModal">
-                            <label class="block text-sm font-medium text-gray-700">Mot de passe *</label>
-                            <input v-model="userForm.password" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                        <!-- Mot de passe (uniquement création) -->
+                        <div v-if="!showEditModal" class="space-y-4 border-t border-gray-100 pt-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mot de passe *</label>
+                                <input 
+                                    v-model="userForm.password" 
+                                    type="password" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                    required
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Confirmer le mot de passe *</label>
+                                <input 
+                                    v-model="userForm.password_confirmation" 
+                                    type="password" 
+                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
+                                    required
+                                >
+                            </div>
                         </div>
-                        <div v-if="!showEditModal">
-                            <label class="block text-sm font-medium text-gray-700">Confirmer le mot de passe *</label>
-                            <input v-model="userForm.password_confirmation" type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                                <!-- Footer avec boutons -->
+                                <div class="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+                                    <button 
+                                        type="button" 
+                                        @click="closeModal" 
+                                        class="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        class="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md transition-all duration-200"
+                                    >
+                                        {{ showEditModal ? 'Modifier' : 'Créer' }}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="form-button-group">
-                            <button type="button" @click="closeModal" class="btn-secondary">Annuler</button>
-                            <button type="submit" class="btn-primary">
-                                {{ showEditModal ? 'Modifier' : 'Créer' }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </Transition>
             </div>
-        </div>
+        </Transition>
     </div>
 </template>
 
