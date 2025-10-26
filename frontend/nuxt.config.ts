@@ -12,7 +12,6 @@ export default defineNuxtConfig({
 
     css: [
         '~/assets/css/main.css',
-        '~/assets/css/buttons.css',
         '@fortawesome/fontawesome-svg-core/styles.css',
         // Fonts locales via Fontsource (beaucoup plus rapide que Google Fonts)
         '@fontsource/inter/400.css',
