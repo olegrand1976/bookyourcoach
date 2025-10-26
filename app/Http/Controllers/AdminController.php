@@ -145,7 +145,7 @@ class AdminController extends BaseController
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:admin,teacher,student',
+            'role' => 'required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
             'street' => 'nullable|string|max:255',
@@ -218,7 +218,7 @@ class AdminController extends BaseController
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
-            'role' => 'sometimes|required|in:admin,teacher,student',
+            'role' => 'sometimes|required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
             'street' => 'nullable|string|max:255',
@@ -298,6 +298,66 @@ class AdminController extends BaseController
         ]);
 
         return response()->json($user);
+    }
+
+    /**
+     * @OA\Patch(
+     *     path="/api/admin/users/{id}/role",
+     *     summary="Update user role",
+     *     tags={"Admin"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"role"},
+     *             @OA\Property(property="role", type="string", enum={"admin", "teacher", "student", "club"})
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="User role updated successfully")
+     * )
+     */
+    public function updateUserRole(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'role' => 'required|in:admin,teacher,student,club',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $oldRole = $user->role;
+        $newRole = $request->role;
+
+        // Empêcher le changement de rôle du dernier admin
+        if ($oldRole === 'admin' && $newRole !== 'admin') {
+            $activeAdmins = User::where('role', 'admin')->where('is_active', true)->count();
+            if ($activeAdmins <= 1) {
+                return response()->json([
+                    'message' => 'Impossible de modifier le rôle du dernier administrateur'
+                ], 422);
+            }
+        }
+
+        $user->role = $newRole;
+        $user->save();
+
+        // Log de l'action
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'user_role_updated',
+            'model_type' => 'User',
+            'model_id' => $user->id,
+            'data' => ['old_role' => $oldRole, 'new_role' => $newRole],
+        ]);
+
+        return response()->json([
+            'message' => 'Rôle modifié avec succès',
+            'user' => $user
+        ]);
     }
 
     /**

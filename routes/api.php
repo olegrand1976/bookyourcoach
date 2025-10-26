@@ -40,6 +40,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/users', [AdminController::class, 'getUsers']);
     Route::post('/users', [AdminController::class, 'createUser']);
     Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+    Route::patch('/users/{id}/role', [AdminController::class, 'updateUserRole']);
     Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
     Route::get('/activities', [AdminController::class, 'getActivities']);
     Route::get('/settings', [AdminController::class, 'getAllSettings']);
