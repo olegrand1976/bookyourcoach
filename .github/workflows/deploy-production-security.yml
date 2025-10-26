@@ -246,8 +246,6 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
-        version: "3.8"
-
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -259,8 +257,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/storage
-              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - app_storage:/var/www/html/storage
+              - app_bootstrap_cache:/var/www/html/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -271,8 +269,10 @@ jobs:
               - no-new-privileges:true
             read_only: true
             tmpfs:
-              - /tmp
-              - /var/tmp
+              - /tmp:mode=1777
+              - /var/tmp:mode=1777
+              - /run:mode=755
+              - /var/run:mode=755
 
           # Frontend Nuxt.js
           frontend:
@@ -536,8 +536,6 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
-        version: "3.8"
-
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -549,8 +547,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/storage
-              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - app_storage:/var/www/html/storage
+              - app_bootstrap_cache:/var/www/html/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -561,8 +559,10 @@ jobs:
               - no-new-privileges:true
             read_only: true
             tmpfs:
-              - /tmp
-              - /var/tmp
+              - /tmp:mode=1777
+              - /var/tmp:mode=1777
+              - /run:mode=755
+              - /var/run:mode=755
 
           # Frontend Nuxt.js
           frontend:
