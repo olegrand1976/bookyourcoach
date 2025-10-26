@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use App\Models\User;
+use App\Models\Teacher;
 
 class ClubController extends Controller
 {
@@ -392,6 +396,129 @@ class ClubController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des étudiants'
+            ], 500);
+        }
+    }
+
+    public function createTeacher(Request $request)
+    {
+        try {
+            // Validation des données
+            $validator = Validator::make($request->all(), [
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'phone' => 'nullable|string|max:20',
+                'street' => 'nullable|string|max:255',
+                'street_number' => 'nullable|string|max:20',
+                'postal_code' => 'nullable|string|max:10',
+                'city' => 'nullable|string|max:255',
+                'country' => 'nullable|string|max:255',
+                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'bio' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+
+            // Commencer une transaction
+            DB::beginTransaction();
+
+            // Créer l'utilisateur
+            $fullName = trim($request->first_name . ' ' . $request->last_name);
+            $newUser = User::create([
+                'name' => $fullName,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request->email,
+                'password' => Hash::make('ActiviBe2024!'), // Mot de passe par défaut
+                'role' => 'teacher',
+                'phone' => $request->phone,
+                'street' => $request->street,
+                'street_number' => $request->street_number,
+                'postal_code' => $request->postal_code,
+                'city' => $request->city,
+                'country' => $request->country ?? 'Belgium',
+                'is_active' => true,
+                'status' => 'active',
+            ]);
+
+            // Créer le profil enseignant
+            $teacher = Teacher::create([
+                'user_id' => $newUser->id,
+                'hourly_rate' => $request->hourly_rate ?? 0,
+                'experience_years' => 0,
+                'bio' => $request->bio,
+                'is_available' => true,
+                'specialties' => json_encode([]),
+            ]);
+
+            // Lier l'enseignant au club
+            DB::table('club_teachers')->insert([
+                'club_id' => $clubUser->club_id,
+                'teacher_id' => $teacher->id,
+                'contract_type' => $request->contract_type ?? 'employee',
+                'hourly_rate' => $request->hourly_rate ?? 0,
+                'is_active' => true,
+                'joined_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            \Log::info('Enseignant créé avec succès', [
+                'user_id' => $newUser->id,
+                'teacher_id' => $teacher->id,
+                'club_id' => $clubUser->club_id,
+                'email' => $newUser->email
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Enseignant créé avec succès',
+                'data' => [
+                    'id' => $teacher->id,
+                    'name' => $newUser->name,
+                    'email' => $newUser->email,
+                    'phone' => $newUser->phone,
+                    'hourly_rate' => $teacher->hourly_rate,
+                    'contract_type' => $request->contract_type ?? 'employee',
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Erreur lors de la création de l\'enseignant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de l\'enseignant: ' . $e->getMessage()
             ], 500);
         }
     }
