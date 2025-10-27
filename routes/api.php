@@ -121,6 +121,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/custom-specialties', [ClubController::class, 'getCustomSpecialties']);
     Route::get('/teachers', [ClubController::class, 'getTeachers']);
     Route::post('/teachers', [ClubController::class, 'createTeacher']);
+    Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
     Route::post('/students', [StudentController::class, 'store']);
     Route::put('/students/{id}', [StudentController::class, 'update']);
