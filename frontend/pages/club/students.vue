@@ -244,18 +244,24 @@
               
               <div class="flex items-center space-x-2">
                 <button 
-                  @click="viewStudent(student)"
-                  class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                  @click="resendInvitation(student.id)"
+                  :disabled="resending[student.id]"
+                  class="text-purple-600 hover:text-purple-800 p-2 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
+                  title="Renvoyer l'email de réinitialisation de mot de passe"
                 >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                  <svg v-if="resending[student.id]" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                   </svg>
                 </button>
                 
                 <button 
                   @click="editStudent(student)"
                   class="text-emerald-600 hover:text-emerald-800 p-2 hover:bg-emerald-50 rounded-lg transition-colors"
+                  title="Modifier l'élève"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -265,6 +271,7 @@
                 <button 
                   @click="deleteStudent(student)"
                   class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Supprimer l'élève"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -291,11 +298,20 @@
       @close="showAddExistingStudentModal = false" 
       @success="loadStudents" 
     />
+
+    <!-- Modal de modification d'élève -->
+    <EditStudentModal 
+      v-if="showEditStudentModal && selectedStudent" 
+      :student="selectedStudent"
+      @close="closeEditModal" 
+      @success="loadStudents" 
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import EditStudentModal from '~/components/EditStudentModal.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -305,10 +321,13 @@ const students = ref([])
 const availableDisciplines = ref([])
 const showAddStudentModal = ref(false)
 const showAddExistingStudentModal = ref(false)
+const showEditStudentModal = ref(false)
+const selectedStudent = ref(null)
 const searchQuery = ref('')
 const selectedLevel = ref('')
 const selectedDiscipline = ref('')
 const sortBy = ref('name')
+const resending = ref({})
 
 // Computed properties pour les statistiques
 const activeStudents = computed(() => students.value.length)
@@ -425,14 +444,60 @@ const viewStudent = (student) => {
 }
 
 const editStudent = (student) => {
-  console.log('Modifier élève:', student)
-  // TODO: Implémenter l'édition
+  console.log('📝 Modifier élève:', student)
+  selectedStudent.value = { ...student }
+  showEditStudentModal.value = true
 }
 
-const deleteStudent = (student) => {
-  if (confirm(`Êtes-vous sûr de vouloir supprimer l'élève ${student.name} ?`)) {
-    console.log('Supprimer élève:', student)
-    // TODO: Implémenter la suppression
+const closeEditModal = () => {
+  showEditStudentModal.value = false
+  selectedStudent.value = null
+}
+
+const deleteStudent = async (student) => {
+  if (!confirm(`Êtes-vous sûr de vouloir retirer l'élève ${student.name} de votre club ?`)) {
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.delete(`/club/students/${student.id}`)
+    
+    console.log('✅ Élève supprimé:', response)
+    
+    if (response.data.success) {
+      alert(response.data.message || 'Élève retiré du club avec succès')
+      loadStudents()
+    } else {
+      alert('Erreur lors de la suppression de l\'élève')
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la suppression de l\'élève:', error)
+    alert('Erreur lors de la suppression de l\'élève. Veuillez réessayer.')
+  }
+}
+
+const resendInvitation = async (studentId) => {
+  resending.value[studentId] = true
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/students/${studentId}/resend-invitation`)
+    
+    console.log('✅ Email renvoyé:', response)
+    
+    if (response.data.success) {
+      alert(response.data.message || 'Email d\'invitation renvoyé avec succès')
+    } else {
+      alert(response.data.message || 'Erreur lors du renvoi de l\'invitation')
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur lors du renvoi de l\'invitation:', error)
+    const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du renvoi de l\'invitation. Veuillez réessayer.'
+    alert(errorMessage)
+  } finally {
+    resending.value[studentId] = false
   }
 }
 

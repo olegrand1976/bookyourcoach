@@ -454,9 +454,15 @@ const addStudent = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
+    // Séparer le nom en prénom et nom de famille
+    const nameParts = form.value.name.trim().split(' ')
+    const firstName = nameParts[0]
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0]
+    
     // Préparer les données de l'étudiant
     const studentData = {
-      name: form.value.name,
+      first_name: firstName,
+      last_name: lastName,
       email: form.value.email,
       phone: form.value.phone,
       date_of_birth: form.value.date_of_birth || null,
