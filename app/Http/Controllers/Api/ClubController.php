@@ -583,6 +583,14 @@ class ClubController extends Controller
                 ], 404);
             }
 
+            // Vérifier que l'email est valide
+            if (!$teacherUser->email || !filter_var($teacherUser->email, FILTER_VALIDATE_EMAIL)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'L\'adresse email de cet enseignant est invalide (' . $teacherUser->email . '). Veuillez la corriger avant d\'envoyer l\'invitation.'
+                ], 400);
+            }
+
             // Générer un nouveau token de réinitialisation de mot de passe
             $resetToken = Password::broker()->createToken($teacherUser);
             
@@ -614,6 +622,232 @@ class ClubController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors du renvoi de l\'invitation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateTeacher(Request $request, $teacherId)
+    {
+        try {
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+
+            // Vérifier que l'enseignant appartient bien au club
+            $teacher = Teacher::find($teacherId);
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant non trouvé'
+                ], 404);
+            }
+
+            $clubTeacher = DB::table('club_teachers')
+                ->where('club_id', $clubUser->club_id)
+                ->where('teacher_id', $teacherId)
+                ->first();
+
+            if (!$clubTeacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet enseignant n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            // Validation des données
+            $validator = Validator::make($request->all(), [
+                'first_name' => 'sometimes|string|max:255',
+                'last_name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,' . $teacher->user_id,
+                'phone' => 'nullable|string|max:20',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'experience_years' => 'nullable|integer|min:0',
+                'bio' => 'nullable|string',
+                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            // Mettre à jour l'utilisateur
+            $teacherUser = User::find($teacher->user_id);
+            if ($request->has('first_name') || $request->has('last_name')) {
+                $firstName = $request->input('first_name', $teacherUser->first_name);
+                $lastName = $request->input('last_name', $teacherUser->last_name);
+                $teacherUser->name = trim($firstName . ' ' . $lastName);
+                $teacherUser->first_name = $firstName;
+                $teacherUser->last_name = $lastName;
+            }
+            
+            if ($request->has('email')) {
+                $teacherUser->email = $request->email;
+            }
+            
+            if ($request->has('phone')) {
+                $teacherUser->phone = $request->phone;
+            }
+            
+            $teacherUser->save();
+
+            // Mettre à jour le profil enseignant
+            if ($request->has('hourly_rate')) {
+                $teacher->hourly_rate = $request->hourly_rate;
+            }
+            
+            if ($request->has('experience_years')) {
+                $teacher->experience_years = $request->experience_years;
+            }
+            
+            if ($request->has('bio')) {
+                $teacher->bio = $request->bio;
+            }
+            
+            $teacher->save();
+
+            // Mettre à jour les informations du club_teachers
+            if ($request->has('contract_type') || $request->has('hourly_rate')) {
+                $updateData = ['updated_at' => now()];
+                
+                if ($request->has('contract_type')) {
+                    $updateData['contract_type'] = $request->contract_type;
+                }
+                
+                if ($request->has('hourly_rate')) {
+                    $updateData['hourly_rate'] = $request->hourly_rate;
+                }
+                
+                DB::table('club_teachers')
+                    ->where('club_id', $clubUser->club_id)
+                    ->where('teacher_id', $teacherId)
+                    ->update($updateData);
+            }
+
+            DB::commit();
+
+            \Log::info('Enseignant mis à jour avec succès', [
+                'teacher_id' => $teacherId,
+                'club_id' => $clubUser->club_id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Enseignant mis à jour avec succès',
+                'data' => [
+                    'id' => $teacher->id,
+                    'name' => $teacherUser->name,
+                    'email' => $teacherUser->email,
+                    'phone' => $teacherUser->phone,
+                    'hourly_rate' => $teacher->hourly_rate,
+                    'experience_years' => $teacher->experience_years,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Erreur lors de la mise à jour de l\'enseignant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de l\'enseignant: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteTeacher(Request $request, $teacherId)
+    {
+        try {
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+
+            // Vérifier que l'enseignant appartient bien au club
+            $teacher = Teacher::find($teacherId);
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant non trouvé'
+                ], 404);
+            }
+
+            $clubTeacher = DB::table('club_teachers')
+                ->where('club_id', $clubUser->club_id)
+                ->where('teacher_id', $teacherId)
+                ->first();
+
+            if (!$clubTeacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet enseignant n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            DB::beginTransaction();
+
+            // Désactiver la relation club-enseignant au lieu de supprimer
+            DB::table('club_teachers')
+                ->where('club_id', $clubUser->club_id)
+                ->where('teacher_id', $teacherId)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+
+            \Log::info('Enseignant désactivé du club', [
+                'teacher_id' => $teacherId,
+                'club_id' => $clubUser->club_id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Enseignant retiré du club avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Erreur lors de la suppression de l\'enseignant', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de l\'enseignant: ' . $e->getMessage()
             ], 500);
         }
     }
