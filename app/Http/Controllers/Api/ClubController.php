@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Password;
 use App\Models\User;
 use App\Models\Teacher;
+use App\Notifications\TeacherWelcomeNotification;
 
 class ClubController extends Controller
 {
@@ -486,6 +488,16 @@ class ClubController extends Controller
                 'updated_at' => now(),
             ]);
 
+            // Générer un token de réinitialisation de mot de passe
+            $resetToken = Password::broker()->createToken($newUser);
+            
+            // Récupérer le nom du club
+            $club = DB::table('clubs')->where('id', $clubUser->club_id)->first();
+            $clubName = $club ? $club->name : 'votre club';
+            
+            // Envoyer la notification de bienvenue avec le lien de réinitialisation
+            $newUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
+
             DB::commit();
 
             \Log::info('Enseignant créé avec succès', [
@@ -497,7 +509,7 @@ class ClubController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Enseignant créé avec succès',
+                'message' => 'Enseignant créé avec succès. Un email de bienvenue a été envoyé.',
                 'data' => [
                     'id' => $teacher->id,
                     'name' => $newUser->name,
@@ -519,6 +531,89 @@ class ClubController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la création de l\'enseignant: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function resendTeacherInvitation(Request $request, $teacherId)
+    {
+        try {
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+
+            // Vérifier que l'enseignant appartient bien au club
+            $teacher = Teacher::find($teacherId);
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant non trouvé'
+                ], 404);
+            }
+
+            $clubTeacher = DB::table('club_teachers')
+                ->where('club_id', $clubUser->club_id)
+                ->where('teacher_id', $teacherId)
+                ->first();
+
+            if (!$clubTeacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet enseignant n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            // Récupérer l'utilisateur de l'enseignant
+            $teacherUser = User::find($teacher->user_id);
+            if (!$teacherUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur enseignant non trouvé'
+                ], 404);
+            }
+
+            // Générer un nouveau token de réinitialisation de mot de passe
+            $resetToken = Password::broker()->createToken($teacherUser);
+            
+            // Récupérer le nom du club
+            $club = DB::table('clubs')->where('id', $clubUser->club_id)->first();
+            $clubName = $club ? $club->name : 'votre club';
+            
+            // Envoyer la notification de bienvenue avec le lien de réinitialisation
+            $teacherUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
+
+            \Log::info('Email d\'invitation renvoyé à l\'enseignant', [
+                'teacher_id' => $teacherId,
+                'user_id' => $teacherUser->id,
+                'club_id' => $clubUser->club_id,
+                'email' => $teacherUser->email
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email d\'invitation renvoyé avec succès à ' . $teacherUser->email
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors du renvoi de l\'invitation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du renvoi de l\'invitation: ' . $e->getMessage()
             ], 500);
         }
     }
