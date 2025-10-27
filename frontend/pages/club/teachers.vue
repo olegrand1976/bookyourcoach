@@ -297,11 +297,20 @@
       @close="showNewTeacherModal = false" 
       @success="loadTeachers" 
     />
+    
+    <!-- Modal de modification d'enseignant -->
+    <EditTeacherModal 
+      v-if="showEditTeacherModal && selectedTeacher" 
+      :teacher="selectedTeacher"
+      @close="closeEditModal" 
+      @success="loadTeachers" 
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import EditTeacherModal from '~/components/EditTeacherModal.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -310,6 +319,8 @@ definePageMeta({
 const teachers = ref([])
 const showAddTeacherModal = ref(false)
 const showNewTeacherModal = ref(false)
+const showEditTeacherModal = ref(false)
+const selectedTeacher = ref(null)
 const searchQuery = ref('')
 const selectedSpecialization = ref('')
 const sortBy = ref('name')
@@ -405,14 +416,39 @@ const loadTeachers = async () => {
 
 // Actions sur les enseignants
 const editTeacher = (teacher) => {
-  console.log('Modifier enseignant:', teacher)
-  // TODO: Implémenter l'édition
+  console.log('📝 Modifier enseignant:', teacher)
+  console.log('📝 Teacher object:', JSON.stringify(teacher, null, 2))
+  selectedTeacher.value = { ...teacher } // Créer une copie pour éviter les problèmes de réactivité
+  showEditTeacherModal.value = true
+  console.log('📝 Modal ouvert:', showEditTeacherModal.value)
+  console.log('📝 Selected teacher:', selectedTeacher.value)
 }
 
-const deleteTeacher = (teacher) => {
-  if (confirm(`Êtes-vous sûr de vouloir supprimer l'enseignant ${teacher.name} ?`)) {
-    console.log('Supprimer enseignant:', teacher)
-    // TODO: Implémenter la suppression
+const closeEditModal = () => {
+  showEditTeacherModal.value = false
+  selectedTeacher.value = null
+}
+
+const deleteTeacher = async (teacher) => {
+  if (!confirm(`Êtes-vous sûr de vouloir retirer l'enseignant ${teacher.name} de votre club ?`)) {
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.delete(`/club/teachers/${teacher.id}`)
+    
+    console.log('✅ Enseignant supprimé:', response)
+    
+    if (response.data.success) {
+      alert(response.data.message || 'Enseignant retiré du club avec succès')
+      loadTeachers()
+    } else {
+      alert('Erreur lors de la suppression de l\'enseignant')
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la suppression de l\'enseignant:', error)
+    alert('Erreur lors de la suppression de l\'enseignant. Veuillez réessayer.')
   }
 }
 
@@ -433,12 +469,15 @@ const resendInvitation = async (teacherId) => {
     if (response.data.success) {
       alert(response.data.message || 'Email d\'invitation renvoyé avec succès')
     } else {
-      alert('Erreur lors du renvoi de l\'invitation')
+      alert(response.data.message || 'Erreur lors du renvoi de l\'invitation')
     }
     
   } catch (error) {
     console.error('❌ Erreur lors du renvoi de l\'invitation:', error)
-    alert('Erreur lors du renvoi de l\'invitation. Veuillez réessayer.')
+    
+    // Afficher le message d'erreur du serveur s'il existe
+    const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du renvoi de l\'invitation. Veuillez réessayer.'
+    alert(errorMessage)
   } finally {
     resending.value[teacherId] = false
   }
