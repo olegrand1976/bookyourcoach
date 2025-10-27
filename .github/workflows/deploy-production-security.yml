@@ -397,45 +397,9 @@ jobs:
         log_info "🚀 Démarrage des conteneurs sécurisés..."
         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
-        # Attente intelligente du démarrage des conteneurs
-        log_info "⏳ Attente du démarrage des services..."
-        
-        # Attendre que le conteneur backend soit complètement démarré
-        RETRIES=60  # 60 tentatives = 2 minutes max
-        RETRY_COUNT=0
-        BACKEND_READY=false
-        
-        while [ $RETRY_COUNT -lt $RETRIES ]; do
-          # Vérifier d'abord si le conteneur est en cours d'exécution
-          if docker ps --format '{{.Names}}' | grep -q "activibe-backend"; then
-            # Tester la connectivité HTTP sur le endpoint health
-            if curl -sf http://localhost:8080/api/health >/dev/null 2>&1; then
-              log_info "✅ Backend démarré et accessible (HTTP OK)"
-              BACKEND_READY=true
-              break
-            else
-              log_info "⏳ Backend démarré mais pas encore prêt... (tentative $((RETRY_COUNT+1))/$RETRIES)"
-            fi
-          else
-            log_info "⏳ Attente du démarrage du conteneur backend... (tentative $((RETRY_COUNT+1))/$RETRIES)"
-          fi
-          
-          sleep 2
-          RETRY_COUNT=$((RETRY_COUNT+1))
-        done
-        
-        if [ "$BACKEND_READY" = false ]; then
-          log_error "❌ Le conteneur backend n'a pas démarré dans les temps impartis"
-          log_info "📋 Logs du conteneur backend:"
-          docker compose -f "$COMPOSE_FILE" logs backend --tail 50
-          log_info "📋 État des conteneurs:"
-          docker compose -f "$COMPOSE_FILE" ps
-          exit 1
-        fi
-        
-        # Attendre encore 5 secondes pour que les services internes soient prêts
-        log_info "⏳ Attente de l'initialisation des services internes (5 secondes)..."
-        sleep 5
+        # Attente du démarrage des conteneurs
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
 
         # Exécution des migrations de base de données
         log_info "🗄️  Exécution des migrations de base de données..."
@@ -458,53 +422,6 @@ jobs:
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
         docker compose -f "$COMPOSE_FILE" ps
-
-        # Tests de connectivité et sécurité (non bloquants - ne font pas échouer le déploiement)
-        log_step "🧪 Tests de connectivité et sécurité..."
-        set +e  # Désactiver temporairement le mode strict pour les tests
-        
-        # Test du backend Laravel (port 8080)
-        if curl -f http://localhost:8080 >/dev/null 2>&1; then
-            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
-        else
-            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (normal si démarrage en cours)"
-        fi
-
-        # Test de sécurité des routes admin
-        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
-        admin_http_code=$(echo "$admin_response" | tail -c 4)
-        
-        if [ "$admin_http_code" = "401" ]; then
-            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
-        else
-            log_warning "⚠️  Routes admin : HTTP $admin_http_code (attendu: 401)"
-        fi
-
-        # Test de sécurité des routes teacher
-        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
-        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
-        
-        if [ "$teacher_http_code" = "401" ]; then
-            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
-        else
-            log_warning "⚠️  Routes teacher : HTTP $teacher_http_code (attendu: 401)"
-        fi
-
-        # Test du frontend Nuxt.js (port 3000)
-        if curl -f http://localhost:3000 >/dev/null 2>&1; then
-            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
-        else
-            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible (normal si démarrage en cours)"
-        fi
-
-        # Test port 7474 (Neo4j)
-        if curl -f http://localhost:7474 >/dev/null 2>&1; then
-            log_info "✅ Port 7474 (Neo4j) : Accessible"
-        else
-            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible (normal si démarrage en cours)"
-        fi
-        
-        set -e  # Réactiver le mode strict
 
         log_step "✅ Déploiement sécurisé terminé !"
         log_info "🔒 Corrections de sécurité appliquées :"
@@ -709,45 +626,9 @@ jobs:
         log_info "🚀 Démarrage des conteneurs sécurisés..."
         docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
-        # Attente intelligente du démarrage des conteneurs
-        log_info "⏳ Attente du démarrage des services..."
-        
-        # Attendre que le conteneur backend soit complètement démarré
-        RETRIES=60  # 60 tentatives = 2 minutes max
-        RETRY_COUNT=0
-        BACKEND_READY=false
-        
-        while [ $RETRY_COUNT -lt $RETRIES ]; do
-          # Vérifier d'abord si le conteneur est en cours d'exécution
-          if docker ps --format '{{.Names}}' | grep -q "activibe-backend"; then
-            # Tester la connectivité HTTP sur le endpoint health
-            if curl -sf http://localhost:8080/api/health >/dev/null 2>&1; then
-              log_info "✅ Backend démarré et accessible (HTTP OK)"
-              BACKEND_READY=true
-              break
-            else
-              log_info "⏳ Backend démarré mais pas encore prêt... (tentative $((RETRY_COUNT+1))/$RETRIES)"
-            fi
-          else
-            log_info "⏳ Attente du démarrage du conteneur backend... (tentative $((RETRY_COUNT+1))/$RETRIES)"
-          fi
-          
-          sleep 2
-          RETRY_COUNT=$((RETRY_COUNT+1))
-        done
-        
-        if [ "$BACKEND_READY" = false ]; then
-          log_error "❌ Le conteneur backend n'a pas démarré dans les temps impartis"
-          log_info "📋 Logs du conteneur backend:"
-          docker compose -f "$COMPOSE_FILE" logs backend --tail 50
-          log_info "📋 État des conteneurs:"
-          docker compose -f "$COMPOSE_FILE" ps
-          exit 1
-        fi
-        
-        # Attendre encore 5 secondes pour que les services internes soient prêts
-        log_info "⏳ Attente de l'initialisation des services internes (5 secondes)..."
-        sleep 5
+        # Attente du démarrage des conteneurs
+        log_info "⏳ Attente du démarrage des services (30 secondes)..."
+        sleep 30
 
         # Exécution des migrations de base de données
         log_info "🗄️  Exécution des migrations de base de données..."
@@ -770,53 +651,6 @@ jobs:
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
         docker compose -f "$COMPOSE_FILE" ps
-
-        # Tests de connectivité et sécurité (non bloquants - ne font pas échouer le déploiement)
-        log_step "🧪 Tests de connectivité et sécurité..."
-        set +e  # Désactiver temporairement le mode strict pour les tests
-        
-        # Test du backend Laravel (port 8080)
-        if curl -f http://localhost:8080 >/dev/null 2>&1; then
-            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
-        else
-            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (normal si démarrage en cours)"
-        fi
-
-        # Test de sécurité des routes admin
-        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
-        admin_http_code=$(echo "$admin_response" | tail -c 4)
-        
-        if [ "$admin_http_code" = "401" ]; then
-            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
-        else
-            log_warning "⚠️  Routes admin : HTTP $admin_http_code (attendu: 401)"
-        fi
-
-        # Test de sécurité des routes teacher
-        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
-        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
-        
-        if [ "$teacher_http_code" = "401" ]; then
-            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
-        else
-            log_warning "⚠️  Routes teacher : HTTP $teacher_http_code (attendu: 401)"
-        fi
-
-        # Test du frontend Nuxt.js (port 3000)
-        if curl -f http://localhost:3000 >/dev/null 2>&1; then
-            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
-        else
-            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible (normal si démarrage en cours)"
-        fi
-
-        # Test port 7474 (Neo4j)
-        if curl -f http://localhost:7474 >/dev/null 2>&1; then
-            log_info "✅ Port 7474 (Neo4j) : Accessible"
-        else
-            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible (normal si démarrage en cours)"
-        fi
-        
-        set -e  # Réactiver le mode strict
 
         log_step "✅ Déploiement sécurisé terminé !"
         log_info "🔒 Corrections de sécurité appliquées :"

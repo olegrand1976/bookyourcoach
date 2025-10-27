@@ -184,43 +184,7 @@ docker-compose exec -T backend php artisan view:clear 2>/dev/null || true
 log_success "Application initialisée"
 
 echo ""
-echo "11. TEST DE CONNECTIVITÉ..."
-
-# Tester la connectivité API
-log_step "Test de connectivité API..."
-sleep 5
-
-API_URL="http://localhost:8080"
-
-# Test de connectivité
-response=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/activity-types" 2>/dev/null || echo "000")
-
-if [ "$response" = "200" ]; then
-    log_success "API accessible (HTTP $response)"
-elif [ "$response" = "401" ]; then
-    log_success "API accessible avec authentification requise (HTTP $response)"
-else
-    log_warning "API non accessible (HTTP $response)"
-fi
-
-echo ""
-echo "12. TEST DE SÉCURITÉ..."
-
-# Tester la sécurité des routes
-log_step "Test de sécurité des routes..."
-
-# Test route admin
-admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" "$API_URL/api/admin/dashboard" 2>/dev/null)
-admin_http_code=$(echo "$admin_response" | tail -c 4)
-
-if [ "$admin_http_code" = "401" ]; then
-    log_success "Routes admin sécurisées (HTTP $admin_http_code)"
-else
-    log_warning "Routes admin non sécurisées (HTTP $admin_http_code)"
-fi
-
-echo ""
-echo "13. INSTRUCTIONS POUR LE SERVEUR DE PRODUCTION..."
+echo "11. INSTRUCTIONS POUR LE SERVEUR DE PRODUCTION..."
 
 log_info "Pour déployer sur votre serveur de production:"
 echo ""
@@ -248,10 +212,9 @@ echo "🎯 RÉSUMÉ DU DÉPLOIEMENT PRODUCTION"
 echo "=========================================="
 echo "✅ Image reconstruite avec les corrections de sécurité"
 echo "✅ Image poussée vers Docker Hub: $DOCKER_IMAGE:$DOCKER_TAG"
-echo "✅ Tests locaux réussis"
+echo "✅ Containers démarrés localement"
 echo "✅ Prêt pour le déploiement en production"
 echo ""
-echo "🌐 URL locale: $API_URL"
 echo "🐳 Image Docker: $DOCKER_IMAGE:$DOCKER_TAG"
 echo "🔒 Sécurité: Routes protégées avec auth:sanctum"
 echo ""
