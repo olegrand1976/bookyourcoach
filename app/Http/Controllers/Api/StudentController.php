@@ -10,6 +10,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\TeacherWelcomeNotification;
 
 class StudentController extends Controller
 {
@@ -44,7 +46,8 @@ class StudentController extends Controller
 
             // Validation
             $validated = $request->validate([
-                'name' => 'required|string|max:255',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
@@ -57,8 +60,11 @@ class StudentController extends Controller
             DB::beginTransaction();
 
             // Créer l'utilisateur
+            $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
             $newUser = User::create([
-                'name' => $validated['name'],
+                'name' => $fullName,
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
                 'email' => $validated['email'],
                 'password' => isset($validated['password']) ? Hash::make($validated['password']) : Hash::make(bin2hex(random_bytes(16))),
                 'phone' => $validated['phone'] ?? null,
@@ -142,7 +148,10 @@ class StudentController extends Controller
 
             // Validation
             $validated = $request->validate([
-                'name' => 'sometimes|string|max:255',
+                'first_name' => 'sometimes|string|max:255',
+                'last_name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,' . $student->user_id,
+                'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
                 'level' => 'nullable|in:debutant,intermediaire,avance,expert',
                 'goals' => 'nullable|string',
@@ -152,8 +161,22 @@ class StudentController extends Controller
             DB::beginTransaction();
 
             // Mettre à jour l'utilisateur si nécessaire
-            if (isset($validated['name'])) {
-                $student->user->update(['name' => $validated['name']]);
+            if (isset($validated['first_name']) || isset($validated['last_name'])) {
+                $firstName = $validated['first_name'] ?? $student->user->first_name;
+                $lastName = $validated['last_name'] ?? $student->user->last_name;
+                $student->user->update([
+                    'name' => trim($firstName . ' ' . $lastName),
+                    'first_name' => $firstName,
+                    'last_name' => $lastName
+                ]);
+            }
+            
+            if (isset($validated['email'])) {
+                $student->user->update(['email' => $validated['email']]);
+            }
+            
+            if (isset($validated['phone'])) {
+                $student->user->update(['phone' => $validated['phone']]);
             }
 
             // Mettre à jour le profil étudiant
@@ -184,6 +207,165 @@ class StudentController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour de l\'élève',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Renvoyer l'email d'invitation à un élève
+     */
+    public function resendInvitation(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Vérifier que l'utilisateur est un club
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $student = Student::with('user')->findOrFail($id);
+
+            // Vérifier que l'élève appartient au club
+            if (!DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            $studentUser = $student->user;
+            if (!$studentUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur élève non trouvé'
+                ], 404);
+            }
+
+            // Vérifier que l'email est valide
+            if (!$studentUser->email || !filter_var($studentUser->email, FILTER_VALIDATE_EMAIL)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'L\'adresse email de cet élève est invalide (' . $studentUser->email . '). Veuillez la corriger avant d\'envoyer l\'invitation.'
+                ], 400);
+            }
+
+            // Générer un token de réinitialisation de mot de passe
+            $resetToken = Password::broker()->createToken($studentUser);
+            
+            // Envoyer la notification
+            $studentUser->notify(new TeacherWelcomeNotification($club->name, $resetToken));
+
+            \Log::info('Email d\'invitation renvoyé à l\'élève', [
+                'student_id' => $id,
+                'user_id' => $studentUser->id,
+                'club_id' => $club->id,
+                'email' => $studentUser->email
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email d\'invitation renvoyé avec succès à ' . $studentUser->email
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors du renvoi de l\'invitation', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du renvoi de l\'invitation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Supprimer un élève (désactivation)
+     */
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Vérifier que l'utilisateur est un club
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $student = Student::findOrFail($id);
+
+            // Vérifier que l'élève appartient au club
+            if (!DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            DB::beginTransaction();
+
+            // Désactiver la relation club-élève
+            DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+
+            \Log::info('Élève désactivé du club', [
+                'student_id' => $id,
+                'club_id' => $club->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Élève retiré du club avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Erreur lors de la suppression de l\'élève', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de l\'élève: ' . $e->getMessage()
             ], 500);
         }
     }
