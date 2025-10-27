@@ -12,6 +12,14 @@ use App\Http\Controllers\Api\ClubDashboardController;
 use App\Http\Controllers\Api\ClubOpenSlotController;
 use App\Http\Controllers\Api\SubscriptionController;
 
+// Health check endpoint pour Docker healthcheck
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toDateTimeString(),
+    ], 200);
+});
+
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);

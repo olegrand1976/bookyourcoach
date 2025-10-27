@@ -60,8 +60,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 # Créer les répertoires nécessaires
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
     && mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp \
-    && chown -R www-data:www-data storage bootstrap/cache /tmp/nginx_* \
-    && chmod -R 775 storage bootstrap/cache /tmp/nginx_* \
+    && mkdir -p /var/lib/nginx/logs /var/log/nginx \
+    && chown -R www-data:www-data storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
+    && chmod -R 775 storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
     && chmod +x /usr/local/bin/start-workers.sh
 
 # Créer le fichier .env à partir de .env.example

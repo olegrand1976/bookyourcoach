@@ -36,6 +36,12 @@ services:
       - mysql-local
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # Frontend Nuxt.js - MODE DÉVELOPPEMENT AVEC CODE LOCAL
   frontend:
