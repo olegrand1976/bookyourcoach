@@ -243,8 +243,24 @@
               
               <div class="flex items-center space-x-2">
                 <button 
+                  @click="resendInvitation(teacher.id)"
+                  :disabled="resending[teacher.id]"
+                  class="text-green-600 hover:text-green-800 p-2 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                  title="Renvoyer l'email de réinitialisation de mot de passe"
+                >
+                  <svg v-if="resending[teacher.id]" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                  </svg>
+                </button>
+                
+                <button 
                   @click="editTeacher(teacher)"
                   class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Modifier l'enseignant"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -254,6 +270,7 @@
                 <button 
                   @click="deleteTeacher(teacher)"
                   class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Supprimer l'enseignant"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -296,6 +313,7 @@ const showNewTeacherModal = ref(false)
 const searchQuery = ref('')
 const selectedSpecialization = ref('')
 const sortBy = ref('name')
+const resending = ref({})
 
 // Computed properties pour les statistiques
 const activeTeachers = computed(() => teachers.value.length)
@@ -400,6 +418,30 @@ const deleteTeacher = (teacher) => {
 
 const openNewTeacherForm = () => {
   showNewTeacherModal.value = true
+}
+
+// Renvoyer l'invitation à un enseignant
+const resendInvitation = async (teacherId) => {
+  resending.value[teacherId] = true
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/teachers/${teacherId}/resend-invitation`)
+    
+    console.log('✅ Email renvoyé:', response)
+    
+    if (response.data.success) {
+      alert(response.data.message || 'Email d\'invitation renvoyé avec succès')
+    } else {
+      alert('Erreur lors du renvoi de l\'invitation')
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur lors du renvoi de l\'invitation:', error)
+    alert('Erreur lors du renvoi de l\'invitation. Veuillez réessayer.')
+  } finally {
+    resending.value[teacherId] = false
+  }
 }
 
 onMounted(() => {
