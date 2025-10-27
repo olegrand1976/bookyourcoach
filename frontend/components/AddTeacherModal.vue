@@ -97,10 +97,10 @@
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
                   <option value="freelance">Indépendant</option>
-                  <option value="salaried">Salarié</option>
+                  <option value="employee">Salarié</option>
                   <option value="volunteer">Bénévole</option>
                   <option value="student">Étudiant</option>
-                  <option value="article_17">Article 17</option>
+                  <option value="intern">Stagiaire</option>
                 </select>
               </div>
             </div>
@@ -374,13 +374,27 @@ const addTeacher = async () => {
     const config = useRuntimeConfig()
     const tokenCookie = useCookie('auth-token')
     
+    // Séparer le nom en prénom et nom de famille
+    const nameParts = form.value.name.trim().split(' ')
+    const firstName = nameParts[0]
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0]
+    
     const response = await $fetch(`${config.public.apiBase}/club/teachers`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenCookie.value}`,
         'Content-Type': 'application/json'
       },
-      body: form.value
+      body: {
+        first_name: firstName,
+        last_name: lastName,
+        email: form.value.email,
+        phone: form.value.phone,
+        experience_years: form.value.experience_years,
+        hourly_rate: form.value.hourly_rate,
+        bio: form.value.bio,
+        contract_type: form.value.contract_type
+      }
     })
     
     console.log('✅ Enseignant créé avec succès:', response)
