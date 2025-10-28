@@ -138,6 +138,10 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/open-slots/{id}', [ClubOpenSlotController::class, 'show']);
     Route::put('/open-slots/{id}', [ClubOpenSlotController::class, 'update']);
     Route::delete('/open-slots/{id}', [ClubOpenSlotController::class, 'destroy']);
+    // Lettres de volontariat
+    Route::post('/volunteer-letters/send/{teacherId}', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'sendToTeacher']);
+    Route::post('/volunteer-letters/send-all', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'sendToAll']);
+    Route::get('/volunteer-letters/history', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'history']);
     // Gestion des types de cours pour les créneaux
     Route::put('/open-slots/{id}/course-types', [ClubOpenSlotController::class, 'updateCourseTypes']);
     // Planning avancé (suggestions, statistiques, vérifications)
