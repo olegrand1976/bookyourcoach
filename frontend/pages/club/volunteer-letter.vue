@@ -37,8 +37,24 @@
       <!-- Liste des enseignants -->
       <div v-if="clubInfoComplete" class="bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h2 class="text-xl font-semibold text-gray-900">Enseignants affiliés</h2>
-          <p class="text-sm text-gray-600 mt-1">Cliquez sur un enseignant pour générer sa lettre</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">Enseignants affiliés</h2>
+              <p class="text-sm text-gray-600 mt-1">Cliquez sur un enseignant pour générer sa lettre</p>
+            </div>
+            <button 
+              @click="sendToAll" 
+              :disabled="sendingAll || teachers.length === 0"
+              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md">
+              <svg v-if="!sendingAll" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
+              </svg>
+              <svg v-else class="animate-spin w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {{ sendingAll ? 'Envoi en cours...' : 'Envoyer à tous' }}
+            </button>
+          </div>
         </div>
 
         <!-- Loading -->
@@ -118,6 +134,15 @@
                 </svg>
                 Imprimer
               </button>
+              <button @click="sendEmail" :disabled="sending" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm hover:shadow-md">
+                <svg v-if="!sending" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <svg v-else class="animate-spin w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {{ sending ? 'Envoi...' : 'Envoyer par Email' }}
+              </button>
               <button @click="downloadPDF" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -149,6 +174,8 @@ const loading = ref(true)
 const clubData = ref(null)
 const teachers = ref([])
 const selectedTeacher = ref(null)
+const sending = ref(false)
+const sendingAll = ref(false)
 
 // Computed
 const clubInfoComplete = computed(() => {
@@ -209,6 +236,63 @@ async function downloadPDF() {
   // TODO: Implémenter la génération PDF côté serveur
   // Pour l'instant, on utilise l'impression du navigateur
   window.print()
+}
+
+async function sendEmail() {
+  if (!selectedTeacher.value) return
+  
+  try {
+    sending.value = true
+    
+    const response = await $api.post(`/club/volunteer-letters/send/${selectedTeacher.value.id}`)
+    
+    if (response.data.success) {
+      toast.success(response.data.message || 'Lettre envoyée avec succès !')
+      closeModal()
+    } else {
+      toast.error(response.data.message || 'Erreur lors de l\'envoi')
+    }
+  } catch (error) {
+    console.error('Erreur envoi email:', error)
+    toast.error(error.response?.data?.message || 'Erreur lors de l\'envoi de la lettre')
+  } finally {
+    sending.value = false
+  }
+}
+
+async function sendToAll() {
+  if (sendingAll.value) return
+  
+  if (!confirm(`Êtes-vous sûr de vouloir envoyer la lettre à tous les enseignants (${teachers.value.length}) ?`)) {
+    return
+  }
+  
+  try {
+    sendingAll.value = true
+    toast.info('Envoi en cours...')
+    
+    const response = await $api.post('/club/volunteer-letters/send-all')
+    
+    if (response.data.success) {
+      const results = response.data.results
+      
+      if (results.failed === 0 && results.skipped === 0) {
+        toast.success(`${results.sent} lettre(s) envoyée(s) avec succès !`)
+      } else {
+        toast.warning(response.data.message)
+      }
+      
+      // Afficher les détails dans la console
+      console.log('Résultats envoi en masse:', results)
+    } else {
+      toast.error(response.data.message || 'Erreur lors de l\'envoi')
+    }
+  } catch (error) {
+    console.error('Erreur envoi en masse:', error)
+    toast.error(error.response?.data?.message || 'Erreur lors de l\'envoi des lettres')
+  } finally {
+    sendingAll.value = false
+  }
 }
 
 // Initialisation
