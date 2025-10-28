@@ -89,6 +89,38 @@
         </div>
       </div>
 
+      <!-- Lien vers les plafonds légaux -->
+      <div class="mb-8">
+        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-3 flex-1">
+              <h3 class="text-sm font-medium text-blue-800">Plafonds légaux de défraiement des volontaires</h3>
+              <p class="mt-2 text-sm text-blue-700">
+                Consultez les montants officiels indexés pour le défraiement des volontaires en Belgique ({{ new Date().getFullYear() }}).
+              </p>
+              <div class="mt-4">
+                <a 
+                  href="https://conseilsuperieurvolontaires.belgium.be/fr/defraiements/plafonds-limites-indexes.htm" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                >
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  <span>Voir les plafonds officiels</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Stats principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Enseignants -->
