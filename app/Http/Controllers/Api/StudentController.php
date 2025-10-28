@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use App\Notifications\TeacherWelcomeNotification;
+use App\Notifications\StudentWelcomeNotification;
 
 class StudentController extends Controller
 {
@@ -55,6 +56,8 @@ class StudentController extends Controller
                 'level' => 'nullable|in:debutant,intermediaire,avance,expert',
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
+                'disciplines' => 'nullable|array',
+                'disciplines.*' => 'integer|exists:disciplines,id',
             ]);
 
             DB::beginTransaction();
@@ -94,6 +97,36 @@ class StudentController extends Controller
                 'updated_at' => now(),
             ]);
 
+            // Lier les disciplines à l'étudiant si fournies
+            if (!empty($validated['disciplines'])) {
+                foreach ($validated['disciplines'] as $disciplineId) {
+                    DB::table('student_disciplines')->insert([
+                        'student_id' => $student->id,
+                        'discipline_id' => $disciplineId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+                
+                \Log::info('Disciplines liées à l\'élève', [
+                    'student_id' => $student->id,
+                    'disciplines' => $validated['disciplines']
+                ]);
+            }
+
+            // Générer un token de réinitialisation de mot de passe
+            $resetToken = Password::broker()->createToken($newUser);
+            
+            // Envoyer l'email de bienvenue avec le lien de réinitialisation
+            $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
+
+            \Log::info('Email de bienvenue envoyé à l\'élève', [
+                'student_id' => $student->id,
+                'user_id' => $newUser->id,
+                'club_id' => $club->id,
+                'email' => $newUser->email
+            ]);
+
             DB::commit();
 
             // Charger les relations
@@ -102,7 +135,8 @@ class StudentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $student,
-                'message' => 'Élève créé avec succès'
+                'student' => $student,
+                'message' => 'Élève créé avec succès ! Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.'
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -268,7 +302,7 @@ class StudentController extends Controller
             $resetToken = Password::broker()->createToken($studentUser);
             
             // Envoyer la notification
-            $studentUser->notify(new TeacherWelcomeNotification($club->name, $resetToken));
+            $studentUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
 
             \Log::info('Email d\'invitation renvoyé à l\'élève', [
                 'student_id' => $id,
