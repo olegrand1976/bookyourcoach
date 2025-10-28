@@ -158,8 +158,12 @@ class ClubController extends Controller
                 if ($user->role === 'club') {
                     // Préparer les données du club
                     $updateData = $request->only([
-                        'name', 'description', 'email', 'phone', 'address',
+                        'name', 'company_number', 'description', 'email', 'phone', 'address',
                         'city', 'postal_code', 'country', 'website', 'is_active',
+                        'legal_representative_name', 'legal_representative_role',
+                        'insurance_rc_company', 'insurance_rc_policy_number',
+                        'insurance_additional_company', 'insurance_additional_policy_number', 'insurance_additional_details',
+                        'expense_reimbursement_type', 'expense_reimbursement_details',
                         'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
                     ]);
                     
@@ -214,8 +218,12 @@ class ClubController extends Controller
             
             // Mettre à jour le club existant
             $updateData = $request->only([
-                'name', 'description', 'email', 'phone', 'address',
+                'name', 'company_number', 'description', 'email', 'phone', 'address',
                 'city', 'postal_code', 'country', 'website', 'is_active',
+                'legal_representative_name', 'legal_representative_role',
+                'insurance_rc_company', 'insurance_rc_policy_number',
+                'insurance_additional_company', 'insurance_additional_policy_number', 'insurance_additional_details',
+                'expense_reimbursement_type', 'expense_reimbursement_details',
                 'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
             ]);
             

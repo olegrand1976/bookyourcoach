@@ -2,9 +2,21 @@
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Profil du Club</h1>
-        <p class="mt-2 text-gray-600">Gérez les informations et activités de votre club</p>
+      <div class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-6 border-2 border-blue-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">{{ formData.name || 'Profil du Club' }}</h1>
+            <p v-if="formData.company_number" class="mt-1 text-sm font-medium text-blue-600">
+              N° Entreprise : {{ formData.company_number }}
+            </p>
+            <p class="mt-2 text-gray-600">Gérez les informations et activités de votre club</p>
+          </div>
+          <div class="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -25,6 +37,12 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Nom du club *</label>
               <input v-model="formData.name" type="text" required
                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Numéro d'entreprise</label>
+              <input v-model="formData.company_number" type="text" placeholder="BE 0123.456.789 ou FR 12 345 678 901"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              <p class="mt-1 text-xs text-gray-500">SIREN, SIRET, TVA intracommunautaire, etc.</p>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
@@ -72,6 +90,126 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Pays</label>
               <input v-model="formData.country" type="text"
                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Informations légales (pour la lettre de volontariat) -->
+        <section class="border-b pb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">Informations Légales</h2>
+              <p class="text-sm text-gray-600 mt-1">Pour la génération de la lettre de volontariat (enseignants)</p>
+            </div>
+            <div class="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Représentant légal -->
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Représentant légal</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nom du représentant *</label>
+                <input v-model="formData.legal_representative_name" type="text" placeholder="Jean Dupont"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Fonction *</label>
+                <input v-model="formData.legal_representative_role" type="text" placeholder="Président"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Assurance RC (obligatoire) -->
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Assurance Responsabilité Civile (obligatoire)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Compagnie d'assurance *</label>
+                <input v-model="formData.insurance_rc_company" type="text" placeholder="AXA Belgium"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Numéro de police *</label>
+                <input v-model="formData.insurance_rc_policy_number" type="text" placeholder="123456789"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Assurance complémentaire (optionnelle) -->
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Assurance complémentaire (optionnelle)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Compagnie d'assurance</label>
+                <input v-model="formData.insurance_additional_company" type="text" placeholder="Ethias"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Numéro de police</label>
+                <input v-model="formData.insurance_additional_policy_number" type="text" placeholder="987654321"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Détails de la couverture</label>
+              <textarea v-model="formData.insurance_additional_details" rows="2" 
+                        placeholder="Couverture corporelle, accidents sur le trajet, etc."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+          </div>
+
+          <!-- Régime de défraiement -->
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Régime de défraiement des volontaires</h3>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Type de défraiement *</label>
+              <div class="space-y-2">
+                <label class="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                       :class="formData.expense_reimbursement_type === 'forfait' ? 'bg-blue-50 border-blue-500' : ''">
+                  <input type="radio" value="forfait" v-model="formData.expense_reimbursement_type"
+                         class="h-4 w-4 text-blue-600 focus:ring-blue-500" />
+                  <div class="ml-3">
+                    <span class="font-medium text-gray-900">Défraiement forfaitaire</span>
+                    <p class="text-sm text-gray-600">Indemnité fixe sans justificatifs</p>
+                  </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                       :class="formData.expense_reimbursement_type === 'reel' ? 'bg-blue-50 border-blue-500' : ''">
+                  <input type="radio" value="reel" v-model="formData.expense_reimbursement_type"
+                         class="h-4 w-4 text-blue-600 focus:ring-blue-500" />
+                  <div class="ml-3">
+                    <span class="font-medium text-gray-900">Remboursement des frais réels</span>
+                    <p class="text-sm text-gray-600">Sur présentation des justificatifs</p>
+                  </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                       :class="formData.expense_reimbursement_type === 'aucun' ? 'bg-blue-50 border-blue-500' : ''">
+                  <input type="radio" value="aucun" v-model="formData.expense_reimbursement_type"
+                         class="h-4 w-4 text-blue-600 focus:ring-blue-500" />
+                  <div class="ml-3">
+                    <span class="font-medium text-gray-900">Aucun défraiement</span>
+                    <p class="text-sm text-gray-600">Pas de remboursement prévu</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div v-if="formData.expense_reimbursement_type && formData.expense_reimbursement_type !== 'aucun'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Détails du défraiement *</label>
+              <textarea v-model="formData.expense_reimbursement_details" rows="4" 
+                        :placeholder="formData.expense_reimbursement_type === 'forfait' 
+                          ? 'Ex: Indemnité journalière de 15€ par jour de formation, indemnité mensuelle de 50€, etc.' 
+                          : 'Ex: Transports en commun sur base du ticket, indemnité kilométrique au taux légal de 0.4182€/km, etc.'"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
+              <p class="mt-1 text-xs text-gray-500">
+                Ces informations seront intégrées dans la lettre de volontariat
+              </p>
             </div>
           </div>
         </section>
@@ -288,6 +426,7 @@ const disciplines = ref([])
 // Données du formulaire
 const formData = reactive({
   name: '',
+  company_number: '',
   email: '',
   phone: '',
   website: '',
@@ -296,7 +435,17 @@ const formData = reactive({
   city: '',
   postal_code: '',
   country: '',
-  is_active: true
+  is_active: true,
+  // Informations légales
+  legal_representative_name: '',
+  legal_representative_role: '',
+  insurance_rc_company: '',
+  insurance_rc_policy_number: '',
+  insurance_additional_company: '',
+  insurance_additional_policy_number: '',
+  insurance_additional_details: '',
+  expense_reimbursement_type: 'aucun',
+  expense_reimbursement_details: ''
 })
 
 // IDs sélectionnés (la source de vérité)
@@ -401,6 +550,7 @@ async function loadData() {
       
       // Remplir le formulaire
       formData.name = club.name || ''
+      formData.company_number = club.company_number || ''
       formData.email = club.email || ''
       formData.phone = club.phone || ''
       formData.website = club.website || ''
@@ -410,6 +560,17 @@ async function loadData() {
       formData.postal_code = club.postal_code || ''
       formData.country = club.country || ''
       formData.is_active = club.is_active !== false
+      
+      // Informations légales
+      formData.legal_representative_name = club.legal_representative_name || ''
+      formData.legal_representative_role = club.legal_representative_role || ''
+      formData.insurance_rc_company = club.insurance_rc_company || ''
+      formData.insurance_rc_policy_number = club.insurance_rc_policy_number || ''
+      formData.insurance_additional_company = club.insurance_additional_company || ''
+      formData.insurance_additional_policy_number = club.insurance_additional_policy_number || ''
+      formData.insurance_additional_details = club.insurance_additional_details || ''
+      formData.expense_reimbursement_type = club.expense_reimbursement_type || 'aucun'
+      formData.expense_reimbursement_details = club.expense_reimbursement_details || ''
       
       // Si c'est un nouveau profil (needs_setup), afficher un message informatif
       if (club.needs_setup) {

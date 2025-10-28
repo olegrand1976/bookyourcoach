@@ -37,6 +37,16 @@ class Club extends Model
 
     protected $fillable = [
         'name',
+        'company_number',
+        'legal_representative_name',
+        'legal_representative_role',
+        'insurance_rc_company',
+        'insurance_rc_policy_number',
+        'insurance_additional_company',
+        'insurance_additional_policy_number',
+        'insurance_additional_details',
+        'expense_reimbursement_type',
+        'expense_reimbursement_details',
         'description',
         'email',
         'phone',
