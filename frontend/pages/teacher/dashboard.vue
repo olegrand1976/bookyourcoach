@@ -14,6 +14,90 @@
         <NotificationBell />
       </div>
 
+      <!-- Mes Clubs -->
+      <div v-if="clubs.length > 1" class="mb-8">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+            <h3 class="text-lg font-semibold text-gray-900">Mes Clubs</h3>
+            <p class="text-sm text-gray-600 mt-1">Sélectionnez un club pour voir vos cours et statistiques</p>
+          </div>
+          <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                @click="selectClub(null)"
+                :class="[
+                  'text-left p-4 rounded-lg border-2 transition-all duration-200',
+                  selectedClubId === null 
+                    ? 'border-purple-500 bg-purple-50 shadow-md' 
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                ]"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="font-semibold text-gray-900">Tous les clubs</h4>
+                    <p class="text-sm text-gray-600 mt-1">Voir tous mes cours</p>
+                  </div>
+                  <div v-if="selectedClubId === null" class="text-purple-500">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                v-for="club in clubs"
+                :key="club.id"
+                @click="selectClub(club.id)"
+                :class="[
+                  'text-left p-4 rounded-lg border-2 transition-all duration-200',
+                  selectedClubId === club.id 
+                    ? 'border-purple-500 bg-purple-50 shadow-md' 
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                ]"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="font-semibold text-gray-900">{{ club.name }}</h4>
+                    <p class="text-sm text-gray-600 mt-1">{{ club.email }}</p>
+                    <div class="flex items-center mt-2">
+                      <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        Actif
+                      </span>
+                      <span class="ml-2 text-xs text-gray-500">
+                        {{ getClubLessonsCount(club.id) }} cours
+                      </span>
+                    </div>
+                  </div>
+                  <div v-if="selectedClubId === club.id" class="text-purple-500">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Club unique affiché en info -->
+      <div v-else-if="clubs.length === 1" class="mb-8">
+        <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+          <div class="flex items-center">
+            <div class="p-3 bg-purple-100 rounded-lg">
+              <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <h3 class="text-lg font-semibold text-gray-900">{{ clubs[0].name }}</h3>
+              <p class="text-sm text-gray-600">{{ clubs[0].email }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Notifications de demandes envoyées -->
       <div v-if="pendingReplacementsSent.length > 0" class="mb-8">
         <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
@@ -143,22 +227,22 @@
               </svg>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Total cours</p>
-              <p class="text-2xl font-bold text-gray-900">{{ lessons.length }}</p>
+              <p class="text-sm font-medium text-gray-600">Cours filtrés</p>
+              <p class="text-2xl font-bold text-gray-900">{{ filteredLessons.length }}</p>
             </div>
           </div>
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center">
-            <div class="p-2 bg-orange-100 rounded-lg">
-              <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            <div class="p-2 bg-yellow-100 rounded-lg">
+              <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Remplacements</p>
-              <p class="text-2xl font-bold text-gray-900">{{ allReplacements.length }}</p>
+              <p class="text-sm font-medium text-gray-600">Revenus du mois</p>
+              <p class="text-2xl font-bold text-gray-900">{{ monthlyEarnings }}€</p>
             </div>
           </div>
         </div>
@@ -170,16 +254,34 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">Clubs</p>
-              <p class="text-2xl font-bold text-gray-900">{{ uniqueClubs.length }}</p>
+              <p class="text-2xl font-bold text-gray-900">{{ clubs.length }}</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Bouton vers le calendrier -->
+      <div v-if="selectedClubId || clubs.length === 1" class="mb-8">
+        <NuxtLink 
+          :to="getCalendarLink()"
+          class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+        >
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Voir le calendrier {{ selectedClubName ? `de ${selectedClubName}` : '' }}
+        </NuxtLink>
+      </div>
+
       <!-- Mes cours -->
       <div class="bg-white rounded-lg shadow mb-8">
         <div class="p-6 border-b border-gray-200">
-          <h3 class="text-lg font-medium text-gray-900">Mes cours</h3>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-medium text-gray-900">
+              {{ selectedClubName ? `Mes cours - ${selectedClubName}` : 'Mes cours' }}
+            </h3>
+            <span class="text-sm text-gray-500">{{ filteredLessons.length }} cours</span>
+          </div>
         </div>
         <div class="p-6">
           <div v-if="loading" class="text-center py-8">
@@ -187,7 +289,7 @@
             <p class="text-gray-600 mt-4">Chargement...</p>
           </div>
 
-          <div v-else-if="lessons.length > 0" class="overflow-x-auto">
+          <div v-else-if="filteredLessons.length > 0" class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
@@ -200,7 +302,7 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="lesson in lessons" :key="lesson.id" class="hover:bg-gray-50">
+                <tr v-for="lesson in filteredLessons" :key="lesson.id" class="hover:bg-gray-50">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900">
                       {{ lesson.club?.name || 'N/A' }}
@@ -250,7 +352,7 @@
             <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <p class="text-gray-500">Aucun cours planifié</p>
+            <p class="text-gray-500">{{ selectedClubName ? `Aucun cours pour ${selectedClubName}` : 'Aucun cours planifié' }}</p>
           </div>
         </div>
       </div>
@@ -290,19 +392,36 @@ const { $api } = useNuxtApp()
 // State
 const loading = ref(true)
 const lessons = ref<any[]>([])
+const clubs = ref<any[]>([])
 const allReplacements = ref<any[]>([])
 const availableTeachers = ref<any[]>([])
 const selectedLesson = ref<any | null>(null)
 const showDetailsModal = ref(false)
 const showReplacementModal = ref(false)
+const selectedClubId = ref<number | null>(null)
+const monthlyEarnings = ref(0)
+const dashboardStats = ref<any>(null)
 
 // Computed
 const todayLessons = computed(() => {
   const today = new Date().toISOString().split('T')[0]
-  return lessons.value.filter(lesson => {
+  return filteredLessons.value.filter(lesson => {
     const lessonDate = new Date(lesson.start_time).toISOString().split('T')[0]
     return lessonDate === today
   })
+})
+
+const filteredLessons = computed(() => {
+  if (selectedClubId.value === null) {
+    return lessons.value
+  }
+  return lessons.value.filter(lesson => lesson.club_id === selectedClubId.value)
+})
+
+const selectedClubName = computed(() => {
+  if (selectedClubId.value === null) return null
+  const club = clubs.value.find(c => c.id === selectedClubId.value)
+  return club?.name || null
 })
 
 // Demandes REÇUES (où je suis le remplaçant potentiel) - en attente de MA réponse
@@ -323,14 +442,9 @@ const pendingReplacementsSent = computed(() => {
   )
 })
 
-// Toutes les demandes en attente (pour la statistique)
-const pendingReplacements = computed(() => {
-  return allReplacements.value.filter(r => r.status === 'pending')
-})
-
 const uniqueClubs = computed(() => {
-  const clubs = lessons.value.map(l => l.club?.id).filter(Boolean)
-  return [...new Set(clubs)]
+  const clubsSet = lessons.value.map(l => l.club?.id).filter(Boolean)
+  return [...new Set(clubsSet)]
 })
 
 // Methods
@@ -346,6 +460,15 @@ async function loadData() {
       const dashboardResponse = await $api.get('/teacher/dashboard')
       if (dashboardResponse.data.success && dashboardResponse.data.data) {
         const data = dashboardResponse.data.data
+        dashboardStats.value = data.stats
+        monthlyEarnings.value = data.stats?.monthly_earnings || 0
+        clubs.value = data.clubs || []
+        
+        // Si un seul club, le sélectionner automatiquement
+        if (clubs.value.length === 1) {
+          selectedClubId.value = clubs.value[0].id
+        }
+        
         // Utiliser les cours depuis le dashboard qui sont déjà triés
         if (data.upcoming_lessons && data.recent_lessons) {
           lessons.value = [...data.upcoming_lessons, ...data.recent_lessons]
@@ -362,6 +485,15 @@ async function loadData() {
       // Charger les cours
       const lessonsResponse = await $api.get('/teacher/lessons')
       lessons.value = lessonsResponse.data.data || []
+      
+      // Charger les clubs
+      const clubsResponse = await $api.get('/teacher/clubs')
+      clubs.value = clubsResponse.data.clubs || []
+      
+      // Si un seul club, le sélectionner automatiquement
+      if (clubs.value.length === 1) {
+        selectedClubId.value = clubs.value[0].id
+      }
     }
 
     // Charger les demandes de remplacement
@@ -374,6 +506,7 @@ async function loadData() {
 
     console.log('✅ Données chargées:', {
       lessons: lessons.value.length,
+      clubs: clubs.value.length,
       replacements: allReplacements.value.length,
       teachers: availableTeachers.value.length
     })
@@ -382,6 +515,22 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+function selectClub(clubId: number | null) {
+  selectedClubId.value = clubId
+}
+
+function getClubLessonsCount(clubId: number): number {
+  return lessons.value.filter(l => l.club_id === clubId).length
+}
+
+function getCalendarLink(): string {
+  const clubId = selectedClubId.value || (clubs.value.length === 1 ? clubs.value[0].id : null)
+  if (clubId) {
+    return `/teacher/schedule?club=${clubId}`
+  }
+  return '/teacher/schedule'
 }
 
 function openLessonDetails(lesson: any) {
