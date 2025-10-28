@@ -155,7 +155,7 @@ const loadProfileData = async () => {
     error.value = null
     
     const { $api } = useNuxtApp()
-    const response = await $api.get('/profile')
+    const response = await $api.get('/teacher/profile')
     
     if (response.data) {
       profileData.value = response.data.profile

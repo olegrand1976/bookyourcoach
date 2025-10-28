@@ -61,7 +61,7 @@ class DashboardController extends Controller
      */
     public function getAvailableLessons(Request $request)
     {
-        $query = Lesson::with(['teacher.user', 'courseType', 'location'])
+        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('status', 'available')
             ->where('start_time', '>=', Carbon::now());
 
@@ -89,7 +89,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $studentId = $user->student->id;
 
-        $query = Lesson::with(['teacher.user', 'courseType', 'location'])
+        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('student_id', $studentId);
 
         if ($request->has('status')) {
@@ -126,7 +126,7 @@ class DashboardController extends Controller
             'notes' => $request->notes,
         ]);
 
-        return response()->json($lesson->load(['teacher.user', 'courseType', 'location']), 201);
+        return response()->json($lesson->load(['teacher.user', 'courseType', 'location', 'club']), 201);
     }
 
     /**
@@ -170,7 +170,7 @@ class DashboardController extends Controller
      */
     public function getTeacherLessons(Request $request, $id)
     {
-        $lessons = Lesson::with(['courseType', 'location'])
+        $lessons = Lesson::with(['courseType', 'location', 'club'])
             ->where('teacher_id', $id)
             ->where('status', 'available')
             ->where('start_time', '>=', Carbon::now())
@@ -184,7 +184,7 @@ class DashboardController extends Controller
      */
     public function searchLessons(Request $request)
     {
-        $query = Lesson::with(['teacher.user', 'courseType', 'location'])
+        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('status', 'available')
             ->where('start_time', '>=', Carbon::now());
 
@@ -230,7 +230,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $studentId = $user->student->id;
 
-        $lessons = Lesson::with(['teacher.user', 'courseType', 'location'])
+        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('student_id', $studentId)
             ->where('status', 'completed')
             ->orderBy('start_time', 'desc')

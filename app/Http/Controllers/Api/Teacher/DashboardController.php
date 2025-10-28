@@ -100,7 +100,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $teacherId = $user->teacher->id;
 
-        $query = Lesson::with(['student.user', 'students.user', 'courseType', 'location'])
+        $query = Lesson::with(['student.user', 'students.user', 'courseType', 'location', 'club'])
             ->where('teacher_id', $teacherId);
 
         if ($request->has('status')) {
@@ -181,7 +181,7 @@ class DashboardController extends Controller
             ]);
         }
 
-        return response()->json($lesson->load(['courseType', 'location', 'students.user']), 201);
+        return response()->json($lesson->load(['courseType', 'location', 'students.user', 'club']), 201);
     }
 
     /**
@@ -212,7 +212,7 @@ class DashboardController extends Controller
             'location', 'price', 'notes', 'status'
         ]));
 
-        return response()->json($lesson->load(['student.user', 'courseType', 'location']));
+        return response()->json($lesson->load(['student.user', 'courseType', 'location', 'club']));
     }
 
     /**

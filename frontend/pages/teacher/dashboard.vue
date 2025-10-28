@@ -341,9 +341,28 @@ onMounted(async () => {
 async function loadData() {
   loading.value = true
   try {
-    // Charger les cours
-    const lessonsResponse = await $api.get('/teacher/lessons')
-    lessons.value = lessonsResponse.data.data || []
+    // Essayer de charger via le dashboard complet d'abord
+    try {
+      const dashboardResponse = await $api.get('/teacher/dashboard')
+      if (dashboardResponse.data.success && dashboardResponse.data.data) {
+        const data = dashboardResponse.data.data
+        // Utiliser les cours depuis le dashboard qui sont déjà triés
+        if (data.upcoming_lessons && data.recent_lessons) {
+          lessons.value = [...data.upcoming_lessons, ...data.recent_lessons]
+        } else {
+          // Fallback: charger les cours séparément
+          const lessonsResponse = await $api.get('/teacher/lessons')
+          lessons.value = lessonsResponse.data.data || []
+        }
+        
+        console.log('✅ Dashboard data loaded:', data.stats)
+      }
+    } catch (dashboardError) {
+      console.warn('⚠️ Dashboard endpoint not available, falling back to individual endpoints')
+      // Charger les cours
+      const lessonsResponse = await $api.get('/teacher/lessons')
+      lessons.value = lessonsResponse.data.data || []
+    }
 
     // Charger les demandes de remplacement
     const replacementsResponse = await $api.get('/teacher/lesson-replacements')
