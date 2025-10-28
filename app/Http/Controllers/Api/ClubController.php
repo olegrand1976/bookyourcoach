@@ -135,10 +135,11 @@ class ClubController extends Controller
         try {
             $user = $request->user();
             
-            \Log::info('ClubController::updateProfile - User:', [
+            \Log::info('ClubController::updateProfile - Début', [
                 'user_id' => $user->id,
                 'email' => $user->email,
-                'role' => $user->role
+                'role' => $user->role,
+                'request_data' => $request->all()
             ]);
             
             // Récupérer le club associé à cet utilisateur
@@ -156,8 +157,11 @@ class ClubController extends Controller
                 // Si l'utilisateur a le rôle 'club' mais n'est pas dans club_user,
                 // créer un nouveau club et l'association
                 if ($user->role === 'club') {
+                    // Obtenir les colonnes existantes de la table clubs
+                    $existingColumns = $this->getTableColumns('clubs');
+                    
                     // Préparer les données du club
-                    $updateData = $request->only([
+                    $allData = $request->only([
                         'name', 'company_number', 'description', 'email', 'phone', 'address',
                         'city', 'postal_code', 'country', 'website', 'is_active',
                         'legal_representative_name', 'legal_representative_role',
@@ -166,6 +170,11 @@ class ClubController extends Controller
                         'expense_reimbursement_type', 'expense_reimbursement_details',
                         'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
                     ]);
+                    
+                    // Ne garder que les colonnes qui existent dans la table
+                    $updateData = array_filter($allData, function($key) use ($existingColumns) {
+                        return in_array($key, $existingColumns);
+                    }, ARRAY_FILTER_USE_KEY);
                     
                     // Encoder les arrays en JSON si nécessaire
                     if (isset($updateData['activity_types']) && is_array($updateData['activity_types'])) {
@@ -181,9 +190,22 @@ class ClubController extends Controller
                         $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
                     }
                     
+                    // Convertir les chaînes vides en NULL pour certains champs
+                    foreach (['company_number', 'description', 'website', 'legal_representative_name', 'legal_representative_role',
+                              'insurance_rc_company', 'insurance_rc_policy_number', 'insurance_additional_company', 
+                              'insurance_additional_policy_number', 'insurance_additional_details', 'expense_reimbursement_details'] as $field) {
+                        if (isset($updateData[$field]) && $updateData[$field] === '') {
+                            $updateData[$field] = null;
+                        }
+                    }
+                    
                     // Valeurs par défaut
                     $updateData['created_at'] = now();
                     $updateData['updated_at'] = now();
+                    
+                    \Log::info('ClubController::updateProfile - Données à insérer', [
+                        'data' => $updateData
+                    ]);
                     
                     // Créer le nouveau club
                     $clubId = DB::table('clubs')->insertGetId($updateData);
@@ -216,8 +238,11 @@ class ClubController extends Controller
                 ], 404);
             }
             
+            // Obtenir les colonnes existantes de la table clubs
+            $existingColumns = $this->getTableColumns('clubs');
+            
             // Mettre à jour le club existant
-            $updateData = $request->only([
+            $allData = $request->only([
                 'name', 'company_number', 'description', 'email', 'phone', 'address',
                 'city', 'postal_code', 'country', 'website', 'is_active',
                 'legal_representative_name', 'legal_representative_role',
@@ -226,6 +251,11 @@ class ClubController extends Controller
                 'expense_reimbursement_type', 'expense_reimbursement_details',
                 'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
             ]);
+            
+            // Ne garder que les colonnes qui existent dans la table
+            $updateData = array_filter($allData, function($key) use ($existingColumns) {
+                return in_array($key, $existingColumns);
+            }, ARRAY_FILTER_USE_KEY);
             
             // Encoder les arrays en JSON si nécessaire
             if (isset($updateData['activity_types']) && is_array($updateData['activity_types'])) {
@@ -241,13 +271,28 @@ class ClubController extends Controller
                 $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
             }
             
+            // Convertir les chaînes vides en NULL pour certains champs
+            foreach (['company_number', 'description', 'website', 'legal_representative_name', 'legal_representative_role',
+                      'insurance_rc_company', 'insurance_rc_policy_number', 'insurance_additional_company', 
+                      'insurance_additional_policy_number', 'insurance_additional_details', 'expense_reimbursement_details'] as $field) {
+                if (isset($updateData[$field]) && $updateData[$field] === '') {
+                    $updateData[$field] = null;
+                }
+            }
+            
             $updateData['updated_at'] = now();
+            
+            \Log::info('ClubController::updateProfile - Données à mettre à jour', [
+                'club_id' => $clubUser->club_id,
+                'data' => $updateData,
+                'existing_columns' => $existingColumns
+            ]);
             
             DB::table('clubs')
                 ->where('id', $clubUser->club_id)
                 ->update($updateData);
             
-            \Log::info('ClubController::updateProfile - Club mis à jour', [
+            \Log::info('ClubController::updateProfile - Club mis à jour avec succès', [
                 'club_id' => $clubUser->club_id,
                 'user_id' => $user->id
             ]);
@@ -260,13 +305,34 @@ class ClubController extends Controller
         } catch (\Exception $e) {
             \Log::error('ClubController::updateProfile - Exception', [
                 'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
                 'trace' => $e->getTraceAsString()
             ]);
             
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la mise à jour du profil'
+                'message' => 'Erreur lors de la mise à jour du profil: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Récupérer la liste des colonnes existantes d'une table
+     */
+    private function getTableColumns($tableName)
+    {
+        try {
+            $columns = DB::getSchemaBuilder()->getColumnListing($tableName);
+            return $columns;
+        } catch (\Exception $e) {
+            \Log::warning('getTableColumns - Impossible de récupérer les colonnes', [
+                'table' => $tableName,
+                'error' => $e->getMessage()
+            ]);
+            // Retourner les colonnes de base si la requête échoue
+            return ['name', 'description', 'email', 'phone', 'address', 'city', 'postal_code', 'country', 'website', 'is_active',
+                    'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'];
         }
     }
 
