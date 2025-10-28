@@ -161,7 +161,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
-  middleware: ['auth', 'club'],
+  middleware: ['auth'],
   layout: 'club'
 })
 
