@@ -77,7 +77,7 @@ class AdminDashboardController extends Controller
             ];
 
             // Leçons récentes (simplifiées)
-            $recentLessons = Lesson::with(['courseType', 'location'])
+            $recentLessons = Lesson::with(['courseType', 'location', 'club'])
                 ->orderBy('created_at', 'desc')
                 ->take(10)
                 ->get()

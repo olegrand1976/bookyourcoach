@@ -304,7 +304,7 @@ class LessonController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $lesson->load(['teacher.user', 'student.user', 'courseType', 'location']),
+                'data' => $lesson->load(['teacher.user', 'student.user', 'courseType', 'location', 'club']),
                 'message' => 'Cours créé avec succès'
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -368,7 +368,7 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location']);
+            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
 
             // Vérifier les permissions selon le rôle
             if ($user->role === 'teacher') {

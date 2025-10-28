@@ -70,6 +70,9 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
 Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard']);
+    Route::get('/dashboard-simple', [TeacherController::class, 'dashboardSimple']);
+    Route::get('/profile', [TeacherController::class, 'getProfile']); // Profil de l'enseignant
+    Route::put('/profile', [TeacherController::class, 'updateProfile']); // Mise à jour du profil
     Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
     Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
