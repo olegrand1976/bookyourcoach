@@ -76,6 +76,7 @@
                 {{ sendingAll ? 'Envoi en cours...' : 'Envoyer à tous' }}
               </button>
             </div>
+          </div>
         </div>
 
         <!-- Loading -->
