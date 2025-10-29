@@ -161,7 +161,15 @@ export const useAuthStore = defineStore('auth', {
         const getCookie = (name) => {
           const value = `; ${document.cookie}`;
           const parts = value.split(`; ${name}=`);
-          if (parts.length === 2) return parts.pop().split(';').shift();
+          if (parts.length === 2) {
+            const cookieValue = parts.pop().split(';').shift();
+            // Décoder pour gérer correctement les caractères UTF-8
+            try {
+              return decodeURIComponent(cookieValue);
+            } catch (e) {
+              return cookieValue;
+            }
+          }
           return null;
         }
         
@@ -183,7 +191,8 @@ export const useAuthStore = defineStore('auth', {
             typeof authUserRaw === 'string') {
           try {
             this.token = authToken
-            this.user = JSON.parse(decodeURIComponent(authUserRaw))
+            // authUserRaw est déjà décodé par getCookie()
+            this.user = JSON.parse(authUserRaw)
             this.isAuthenticated = true
             
             console.log('🚀 [INIT ULTRA SIMPLE] Token et user restaurés depuis cookies (API native)')
