@@ -195,6 +195,26 @@ export const useAuthStore = defineStore('auth', {
             this.user = JSON.parse(authUserRaw)
             this.isAuthenticated = true
             
+            // Vérifier si le nom contient des caractères mal encodés et re-sauvegarder
+            if (this.user?.name && this.user.name.includes('Ã')) {
+              console.warn('🔧 [INIT] Détection de caractères mal encodés, régénération des cookies')
+              // Forcer la mise à jour du cookie avec le bon encodage
+              const maxAge = 60 * 60 * 24 * 7 // 7 jours
+              const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
+              const setCookie = (name, value, options = {}) => {
+                let cookieString = `${name}=${encodeURIComponent(value)}`
+                if (options.expires) cookieString += `; expires=${options.expires}`
+                if (options.path) cookieString += `; path=${options.path}`
+                if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
+                document.cookie = cookieString
+              }
+              setCookie('auth-user', JSON.stringify(this.user), {
+                expires: expires,
+                path: '/',
+                sameSite: 'Lax'
+              })
+            }
+            
             console.log('🚀 [INIT ULTRA SIMPLE] Token et user restaurés depuis cookies (API native)')
             console.log('🚀 [INIT ULTRA SIMPLE] User:', this.user?.email, 'Role:', this.user?.role)
             
