@@ -329,10 +329,18 @@ async function sendToAll() {
     if (response.data.success) {
       const results = response.data.results
       
-      if (results.failed === 0 && results.skipped === 0) {
+      // Avec les queues, les emails sont "queued" (en file d'attente) au lieu de "sent"
+      if (results.queued) {
+        toast.success(`${results.queued} lettre(s) en cours d'envoi. Les emails seront envoyés dans quelques instants.`)
+      } else if (results.sent) {
+        // Rétrocompatibilité avec l'ancienne version
         toast.success(`${results.sent} lettre(s) envoyée(s) avec succès !`)
       } else {
-        toast.warning(response.data.message)
+        toast.info(response.data.message)
+      }
+      
+      if (results.skipped > 0) {
+        toast.warning(`${results.skipped} enseignant(s) ignoré(s) (pas d'email)`)
       }
       
       // Afficher les détails dans la console
