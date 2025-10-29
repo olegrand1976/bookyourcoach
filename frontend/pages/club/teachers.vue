@@ -312,13 +312,23 @@ const resending = ref({})
 const activeTeachers = computed(() => teachers.value.length)
 const averageRate = computed(() => {
   if (teachers.value.length === 0) return 0
-  const total = teachers.value.reduce((sum, teacher) => sum + (teacher.hourly_rate || 0), 0)
-  return Math.round(total / teachers.value.length)
+  
+  // Filtrer les enseignants avec un tarif valide
+  const teachersWithRate = teachers.value.filter(t => t.hourly_rate && t.hourly_rate > 0)
+  if (teachersWithRate.length === 0) return 0
+  
+  const total = teachersWithRate.reduce((sum, teacher) => sum + teacher.hourly_rate, 0)
+  return Math.round(total / teachersWithRate.length)
 })
 const averageExperience = computed(() => {
   if (teachers.value.length === 0) return 0
-  const total = teachers.value.reduce((sum, teacher) => sum + (teacher.experience_years || 0), 0)
-  return Math.round(total / teachers.value.length)
+  
+  // Filtrer les enseignants avec une expérience valide
+  const teachersWithExp = teachers.value.filter(t => t.experience_years && t.experience_years > 0)
+  if (teachersWithExp.length === 0) return 0
+  
+  const total = teachersWithExp.reduce((sum, teacher) => sum + teacher.experience_years, 0)
+  return Math.round(total / teachersWithExp.length)
 })
 
 // Filtrage et tri des enseignants
@@ -409,8 +419,8 @@ const loadTeachers = async () => {
           name: teacher.user?.name || 'N/A',
           email: teacher.user?.email || 'N/A',
           phone: teacher.user?.phone || null,
-          hourly_rate: teacher.hourly_rate || 0,
-          experience_years: teacher.experience_years || 0,
+          hourly_rate: parseFloat(teacher.hourly_rate) || 0,
+          experience_years: parseInt(teacher.experience_years) || 0,
           bio: teacher.bio || '',
           specializations: Array.isArray(specializations) ? specializations : []
         }
