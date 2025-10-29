@@ -2,11 +2,11 @@
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">Mes Revenus</h1>
-            <p class="mt-2 text-gray-600">Consultez vos revenus et statistiques financières</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mes Revenus</h1>
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Consultez vos revenus et statistiques financières</p>
           </div>
           <NuxtLink to="/teacher/dashboard" 
             class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -17,7 +17,7 @@
       </div>
 
       <!-- Filtres de période -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div class="flex flex-col sm:flex-row gap-4">
@@ -44,7 +44,7 @@
               </div>
             </div>
             
-            <div class="flex gap-6 text-sm">
+            <div class="flex gap-4 md:gap-4 md:gap-6 text-sm">
               <div class="text-center">
                 <div class="text-2xl font-bold text-green-600">{{ formatCurrency(totalEarnings) }}</div>
                 <div class="text-gray-600">Total revenus</div>
@@ -66,7 +66,7 @@
 
       <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <div class="text-red-500 text-6xl mb-4">⚠️</div>
-        <h3 class="text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
+        <h3 class="text-base md:text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
         <p class="text-red-700 mb-4">{{ error }}</p>
         <button @click="loadEarningsData" 
           class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
@@ -76,13 +76,13 @@
 
       <div v-else class="space-y-8">
         <!-- Vue d'ensemble -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-4 md:gap-6">
           <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center">
               <div class="p-2 bg-green-100 rounded-lg">
                 <span class="text-2xl text-green-600">💰</span>
               </div>
-              <div class="ml-4">
+              <div class="ml-3 md:ml-4">
                 <p class="text-sm font-medium text-gray-600">Revenus totaux</p>
                 <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(totalEarnings) }}</p>
               </div>
@@ -94,7 +94,7 @@
               <div class="p-2 bg-blue-100 rounded-lg">
                 <span class="text-2xl text-blue-600">👤</span>
               </div>
-              <div class="ml-4">
+              <div class="ml-3 md:ml-4">
                 <p class="text-sm font-medium text-gray-600">Revenus personnels</p>
                 <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(personalEarnings) }}</p>
               </div>
@@ -106,7 +106,7 @@
               <div class="p-2 bg-purple-100 rounded-lg">
                 <span class="text-2xl text-purple-600">🏢</span>
               </div>
-              <div class="ml-4">
+              <div class="ml-3 md:ml-4">
                 <p class="text-sm font-medium text-gray-600">Revenus clubs</p>
                 <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(clubEarnings) }}</p>
               </div>
@@ -118,7 +118,7 @@
               <div class="p-2 bg-yellow-100 rounded-lg">
                 <span class="text-2xl text-yellow-600">📊</span>
               </div>
-              <div class="ml-4">
+              <div class="ml-3 md:ml-4">
                 <p class="text-sm font-medium text-gray-600">Moyenne par cours</p>
                 <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(averagePerLesson) }}</p>
               </div>
@@ -146,7 +146,7 @@
           <div class="p-6">
             <!-- Onglet: Par club -->
             <div v-if="activeTab === 'clubs'">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenus par club</h3>
+              <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenus par club</h3>
               <div class="space-y-4">
                 <div v-for="club in earningsByClub" :key="club.id" 
                   class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -156,12 +156,12 @@
                     </div>
                     <div>
                       <p class="font-medium text-gray-900">{{ club.name }}</p>
-                      <p class="text-sm text-gray-600">{{ club.lessons_count }} cours</p>
+                      <p class="text-xs md:text-sm text-gray-600">{{ club.lessons_count }} cours</p>
                     </div>
                   </div>
                   <div class="text-right">
-                    <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(club.total_earnings) }}</p>
-                    <p class="text-sm text-gray-600">{{ formatCurrency(club.average_per_lesson) }}/cours</p>
+                    <p class="text-base md:text-lg font-semibold text-gray-900">{{ formatCurrency(club.total_earnings) }}</p>
+                    <p class="text-xs md:text-sm text-gray-600">{{ formatCurrency(club.average_per_lesson) }}/cours</p>
                   </div>
                 </div>
                 
@@ -173,12 +173,12 @@
                     </div>
                     <div>
                       <p class="font-medium text-gray-900">Cours personnels</p>
-                      <p class="text-sm text-gray-600">{{ personalLessonsCount }} cours</p>
+                      <p class="text-xs md:text-sm text-gray-600">{{ personalLessonsCount }} cours</p>
                     </div>
                   </div>
                   <div class="text-right">
-                    <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(personalEarnings) }}</p>
-                    <p class="text-sm text-gray-600">{{ formatCurrency(personalAveragePerLesson) }}/cours</p>
+                    <p class="text-base md:text-lg font-semibold text-gray-900">{{ formatCurrency(personalEarnings) }}</p>
+                    <p class="text-xs md:text-sm text-gray-600">{{ formatCurrency(personalAveragePerLesson) }}/cours</p>
                   </div>
                 </div>
               </div>
@@ -186,7 +186,7 @@
 
             <!-- Onglet: Par élève -->
             <div v-if="activeTab === 'students'">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenus par élève</h3>
+              <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenus par élève</h3>
               <div class="space-y-4">
                 <div v-for="student in earningsByStudent" :key="student.id" 
                   class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -196,12 +196,12 @@
                     </div>
                     <div>
                       <p class="font-medium text-gray-900">{{ student.name }}</p>
-                      <p class="text-sm text-gray-600">{{ student.lessons_count }} cours</p>
+                      <p class="text-xs md:text-sm text-gray-600">{{ student.lessons_count }} cours</p>
                     </div>
                   </div>
                   <div class="text-right">
-                    <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(student.total_earnings) }}</p>
-                    <p class="text-sm text-gray-600">{{ formatCurrency(student.average_per_lesson) }}/cours</p>
+                    <p class="text-base md:text-lg font-semibold text-gray-900">{{ formatCurrency(student.total_earnings) }}</p>
+                    <p class="text-xs md:text-sm text-gray-600">{{ formatCurrency(student.average_per_lesson) }}/cours</p>
                   </div>
                 </div>
               </div>
@@ -209,7 +209,7 @@
 
             <!-- Onglet: Par type de cours -->
             <div v-if="activeTab === 'course_types'">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenus par type de cours</h3>
+              <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenus par type de cours</h3>
               <div class="space-y-4">
                 <div v-for="courseType in earningsByCourseType" :key="courseType.id" 
                   class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
@@ -219,12 +219,12 @@
                     </div>
                     <div>
                       <p class="font-medium text-gray-900">{{ courseType.name }}</p>
-                      <p class="text-sm text-gray-600">{{ courseType.lessons_count }} cours</p>
+                      <p class="text-xs md:text-sm text-gray-600">{{ courseType.lessons_count }} cours</p>
                     </div>
                   </div>
                   <div class="text-right">
-                    <p class="text-lg font-semibold text-gray-900">{{ formatCurrency(courseType.total_earnings) }}</p>
-                    <p class="text-sm text-gray-600">{{ formatCurrency(courseType.average_per_lesson) }}/cours</p>
+                    <p class="text-base md:text-lg font-semibold text-gray-900">{{ formatCurrency(courseType.total_earnings) }}</p>
+                    <p class="text-xs md:text-sm text-gray-600">{{ formatCurrency(courseType.average_per_lesson) }}/cours</p>
                   </div>
                 </div>
               </div>
@@ -232,7 +232,7 @@
 
             <!-- Onglet: Détail des cours -->
             <div v-if="activeTab === 'lessons'">
-              <h3 class="text-lg font-semibold text-gray-900 mb-4">Détail des cours</h3>
+              <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Détail des cours</h3>
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
@@ -248,25 +248,25 @@
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
                     <tr v-for="lesson in detailedLessons" :key="lesson.id">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ formatDate(lesson.start_time) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ lesson.student_name }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ lesson.course_type_name }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ lesson.club_name || 'Personnel' }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-900">
                         {{ lesson.duration }}min
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {{ formatCurrency(lesson.earnings) }}
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
+                      <td class="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                           :class="getLessonStatusClass(lesson.status)">
                           {{ getLessonStatusLabel(lesson.status) }}

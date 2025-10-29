@@ -2,11 +2,11 @@
     <div class="min-h-screen bg-gray-50">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Header -->
-            <div class="mb-8">
+            <div class="mb-6 md:mb-8">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Paramètres</h1>
-                        <p class="mt-2 text-gray-600">Configurez vos préférences et paramètres</p>
+                        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Paramètres</h1>
+                        <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Configurez vos préférences et paramètres</p>
                     </div>
                     <NuxtLink to="/teacher" 
                         class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -24,7 +24,7 @@
                     Cette fonctionnalité sera bientôt disponible pour configurer vos préférences.
                 </p>
                 <div class="text-left max-w-md mx-auto">
-                    <h3 class="text-lg font-semibold mb-3">Fonctionnalités prévues :</h3>
+                    <h3 class="text-base md:text-lg font-semibold mb-3">Fonctionnalités prévues :</h3>
                     <ul class="space-y-2 text-gray-600">
                         <li>• Notifications par email</li>
                         <li>• Préférences de calendrier</li>

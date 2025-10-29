@@ -2,11 +2,11 @@
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">Mes Élèves</h1>
-            <p class="mt-2 text-gray-600">Gérez et suivez la progression de vos élèves</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mes Élèves</h1>
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Gérez et suivez la progression de vos élèves</p>
           </div>
           <NuxtLink to="/teacher/dashboard" 
             class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -17,7 +17,7 @@
       </div>
 
       <!-- Filtres et statistiques -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <!-- Filtres -->
@@ -42,7 +42,7 @@
             </div>
             
             <!-- Statistiques -->
-            <div class="flex gap-6 text-sm">
+            <div class="flex gap-4 md:gap-4 md:gap-6 text-sm">
               <div class="text-center">
                 <div class="text-2xl font-bold text-blue-600">{{ filteredStudents.length }}</div>
                 <div class="text-gray-600">Élèves affichés</div>
@@ -64,7 +64,7 @@
 
       <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <div class="text-red-500 text-6xl mb-4">⚠️</div>
-        <h3 class="text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
+        <h3 class="text-base md:text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
         <p class="text-red-700 mb-4">{{ error }}</p>
         <button @click="loadStudents" 
           class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
@@ -85,19 +85,19 @@
         </NuxtLink>
       </div>
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-4 md:gap-6">
         <div v-for="student in filteredStudents" :key="student.id" 
           class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
           <!-- En-tête de la carte -->
-          <div class="p-6 border-b border-gray-200">
+          <div class="p-4 md:p-6 border-b border-gray-200">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3">
                 <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                   <span class="text-xl">👤</span>
                 </div>
                 <div>
-                  <h3 class="text-lg font-semibold text-gray-900">{{ student.name }}</h3>
-                  <p class="text-sm text-gray-600">{{ student.email }}</p>
+                  <h3 class="text-base md:text-lg font-semibold text-gray-900">{{ student.name }}</h3>
+                  <p class="text-xs md:text-sm text-gray-600">{{ student.email }}</p>
                 </div>
               </div>
               <div class="flex items-center space-x-2">
@@ -117,15 +117,15 @@
           <div class="p-6">
             <div class="space-y-3">
               <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Niveau :</span>
+                <span class="text-xs md:text-sm text-gray-600">Niveau :</span>
                 <span class="text-sm font-medium text-gray-900">{{ getLevelLabel(student.level) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Cours suivis :</span>
+                <span class="text-xs md:text-sm text-gray-600">Cours suivis :</span>
                 <span class="text-sm font-medium text-gray-900">{{ student.lessons_count || 0 }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Dernier cours :</span>
+                <span class="text-xs md:text-sm text-gray-600">Dernier cours :</span>
                 <span class="text-sm font-medium text-gray-900">{{ formatDate(student.last_lesson) }}</span>
               </div>
             </div>
@@ -218,7 +218,7 @@
                   class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p class="font-medium text-gray-900">{{ lesson.title || 'Cours' }}</p>
-                    <p class="text-sm text-gray-600">{{ formatDate(lesson.start_time) }}</p>
+                    <p class="text-xs md:text-sm text-gray-600">{{ formatDate(lesson.start_time) }}</p>
                   </div>
                   <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                     :class="getLessonStatusClass(lesson.status)">

@@ -2,8 +2,8 @@
   <div class="preferences-page">
     <div class="container mx-auto px-4 py-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <div class="mb-6 md:mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           🎯 Mes Préférences
         </h1>
         <p class="text-gray-700">
@@ -44,7 +44,7 @@
         <!-- Équitation -->
         <div class="bg-white rounded-lg shadow-md border border-blue-500/20">
           <!-- Discipline Header -->
-          <div class="p-6 border-b border-blue-500/20 bg-gradient-to-r from-gray-50 to-blue-50">
+          <div class="p-4 md:p-6 border-b border-blue-500/20 bg-gradient-to-r from-gray-50 to-blue-50">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3">
                 <div class="flex-shrink-0">
@@ -54,7 +54,7 @@
                   <h3 class="text-xl font-semibold text-gray-900">
                     Équitation
                   </h3>
-                  <p class="text-sm text-gray-700">
+                  <p class="text-xs md:text-sm text-gray-700">
                     Dressage, obstacles et complet
                   </p>
                 </div>
@@ -240,7 +240,7 @@
         <!-- Natation -->
         <div class="bg-white rounded-lg shadow-md border border-blue-200">
           <!-- Discipline Header -->
-          <div class="p-6 border-b border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
+          <div class="p-4 md:p-6 border-b border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3">
                 <div class="flex-shrink-0">

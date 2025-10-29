@@ -2,8 +2,8 @@
   <div class="lessons-page">
     <div class="container mx-auto px-4 py-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <div class="mb-6 md:mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Leçons Disponibles
         </h1>
         <p class="text-gray-600">
@@ -13,7 +13,7 @@
 
       <!-- Filters -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Filtres</h2>
+        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Filtres</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Discipline</label>
@@ -94,7 +94,7 @@
       </div>
 
       <!-- Lessons Grid -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-4 md:gap-6">
         <div 
           v-for="lesson in filteredLessons" 
           :key="lesson.id"
@@ -104,10 +104,10 @@
             <!-- Lesson Header -->
             <div class="flex items-start justify-between mb-4">
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-1">
                   {{ lesson.title || 'Leçon' }}
                 </h3>
-                <p class="text-sm text-gray-600">
+                <p class="text-xs md:text-sm text-gray-600">
                   {{ lesson.course_type?.name || 'Type non spécifié' }}
                 </p>
               </div>
@@ -164,7 +164,7 @@
             </div>
 
             <!-- Description -->
-            <p v-if="lesson.description" class="text-sm text-gray-600 mb-4 line-clamp-2">
+            <p v-if="lesson.description" class="text-xs md:text-sm text-gray-600 mb-4 line-clamp-2">
               {{ lesson.description }}
             </p>
 
