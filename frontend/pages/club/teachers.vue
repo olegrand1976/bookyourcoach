@@ -10,24 +10,15 @@
               Gérez vos enseignants et leurs informations
             </p>
           </div>
-          <div class="flex space-x-3">
+          <div>
             <button 
               @click="showNewTeacherModal = true"
-              class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2"
+              class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2 shadow-md hover:shadow-lg"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
               </svg>
-              <span>Nouvel enseignant</span>
-            </button>
-            <button 
-              @click="showAddTeacherModal = true"
-              class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 font-medium flex items-center space-x-2"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-              <span>Enseignant existant</span>
+              <span>Ajouter un enseignant</span>
             </button>
           </div>
         </div>
@@ -284,14 +275,6 @@
     </div>
 
     <!-- Modal d'ajout d'enseignant -->
-    <AddTeacherAdvancedModal 
-      v-if="showAddTeacherModal" 
-      @close="showAddTeacherModal = false" 
-      @success="loadTeachers"
-      @open-new-teacher="openNewTeacherForm"
-    />
-    
-    <!-- Modal de création d'enseignant -->
     <AddTeacherModal 
       v-if="showNewTeacherModal" 
       @close="showNewTeacherModal = false" 
@@ -317,7 +300,6 @@ definePageMeta({
 })
 
 const teachers = ref([])
-const showAddTeacherModal = ref(false)
 const showNewTeacherModal = ref(false)
 const showEditTeacherModal = ref(false)
 const selectedTeacher = ref(null)
@@ -406,11 +388,40 @@ const loadTeachers = async () => {
     
     console.log('✅ Enseignants reçus:', response)
     
-    if (response.data.success && response.data.data) {
-      teachers.value = response.data.data
+    if (response.data.success && response.data.teachers) {
+      // Mapper les données pour inclure les informations de l'utilisateur
+      teachers.value = response.data.teachers.map(teacher => {
+        // Gérer les spécialités (peuvent être JSON ou tableau)
+        let specializations = []
+        if (teacher.specialties) {
+          try {
+            specializations = typeof teacher.specialties === 'string' 
+              ? JSON.parse(teacher.specialties) 
+              : teacher.specialties
+          } catch (e) {
+            console.warn('Erreur parsing specialties:', e)
+            specializations = []
+          }
+        }
+        
+        return {
+          id: teacher.id,
+          name: teacher.user?.name || 'N/A',
+          email: teacher.user?.email || 'N/A',
+          phone: teacher.user?.phone || null,
+          hourly_rate: teacher.hourly_rate || 0,
+          experience_years: teacher.experience_years || 0,
+          bio: teacher.bio || '',
+          specializations: Array.isArray(specializations) ? specializations : []
+        }
+      })
+      
+      console.log('✅ Enseignants mappés:', teachers.value)
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des enseignants:', error)
+    const toast = useToast()
+    toast.error('Erreur lors du chargement des enseignants')
   }
 }
 
@@ -436,29 +447,28 @@ const deleteTeacher = async (teacher) => {
   
   try {
     const { $api } = useNuxtApp()
+    const toast = useToast()
     const response = await $api.delete(`/club/teachers/${teacher.id}`)
     
     console.log('✅ Enseignant supprimé:', response)
     
     if (response.data.success) {
-      alert(response.data.message || 'Enseignant retiré du club avec succès')
-      loadTeachers()
+      toast.success(response.data.message || 'Enseignant retiré du club avec succès')
+      await loadTeachers()
     } else {
-      alert('Erreur lors de la suppression de l\'enseignant')
+      toast.error('Erreur lors de la suppression de l\'enseignant')
     }
   } catch (error) {
     console.error('❌ Erreur lors de la suppression de l\'enseignant:', error)
-    alert('Erreur lors de la suppression de l\'enseignant. Veuillez réessayer.')
+    const toast = useToast()
+    toast.error(error.response?.data?.message || 'Erreur lors de la suppression de l\'enseignant. Veuillez réessayer.')
   }
-}
-
-const openNewTeacherForm = () => {
-  showNewTeacherModal.value = true
 }
 
 // Renvoyer l'invitation à un enseignant
 const resendInvitation = async (teacherId) => {
   resending.value[teacherId] = true
+  const toast = useToast()
   
   try {
     const { $api } = useNuxtApp()
@@ -467,9 +477,9 @@ const resendInvitation = async (teacherId) => {
     console.log('✅ Email renvoyé:', response)
     
     if (response.data.success) {
-      alert(response.data.message || 'Email d\'invitation renvoyé avec succès')
+      toast.success(response.data.message || 'Email d\'invitation renvoyé avec succès')
     } else {
-      alert(response.data.message || 'Erreur lors du renvoi de l\'invitation')
+      toast.error(response.data.message || 'Erreur lors du renvoi de l\'invitation')
     }
     
   } catch (error) {
@@ -477,7 +487,7 @@ const resendInvitation = async (teacherId) => {
     
     // Afficher le message d'erreur du serveur s'il existe
     const errorMessage = error.response?.data?.message || error.message || 'Erreur lors du renvoi de l\'invitation. Veuillez réessayer.'
-    alert(errorMessage)
+    toast.error(errorMessage)
   } finally {
     resending.value[teacherId] = false
   }
