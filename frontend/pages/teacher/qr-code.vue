@@ -2,32 +2,32 @@
   <div class="min-h-screen bg-gray-50">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Mon QR Code</h1>
-        <p class="mt-2 text-gray-600">
+      <div class="mb-6 md:mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mon QR Code</h1>
+        <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
           Présentez ce QR code aux clubs pour vous ajouter rapidement
         </p>
       </div>
 
       <!-- QR Code Card -->
       <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <div class="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="px-4 md:px-6 py-3 md:py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center space-x-2 md:space-x-3 min-w-0">
+              <div class="p-1.5 md:p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md flex-shrink-0">
+                <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
                 </svg>
               </div>
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900">Code QR Personnel</h3>
-                <p class="text-sm text-gray-600">{{ user?.name }} - {{ user?.email }}</p>
+              <div class="min-w-0">
+                <h3 class="text-sm md:text-lg font-semibold text-gray-900">Code QR Personnel</h3>
+                <p class="text-xs md:text-sm text-gray-600 truncate">{{ user?.name }} - {{ user?.email }}</p>
               </div>
             </div>
             <button 
               @click="generateNewQrCode"
               :disabled="loading"
-              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium"
+              class="w-full sm:w-auto inline-flex items-center justify-center px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md text-xs md:text-sm font-medium"
             >
               <svg v-if="!loading" class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -40,7 +40,7 @@
           </div>
         </div>
         
-        <div class="p-8">
+        <div class="p-4 md:p-8">
           <div v-if="qrData" class="text-center">
             <!-- QR Code SVG -->
             <div class="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg shadow-sm">
@@ -68,16 +68,16 @@
       </div>
 
       <!-- Instructions -->
-      <div class="mt-8 bg-blue-50 rounded-xl p-6">
-        <div class="flex items-start space-x-3">
-          <div class="bg-blue-100 p-2 rounded-lg">
-            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="mt-6 md:mt-8 bg-blue-50 rounded-xl p-4 md:p-6">
+        <div class="flex items-start space-x-2 md:space-x-3">
+          <div class="bg-blue-100 p-1.5 md:p-2 rounded-lg flex-shrink-0">
+            <svg class="w-4 h-4 md:w-5 md:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </div>
           <div>
-            <h4 class="text-lg font-semibold text-gray-900 mb-2">Comment utiliser votre QR code</h4>
-            <div class="space-y-2 text-sm text-gray-700">
+            <h4 class="text-base md:text-lg font-semibold text-gray-900 mb-2">Comment utiliser votre QR code</h4>
+            <div class="space-y-1.5 md:space-y-2 text-xs md:text-sm text-gray-700">
               <p>1. <strong>Présentez votre QR code</strong> aux clubs qui souhaitent vous ajouter</p>
               <p>2. <strong>Ils peuvent le scanner</strong> avec leur application ou saisir le code manuellement</p>
               <p>3. <strong>Vous serez ajouté</strong> automatiquement à leur liste d'enseignants</p>
@@ -88,24 +88,24 @@
       </div>
 
       <!-- Clubs actuels -->
-      <div v-if="userClubs.length > 0" class="mt-8 bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-teal-50">
-          <h3 class="text-lg font-semibold text-gray-900">Clubs où vous enseignez</h3>
+      <div v-if="userClubs.length > 0" class="mt-6 md:mt-8 bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="px-4 md:px-6 py-3 md:py-4 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+          <h3 class="text-base md:text-lg font-semibold text-gray-900">Clubs où vous enseignez</h3>
         </div>
-        <div class="p-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-4 md:p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div 
               v-for="club in userClubs" 
               :key="club.id" 
-              class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+              class="border border-gray-200 rounded-lg p-3 md:p-4 hover:bg-gray-50 transition-colors"
             >
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="font-medium text-gray-900">{{ club.name }}</h4>
-                  <p class="text-sm text-gray-600">{{ club.email }}</p>
-                  <p class="text-xs text-emerald-600">Membre depuis {{ formatDate(club.pivot.joined_at) }}</p>
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <h4 class="text-sm md:text-base font-medium text-gray-900 break-words">{{ club.name }}</h4>
+                  <p class="text-xs md:text-sm text-gray-600 break-all">{{ club.email }}</p>
+                  <p class="text-xs text-emerald-600 mt-1">Membre depuis {{ formatDate(club.pivot.joined_at) }}</p>
                 </div>
-                <span class="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
+                <span class="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full flex-shrink-0">
                   Actif
                 </span>
               </div>
