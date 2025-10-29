@@ -42,8 +42,15 @@
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">Enseignants affiliés</h2>
-              <p class="text-sm text-gray-600 mt-1">Cliquez sur un enseignant pour générer sa lettre</p>
+              <h2 class="text-xl font-semibold text-gray-900">Enseignants bénévoles</h2>
+              <p class="text-sm text-gray-600 mt-1">
+                <span class="inline-flex items-center">
+                  <svg class="w-4 h-4 mr-1 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                  Uniquement les enseignants avec contrat de type "Bénévole"
+                </span>
+              </p>
             </div>
             <button 
               @click="sendToAll" 
@@ -96,8 +103,14 @@
           <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          <p class="text-lg font-medium">Aucun enseignant affilié</p>
-          <p class="text-sm mt-1">Ajoutez des enseignants à votre club pour générer leurs lettres</p>
+          <p class="text-lg font-medium">Aucun enseignant bénévole</p>
+          <p class="text-sm mt-1">Assurez-vous que le type de contrat de vos enseignants soit défini sur "Bénévole"</p>
+          <NuxtLink to="/club/teachers" class="inline-flex items-center mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Gérer les enseignants
+          </NuxtLink>
         </div>
       </div>
 
@@ -257,10 +270,13 @@ async function loadData() {
       console.log('📊 Club data loaded:', clubData.value)
     }
     
-    // Charger les enseignants affiliés
-    const teachersRes = await $api.get('/club/teachers')
+    // Charger uniquement les enseignants bénévoles (volunteer)
+    const teachersRes = await $api.get('/club/teachers', {
+      params: { contract_type: 'volunteer' }
+    })
     if (teachersRes.data.success) {
       teachers.value = teachersRes.data.teachers || []
+      console.log(`📋 ${teachers.value.length} enseignant(s) bénévole(s) chargé(s)`)
     }
   } catch (error) {
     console.error('Erreur chargement:', error)

@@ -438,15 +438,38 @@ class ClubController extends Controller
                 ], 404);
             }
             
-            // Récupérer les enseignants avec leurs utilisateurs
-            $teachers = $club->teachers()
+            // Récupérer les enseignants avec leurs utilisateurs et les données du pivot
+            $query = $club->teachers()
                 ->with('user')
-                ->wherePivot('is_active', true)
-                ->get();
+                ->withPivot('contract_type', 'hourly_rate', 'is_active')
+                ->wherePivot('is_active', true);
+            
+            // Filtrer par type de contrat si spécifié
+            if ($request->has('contract_type')) {
+                $contractType = $request->input('contract_type');
+                // Si contract_type est 'volunteer', filtrer sur 'volunteer' OU NULL (par défaut)
+                if ($contractType === 'volunteer') {
+                    $query->where(function ($q) {
+                        $q->wherePivot('contract_type', 'volunteer')
+                          ->orWhereNull('club_teachers.contract_type');
+                    });
+                } else {
+                    $query->wherePivot('contract_type', $contractType);
+                }
+            }
+            
+            $teachers = $query->get()
+                ->map(function ($teacher) {
+                    // Ajouter les données du pivot directement dans l'objet enseignant
+                    $teacher->contract_type = $teacher->pivot->contract_type ?? 'volunteer'; // Par défaut: volunteer
+                    $teacher->pivot_hourly_rate = $teacher->pivot->hourly_rate ?? null;
+                    return $teacher;
+                });
             
             \Log::info('ClubController::getTeachers - Enseignants trouvés', [
                 'club_id' => $clubUser->club_id,
-                'teachers_count' => $teachers->count()
+                'teachers_count' => $teachers->count(),
+                'contract_type_filter' => $request->input('contract_type', 'all')
             ]);
             
             return response()->json([
@@ -539,7 +562,7 @@ class ClubController extends Controller
                 'postal_code' => 'nullable|string|max:10',
                 'city' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
-                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern',
+                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern,article17',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'bio' => 'nullable|string',
             ]);
@@ -797,7 +820,7 @@ class ClubController extends Controller
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'experience_years' => 'nullable|integer|min:0',
                 'bio' => 'nullable|string',
-                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern',
+                'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern,article17',
             ]);
 
             if ($validator->fails()) {

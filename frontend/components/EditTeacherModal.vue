@@ -98,6 +98,7 @@
                   <option value="freelance">Indépendant</option>
                   <option value="employee">Salarié</option>
                   <option value="volunteer">Bénévole</option>
+                  <option value="article17">Article 17</option>
                   <option value="student">Étudiant</option>
                   <option value="intern">Stagiaire</option>
                 </select>

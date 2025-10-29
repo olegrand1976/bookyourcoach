@@ -198,7 +198,7 @@
                     </span>
                   </div>
                   
-                  <div class="mt-2 flex items-center space-x-4 text-sm">
+                  <div class="mt-2 flex items-center space-x-4 text-sm flex-wrap gap-2">
                     <span class="flex items-center text-blue-600">
                       <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
@@ -211,6 +211,10 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                       </svg>
                       {{ teacher.experience_years }} ans d'expérience
+                    </span>
+                    
+                    <span v-if="teacher.contract_type" class="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-800 rounded-full">
+                      {{ getContractTypeLabel(teacher.contract_type) }}
                     </span>
                   </div>
                   
@@ -387,6 +391,19 @@ const getSpecializationLabel = (spec) => {
   return labels[spec] || spec
 }
 
+// Helper pour les labels de type de contrat
+const getContractTypeLabel = (contractType) => {
+  const labels = {
+    'freelance': 'Indépendant',
+    'employee': 'Salarié',
+    'volunteer': 'Bénévole',
+    'article17': 'Article 17',
+    'student': 'Étudiant',
+    'intern': 'Stagiaire'
+  }
+  return labels[contractType] || contractType
+}
+
 // Charger les enseignants
 const loadTeachers = async () => {
   try {
@@ -422,6 +439,7 @@ const loadTeachers = async () => {
           hourly_rate: parseFloat(teacher.hourly_rate) || 0,
           experience_years: parseInt(teacher.experience_years) || 0,
           bio: teacher.bio || '',
+          contract_type: teacher.contract_type || 'freelance',
           specializations: Array.isArray(specializations) ? specializations : []
         }
       })
