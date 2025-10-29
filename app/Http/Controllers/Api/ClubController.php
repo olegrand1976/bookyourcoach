@@ -525,6 +525,7 @@ class ClubController extends Controller
                     'students.id',  // Corrigé : retourner students.id au lieu de users.id
                     'users.name',
                     'users.email',
+                    'users.phone',
                     'students.date_of_birth',
                     'students.level',
                     'students.total_lessons',
