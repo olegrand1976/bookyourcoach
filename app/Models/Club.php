@@ -138,7 +138,7 @@ class Club extends Model
     public function teachers()
     {
         return $this->belongsToMany(Teacher::class, 'club_teachers')
-                    ->withPivot(['allowed_disciplines', 'restricted_disciplines', 'hourly_rate', 'is_active', 'joined_at'])
+                    ->withPivot(['allowed_disciplines', 'restricted_disciplines', 'hourly_rate', 'is_active', 'joined_at', 'contract_type'])
                     ->withTimestamps();
     }
 
