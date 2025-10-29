@@ -29,6 +29,7 @@ services:
       - ./database/factories:/var/www/html/database/factories
       - ./routes:/var/www/html/routes
       - ./tests:/var/www/html/tests
+      - ./resources:/var/www/html/resources
       - ./phpunit.xml:/var/www/html/phpunit.xml:ro
       - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
     depends_on:
