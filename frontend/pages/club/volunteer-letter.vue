@@ -1,15 +1,15 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
+  <div class="min-h-screen bg-gray-50 p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
-      <div class="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-lg p-6 border-2 border-purple-100">
+      <div class="mb-6 md:mb-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-lg p-4 md:p-6 border-2 border-purple-100">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">Lettre de Volontariat</h1>
-            <p class="mt-2 text-gray-600">Générer les lettres d'information pour vos enseignants</p>
+          <div class="flex-1">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900">Lettre de Volontariat</h1>
+            <p class="mt-1 md:mt-2 text-xs md:text-base text-gray-600">Générer les lettres d'information pour vos enseignants</p>
           </div>
-          <div class="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="p-2 md:p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md flex-shrink-0 ml-4">
+            <svg class="w-6 h-6 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
@@ -39,25 +39,26 @@
 
       <!-- Liste des enseignants -->
       <div v-if="clubInfoComplete" class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">Enseignants bénévoles</h2>
-              <p class="text-sm text-gray-600 mt-1">
+        <div class="px-4 md:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div class="flex flex-col space-y-3 md:flex-row md:items-center md:justify-between md:space-y-0">
+            <div class="flex-1">
+              <h2 class="text-lg md:text-xl font-semibold text-gray-900">Enseignants bénévoles</h2>
+              <p class="text-xs md:text-sm text-gray-600 mt-1">
                 <span class="inline-flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                   </svg>
-                  Uniquement les enseignants avec contrat de type "Bénévole"
+                  <span class="hidden sm:inline">Uniquement les enseignants avec contrat de type "Bénévole"</span>
+                  <span class="sm:hidden">Contrat "Bénévole"</span>
                 </span>
               </p>
             </div>
-            <div class="flex items-center space-x-3">
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <NuxtLink 
                 to="/club/volunteer-letter-history"
-                class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                class="inline-flex items-center justify-center px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm"
               >
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 md:w-5 md:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Historique
@@ -65,15 +66,16 @@
               <button 
                 @click="sendToAll" 
                 :disabled="sendingAll || teachers.length === 0"
-                class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                class="inline-flex items-center justify-center px-3 md:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md text-sm"
               >
-                <svg v-if="!sendingAll" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg v-if="!sendingAll" class="w-4 h-4 md:w-5 md:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
                 </svg>
-                <svg v-else class="animate-spin w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg v-else class="animate-spin w-4 h-4 md:w-5 md:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                {{ sendingAll ? 'Envoi en cours...' : 'Envoyer à tous' }}
+                <span class="hidden sm:inline">{{ sendingAll ? 'Envoi en cours...' : 'Envoyer à tous' }}</span>
+                <span class="sm:hidden">{{ sendingAll ? 'Envoi...' : 'Tous' }}</span>
               </button>
             </div>
           </div>
@@ -88,24 +90,25 @@
         <!-- Liste -->
         <div v-else-if="teachers.length > 0" class="divide-y divide-gray-200">
           <div v-for="teacher in teachers" :key="teacher.id" 
-               class="p-6 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between"
+               class="p-4 md:p-6 hover:bg-gray-50 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0"
                @click="selectTeacher(teacher)">
-            <div class="flex items-center space-x-4">
-              <div class="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center space-x-3 md:space-x-4 flex-1 min-w-0">
+              <div class="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex-shrink-0">
+                <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <div>
-                <h3 class="font-semibold text-gray-900">{{ teacher.user?.name }}</h3>
-                <p class="text-sm text-gray-600">{{ teacher.user?.email }}</p>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-semibold text-sm md:text-base text-gray-900 break-words">{{ teacher.user?.name }}</h3>
+                <p class="text-xs md:text-sm text-gray-600 break-all">{{ teacher.user?.email }}</p>
               </div>
             </div>
-            <button class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button class="w-full sm:w-auto inline-flex items-center justify-center px-3 md:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm">
+              <svg class="w-4 h-4 md:w-5 md:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Générer la lettre
+              <span class="hidden sm:inline">Générer la lettre</span>
+              <span class="sm:hidden">Générer</span>
             </button>
           </div>
         </div>
