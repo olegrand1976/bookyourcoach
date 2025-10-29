@@ -231,12 +231,25 @@ class VolunteerLetterController extends Controller
             $sends = VolunteerLetterSend::where('club_id', $clubUser->club_id)
                 ->with(['teacher.user', 'sentBy'])
                 ->orderBy('created_at', 'desc')
-                ->limit(100)
+                ->limit(500) // Augmenté pour un historique complet
                 ->get();
+            
+            // Formatter les données pour le frontend
+            $history = $sends->map(function ($send) {
+                return [
+                    'id' => $send->id,
+                    'teacher_name' => $send->teacher->user->name ?? 'N/A',
+                    'teacher_email' => $send->teacher->user->email ?? 'N/A',
+                    'status' => $send->status,
+                    'sent_at' => $send->sent_at ?? $send->created_at,
+                    'sent_by_name' => $send->sentBy->name ?? 'N/A',
+                    'error_message' => $send->error_message
+                ];
+            });
             
             return response()->json([
                 'success' => true,
-                'sends' => $sends
+                'history' => $history
             ]);
             
         } catch (\Exception $e) {
