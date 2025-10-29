@@ -104,7 +104,7 @@
     
     <div class="partie">
         <p class="bold">L'ASBL : {{ $club->name }}</p>
-        <p>Siège social : {{ $club->address }}@if($club->postal_code && $club->city), {{ $club->postal_code }} {{ $club->city }}@endif@if($club->country), {{ $club->country }}@endif</p>
+        <p>Siège social : {{ $club->address }}@if($club->postal_code && $club->city), {{ $club->postal_code }} {{ $club->city }}@endif @if($club->country), {{ $club->country }}@endif</p>
         @if($club->company_number)
         <p>Numéro BCE : {{ $club->company_number }}</p>
         @endif
@@ -119,8 +119,8 @@
         <p>Le/La Volontaire : {{ $teacher->user->name }}</p>
         @if($teacher->user->address || $teacher->user->city)
         <p>Adresse : 
-            @if($teacher->user->address){{ $teacher->user->address }}@endif
-            @if($teacher->user->postal_code && $teacher->user->city), {{ $teacher->user->postal_code }} {{ $teacher->user->city }}@endif
+            @if($teacher->user->address){{ $teacher->user->address }}@endif 
+            @if($teacher->user->postal_code && $teacher->user->city), {{ $teacher->user->postal_code }} {{ $teacher->user->city }}@endif 
             @if($teacher->user->country), {{ $teacher->user->country }}@endif
         </p>
         @endif
