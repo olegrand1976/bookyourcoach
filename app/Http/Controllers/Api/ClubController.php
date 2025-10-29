@@ -402,6 +402,11 @@ class ClubController extends Controller
         try {
             $user = $request->user();
             
+            \Log::info('ClubController::getTeachers - Début', [
+                'user_id' => $user->id,
+                'email' => $user->email
+            ]);
+            
             // Récupérer le club associé à cet utilisateur
             $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
@@ -409,37 +414,56 @@ class ClubController extends Controller
                 ->first();
             
             if (!$clubUser) {
+                \Log::warning('ClubController::getTeachers - Aucun club trouvé', [
+                    'user_id' => $user->id
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Aucun club associé à cet utilisateur'
                 ], 404);
             }
             
-            $teachers = DB::table('club_teachers')
-                ->join('teachers', 'club_teachers.teacher_id', '=', 'teachers.id')
-                ->join('users', 'teachers.user_id', '=', 'users.id')
-                ->where('club_teachers.club_id', $clubUser->club_id)
-                ->where('club_teachers.is_active', true)
-                ->select(
-                    'teachers.id',  // Corrigé : retourner teachers.id au lieu de users.id
-                    'users.name',
-                    'users.email',
-                    'teachers.hourly_rate',
-                    'teachers.experience_years',
-                    'teachers.specialties',
-                    'club_teachers.joined_at'
-                )
+            \Log::info('ClubController::getTeachers - Club trouvé', [
+                'club_id' => $clubUser->club_id
+            ]);
+            
+            // Utiliser Eloquent pour obtenir les relations
+            $club = \App\Models\Club::find($clubUser->club_id);
+            
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+            
+            // Récupérer les enseignants avec leurs utilisateurs
+            $teachers = $club->teachers()
+                ->with('user')
+                ->wherePivot('is_active', true)
                 ->get();
+            
+            \Log::info('ClubController::getTeachers - Enseignants trouvés', [
+                'club_id' => $clubUser->club_id,
+                'teachers_count' => $teachers->count()
+            ]);
             
             return response()->json([
                 'success' => true,
-                'data' => $teachers
+                'teachers' => $teachers
             ]);
             
         } catch (\Exception $e) {
+            \Log::error('ClubController::getTeachers - Exception', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des enseignants'
+                'message' => 'Erreur lors de la récupération des enseignants: ' . $e->getMessage()
             ], 500);
         }
     }
