@@ -30,6 +30,9 @@
                 Compléter maintenant
               </NuxtLink>
             </p>
+            <div v-if="missingFieldsList.length > 0" class="mt-2 text-xs text-yellow-600">
+              <strong>Champs manquants :</strong> {{ missingFieldsList.join(', ') }}
+            </div>
           </div>
         </div>
       </div>
@@ -178,8 +181,36 @@ const sending = ref(false)
 const sendingAll = ref(false)
 
 // Computed
+const missingFieldsList = computed(() => {
+  if (!clubData.value) return []
+  
+  const required = {
+    'name': 'Nom du club',
+    'company_number': 'Numéro d\'entreprise',
+    'legal_representative_name': 'Nom du représentant légal',
+    'legal_representative_role': 'Fonction du représentant',
+    'insurance_rc_company': 'Compagnie d\'assurance RC',
+    'insurance_rc_policy_number': 'Numéro de police RC',
+    'expense_reimbursement_type': 'Type de défraiement'
+  }
+  
+  const missing = []
+  Object.entries(required).forEach(([field, label]) => {
+    const value = clubData.value[field]
+    const isValid = value !== null && value !== undefined && value !== ''
+    if (!isValid) {
+      missing.push(label)
+    }
+  })
+  
+  return missing
+})
+
 const clubInfoComplete = computed(() => {
-  if (!clubData.value) return false
+  if (!clubData.value) {
+    console.log('❌ clubData.value est null ou undefined')
+    return false
+  }
   
   const required = [
     'name',
@@ -191,7 +222,27 @@ const clubInfoComplete = computed(() => {
     'expense_reimbursement_type'
   ]
   
-  return required.every(field => clubData.value[field])
+  console.log('🔍 Vérification des champs obligatoires:')
+  const missingFields = []
+  required.forEach(field => {
+    const value = clubData.value[field]
+    const isValid = value !== null && value !== undefined && value !== ''
+    console.log(`  - ${field}: "${value}" → ${isValid ? '✅' : '❌'}`)
+    if (!isValid) {
+      missingFields.push(field)
+    }
+  })
+  
+  if (missingFields.length > 0) {
+    console.log(`❌ Champs manquants: ${missingFields.join(', ')}`)
+  } else {
+    console.log('✅ Tous les champs obligatoires sont remplis')
+  }
+  
+  return required.every(field => {
+    const value = clubData.value[field]
+    return value !== null && value !== undefined && value !== ''
+  })
 })
 
 // Méthodes
@@ -201,8 +252,10 @@ async function loadData() {
     
     // Charger les informations du club
     const clubRes = await $api.get('/club/profile')
+    console.log('📊 Réponse API /club/profile:', clubRes.data)
     if (clubRes.data.success && clubRes.data.data) {
       clubData.value = clubRes.data.data
+      console.log('📊 Club data loaded:', clubData.value)
     }
     
     // Charger les enseignants affiliés

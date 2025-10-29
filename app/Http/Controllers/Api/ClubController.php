@@ -107,14 +107,39 @@ class ClubController extends Controller
                 ], 404);
             }
             
+            // Convertir l'objet en array pour manipulation
+            $clubData = (array) $club;
+            
+            // S'assurer que tous les champs nécessaires existent (compatibilité avec bases de données sans migrations récentes)
+            $requiredFields = [
+                'company_number' => null,
+                'legal_representative_name' => null,
+                'legal_representative_role' => null,
+                'insurance_rc_company' => null,
+                'insurance_rc_policy_number' => null,
+                'insurance_additional_company' => null,
+                'insurance_additional_policy_number' => null,
+                'insurance_additional_details' => null,
+                'expense_reimbursement_type' => null,
+                'expense_reimbursement_details' => null
+            ];
+            
+            foreach ($requiredFields as $field => $defaultValue) {
+                if (!isset($clubData[$field])) {
+                    $clubData[$field] = $defaultValue;
+                }
+            }
+            
             \Log::info('ClubController::getProfile - Club trouvé', [
-                'club_id' => $club->id,
-                'club_name' => $club->name
+                'club_id' => $clubData['id'],
+                'club_name' => $clubData['name'],
+                'has_company_number' => isset($clubData['company_number']) && !empty($clubData['company_number']),
+                'has_legal_rep' => isset($clubData['legal_representative_name']) && !empty($clubData['legal_representative_name'])
             ]);
             
             return response()->json([
                 'success' => true,
-                'data' => $club
+                'data' => $clubData
             ]);
             
         } catch (\Exception $e) {
