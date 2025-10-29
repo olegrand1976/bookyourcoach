@@ -1,18 +1,18 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
+  <div class="min-h-screen bg-gray-50 p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
-      <div class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-6 border-2 border-blue-100">
+      <div class="mb-6 md:mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-4 md:p-6 border-2 border-blue-100">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900">{{ formData.name || 'Profil du Club' }}</h1>
-            <p v-if="formData.company_number" class="mt-1 text-sm font-medium text-blue-600">
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900 break-words">{{ formData.name || 'Profil du Club' }}</h1>
+            <p v-if="formData.company_number" class="mt-1 text-xs md:text-sm font-medium text-blue-600">
               N° Entreprise : {{ formData.company_number }}
             </p>
-            <p class="mt-2 text-gray-600">Gérez les informations et activités de votre club</p>
+            <p class="mt-1 md:mt-2 text-xs md:text-base text-gray-600">Gérez les informations et activités de votre club</p>
           </div>
-          <div class="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0 ml-4">
+            <svg class="w-6 h-6 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
@@ -28,10 +28,10 @@
       </div>
 
       <!-- Form -->
-      <form v-else @submit.prevent="handleSubmit" class="bg-white shadow-lg rounded-lg p-6 space-y-8">
+      <form v-else @submit.prevent="handleSubmit" class="bg-white shadow-lg rounded-lg p-4 md:p-6 space-y-6 md:space-y-8">
         <!-- Informations générales -->
-        <section class="border-b pb-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations générales</h2>
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations générales</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Nom du club *</label>
@@ -68,8 +68,8 @@
         </section>
 
         <!-- Adresse -->
-        <section class="border-b pb-6">
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">Adresse</h2>
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Adresse</h2>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
@@ -95,10 +95,10 @@
         </section>
 
         <!-- Informations légales (pour la lettre de volontariat) -->
-        <section class="border-b pb-6">
-          <div class="flex items-center justify-between mb-4">
+        <section class="border-b pb-4 md:pb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 gap-2">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">Informations Légales</h2>
+              <h2 class="text-lg md:text-xl font-semibold text-gray-900">Informations Légales</h2>
               <p class="text-sm text-gray-600 mt-1">Pour la génération de la lettre de volontariat (enseignants)</p>
             </div>
             <div class="p-2 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg">
@@ -385,13 +385,13 @@
         </section>
 
         <!-- Actions -->
-        <div class="flex justify-end space-x-4 pt-6 border-t">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 pt-4 md:pt-6 border-t">
           <button type="button" @click="goBack"
-                  class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                  class="w-full sm:w-auto px-4 md:px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm md:text-base">
             Annuler
           </button>
           <button type="submit" :disabled="isSaving"
-                  class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 min-w-[150px]">
+                  class="w-full sm:w-auto px-4 md:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 min-w-[150px] text-sm md:text-base">
             <span v-if="!isSaving">Enregistrer</span>
             <span v-else class="flex items-center justify-center">
               <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
