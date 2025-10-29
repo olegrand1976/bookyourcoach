@@ -439,32 +439,39 @@ class ClubController extends Controller
             }
             
             // Récupérer les enseignants avec leurs utilisateurs et les données du pivot
-            $query = $club->teachers()
+            $allTeachers = $club->teachers()
                 ->with('user')
                 ->withPivot('contract_type', 'hourly_rate', 'is_active')
-                ->wherePivot('is_active', true);
+                ->wherePivot('is_active', true)
+                ->get();
+            
+            // Mapper les données du pivot
+            $allTeachers = $allTeachers->map(function ($teacher) {
+                $teacher->contract_type = $teacher->pivot->contract_type ?? 'volunteer'; // Par défaut: volunteer
+                $teacher->pivot_hourly_rate = $teacher->pivot->hourly_rate ?? null;
+                return $teacher;
+            });
             
             // Filtrer par type de contrat si spécifié
             if ($request->has('contract_type')) {
                 $contractType = $request->input('contract_type');
-                // Si contract_type est 'volunteer', filtrer sur 'volunteer' OU NULL (par défaut)
+                
                 if ($contractType === 'volunteer') {
-                    $query->where(function ($q) {
-                        $q->wherePivot('contract_type', 'volunteer')
-                          ->orWhereNull('club_teachers.contract_type');
-                    });
+                    // Pour 'volunteer', inclure les enseignants avec contract_type = 'volunteer' OU NULL
+                    $teachers = $allTeachers->filter(function ($teacher) {
+                        return $teacher->contract_type === 'volunteer' || 
+                               $teacher->pivot->contract_type === null ||
+                               $teacher->pivot->contract_type === 'volunteer';
+                    })->values();
                 } else {
-                    $query->wherePivot('contract_type', $contractType);
+                    // Pour les autres types, filtrer exactement
+                    $teachers = $allTeachers->filter(function ($teacher) use ($contractType) {
+                        return $teacher->contract_type === $contractType;
+                    })->values();
                 }
+            } else {
+                $teachers = $allTeachers;
             }
-            
-            $teachers = $query->get()
-                ->map(function ($teacher) {
-                    // Ajouter les données du pivot directement dans l'objet enseignant
-                    $teacher->contract_type = $teacher->pivot->contract_type ?? 'volunteer'; // Par défaut: volunteer
-                    $teacher->pivot_hourly_rate = $teacher->pivot->hourly_rate ?? null;
-                    return $teacher;
-                });
             
             \Log::info('ClubController::getTeachers - Enseignants trouvés', [
                 'club_id' => $clubUser->club_id,
