@@ -38,79 +38,120 @@
     <!-- Contenu principal -->
     <div v-if="!hasError && !isLoading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header avec navigation -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
+      <div class="mb-6 md:mb-8">
+        <div class="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
               Tableau de bord Club
             </h1>
-            <p class="mt-2 text-gray-600">
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
               Bienvenue {{ club?.name }}, gérez votre club en un seul endroit
             </p>
           </div>
-          <div class="flex items-center space-x-4">
+          
+          <!-- Boutons desktop -->
+          <div class="hidden lg:flex items-center space-x-2 xl:space-x-4">
             <ClubNotificationBell />
             
             <button @click="navigateTo('/club/qr-code')" class="btn-qr-code">
               <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
               </svg>
-              <span>QR Code</span>
+              <span class="hidden xl:inline">QR Code</span>
             </button>
             
             <button @click="navigateTo('/club/planning')" class="btn-planning">
               <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span>Planning</span>
+              <span class="hidden xl:inline">Planning</span>
             </button>
             
             <button @click="navigateTo('/club/teachers/add')" class="btn-teacher">
               <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
               </svg>
-              <span>Enseignant</span>
+              <span class="hidden xl:inline">Enseignant</span>
             </button>
             
             <button @click="navigateTo('/club/students/add')" class="btn-student">
               <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
               </svg>
+              <span class="hidden xl:inline">Élève</span>
+            </button>
+            
+            <button @click="navigateTo('/club/volunteer-letter')" class="inline-flex items-center px-3 xl:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm">
+              <svg class="w-5 h-5 xl:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="hidden xl:inline">Lettres</span>
+            </button>
+          </div>
+
+          <!-- Boutons mobile/tablette -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:hidden">
+            <button @click="navigateTo('/club/qr-code')" class="btn-qr-code text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+              <span>QR Code</span>
+            </button>
+            
+            <button @click="navigateTo('/club/planning')" class="btn-planning text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>Planning</span>
+            </button>
+            
+            <button @click="navigateTo('/club/teachers/add')" class="btn-teacher text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Enseignant</span>
+            </button>
+            
+            <button @click="navigateTo('/club/students/add')" class="btn-student text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
               <span>Élève</span>
             </button>
             
-            <button @click="navigateTo('/club/volunteer-letter')" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md">
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button @click="navigateTo('/club/volunteer-letter')" class="inline-flex items-center justify-center px-2 sm:px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-xs sm:text-sm col-span-2 sm:col-span-1">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <span>Lettres</span>
+              <span class="hidden sm:inline">Lettres</span>
+              <span class="sm:hidden ml-2">Lettres</span>
             </button>
           </div>
         </div>
       </div>
 
       <!-- Lien vers les plafonds légaux -->
-      <div class="mb-8">
-        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
-          <div class="flex items-start">
+      <div class="mb-6 md:mb-8">
+        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 md:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-3">
             <div class="flex-shrink-0">
-              <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div class="ml-3 flex-1">
-              <h3 class="text-sm font-medium text-blue-800">Plafonds légaux de défraiement des volontaires</h3>
-              <p class="mt-2 text-sm text-blue-700">
+            <div class="flex-1">
+              <h3 class="text-sm md:text-base font-medium text-blue-800">Plafonds légaux de défraiement des volontaires</h3>
+              <p class="mt-1 md:mt-2 text-xs md:text-sm text-blue-700">
                 Consultez les montants officiels indexés pour le défraiement des volontaires en Belgique ({{ new Date().getFullYear() }}).
               </p>
-              <div class="mt-4">
+              <div class="mt-3 md:mt-4">
                 <a 
                   href="https://conseilsuperieurvolontaires.belgium.be/fr/defraiements/plafonds-limites-indexes.htm" 
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                  class="inline-flex items-center px-3 md:px-4 py-2 bg-blue-600 text-white text-xs md:text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
                 >
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3 h-3 md:w-4 md:h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                   <span>Voir les plafonds officiels</span>
