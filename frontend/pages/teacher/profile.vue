@@ -2,11 +2,11 @@
   <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- En-tête -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">Mon Profil Enseignant</h1>
-            <p class="mt-2 text-gray-600">Gérez vos informations personnelles et professionnelles</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mon Profil Enseignant</h1>
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Gérez vos informations personnelles et professionnelles</p>
           </div>
           <NuxtLink to="/teacher/dashboard"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
@@ -25,7 +25,7 @@
 
         <div v-else-if="error" class="text-center py-8">
           <div class="text-red-500 text-6xl mb-4">⚠️</div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
+          <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
           <p class="text-gray-600 mb-4">{{ error }}</p>
           <button @click="loadProfileData"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">

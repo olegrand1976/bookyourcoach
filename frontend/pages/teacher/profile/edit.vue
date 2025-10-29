@@ -2,11 +2,11 @@
   <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- En-tête -->
-      <div class="mb-8">
+      <div class="mb-6 md:mb-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">Modifier mon profil</h1>
-            <p class="mt-2 text-gray-600">Mettez à jour vos informations personnelles et professionnelles</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Modifier mon profil</h1>
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Mettez à jour vos informations personnelles et professionnelles</p>
           </div>
           <NuxtLink to="/teacher/profile"
             class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">

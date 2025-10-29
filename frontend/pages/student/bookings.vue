@@ -2,8 +2,8 @@
   <div class="bookings-page">
     <div class="container mx-auto px-4 py-8">
       <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <div class="mb-6 md:mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Mes Réservations
         </h1>
         <p class="text-gray-600">
@@ -13,7 +13,7 @@
 
       <!-- Status Filter -->
       <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Filtrer par statut</h2>
+        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Filtrer par statut</h2>
         <div class="flex flex-wrap gap-2">
           <button 
             v-for="status in statusOptions" 
@@ -62,10 +62,10 @@
             <!-- Booking Header -->
             <div class="flex items-start justify-between mb-4">
               <div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-1">
                   {{ booking.lesson?.title || 'Leçon' }}
                 </h3>
-                <p class="text-sm text-gray-600">
+                <p class="text-xs md:text-sm text-gray-600">
                   {{ booking.lesson?.course_type?.name || 'Type non spécifié' }}
                 </p>
               </div>
@@ -131,7 +131,7 @@
             <!-- Notes -->
             <div v-if="booking.notes" class="mb-4">
               <h4 class="text-sm font-medium text-gray-900 mb-1">Notes</h4>
-              <p class="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+              <p class="text-xs md:text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
                 {{ booking.notes }}
               </p>
             </div>
