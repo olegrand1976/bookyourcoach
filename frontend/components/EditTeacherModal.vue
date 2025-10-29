@@ -75,17 +75,6 @@
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
               </div>
-              
-              <div class="space-y-2">
-                <label class="block text-sm font-medium text-gray-700">Années d'expérience</label>
-                <input 
-                  v-model.number="form.experience_years" 
-                  type="number" 
-                  min="0" 
-                  placeholder="Ex: 5"
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-              </div>
 
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">
@@ -106,7 +95,7 @@
             </div>
           </div>
 
-          <!-- Section Tarifs et Bio -->
+          <!-- Section Tarifs -->
           <div class="bg-emerald-50 rounded-xl p-6">
             <div class="flex items-center mb-4">
               <div class="bg-emerald-100 p-2 rounded-lg mr-3">
@@ -114,35 +103,23 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
                 </svg>
               </div>
-              <h4 class="text-lg font-semibold text-gray-900">Tarifs et présentation</h4>
+              <h4 class="text-lg font-semibold text-gray-900">Tarifs</h4>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-2">
-                <label class="block text-sm font-medium text-gray-700">Tarif horaire (€)</label>
-                <div class="relative">
-                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span class="text-gray-500 sm:text-sm">€</span>
-                  </div>
-                  <input 
-                    v-model.number="form.hourly_rate" 
-                    type="number" 
-                    min="0" 
-                    step="0.01" 
-                    placeholder="50.00"
-                    class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  >
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">Tarif horaire (€)</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span class="text-gray-500 sm:text-sm">€</span>
                 </div>
-              </div>
-              
-              <div class="space-y-2 md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Bio / Présentation</label>
-                <textarea 
-                  v-model="form.bio" 
-                  rows="4" 
-                  placeholder="Décrivez votre expérience et votre approche pédagogique..."
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                ></textarea>
+                <input 
+                  v-model.number="form.hourly_rate" 
+                  type="number" 
+                  min="0" 
+                  step="0.01" 
+                  placeholder="50.00"
+                  class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
               </div>
             </div>
           </div>
@@ -192,9 +169,7 @@ const form = ref({
   name: '',
   email: '',
   phone: '',
-  experience_years: 0,
   hourly_rate: 0,
-  bio: '',
   contract_type: 'freelance',
 })
 
@@ -205,9 +180,7 @@ watch(() => props.teacher, (newTeacher) => {
       name: newTeacher.name || '',
       email: newTeacher.email || '',
       phone: newTeacher.phone || '',
-      experience_years: newTeacher.experience_years || 0,
       hourly_rate: newTeacher.hourly_rate || 0,
-      bio: newTeacher.bio || '',
       contract_type: newTeacher.contract_type || 'freelance',
     }
   }
@@ -228,9 +201,7 @@ const updateTeacher = async () => {
       last_name: lastName,
       email: form.value.email,
       phone: form.value.phone,
-      experience_years: form.value.experience_years,
       hourly_rate: form.value.hourly_rate,
-      bio: form.value.bio,
       contract_type: form.value.contract_type,
     })
     
