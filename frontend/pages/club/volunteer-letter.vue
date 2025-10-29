@@ -164,8 +164,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
-  middleware: ['auth'],
-  layout: 'club'
+  middleware: ['auth']
 })
 
 // Composables
