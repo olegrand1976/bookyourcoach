@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\Teacher;
 use App\Models\VolunteerLetterSend;
 use App\Mail\VolunteerLetterMail;
+use App\Jobs\SendVolunteerLetterJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -71,60 +72,20 @@ class VolunteerLetterController extends Controller
                 ], 400);
             }
             
-            // Générer le PDF
-            $pdfPath = $this->generatePDF($club, $teacher);
+            // Dispatcher le job pour l'envoi asynchrone
+            SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
             
-            // Créer l'enregistrement d'envoi
-            $letterSend = VolunteerLetterSend::create([
+            Log::info('Job d\'envoi de lettre ajouté à la queue', [
                 'club_id' => $club->id,
                 'teacher_id' => $teacher->id,
-                'sent_by_user_id' => $user->id,
-                'recipient_email' => $teacher->user->email,
-                'status' => 'pending',
+                'teacher_name' => $teacher->user->name,
+                'email' => $teacher->user->email
             ]);
             
-            try {
-                // Envoyer l'email
-                Mail::to($teacher->user->email)->send(
-                    new VolunteerLetterMail($club, $teacher, $pdfPath)
-                );
-                
-                // Marquer comme envoyé
-                $letterSend->update([
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                ]);
-                
-                // Supprimer le fichier temporaire
-                if (file_exists($pdfPath)) {
-                    unlink($pdfPath);
-                }
-                
-                Log::info('Lettre de volontariat envoyée', [
-                    'club_id' => $club->id,
-                    'teacher_id' => $teacher->id,
-                    'email' => $teacher->user->email
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Lettre envoyée avec succès à ' . $teacher->user->name
-                ]);
-                
-            } catch (\Exception $e) {
-                // Marquer comme échoué
-                $letterSend->update([
-                    'status' => 'failed',
-                    'error_message' => $e->getMessage(),
-                ]);
-                
-                // Supprimer le fichier temporaire
-                if (file_exists($pdfPath)) {
-                    unlink($pdfPath);
-                }
-                
-                throw $e;
-            }
+            return response()->json([
+                'success' => true,
+                'message' => 'La lettre à ' . $teacher->user->name . ' sera envoyée sous peu.'
+            ]);
             
         } catch (\Exception $e) {
             Log::error('Erreur envoi lettre individuelle: ' . $e->getMessage(), [
@@ -187,21 +148,16 @@ class VolunteerLetterController extends Controller
                 ], 404);
             }
             
-            $results = [
-                'total' => 0,
-                'sent' => 0,
-                'failed' => 0,
-                'skipped' => 0,
-                'details' => []
-            ];
+            $queued = 0;
+            $skipped = 0;
+            $details = [];
             
+            // Dispatcher un job pour chaque enseignant
             foreach ($teachers as $teacher) {
-                $results['total']++;
-                
                 // Vérifier que l'enseignant a un email
                 if (!$teacher->user || !$teacher->user->email) {
-                    $results['skipped']++;
-                    $results['details'][] = [
+                    $skipped++;
+                    $details[] = [
                         'teacher' => $teacher->user->name ?? 'Inconnu',
                         'status' => 'skipped',
                         'message' => 'Pas d\'adresse email'
@@ -209,77 +165,33 @@ class VolunteerLetterController extends Controller
                     continue;
                 }
                 
-                try {
-                    // Générer le PDF
-                    $pdfPath = $this->generatePDF($club, $teacher);
-                    
-                    // Créer l'enregistrement d'envoi
-                    $letterSend = VolunteerLetterSend::create([
-                        'club_id' => $club->id,
-                        'teacher_id' => $teacher->id,
-                        'sent_by_user_id' => $user->id,
-                        'recipient_email' => $teacher->user->email,
-                        'status' => 'pending',
-                    ]);
-                    
-                    // Envoyer l'email
-                    Mail::to($teacher->user->email)->send(
-                        new VolunteerLetterMail($club, $teacher, $pdfPath)
-                    );
-                    
-                    // Marquer comme envoyé
-                    $letterSend->update([
-                        'status' => 'sent',
-                        'sent_at' => now(),
-                    ]);
-                    
-                    // Supprimer le fichier temporaire
-                    if (file_exists($pdfPath)) {
-                        unlink($pdfPath);
-                    }
-                    
-                    $results['sent']++;
-                    $results['details'][] = [
-                        'teacher' => $teacher->user->name,
-                        'email' => $teacher->user->email,
-                        'status' => 'sent',
-                        'message' => 'Envoyé avec succès'
-                    ];
-                    
-                } catch (\Exception $e) {
-                    // Marquer comme échoué si l'enregistrement existe
-                    if (isset($letterSend)) {
-                        $letterSend->update([
-                            'status' => 'failed',
-                            'error_message' => $e->getMessage(),
-                        ]);
-                    }
-                    
-                    // Supprimer le fichier temporaire
-                    if (isset($pdfPath) && file_exists($pdfPath)) {
-                        unlink($pdfPath);
-                    }
-                    
-                    $results['failed']++;
-                    $results['details'][] = [
-                        'teacher' => $teacher->user->name,
-                        'email' => $teacher->user->email,
-                        'status' => 'failed',
-                        'message' => $e->getMessage()
-                    ];
-                    
-                    Log::error('Erreur envoi lettre à ' . $teacher->user->email, [
-                        'error' => $e->getMessage()
-                    ]);
-                }
+                // Dispatcher le job
+                SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
+                $queued++;
+                
+                $details[] = [
+                    'teacher' => $teacher->user->name,
+                    'email' => $teacher->user->email,
+                    'status' => 'queued',
+                    'message' => 'Ajouté à la file d\'attente'
+                ];
             }
             
-            Log::info('Envoi en masse de lettres terminé', $results);
+            Log::info('Jobs d\'envoi de lettres ajoutés à la queue', [
+                'club_id' => $club->id,
+                'queued' => $queued,
+                'skipped' => $skipped
+            ]);
             
             return response()->json([
                 'success' => true,
-                'message' => "Envoi terminé : {$results['sent']} envoyés, {$results['failed']} échecs, {$results['skipped']} ignorés",
-                'results' => $results
+                'message' => "{$queued} lettre(s) en cours d'envoi. Vous serez notifié une fois l'envoi terminé.",
+                'results' => [
+                    'total' => $teachers->count(),
+                    'queued' => $queued,
+                    'skipped' => $skipped,
+                    'details' => $details
+                ]
             ]);
             
         } catch (\Exception $e) {
