@@ -89,6 +89,19 @@ services:
     networks:
       - app-network
 
+  # MailHog pour capturer et visualiser les emails en développement
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: activibe-mailhog-local
+    restart: unless-stopped
+    ports:
+      # Interface web pour visualiser les emails
+      - "8026:8025"
+      # Port SMTP pour l'envoi d'emails (1026 au lieu de 1025 pour éviter les conflits)
+      - "1026:1025"
+    networks:
+      - app-network
+
   # Neo4j Database
   neo4j:
     image: neo4j:5.15-community
