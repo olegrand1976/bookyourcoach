@@ -45,8 +45,11 @@ export const useAuthStore = defineStore('auth', {
           const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
           
           // Utiliser l'API native pour éviter les problèmes de Nuxt
+          // Encoder en base64 pour éviter les problèmes d'encodage UTF-8
           const setCookie = (name, value, options = {}) => {
-            let cookieString = `${name}=${encodeURIComponent(value)}`
+            // Pour les données UTF-8, encoder en base64 pour éviter les problèmes
+            const encodedValue = btoa(unescape(encodeURIComponent(value)))
+            let cookieString = `${name}=${encodedValue}`
             if (options.expires) cookieString += `; expires=${options.expires}`
             if (options.path) cookieString += `; path=${options.path}`
             if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
@@ -65,9 +68,9 @@ export const useAuthStore = defineStore('auth', {
             sameSite: 'Lax'
           })
           
-          console.log('🚀 [LOGIN ULTRA SIMPLE] Token et user sauvegardés dans les cookies (API native)')
+          console.log('🚀 [LOGIN ULTRA SIMPLE] Token et user sauvegardés dans les cookies (base64 UTF-8)')
           console.log('🚀 [LOGIN ULTRA SIMPLE] Token:', this.token?.substring(0, 20) + '...')
-          console.log('🚀 [LOGIN ULTRA SIMPLE] User JSON:', JSON.stringify(this.user).substring(0, 50) + '...')
+          console.log('🚀 [LOGIN ULTRA SIMPLE] User name:', this.user?.name)
         }
 
         console.log('🚀 [LOGIN ULTRA SIMPLE] Token stocké, type:', typeof this.token)
@@ -163,11 +166,18 @@ export const useAuthStore = defineStore('auth', {
           const parts = value.split(`; ${name}=`);
           if (parts.length === 2) {
             const cookieValue = parts.pop().split(';').shift();
-            // Décoder pour gérer correctement les caractères UTF-8
+            // Décoder base64 puis UTF-8 pour gérer correctement les caractères spéciaux
             try {
-              return decodeURIComponent(cookieValue);
+              // Essayer d'abord le nouveau format (base64)
+              const decoded = decodeURIComponent(escape(atob(cookieValue)))
+              return decoded
             } catch (e) {
-              return cookieValue;
+              // Si ça échoue, essayer l'ancien format (direct)
+              try {
+                return decodeURIComponent(cookieValue);
+              } catch (e2) {
+                return cookieValue;
+              }
             }
           }
           return null;
@@ -194,26 +204,6 @@ export const useAuthStore = defineStore('auth', {
             // authUserRaw est déjà décodé par getCookie()
             this.user = JSON.parse(authUserRaw)
             this.isAuthenticated = true
-            
-            // Vérifier si le nom contient des caractères mal encodés et re-sauvegarder
-            if (this.user?.name && this.user.name.includes('Ã')) {
-              console.warn('🔧 [INIT] Détection de caractères mal encodés, régénération des cookies')
-              // Forcer la mise à jour du cookie avec le bon encodage
-              const maxAge = 60 * 60 * 24 * 7 // 7 jours
-              const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
-              const setCookie = (name, value, options = {}) => {
-                let cookieString = `${name}=${encodeURIComponent(value)}`
-                if (options.expires) cookieString += `; expires=${options.expires}`
-                if (options.path) cookieString += `; path=${options.path}`
-                if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
-                document.cookie = cookieString
-              }
-              setCookie('auth-user', JSON.stringify(this.user), {
-                expires: expires,
-                path: '/',
-                sameSite: 'Lax'
-              })
-            }
             
             console.log('🚀 [INIT ULTRA SIMPLE] Token et user restaurés depuis cookies (API native)')
             console.log('🚀 [INIT ULTRA SIMPLE] User:', this.user?.email, 'Role:', this.user?.role)
