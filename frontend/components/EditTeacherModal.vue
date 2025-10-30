@@ -1,7 +1,7 @@
 <template>
   <!-- Modal avec design moderne et responsive -->
   <div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
       <!-- Header avec gradient et icône -->
       <div class="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
         <div class="flex items-center justify-between">
@@ -75,10 +75,21 @@
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 >
               </div>
+              
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Années d'expérience</label>
+                <input 
+                  v-model.number="form.experience_years" 
+                  type="number" 
+                  min="0" 
+                  placeholder="Ex: 5"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+              </div>
 
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">
-                  Type de contrat
+                  Type de contrat <span class="text-red-500">*</span>
                 </label>
                 <select 
                   v-model="form.contract_type"
@@ -95,7 +106,63 @@
             </div>
           </div>
 
-          <!-- Section Tarifs -->
+          <!-- Section Spécialisations -->
+          <div class="bg-purple-50 rounded-xl p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-purple-100 p-2 rounded-lg mr-3">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                </svg>
+              </div>
+              <div>
+                <h4 class="text-lg font-semibold text-gray-900">Spécialisations</h4>
+                <p class="text-sm text-gray-600">(Optionnel - à titre informatif)</p>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div 
+                v-for="specialization in availableSpecializations" 
+                :key="specialization.value" 
+                class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md"
+                :class="form.specializations.includes(specialization.value) 
+                  ? 'border-purple-500 bg-purple-50 shadow-md' 
+                  : 'border-gray-200 bg-white hover:border-gray-300'"
+                @click="toggleSpecialization(specialization.value)"
+              >
+                <input 
+                  :id="'specialization-' + specialization.value" 
+                  v-model="form.specializations" 
+                  :value="specialization.value" 
+                  type="checkbox" 
+                  class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                >
+                <label 
+                  :for="'specialization-' + specialization.value" 
+                  class="ml-3 flex-1 cursor-pointer"
+                >
+                  <span class="text-sm font-medium text-gray-900 flex items-center">
+                    <span class="mr-2">{{ specialization.icon }}</span>
+                    {{ specialization.label }}
+                  </span>
+                  <span class="text-xs text-gray-500 block">{{ specialization.description }}</span>
+                </label>
+              </div>
+            </div>
+            
+            <div v-if="form.specializations.length === 0" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                <p class="text-sm text-yellow-800">
+                  Aucune spécialisation sélectionnée. L'enseignant pourra enseigner toutes les disciplines.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Tarifs et Bio -->
           <div class="bg-emerald-50 rounded-xl p-6">
             <div class="flex items-center mb-4">
               <div class="bg-emerald-100 p-2 rounded-lg mr-3">
@@ -103,23 +170,35 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
                 </svg>
               </div>
-              <h4 class="text-lg font-semibold text-gray-900">Tarifs</h4>
+              <h4 class="text-lg font-semibold text-gray-900">Tarifs et présentation</h4>
             </div>
             
-            <div class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700">Tarif horaire (€)</label>
-              <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span class="text-gray-500 sm:text-sm">€</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Tarif horaire (€)</label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-500 sm:text-sm">€</span>
+                  </div>
+                  <input 
+                    v-model.number="form.hourly_rate" 
+                    type="number" 
+                    min="0" 
+                    step="0.01" 
+                    placeholder="50.00"
+                    class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
                 </div>
-                <input 
-                  v-model.number="form.hourly_rate" 
-                  type="number" 
-                  min="0" 
-                  step="0.01" 
-                  placeholder="50.00"
-                  class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
+              </div>
+              
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Bio / Présentation</label>
+                <textarea 
+                  v-model="form.bio" 
+                  rows="4" 
+                  placeholder="Décrivez votre expérience et votre approche pédagogique..."
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -169,18 +248,57 @@ const form = ref({
   name: '',
   email: '',
   phone: '',
+  specializations: [],
+  experience_years: 0,
   hourly_rate: 0,
+  bio: '',
   contract_type: 'freelance',
 })
+
+// Spécialisations disponibles avec icônes
+const availableSpecializations = ref([
+  { value: 'dressage', label: 'Dressage', description: 'Équitation classique', icon: '🏇' },
+  { value: 'obstacle', label: 'Obstacle', description: 'Saut d\'obstacles', icon: '🏆' },
+  { value: 'cross', label: 'Cross', description: 'Cross-country', icon: '🌲' },
+  { value: 'complet', label: 'Complet', description: 'Concours complet', icon: '🎯' },
+  { value: 'voltige', label: 'Voltige', description: 'Voltige équestre', icon: '🤸' },
+  { value: 'pony', label: 'Poney', description: 'Cours poney', icon: '🐴' }
+])
+
+// Toggle specialization
+const toggleSpecialization = (value) => {
+  const index = form.value.specializations.indexOf(value)
+  if (index > -1) {
+    form.value.specializations.splice(index, 1)
+  } else {
+    form.value.specializations.push(value)
+  }
+}
 
 // Initialiser le formulaire avec les données de l'enseignant
 watch(() => props.teacher, (newTeacher) => {
   if (newTeacher) {
+    // Gérer les spécialisations (peuvent être JSON ou tableau)
+    let specializations = []
+    if (newTeacher.specializations) {
+      try {
+        specializations = typeof newTeacher.specializations === 'string' 
+          ? JSON.parse(newTeacher.specializations) 
+          : newTeacher.specializations
+      } catch (e) {
+        console.warn('Erreur parsing specializations:', e)
+        specializations = []
+      }
+    }
+    
     form.value = {
       name: newTeacher.name || '',
       email: newTeacher.email || '',
       phone: newTeacher.phone || '',
+      specializations: Array.isArray(specializations) ? specializations : [],
+      experience_years: parseInt(newTeacher.experience_years) || 0,
       hourly_rate: newTeacher.hourly_rate || 0,
+      bio: newTeacher.bio || '',
       contract_type: newTeacher.contract_type || 'freelance',
     }
   }
@@ -201,7 +319,10 @@ const updateTeacher = async () => {
       last_name: lastName,
       email: form.value.email,
       phone: form.value.phone,
+      specializations: form.value.specializations,
+      experience_years: form.value.experience_years,
       hourly_rate: form.value.hourly_rate,
+      bio: form.value.bio,
       contract_type: form.value.contract_type,
     })
     
