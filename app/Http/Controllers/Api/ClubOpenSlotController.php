@@ -234,7 +234,7 @@ class ClubOpenSlotController extends Controller
                 }
                 
                 // Calculer le pas de temps (PGCD des durées)
-                $durations = $courseTypes->pluck('duration_minutes')->filter()->toArray();
+                $durations = array_values($courseTypes->pluck('duration_minutes')->filter()->toArray());
                 $timeStep = $this->calculateTimeStep($durations);
                 
                 // Trouver la durée minimale
