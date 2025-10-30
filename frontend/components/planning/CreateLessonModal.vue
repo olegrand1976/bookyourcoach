@@ -81,18 +81,43 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Date *
-              <span v-if="availableDays.length > 0" class="text-xs text-gray-500 ml-2">
+              <span v-if="selectedSlot" class="text-xs text-blue-600 ml-2 font-medium">
+                (Uniquement les {{ getDayName(selectedSlot.day_of_week) }}s)
+              </span>
+              <span v-else-if="availableDays.length > 0" class="text-xs text-gray-500 ml-2">
                 (Jours disponibles: {{ availableDays.map(d => getDayName(d)).join(', ') }})
               </span>
             </label>
-            <input v-model="form.date" type="date" required
-                   :class="[
-                     'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
-                     form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                   ]" />
+            <input 
+              v-model="form.date" 
+              type="date" 
+              required
+              :min="minDate"
+              @input="validateDate"
+              :class="[
+                'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              ]" />
             <p v-if="form.date && !isDateAvailable(form.date)" class="text-xs text-red-600 mt-1">
-              ⚠️ Cette date ne correspond à aucun créneau disponible
+              ⚠️ Cette date doit être un {{ getDayName(selectedSlot?.day_of_week || 0) }}
             </p>
+            <p v-else-if="form.date && selectedSlot" class="text-xs text-green-600 mt-1">
+              ✓ Date valide pour ce créneau
+            </p>
+            <!-- Suggestions de dates -->
+            <div v-if="selectedSlot && suggestedDates.length > 0" class="mt-2">
+              <p class="text-xs text-gray-600 mb-1">Suggestions :</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="(suggestedDate, index) in suggestedDates.slice(0, 4)"
+                  :key="index"
+                  type="button"
+                  @click="form.date = suggestedDate"
+                  class="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
+                  {{ formatSuggestedDate(suggestedDate) }}
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Heure -->
@@ -190,11 +215,83 @@ function getDayName(dayOfWeek: number): string {
   return dayNames[dayOfWeek] || 'Inconnu'
 }
 
+// Date minimale : aujourd'hui
+const minDate = computed(() => {
+  const today = new Date()
+  return today.toISOString().split('T')[0]
+})
+
+// Génère les 4 prochaines dates valides pour le créneau sélectionné
+const suggestedDates = computed(() => {
+  if (!props.selectedSlot) return []
+  
+  const dates: string[] = []
+  const today = new Date()
+  const targetDay = props.selectedSlot.day_of_week
+  
+  for (let i = 0; i < 28; i++) { // 4 semaines
+    const checkDate = new Date(today)
+    checkDate.setDate(today.getDate() + i)
+    
+    if (checkDate.getDay() === targetDay) {
+      dates.push(checkDate.toISOString().split('T')[0])
+    }
+    
+    if (dates.length >= 4) break
+  }
+  
+  return dates
+})
+
+// Formate une date pour l'affichage des suggestions
+function formatSuggestedDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  
+  if (date.getTime() === today.getTime()) {
+    return 'Aujourd\'hui'
+  } else if (date.getTime() === tomorrow.getTime()) {
+    return 'Demain'
+  } else {
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  }
+}
+
+// Vérifie si une date est disponible
 function isDateAvailable(dateStr: string): boolean {
   if (!dateStr) return false
-  const date = new Date(dateStr)
+  const date = new Date(dateStr + 'T00:00:00')
   const dayOfWeek = date.getDay()
+  
+  // Si un créneau est sélectionné, vérifier uniquement ce jour
+  if (props.selectedSlot) {
+    return dayOfWeek === props.selectedSlot.day_of_week
+  }
+  
+  // Sinon, vérifier tous les jours disponibles
   return props.availableDays.includes(dayOfWeek)
+}
+
+// Valide la date lors de la saisie
+function validateDate(event: Event) {
+  const input = event.target as HTMLInputElement
+  const dateStr = input.value
+  
+  if (dateStr && !isDateAvailable(dateStr)) {
+    console.warn('⚠️ Date invalide sélectionnée:', dateStr)
+    
+    // Suggérer automatiquement la prochaine date valide
+    if (suggestedDates.value.length > 0) {
+      const nextValidDate = suggestedDates.value[0]
+      setTimeout(() => {
+        props.form.date = nextValidDate
+        console.log('✓ Date corrigée automatiquement:', nextValidDate)
+      }, 100)
+    }
+  }
 }
 
 function handleSubmit() {

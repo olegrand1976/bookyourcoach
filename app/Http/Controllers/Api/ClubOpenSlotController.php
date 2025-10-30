@@ -315,6 +315,31 @@ class ClubOpenSlotController extends Controller
 
             $slot = ClubOpenSlot::create($validated);
 
+            // ✨ AUTO-ASSOCIATION : Associer automatiquement les types de cours correspondant à la discipline
+            if ($slot->discipline_id) {
+                // Récupérer tous les types de cours actifs pour cette discipline
+                $courseTypeIds = CourseType::where('discipline_id', $slot->discipline_id)
+                    ->where('is_active', true)
+                    ->pluck('id')
+                    ->toArray();
+                
+                if (!empty($courseTypeIds)) {
+                    $slot->courseTypes()->sync($courseTypeIds);
+                    
+                    Log::info('ClubOpenSlotController::store - Types de cours auto-associés', [
+                        'slot_id' => $slot->id,
+                        'discipline_id' => $slot->discipline_id,
+                        'course_type_ids' => $courseTypeIds,
+                        'count' => count($courseTypeIds)
+                    ]);
+                } else {
+                    Log::warning('ClubOpenSlotController::store - Aucun type de cours trouvé pour la discipline', [
+                        'slot_id' => $slot->id,
+                        'discipline_id' => $slot->discipline_id
+                    ]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $slot->load(['courseTypes', 'discipline']),
