@@ -36,6 +36,78 @@ class ClubController extends Controller
         ]);
     }
 
+    /**
+     * Diagnostic: Vérifier les colonnes de la table clubs
+     */
+    public function diagnoseColumns(Request $request)
+    {
+        try {
+            $columns = DB::getSchemaBuilder()->getColumnListing('clubs');
+            
+            $legalFields = [
+                'company_number',
+                'legal_representative_name',
+                'legal_representative_role',
+                'insurance_rc_company',
+                'insurance_rc_policy_number',
+                'insurance_additional_company',
+                'insurance_additional_policy_number',
+                'insurance_additional_details',
+                'expense_reimbursement_type',
+                'expense_reimbursement_details'
+            ];
+            
+            $status = [];
+            foreach ($legalFields as $field) {
+                $status[$field] = in_array($field, $columns) ? 'EXISTS' : 'MISSING';
+            }
+            
+            // Récupérer le club de l'utilisateur si disponible
+            $user = $request->user();
+            $clubData = null;
+            if ($user) {
+                $clubUser = DB::table('club_user')
+                    ->where('user_id', $user->id)
+                    ->where('is_admin', true)
+                    ->first();
+                
+                if ($clubUser) {
+                    $club = DB::table('clubs')->where('id', $clubUser->club_id)->first();
+                    if ($club) {
+                        $clubData = [];
+                        foreach ($legalFields as $field) {
+                            if (property_exists($club, $field)) {
+                                $value = $club->$field;
+                                $clubData[$field] = [
+                                    'value' => $value,
+                                    'is_empty' => empty($value),
+                                    'type' => gettype($value)
+                                ];
+                            } else {
+                                $clubData[$field] = 'COLUMN_NOT_EXISTS';
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'all_columns' => $columns,
+                'legal_fields_status' => $status,
+                'current_club_data' => $clubData,
+                'total_columns' => count($columns),
+                'legal_fields_existing' => count(array_filter($status, fn($s) => $s === 'EXISTS'))
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
     public function getProfile(Request $request)
     {
         try {
@@ -160,11 +232,24 @@ class ClubController extends Controller
         try {
             $user = $request->user();
             
+            $requestData = $request->all();
             \Log::info('ClubController::updateProfile - Début', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'role' => $user->role,
-                'request_data' => $request->all()
+                'request_data' => $requestData,
+                'legal_fields_received' => [
+                    'company_number' => $requestData['company_number'] ?? 'NOT_SENT',
+                    'legal_representative_name' => $requestData['legal_representative_name'] ?? 'NOT_SENT',
+                    'legal_representative_role' => $requestData['legal_representative_role'] ?? 'NOT_SENT',
+                    'insurance_rc_company' => $requestData['insurance_rc_company'] ?? 'NOT_SENT',
+                    'insurance_rc_policy_number' => $requestData['insurance_rc_policy_number'] ?? 'NOT_SENT',
+                    'insurance_additional_company' => $requestData['insurance_additional_company'] ?? 'NOT_SENT',
+                    'insurance_additional_policy_number' => $requestData['insurance_additional_policy_number'] ?? 'NOT_SENT',
+                    'insurance_additional_details' => $requestData['insurance_additional_details'] ?? 'NOT_SENT',
+                    'expense_reimbursement_type' => $requestData['expense_reimbursement_type'] ?? 'NOT_SENT',
+                    'expense_reimbursement_details' => $requestData['expense_reimbursement_details'] ?? 'NOT_SENT',
+                ]
             ]);
             
             // Récupérer le club associé à cet utilisateur
@@ -310,16 +395,29 @@ class ClubController extends Controller
             \Log::info('ClubController::updateProfile - Données à mettre à jour', [
                 'club_id' => $clubUser->club_id,
                 'data' => $updateData,
-                'existing_columns' => $existingColumns
+                'existing_columns' => $existingColumns,
+                'all_data_received' => $allData,
+                'filtered_out_fields' => array_diff(array_keys($allData), array_keys($updateData))
             ]);
             
             DB::table('clubs')
                 ->where('id', $clubUser->club_id)
                 ->update($updateData);
             
+            // Vérifier les données après update
+            $updatedClub = DB::table('clubs')->where('id', $clubUser->club_id)->first();
+            
             \Log::info('ClubController::updateProfile - Club mis à jour avec succès', [
                 'club_id' => $clubUser->club_id,
-                'user_id' => $user->id
+                'user_id' => $user->id,
+                'legal_fields_after_update' => [
+                    'company_number' => $updatedClub->company_number ?? 'NULL',
+                    'legal_representative_name' => $updatedClub->legal_representative_name ?? 'NULL',
+                    'legal_representative_role' => $updatedClub->legal_representative_role ?? 'NULL',
+                    'insurance_rc_company' => $updatedClub->insurance_rc_company ?? 'NULL',
+                    'insurance_rc_policy_number' => $updatedClub->insurance_rc_policy_number ?? 'NULL',
+                    'expense_reimbursement_type' => $updatedClub->expense_reimbursement_type ?? 'NULL',
+                ]
             ]);
             
             return response()->json([
