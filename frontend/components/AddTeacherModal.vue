@@ -107,108 +107,6 @@
             </div>
           </div>
 
-          <!-- Section Spécialisations -->
-          <div class="bg-purple-50 rounded-xl p-6">
-            <div class="flex items-center mb-4">
-              <div class="bg-purple-100 p-2 rounded-lg mr-3">
-                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-                </svg>
-              </div>
-              <div>
-                <h4 class="text-lg font-semibold text-gray-900">Spécialisations</h4>
-                <p class="text-sm text-gray-600">
-                  <span v-if="clubSpecializations.length > 0">
-                    Spécialisations disponibles du club (non sélectionnées par défaut)
-                  </span>
-                  <span v-else>
-                    Sélectionnez les spécialisations de l'enseignant
-                  </span>
-                </p>
-              </div>
-            </div>
-            
-            <!-- Spécialisations du club (si disponibles) -->
-            <div v-if="clubSpecializations.length > 0" class="mb-6">
-              <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs mr-2">Club</span>
-                Spécialisations du club
-              </h5>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div 
-                  v-for="specialization in clubSpecializations" 
-                  :key="specialization.value" 
-                  class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md"
-                  :class="form.specializations.includes(specialization.value) 
-                    ? 'border-blue-500 bg-blue-50 shadow-md' 
-                    : 'border-gray-200 bg-white hover:border-gray-300'"
-                  @click="toggleSpecialization(specialization.value)"
-                >
-                  <input 
-                    :id="'club-specialization-' + specialization.value" 
-                    v-model="form.specializations" 
-                    :value="specialization.value" 
-                    type="checkbox" 
-                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  >
-                  <label :for="'club-specialization-' + specialization.value" class="ml-4 flex items-center cursor-pointer flex-1">
-                    <span class="text-2xl mr-3">{{ specialization.icon }}</span>
-                    <div>
-                      <div class="font-medium text-gray-900">{{ specialization.label }}</div>
-                      <div class="text-sm text-gray-500">{{ specialization.description }}</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Toutes les spécialisations disponibles -->
-            <div>
-              <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs mr-2">Toutes</span>
-                Autres spécialisations disponibles
-              </h5>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div 
-                  v-for="specialization in availableSpecializations" 
-                  :key="specialization.value" 
-                  class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md"
-                  :class="form.specializations.includes(specialization.value) 
-                    ? 'border-blue-500 bg-blue-50 shadow-md' 
-                    : 'border-gray-200 bg-white hover:border-gray-300'"
-                  @click="toggleSpecialization(specialization.value)"
-                >
-                  <input 
-                    :id="'specialization-' + specialization.value" 
-                    v-model="form.specializations" 
-                    :value="specialization.value" 
-                    type="checkbox" 
-                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  >
-                  <label :for="'specialization-' + specialization.value" class="ml-4 flex items-center cursor-pointer flex-1">
-                    <span class="text-2xl mr-3">{{ specialization.icon }}</span>
-                    <div>
-                      <div class="font-medium text-gray-900">{{ specialization.label }}</div>
-                      <div class="text-sm text-gray-500">{{ specialization.description }}</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Message si aucune spécialisation sélectionnée -->
-            <div v-if="form.specializations.length === 0" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                </svg>
-                <p class="text-sm text-yellow-800">
-                  Aucune spécialisation sélectionnée. L'enseignant pourra enseigner toutes les disciplines.
-                </p>
-              </div>
-            </div>
-          </div>
-
           <!-- Section Tarifs et Bio -->
           <div class="bg-emerald-50 rounded-xl p-6">
             <div class="flex items-center mb-4">
@@ -278,7 +176,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
 const emit = defineEmits(['close', 'success'])
 
@@ -288,85 +186,11 @@ const form = ref({
   name: '',
   email: '',
   phone: '',
-  specializations: [],
   experience_years: 0,
   hourly_rate: 50,
   bio: '',
   contract_type: 'freelance', // Valeur par défaut
 });
-
-// Spécialisations disponibles avec icônes
-const availableSpecializations = ref([
-  { value: 'dressage', label: 'Dressage', description: 'Équitation classique', icon: '🏇' },
-  { value: 'obstacle', label: 'Obstacle', description: 'Saut d\'obstacles', icon: '🏆' },
-  { value: 'cross', label: 'Cross', description: 'Cross-country', icon: '🌲' },
-  { value: 'complet', label: 'Complet', description: 'Concours complet', icon: '🎯' },
-  { value: 'voltige', label: 'Voltige', description: 'Voltige équestre', icon: '🤸' },
-  { value: 'pony', label: 'Poney', description: 'Cours poney', icon: '🐴' }
-])
-
-// Spécialisations du club (sera chargé dynamiquement)
-const clubSpecializations = ref([])
-const isLoadingSpecializations = ref(false)
-
-// Charger les spécialisations du club
-const loadClubSpecializations = async () => {
-  isLoadingSpecializations.value = true
-  try {
-    const { $api } = useNuxtApp()
-    
-    const response = await $api.get('/club/profile')
-    if (response.data.club && response.data.club.disciplines) {
-      // Convertir les disciplines du club en spécialisations
-      clubSpecializations.value = response.data.club.disciplines.map(discipline => {
-        // Mapper les disciplines aux spécialisations équestres
-        const mapping = {
-          'Dressage': 'dressage',
-          'Saut d\'obstacles': 'obstacle', 
-          'Complet': 'complet',
-          'Endurance': 'cross',
-          'Voltige': 'voltige',
-          'Poney': 'pony'
-        }
-        
-        return {
-          value: mapping[discipline.name] || discipline.name.toLowerCase(),
-          label: discipline.name,
-          description: discipline.description,
-          icon: getActivityIcon(discipline.activity_type_id)
-        }
-      })
-      
-      // Les spécialisations du club sont disponibles mais non sélectionnées par défaut
-      // L'utilisateur peut les sélectionner manuellement s'il le souhaite
-    }
-  } catch (error) {
-    console.error('Erreur lors du chargement des spécialisations du club:', error)
-  } finally {
-    isLoadingSpecializations.value = false
-  }
-}
-
-// Obtenir l'icône de l'activité
-const getActivityIcon = (activityTypeId) => {
-  const icons = {
-    1: '🏇', // Équitation
-    2: '🏊‍♀️', // Natation
-    3: '💪', // Salle de sport
-    4: '🏃‍♂️' // Coaching sportif
-  }
-  return icons[activityTypeId] || '🎯'
-}
-
-// Toggle spécialisation
-const toggleSpecialization = (specializationValue) => {
-  const index = form.value.specializations.indexOf(specializationValue)
-  if (index > -1) {
-    form.value.specializations.splice(index, 1)
-  } else {
-    form.value.specializations.push(specializationValue)
-  }
-}
 
 const addTeacher = async () => {
   loading.value = true
@@ -410,9 +234,4 @@ const addTeacher = async () => {
     loading.value = false
   }
 }
-
-// Charger les spécialisations du club au montage du composant
-onMounted(() => {
-  loadClubSpecializations()
-})
 </script>
