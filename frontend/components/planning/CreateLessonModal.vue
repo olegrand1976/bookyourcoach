@@ -40,12 +40,12 @@
             </select>
           </div>
 
-          <!-- Étudiant (optionnel) -->
+          <!-- Élève (optionnel) -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Étudiant (optionnel)</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Élève (optionnel)</label>
             <select v-model.number="form.student_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-              <option :value="null">Aucun étudiant assigné</option>
+              <option :value="null">Aucun élève assigné</option>
               <option v-for="student in students" :key="student.id" :value="student.id">
                 {{ student.user?.name || student.name }}
                 <template v-if="student.age"> ({{ student.age }} ans)</template>
@@ -201,7 +201,7 @@ function handleSubmit() {
   emit('submit', props.form)
 }
 
-// Watcher pour débugger les types de cours reçus
+// Watcher pour auto-sélectionner le type de cours s'il n'y en a qu'un seul
 watch(() => props.courseTypes, (newCourseTypes) => {
   if (props.show && newCourseTypes) {
     console.log('🔍 [CreateLessonModal] Props mis à jour:', {
@@ -210,7 +210,17 @@ watch(() => props.courseTypes, (newCourseTypes) => {
       slotDisciplineName: props.selectedSlot?.discipline?.name,
       types: newCourseTypes.map(ct => ct.name)
     })
+    
+    // Auto-sélectionner s'il n'y a qu'un seul type de cours
+    if (newCourseTypes.length === 1 && !props.form.course_type_id) {
+      const courseType = newCourseTypes[0]
+      props.form.course_type_id = courseType.id
+      // Pré-remplir durée et prix
+      props.form.duration = courseType.duration_minutes || courseType.duration || 60
+      props.form.price = courseType.price || 0
+      console.log('✨ [CreateLessonModal] Type de cours auto-sélectionné:', courseType.name)
+    }
   }
-}, { deep: true })
+}, { deep: true, immediate: true })
 </script>
 

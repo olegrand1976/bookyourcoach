@@ -387,7 +387,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">Élève (optionnel)</label>
             <select v-model="lessonForm.studentId"
                     class="w-full border border-gray-300 rounded-lg px-3 py-2">
-              <option value="">Aucun</option>
+              <option value="">Aucun élève assigné</option>
               <option v-for="student in students" :key="student.id" :value="student.id">
                 {{ student.name }}
               </option>
@@ -912,13 +912,18 @@ const loadTeachersAndStudents = async () => {
     const { $api } = useNuxtApp()
 
     const teachersResponse = await $api.get('/club/teachers')
+    console.log('🔍 [Planning-new] Réponse enseignants:', teachersResponse.data)
     if (teachersResponse.data.success) {
-      teachers.value = teachersResponse.data.data
+      // La clé est 'teachers' et non 'data' (voir ClubController::getTeachers)
+      teachers.value = teachersResponse.data.teachers || teachersResponse.data.data || []
+      console.log('✅ [Planning-new] Enseignants chargés:', teachers.value.length)
     }
 
     const studentsResponse = await $api.get('/club/students')
+    console.log('🔍 [Planning-new] Réponse élèves:', studentsResponse.data)
     if (studentsResponse.data.success) {
-      students.value = studentsResponse.data.data
+      students.value = studentsResponse.data.data || []
+      console.log('✅ [Planning-new] Élèves chargés:', students.value.length)
     }
   } catch (error) {
     console.error('Erreur lors du chargement des enseignants/élèves:', error)
