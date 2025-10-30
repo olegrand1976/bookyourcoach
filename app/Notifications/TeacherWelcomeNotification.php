@@ -39,7 +39,7 @@ class TeacherWelcomeNotification extends Notification implements ShouldQueue
             ->line("Félicitations ! Vous avez été ajouté(e) comme enseignant(e) dans le club **{$this->clubName}**.")
             ->line('Pour commencer à utiliser la plateforme activibe, vous devez définir votre mot de passe.')
             ->action('Définir mon mot de passe', $resetUrl)
-            ->line('Ce lien est valable pendant 60 minutes.')
+            ->line('Ce lien est valable pendant 24 heures.')
             ->line('Votre adresse email de connexion est : **' . $notifiable->email . '**')
             ->line('Une fois votre mot de passe défini, vous pourrez :')
             ->line('• Gérer vos cours et créneaux')
