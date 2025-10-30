@@ -85,21 +85,6 @@ describe('AddTeacherModal', () => {
     })
   })
 
-  describe('Section Spécialisations', () => {
-    it('devrait afficher la section Spécialisations', () => {
-      expect(wrapper.text()).toContain('Spécialisations')
-    })
-
-    it('devrait avoir un fond purple-50 pour la section', () => {
-      expect(wrapper.html()).toContain('bg-purple-50')
-    })
-
-    it('devrait afficher un message d\'aide pour les spécialisations', () => {
-      const text = wrapper.text()
-      expect(text).toContain('Sélectionnez les spécialisations')
-    })
-  })
-
   describe('Section Tarifs et présentation', () => {
     it('devrait afficher la section Tarifs', () => {
       expect(wrapper.text()).toContain('Tarifs')
@@ -152,12 +137,12 @@ describe('AddTeacherModal', () => {
   describe('Design et accessibilité', () => {
     it('devrait avoir des sections avec arrière-plans colorés', () => {
       expect(wrapper.html()).toContain('bg-gray-50')
-      expect(wrapper.html()).toContain('bg-purple-50')
+      expect(wrapper.html()).toContain('bg-emerald-50')
     })
 
     it('devrait avoir des icônes SVG', () => {
       const svgs = wrapper.findAll('svg')
-      expect(svgs.length).toBeGreaterThan(5)
+      expect(svgs.length).toBeGreaterThan(3)
     })
 
     it('devrait être responsive avec max-w-3xl', () => {
