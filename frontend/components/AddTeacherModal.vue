@@ -313,13 +313,12 @@ const isLoadingSpecializations = ref(false)
 const loadClubSpecializations = async () => {
   isLoadingSpecializations.value = true
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    const { $api } = useNuxtApp()
     
-    const response = await $fetch(`${config.public.apiBase}/club/profile`)
-    if (response.club && response.club.disciplines) {
+    const response = await $api.get('/club/profile')
+    if (response.data.club && response.data.club.disciplines) {
       // Convertir les disciplines du club en spécialisations
-      clubSpecializations.value = response.club.disciplines.map(discipline => {
+      clubSpecializations.value = response.data.club.disciplines.map(discipline => {
         // Mapper les disciplines aux spécialisations équestres
         const mapping = {
           'Dressage': 'dressage',
@@ -372,30 +371,22 @@ const toggleSpecialization = (specializationValue) => {
 const addTeacher = async () => {
   loading.value = true
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    const { $api } = useNuxtApp()
     
     // Séparer le nom en prénom et nom de famille
     const nameParts = form.value.name.trim().split(' ')
     const firstName = nameParts[0]
     const lastName = nameParts.slice(1).join(' ') || nameParts[0]
     
-    const response = await $fetch(`${config.public.apiBase}/club/teachers`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${tokenCookie.value}`,
-        'Content-Type': 'application/json'
-      },
-      body: {
-        first_name: firstName,
-        last_name: lastName,
-        email: form.value.email,
-        phone: form.value.phone,
-        experience_years: form.value.experience_years,
-        hourly_rate: form.value.hourly_rate,
-        bio: form.value.bio,
-        contract_type: form.value.contract_type
-      }
+    const response = await $api.post('/club/teachers', {
+      first_name: firstName,
+      last_name: lastName,
+      email: form.value.email,
+      phone: form.value.phone,
+      experience_years: form.value.experience_years,
+      hourly_rate: form.value.hourly_rate,
+      bio: form.value.bio,
+      contract_type: form.value.contract_type
     })
     
     console.log('✅ Enseignant créé avec succès:', response)
