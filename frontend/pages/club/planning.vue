@@ -733,6 +733,22 @@ async function loadOpenSlots() {
     if (response.data.success) {
       openSlots.value = response.data.data
       console.log('✅ Créneaux chargés:', openSlots.value)
+      
+      // 🔍 DEBUG: Vérifier les course_types dans chaque slot
+      openSlots.value.forEach((slot, index) => {
+        console.log(`🔍 [Slot ${index + 1}] ID: ${slot.id}`, {
+          discipline_id: slot.discipline_id,
+          discipline_name: slot.discipline?.name,
+          has_course_types: !!slot.course_types,
+          course_types_count: slot.course_types?.length || 0,
+          course_types: slot.course_types?.map(ct => ({
+            id: ct.id,
+            name: ct.name,
+            duration_minutes: ct.duration_minutes,
+            price: ct.price
+          })) || []
+        })
+      })
   } else {
       console.error('Erreur chargement créneaux:', response.data.message)
     }
@@ -948,6 +964,9 @@ function openCreateLessonModal(slot?: OpenSlot) {
     slotId: slot?.id,
     slotDisciplineId: slot?.discipline_id,
     slotDisciplineName: slot?.discipline?.name,
+    slotHasCourseTypes: !!slot?.course_types,
+    slotCourseTypesCount: slot?.course_types?.length || 0,
+    slotCourseTypes: slot?.course_types?.map(ct => ct.name) || [],
     totalCourseTypes: courseTypes.value.length,
     currentSelectedSlot: selectedSlotForLesson.value?.id
   })
@@ -956,7 +975,9 @@ function openCreateLessonModal(slot?: OpenSlot) {
   
   console.log('📝 [openCreateLessonModal] APRÈS mise à jour selectedSlotForLesson', {
     newSelectedSlotId: selectedSlotForLesson.value?.id,
-    newSelectedSlotDisciplineId: selectedSlotForLesson.value?.discipline_id
+    newSelectedSlotDisciplineId: selectedSlotForLesson.value?.discipline_id,
+    newSelectedSlotHasCourseTypes: !!selectedSlotForLesson.value?.course_types,
+    newSelectedSlotCourseTypesCount: selectedSlotForLesson.value?.course_types?.length || 0
   })
   
   if (slot) {
