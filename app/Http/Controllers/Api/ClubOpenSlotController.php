@@ -323,6 +323,27 @@ class ClubOpenSlotController extends Controller
                     ->pluck('id')
                     ->toArray();
                 
+                // ⚠️ WORKAROUND : Si aucun type trouvé via discipline_id, chercher par nom exact
+                if (empty($courseTypeIds)) {
+                    $discipline = \App\Models\Discipline::find($slot->discipline_id);
+                    if ($discipline) {
+                        $courseTypeByName = CourseType::where('name', $discipline->name)
+                            ->where('is_active', true)
+                            ->first();
+                        
+                        if ($courseTypeByName) {
+                            $courseTypeIds = [$courseTypeByName->id];
+                            
+                            Log::info('ClubOpenSlotController::store - Type de cours trouvé par nom', [
+                                'slot_id' => $slot->id,
+                                'discipline_id' => $slot->discipline_id,
+                                'discipline_name' => $discipline->name,
+                                'course_type_id' => $courseTypeByName->id
+                            ]);
+                        }
+                    }
+                }
+                
                 if (!empty($courseTypeIds)) {
                     $slot->courseTypes()->sync($courseTypeIds);
                     
