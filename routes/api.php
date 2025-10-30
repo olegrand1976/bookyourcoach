@@ -119,6 +119,7 @@ Route::get('/disciplines/by-activity/{activityTypeId}', [App\Http\Controllers\Ap
 
 Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/dashboard', [ClubDashboardController::class, 'dashboard']);
+    Route::get('/diagnose-columns', [ClubController::class, 'diagnoseColumns']); // Diagnostic
     Route::get('/profile', [ClubController::class, 'getProfile']);
     Route::put('/profile', [ClubController::class, 'updateProfile']);
     Route::get('/custom-specialties', [ClubController::class, 'getCustomSpecialties']);
