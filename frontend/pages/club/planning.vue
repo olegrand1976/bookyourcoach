@@ -46,8 +46,9 @@
         <AvailableSlotsGrid 
           v-else
           :slots="openSlots"
+          :lessons="lessons"
           @select-slot="openDayCalendar"
-          @create-lesson="openCreateLessonModal()"
+          @create-lesson="openCreateLessonModal"
         />
         
         <!-- Bloc 4: Cours programmés -->

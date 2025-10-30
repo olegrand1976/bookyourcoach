@@ -3,16 +3,29 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h2 class="text-xl font-semibold text-gray-900">Créneaux disponibles</h2>
-        <p class="text-sm text-gray-500 mt-1">Cliquez sur un créneau pour créer un cours</p>
+        <p class="text-sm text-gray-500 mt-1">
+          <svg class="w-4 h-4 inline mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          Sélectionnez d'abord un créneau ci-dessous
+        </p>
       </div>
-      <button 
-        @click="$emit('create-lesson')"
-        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Nouveau cours
-      </button>
+      
+      <!-- Bouton "Nouveau cours" avec créneau sélectionné -->
+      <div v-if="selectedSlot" class="flex flex-col items-end gap-2">
+        <div class="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-md">
+          <span class="font-medium text-blue-900">Créneau sélectionné :</span>
+          {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
+        </div>
+        <button 
+          @click="handleCreateLesson"
+          class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Créer un cours
+        </button>
+      </div>
     </div>
 
     <!-- Grille des créneaux par jour -->
@@ -34,8 +47,13 @@
             v-for="slot in daySlots" 
             :key="slot.id"
             @click="handleSlotClick(slot)"
-            class="border-2 border-gray-200 rounded-lg p-4 cursor-pointer transition-all hover:border-blue-500 hover:shadow-md"
-            :class="{ 'opacity-50': !slot.is_active }"
+            class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+            :class="[
+              slot.id === selectedSlot?.id 
+                ? 'border-green-500 bg-green-50 shadow-lg' 
+                : 'border-gray-200 hover:border-blue-500',
+              { 'opacity-50': !slot.is_active }
+            ]"
           >
             <!-- Horaires -->
             <div class="flex items-center gap-2 mb-3">
@@ -75,10 +93,47 @@
               </div>
             </div>
 
-            <!-- Bouton CTA -->
+            <!-- Jauge de remplissage -->
             <div class="mt-4 pt-3 border-t border-gray-200">
-              <button class="w-full px-3 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors text-sm font-medium">
-                + Créer un cours
+              <div class="flex items-center justify-between text-xs mb-2">
+                <span class="font-medium text-gray-700">
+                  📊 {{ getSlotUsage(slot).count }} cours / {{ getSlotUsage(slot).capacity }} places
+                </span>
+                <span class="font-bold" :class="[
+                  getSlotUsage(slot).percentage >= 100 ? 'text-red-600' : 
+                  getSlotUsage(slot).percentage >= 80 ? 'text-orange-600' : 
+                  'text-green-600'
+                ]">
+                  {{ getSlotUsage(slot).percentage }}%
+                </span>
+              </div>
+              
+              <!-- Barre de progression -->
+              <div class="w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
+                <div 
+                  class="h-2 rounded-full transition-all duration-300"
+                  :class="getProgressBarColor(getSlotUsage(slot).percentage)"
+                  :style="{ width: `${Math.min(getSlotUsage(slot).percentage, 100)}%` }">
+                </div>
+              </div>
+              
+              <p v-if="getSlotUsage(slot).remaining > 0" class="text-xs text-green-600 font-medium">
+                ✓ {{ getSlotUsage(slot).remaining }} place{{ getSlotUsage(slot).remaining > 1 ? 's' : '' }} disponible{{ getSlotUsage(slot).remaining > 1 ? 's' : '' }}
+              </p>
+              <p v-else class="text-xs text-red-600 font-medium">
+                ⚠️ Créneau complet
+              </p>
+            </div>
+
+            <!-- Bouton CTA -->
+            <div class="mt-3">
+              <button 
+                class="w-full px-3 py-2 rounded-md transition-colors text-sm font-medium"
+                :class="getSlotUsage(slot).remaining > 0 
+                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                :disabled="getSlotUsage(slot).remaining === 0">
+                {{ getSlotUsage(slot).remaining > 0 ? '+ Créer un cours' : 'Complet' }}
               </button>
             </div>
 
@@ -104,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 interface OpenSlot {
   id: number
@@ -118,36 +173,67 @@ interface OpenSlot {
   max_capacity?: number
   max_slots?: number
   is_active: boolean
+  course_types?: any[]
+}
+
+interface Lesson {
+  id: number
+  start_time: string
+  end_time: string
+  [key: string]: any
 }
 
 interface Props {
   slots: OpenSlot[]
+  lessons?: Lesson[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  lessons: () => []
+})
 
 const emit = defineEmits<{
   'select-slot': [slot: OpenSlot]
-  'create-lesson': []
+  'create-lesson': [slot: OpenSlot]
 }>()
 
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+const selectedSlot = ref<OpenSlot | null>(null)
 
 function handleSlotClick(slot: OpenSlot) {
   console.log('🎯 [AvailableSlotsGrid] Créneau cliqué', {
     slotId: slot.id,
     slotDisciplineId: slot.discipline_id,
     slotDisciplineName: slot.discipline?.name,
+    hasCourseTypes: !!slot.course_types,
+    courseTypesCount: slot.course_types?.length || 0,
     slotData: {
       day_of_week: slot.day_of_week,
       start_time: slot.start_time,
       end_time: slot.end_time,
       duration: slot.duration,
       price: slot.price,
-      discipline: slot.discipline
+      discipline: slot.discipline,
+      course_types: slot.course_types
     }
   })
+  
+  // Sélectionner le créneau
+  selectedSlot.value = slot
+  
+  // Émettre aussi pour le calendrier journalier
   emit('select-slot', slot)
+}
+
+function handleCreateLesson() {
+  if (selectedSlot.value) {
+    console.log('✨ [AvailableSlotsGrid] Création cours avec créneau', {
+      slotId: selectedSlot.value.id,
+      hasCourseTypes: !!selectedSlot.value.course_types,
+      courseTypesCount: selectedSlot.value.course_types?.length || 0
+    })
+    emit('create-lesson', selectedSlot.value)
+  }
 }
 
 // Grouper les créneaux par jour
@@ -198,6 +284,35 @@ function getDisciplineColorClass(disciplineId: number | null): string {
   
   const index = (disciplineId || 0) % colors.length
   return colors[index]
+}
+
+// Calculer le nombre de cours pour un créneau donné
+function getSlotUsage(slot: OpenSlot): { count: number; capacity: number; percentage: number; remaining: number } {
+  const capacity = slot.max_capacity || 1
+  
+  // Compter les cours qui correspondent à ce créneau (même jour et même plage horaire)
+  const count = props.lessons.filter(lesson => {
+    const lessonDate = new Date(lesson.start_time)
+    const lessonDay = lessonDate.getDay()
+    const lessonTime = lessonDate.toTimeString().substring(0, 5)
+    
+    return lessonDay === slot.day_of_week &&
+           lessonTime >= slot.start_time &&
+           lessonTime < slot.end_time
+  }).length
+  
+  const percentage = Math.round((count / capacity) * 100)
+  const remaining = Math.max(0, capacity - count)
+  
+  return { count, capacity, percentage, remaining }
+}
+
+// Classe de couleur de la barre de progression selon le remplissage
+function getProgressBarColor(percentage: number): string {
+  if (percentage >= 100) return 'bg-red-500'
+  if (percentage >= 80) return 'bg-orange-500'
+  if (percentage >= 50) return 'bg-yellow-500'
+  return 'bg-green-500'
 }
 </script>
 
