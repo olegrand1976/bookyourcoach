@@ -210,7 +210,8 @@ export const useAuthStore = defineStore('auth', {
             console.log('🚀 [INIT ULTRA SIMPLE] User name:', this.user?.name)
             
             // Vérifier si le nom contient des caractères mal encodés (pattern UTF-8 corrompu)
-            const hasEncodingIssue = this.user?.name && /Ã[€-¿]/.test(this.user.name)
+            // Détecte les patterns communs : Ã© (é), Ã¨ (è), Ã  (à), Ã§ (ç), etc.
+            const hasEncodingIssue = this.user?.name && /Ã[\x80-\xFF]/.test(this.user.name)
             if (hasEncodingIssue) {
               console.warn('🚀 [INIT] Détection encodage corrompu dans le nom:', this.user.name)
               
