@@ -202,17 +202,7 @@
                     </span>
                   </div>
                   
-                  <div v-if="teacher.specializations && teacher.specializations.length > 0" class="mt-2">
-                    <div class="flex flex-wrap gap-2">
-                      <span 
-                        v-for="spec in teacher.specializations" 
-                        :key="spec" 
-                        class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full"
-                      >
-                        {{ getSpecializationLabel(spec) }}
-                      </span>
-                    </div>
-                  </div>
+                  <!-- Spécialisations masquées (informatives uniquement, non obligatoires) -->
                   
                   <div v-if="teacher.bio" class="mt-2 text-sm text-gray-600">
                     {{ teacher.bio.substring(0, 150) }}{{ teacher.bio.length > 150 ? '...' : '' }}
@@ -354,19 +344,6 @@ const filteredTeachers = computed(() => {
   return filtered
 })
 
-// Obtenir le label d'une spécialisation
-const getSpecializationLabel = (spec) => {
-  const labels = {
-    dressage: '🏇 Dressage',
-    obstacle: '🏆 Obstacle',
-    cross: '🌲 Cross',
-    complet: '🎯 Complet',
-    voltige: '🤸 Voltige',
-    pony: '🐴 Poney'
-  }
-  return labels[spec] || spec
-}
-
 // Helper pour les labels de type de contrat
 const getContractTypeLabel = (contractType) => {
   const labels = {
@@ -394,19 +371,6 @@ const loadTeachers = async () => {
     if (response.data.success && response.data.teachers) {
       // Mapper les données pour inclure les informations de l'utilisateur
       teachers.value = response.data.teachers.map(teacher => {
-        // Gérer les spécialités (peuvent être JSON ou tableau)
-        let specializations = []
-        if (teacher.specialties) {
-          try {
-            specializations = typeof teacher.specialties === 'string' 
-              ? JSON.parse(teacher.specialties) 
-              : teacher.specialties
-          } catch (e) {
-            console.warn('Erreur parsing specialties:', e)
-            specializations = []
-          }
-        }
-        
         return {
           id: teacher.id,
           name: teacher.user?.name || 'N/A',
@@ -415,8 +379,7 @@ const loadTeachers = async () => {
           hourly_rate: parseFloat(teacher.hourly_rate) || 0,
           experience_years: parseInt(teacher.experience_years) || 0,
           bio: teacher.bio || '',
-          contract_type: teacher.contract_type || 'freelance',
-          specializations: Array.isArray(specializations) ? specializations : []
+          contract_type: teacher.contract_type || 'freelance'
         }
       })
       
