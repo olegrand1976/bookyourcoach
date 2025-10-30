@@ -25,49 +25,83 @@
         <!-- Bloc 1: Liste des cours disponibles (disciplines actives) -->
         <DisciplinesList :disciplines="activeDisciplines" />
         
-        <!-- Bloc 2: Gestion des créneaux horaires -->
+        <!-- Bloc 2: Gestion des créneaux horaires avec sélection -->
         <SlotsList 
           :slots="openSlots"
+          :selected-slot-id="selectedSlot?.id"
           @create-slot="openSlotModal()"
           @edit-slot="openSlotModal"
           @delete-slot="(slot) => deleteSlot(slot.id)"
-        />
-          
-        <!-- Bloc 3: Créneaux disponibles OU Calendrier journalier -->
-        <DayCalendarView 
-          v-if="showDayCalendar && selectedSlotForCalendar"
-          :selected-slot="selectedSlotForCalendar"
-          :lessons="lessons"
-          @close="closeDayCalendar"
-          @create-lesson="openCreateLessonFromCalendar"
-          @select-lesson="openLessonModal"
+          @select-slot="handleSlotSelection"
         />
         
-        <AvailableSlotsGrid 
-          v-else
-          :slots="openSlots"
-          :lessons="lessons"
-          @select-slot="openDayCalendar"
-          @create-lesson="openCreateLessonModal"
-        />
+        <!-- Bouton "Créer un cours" si un créneau est sélectionné -->
+        <div v-if="selectedSlot" class="bg-green-50 border-2 border-green-500 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-900">Créneau sélectionné</h3>
+                <p class="text-sm text-gray-600">
+                  {{ getDayName(selectedSlot.day_of_week) }} • 
+                  {{ formatTime(selectedSlot.start_time) }} - {{ formatTime(selectedSlot.end_time) }} • 
+                  {{ selectedSlot.discipline?.name }}
+                </p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button 
+                @click="openCreateLessonModal(selectedSlot)"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Créer un cours
+              </button>
+              <button 
+                @click="selectedSlot = null"
+                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
         
-        <!-- Bloc 4: Cours programmés -->
+        <!-- Bloc 3: Cours programmés (filtrés par créneau sélectionné) -->
         <div class="bg-white shadow rounded-lg p-6">
           <div class="flex items-center justify-between mb-4">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">Cours programmés</h2>
+              <h2 class="text-xl font-semibold text-gray-900">
+                Cours programmés
+                <span v-if="selectedSlot" class="text-base font-normal text-gray-600">
+                  • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
+                </span>
+              </h2>
               <p class="text-sm text-gray-500 mt-1">
-                <span class="font-bold" :class="lessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
-                  {{ lessons.length }} cours programmé{{ lessons.length > 1 ? 's' : '' }}
+                <span v-if="!selectedSlot" class="text-blue-600 font-medium">
+                  ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
+                </span>
+                <span v-else class="font-bold" :class="filteredLessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
+                  {{ filteredLessons.length }} cours dans ce créneau
                 </span>
               </p>
             </div>
+            <button 
+              v-if="selectedSlot"
+              @click="selectedSlot = null"
+              class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              Voir tous les cours
+            </button>
           </div>
 
-          <!-- Liste des cours -->
-          <div v-if="lessons.length > 0" class="space-y-3">
+          <!-- Liste des cours (filtrés) -->
+          <div v-if="filteredLessons.length > 0" class="space-y-3">
             <div 
-              v-for="lesson in lessons" 
+              v-for="lesson in filteredLessons" 
               :key="lesson.id"
               @click="openLessonModal(lesson)"
               class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
@@ -93,7 +127,7 @@
                   
                   <!-- Participants -->
                   <div class="flex items-center gap-4 text-sm text-gray-600">
-                    <span>👤 {{ lesson.student?.user?.name || 'Aucun étudiant' }}</span>
+                    <span>👤 {{ lesson.student?.user?.name || 'Aucun élève' }}</span>
                     <span>🎓 {{ lesson.teacher?.user?.name || 'Coach' }}</span>
                     <span v-if="lesson.price">💰 {{ formatPrice(lesson.price) }} €</span>
                   </div>
@@ -105,8 +139,15 @@
           <!-- État vide -->
           <div v-else class="text-center py-12 text-gray-500">
             <div class="text-4xl mb-4">📚</div>
-            <p class="text-lg mb-2">Aucun cours programmé</p>
-            <p class="text-sm">Cliquez sur un créneau disponible pour créer votre premier cours</p>
+            <p class="text-lg mb-2">
+              {{ selectedSlot ? 'Aucun cours dans ce créneau' : 'Aucun cours programmé' }}
+            </p>
+            <p class="text-sm">
+              {{ selectedSlot 
+                ? 'Cliquez sur "Créer un cours" ci-dessus pour en ajouter un' 
+                : 'Sélectionnez un créneau et créez votre premier cours' 
+              }}
+            </p>
           </div>
         </div> <!-- Fermeture du v-else class="space-y-6" -->
           
@@ -379,8 +420,6 @@ import { ref, onMounted, computed, watch } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
-import AvailableSlotsGrid from '~/components/planning/AvailableSlotsGrid.vue'
-import DayCalendarView from '~/components/planning/DayCalendarView.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -473,8 +512,7 @@ const showLessonModal = ref(false)
 const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
-const showDayCalendar = ref(false)
-const selectedSlotForCalendar = ref<OpenSlot | null>(null)
+const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
@@ -506,6 +544,25 @@ const slotForm = ref({
 // Computed
 const activeDisciplines = computed(() => {
   return clubDisciplines.value.filter(d => d.is_active)
+})
+
+// Cours filtrés par créneau sélectionné
+const filteredLessons = computed(() => {
+  if (!selectedSlot.value) {
+    // Si aucun créneau sélectionné, afficher tous les cours
+    return lessons.value
+  }
+  
+  // Filtrer les cours qui correspondent au créneau sélectionné
+  return lessons.value.filter(lesson => {
+    const lessonDate = new Date(lesson.start_time)
+    const lessonDay = lessonDate.getDay()
+    const lessonTime = lessonDate.toTimeString().substring(0, 5)
+    
+    return lessonDay === selectedSlot.value!.day_of_week &&
+           lessonTime >= selectedSlot.value!.start_time &&
+           lessonTime < selectedSlot.value!.end_time
+  })
 })
 
 // Types de cours filtrés - Utilise les courseTypes du créneau sélectionné
@@ -1046,39 +1103,13 @@ function closeCreateLessonModal() {
   }, 100)
 }
 
-// Gestion du calendrier journalier
-function openDayCalendar(slot: OpenSlot) {
-  console.log('📅 [openDayCalendar] Ouverture calendrier pour créneau', slot.id)
-  selectedSlotForCalendar.value = slot
-  showDayCalendar.value = true
-}
-
-function closeDayCalendar() {
-  console.log('🚪 [closeDayCalendar] Fermeture calendrier')
-  showDayCalendar.value = false
-  selectedSlotForCalendar.value = null
-}
-
-function openCreateLessonFromCalendar(timeSlot: any, date: string) {
-  console.log('📝 [openCreateLessonFromCalendar] Création cours depuis calendrier', { timeSlot, date })
+// Gestion de la sélection de créneau
+function handleSlotSelection(slot: OpenSlot) {
+  console.log('🎯 [handleSlotSelection] Créneau sélectionné:', slot.id)
+  selectedSlot.value = slot
   
-  // Préparer le formulaire avec les infos du créneau
-  selectedSlotForLesson.value = selectedSlotForCalendar.value
-  
-  // Pré-remplir le formulaire
-  lessonForm.value.date = date
-  lessonForm.value.time = timeSlot.start
-  lessonForm.value.start_time = `${date}T${timeSlot.start}`
-  
-  // Si le créneau a une durée et un prix, les utiliser
-  if (selectedSlotForCalendar.value?.duration) {
-    lessonForm.value.duration = selectedSlotForCalendar.value.duration
-  }
-  if (selectedSlotForCalendar.value?.price) {
-    lessonForm.value.price = selectedSlotForCalendar.value.price
-  }
-  
-  showCreateLessonModal.value = true
+  // Fermer automatiquement le dropdown SlotsList
+  // (géré par le composant lui-même via isOpen = false)
 }
 
 async function createLesson() {

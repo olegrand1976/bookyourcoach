@@ -1,107 +1,173 @@
 <template>
-  <div class="bg-white shadow rounded-lg p-6">
+  <div class="bg-white shadow rounded-lg p-4 md:p-6">
+    <!-- Header avec bouton toggle -->
     <div class="flex items-center justify-between mb-4">
-      <div>
-        <h2 class="text-xl font-semibold text-gray-900">Créneaux horaires</h2>
-        <p class="text-sm text-gray-500 mt-1">Gérez vos créneaux disponibles pour les cours</p>
-      </div>
+      <button 
+        @click="isOpen = !isOpen"
+        class="flex items-center gap-3 text-left flex-1">
+        <svg 
+          class="w-5 h-5 text-gray-600 transition-transform"
+          :class="{ 'rotate-180': isOpen }"
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+        <div>
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900">Créneaux horaires</h2>
+          <p class="text-xs md:text-sm text-gray-500 mt-1">
+            {{ slots.length }} créneau{{ slots.length > 1 ? 'x' : '' }} configuré{{ slots.length > 1 ? 's' : '' }}
+            • Cliquez pour {{ isOpen ? 'masquer' : 'voir' }}
+          </p>
+        </div>
+      </button>
+      
       <button 
         @click="$emit('create-slot')"
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        class="px-3 py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm md:text-base">
+        <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        Nouveau créneau
+        <span class="hidden sm:inline">Nouveau</span>
       </button>
     </div>
     
-    <!-- Liste des créneaux -->
-    <div v-if="slots.length > 0" class="space-y-3">
-      <div v-for="slot in slots" 
-           :key="slot.id"
-           class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-        <div class="flex items-start justify-between">
-          <div class="flex-1">
-            <!-- Jour et horaire -->
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {{ getDayName(slot.day_of_week) }}
-              </span>
-              <span class="text-sm font-semibold text-gray-900">
-                {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-              </span>
+    <!-- Contenu déroulant -->
+    <div v-if="isOpen" class="mt-4 border-t border-gray-200 pt-4">
+      <div v-if="slots.length > 0">
+        <!-- Vue Desktop/Tablette : 7 colonnes par jour -->
+        <div class="hidden md:grid md:grid-cols-7 gap-3">
+          <div v-for="day in 7" :key="day" class="space-y-2">
+            <!-- En-tête du jour -->
+            <div class="text-center font-semibold text-sm text-gray-700 bg-gray-100 rounded-lg py-2">
+              {{ getDayName((day) % 7) }}
             </div>
-    
-            <!-- Discipline -->
-            <h3 class="font-medium text-gray-900 mb-2">
-              {{ slot.discipline?.name || 'Discipline non définie' }}
-            </h3>
-
-            <!-- Informations du créneau -->
-            <div class="flex items-center gap-4 text-sm text-gray-500">
-              <span v-if="slot.duration">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {{ slot.duration }} min
-              </span>
-              <span v-if="slot.price">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {{ formatPrice(slot.price) }} €
-              </span>
-              <span v-if="slot.max_capacity">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                {{ slot.max_capacity }} {{ slot.max_capacity === 1 ? 'participant' : 'participants' }}
-              </span>
-              <span v-if="slot.max_slots && slot.max_slots > 1" class="font-medium text-blue-600">
-                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                × {{ slot.max_slots }} plages simultanées
-              </span>
+            
+            <!-- Créneaux du jour -->
+            <div class="space-y-2">
+              <div 
+                v-for="slot in getSlotsByDay((day) % 7)" 
+                :key="slot.id"
+                @click="handleSlotClick(slot)"
+                class="border-2 rounded-lg p-2 cursor-pointer transition-all hover:shadow-md"
+                :class="[
+                  selectedSlotId === slot.id 
+                    ? 'border-green-500 bg-green-50 shadow-lg' 
+                    : 'border-gray-200 hover:border-blue-500',
+                  { 'opacity-50': !slot.is_active }
+                ]">
+                <!-- Heure -->
+                <div class="text-xs font-semibold text-gray-900 mb-1">
+                  {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                </div>
+                
+                <!-- Discipline -->
+                <div class="text-xs text-gray-700 mb-1 truncate" :title="slot.discipline?.name">
+                  {{ slot.discipline?.name || 'N/A' }}
+                </div>
+                
+                <!-- Infos rapides -->
+                <div class="flex items-center gap-1 text-xs text-gray-500">
+                  <span v-if="slot.duration">⏱ {{ slot.duration }}m</span>
+                  <span v-if="slot.price">• {{ formatPrice(slot.price) }}€</span>
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex gap-1 mt-2">
+                  <button 
+                    @click.stop="$emit('edit-slot', slot)"
+                    class="flex-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Modifier">
+                    ✏️
+                  </button>
+                  <button 
+                    @click.stop="$emit('delete-slot', slot)"
+                    class="flex-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Supprimer">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Placeholder si aucun créneau -->
+              <div v-if="getSlotsByDay((day) % 7).length === 0" 
+                   class="text-center py-4 text-xs text-gray-400">
+                Aucun créneau
+              </div>
             </div>
           </div>
-
-          <!-- Actions -->
-          <div class="flex flex-col items-end gap-2">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  :class="slot.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
-              {{ slot.is_active ? 'Actif' : 'Inactif' }}
-            </span>
-            <div class="flex gap-2">
+        </div>
+        
+        <!-- Vue Mobile : petites cartes -->
+        <div class="md:hidden space-y-3">
+          <div 
+            v-for="slot in slots" 
+            :key="slot.id"
+            @click="handleSlotClick(slot)"
+            class="border-2 rounded-lg p-3 cursor-pointer transition-all hover:shadow-md"
+            :class="[
+              selectedSlotId === slot.id 
+                ? 'border-green-500 bg-green-50 shadow-lg' 
+                : 'border-gray-200 hover:border-blue-500',
+              { 'opacity-50': !slot.is_active }
+            ]">
+            <div class="flex items-start justify-between mb-2">
+              <!-- Jour -->
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {{ getDayName(slot.day_of_week) }}
+              </span>
+              
+              <!-- Statut -->
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="slot.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
+                {{ slot.is_active ? '✓' : '✗' }}
+              </span>
+            </div>
+            
+            <!-- Horaire -->
+            <div class="text-sm font-semibold text-gray-900 mb-1">
+              🕐 {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+            </div>
+            
+            <!-- Discipline -->
+            <div class="text-sm text-gray-700 mb-2">
+              📚 {{ slot.discipline?.name || 'Discipline non définie' }}
+            </div>
+            
+            <!-- Infos -->
+            <div class="flex items-center gap-3 text-xs text-gray-500 mb-2">
+              <span v-if="slot.duration">⏱ {{ slot.duration }} min</span>
+              <span v-if="slot.price">💰 {{ formatPrice(slot.price) }} €</span>
+              <span v-if="slot.max_capacity">👤 {{ slot.max_capacity }}</span>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex gap-2 mt-2">
               <button 
-                @click="$emit('edit-slot', slot)"
-                class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Modifier">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
+                @click.stop="$emit('edit-slot', slot)"
+                class="flex-1 px-3 py-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium">
+                ✏️ Modifier
               </button>
               <button 
-                @click="$emit('delete-slot', slot)"
-                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Supprimer">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                @click.stop="$emit('delete-slot', slot)"
+                class="flex-1 px-3 py-1.5 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium">
+                🗑️ Supprimer
               </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div v-else class="text-center py-8 text-gray-500">
-      Aucun créneau horaire configuré. Créez-en un pour commencer.
+      <div v-else class="text-center py-8 text-gray-500">
+        Aucun créneau horaire configuré. Créez-en un pour commencer.
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
+
 interface OpenSlot {
   id: number
   day_of_week: number
@@ -118,16 +184,21 @@ interface OpenSlot {
 
 interface Props {
   slots: OpenSlot[]
+  selectedSlotId?: number | null
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  selectedSlotId: null
+})
 
-defineEmits<{
+const emit = defineEmits<{
   'create-slot': []
   'edit-slot': [slot: OpenSlot]
   'delete-slot': [slot: OpenSlot]
+  'select-slot': [slot: OpenSlot]
 }>()
 
+const isOpen = ref(false) // Fermé par défaut
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
 function getDayName(dayOfWeek: number): string {
@@ -141,6 +212,16 @@ function formatTime(time: string): string {
 function formatPrice(price: number | string): string {
   const numPrice = typeof price === 'string' ? parseFloat(price) : price
   return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2)
+}
+
+function getSlotsByDay(dayOfWeek: number): OpenSlot[] {
+  return props.slots.filter(slot => slot.day_of_week === dayOfWeek)
+}
+
+function handleSlotClick(slot: OpenSlot) {
+  emit('select-slot', slot)
+  // Fermer automatiquement le dropdown après sélection
+  isOpen.value = false
 }
 </script>
 
