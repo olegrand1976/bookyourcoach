@@ -782,8 +782,10 @@ async function loadTeachers() {
   try {
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/teachers')
+    console.log('🔍 [Planning] Réponse enseignants:', response.data)
     if (response.data.success) {
-      teachers.value = response.data.data
+      // La clé est 'teachers' et non 'data' (voir ClubController::getTeachers)
+      teachers.value = response.data.teachers || response.data.data || []
       console.log('✅ Enseignants chargés:', teachers.value.length)
     }
   } catch (err) {
@@ -791,17 +793,18 @@ async function loadTeachers() {
   }
 }
 
-// Charger les étudiants du club
+// Charger les élèves du club
 async function loadStudents() {
   try {
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/students')
+    console.log('🔍 [Planning] Réponse élèves:', response.data)
     if (response.data.success) {
-      students.value = response.data.data
-      console.log('✅ Étudiants chargés:', students.value.length)
+      students.value = response.data.data || []
+      console.log('✅ Élèves chargés:', students.value.length)
     }
   } catch (err) {
-    console.error('Erreur chargement étudiants:', err)
+    console.error('Erreur chargement élèves:', err)
   }
 }
 
