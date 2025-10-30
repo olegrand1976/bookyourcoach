@@ -207,13 +207,49 @@ export const useAuthStore = defineStore('auth', {
             
             console.log('🚀 [INIT ULTRA SIMPLE] Token et user restaurés depuis cookies (API native)')
             console.log('🚀 [INIT ULTRA SIMPLE] User:', this.user?.email, 'Role:', this.user?.role)
+            console.log('🚀 [INIT ULTRA SIMPLE] User name:', this.user?.name)
             
-            // Vérifier que le token est toujours valide
-            try {
-              await this.fetchUser()
-            } catch (error) {
-              console.warn('🚀 [INIT ULTRA SIMPLE] Token invalide, nettoyage')
-              this.clearAuth()
+            // Vérifier si le nom contient des caractères mal encodés (pattern UTF-8 corrompu)
+            const hasEncodingIssue = this.user?.name && /Ã[€-¿]/.test(this.user.name)
+            if (hasEncodingIssue) {
+              console.warn('🚀 [INIT] Détection encodage corrompu dans le nom:', this.user.name)
+              
+              // Récupérer les vraies données du backend pour corriger
+              try {
+                await this.fetchUser()
+                
+                // Re-sauvegarder avec le bon encodage
+                const maxAge = 60 * 60 * 24 * 7 // 7 jours par défaut
+                const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
+                
+                const setCookie = (name, value, options = {}) => {
+                  const encodedValue = btoa(unescape(encodeURIComponent(value)))
+                  let cookieString = `${name}=${encodedValue}`
+                  if (options.expires) cookieString += `; expires=${options.expires}`
+                  if (options.path) cookieString += `; path=${options.path}`
+                  if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
+                  document.cookie = cookieString
+                }
+                
+                setCookie('auth-user', JSON.stringify(this.user), {
+                  expires: expires,
+                  path: '/',
+                  sameSite: 'Lax'
+                })
+                
+                console.log('✅ [INIT] Cookies re-sauvegardés avec encodage correct')
+                console.log('✅ [INIT] Nouveau nom:', this.user?.name)
+              } catch (error) {
+                console.error('❌ [INIT] Erreur correction encodage:', error)
+              }
+            } else {
+              // Vérifier que le token est toujours valide
+              try {
+                await this.fetchUser()
+              } catch (error) {
+                console.warn('🚀 [INIT ULTRA SIMPLE] Token invalide, nettoyage')
+                this.clearAuth()
+              }
             }
           } catch (error) {
             console.error('🚀 [INIT ULTRA SIMPLE] Erreur lors de la restauration:', error)
