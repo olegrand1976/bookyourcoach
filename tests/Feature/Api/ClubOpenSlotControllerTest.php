@@ -265,5 +265,94 @@ class ClubOpenSlotControllerTest extends TestCase
         // Assert
         $response->assertStatus(404);
     }
+
+    /** @test */
+    public function it_can_show_single_open_slot()
+    {
+        // Arrange
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+        $discipline = Discipline::factory()->create();
+        
+        $slot = ClubOpenSlot::factory()->create([
+            'club_id' => $club->id,
+            'discipline_id' => $discipline->id,
+        ]);
+        
+        // Act
+        $response = $this->getJson("/api/club/open-slots/{$slot->id}");
+        
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'data' => [
+                         'id',
+                         'club_id',
+                         'day_of_week',
+                         'start_time',
+                         'end_time',
+                         'discipline_id',
+                         'discipline',
+                         'course_types',
+                     ]
+                 ])
+                 ->assertJsonFragment([
+                     'id' => $slot->id,
+                 ]);
+    }
+
+    /** @test */
+    public function it_can_update_course_types_for_slot()
+    {
+        // Arrange
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+        $discipline = Discipline::factory()->create();
+        
+        $slot = ClubOpenSlot::factory()->create([
+            'club_id' => $club->id,
+            'discipline_id' => $discipline->id,
+        ]);
+
+        $courseType1 = CourseType::factory()->create(['discipline_id' => $discipline->id]);
+        $courseType2 = CourseType::factory()->create(['discipline_id' => $discipline->id]);
+        
+        // Act
+        $response = $this->putJson("/api/club/open-slots/{$slot->id}/course-types", [
+            'course_type_ids' => [$courseType1->id, $courseType2->id],
+        ]);
+        
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJson([
+                     'success' => true,
+                     'message' => 'Types de cours mis à jour avec succès'
+                 ]);
+
+        $this->assertTrue($slot->fresh()->courseTypes->contains($courseType1));
+        $this->assertTrue($slot->fresh()->courseTypes->contains($courseType2));
+    }
+
+    /** @test */
+    public function it_validates_course_type_ids_on_update()
+    {
+        // Arrange
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+        
+        $slot = ClubOpenSlot::factory()->create([
+            'club_id' => $club->id,
+        ]);
+        
+        // Act
+        $response = $this->putJson("/api/club/open-slots/{$slot->id}/course-types", [
+            'course_type_ids' => [99999], // ID inexistant
+        ]);
+        
+        // Assert
+        $response->assertStatus(422)
+                 ->assertJsonValidationErrors(['course_type_ids.0']);
+    }
 }
 
