@@ -45,8 +45,8 @@
               <span class="hidden xl:inline">Planning</span>
             </button>
             
-            <button @click="navigateTo('/student/preferences')" class="inline-flex items-center px-3 xl:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm">
-              <svg class="w-5 h-5 xl:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button @click="navigateTo('/student/preferences')" class="btn-preferences">
+              <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -77,8 +77,8 @@
               <span>Planning</span>
             </button>
             
-            <button @click="navigateTo('/student/preferences')" class="inline-flex items-center justify-center px-2 sm:px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-xs sm:text-sm">
-              <svg class="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button @click="navigateTo('/student/preferences')" class="btn-preferences text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -90,7 +90,7 @@
 
       <!-- Stats principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- Leçons disponibles -->
+        <!-- Cours disponibles -->
         <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
@@ -130,7 +130,7 @@
           </div>
         </div>
 
-        <!-- Leçons terminées -->
+        <!-- Cours terminés -->
         <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
@@ -258,7 +258,7 @@
             <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p>Aucune activité récente</p>
+            <p class="text-lg mb-2">Aucune activité récente</p>
             <button 
               @click="navigateTo('/student/lessons')"
               class="mt-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
@@ -284,7 +284,7 @@
                 </div>
               </div>
               <span class="text-xs text-gray-400">
-                {{ formatDate(activity.date) }}
+                {{ formatRelativeDate(activity.date) }}
               </span>
             </div>
           </div>
@@ -296,6 +296,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useStudentData } from '~/composables/useStudentData'
+import { useStudentFormatters } from '~/composables/useStudentFormatters'
+
+definePageMeta({
+  middleware: ['auth', 'student'],
+  layout: 'default'
+})
+
+// Composables
+const { loading: dataLoading, loadStats, loadLessonHistory } = useStudentData()
+const { formatRelativeDate } = useStudentFormatters()
 
 // State
 const stats = ref({
@@ -308,53 +319,30 @@ const stats = ref({
 const recentActivity = ref<any[]>([])
 const isLoading = ref(true)
 
-// Récupérer l'instance $api injectée par le plugin
-const { $api } = useNuxtApp()
-
 // Methods
-const loadStats = async () => {
-  try {
-    const response = await $api.get('/student/dashboard/stats')
-    
-    if (response.data.success) {
-      stats.value = response.data.data
-    }
-  } catch (err) {
-    console.error('Error loading stats:', err)
-  }
-}
-
 const loadRecentActivity = async () => {
   try {
-    const response = await $api.get('/student/lesson-history')
-    
-    if (response.data.success) {
-      recentActivity.value = response.data.data.slice(0, 5) // Limiter à 5 activités
-    }
+    const history = await loadLessonHistory(5)
+    recentActivity.value = history.map((lesson: any) => ({
+      id: lesson.id,
+      title: `Cours ${lesson.course_type?.name || 'de cours'}`,
+      description: `${lesson.teacher?.user?.name || 'Enseignant'} - ${lesson.location?.name || 'Lieu'}`,
+      date: lesson.start_time || lesson.created_at
+    }))
   } catch (err) {
     console.error('Error loading recent activity:', err)
   }
-}
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }
 
 // Lifecycle
 onMounted(async () => {
   try {
     isLoading.value = true
-    await Promise.all([
+    const [statsData] = await Promise.all([
       loadStats(),
       loadRecentActivity()
     ])
+    stats.value = statsData || stats.value
   } catch (error) {
     console.error('Error loading dashboard data:', error)
   } finally {
@@ -375,6 +363,10 @@ onMounted(async () => {
 
 .btn-schedule {
   @apply inline-flex items-center px-3 xl:px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm;
+}
+
+.btn-preferences {
+  @apply inline-flex items-center px-3 xl:px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm;
 }
 
 .btn-icon {

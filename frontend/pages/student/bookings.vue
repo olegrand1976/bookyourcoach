@@ -1,18 +1,32 @@
 <template>
-  <div class="bookings-page">
-    <div class="container mx-auto px-4 py-8">
+  <div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
       <div class="mb-6 md:mb-8">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-          Mes Réservations
-        </h1>
-        <p class="text-gray-600">
-          Gérez vos cours réservés et votre planning
-        </p>
+        <div class="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
+              Mes Réservations
+            </h1>
+            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
+              Gérez vos cours réservés et votre planning
+            </p>
+          </div>
+          
+          <NuxtLink 
+            to="/student/dashboard"
+            class="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm md:text-base"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour au dashboard
+          </NuxtLink>
+        </div>
       </div>
 
       <!-- Status Filter -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
         <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Filtrer par statut</h2>
         <div class="flex flex-wrap gap-2">
           <button 
@@ -20,9 +34,9 @@
             :key="status.value"
             @click="selectedStatus = status.value"
             :class="[
-              'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
               selectedStatus === status.value
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             ]"
           >
@@ -33,20 +47,29 @@
 
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-gray-600">Chargement des réservations...</p>
+        </div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
         <div class="flex items-center">
           <div class="flex-shrink-0">
             <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
             </svg>
           </div>
-          <div class="ml-3">
+          <div class="ml-3 flex-1">
             <h3 class="text-sm font-medium text-red-800">Erreur</h3>
             <div class="mt-2 text-sm text-red-700">{{ error }}</div>
+            <button 
+              @click="loadBookings"
+              class="mt-4 px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+            >
+              Réessayer
+            </button>
           </div>
         </div>
       </div>
@@ -56,22 +79,22 @@
         <div 
           v-for="booking in filteredBookings" 
           :key="booking.id"
-          class="bg-white rounded-lg shadow-md border border-gray-200"
+          class="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all"
         >
           <div class="p-6">
             <!-- Booking Header -->
             <div class="flex items-start justify-between mb-4">
               <div>
                 <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-1">
-                  {{ booking.lesson?.title || 'Leçon' }}
+                  {{ booking.lesson?.course_type?.name || booking.lesson?.title || 'Leçon' }}
                 </h3>
                 <p class="text-xs md:text-sm text-gray-600">
-                  {{ booking.lesson?.course_type?.name || 'Type non spécifié' }}
+                  {{ booking.lesson?.teacher?.user?.name || 'Enseignant non spécifié' }}
                 </p>
               </div>
               <span 
                 :class="[
-                  'px-3 py-1 text-sm font-medium rounded-full',
+                  'px-3 py-1 text-xs md:text-sm font-medium rounded-full',
                   getStatusClass(booking.status)
                 ]"
               >
@@ -79,69 +102,56 @@
               </span>
             </div>
 
-            <!-- Teacher Info -->
-            <div class="flex items-center mb-4">
-              <div class="flex-shrink-0">
-                <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-              </div>
-              <div class="ml-3">
-                <p class="text-sm font-medium text-gray-900">
-                  {{ booking.lesson?.teacher?.user?.name || 'Enseignant' }}
-                </p>
-                <p class="text-xs text-gray-500">Enseignant</p>
-              </div>
-            </div>
-
             <!-- Booking Details -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div class="flex items-center text-sm text-gray-600">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <div class="bg-blue-100 p-2 rounded-lg mr-3">
+                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
                 <div>
-                  <p class="font-medium">{{ formatDate(booking.lesson?.start_time) }}</p>
-                  <p class="text-xs">{{ formatTime(booking.lesson?.start_time) }} - {{ formatTime(booking.lesson?.end_time) }}</p>
+                  <p class="font-medium text-gray-900">{{ formatDate(booking.lesson?.start_time) }}</p>
+                  <p class="text-xs text-gray-500">{{ formatTime(booking.lesson?.start_time) }} - {{ formatTime(booking.lesson?.end_time) }}</p>
                 </div>
               </div>
               
               <div class="flex items-center text-sm text-gray-600">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <div class="bg-emerald-100 p-2 rounded-lg mr-3">
+                  <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
                 <div>
-                  <p class="font-medium">{{ booking.lesson?.location?.name || 'Lieu non spécifié' }}</p>
+                  <p class="font-medium text-gray-900">{{ booking.lesson?.location?.name || 'Lieu non spécifié' }}</p>
                 </div>
               </div>
 
               <div class="flex items-center text-sm text-gray-600">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
+                <div class="bg-purple-100 p-2 rounded-lg mr-3">
+                  <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
                 <div>
-                  <p class="font-medium">{{ booking.price ? `${booking.price}€` : 'Prix non spécifié' }}</p>
+                  <p class="font-medium text-gray-900">{{ formatPrice(booking.price) }}</p>
                 </div>
               </div>
             </div>
 
             <!-- Notes -->
-            <div v-if="booking.notes" class="mb-4">
+            <div v-if="booking.notes" class="mb-4 p-3 bg-gray-50 rounded-lg">
               <h4 class="text-sm font-medium text-gray-900 mb-1">Notes</h4>
-              <p class="text-xs md:text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-                {{ booking.notes }}
-              </p>
+              <p class="text-xs md:text-sm text-gray-600">{{ booking.notes }}</p>
             </div>
 
             <!-- Actions -->
-            <div class="flex space-x-2">
+            <div class="flex flex-wrap gap-2">
               <button 
                 v-if="canCancel(booking)"
-                @click="cancelBooking(booking.id)"
-                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                @click="handleCancelBooking(booking.id)"
+                class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
               >
                 Annuler
               </button>
@@ -149,14 +159,14 @@
               <button 
                 v-if="canRate(booking)"
                 @click="rateLesson(booking)"
-                class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-sm font-medium"
+                class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
               >
                 Noter
               </button>
               
               <button 
                 @click="viewBookingDetails(booking.id)"
-                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               >
                 Détails
               </button>
@@ -165,19 +175,22 @@
         </div>
 
         <!-- Empty State -->
-        <div v-if="filteredBookings.length === 0" class="text-center py-12">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div v-if="filteredBookings.length === 0" class="text-center py-12 bg-white rounded-xl shadow-lg">
+          <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">Aucune réservation</h3>
-          <p class="mt-1 text-sm text-gray-500">
+          <h3 class="mt-2 text-base md:text-lg font-medium text-gray-900">Aucune réservation</h3>
+          <p class="mt-1 text-sm md:text-base text-gray-500">
             {{ selectedStatus === 'all' ? 'Vous n\'avez pas encore de réservations.' : 'Aucune réservation avec ce statut.' }}
           </p>
-          <div v-if="selectedStatus === 'all'" class="mt-4">
+          <div v-if="selectedStatus === 'all'" class="mt-6">
             <NuxtLink 
               to="/student/lessons"
-              class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
             >
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
               Voir les leçons disponibles
             </NuxtLink>
           </div>
@@ -189,17 +202,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useStudentData } from '~/composables/useStudentData'
+import { useStudentFormatters } from '~/composables/useStudentFormatters'
 
-// Meta
 definePageMeta({
   middleware: ['auth', 'student'],
-  layout: 'student'
+  layout: 'default'
 })
+
+// Composables
+const { loading, loadBookings: loadBookingsData, cancelBooking } = useStudentData()
+const { formatDate, formatTime, formatPrice, getStatusClass, getStatusText } = useStudentFormatters()
 
 // State
 const bookings = ref<any[]>([])
-const loading = ref(false)
-const error = ref<string | null>(null)
 const selectedStatus = ref('all')
 
 const statusOptions = [
@@ -221,57 +237,32 @@ const filteredBookings = computed(() => {
 // Methods
 const loadBookings = async () => {
   try {
-    loading.value = true
-    error.value = null
-    
-    const { $api } = useNuxtApp()
-    const response = await $api.get('/student/bookings')
-    
-    if (response.data.success) {
-      bookings.value = response.data.data
-    } else {
-      throw new Error('Erreur lors du chargement des réservations')
-    }
-  } catch (err: any) {
-    error.value = err.message || 'Erreur lors du chargement des réservations'
+    bookings.value = await loadBookingsData()
+  } catch (err) {
     console.error('Error loading bookings:', err)
-  } finally {
-    loading.value = false
   }
 }
 
-const cancelBooking = async (bookingId: number) => {
+const handleCancelBooking = async (bookingId: number) => {
   if (!confirm('Êtes-vous sûr de vouloir annuler cette réservation ?')) {
     return
   }
 
   try {
-    const { $api } = useNuxtApp()
-    const response = await $api.put(`/student/bookings/${bookingId}/cancel`)
-    
-    if (response.data.success) {
-      // Recharger les réservations
-      await loadBookings()
-      
-      const { $toast } = useNuxtApp()
-      $toast.success('Réservation annulée avec succès!')
-    } else {
-      throw new Error(response.data.message || 'Erreur lors de l\'annulation')
-    }
-  } catch (err: any) {
-    const { $toast } = useNuxtApp()
-    $toast.error(err.message || 'Erreur lors de l\'annulation')
+    await cancelBooking(bookingId)
+    await loadBookings()
+  } catch (err) {
     console.error('Error cancelling booking:', err)
   }
 }
 
 const rateLesson = (booking: any) => {
-  // Ouvrir un modal de notation (à implémenter)
+  // TODO: Implémenter le modal de notation
   console.log('Rate lesson:', booking)
 }
 
 const viewBookingDetails = (bookingId: number) => {
-  // Navigation vers la page de détails (à implémenter)
+  // TODO: Navigation vers la page de détails
   console.log('View booking details:', bookingId)
 }
 
@@ -284,62 +275,8 @@ const canRate = (booking: any) => {
   return booking.status === 'completed' && !booking.rating
 }
 
-const getStatusClass = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'confirmed':
-      return 'bg-blue-100 text-blue-800'
-    case 'completed':
-      return 'bg-green-100 text-green-800'
-    case 'cancelled':
-      return 'bg-red-100 text-red-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
-  }
-}
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return 'En attente'
-    case 'confirmed':
-      return 'Confirmée'
-    case 'completed':
-      return 'Terminée'
-    case 'cancelled':
-      return 'Annulée'
-    default:
-      return status
-  }
-}
-
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  })
-}
-
-const formatTime = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 // Lifecycle
 onMounted(() => {
   loadBookings()
 })
 </script>
-
-<style scoped>
-.bookings-page {
-  min-height: 100vh;
-  background-color: #f9fafb;
-}
-</style>
