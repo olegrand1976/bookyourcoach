@@ -232,6 +232,21 @@
             </p>
           </div>
 
+          <!-- Durée de validité -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Durée de validité (mois) *</label>
+            <input 
+              v-model.number="form.validity_months"
+              type="number" 
+              min="1"
+              max="60"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              Durée pendant laquelle l'abonnement reste valide après souscription (par défaut: 12 mois = 1 an)
+            </p>
+          </div>
+
           <!-- Types de cours -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Types de cours inclus *</label>
@@ -394,6 +409,7 @@ const form = ref({
   total_lessons: 10,
   free_lessons: 0,
   price: 0,
+  validity_months: 12,
   course_type_ids: [],
   is_active: true
 })
@@ -432,12 +448,29 @@ const loadSubscriptions = async () => {
 const loadDisciplines = async () => {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get('/disciplines')
+    // Charger les course_types au lieu des disciplines
+    const response = await $api.get('/course-types')
     if (response.data.success) {
       availableDisciplines.value = response.data.data
+    } else {
+      // Fallback sur les disciplines si course-types n'existe pas
+      const fallbackResponse = await $api.get('/disciplines')
+      if (fallbackResponse.data.success) {
+        availableDisciplines.value = fallbackResponse.data.data
+      }
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des disciplines:', error)
+    console.error('Erreur lors du chargement des types de cours:', error)
+    // Fallback silencieux sur les disciplines
+    try {
+      const { $api } = useNuxtApp()
+      const response = await $api.get('/disciplines')
+      if (response.data.success) {
+        availableDisciplines.value = response.data.data
+      }
+    } catch (e) {
+      console.error('Erreur lors du chargement des disciplines (fallback):', e)
+    }
   }
 }
 
@@ -481,6 +514,7 @@ const editSubscription = (subscription) => {
     total_lessons: subscription.total_lessons,
     free_lessons: subscription.free_lessons,
     price: parseFloat(subscription.price),
+    validity_months: subscription.validity_months || 12,
     course_type_ids: subscription.course_types?.map(ct => ct.id) || [],
     is_active: subscription.is_active
   }
@@ -602,6 +636,7 @@ const closeModals = () => {
     total_lessons: 10,
     free_lessons: 0,
     price: 0,
+    validity_months: 12,
     course_type_ids: [],
     is_active: true
   }

@@ -114,6 +114,12 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     Route::post('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'addPreference']);
     Route::put('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'updatePreferences']);
     Route::delete('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'removePreference']);
+    
+    // Abonnements
+    Route::get('/subscriptions/available', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'availableSubscriptions']);
+    Route::get('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'mySubscriptions']);
+    Route::post('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'subscribe']);
+    Route::post('/subscriptions/{instanceId}/renew', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'renew']);
 });
 
 // Routes publiques
@@ -178,6 +184,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::delete('/subscriptions/{id}', [SubscriptionController::class, 'destroy']);
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
+    Route::post('/subscriptions/{instanceId}/renew', [SubscriptionController::class, 'renew']);
     // Analyse prédictive IA
     Route::get('/predictive-analysis', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getAnalysis']);
     Route::get('/predictive-analysis/alerts', [App\Http\Controllers\Api\PredictiveAnalysisController::class, 'getCriticalAlerts']);

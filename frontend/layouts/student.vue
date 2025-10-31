@@ -190,6 +190,11 @@ const navigationItems = [
     icon: 'svg'
   },
   {
+    name: 'Mes abonnements',
+    href: '/student/subscriptions',
+    icon: 'svg'
+  },
+  {
     name: 'Enseignants',
     href: '/student/teachers',
     icon: 'svg'
