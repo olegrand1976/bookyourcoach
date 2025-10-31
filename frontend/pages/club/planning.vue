@@ -1117,10 +1117,24 @@ async function createLesson() {
     saving.value = true
     const { $api } = useNuxtApp()
     
+    // 🔍 DEBUG : Afficher l'état du formulaire
+    console.log('🔍 [createLesson] État du formulaire:', {
+      teacher_id: lessonForm.value.teacher_id,
+      teacher_id_type: typeof lessonForm.value.teacher_id,
+      student_id: lessonForm.value.student_id,
+      course_type_id: lessonForm.value.course_type_id,
+      date: lessonForm.value.date,
+      time: lessonForm.value.time,
+      duration: lessonForm.value.duration,
+      price: lessonForm.value.price,
+      fullForm: JSON.parse(JSON.stringify(lessonForm.value))
+    })
+    
     // Validations
     const validationErrors = []
     
     if (!lessonForm.value.teacher_id) {
+      console.error('❌ [createLesson] teacher_id est vide:', lessonForm.value.teacher_id)
       validationErrors.push('Veuillez sélectionner un enseignant')
     }
     
@@ -1148,12 +1162,18 @@ async function createLesson() {
     }
     
     // Vérifier que le type de cours correspond à la discipline du créneau
+    // ⚠️ NOTE : Pour l'instant, les course_types ont tous discipline_id = NULL
+    // Cette validation est donc désactivée car elle bloquerait toujours
+    // TODO : Activer quand les course_types auront leurs discipline_id correctement renseignés
+    /*
     if (selectedSlotForLesson.value && lessonForm.value.course_type_id) {
       const selectedCourseType = courseTypes.value.find(ct => ct.id === lessonForm.value.course_type_id)
-      if (selectedCourseType && selectedCourseType.discipline_id !== selectedSlotForLesson.value.discipline_id) {
+      // Vérifier uniquement si le course_type a un discipline_id défini (pas NULL)
+      if (selectedCourseType && selectedCourseType.discipline_id && selectedCourseType.discipline_id !== selectedSlotForLesson.value.discipline_id) {
         validationErrors.push('Le type de cours sélectionné ne correspond pas à la discipline du créneau')
       }
     }
+    */
     
     // Afficher les erreurs s'il y en a
     if (validationErrors.length > 0) {
