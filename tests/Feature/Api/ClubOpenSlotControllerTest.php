@@ -7,6 +7,7 @@ use App\Models\Club;
 use App\Models\ClubManager;
 use App\Models\ClubOpenSlot;
 use App\Models\Discipline;
+use App\Models\CourseType;
 use Tests\TestCase;
 
 class ClubOpenSlotControllerTest extends TestCase
