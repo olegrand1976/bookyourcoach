@@ -27,7 +27,10 @@ class DashboardController extends Controller
 
         // Assurer que l'utilisateur est un élève ou a un profil élève
         if (!$user->student) {
-            return response()->json(['message' => 'Profil étudiant non trouvé.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé.'
+            ], 404);
         }
 
         $studentId = $user->student->id;
@@ -50,9 +53,18 @@ class DashboardController extends Controller
             }) / 60; // Convertir les minutes en heures
 
         return response()->json([
-            'upcoming_lessons' => $upcoming_lessons,
-            'completed_lessons' => $completed_lessons,
-            'total_hours' => round($total_hours, 1), // Arrondir à une décimale
+            'success' => true,
+            'data' => [
+                'availableLessons' => Lesson::where('status', 'available')
+                    ->where('start_time', '>=', Carbon::now())
+                    ->count(),
+                'activeBookings' => $upcoming_lessons,
+                'completedLessons' => $completed_lessons,
+                'favoriteTeachers' => Teacher::whereHas('lessons', function ($q) use ($studentId) {
+                    $q->where('student_id', $studentId)
+                      ->where('status', 'completed');
+                })->distinct()->count()
+            ]
         ]);
     }
 
@@ -76,9 +88,34 @@ class DashboardController extends Controller
             $query->whereDate('start_time', $date);
         }
 
-        $lessons = $query->get();
+        if ($request->has('discipline')) {
+            $query->whereHas('courseType', function ($q) use ($request) {
+                $q->where('discipline_id', $request->discipline);
+            });
+        }
 
-        return response()->json($lessons);
+        if ($request->has('courseType')) {
+            $query->where('course_type_id', $request->courseType);
+        }
+
+        if ($request->has('format')) {
+            if ($request->format === 'individual') {
+                $query->whereHas('courseType', function ($q) {
+                    $q->where('is_individual', true);
+                });
+            } else if ($request->format === 'group') {
+                $query->whereHas('courseType', function ($q) {
+                    $q->where('is_individual', false);
+                });
+            }
+        }
+
+        $lessons = $query->orderBy('start_time', 'asc')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $lessons
+        ]);
     }
 
     /**
@@ -96,9 +133,12 @@ class DashboardController extends Controller
             $query->where('status', $request->status);
         }
 
-        $bookings = $query->get();
+        $bookings = $query->orderBy('start_time', 'desc')->get();
 
-        return response()->json($bookings);
+        return response()->json([
+            'success' => true,
+            'data' => $bookings
+        ]);
     }
 
     /**
@@ -117,7 +157,10 @@ class DashboardController extends Controller
         $lesson = Lesson::findOrFail($request->lesson_id);
         
         if ($lesson->status !== 'available') {
-            return response()->json(['message' => 'Ce cours n\'est pas disponible.'], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce cours n\'est pas disponible.'
+            ], 400);
         }
 
         $lesson->update([
@@ -126,13 +169,17 @@ class DashboardController extends Controller
             'notes' => $request->notes,
         ]);
 
-        return response()->json($lesson->load(['teacher.user', 'courseType', 'location', 'club']), 201);
+        return response()->json([
+            'success' => true,
+            'data' => $lesson->load(['teacher.user', 'courseType', 'location', 'club']),
+            'message' => 'Réservation créée avec succès'
+        ], 201);
     }
 
     /**
      * Annule une réservation.
      */
-    public function cancelBooking(Request $request, $id)
+    public function cancelBooking(Request $request, string $id)
     {
         $user = $request->user();
         $studentId = $user->student->id;
@@ -143,7 +190,10 @@ class DashboardController extends Controller
 
         $lesson->update(['status' => 'cancelled']);
 
-        return response()->json(['message' => 'Réservation annulée avec succès.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Réservation annulée avec succès'
+        ]);
     }
 
     /**
@@ -236,7 +286,10 @@ class DashboardController extends Controller
             ->orderBy('start_time', 'desc')
             ->get();
 
-        return response()->json($lessons);
+        return response()->json([
+            'success' => true,
+            'data' => $lessons
+        ]);
     }
 
     /**
