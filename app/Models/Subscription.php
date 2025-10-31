@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class Subscription extends Model
 {
@@ -15,6 +16,7 @@ class Subscription extends Model
         'total_lessons',
         'free_lessons',
         'price',
+        'validity_months',
         'description',
         'is_active',
     ];
@@ -24,6 +26,11 @@ class Subscription extends Model
         'total_lessons' => 'integer',
         'free_lessons' => 'integer',
         'price' => 'decimal:2',
+        'validity_months' => 'integer',
+    ];
+
+    protected $attributes = [
+        'validity_months' => 12, // 1 an par défaut
     ];
 
     /**
@@ -35,12 +42,19 @@ class Subscription extends Model
     }
 
     /**
-     * Les types de cours (disciplines) inclus dans cet abonnement
+     * Les types de cours inclus dans cet abonnement
      */
     public function courseTypes()
     {
-        return $this->belongsToMany(Discipline::class, 'subscription_course_types', 'subscription_id', 'discipline_id')
-            ->withTimestamps();
+        // Vérifier si la table utilise course_type_id ou discipline_id
+        if (Schema::hasColumn('subscription_course_types', 'course_type_id')) {
+            return $this->belongsToMany(CourseType::class, 'subscription_course_types', 'subscription_id', 'course_type_id')
+                ->withTimestamps();
+        } else {
+            // Fallback pour compatibilité avec l'ancienne structure
+            return $this->belongsToMany(Discipline::class, 'subscription_course_types', 'subscription_id', 'discipline_id')
+                ->withTimestamps();
+        }
     }
 
     /**

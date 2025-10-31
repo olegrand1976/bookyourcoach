@@ -25,6 +25,22 @@ class SubscriptionInstance extends Model
     ];
 
     /**
+     * Boot method pour calculer automatiquement expires_at si non fourni
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($instance) {
+            // Si expires_at n'est pas défini, le calculer depuis validity_months du template
+            if (!$instance->expires_at && $instance->subscription && $instance->subscription->validity_months) {
+                $startDate = $instance->started_at ? Carbon::parse($instance->started_at) : Carbon::now();
+                $instance->expires_at = $startDate->copy()->addMonths($instance->subscription->validity_months);
+            }
+        });
+    }
+
+    /**
      * L'abonnement (modèle) associé
      */
     public function subscription()
@@ -127,14 +143,42 @@ class SubscriptionInstance extends Model
         }
 
         // Vérifier que le cours est bien du bon type
-        $disciplineIds = $this->subscription->courseTypes()->pluck('disciplines.id')->toArray();
-        if (!in_array($lesson->course_type_id, $disciplineIds)) {
+        // Vérifier si on utilise course_type_id ou discipline_id
+        $courseTypeIds = [];
+        $courseTypes = $this->subscription->courseTypes;
+        
+        foreach ($courseTypes as $courseType) {
+            // Si c'est un CourseType, utiliser son id directement
+            if ($courseType instanceof CourseType) {
+                $courseTypeIds[] = $courseType->id;
+            } 
+            // Si c'est une Discipline (ancien système), récupérer les course_types liés
+            else {
+                $disciplineCourseTypes = CourseType::where('discipline_id', $courseType->id)->pluck('id')->toArray();
+                $courseTypeIds = array_merge($courseTypeIds, $disciplineCourseTypes);
+            }
+        }
+        
+        if (!in_array($lesson->course_type_id, $courseTypeIds)) {
             throw new \Exception('Ce cours n\'est pas inclus dans cet abonnement');
         }
 
         // Vérifier que l'élève fait partie de cet abonnement
         $studentIds = $this->students()->pluck('students.id')->toArray();
-        if (!in_array($lesson->student_id, $studentIds)) {
+        // Vérifier aussi via lesson_student (many-to-many)
+        $lessonStudentIds = $lesson->students()->pluck('students.id')->toArray();
+        $allStudentIds = array_unique(array_merge($studentIds, $lessonStudentIds));
+        
+        // Vérifier si au moins un des élèves du cours est dans l'abonnement
+        $hasValidStudent = false;
+        foreach ($allStudentIds as $studentId) {
+            if (in_array($studentId, $studentIds)) {
+                $hasValidStudent = true;
+                break;
+            }
+        }
+        
+        if (!$hasValidStudent && !empty($studentIds)) {
             throw new \Exception('Cet élève ne fait pas partie de cet abonnement');
         }
 

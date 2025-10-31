@@ -6,7 +6,7 @@ export const useStudentFormatters = () => {
   /**
    * Formater une date complète
    */
-  const formatDate = (dateString: string, options?: { includeTime?: boolean }) => {
+  const formatDate = (dateString: string, options?: { includeTime?: boolean; includeYear?: boolean }) => {
     if (!dateString) return ''
     
     const date = new Date(dateString)
@@ -14,6 +14,11 @@ export const useStudentFormatters = () => {
       weekday: 'long',
       day: 'numeric',
       month: 'long'
+    }
+    
+    // Inclure l'année par défaut (ou si explicitement demandé)
+    if (options?.includeYear !== false) {
+      dateOptions.year = 'numeric'
     }
     
     if (options?.includeTime) {
