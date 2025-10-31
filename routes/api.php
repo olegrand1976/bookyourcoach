@@ -93,6 +93,27 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
 
 Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(function () {
     Route::get('/dashboard', [StudentController::class, 'dashboard']);
+    
+    // Statistiques du dashboard
+    Route::get('/dashboard/stats', [App\Http\Controllers\Api\Student\DashboardController::class, 'getStats']);
+    
+    // Cours disponibles
+    Route::get('/available-lessons', [App\Http\Controllers\Api\Student\DashboardController::class, 'getAvailableLessons']);
+    
+    // Historique des cours
+    Route::get('/lesson-history', [App\Http\Controllers\Api\Student\DashboardController::class, 'getLessonHistory']);
+    
+    // Réservations
+    Route::get('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'getBookings']);
+    Route::post('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'createBooking']);
+    Route::put('/bookings/{id}/cancel', [App\Http\Controllers\Api\Student\DashboardController::class, 'cancelBooking']);
+    
+    // Préférences
+    Route::get('/disciplines', [App\Http\Controllers\Api\Student\PreferencesController::class, 'getDisciplines']);
+    Route::get('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'getPreferences']);
+    Route::post('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'addPreference']);
+    Route::put('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'updatePreferences']);
+    Route::delete('/preferences/advanced', [App\Http\Controllers\Api\Student\PreferencesController::class, 'removePreference']);
 });
 
 // Routes publiques
