@@ -48,11 +48,13 @@ abstract class TestCase extends BaseTestCase
 
         $club = \App\Models\Club::factory()->create();
         
-        // Créer l'entrée dans club_managers
-        \Illuminate\Support\Facades\DB::table('club_managers')->insert([
+        // Créer l'entrée dans club_user (table correcte)
+        \Illuminate\Support\Facades\DB::table('club_user')->insert([
             'user_id' => $user->id,
             'club_id' => $club->id,
             'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);

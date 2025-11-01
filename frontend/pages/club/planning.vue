@@ -556,12 +556,41 @@ const filteredLessons = computed(() => {
   // Filtrer les cours qui correspondent au créneau sélectionné
   return lessons.value.filter(lesson => {
     const lessonDate = new Date(lesson.start_time)
+    // JavaScript getDay() retourne 0 (Dim) à 6 (Sam) - correspond à Laravel (0=Dim)
     const lessonDay = lessonDate.getDay()
-    const lessonTime = lessonDate.toTimeString().substring(0, 5)
     
-    return lessonDay === selectedSlot.value!.day_of_week &&
-           lessonTime >= selectedSlot.value!.start_time &&
-           lessonTime < selectedSlot.value!.end_time
+    // 🔧 CORRECTION : Extraire l'heure locale au format "HH:mm"
+    // Utiliser les méthodes getHours() et getMinutes() pour éviter les problèmes de format
+    const lessonHours = String(lessonDate.getHours()).padStart(2, '0')
+    const lessonMinutes = String(lessonDate.getMinutes()).padStart(2, '0')
+    const lessonTime = `${lessonHours}:${lessonMinutes}` // Format: "09:00"
+    
+    // Normaliser les heures du créneau (au cas où elles sont en format "HH:mm:ss")
+    const slotStartTime = formatTime(selectedSlot.value!.start_time)
+    const slotEndTime = formatTime(selectedSlot.value!.end_time)
+    
+    const dayMatch = lessonDay === selectedSlot.value!.day_of_week
+    const timeMatch = lessonTime >= slotStartTime && lessonTime < slotEndTime
+    
+    // 🔍 Log de débogage (peut être retiré en production)
+    if (lesson.id) { // Seulement pour les cours existants
+      console.log('🔍 [filteredLessons] Comparaison cours/créneau:', {
+        lessonId: lesson.id,
+        lessonStartTime: lesson.start_time,
+        lessonDateUTC: lessonDate.toISOString(),
+        lessonDateLocal: lessonDate.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }),
+        lessonDay: lessonDay,
+        lessonTime: lessonTime,
+        slotDayOfWeek: selectedSlot.value!.day_of_week,
+        slotStartTime: slotStartTime,
+        slotEndTime: slotEndTime,
+        dayMatch,
+        timeMatch,
+        willShow: dayMatch && timeMatch
+      })
+    }
+    
+    return dayMatch && timeMatch
   })
 })
 

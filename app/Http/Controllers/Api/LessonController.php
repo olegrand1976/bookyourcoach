@@ -281,6 +281,25 @@ class LessonController extends Controller
                 }
             }
 
+            // 🔧 CORRECTION : Fournir une location_id par défaut si elle n'est pas fournie
+            if (!isset($validated['location_id']) || empty($validated['location_id'])) {
+                // Chercher une location par défaut (première disponible)
+                $defaultLocation = \App\Models\Location::first();
+                if ($defaultLocation) {
+                    $validated['location_id'] = $defaultLocation->id;
+                } else {
+                    // Si aucune location n'existe, créer une location par défaut
+                    $defaultLocation = \App\Models\Location::create([
+                        'name' => 'Location par défaut',
+                        'address' => 'Non spécifiée',
+                        'city' => 'Non spécifiée',
+                        'postal_code' => '00000',
+                        'country' => 'Belgium',
+                    ]);
+                    $validated['location_id'] = $defaultLocation->id;
+                }
+            }
+
             $lesson = Lesson::create($validated);
 
             // Essayer de consommer un abonnement si l'élève en a un actif
