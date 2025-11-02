@@ -378,14 +378,27 @@ class SubscriptionController extends Controller
                 ->whereHas('subscription', function ($query) use ($club) {
                     $query->where('club_id', $club->id);
                 })
-                ->with(['subscription.courseTypes', 'students.user'])
+                ->with([
+                    'subscription.template.courseTypes',
+                    'subscription.club',
+                    'students.user'
+                ])
                 ->orderBy('status', 'asc')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             // Mettre à jour les statuts si nécessaire
             foreach ($subscriptionInstances as $sub) {
-                $sub->checkAndUpdateStatus();
+                try {
+                    // S'assurer que la relation subscription est chargée
+                    if (!$sub->relationLoaded('subscription')) {
+                        $sub->load('subscription.template');
+                    }
+                    $sub->checkAndUpdateStatus();
+                } catch (\Exception $e) {
+                    Log::warning('Erreur lors de la mise à jour du statut de l\'instance ' . $sub->id . ': ' . $e->getMessage());
+                    // Continuer même en cas d'erreur de statut
+                }
             }
 
             return response()->json([
@@ -394,10 +407,15 @@ class SubscriptionController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des abonnements de l\'élève: ' . $e->getMessage());
+            Log::error('Erreur lors de la récupération des abonnements de l\'élève: ' . $e->getMessage(), [
+                'student_id' => $studentId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des abonnements'
+                'message' => 'Erreur lors de la récupération des abonnements',
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }

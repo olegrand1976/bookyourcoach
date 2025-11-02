@@ -54,7 +54,9 @@
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
                     <div class="flex items-center space-x-3 mb-2">
-                      <h4 class="font-semibold text-gray-900">{{ subscription.subscription?.name }}</h4>
+                      <h4 class="font-semibold text-gray-900">
+                        {{ subscription.subscription?.template?.model_number || subscription.subscription?.name || 'Abonnement' }}
+                      </h4>
                       <span 
                         :class="{
                           'bg-green-100 text-green-800': subscription.status === 'active',
@@ -72,7 +74,7 @@
                       <div>
                         <span class="text-gray-600">Cours utilisés:</span>
                         <span class="font-semibold text-gray-900 ml-1">
-                          {{ subscription.lessons_used }} / {{ subscription.subscription?.total_lessons + (subscription.subscription?.free_lessons || 0) }}
+                          {{ subscription.lessons_used }} / {{ getTotalLessons(subscription) }}
                         </span>
                       </div>
                       <div>
@@ -97,11 +99,11 @@
                     </div>
 
                     <!-- Types de cours inclus -->
-                    <div v-if="subscription.subscription?.course_types?.length" class="mt-3">
+                    <div v-if="getCourseTypes(subscription)?.length" class="mt-3">
                       <span class="text-xs font-medium text-gray-500 uppercase">Types de cours:</span>
                       <div class="flex flex-wrap gap-1 mt-1">
                         <span 
-                          v-for="courseType in subscription.subscription.course_types" 
+                          v-for="courseType in getCourseTypes(subscription)" 
                           :key="courseType.id"
                           class="bg-white text-gray-700 px-2 py-1 rounded text-xs border border-gray-200"
                         >
@@ -258,8 +260,38 @@ const isExpiringSoon = (expiresAt) => {
 
 const canRenew = (subscription) => {
   const isNearingExpiry = subscription.expires_at && isExpiringSoon(subscription.expires_at)
-  const isAlmostUsed = subscription.remaining_lessons <= (subscription.subscription?.total_lessons * 0.2)
+  const totalLessons = getTotalLessons(subscription)
+  const isAlmostUsed = subscription.remaining_lessons <= (totalLessons * 0.2)
   return isNearingExpiry || isAlmostUsed
+}
+
+// Obtenir les types de cours (supporte template.courseTypes et course_types legacy)
+const getCourseTypes = (subscription) => {
+  // Nouveau système via template (camelCase ou snake_case)
+  if (subscription?.subscription?.template) {
+    return subscription.subscription.template.courseTypes || 
+           subscription.subscription.template.course_types || 
+           []
+  }
+  // Legacy direct
+  if (subscription?.subscription?.courseTypes) {
+    return subscription.subscription.courseTypes
+  }
+  if (subscription?.subscription?.course_types) {
+    return subscription.subscription.course_types
+  }
+  return []
+}
+
+// Obtenir le total de cours disponibles
+const getTotalLessons = (subscription) => {
+  // Via template (nouveau système)
+  if (subscription?.subscription?.template) {
+    const template = subscription.subscription.template
+    return (template.total_lessons || 0) + (template.free_lessons || 0)
+  }
+  // Legacy
+  return (subscription.subscription?.total_lessons || 0) + (subscription.subscription?.free_lessons || 0)
 }
 
 onMounted(() => {
