@@ -133,17 +133,17 @@
             <!-- Actions -->
             <div class="mt-6 flex space-x-2">
               <button @click="viewStudentDetails(student)" 
-                class="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                class="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200">
                 <span>👁️</span>
                 <span class="ml-1">Détails</span>
               </button>
               <button @click="viewStudentLessons(student)" 
-                class="flex-1 inline-flex items-center justify-center px-3 py-2 border border-blue-300 rounded-md text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-300 rounded-md text-sm font-medium text-blue-700 hover:from-blue-200 hover:to-indigo-200 transition-all duration-200">
                 <span>📅</span>
                 <span class="ml-1">Cours</span>
               </button>
               <button @click="createLesson(student)" 
-                class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
+                class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200">
                 <span>➕</span>
                 <span class="ml-1">Nouveau</span>
               </button>
