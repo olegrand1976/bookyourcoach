@@ -12,28 +12,51 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('lessons', function (Blueprint $table) {
+        // Récupérer le driver de base de données
+        $driver = DB::getDriverName();
+        
+        // Vérifier si les index existent déjà
+        $indexExists = false;
+        $compositeIndexExists = false;
+        
+        if ($driver === 'mysql') {
+            $indexExists = DB::select("SHOW INDEX FROM lessons WHERE Key_name = 'lessons_club_id_index'");
+            $compositeIndexExists = DB::select("SHOW INDEX FROM lessons WHERE Key_name = 'lessons_club_id_start_time_index'");
+        } elseif ($driver === 'sqlite') {
+            $indexes = DB::select("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='lessons'");
+            foreach ($indexes as $index) {
+                if ($index->name === 'lessons_club_id_index') {
+                    $indexExists = true;
+                }
+                if ($index->name === 'lessons_club_id_start_time_index') {
+                    $compositeIndexExists = true;
+                }
+            }
+        }
+        
+        Schema::table('lessons', function (Blueprint $table) use ($indexExists, $compositeIndexExists) {
             // Ajouter le champ club_id après l'id
             if (!Schema::hasColumn('lessons', 'club_id')) {
                 $table->foreignId('club_id')->nullable()->after('id')->constrained()->onDelete('cascade');
             }
-            
-            // Ajouter un index pour améliorer les performances des requêtes par club
-            if (!Schema::hasIndex('lessons', 'club_id')) {
-                $table->index('club_id');
-            
-            // Index composé pour les requêtes fréquentes (club + date)
-            if (!Schema::hasIndex('lessons', ['club_id', 'start_time'])) {
-                $table->index(['club_id', 'start_time']);
-            }
-            }
         });
+        
+        // Ajouter les index seulement s'ils n'existent pas
+        if (!$indexExists) {
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->index('club_id');
+            });
+        }
+        
+        if (!$compositeIndexExists) {
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->index(['club_id', 'start_time']);
+            });
+        }
         
         // Migration des données existantes : affecter le club via la relation teacher
         // Cette étape est importante pour les données existantes
         // Utiliser une syntaxe compatible avec SQLite et MySQL
-        $driver = DB::getDriverName();
-        
         if ($driver === 'sqlite') {
             // Syntaxe SQLite : utiliser une sous-requête corrélée
             DB::statement("
@@ -79,19 +102,49 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = DB::getDriverName();
+        
+        // Vérifier et supprimer l'index composé
+        $compositeIndexExists = false;
+        if ($driver === 'mysql') {
+            $compositeIndexExists = DB::select("SHOW INDEX FROM lessons WHERE Key_name = 'lessons_club_id_start_time_index'");
+        } elseif ($driver === 'sqlite') {
+            $indexes = DB::select("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='lessons'");
+            foreach ($indexes as $index) {
+                if ($index->name === 'lessons_club_id_start_time_index') {
+                    $compositeIndexExists = true;
+                }
+            }
+        }
+        
+        if ($compositeIndexExists) {
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->dropIndex('lessons_club_id_start_time_index');
+            });
+        }
+        
+        // Vérifier et supprimer l'index simple
+        $indexExists = false;
+        if ($driver === 'mysql') {
+            $indexExists = DB::select("SHOW INDEX FROM lessons WHERE Key_name = 'lessons_club_id_index'");
+        } elseif ($driver === 'sqlite') {
+            $indexes = DB::select("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='lessons'");
+            foreach ($indexes as $index) {
+                if ($index->name === 'lessons_club_id_index') {
+                    $indexExists = true;
+                }
+            }
+        }
+        
+        if ($indexExists) {
+            Schema::table('lessons', function (Blueprint $table) {
+                $table->dropIndex('lessons_club_id_index');
+            });
+        }
+        
         Schema::table('lessons', function (Blueprint $table) {
-            // Supprimer les index
-            if (Schema::hasIndex('lessons', ['club_id', 'start_time'])) {
-                $table->dropIndex(['club_id', 'start_time']);
-            }
-            if (Schema::hasIndex('lessons', 'club_id')) {
-                $table->dropIndex(['club_id']);
-            }
-                        
             // Supprimer la contrainte de clé étrangère
-            if (Schema::hasForeign('lessons', 'club_id')) {
-                $table->dropForeign(['club_id']);
-            }
+            $table->dropForeign(['club_id']);
             
             // Supprimer la colonne
             if (Schema::hasColumn('lessons', 'club_id')) {
