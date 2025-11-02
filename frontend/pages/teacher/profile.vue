@@ -112,10 +112,12 @@
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button 
               type="button"
-              @click.prevent="editProfile"
-              class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium cursor-pointer">
-              <span>✏️</span>
-              <span class="ml-2">Modifier le profil</span>
+              @click="editProfile"
+              :disabled="isNavigating"
+              class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+              <span v-if="isNavigating" class="animate-spin mr-2">⏳</span>
+              <span v-else>✏️</span>
+              <span class="ml-2">{{ isNavigating ? 'Chargement...' : 'Modifier le profil' }}</span>
             </button>
           </div>
         </div>
@@ -200,8 +202,17 @@ const loadProfileData = async () => {
   }
 }
 
+// État pour empêcher les clics multiples
+const isNavigating = ref(false)
+
 // Modifier le profil
 const editProfile = async () => {
+  // Empêcher les clics multiples
+  if (isNavigating.value) {
+    console.warn('⚠️ [EDIT PROFILE] Navigation déjà en cours, ignore le clic')
+    return
+  }
+  
   console.log('🔵 [EDIT PROFILE] Fonction appelée')
   
   // Vérifier que nous sommes côté client
@@ -210,33 +221,26 @@ const editProfile = async () => {
     return
   }
   
-  // S'assurer que l'auth est initialisée avant de naviguer
-  await authStore.initializeAuth()
-  
-  // Vérifier les permissions
-  if (!authStore.canActAsTeacher) {
-    console.error('❌ [EDIT PROFILE] Pas de droits enseignant')
-    return
-  }
-  
-  console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
-  
-  // Utiliser le router Vue directement pour une navigation plus fiable
   try {
-    const router = useRouter()
-    await router.push('/teacher/profile/edit')
+    isNavigating.value = true
+    
+    // S'assurer que l'auth est initialisée avant de naviguer
+    await authStore.initializeAuth()
+    
+    // Vérifier les permissions
+    if (!authStore.canActAsTeacher) {
+      console.error('❌ [EDIT PROFILE] Pas de droits enseignant')
+      return
+    }
+    
+    console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
+    
+    // Utiliser navigateTo de Nuxt - plus simple et plus fiable
+    await navigateTo('/teacher/profile/edit')
     console.log('✅ [EDIT PROFILE] Navigation réussie')
   } catch (error) {
     console.error('❌ [EDIT PROFILE] Erreur navigation:', error)
-    // Si le router échoue, utiliser navigateTo en dernier recours
-    try {
-      await navigateTo('/teacher/profile/edit', { 
-        external: false,
-        replace: false 
-      })
-    } catch (error2) {
-      console.error('❌ [EDIT PROFILE] navigateTo a aussi échoué:', error2)
-    }
+    isNavigating.value = false
   }
 }
 
