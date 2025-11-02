@@ -272,13 +272,13 @@
                     <div class="flex gap-2">
                       <button
                         @click="respondToReplacement(replacement.id, 'accept')"
-                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                        class="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-medium"
                       >
                         ✓ Accepter
                       </button>
                       <button
                         @click="respondToReplacement(replacement.id, 'reject')"
-                        class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                        class="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 text-sm font-medium"
                       >
                         ✗ Refuser
                       </button>

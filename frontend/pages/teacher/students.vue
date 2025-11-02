@@ -9,7 +9,7 @@
             <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Gérez et suivez la progression de vos élèves</p>
           </div>
           <NuxtLink to="/teacher/dashboard" 
-            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
             <span>←</span>
             <span class="ml-2">Retour au dashboard</span>
           </NuxtLink>
@@ -67,7 +67,7 @@
         <h3 class="text-base md:text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
         <p class="text-red-700 mb-4">{{ error }}</p>
         <button @click="loadStudents" 
-          class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+          class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 font-medium">
           Réessayer
         </button>
       </div>
@@ -79,7 +79,7 @@
           {{ searchQuery || selectedClub ? 'Aucun élève ne correspond à vos critères de recherche.' : 'Vous n\'avez pas encore d\'élèves assignés.' }}
         </p>
         <NuxtLink to="/teacher/schedule" 
-          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
           <span>📅</span>
           <span class="ml-2">Créer un cours</span>
         </NuxtLink>
