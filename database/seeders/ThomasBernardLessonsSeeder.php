@@ -56,9 +56,15 @@ class ThomasBernardLessonsSeeder extends Seeder
 
         $this->command->info("ℹ️  {$existingLessons} cours existants pour Thomas Bernard");
 
-        if ($existingLessons > 0) {
-            $this->command->info('✅ Thomas Bernard a déjà des cours assignés');
+        // Si plus de 20 cours existent, ne pas créer de nouveaux cours
+        if ($existingLessons >= 20) {
+            $this->command->info("✅ Thomas Bernard a déjà assez de cours assignés ({$existingLessons} cours)");
             return;
+        }
+
+        // Si des cours existent mais moins de 20, on en crée quand même pour avoir au moins 20 cours au total
+        if ($existingLessons > 0 && $existingLessons < 20) {
+            $this->command->info("ℹ️  {$existingLessons} cours existent, création de cours supplémentaires pour atteindre au moins 20 cours...");
         }
 
         // 5. Récupérer ou créer des étudiants pour le club
