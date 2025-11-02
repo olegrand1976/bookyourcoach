@@ -611,7 +611,9 @@ const filteredCourseTypes = computed(() => {
     slotId: selectedSlotForLesson.value?.id,
     slotDisciplineId: selectedSlotForLesson.value?.discipline_id,
     slotHasCourseTypes: !!selectedSlotForLesson.value?.course_types,
-    modalOpen: showCreateLessonModal.value
+    modalOpen: showCreateLessonModal.value,
+    clubDisciplinesCount: clubDisciplines.value.length,
+    clubDisciplineIds: clubDisciplines.value.map(d => d.id)
   })
   
   // Si la modale n'est pas ouverte, retourner un tableau vide
@@ -626,11 +628,14 @@ const filteredCourseTypes = computed(() => {
     return []
   }
   
-  // ✅ SOLUTION : Utiliser directement les courseTypes du créneau
-  // (relation créneau → types de cours via table pivot)
+  // ✅ Les courseTypes sont déjà filtrés par le backend selon les disciplines du club
+  // Le backend (ClubOpenSlotController::index) filtre pour ne garder que :
+  // 1. Les types génériques (sans discipline_id)
+  // 2. Les types dont la discipline_id est dans les disciplines activées du club
   const slotCourseTypes = selectedSlotForLesson.value.course_types || []
   
-  console.log('🎯 [filteredCourseTypes] Types de cours du créneau', selectedSlotForLesson.value.id, ':', {
+  console.log('🎯 [filteredCourseTypes] Types de cours du créneau (déjà filtrés par le backend)', {
+    slotId: selectedSlotForLesson.value.id,
     slotDisciplineId: selectedSlotForLesson.value.discipline_id,
     slotDisciplineName: selectedSlotForLesson.value.discipline?.name,
     courseTypesCount: slotCourseTypes.length,
@@ -638,10 +643,20 @@ const filteredCourseTypes = computed(() => {
       id: ct.id, 
       name: ct.name,
       discipline_id: ct.discipline_id,
-      duration: ct.duration,
+      duration: ct.duration || ct.duration_minutes,
       price: ct.price
     }))
   })
+  
+  // ⚠️ Si aucun type de cours n'est disponible, afficher un avertissement
+  if (slotCourseTypes.length === 0) {
+    console.warn('⚠️ [filteredCourseTypes] Aucun type de cours disponible !', {
+      slotId: selectedSlotForLesson.value.id,
+      slotDisciplineId: selectedSlotForLesson.value.discipline_id,
+      clubDisciplines: clubDisciplines.value.map(d => ({ id: d.id, name: d.name })),
+      message: 'Vérifiez que des types de cours sont associés à ce créneau et correspondent aux disciplines du club'
+    })
+  }
   
   return slotCourseTypes
 })
