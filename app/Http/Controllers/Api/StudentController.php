@@ -29,8 +29,27 @@ class StudentController extends Controller
         try {
             $user = Auth::user();
             
+            \Log::info('StudentController::store - Tentative création élève', [
+                'user_id' => $user?->id,
+                'user_email' => $user?->email,
+                'user_role' => $user?->role,
+                'has_token' => (bool) $request->bearerToken(),
+            ]);
+            
+            if (!$user) {
+                \Log::error('StudentController::store - Utilisateur non authentifié');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Non authentifié'
+                ], 401);
+            }
+            
             // Vérifier que l'utilisateur est un club
             if ($user->role !== 'club') {
+                \Log::warning('StudentController::store - Rôle incorrect', [
+                    'expected' => 'club',
+                    'actual' => $user->role,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Accès réservé aux clubs'
@@ -45,15 +64,15 @@ class StudentController extends Controller
                 ], 404);
             }
 
-            // Validation
+            // Validation - tous les champs sont maintenant optionnels
             $validated = $request->validate([
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
+                'first_name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|unique:users,email',
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
-                'level' => 'nullable|in:debutant,intermediaire,avance,expert',
+                // 'level' supprimé - n'est plus utilisé
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
                 'disciplines' => 'nullable|array',
@@ -62,24 +81,57 @@ class StudentController extends Controller
 
             DB::beginTransaction();
 
-            // Créer l'utilisateur
-            $fullName = trim($validated['first_name'] . ' ' . $validated['last_name']);
-            $newUser = User::create([
-                'name' => $fullName,
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'email' => $validated['email'],
-                'password' => isset($validated['password']) ? Hash::make($validated['password']) : Hash::make(bin2hex(random_bytes(16))),
-                'phone' => $validated['phone'] ?? null,
-                'role' => 'student'
-            ]);
+            $newUser = null;
+            $student = null;
+            $emailSent = false;
 
-            // Créer le profil étudiant
+            // Créer un utilisateur UNIQUEMENT si un email est fourni
+            if (!empty($validated['email'])) {
+                // Construire le nom (utiliser "Élève" si pas de nom fourni)
+                $firstName = $validated['first_name'] ?? 'Élève';
+                $lastName = $validated['last_name'] ?? '';
+                $fullName = trim($firstName . ' ' . $lastName);
+                if (empty($fullName) || $fullName === 'Élève') {
+                    $fullName = 'Élève ' . ($club->students()->count() + 1);
+                }
+                
+                $newUser = User::create([
+                    'name' => $fullName,
+                    'first_name' => $validated['first_name'] ?? null,
+                    'last_name' => $validated['last_name'] ?? null,
+                    'email' => $validated['email'],
+                    'password' => isset($validated['password']) ? Hash::make($validated['password']) : Hash::make(bin2hex(random_bytes(16))),
+                    'phone' => $validated['phone'] ?? null,
+                    'role' => 'student'
+                ]);
+
+                // Générer un token de réinitialisation de mot de passe
+                $resetToken = Password::broker()->createToken($newUser);
+                
+                // Envoyer l'email de bienvenue UNIQUEMENT si email est présent
+                try {
+                    $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
+                    $emailSent = true;
+                    
+                    \Log::info('Email de bienvenue envoyé à l\'élève', [
+                        'user_id' => $newUser->id,
+                        'club_id' => $club->id,
+                        'email' => $newUser->email
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'envoi de l\'email de bienvenue', [
+                        'user_id' => $newUser->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Créer le profil étudiant (même sans utilisateur si pas d'email)
             $student = Student::create([
-                'user_id' => $newUser->id,
+                'user_id' => $newUser?->id, // Peut être null si pas d'email
                 'club_id' => $club->id,
                 'date_of_birth' => $validated['date_of_birth'] ?? null,
-                'level' => $validated['level'] ?? null,
+                // 'level' supprimé - n'est plus utilisé
                 'goals' => $validated['goals'] ?? null,
                 'medical_info' => $validated['medical_info'] ?? null,
             ]);
@@ -88,7 +140,7 @@ class StudentController extends Controller
             DB::table('club_students')->insert([
                 'club_id' => $club->id,
                 'student_id' => $student->id,
-                'level' => $validated['level'] ?? null,
+                // 'level' supprimé de la table pivot également
                 'goals' => $validated['goals'] ?? null,
                 'medical_info' => $validated['medical_info'] ?? null,
                 'is_active' => true,
@@ -114,29 +166,26 @@ class StudentController extends Controller
                 ]);
             }
 
-            // Générer un token de réinitialisation de mot de passe
-            $resetToken = Password::broker()->createToken($newUser);
-            
-            // Envoyer l'email de bienvenue avec le lien de réinitialisation
-            $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
-
-            \Log::info('Email de bienvenue envoyé à l\'élève', [
-                'student_id' => $student->id,
-                'user_id' => $newUser->id,
-                'club_id' => $club->id,
-                'email' => $newUser->email
-            ]);
-
             DB::commit();
 
             // Charger les relations
             $student->load('user');
 
+            // Message de succès adapté
+            $message = 'Élève créé avec succès !';
+            if ($emailSent && $newUser) {
+                $message .= ' Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.';
+            } elseif (!$newUser) {
+                $message .= ' Aucun compte utilisateur n\'a été créé car aucun email n\'a été fourni. Vous pourrez compléter ces informations plus tard.';
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $student,
                 'student' => $student,
-                'message' => 'Élève créé avec succès ! Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.'
+                'user_created' => $newUser !== null,
+                'email_sent' => $emailSent,
+                'message' => $message
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -164,7 +213,7 @@ class StudentController extends Controller
         try {
             $user = Auth::user();
             
-            $student = Student::with('user')->findOrFail($id);
+            $student = Student::findOrFail($id);
 
             // Vérifier les permissions
             if ($user->role === 'club') {
@@ -180,43 +229,89 @@ class StudentController extends Controller
                 }
             }
 
-            // Validation
-            $validated = $request->validate([
-                'first_name' => 'sometimes|string|max:255',
-                'last_name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|unique:users,email,' . $student->user_id,
+            // Validation - email peut être requis si l'élève n'a pas encore de compte
+            $validationRules = [
+                'first_name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
-                'level' => 'nullable|in:debutant,intermediaire,avance,expert',
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
-            ]);
+            ];
+            
+            // Si l'élève n'a pas de user_id, l'email devient requis si fourni
+            if (!$student->user_id) {
+                $validationRules['email'] = 'nullable|email|unique:users,email';
+            } else {
+                $validationRules['email'] = 'sometimes|email|unique:users,email,' . $student->user_id;
+            }
+            
+            $validated = $request->validate($validationRules);
 
             DB::beginTransaction();
 
-            // Mettre à jour l'utilisateur si nécessaire
-            if (isset($validated['first_name']) || isset($validated['last_name'])) {
-                $firstName = $validated['first_name'] ?? $student->user->first_name;
-                $lastName = $validated['last_name'] ?? $student->user->last_name;
-                $student->user->update([
-                    'name' => trim($firstName . ' ' . $lastName),
-                    'first_name' => $firstName,
-                    'last_name' => $lastName
+            $emailSent = false;
+            $userCreated = false;
+
+            // Si l'élève n'a pas de compte utilisateur ET qu'un email est fourni, créer le compte
+            if (!$student->user_id && !empty($validated['email'])) {
+                $firstName = $validated['first_name'] ?? 'Élève';
+                $lastName = $validated['last_name'] ?? '';
+                $fullName = trim($firstName . ' ' . $lastName);
+                if (empty($fullName) || $fullName === 'Élève') {
+                    $fullName = 'Élève ' . $student->id;
+                }
+                
+                $newUser = User::create([
+                    'name' => $fullName,
+                    'first_name' => $validated['first_name'] ?? null,
+                    'last_name' => $validated['last_name'] ?? null,
+                    'email' => $validated['email'],
+                    'password' => Hash::make(bin2hex(random_bytes(16))),
+                    'phone' => $validated['phone'] ?? null,
+                    'role' => 'student'
                 ]);
-            }
-            
-            if (isset($validated['email'])) {
-                $student->user->update(['email' => $validated['email']]);
-            }
-            
-            if (isset($validated['phone'])) {
-                $student->user->update(['phone' => $validated['phone']]);
+                
+                $student->user_id = $newUser->id;
+                $student->save();
+                
+                // Générer un token et envoyer l'email
+                $resetToken = Password::broker()->createToken($newUser);
+                try {
+                    $club = $user->getFirstClub();
+                    $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
+                    $emailSent = true;
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'envoi de l\'email', ['error' => $e->getMessage()]);
+                }
+                
+                $userCreated = true;
+            } elseif ($student->user_id) {
+                // Mettre à jour l'utilisateur existant
+                $studentUser = $student->user;
+                
+                if (isset($validated['first_name']) || isset($validated['last_name'])) {
+                    $firstName = $validated['first_name'] ?? $studentUser->first_name;
+                    $lastName = $validated['last_name'] ?? $studentUser->last_name;
+                    $studentUser->update([
+                        'name' => trim($firstName . ' ' . $lastName),
+                        'first_name' => $firstName,
+                        'last_name' => $lastName
+                    ]);
+                }
+                
+                if (isset($validated['email'])) {
+                    $studentUser->update(['email' => $validated['email']]);
+                }
+                
+                if (isset($validated['phone'])) {
+                    $studentUser->update(['phone' => $validated['phone']]);
+                }
             }
 
             // Mettre à jour le profil étudiant
             $studentData = [];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
-            if (isset($validated['level'])) $studentData['level'] = $validated['level'];
             if (isset($validated['goals'])) $studentData['goals'] = $validated['goals'];
             if (isset($validated['medical_info'])) $studentData['medical_info'] = $validated['medical_info'];
 
@@ -229,14 +324,28 @@ class StudentController extends Controller
             $student->refresh();
             $student->load('user');
 
+            $message = 'Élève mis à jour avec succès';
+            if ($userCreated && $emailSent) {
+                $message .= '. Un compte utilisateur a été créé et un email de bienvenue a été envoyé.';
+            } elseif ($userCreated) {
+                $message .= '. Un compte utilisateur a été créé.';
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $student,
-                'message' => 'Élève mis à jour avec succès'
+                'user_created' => $userCreated,
+                'email_sent' => $emailSent,
+                'message' => $message
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Erreur lors de la mise à jour de l\'élève', [
+                'student_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour de l\'élève',

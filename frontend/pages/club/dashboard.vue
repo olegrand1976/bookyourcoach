@@ -245,6 +245,69 @@
         </div>
       </div>
 
+      <!-- Élèves avec données incomplètes -->
+      <div v-if="incompleteStudents && incompleteStudents.length > 0" class="mb-8">
+        <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
+          <div class="flex items-start justify-between">
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div class="ml-3 flex-1">
+                <h3 class="text-lg font-semibold text-amber-800">
+                  Élèves avec données incomplètes ({{ incompleteStudents.length }})
+                </h3>
+                <p class="mt-2 text-sm text-amber-700">
+                  Certains élèves n'ont pas de nom ou d'email. Complétez ces informations pour leur permettre de se connecter.
+                </p>
+                <div class="mt-4 space-y-3">
+                  <div 
+                    v-for="student in incompleteStudents.slice(0, 5)" 
+                    :key="student.student_id"
+                    class="bg-white rounded-lg p-4 border border-amber-200"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                          <span class="font-medium text-gray-900">
+                            {{ getStudentDisplayName(student) }}
+                          </span>
+                          <span 
+                            v-for="field in student.missing_fields" 
+                            :key="field"
+                            class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800"
+                          >
+                            {{ getMissingFieldLabel(field) }}
+                          </span>
+                        </div>
+                        <p v-if="student.email" class="text-sm text-gray-600 mt-1">
+                          {{ student.email }}
+                        </p>
+                      </div>
+                      <button 
+                        @click="openCompleteStudentModal(student)"
+                        class="ml-4 bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+                      >
+                        Compléter
+                      </button>
+                    </div>
+                  </div>
+                  <button 
+                    v-if="incompleteStudents.length > 5"
+                    @click="navigateTo('/club/students?incomplete=true')"
+                    class="w-full text-center text-amber-700 hover:text-amber-800 text-sm font-medium py-2"
+                  >
+                    Voir tous les élèves incomplets ({{ incompleteStudents.length }}) →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Analyse Prédictive IA -->
       <div class="mb-8">
         <PredictiveAnalysis />
@@ -455,6 +518,100 @@
       </div>
     </div>
 
+    <!-- Modal pour compléter les données d'un élève -->
+    <div 
+      v-if="showCompleteModal && selectedStudentForComplete"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click.self="closeCompleteModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold text-gray-900">Compléter les données de l'élève</h3>
+            <button 
+              @click="closeCompleteModal"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <form @submit.prevent="completeStudentData">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Prénom <span v-if="selectedStudentForComplete.missing_fields.includes('name') || selectedStudentForComplete.missing_fields.includes('first_name')" class="text-red-500">*</span>
+                </label>
+                <input 
+                  v-model="completeForm.first_name"
+                  type="text"
+                  :required="selectedStudentForComplete.missing_fields.includes('name') || selectedStudentForComplete.missing_fields.includes('first_name')"
+                  placeholder="Prénom"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Nom <span v-if="selectedStudentForComplete.missing_fields.includes('name') || selectedStudentForComplete.missing_fields.includes('last_name')" class="text-red-500">*</span>
+                </label>
+                <input 
+                  v-model="completeForm.last_name"
+                  type="text"
+                  :required="selectedStudentForComplete.missing_fields.includes('name') || selectedStudentForComplete.missing_fields.includes('last_name')"
+                  placeholder="Nom"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Email <span v-if="selectedStudentForComplete.missing_fields.includes('email')" class="text-red-500">*</span>
+                  <span class="text-xs text-gray-500">(créera un compte utilisateur si fourni)</span>
+                </label>
+                <input 
+                  v-model="completeForm.email"
+                  type="email"
+                  :required="selectedStudentForComplete.missing_fields.includes('email')"
+                  placeholder="email@exemple.com"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                <input 
+                  v-model="completeForm.phone"
+                  type="tel"
+                  placeholder="06 12 34 56 78"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+              </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+              <button 
+                type="button"
+                @click="closeCompleteModal"
+                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                type="submit"
+                :disabled="completing"
+                class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {{ completing ? 'Enregistrement...' : 'Enregistrer' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -473,9 +630,19 @@ const stats = ref(null)
 const recentTeachers = ref([])
 const recentStudents = ref([])
 const recentLessons = ref([])
+const incompleteStudents = ref([])
 const isLoading = ref(true)
 const hasError = ref(false)
 const errorMessage = ref('')
+const showCompleteModal = ref(false)
+const selectedStudentForComplete = ref(null)
+const completing = ref(false)
+const completeForm = ref({
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: ''
+})
 
 // Récupérer l'instance $api injectée par le plugin
 const { $api } = useNuxtApp()
@@ -504,8 +671,10 @@ const loadDashboardData = async () => {
       recentTeachers.value = response.data.data.recentTeachers
       recentStudents.value = response.data.data.recentStudents
       recentLessons.value = response.data.data.recentLessons || []
+      incompleteStudents.value = response.data.data.incompleteStudents || []
       
       console.log('📊 Stats chargées:', stats.value)
+      console.log('⚠️ Élèves incomplets:', incompleteStudents.value)
     } else {
       console.error('❌ Format de réponse invalide:', response)
       const { error } = useToast()
@@ -587,6 +756,83 @@ const getLevelLabel = (level) => {
     expert: '🏆 Expert'
   }
   return labels[level] || level
+}
+
+const getStudentDisplayName = (student) => {
+  if (student.first_name || student.last_name) {
+    return `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Élève sans nom'
+  }
+  if (student.name) {
+    return student.name
+  }
+  return 'Élève sans nom'
+}
+
+const getMissingFieldLabel = (field) => {
+  const labels = {
+    'email': 'Pas d\'email',
+    'name': 'Pas de nom',
+    'first_name': 'Pas de prénom',
+    'last_name': 'Pas de nom'
+  }
+  return labels[field] || field
+}
+
+const openCompleteStudentModal = (student) => {
+  selectedStudentForComplete.value = student
+  // Pré-remplir le formulaire avec les données existantes
+  completeForm.value = {
+    first_name: student.first_name || '',
+    last_name: student.last_name || '',
+    email: student.email || '',
+    phone: ''
+  }
+  showCompleteModal.value = true
+}
+
+const closeCompleteModal = () => {
+  showCompleteModal.value = false
+  selectedStudentForComplete.value = null
+  completeForm.value = {
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: ''
+  }
+}
+
+const completeStudentData = async () => {
+  if (!selectedStudentForComplete.value) return
+  
+  completing.value = true
+  try {
+    const { success } = useToast()
+    
+    const response = await $api.put(
+      `/club/students/${selectedStudentForComplete.value.student_id}`,
+      completeForm.value
+    )
+    
+    if (response.data.success) {
+      success(response.data.message || 'Données complétées avec succès')
+      onStudentCompleted()
+    }
+  } catch (error) {
+    console.error('Erreur lors de la complétion des données:', error)
+    const { error: showError } = useToast()
+    showError(
+      error.response?.data?.message || 'Erreur lors de la mise à jour des données',
+      'Erreur'
+    )
+  } finally {
+    completing.value = false
+  }
+}
+
+const onStudentCompleted = () => {
+  closeCompleteModal()
+  // Recharger les données pour mettre à jour la liste
+  loadDashboardData()
 }
 
 onMounted(() => {

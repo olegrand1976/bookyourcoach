@@ -86,6 +86,7 @@ class LessonController extends Controller
         try {
             $user = Auth::user();
             // Optimiser les relations chargées - sélectionner uniquement les colonnes nécessaires
+            // Désactiver les accessors coûteux pour améliorer les performances
             $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 
                                    'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time', 
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at')
@@ -185,7 +186,10 @@ class LessonController extends Controller
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
             $limit = min($request->get('limit', 50), 100); // Par défaut 50 cours max, max 100
-            $lessons = $query->orderBy('start_time', 'desc')->limit($limit)->get();
+            $lessons = $query->orderBy('start_time', 'desc')
+                ->limit($limit)
+                ->get()
+                ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']); // Désactiver les accessors coûteux
 
             return response()->json([
                 'success' => true,
