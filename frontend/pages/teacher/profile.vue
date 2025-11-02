@@ -201,40 +201,37 @@ const loadProfileData = async () => {
 }
 
 // Modifier le profil
-const editProfile = async () => {
+const editProfile = () => {
   console.log('🔵 [EDIT PROFILE] Fonction appelée')
+  
+  // Vérifier que nous sommes côté client
+  if (!process.client) {
+    console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur, navigation différée')
+    return
+  }
   
   try {
     console.log('🔵 [EDIT PROFILE] Tentative de navigation vers /teacher/profile/edit')
     
-    // Vérifier que nous sommes côté client
-    if (!process.client) {
-      console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur, navigation différée')
-      return
-    }
-    
-    // Utiliser await pour attendre la navigation
-    const result = await navigateTo('/teacher/profile/edit')
-    
-    // Si navigateTo retourne quelque chose (redirection), on est bon
-    if (result) {
-      console.log('✅ [EDIT PROFILE] Navigation réussie (retour de navigateTo):', result)
-      return
-    }
-    
-    console.log('✅ [EDIT PROFILE] Navigation déclenchée')
+    // Utiliser navigateTo avec gestion d'erreur appropriée
+    navigateTo('/teacher/profile/edit', { 
+      replace: false,
+      external: false 
+    }).then(() => {
+      console.log('✅ [EDIT PROFILE] Navigation réussie')
+    }).catch((error) => {
+      console.error('❌ [EDIT PROFILE] Erreur navigateTo, utilisation du fallback:', error)
+      // Fallback: utiliser window.location si navigateTo échoue
+      window.location.href = '/teacher/profile/edit'
+    })
     
   } catch (error) {
-      console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
+    console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
     
     // Fallback: utiliser window.location si navigateTo échoue
     if (process.client) {
       console.log('🔄 [EDIT PROFILE] Utilisation du fallback window.location')
-      try {
-        window.location.href = '/teacher/profile/edit'
-      } catch (fallbackError) {
-        console.error('❌ [EDIT PROFILE] Erreur même avec fallback:', fallbackError)
-      }
+      window.location.href = '/teacher/profile/edit'
     }
   }
 }
