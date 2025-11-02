@@ -9,7 +9,7 @@
             <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Gérez vos informations personnelles et professionnelles</p>
           </div>
           <NuxtLink to="/teacher/dashboard"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
             <span>←</span>
             <span class="ml-2">Retour au tableau de bord</span>
           </NuxtLink>
@@ -28,7 +28,7 @@
           <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
           <p class="text-gray-600 mb-4">{{ error }}</p>
           <button @click="loadProfileData"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
             Réessayer
           </button>
         </div>
@@ -113,7 +113,7 @@
             <button 
               type="button"
               @click.prevent="editProfile"
-              class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+              class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium cursor-pointer">
               <span>✏️</span>
               <span class="ml-2">Modifier le profil</span>
             </button>
