@@ -564,10 +564,10 @@ async function loadData() {
           const uniqueLessons = Array.from(new Map(allLessons.map(lesson => [lesson.id, lesson])).values())
           lessons.value = uniqueLessons
         } else {
-          // Fallback: charger les cours séparément avec limite
+          // Fallback: charger les cours séparément avec limite (par défaut 50, max 100)
           const lessonsResponse = await $api.get('/teacher/lessons', {
             params: {
-              limit: 50 // Limiter le nombre de cours chargés
+              limit: 50 // Limiter le nombre de cours chargés pour optimiser les performances
             }
           })
           lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
@@ -577,9 +577,13 @@ async function loadData() {
       }
     } catch (dashboardError) {
       console.warn('⚠️ Dashboard endpoint not available, falling back to individual endpoints')
-      // Charger les cours
-      const lessonsResponse = await $api.get('/teacher/lessons')
-      lessons.value = lessonsResponse.data.data || []
+      // Charger les cours avec limite pour optimiser les performances
+      const lessonsResponse = await $api.get('/teacher/lessons', {
+        params: {
+          limit: 50 // Limiter à 50 cours pour éviter les chargements trop longs
+        }
+      })
+      lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
       
       // Charger les clubs
       const clubsResponse = await $api.get('/teacher/clubs')
