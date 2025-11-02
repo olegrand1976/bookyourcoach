@@ -222,12 +222,16 @@ const goBack = () => {
 }
 
 // Vérifier que l'utilisateur est un enseignant
-onMounted(() => {
+onMounted(async () => {
+  // S'assurer que l'auth est initialisée avant de vérifier
+  if (!authStore.isInitialized) {
+    await authStore.initializeAuth()
+  }
+  
   if (!authStore.canActAsTeacher) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Accès non autorisé'
-    })
+    console.error('❌ Accès non autorisé - redirection vers /teacher/dashboard')
+    await navigateTo('/teacher/dashboard')
+    return
   }
   
   loadProfileData()
