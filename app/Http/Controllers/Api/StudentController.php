@@ -77,6 +77,12 @@ class StudentController extends Controller
                 'medical_info' => 'nullable|string',
                 'disciplines' => 'nullable|array',
                 'disciplines.*' => 'integer|exists:disciplines,id',
+                'medical_documents' => 'nullable|array', // Documents médicaux (pour futur usage)
+            ]);
+            
+            \Log::info('Données validées pour création élève', [
+                'validated' => $validated,
+                'club_id' => $club->id
             ]);
 
             DB::beginTransaction();
