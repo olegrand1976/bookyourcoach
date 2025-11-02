@@ -402,6 +402,20 @@ class TeacherController extends Controller
                 ], 404);
             }
 
+            // Normaliser les données avant validation (convertir chaînes vides en null)
+            $requestData = $request->all();
+            
+            // Convertir les chaînes vides en null pour birth_date, phone, bio
+            if (isset($requestData['birth_date']) && $requestData['birth_date'] === '') {
+                $request->merge(['birth_date' => null]);
+            }
+            if (isset($requestData['phone']) && $requestData['phone'] === '') {
+                $request->merge(['phone' => null]);
+            }
+            if (isset($requestData['bio']) && $requestData['bio'] === '') {
+                $request->merge(['bio' => null]);
+            }
+            
             // Validation des données (exclure hourly_rate et experience_years qui ne doivent pas être modifiables)
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
@@ -412,15 +426,6 @@ class TeacherController extends Controller
                 'certifications' => 'nullable|array',
                 // experience_years et hourly_rate sont exclus - ils ne peuvent pas être modifiés par l'enseignant
             ]);
-
-            // Normaliser les données avant validation
-            $requestData = $request->all();
-            
-            // Convertir les chaînes vides en null pour birth_date
-            if (isset($requestData['birth_date']) && $requestData['birth_date'] === '') {
-                $requestData['birth_date'] = null;
-                $request->merge(['birth_date' => null]);
-            }
             
             // Mettre à jour les informations de l'utilisateur
             if (isset($validated['name'])) {
