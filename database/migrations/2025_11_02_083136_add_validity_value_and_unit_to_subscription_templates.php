@@ -11,9 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('subscription_templates', function (Blueprint $table) {
-            //
-        });
+        if (Schema::hasTable('subscription_templates')) {
+            Schema::table('subscription_templates', function (Blueprint $table) {
+                if (!Schema::hasColumn('subscription_templates', 'validity_value')) {
+                    $table->integer('validity_value')->nullable()->after('validity_months');
+                }
+                if (!Schema::hasColumn('subscription_templates', 'validity_unit')) {
+                    $table->enum('validity_unit', ['weeks', 'months'])->nullable()->default('months')->after('validity_value');
+                }
+            });
+        }
     }
 
     /**
@@ -21,8 +28,15 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('subscription_templates', function (Blueprint $table) {
-            //
-        });
+        if (Schema::hasTable('subscription_templates')) {
+            Schema::table('subscription_templates', function (Blueprint $table) {
+                if (Schema::hasColumn('subscription_templates', 'validity_unit')) {
+                    $table->dropColumn('validity_unit');
+                }
+                if (Schema::hasColumn('subscription_templates', 'validity_value')) {
+                    $table->dropColumn('validity_value');
+                }
+            });
+        }
     }
 };
