@@ -54,12 +54,12 @@
               </div>
               
               <!-- Email -->
-              <div>
+          <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                <input 
-                  v-model="form.email" 
-                  type="email" 
-                  required
+            <input
+              v-model="form.email"
+              type="email"
+              required
                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   placeholder="jean.dupont@example.com"
                 >
@@ -165,7 +165,7 @@
             
             <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
               <!-- Numéro de compte bancaire -->
-              <div>
+          <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Numéro de compte bancaire</label>
                 <input 
                   v-model="form.bank_account_number" 
@@ -201,7 +201,7 @@
               <!-- Tarif horaire -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tarif horaire (€)</label>
-                <input 
+                <input
                   v-model.number="form.hourly_rate" 
                   type="number" 
                   step="0.01"
@@ -214,7 +214,7 @@
               <!-- Date de début d'expérience -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Date de début d'expérience</label>
-                <input 
+                <input
                   v-model="form.experience_start_date" 
                   type="date" 
                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
@@ -355,7 +355,7 @@ const calculateBirthDateFromNiss = () => {
   if (!niss || niss.length < 6) {
     return
   }
-  
+
   try {
     // Extraire YY, MM, DD
     const yearStr = niss.substring(0, 2)
