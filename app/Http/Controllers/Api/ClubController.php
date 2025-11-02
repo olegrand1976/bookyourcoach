@@ -354,24 +354,66 @@ class ClubController extends Controller
             // Obtenir les colonnes existantes de la table clubs
             $existingColumns = $this->getTableColumns('clubs');
             
-            // Mettre à jour le club existant
-            $allData = $request->only([
-                'name', 'company_number', 'description', 'email', 'phone', 'address',
-                'city', 'postal_code', 'country', 'website', 'is_active',
-                'legal_representative_name', 'legal_representative_role',
-                'insurance_rc_company', 'insurance_rc_policy_number',
-                'insurance_additional_company', 'insurance_additional_policy_number', 'insurance_additional_details',
-                'expense_reimbursement_type', 'expense_reimbursement_details',
-                'activity_types', 'disciplines', 'discipline_settings', 'schedule_config',
-                'default_subscription_total_lessons', 'default_subscription_free_lessons',
-                'default_subscription_price', 'default_subscription_validity_value',
-                'default_subscription_validity_unit'
+            // Validation des champs obligatoires
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'company_number' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'legal_representative_name' => 'required|string|max:255',
+                'legal_representative_role' => 'required|string|max:255',
+                'insurance_rc_company' => 'required|string|max:255',
+                'insurance_rc_policy_number' => 'required|string|max:255',
+                'insurance_additional_details' => 'required|string',
+                'expense_reimbursement_type' => 'required|in:forfait,reel,aucun',
+                'expense_reimbursement_details' => 'required_if:expense_reimbursement_type,forfait,reel|nullable|string',
+                'phone' => 'nullable|string|max:20',
+                'description' => 'nullable|string',
+                'address' => 'nullable|string',
+                'city' => 'nullable|string|max:255',
+                'postal_code' => 'nullable|string|max:10',
+                'country' => 'nullable|string|max:255',
+                'website' => 'nullable|url',
+                'is_active' => 'nullable|boolean',
+                'insurance_additional_company' => 'nullable|string|max:255',
+                'insurance_additional_policy_number' => 'nullable|string|max:255',
+                'activity_types' => 'nullable|array',
+                'disciplines' => 'nullable|array',
+                'discipline_settings' => 'nullable|array',
+                'schedule_config' => 'nullable|array',
+                'default_subscription_total_lessons' => 'nullable|integer|min:1',
+                'default_subscription_free_lessons' => 'nullable|integer|min:0',
+                'default_subscription_price' => 'nullable|numeric|min:0',
+                'default_subscription_validity_value' => 'nullable|integer|min:1',
+                'default_subscription_validity_unit' => 'nullable|in:weeks,months'
+            ]);
+            
+            // Mettre à jour le club existant avec les données validées
+            $allData = $validated;
+            
+            // S'assurer que tous les champs importants sont bien présents avant le filtre
+            \Log::info('ClubController::updateProfile - Données validées', [
+                'validated_data' => $allData,
+                'company_number' => $allData['company_number'] ?? 'MISSING',
+                'legal_representative_name' => $allData['legal_representative_name'] ?? 'MISSING',
+                'legal_representative_role' => $allData['legal_representative_role'] ?? 'MISSING',
+                'expense_reimbursement_type' => $allData['expense_reimbursement_type'] ?? 'MISSING',
+                'expense_reimbursement_details' => $allData['expense_reimbursement_details'] ?? 'MISSING',
             ]);
             
             // Ne garder que les colonnes qui existent dans la table
             $updateData = array_filter($allData, function($key) use ($existingColumns) {
                 return in_array($key, $existingColumns);
             }, ARRAY_FILTER_USE_KEY);
+            
+            // Log pour vérifier que les champs importants sont bien dans updateData
+            \Log::info('ClubController::updateProfile - Données après filtre colonnes', [
+                'updateData_keys' => array_keys($updateData),
+                'company_number_in_update' => isset($updateData['company_number']),
+                'legal_representative_name_in_update' => isset($updateData['legal_representative_name']),
+                'legal_representative_role_in_update' => isset($updateData['legal_representative_role']),
+                'expense_reimbursement_type_in_update' => isset($updateData['expense_reimbursement_type']),
+                'expense_reimbursement_details_in_update' => isset($updateData['expense_reimbursement_details']),
+            ]);
             
             // Encoder les arrays en JSON si nécessaire
             if (isset($updateData['activity_types']) && is_array($updateData['activity_types'])) {
@@ -409,13 +451,30 @@ class ClubController extends Controller
                 $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
             }
             
-            // Convertir les chaînes vides en NULL pour certains champs
+            // Convertir les chaînes vides en NULL pour certains champs (mais PAS expense_reimbursement_type qui doit garder sa valeur)
             foreach (['company_number', 'description', 'website', 'legal_representative_name', 'legal_representative_role',
                       'insurance_rc_company', 'insurance_rc_policy_number', 'insurance_additional_company', 
                       'insurance_additional_policy_number', 'insurance_additional_details', 'expense_reimbursement_details'] as $field) {
                 if (isset($updateData[$field]) && $updateData[$field] === '') {
                     $updateData[$field] = null;
                 }
+            }
+            
+            // S'assurer que expense_reimbursement_type est bien présent (ne pas le convertir en NULL si vide)
+            // Si non fourni ou vide, garder la valeur existante ou 'aucun' par défaut
+            if (!isset($updateData['expense_reimbursement_type']) || $updateData['expense_reimbursement_type'] === '') {
+                // Récupérer la valeur existante si le champ n'est pas dans la requête
+                if (!isset($allData['expense_reimbursement_type'])) {
+                    $existingClub = DB::table('clubs')->where('id', $clubUser->club_id)->first();
+                    $updateData['expense_reimbursement_type'] = $existingClub->expense_reimbursement_type ?? 'aucun';
+                } else {
+                    $updateData['expense_reimbursement_type'] = 'aucun';
+                }
+            }
+            
+            // S'assurer que expense_reimbursement_details est NULL si expense_reimbursement_type est 'aucun'
+            if (isset($updateData['expense_reimbursement_type']) && $updateData['expense_reimbursement_type'] === 'aucun') {
+                $updateData['expense_reimbursement_details'] = null;
             }
             
             $updateData['updated_at'] = now();

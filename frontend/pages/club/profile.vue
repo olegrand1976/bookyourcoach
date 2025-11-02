@@ -38,12 +38,12 @@
               <input v-model="formData.name" type="text" required
                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Numéro d'entreprise</label>
-              <input v-model="formData.company_number" type="text" placeholder="BE 0123.456.789 ou FR 12 345 678 901"
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Numéro d'entreprise *</label>
+                <input v-model="formData.company_number" type="text" required placeholder="BE 0123.456.789 ou FR 12 345 678 901"
                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-              <p class="mt-1 text-xs text-gray-500">SIREN, SIRET, TVA intracommunautaire, etc.</p>
-            </div>
+                <p class="mt-1 text-xs text-gray-500">SIREN, SIRET, TVA intracommunautaire, etc.</p>
+              </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
               <input v-model="formData.email" type="email" required
@@ -131,12 +131,12 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Compagnie d'assurance *</label>
-                <input v-model="formData.insurance_rc_company" type="text" placeholder="AXA Belgium"
+                <input v-model="formData.insurance_rc_company" type="text" required placeholder="AXA Belgium"
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Numéro de police *</label>
-                <input v-model="formData.insurance_rc_policy_number" type="text" placeholder="123456789"
+                <input v-model="formData.insurance_rc_policy_number" type="text" required placeholder="123456789"
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
@@ -158,8 +158,8 @@
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Détails de la couverture</label>
-              <textarea v-model="formData.insurance_additional_details" rows="2" 
+              <label class="block text-sm font-medium text-gray-700 mb-1">Détails de la couverture *</label>
+              <textarea v-model="formData.insurance_additional_details" rows="2" required
                         placeholder="Couverture corporelle, accidents sur le trajet, etc."
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
             </div>
@@ -202,7 +202,7 @@
             </div>
             <div v-if="formData.expense_reimbursement_type && formData.expense_reimbursement_type !== 'aucun'">
               <label class="block text-sm font-medium text-gray-700 mb-1">Détails du défraiement *</label>
-              <textarea v-model="formData.expense_reimbursement_details" rows="4" 
+              <textarea v-model="formData.expense_reimbursement_details" rows="4" required
                         :placeholder="formData.expense_reimbursement_type === 'forfait' 
                           ? 'Ex: Indemnité journalière de 15€ par jour de formation, indemnité mensuelle de 50€, etc.' 
                           : 'Ex: Transports en commun sur base du ticket, indemnité kilométrique au taux légal de 0.4182€/km, etc.'"
