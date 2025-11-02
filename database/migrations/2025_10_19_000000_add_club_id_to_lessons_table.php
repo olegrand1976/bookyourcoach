@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 return new class extends Migration
 {
@@ -87,13 +88,24 @@ return new class extends Migration
             ");
         }
         
-        // Rendre le champ obligatoire maintenant que les données sont migrées
+        // Vérifier s'il reste des valeurs NULL avant de rendre le champ obligatoire
+        // Rendre le champ obligatoire seulement si tous les enregistrements ont un club_id
         // Note : Ne pas rendre obligatoire si on utilise SQLite pour les tests
         // car les tests peuvent avoir des données sans club_id
         if ($driver !== 'sqlite') {
-            Schema::table('lessons', function (Blueprint $table) {
-                $table->foreignId('club_id')->nullable(false)->change();
-            });
+            $nullCount = DB::table('lessons')->whereNull('club_id')->count();
+            
+            if ($nullCount === 0) {
+                // Tous les enregistrements ont un club_id, on peut rendre le champ obligatoire
+                Schema::table('lessons', function (Blueprint $table) {
+                    $table->foreignId('club_id')->nullable(false)->change();
+                });
+            } else {
+                // Il reste des enregistrements sans club_id
+                // On garde le champ nullable pour éviter une erreur
+                // Un log pourrait être utile ici pour signaler le problème
+                Log::warning("Migration: {$nullCount} enregistrement(s) dans 'lessons' n'ont pas de club_id. Le champ reste nullable.");
+            }
         }
     }
 
