@@ -55,6 +55,13 @@ class LessonController extends Controller
      *         required=false,
      *         @OA\Schema(type="string", format="date")
      *     ),
+     *     @OA\Parameter(
+     *         name="limit",
+     *         in="query",
+     *         description="Nombre maximum de cours à retourner (défaut: 50)",
+     *         required=false,
+     *         @OA\Schema(type="integer", default=50)
+     *     ),
      *     @OA\Response(
      *         response=200,
      *         description="Liste des cours récupérée avec succès",
@@ -78,18 +85,19 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            // Optimiser les relations chargées
-            $query = Lesson::with([
-                'teacher:id,user_id',
-                'teacher.user:id,name,email',
-                'student:id,user_id',
-                'student.user:id,name,email',
-                'students:id',
-                'students.user:id,name,email',
-                'courseType:id,name',
-                'location:id,name',
-                'club:id,name,email,phone'
-            ]);
+            // Optimiser les relations chargées - sélectionner uniquement les colonnes nécessaires
+            $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 
+                                   'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time', 
+                                   'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at')
+                ->with([
+                    'teacher:id,user_id',
+                    'teacher.user:id,name,email',
+                    'student:id,user_id',
+                    'student.user:id,name,email',
+                    'courseType:id,name',
+                    'location:id,name',
+                    'club:id,name,email,phone'
+                ]);
 
             // Filtrage selon le rôle de l'utilisateur
             if ($user->role === 'teacher') {
@@ -134,7 +142,7 @@ class LessonController extends Controller
             }
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
-            $limit = $request->get('limit', 100); // Par défaut 100 cours max
+            $limit = min($request->get('limit', 50), 100); // Par défaut 50 cours max, max 100
             $lessons = $query->orderBy('start_time', 'desc')->limit($limit)->get();
 
             return response()->json([
