@@ -142,7 +142,7 @@
                 <p class="mt-1 text-xs text-gray-500">Le tarif horaire est géré par le club</p>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Description -->
           <section>
