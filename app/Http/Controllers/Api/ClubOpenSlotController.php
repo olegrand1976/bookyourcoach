@@ -207,16 +207,39 @@ class ClubOpenSlotController extends Controller
             $clubDisciplineIds = [];
             if ($user->role === 'club') {
                 $club = $user->getFirstClub();
-                $clubDisciplineIds = $club->disciplines ?? [];
+                
+                // 🔧 CORRECTION : Parser correctement les disciplines du club
+                $rawDisciplines = $club->disciplines;
+                
+                // Si c'est une string JSON, la parser
+                if (is_string($rawDisciplines)) {
+                    try {
+                        $clubDisciplineIds = json_decode($rawDisciplines, true) ?? [];
+                    } catch (\Exception $e) {
+                        Log::warning('ClubOpenSlotController::index - Erreur parsing disciplines JSON', [
+                            'club_id' => $club->id,
+                            'raw_value' => $rawDisciplines,
+                            'error' => $e->getMessage()
+                        ]);
+                        $clubDisciplineIds = [];
+                    }
+                } elseif (is_array($rawDisciplines)) {
+                    $clubDisciplineIds = $rawDisciplines;
+                } else {
+                    $clubDisciplineIds = [];
+                }
+                
+                // S'assurer que les IDs sont des entiers
+                $clubDisciplineIds = array_map('intval', array_filter($clubDisciplineIds));
                 
                 Log::info('ClubOpenSlotController::index - Filtrage par disciplines du club', [
                     'club_id' => $club->id,
                     'club_name' => $club->name,
-                    'club_disciplines_raw' => $club->disciplines,
-                    'club_disciplines_type' => gettype($club->disciplines),
+                    'club_disciplines_raw' => $rawDisciplines,
+                    'club_disciplines_type' => gettype($rawDisciplines),
                     'club_disciplines_parsed' => $clubDisciplineIds,
                     'is_array' => is_array($clubDisciplineIds),
-                    'count' => is_array($clubDisciplineIds) ? count($clubDisciplineIds) : 0
+                    'count' => count($clubDisciplineIds)
                 ]);
             }
 
@@ -225,25 +248,59 @@ class ClubOpenSlotController extends Controller
                 $courseTypes = $slot->courseTypes;
                 
                 // ✅ CORRECTION : Filtrer les types de cours par disciplines du club
-                if ($user->role === 'club' && !empty($clubDisciplineIds)) {
+                if ($user->role === 'club') {
+                    // ⚠️ Si le club n'a pas de disciplines configurées, logger un warning
+                    if (empty($clubDisciplineIds)) {
+                        Log::warning("ClubOpenSlotController::index - Club sans disciplines configurées", [
+                            'slot_id' => $slot->id,
+                            'message' => 'Le club n\'a pas de disciplines configurées. Seuls les types génériques seront affichés.'
+                        ]);
+                        
+                        // Ne garder que les types génériques (sans discipline)
+                        $courseTypes = $courseTypes->filter(function($courseType) {
+                            return !$courseType->discipline_id;
+                        })->values();
+                    } else {
                     $originalCount = $courseTypes->count();
                     
                     $courseTypes = $courseTypes->filter(function($courseType) use ($clubDisciplineIds, $slot) {
-                        // Garder les types génériques (sans discipline) OU ceux du club
-                        $keep = !$courseType->discipline_id || in_array($courseType->discipline_id, $clubDisciplineIds);
+                        // Conversion en entier pour comparaison sûre
+                        $courseTypeDisciplineId = $courseType->discipline_id ? intval($courseType->discipline_id) : null;
+                        $slotDisciplineId = $slot->discipline_id ? intval($slot->discipline_id) : null;
                         
-                        Log::debug("Slot {$slot->id} - Type {$courseType->id} ({$courseType->name}): discipline={$courseType->discipline_id}, keep={$keep}");
+                        // 🎯 LOGIQUE DE FILTRAGE :
+                        // 1. Si le type de cours n'a pas de discipline (générique) → GARDER
+                        // 2. Si le type de cours a une discipline qui est dans celles du club → GARDER
+                        // 3. Sinon → REJETER
+                        
+                        $isGeneric = !$courseTypeDisciplineId;
+                        $isInClubDisciplines = $courseTypeDisciplineId && in_array($courseTypeDisciplineId, $clubDisciplineIds, true);
+                        $keep = $isGeneric || $isInClubDisciplines;
+                        
+                        Log::debug("Slot {$slot->id} - Type {$courseType->id} ({$courseType->name})", [
+                            'course_type_discipline' => $courseTypeDisciplineId,
+                            'slot_discipline' => $slotDisciplineId,
+                            'is_generic' => $isGeneric,
+                            'is_in_club' => $isInClubDisciplines,
+                            'keep' => $keep
+                        ]);
                         
                         return $keep;
                     })->values();
                     
                     Log::info("ClubOpenSlotController::index - Types filtrés pour slot {$slot->id}", [
                         'slot_id' => $slot->id,
+                        'slot_discipline_id' => $slot->discipline_id,
                         'club_disciplines' => $clubDisciplineIds,
                         'total_before' => $originalCount,
                         'total_after' => $courseTypes->count(),
-                        'filtered_types' => $courseTypes->map(fn($ct) => "{$ct->id}:{$ct->name}(disc:{$ct->discipline_id})")->toArray()
+                        'filtered_types' => $courseTypes->map(fn($ct) => [
+                            'id' => $ct->id,
+                            'name' => $ct->name,
+                            'discipline_id' => $ct->discipline_id
+                        ])->toArray()
                     ]);
+                    }
                 }
                 
                 // Calculer le pas de temps (PGCD des durées)

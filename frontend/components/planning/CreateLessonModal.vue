@@ -68,9 +68,13 @@
               </option>
             </select>
                 <p v-if="selectedSlot && courseTypes.length === 0" class="text-xs text-red-600 mt-1">
-                  ⚠️ Aucun type de cours configuré pour ce créneau
+                  ⚠️ Aucun type de cours disponible pour ce créneau
                   <br>
-                  <span class="text-xs">Veuillez d'abord associer des types de cours à ce créneau.</span>
+                  <span class="text-xs">
+                    Vérifiez que :
+                    <br>• Des types de cours sont associés à ce créneau
+                    <br>• Ces types correspondent aux disciplines activées pour votre club
+                  </span>
                 </p>
                 <p v-else-if="selectedSlot && courseTypes.length > 0" class="text-xs text-green-600 mt-1">
                   ✓ {{ courseTypes.length }} type(s) de cours disponible(s) pour ce créneau
