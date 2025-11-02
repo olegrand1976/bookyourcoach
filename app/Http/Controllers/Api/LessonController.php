@@ -133,6 +133,48 @@ class LessonController extends Controller
                 $query->where('status', $request->status);
             }
 
+            // Gérer le filtre de période si fourni
+            if ($request->has('period')) {
+                $period = $request->get('period');
+                $now = now();
+                $dateFrom = null;
+                $dateTo = null;
+                
+                switch ($period) {
+                    case '7days':
+                        $dateFrom = $now->copy()->startOfDay();
+                        $dateTo = $now->copy()->addDays(7)->endOfDay();
+                        break;
+                    case '15days':
+                        $dateFrom = $now->copy()->startOfDay();
+                        $dateTo = $now->copy()->addDays(15)->endOfDay();
+                        break;
+                    case 'previous_month':
+                        $dateFrom = $now->copy()->subMonth()->startOfMonth()->startOfDay();
+                        $dateTo = $now->copy()->subMonth()->endOfMonth()->endOfDay();
+                        break;
+                    case 'current_month':
+                        $dateFrom = $now->copy()->startOfMonth()->startOfDay();
+                        $dateTo = $now->copy()->endOfMonth()->endOfDay();
+                        break;
+                    case 'next_month':
+                        $dateFrom = $now->copy()->addMonth()->startOfMonth()->startOfDay();
+                        $dateTo = $now->copy()->addMonth()->endOfMonth()->endOfDay();
+                        break;
+                }
+                
+                if ($dateFrom && $dateTo) {
+                    $query->whereBetween('start_time', [$dateFrom, $dateTo]);
+                }
+            } else {
+                // Par défaut: filtrer sur les 7 prochains jours si aucune période spécifiée
+                $now = now();
+                $query->whereBetween('start_time', [
+                    $now->copy()->startOfDay(),
+                    $now->copy()->addDays(7)->endOfDay()
+                ]);
+            }
+
             if ($request->has('date_from')) {
                 $query->whereDate('start_time', '>=', $request->date_from);
             }

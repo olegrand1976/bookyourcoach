@@ -73,7 +73,38 @@ class TeacherController extends Controller
                 ->selectRaw('SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time)) / 60.0 as total_hours')
                 ->value('total_hours') ?? 0;
 
-            // Prochains cours (limités à 10 pour optimiser les performances)
+            // Gérer le filtre de période (par défaut: 7 jours à venir)
+            $period = $request->get('period', '7days'); // 7days, 15days, previous_month, current_month, next_month
+            $dateFrom = null;
+            $dateTo = null;
+            
+            switch ($period) {
+                case '7days':
+                    $dateFrom = $now->copy()->startOfDay();
+                    $dateTo = $now->copy()->addDays(7)->endOfDay();
+                    break;
+                case '15days':
+                    $dateFrom = $now->copy()->startOfDay();
+                    $dateTo = $now->copy()->addDays(15)->endOfDay();
+                    break;
+                case 'previous_month':
+                    $dateFrom = $now->copy()->subMonth()->startOfMonth()->startOfDay();
+                    $dateTo = $now->copy()->subMonth()->endOfMonth()->endOfDay();
+                    break;
+                case 'current_month':
+                    $dateFrom = $now->copy()->startOfMonth()->startOfDay();
+                    $dateTo = $now->copy()->endOfMonth()->endOfDay();
+                    break;
+                case 'next_month':
+                    $dateFrom = $now->copy()->addMonth()->startOfMonth()->startOfDay();
+                    $dateTo = $now->copy()->addMonth()->endOfMonth()->endOfDay();
+                    break;
+                default:
+                    $dateFrom = $now->copy()->startOfDay();
+                    $dateTo = $now->copy()->addDays(7)->endOfDay();
+            }
+
+            // Prochains cours selon la période sélectionnée
             $upcomingLessons = Lesson::where('teacher_id', $teacher->id)
                 ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id', 
                          'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
@@ -84,27 +115,31 @@ class TeacherController extends Controller
                     'location:id,name',
                     'club:id,name'
                 ])
-                ->where('start_time', '>=', $now)
-                ->whereIn('status', ['confirmed', 'pending'])
+                ->whereBetween('start_time', [$dateFrom, $dateTo])
+                ->whereIn('status', ['confirmed', 'pending', 'completed', 'cancelled'])
                 ->orderBy('start_time', 'asc')
-                ->limit(10) // Réduit de 20 à 10 pour améliorer les performances
+                ->limit(100) // Limite augmentée pour permettre de voir tous les cours de la période
                 ->get();
 
-            // Cours récents (limités à 5 pour optimiser les performances)
-            $recentLessons = Lesson::where('teacher_id', $teacher->id)
-                ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id',
-                         'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
-                ->with([
-                    'student:id,user_id',
-                    'student.user:id,name',
-                    'courseType:id,name',
-                    'location:id,name',
-                    'club:id,name'
-                ])
-                ->whereIn('status', ['completed', 'cancelled'])
-                ->orderBy('start_time', 'desc')
-                ->limit(5) // Réduit de 10 à 5 pour améliorer les performances
-                ->get();
+            // Cours récents uniquement si la période inclut le passé
+            $recentLessons = collect();
+            if (in_array($period, ['previous_month', 'current_month'])) {
+                $recentLessons = Lesson::where('teacher_id', $teacher->id)
+                    ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id',
+                             'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
+                    ->with([
+                        'student:id,user_id',
+                        'student.user:id,name',
+                        'courseType:id,name',
+                        'location:id,name',
+                        'club:id,name'
+                    ])
+                    ->whereBetween('start_time', [$dateFrom, $dateTo])
+                    ->whereIn('status', ['completed', 'cancelled'])
+                    ->orderBy('start_time', 'desc')
+                    ->limit(20)
+                    ->get();
+            }
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
             $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country', 'clubs.legal_representative_name', 'clubs.legal_representative_role')->get();
