@@ -7,7 +7,10 @@
 <script setup>
 // Configuration globale de l'application
 useHead({
-  titleTemplate: '%s - Acti\'Vibe',
+  title: 'Acti\'Vibe',
+  titleTemplate: (titleChunk) => {
+    return titleChunk ? `${titleChunk} - Acti'Vibe` : 'Acti\'Vibe'
+  },
   meta: [
     { charset: 'utf-8' },
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },
