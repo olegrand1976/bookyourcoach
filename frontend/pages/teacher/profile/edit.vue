@@ -241,33 +241,58 @@ onMounted(async () => {
 const loadProfileData = async () => {
   try {
     isLoadingProfile.value = true
+    console.log('🔄 [LOAD PROFILE] Début du chargement')
+    
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/profile')
     
-    if (response.data) {
-      const profile = response.data.profile
-      const teacher = response.data.teacher
-      
-      // Remplir le formulaire avec les données existantes
-      form.value = {
-        name: profile?.name || authStore.user?.name || '',
-        email: profile?.email || authStore.user?.email || '',
-        phone: profile?.phone || '',
-        birth_date: profile?.birth_date || '',
-        specialties: teacher?.specialties ? (Array.isArray(teacher.specialties) ? teacher.specialties.join(', ') : teacher.specialties) : '',
-        experience_years: teacher?.experience_years || null,
-        certifications: teacher?.certifications ? (Array.isArray(teacher.certifications) ? teacher.certifications.join(', ') : teacher.certifications) : '',
-        hourly_rate: teacher?.hourly_rate || null,
-        bio: teacher?.bio || ''
-      }
+    console.log('📥 [LOAD PROFILE] Réponse reçue:', response)
+    console.log('📥 [LOAD PROFILE] response.data:', response.data)
+    
+    // Le backend retourne { profile: {...}, teacher: {...} } ou { success: true, profile: {...}, teacher: {...} }
+    const data = response.data || response
+    
+    let profile = null
+    let teacher = null
+    
+    if (data.success) {
+      profile = data.profile
+      teacher = data.teacher
+    } else if (data.profile || data.teacher) {
+      profile = data.profile
+      teacher = data.teacher
     }
+    
+    console.log('📥 [LOAD PROFILE] Profile extrait:', profile)
+    console.log('📥 [LOAD PROFILE] Teacher extrait:', teacher)
+    
+    // Remplir le formulaire avec les données existantes
+    form.value = {
+      name: profile?.name || authStore.user?.name || '',
+      email: profile?.email || authStore.user?.email || '',
+      phone: profile?.phone || '',
+      birth_date: profile?.birth_date || '',
+      specialties: teacher?.specialties ? (Array.isArray(teacher.specialties) ? teacher.specialties.join(', ') : (typeof teacher.specialties === 'string' ? teacher.specialties : '')) : '',
+      experience_years: teacher?.experience_years || null,
+      certifications: teacher?.certifications ? (Array.isArray(teacher.certifications) ? teacher.certifications.join(', ') : (typeof teacher.certifications === 'string' ? teacher.certifications : '')) : '',
+      hourly_rate: teacher?.hourly_rate || null,
+      bio: teacher?.bio || ''
+    }
+    
+    console.log('✅ [LOAD PROFILE] Formulaire rempli:', form.value)
   } catch (err) {
-    console.error('Erreur lors du chargement du profil:', err)
+    console.error('❌ [LOAD PROFILE] Erreur lors du chargement du profil:', err)
+    console.error('❌ [LOAD PROFILE] Détails de l\'erreur:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    })
     // Afficher une notification d'erreur
     const toast = useToast()
     toast.error('Impossible de charger les données du profil')
   } finally {
     isLoadingProfile.value = false
+    console.log('✅ [LOAD PROFILE] Chargement terminé, isLoadingProfile:', isLoadingProfile.value)
   }
 }
 
