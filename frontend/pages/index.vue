@@ -460,7 +460,7 @@
         </div>
         
         <div class="border-t border-gray-800 mt-12 pt-8 text-center text-sm text-gray-500">
-          <p>&copy; 2025 activibe. Tous droits réservés.</p>
+          <p>&copy; 2025 LL-IT Software & Computer. Tous droits réservés.</p>
         </div>
       </div>
     </footer>
