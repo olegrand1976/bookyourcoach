@@ -364,11 +364,72 @@
       <!-- Mes cours -->
       <div class="bg-white rounded-lg shadow mb-8">
         <div class="p-6 border-b border-gray-200">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-medium text-gray-900">
-              {{ selectedClubName ? `Mes cours - ${selectedClubName}` : 'Mes cours' }}
-            </h3>
-            <span class="text-sm text-gray-500">{{ filteredLessons.length }} cours</span>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-medium text-gray-900">
+                {{ selectedClubName ? `Mes cours - ${selectedClubName}` : 'Mes cours' }}
+              </h3>
+              <span class="text-sm text-gray-500">{{ filteredLessons.length }} cours</span>
+            </div>
+            
+            <!-- Filtres de période -->
+            <div class="flex flex-wrap gap-2">
+              <button
+                @click="changePeriod('7days')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  selectedPeriod === '7days'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ]"
+              >
+                7 jours
+              </button>
+              <button
+                @click="changePeriod('15days')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  selectedPeriod === '15days'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ]"
+              >
+                15 jours
+              </button>
+              <button
+                @click="changePeriod('previous_month')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  selectedPeriod === 'previous_month'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ]"
+              >
+                Mois précédent
+              </button>
+              <button
+                @click="changePeriod('current_month')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  selectedPeriod === 'current_month'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ]"
+              >
+                Mois en cours
+              </button>
+              <button
+                @click="changePeriod('next_month')"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  selectedPeriod === 'next_month'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ]"
+              >
+                Mois à venir
+              </button>
+            </div>
           </div>
         </div>
         <div class="p-6">
@@ -489,6 +550,7 @@ const showReplacementModal = ref(false)
 const selectedClubId = ref<number | null>(null)
 const monthlyEarnings = ref(0)
 const dashboardStats = ref<any>(null)
+const selectedPeriod = ref<string>('7days') // Par défaut: 7 jours à venir
 
 // Computed
 const todayLessons = computed(() => {
@@ -545,7 +607,11 @@ async function loadData() {
   try {
     // Essayer de charger via le dashboard complet d'abord
     try {
-      const dashboardResponse = await $api.get('/teacher/dashboard')
+      const dashboardResponse = await $api.get('/teacher/dashboard', {
+        params: {
+          period: selectedPeriod.value // Passer la période sélectionnée
+        }
+      })
       if (dashboardResponse.data.success && dashboardResponse.data.data) {
         const data = dashboardResponse.data.data
         dashboardStats.value = data.stats
@@ -557,17 +623,21 @@ async function loadData() {
           selectedClubId.value = clubs.value[0].id
         }
         
-        // Utiliser les cours depuis le dashboard qui sont déjà triés
+        // Utiliser les cours depuis le dashboard qui sont déjà triés selon la période
         if (data.upcoming_lessons && data.recent_lessons) {
           // Combiner et dédupliquer les cours par ID
           const allLessons = [...data.upcoming_lessons, ...data.recent_lessons]
           const uniqueLessons = Array.from(new Map(allLessons.map(lesson => [lesson.id, lesson])).values())
           lessons.value = uniqueLessons
+        } else if (data.upcoming_lessons) {
+          // Si seulement upcoming_lessons est présent
+          lessons.value = data.upcoming_lessons
         } else {
           // Fallback: charger les cours séparément avec limite (par défaut 50, max 100)
           const lessonsResponse = await $api.get('/teacher/lessons', {
             params: {
-              limit: 50 // Limiter le nombre de cours chargés pour optimiser les performances
+              limit: 100,
+              period: selectedPeriod.value
             }
           })
           lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
@@ -580,7 +650,8 @@ async function loadData() {
       // Charger les cours avec limite pour optimiser les performances
       const lessonsResponse = await $api.get('/teacher/lessons', {
         params: {
-          limit: 50 // Limiter à 50 cours pour éviter les chargements trop longs
+          limit: 100,
+          period: selectedPeriod.value
         }
       })
       lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
@@ -619,6 +690,15 @@ async function loadData() {
 
 function selectClub(clubId: number | null) {
   selectedClubId.value = clubId
+}
+
+async function changePeriod(period: string) {
+  if (selectedPeriod.value === period) {
+    return // Pas de changement
+  }
+  
+  selectedPeriod.value = period
+  await loadData() // Recharger les données avec la nouvelle période
 }
 
 function getClubLessonsCount(clubId: number): number {
