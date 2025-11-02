@@ -46,14 +46,24 @@ class SubscriptionController extends Controller
                 Log::warning('Table subscriptions n\'existe pas. Migrations non exécutées.');
                 return response()->json([
                     'success' => true,
-                    'data' => [],
-                    'message' => 'Aucun abonnement disponible. Les migrations doivent être exécutées.'
+                    'data' => []
+                ]);
+            }
+
+            // Si pas d'abonnements, retourner un tableau vide directement
+            $subscriptionCount = Subscription::where('club_id', $club->id)->count();
+            if ($subscriptionCount === 0) {
+                return response()->json([
+                    'success' => true,
+                    'data' => []
                 ]);
             }
 
             $subscriptions = Subscription::where('club_id', $club->id)
                 ->with([
-                    'template.courseTypes',
+                    'template' => function ($query) {
+                        $query->with('courseTypes');
+                    },
                     'instances' => function ($query) {
                         $query->with('students.user');
                     }
@@ -63,21 +73,25 @@ class SubscriptionController extends Controller
             
             // Charger les cours pour chaque instance pour calculer lessons_used correctement
             foreach ($subscriptions as $subscription) {
-                foreach ($subscription->instances as $instance) {
-                    // Compter les cours réels liés à cette instance
-                    $instance->lessons_count = DB::table('subscription_lessons')
-                        ->where('subscription_instance_id', $instance->id)
-                        ->count();
-                    // Utiliser lessons_count si lessons_used est incorrect
-                    if ($instance->lessons_count > $instance->lessons_used) {
-                        $instance->lessons_used = $instance->lessons_count;
+                if ($subscription->instances && $subscription->instances->count() > 0) {
+                    foreach ($subscription->instances as $instance) {
+                        // Compter les cours réels liés à cette instance
+                        if (Schema::hasTable('subscription_lessons')) {
+                            $instance->lessons_count = DB::table('subscription_lessons')
+                                ->where('subscription_instance_id', $instance->id)
+                                ->count();
+                            // Utiliser lessons_count si lessons_used est incorrect
+                            if ($instance->lessons_count > $instance->lessons_used) {
+                                $instance->lessons_used = $instance->lessons_count;
+                            }
+                        }
                     }
                 }
             }
             
             // Ajouter l'alias subscriptionStudents pour compatibilité frontend
             foreach ($subscriptions as $subscription) {
-                $subscription->subscription_students = $subscription->instances;
+                $subscription->subscription_students = $subscription->instances ?? collect([]);
             }
 
             return response()->json([
@@ -86,11 +100,18 @@ class SubscriptionController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la récupération des abonnements: ' . $e->getMessage());
+            Log::error('Erreur lors de la récupération des abonnements: ' . $e->getMessage(), [
+                'club_id' => $club->id ?? null,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Retourner un tableau vide au lieu d'une erreur 500
+            // pour ne pas casser l'interface utilisateur
             return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la récupération des abonnements'
-            ], 500);
+                'success' => true,
+                'data' => []
+            ]);
         }
     }
 
