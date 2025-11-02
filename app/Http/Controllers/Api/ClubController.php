@@ -691,11 +691,14 @@ class ClubController extends Controller
                 'last_name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'phone' => 'nullable|string|max:20',
+                'niss' => 'nullable|string|max:15',
                 'street' => 'nullable|string|max:255',
                 'street_number' => 'nullable|string|max:20',
                 'postal_code' => 'nullable|string|max:10',
                 'city' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
+                'bank_account_number' => 'nullable|string|max:50',
+                'experience_start_date' => 'nullable|date',
                 'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern,article17',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'bio' => 'nullable|string',
@@ -727,6 +730,15 @@ class ClubController extends Controller
             // Commencer une transaction
             DB::beginTransaction();
 
+            // Calculer les années d'expérience si experience_start_date est fourni
+            // Sinon, la date de création du profil sera utilisée (via l'accessor du modèle)
+            $experienceYears = 0;
+            if ($request->experience_start_date) {
+                $startDate = \Carbon\Carbon::parse($request->experience_start_date);
+                $experienceYears = max(0, $startDate->diffInYears(now()));
+            }
+            // Si pas de date fournie, experience_years sera calculé dynamiquement par l'accessor
+
             // Créer l'utilisateur
             $fullName = trim($request->first_name . ' ' . $request->last_name);
             $newUser = User::create([
@@ -737,24 +749,32 @@ class ClubController extends Controller
                 'password' => Hash::make('ActiviBe2024!'), // Mot de passe par défaut
                 'role' => 'teacher',
                 'phone' => $request->phone,
+                'niss' => $request->niss,
                 'street' => $request->street,
                 'street_number' => $request->street_number,
                 'postal_code' => $request->postal_code,
                 'city' => $request->city,
                 'country' => $request->country ?? 'Belgium',
+                'bank_account_number' => $request->bank_account_number,
+                'experience_start_date' => $request->experience_start_date,
                 'is_active' => true,
                 'status' => 'active',
             ]);
 
             // Créer le profil enseignant
+            // Note: experience_years sera calculé automatiquement par l'accessor du modèle
+            // si experience_start_date est défini, sinon il utilisera created_at
             $teacher = Teacher::create([
                 'user_id' => $newUser->id,
                 'hourly_rate' => $request->hourly_rate ?? 0,
-                'experience_years' => 0,
+                'experience_years' => $experienceYears, // Valeur initiale, sera recalculée par l'accessor
                 'bio' => $request->bio,
                 'is_available' => true,
                 'specialties' => json_encode([]),
             ]);
+            
+            // Recharger la relation user pour que l'accessor puisse accéder à experience_start_date
+            $teacher->load('user');
 
             // Lier l'enseignant au club
             DB::table('club_teachers')->insert([

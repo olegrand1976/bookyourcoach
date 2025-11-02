@@ -478,8 +478,8 @@ const formatCourseTypeName = (courseType) => {
 
 // Formater l'affichage de la validité
 const formatValidity = (template) => {
-  // Utiliser validity_value et validity_unit si disponibles
-  if (template.validity_value && template.validity_unit) {
+  // Utiliser validity_value et validity_unit si disponibles (vérifier explicitement null/undefined)
+  if (template.validity_value != null && template.validity_unit != null) {
     if (template.validity_unit === 'weeks') {
       return `${template.validity_value} semaine${template.validity_value > 1 ? 's' : ''}`
     } else {
@@ -648,7 +648,8 @@ const editTemplate = (template) => {
   let validityUnit = template.validity_unit
   
   // Si validity_value et validity_unit ne sont pas définis (anciens modèles), les déduire de validity_months
-  if (!validityValue || !validityUnit) {
+  // Vérifier explicitement null/undefined (pas juste falsy pour gérer validity_value = 0)
+  if (validityValue == null || validityUnit == null) {
     const validityMonths = template.validity_months || 12
     // Déterminer si on affiche en semaines ou mois (par défaut semaines si < 3 mois)
     validityUnit = validityMonths < 3 ? 'weeks' : 'months'

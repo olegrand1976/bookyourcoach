@@ -254,6 +254,22 @@
                       placeholder="0470123456"
                     >
                   </div>
+                  
+                  <!-- Numéro NISS -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Numéro NISS</label>
+                    <input 
+                      v-model="newTeacherForm.niss" 
+                      type="text" 
+                      maxlength="11"
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                      placeholder="76011042703"
+                      @input="calculateBirthDateFromNiss"
+                    >
+                    <p v-if="calculatedBirthDate" class="mt-1 text-sm text-green-600">
+                      Date de naissance calculée : {{ calculatedBirthDate }}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -322,6 +338,24 @@
                 </div>
               </div>
 
+              <!-- Informations bancaires -->
+              <div class="bg-yellow-50 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">Informations bancaires</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
+                  <!-- Numéro de compte bancaire -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Numéro de compte bancaire</label>
+                    <input 
+                      v-model="newTeacherForm.bank_account_number" 
+                      type="text" 
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors"
+                      placeholder="BE12 3456 7890 1234"
+                    >
+                  </div>
+                </div>
+              </div>
+
               <!-- Informations professionnelles -->
               <div class="bg-purple-50 rounded-xl p-6">
                 <h4 class="text-lg font-semibold text-gray-900 mb-4">Informations professionnelles</h4>
@@ -352,8 +386,21 @@
                       step="0.01"
                       min="0"
                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
-                      placeholder="35.00"
+                      placeholder="24.00"
                     >
+                  </div>
+                  
+                  <!-- Date de début d'expérience -->
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date de début d'expérience</label>
+                    <input 
+                      v-model="newTeacherForm.experience_start_date" 
+                      type="date" 
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                    >
+                    <p class="mt-1 text-xs text-gray-500">
+                      Les années d'expérience seront calculées automatiquement à partir de cette date
+                    </p>
                   </div>
                 </div>
                 
@@ -416,15 +463,61 @@ const newTeacherForm = ref({
   last_name: '',
   email: '',
   phone: '',
+  niss: '',
   street: '',
   street_number: '',
   postal_code: '',
   city: '',
   country: 'Belgium',
-  contract_type: '',
-  hourly_rate: null,
+  bank_account_number: '',
+  contract_type: 'volunteer', // Valeur par défaut : Bénévole
+  hourly_rate: 24,
+  experience_start_date: '', // Date de début d'expérience (pour calcul automatique)
   notes: ''
 })
+
+const calculatedBirthDate = ref('')
+
+// Calculer la date de naissance depuis le NISS belge
+// Format NISS belge : YYMMDD-XXX.XX ou YYMMDDXXX.XX (11 chiffres)
+// Les 6 premiers chiffres : YYMMDD (année, mois, jour)
+// Pour déterminer le siècle : si YY >= 00 et < 50, c'est 20YY, sinon 19YY
+const calculateBirthDateFromNiss = () => {
+  calculatedBirthDate.value = ''
+  const niss = newTeacherForm.value.niss?.replace(/[^0-9]/g, '') // Enlever les caractères non numériques
+  
+  if (!niss || niss.length < 6) {
+    return
+  }
+  
+  try {
+    // Extraire YY, MM, DD
+    const yearStr = niss.substring(0, 2)
+    const monthStr = niss.substring(2, 4)
+    const dayStr = niss.substring(4, 6)
+    
+    const month = parseInt(monthStr, 10)
+    const day = parseInt(dayStr, 10)
+    let year = parseInt(yearStr, 10)
+    
+    // Déterminer le siècle
+    // Si YY < 50, c'est 20YY, sinon 19YY
+    if (year < 50) {
+      year = 2000 + year
+    } else {
+      year = 1900 + year
+    }
+    
+    // Valider la date
+    const date = new Date(year, month - 1, day)
+    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      // Formater la date au format DD/MM/YYYY
+      calculatedBirthDate.value = `${dayStr}/${monthStr}/${year}`
+    }
+  } catch (error) {
+    console.error('Erreur lors du calcul de la date de naissance:', error)
+  }
+}
 
 // Gestion du QR code
 const handleQrCodeInput = async () => {
@@ -587,6 +680,9 @@ const createNewTeacher = async () => {
       postal_code: newTeacherForm.value.postal_code || null,
       city: newTeacherForm.value.city || null,
       country: newTeacherForm.value.country,
+      niss: newTeacherForm.value.niss || null,
+      bank_account_number: newTeacherForm.value.bank_account_number || null,
+      experience_start_date: newTeacherForm.value.experience_start_date || null,
       role: 'teacher',
       contract_type: newTeacherForm.value.contract_type || null,
       hourly_rate: newTeacherForm.value.hourly_rate || null,
@@ -635,14 +731,18 @@ const resetNewTeacherForm = () => {
     last_name: '',
     email: '',
     phone: '',
+    niss: '',
     street: '',
     street_number: '',
     postal_code: '',
     city: '',
     country: 'Belgium',
-    contract_type: '',
-    hourly_rate: null,
+    bank_account_number: '',
+    contract_type: 'volunteer', // Valeur par défaut : Bénévole
+    hourly_rate: 24,
+    experience_start_date: '',
     notes: ''
   }
+  calculatedBirthDate.value = ''
 }
 </script>

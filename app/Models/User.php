@@ -26,12 +26,15 @@ class User extends Authenticatable
         'role',
         'phone',
         'birth_date',
+        'niss',
         'address',
         'street',
         'street_number',
         'postal_code',
         'city',
         'country',
+        'bank_account_number',
+        'experience_start_date',
         'is_active',
         'status',
     ];
@@ -55,6 +58,7 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'birth_date' => 'date',
+        'experience_start_date' => 'date',
         'is_active' => 'boolean',
     ];
 

@@ -18,7 +18,7 @@
             </NuxtLink>
             <NuxtLink to="/register"
               class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
-              🏇 Inscription
+              🏃 Inscription
             </NuxtLink>
           </div>
         </div>
@@ -34,7 +34,7 @@
     <footer class="bg-gray-800 text-gray-100 border-t-4 border-blue-500 mt-auto">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="text-center text-gray-100/60">
-          <p>&copy; 2025 activibe. Tous droits réservés. 🏊‍♀️</p>
+          <p>&copy; 2025 activibe. Tous droits réservés. 🏃</p>
         </div>
       </div>
     </footer>

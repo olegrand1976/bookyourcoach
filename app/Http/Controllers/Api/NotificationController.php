@@ -49,6 +49,13 @@ class NotificationController extends Controller
         try {
             $user = $request->user();
             
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non authentifié'
+                ], 401);
+            }
+            
             $count = $this->notificationService->getUnreadCount($user);
 
             return response()->json([
@@ -57,11 +64,17 @@ class NotificationController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('❌ Erreur comptage notifications: ' . $e->getMessage());
+            Log::error('❌ Erreur comptage notifications: ' . $e->getMessage(), [
+                'user_id' => $request->user()?->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Retourner 0 au lieu d'une erreur pour ne pas bloquer l'interface
             return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du comptage des notifications'
-            ], 500);
+                'success' => true,
+                'count' => 0,
+                'message' => 'Erreur lors du comptage des notifications, valeur par défaut: 0'
+            ]);
         }
     }
 
