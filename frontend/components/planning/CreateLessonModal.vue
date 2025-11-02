@@ -319,5 +319,27 @@ watch(() => props.courseTypes, (newCourseTypes) => {
     }
   }
 }, { deep: true, immediate: true })
+
+// Watcher pour auto-remplir durée et prix quand un type de cours est sélectionné
+watch(() => props.form.course_type_id, (newCourseTypeId) => {
+  if (newCourseTypeId && props.courseTypes.length > 0) {
+    const selectedCourseType = props.courseTypes.find(ct => ct.id === newCourseTypeId)
+    if (selectedCourseType) {
+      // Auto-remplir la durée si elle n'est pas déjà définie
+      if (!props.form.duration || props.form.duration === 0) {
+        props.form.duration = selectedCourseType.duration_minutes || selectedCourseType.duration || 60
+      }
+      // Auto-remplir le prix si il n'est pas déjà défini
+      if (!props.form.price || props.form.price === 0) {
+        props.form.price = selectedCourseType.price || 0
+      }
+      console.log('✨ [CreateLessonModal] Durée et prix auto-remplis:', {
+        duration: props.form.duration,
+        price: props.form.price,
+        courseType: selectedCourseType.name
+      })
+    }
+  }
+})
 </script>
 

@@ -127,7 +127,16 @@
                   
                   <!-- Participants -->
                   <div class="flex items-center gap-4 text-sm text-gray-600">
-                    <span>👤 {{ lesson.student?.user?.name || 'Aucun élève' }}</span>
+                    <span>
+                      👤 {{ lesson.student?.user?.name || 'Aucun élève' }}
+                      <span 
+                        v-if="lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0"
+                        class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                        title="Avec abonnement actif"
+                      >
+                        📋 Abonnement
+                      </span>
+                    </span>
                     <span>🎓 {{ lesson.teacher?.user?.name || 'Coach' }}</span>
                     <span v-if="lesson.price">💰 {{ formatPrice(lesson.price) }} €</span>
                   </div>

@@ -104,6 +104,15 @@ class Student extends Model
     }
 
     /**
+     * Get the subscription instances for this student (many-to-many).
+     */
+    public function subscriptionInstances(): BelongsToMany
+    {
+        return $this->belongsToMany(SubscriptionInstance::class, 'subscription_instance_students', 'student_id', 'subscription_instance_id')
+                    ->withTimestamps();
+    }
+
+    /**
      * Get the preferences for this student.
      */
     public function preferences(): HasMany
