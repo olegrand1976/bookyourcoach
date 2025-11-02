@@ -23,16 +23,8 @@
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="isLoadingProfile" class="flex items-center justify-center py-20">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p class="text-gray-600">Chargement des données...</p>
-        </div>
-      </div>
-
-      <!-- Formulaire -->
-      <form v-else @submit.prevent="updateProfile" class="bg-white shadow-lg rounded-lg p-4 md:p-6 space-y-6 md:space-y-8">
+      <!-- Formulaire (toujours affiché, pré-rempli avec les données disponibles) -->
+      <form @submit.prevent="updateProfile" class="bg-white shadow-lg rounded-lg p-4 md:p-6 space-y-6 md:space-y-8">
           <!-- Informations personnelles -->
           <section class="border-b pb-4 md:pb-6">
             <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations personnelles</h2>
@@ -194,21 +186,27 @@ const authStore = useAuthStore()
 
 // État réactif
 const loading = ref(false)
-const isLoadingProfile = ref(true)
 const errors = ref({})
 
-// Formulaire
-const form = ref({
-  name: '',
-  email: '',
-  phone: '',
-  birth_date: '',
-  specialties: '',
-  experience_years: null,
-  certifications: '',
-  hourly_rate: null,
-  bio: ''
-})
+// Initialiser le formulaire avec les données de l'auth store immédiatement
+const initializeForm = () => {
+  const user = authStore.user
+  
+  return {
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    birth_date: user?.birth_date || '',
+    specialties: '',
+    experience_years: null,
+    certifications: '',
+    hourly_rate: null,
+    bio: ''
+  }
+}
+
+// Formulaire - pré-rempli immédiatement avec les données disponibles
+const form = ref(initializeForm())
 
 // Retour à la page précédente
 const goBack = () => {
@@ -221,47 +219,36 @@ const goBack = () => {
   }
 }
 
-// Vérifier que l'utilisateur est un enseignant
+// Vérifier que l'utilisateur est un enseignant et charger les données
 onMounted(async () => {
-  console.log('🚀 [MOUNT] Page montée, début initialisation')
-  
   try {
     // S'assurer que l'auth est initialisée avant de vérifier
     if (!authStore.isInitialized) {
-      console.log('🔄 [MOUNT] Auth non initialisée, initialisation en cours...')
       await authStore.initializeAuth()
-      console.log('✅ [MOUNT] Auth initialisée')
     }
     
+    // Réinitialiser le formulaire avec les données mises à jour de l'auth store
+    form.value = initializeForm()
+    
     if (!authStore.canActAsTeacher) {
-      console.error('❌ [MOUNT] Accès non autorisé - redirection vers /teacher/dashboard')
       await navigateTo('/teacher/dashboard')
       return
     }
     
-    console.log('✅ [MOUNT] Permissions OK, chargement des données...')
-    await loadProfileData()
-    console.log('✅ [MOUNT] Données chargées')
+    // Charger les données complètes en arrière-plan (sans bloquer l'affichage)
+    loadProfileData()
   } catch (error) {
-    console.error('❌ [MOUNT] Erreur dans onMounted:', error)
-    // Même en cas d'erreur, on arrête le loading pour éviter le blocage
-    isLoadingProfile.value = false
+    console.error('Erreur dans onMounted:', error)
   }
 })
 
-// Charger les données du profil
+// Charger les données du profil en arrière-plan (mise à jour silencieuse du formulaire)
 const loadProfileData = async () => {
   try {
-    isLoadingProfile.value = true
-    console.log('🔄 [LOAD PROFILE] Début du chargement')
-    
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/profile')
     
-    console.log('📥 [LOAD PROFILE] Réponse reçue:', response)
-    console.log('📥 [LOAD PROFILE] response.data:', response.data)
-    
-    // Le backend retourne { profile: {...}, teacher: {...} } ou { success: true, profile: {...}, teacher: {...} }
+    // Le backend retourne { success: true, profile: {...}, teacher: {...} }
     const data = response.data || response
     
     let profile = null
@@ -275,36 +262,39 @@ const loadProfileData = async () => {
       teacher = data.teacher
     }
     
-    console.log('📥 [LOAD PROFILE] Profile extrait:', profile)
-    console.log('📥 [LOAD PROFILE] Teacher extrait:', teacher)
-    
-    // Remplir le formulaire avec les données existantes
-    form.value = {
-      name: profile?.name || authStore.user?.name || '',
-      email: profile?.email || authStore.user?.email || '',
-      phone: profile?.phone || '',
-      birth_date: profile?.birth_date || '',
-      specialties: teacher?.specialties ? (Array.isArray(teacher.specialties) ? teacher.specialties.join(', ') : (typeof teacher.specialties === 'string' ? teacher.specialties : '')) : '',
-      experience_years: teacher?.experience_years || null,
-      certifications: teacher?.certifications ? (Array.isArray(teacher.certifications) ? teacher.certifications.join(', ') : (typeof teacher.certifications === 'string' ? teacher.certifications : '')) : '',
-      hourly_rate: teacher?.hourly_rate || null,
-      bio: teacher?.bio || ''
+    // Mettre à jour le formulaire avec les données complètes (sans écraser ce que l'utilisateur a peut-être déjà modifié)
+    if (profile || teacher) {
+      // On met à jour seulement les champs vides ou si les données sont plus complètes
+      if (profile) {
+        form.value.name = form.value.name || profile?.name || authStore.user?.name || ''
+        form.value.email = form.value.email || profile?.email || authStore.user?.email || ''
+        form.value.phone = form.value.phone || profile?.phone || ''
+        form.value.birth_date = form.value.birth_date || profile?.birth_date || ''
+      }
+      
+      if (teacher) {
+        if (teacher.specialties) {
+          form.value.specialties = Array.isArray(teacher.specialties) 
+            ? teacher.specialties.join(', ') 
+            : (typeof teacher.specialties === 'string' ? teacher.specialties : form.value.specialties)
+        }
+        
+        form.value.experience_years = teacher.experience_years || form.value.experience_years
+        
+        if (teacher.certifications) {
+          form.value.certifications = Array.isArray(teacher.certifications)
+            ? teacher.certifications.join(', ')
+            : (typeof teacher.certifications === 'string' ? teacher.certifications : form.value.certifications)
+        }
+        
+        form.value.hourly_rate = teacher.hourly_rate || form.value.hourly_rate
+        form.value.bio = teacher.bio || form.value.bio
+      }
     }
-    
-    console.log('✅ [LOAD PROFILE] Formulaire rempli:', form.value)
   } catch (err) {
-    console.error('❌ [LOAD PROFILE] Erreur lors du chargement du profil:', err)
-    console.error('❌ [LOAD PROFILE] Détails de l\'erreur:', {
-      message: err.message,
-      response: err.response?.data,
-      status: err.response?.status
-    })
-    // Afficher une notification d'erreur
-    const toast = useToast()
-    toast.error('Impossible de charger les données du profil')
-  } finally {
-    isLoadingProfile.value = false
-    console.log('✅ [LOAD PROFILE] Chargement terminé, isLoadingProfile:', isLoadingProfile.value)
+    console.warn('Impossible de charger les données complètes du profil, utilisation des données de base:', err)
+    // Ne pas afficher d'erreur toast pour ne pas perturber l'utilisateur
+    // Les données de base de l'auth store sont déjà dans le formulaire
   }
 }
 
