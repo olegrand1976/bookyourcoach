@@ -14,7 +14,7 @@
                     </div>
                     <div class="flex items-center space-x-4">
                         <NuxtLink to="/teacher/dashboard" 
-                            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
                             <span>←</span>
                             <span class="ml-2">Retour au dashboard</span>
                         </NuxtLink>
