@@ -187,28 +187,16 @@
 
           <!-- Section Documents médicaux améliorée -->
           <div class="bg-amber-50 rounded-xl p-6">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center">
-                <div class="bg-amber-100 p-2 rounded-lg mr-3">
-                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                </div>
-                <div>
-                  <h4 class="text-lg font-semibold text-gray-900">Documents médicaux</h4>
-                  <p class="text-sm text-gray-600">Ajoutez les documents nécessaires (certificats, assurances...)</p>
-                </div>
-              </div>
-              <button 
-                type="button" 
-                @click="addDocument" 
-                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            <div class="flex items-center mb-4">
+              <div class="bg-amber-100 p-2 rounded-lg mr-3">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <span>Ajouter</span>
-              </button>
+              </div>
+              <div>
+                <h4 class="text-lg font-semibold text-gray-900">Documents médicaux</h4>
+                <p class="text-sm text-gray-600">Ajoutez les documents nécessaires (certificats, assurances...)</p>
+              </div>
             </div>
             
             <!-- Liste des documents avec design amélioré -->
@@ -313,6 +301,20 @@
               </svg>
               <p>Aucun document médical ajouté</p>
               <p class="text-sm">Cliquez sur "Ajouter" pour commencer</p>
+            </div>
+            
+            <!-- Bouton Ajouter déplacé en bas à droite -->
+            <div class="flex justify-end mt-4">
+              <button 
+                type="button" 
+                @click="addDocument" 
+                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span>Ajouter</span>
+              </button>
             </div>
           </div>
           
