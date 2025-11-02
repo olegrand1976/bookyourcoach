@@ -221,17 +221,22 @@ const editProfile = async () => {
   
   console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
   
-  // Utiliser navigateTo de Nuxt avec external: false pour éviter le SSR refresh
+  // Utiliser le router Vue directement pour une navigation plus fiable
   try {
-    await navigateTo('/teacher/profile/edit', { 
-      external: false,
-      replace: false 
-    })
-  } catch (error) {
-    // Si navigateTo échoue, utiliser le router Vue directement
-    console.warn('⚠️ [EDIT PROFILE] navigateTo a échoué, utilisation du router Vue:', error)
     const router = useRouter()
     await router.push('/teacher/profile/edit')
+    console.log('✅ [EDIT PROFILE] Navigation réussie')
+  } catch (error) {
+    console.error('❌ [EDIT PROFILE] Erreur navigation:', error)
+    // Si le router échoue, utiliser navigateTo en dernier recours
+    try {
+      await navigateTo('/teacher/profile/edit', { 
+        external: false,
+        replace: false 
+      })
+    } catch (error2) {
+      console.error('❌ [EDIT PROFILE] navigateTo a aussi échoué:', error2)
+    }
   }
 }
 
