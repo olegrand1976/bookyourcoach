@@ -97,7 +97,7 @@ class TeacherController extends Controller
                 ->get();
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
-            $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country')->get();
+            $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country', 'clubs.legal_representative_name', 'clubs.legal_representative_role')->get();
 
             // Demandes de remplacement en attente
             $pendingReplacements = \App\Models\LessonReplacement::where(function($query) use ($teacher) {

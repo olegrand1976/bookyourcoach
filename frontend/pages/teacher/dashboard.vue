@@ -69,7 +69,11 @@
                     
                     <!-- Contact info -->
                     <div class="mt-2 md:mt-3 ml-7 md:ml-11">
-                      <h5 class="text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">Personne de contact club</h5>
+                      <h5 class="text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">Nom du représentant légal du club</h5>
+                      <div v-if="club.legal_representative_name" class="text-xs md:text-sm font-medium text-gray-900 mb-1 md:mb-2">
+                        {{ club.legal_representative_name }}
+                        <span v-if="club.legal_representative_role" class="text-gray-600">({{ club.legal_representative_role }})</span>
+                      </div>
                       <div class="space-y-1 md:space-y-2">
                       <!-- Email -->
                       <div v-if="club.email" class="flex items-center text-xs md:text-sm text-gray-600">
@@ -140,7 +144,13 @@
               
               <!-- Contact info -->
               <div class="mt-3">
-                <h5 class="text-sm md:text-base font-semibold text-gray-700 mb-2">Personne de contact club</h5>
+                <h5 class="text-sm md:text-base font-semibold text-gray-700 mb-2">Nom du représentant légal du club</h5>
+                <div v-if="clubs[0].legal_representative_name" class="mb-2">
+                  <p class="text-sm font-medium text-gray-900">
+                    {{ clubs[0].legal_representative_name }}
+                    <span v-if="clubs[0].legal_representative_role" class="text-gray-600">({{ clubs[0].legal_representative_role }})</span>
+                  </p>
+                </div>
                 <div class="space-y-2">
                 <!-- Email -->
                 <div v-if="clubs[0].email" class="flex items-center text-sm">
