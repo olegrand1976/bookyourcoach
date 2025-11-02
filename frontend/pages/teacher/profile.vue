@@ -85,7 +85,10 @@
                 :class="{ 'border-red-500': errors.birth_date }"
               />
               <p v-if="errors.birth_date" class="mt-1 text-sm text-red-600">{{ errors.birth_date }}</p>
-              <p v-if="form.birth_date" class="mt-1 text-xs text-gray-500">Date saisie : {{ form.birth_date }}</p>
+              <p v-if="form.birth_date" class="mt-1 text-xs text-gray-500">
+                Date saisie : {{ form.birth_date }}
+                <span v-if="form.birth_date.length === 10" class="text-green-600">✓ Format correct</span>
+              </p>
             </div>
           </div>
         </section>
@@ -272,7 +275,34 @@ const loadProfileData = async () => {
         form.value.name = profile?.name || authStore.user?.name || ''
         form.value.email = profile?.email || authStore.user?.email || ''
         form.value.phone = profile?.phone || ''
-        form.value.birth_date = profile?.birth_date || ''
+        
+        // Formater birth_date correctement pour l'input date (YYYY-MM-DD)
+        if (profile?.birth_date) {
+          let birthDateStr = profile.birth_date
+          
+          // Si c'est une string ISO avec timestamp, extraire juste la date
+          if (typeof birthDateStr === 'string' && birthDateStr.includes('T')) {
+            birthDateStr = birthDateStr.substring(0, 10)
+          }
+          
+          // Si c'est un objet Date, le formater
+          if (birthDateStr instanceof Date) {
+            const year = birthDateStr.getFullYear()
+            const month = String(birthDateStr.getMonth() + 1).padStart(2, '0')
+            const day = String(birthDateStr.getDate()).padStart(2, '0')
+            birthDateStr = `${year}-${month}-${day}`
+          }
+          
+          form.value.birth_date = birthDateStr
+          
+          console.log('📅 [LOAD PROFILE] birth_date formaté:', {
+            'original': profile.birth_date,
+            'formatted': birthDateStr,
+            'type': typeof birthDateStr
+          })
+        } else {
+          form.value.birth_date = ''
+        }
       }
       
       if (teacher) {

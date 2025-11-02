@@ -64,7 +64,7 @@ class User extends Authenticatable
 
     /**
      * Set the birth_date attribute.
-     * Force the date to be saved as UTC midnight to avoid timezone shift issues.
+     * Force the date to be saved as a pure date string (YYYY-MM-DD) without timezone conversion.
      */
     public function setBirthDateAttribute($value)
     {
@@ -73,32 +73,66 @@ class User extends Authenticatable
             return;
         }
 
-        // If it's already a Carbon instance, extract the date part
+        // Extract just the date part (YYYY-MM-DD) from any format
+        $dateString = null;
+        
         if ($value instanceof \Carbon\Carbon) {
             $dateString = $value->format('Y-m-d');
         } elseif (is_string($value)) {
             // Extract just the date part (YYYY-MM-DD) from string
-            $dateString = substr($value, 0, 10);
+            // Handle both "YYYY-MM-DD" and "YYYY-MM-DDTHH:MM:SS..." formats
+            if (strpos($value, 'T') !== false) {
+                $dateString = substr($value, 0, 10);
+            } elseif (strlen($value) >= 10) {
+                $dateString = substr($value, 0, 10);
+            } else {
+                $dateString = $value;
+            }
         } else {
             $dateString = $value;
         }
 
-        // Create a Carbon date at UTC midnight to avoid timezone conversion issues
-        // This ensures the date is stored exactly as provided (no day shift)
-        try {
-            $date = \Carbon\Carbon::createFromFormat('Y-m-d', $dateString, 'UTC')
-                ->startOfDay()
-                ->setTimezone('UTC');
+        // Validate the date format
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateString)) {
+            // Store directly as string to avoid any Carbon timezone conversion
+            // This ensures the date is stored exactly as provided (no day shift)
+            $this->attributes['birth_date'] = $dateString;
             
-            $this->attributes['birth_date'] = $date->format('Y-m-d');
-        } catch (\Exception $e) {
-            // Fallback: try to parse the value directly
-            \Log::warning('User::setBirthDateAttribute - Error parsing date', [
-                'value' => $value,
-                'error' => $e->getMessage()
+            \Log::info('User::setBirthDateAttribute - Date sauvegardée:', [
+                'input' => $value,
+                'extracted' => $dateString,
+                'stored' => $this->attributes['birth_date']
             ]);
-            $this->attributes['birth_date'] = $value;
+        } else {
+            \Log::warning('User::setBirthDateAttribute - Format de date invalide', [
+                'value' => $value,
+                'extracted' => $dateString
+            ]);
+            $this->attributes['birth_date'] = $dateString;
         }
+    }
+
+    /**
+     * Get the birth_date attribute.
+     * Return as a pure date string (YYYY-MM-DD) without timezone conversion.
+     */
+    public function getBirthDateAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        // If it's already a string in YYYY-MM-DD format, return it directly
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return $value;
+        }
+
+        // If it's a Carbon instance or DateTime, format it as YYYY-MM-DD
+        if ($value instanceof \Carbon\Carbon || $value instanceof \DateTime) {
+            return $value->format('Y-m-d');
+        }
+
+        return $value;
     }
 
     /**
