@@ -79,10 +79,13 @@
                 id="birth_date"
                 v-model="form.birth_date"
                 type="date"
+                @input="onBirthDateChange"
+                @change="onBirthDateChange"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 :class="{ 'border-red-500': errors.birth_date }"
               />
               <p v-if="errors.birth_date" class="mt-1 text-sm text-red-600">{{ errors.birth_date }}</p>
+              <p v-if="form.birth_date" class="mt-1 text-xs text-gray-500">Date saisie : {{ form.birth_date }}</p>
             </div>
           </div>
         </section>
@@ -325,11 +328,35 @@ const handleSubmit = async () => {
     const { $api } = useNuxtApp()
     
     // Préparer les données à envoyer
+    console.log('🔵 [HANDLE SUBMIT] Début - Données du formulaire:', {
+      'form.birth_date (raw)': form.value.birth_date,
+      'form.birth_date (type)': typeof form.value.birth_date,
+      'form.birth_date (length)': form.value.birth_date?.length,
+      'form.birth_date (trimmed)': form.value.birth_date?.trim(),
+      'form complet': { ...form.value }
+    })
+    
+    // Traitement spécifique pour birth_date
+    let processedBirthDate = null
+    if (form.value.birth_date) {
+      const trimmed = form.value.birth_date.trim()
+      if (trimmed && trimmed.length > 0) {
+        processedBirthDate = trimmed
+        console.log('✅ [BIRTH_DATE] Date valide après trim:', processedBirthDate)
+      } else {
+        console.log('⚠️ [BIRTH_DATE] Chaîne vide après trim, conversion en null')
+        processedBirthDate = null
+      }
+    } else {
+      console.log('ℹ️ [BIRTH_DATE] Pas de valeur, null')
+      processedBirthDate = null
+    }
+    
     const updateData = {
       name: form.value.name,
       phone: form.value.phone && form.value.phone.trim() ? form.value.phone.trim() : null,
       // Gérer la date de naissance : convertir chaîne vide en null
-      birth_date: form.value.birth_date && form.value.birth_date.trim() ? form.value.birth_date.trim() : null,
+      birth_date: processedBirthDate,
       bio: form.value.bio && form.value.bio.trim() ? form.value.bio.trim() : null,
       // Convertir specialties et certifications en arrays si ce sont des strings séparées par des virgules
       specialties: form.value.specialties && form.value.specialties.trim()
@@ -340,17 +367,42 @@ const handleSubmit = async () => {
         : null
     }
     
-    // Log pour debug
-    console.log('📤 Envoi données profil enseignant:', updateData)
+    // Log détaillé pour debug
+    console.log('📤 [HANDLE SUBMIT] Données finales à envoyer:', {
+      ...updateData,
+      'birth_date_details': {
+        'value': updateData.birth_date,
+        'type': typeof updateData.birth_date,
+        'isNull': updateData.birth_date === null,
+        'isEmpty': updateData.birth_date === '',
+        'length': updateData.birth_date?.length
+      }
+    })
+    
+    console.log('🚀 [HANDLE SUBMIT] Envoi de la requête PUT vers /teacher/profile')
     
     const response = await $api.put('/teacher/profile', updateData)
+    
+    console.log('✅ [HANDLE SUBMIT] Réponse reçue:', {
+      'status': response.status,
+      'data': response.data,
+      'profile_birth_date': response.data?.profile?.birth_date,
+      'teacher_birth_date': response.data?.teacher?.birth_date,
+      'full_response': response.data
+    })
     
     if (response.data) {
       const toast = useToast()
       toast.success('Profil mis à jour avec succès')
       
       // Recharger les données pour avoir les valeurs à jour
+      console.log('🔄 [HANDLE SUBMIT] Rechargement des données du profil...')
       await loadProfileData()
+      
+      console.log('✅ [HANDLE SUBMIT] Données rechargées, vérification birth_date:', {
+        'form.birth_date après reload': form.value.birth_date,
+        'doit correspondre à': updateData.birth_date
+      })
     }
   } catch (err) {
     console.error('Erreur lors de la mise à jour du profil:', err)

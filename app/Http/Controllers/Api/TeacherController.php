@@ -405,10 +405,29 @@ class TeacherController extends Controller
             // Normaliser les données avant validation (convertir chaînes vides en null)
             $requestData = $request->all();
             
+            Log::info('🔵 [TeacherController::updateProfile] Données reçues AVANT normalisation:', [
+                'request_all' => $requestData,
+                'birth_date_raw' => $requestData['birth_date'] ?? 'non défini',
+                'birth_date_type' => gettype($requestData['birth_date'] ?? null),
+                'birth_date_is_empty' => isset($requestData['birth_date']) && $requestData['birth_date'] === '',
+                'birth_date_is_null' => !isset($requestData['birth_date']) || $requestData['birth_date'] === null
+            ]);
+            
             // Convertir les chaînes vides en null pour birth_date, phone, bio
-            if (isset($requestData['birth_date']) && $requestData['birth_date'] === '') {
-                $request->merge(['birth_date' => null]);
+            if (isset($requestData['birth_date'])) {
+                if ($requestData['birth_date'] === '' || trim($requestData['birth_date']) === '') {
+                    Log::info('⚠️ [TeacherController::updateProfile] birth_date est une chaîne vide, conversion en null');
+                    $request->merge(['birth_date' => null]);
+                } else {
+                    Log::info('✅ [TeacherController::updateProfile] birth_date a une valeur:', [
+                        'value' => $requestData['birth_date'],
+                        'trimmed' => trim($requestData['birth_date'])
+                    ]);
+                }
+            } else {
+                Log::info('ℹ️ [TeacherController::updateProfile] birth_date n\'est pas présent dans la requête');
             }
+            
             if (isset($requestData['phone']) && $requestData['phone'] === '') {
                 $request->merge(['phone' => null]);
             }
@@ -416,7 +435,17 @@ class TeacherController extends Controller
                 $request->merge(['bio' => null]);
             }
             
+            Log::info('🔵 [TeacherController::updateProfile] Données APRÈS normalisation:', [
+                'birth_date_after_merge' => $request->input('birth_date'),
+                'birth_date_type_after' => gettype($request->input('birth_date'))
+            ]);
+            
             // Validation des données (exclure hourly_rate et experience_years qui ne doivent pas être modifiables)
+            Log::info('🔵 [TeacherController::updateProfile] Avant validation:', [
+                'birth_date_before_validate' => $request->input('birth_date'),
+                'request_inputs' => $request->all()
+            ]);
+            
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:20',
@@ -427,6 +456,13 @@ class TeacherController extends Controller
                 // experience_years et hourly_rate sont exclus - ils ne peuvent pas être modifiés par l'enseignant
             ]);
             
+            Log::info('✅ [TeacherController::updateProfile] Après validation:', [
+                'validated' => $validated,
+                'birth_date_in_validated' => $validated['birth_date'] ?? 'non défini',
+                'birth_date_type' => gettype($validated['birth_date'] ?? null),
+                'has_birth_date_key' => array_key_exists('birth_date', $validated)
+            ]);
+            
             // Mettre à jour les informations de l'utilisateur
             if (isset($validated['name'])) {
                 $user->name = $validated['name'];
@@ -435,22 +471,50 @@ class TeacherController extends Controller
                 // Convertir chaîne vide en null
                 $user->phone = $validated['phone'] ?: null;
             }
+            // Récupérer la valeur originale avant modification
+            $originalBirthDate = $user->birth_date;
+            
             if (array_key_exists('birth_date', $validated)) {
                 // S'assurer que birth_date est bien une date valide ou null
-                $user->birth_date = $validated['birth_date'] ?: null;
+                $newBirthDate = $validated['birth_date'] ?: null;
+                $user->birth_date = $newBirthDate;
+                
+                Log::info('🔵 [TeacherController::updateProfile] Mise à jour birth_date:', [
+                    'original_value' => $originalBirthDate,
+                    'new_value' => $newBirthDate,
+                    'new_value_type' => gettype($newBirthDate),
+                    'validated_value' => $validated['birth_date'],
+                    'is_null' => $newBirthDate === null,
+                    'will_change' => $originalBirthDate != $newBirthDate
+                ]);
+            } else {
+                Log::warning('⚠️ [TeacherController::updateProfile] birth_date n\'est pas dans validated, pas de mise à jour');
             }
             
-            Log::info('TeacherController::updateProfile - Mise à jour user:', [
+            Log::info('📝 [TeacherController::updateProfile] État AVANT save():', [
                 'user_id' => $user->id,
                 'name' => $user->name,
                 'phone' => $user->phone,
                 'birth_date' => $user->birth_date,
-                'birth_date_before' => $user->getOriginal('birth_date'),
+                'birth_date_original' => $originalBirthDate,
+                'birth_date_is_dirty' => $user->isDirty('birth_date'),
+                'user_is_dirty' => $user->isDirty(),
                 'validated_birth_date' => $validated['birth_date'] ?? 'non défini',
                 'request_birth_date' => $request->input('birth_date')
             ]);
             
             $user->save();
+            
+            // Recharger depuis la DB pour vérifier la valeur sauvegardée
+            $user->refresh();
+            
+            Log::info('✅ [TeacherController::updateProfile] État APRÈS save() et refresh():', [
+                'user_id' => $user->id,
+                'birth_date_saved' => $user->birth_date,
+                'birth_date_type' => gettype($user->birth_date),
+                'is_null' => $user->birth_date === null,
+                'formatted' => $user->birth_date ? $user->birth_date->format('Y-m-d') : 'null'
+            ]);
 
             // Mettre à jour les informations de l'enseignant
             // Note: hourly_rate et experience_years ne peuvent pas être modifiés par l'enseignant
