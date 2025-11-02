@@ -223,18 +223,30 @@ const goBack = () => {
 
 // Vérifier que l'utilisateur est un enseignant
 onMounted(async () => {
-  // S'assurer que l'auth est initialisée avant de vérifier
-  if (!authStore.isInitialized) {
-    await authStore.initializeAuth()
-  }
+  console.log('🚀 [MOUNT] Page montée, début initialisation')
   
-  if (!authStore.canActAsTeacher) {
-    console.error('❌ Accès non autorisé - redirection vers /teacher/dashboard')
-    await navigateTo('/teacher/dashboard')
-    return
+  try {
+    // S'assurer que l'auth est initialisée avant de vérifier
+    if (!authStore.isInitialized) {
+      console.log('🔄 [MOUNT] Auth non initialisée, initialisation en cours...')
+      await authStore.initializeAuth()
+      console.log('✅ [MOUNT] Auth initialisée')
+    }
+    
+    if (!authStore.canActAsTeacher) {
+      console.error('❌ [MOUNT] Accès non autorisé - redirection vers /teacher/dashboard')
+      await navigateTo('/teacher/dashboard')
+      return
+    }
+    
+    console.log('✅ [MOUNT] Permissions OK, chargement des données...')
+    await loadProfileData()
+    console.log('✅ [MOUNT] Données chargées')
+  } catch (error) {
+    console.error('❌ [MOUNT] Erreur dans onMounted:', error)
+    // Même en cas d'erreur, on arrête le loading pour éviter le blocage
+    isLoadingProfile.value = false
   }
-  
-  loadProfileData()
 })
 
 // Charger les données du profil
