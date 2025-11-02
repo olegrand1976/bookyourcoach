@@ -201,7 +201,7 @@ const loadProfileData = async () => {
 }
 
 // Modifier le profil
-const editProfile = () => {
+const editProfile = async () => {
   console.log('🔵 [EDIT PROFILE] Fonction appelée')
   
   // Vérifier que nous sommes côté client
@@ -210,10 +210,29 @@ const editProfile = () => {
     return
   }
   
+  // S'assurer que l'auth est initialisée avant de naviguer
+  await authStore.initializeAuth()
+  
+  // Vérifier les permissions
+  if (!authStore.canActAsTeacher) {
+    console.error('❌ [EDIT PROFILE] Pas de droits enseignant')
+    return
+  }
+  
   console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
   
-  // Utiliser window.location directement pour une navigation fiable
-  window.location.href = '/teacher/profile/edit'
+  // Utiliser navigateTo de Nuxt avec external: false pour éviter le SSR refresh
+  try {
+    await navigateTo('/teacher/profile/edit', { 
+      external: false,
+      replace: false 
+    })
+  } catch (error) {
+    // Si navigateTo échoue, utiliser le router Vue directement
+    console.warn('⚠️ [EDIT PROFILE] navigateTo a échoué, utilisation du router Vue:', error)
+    const router = useRouter()
+    await router.push('/teacher/profile/edit')
+  }
 }
 
 // Fonctions utilitaires pour convertir les données JSON
