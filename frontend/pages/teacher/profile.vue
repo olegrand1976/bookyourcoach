@@ -418,6 +418,33 @@ const handleSubmit = async () => {
   }
 }
 
+// Fonction appelée lors de la modification de la date de naissance
+const onBirthDateChange = (event) => {
+  const newValue = event.target.value
+  console.log('📅 [BIRTH_DATE CHANGE] Changement détecté:', {
+    'event.type': event.type,
+    'event.target.value': event.target.value,
+    'form.birth_date (avant)': form.value.birth_date,
+    'form.birth_date (après)': newValue,
+    'newValue type': typeof newValue,
+    'newValue length': newValue?.length,
+    'is empty': !newValue || newValue.trim() === '',
+    'timestamp': new Date().toISOString()
+  })
+  
+  // Le v-model mettra automatiquement à jour form.birth_date
+  // On attend un tick pour vérifier la valeur finale
+  nextTick(() => {
+    console.log('✅ [BIRTH_DATE CHANGE] Après nextTick:', {
+      'form.birth_date final': form.value.birth_date,
+      'type': typeof form.value.birth_date,
+      'is empty string': form.value.birth_date === '',
+      'is null': form.value.birth_date === null,
+      'is undefined': form.value.birth_date === undefined
+    })
+  })
+}
+
 useHead({
   title: 'Mon Profil Enseignant'
 })
