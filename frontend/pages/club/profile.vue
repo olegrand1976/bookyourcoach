@@ -1002,6 +1002,7 @@ async function handleSubmit() {
     isSaving.value = true
     const { $api } = useNuxtApp()
     
+    // S'assurer que tous les champs obligatoires sont présents
     const payload = {
       ...formData,
       activity_types: selectedActivityIds.value,
@@ -1009,7 +1010,18 @@ async function handleSubmit() {
       discipline_settings: settings.value
     }
     
-    console.log('📤 Envoi:', payload)
+    // Log détaillé pour vérifier les champs importants
+    console.log('📤 Envoi du profil club:', {
+      company_number: payload.company_number,
+      legal_representative_name: payload.legal_representative_name,
+      legal_representative_role: payload.legal_representative_role,
+      insurance_rc_company: payload.insurance_rc_company,
+      insurance_rc_policy_number: payload.insurance_rc_policy_number,
+      insurance_additional_details: payload.insurance_additional_details,
+      expense_reimbursement_type: payload.expense_reimbursement_type,
+      expense_reimbursement_details: payload.expense_reimbursement_details,
+      full_payload: payload
+    })
     
     await $api.put('/club/profile', payload)
     
@@ -1020,7 +1032,19 @@ async function handleSubmit() {
     }, 1000)
   } catch (error) {
     console.error('❌ Erreur sauvegarde:', error)
-    toast.error('Erreur lors de la sauvegarde')
+    
+    // Afficher un message d'erreur plus détaillé
+    if (error.response?.data?.errors) {
+      const errors = error.response.data.errors
+      const errorMessages = Object.entries(errors).map(([field, messages]) => {
+        return `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`
+      }).join('\n')
+      toast.error(`Erreurs de validation:\n${errorMessages}`)
+    } else if (error.response?.data?.message) {
+      toast.error(error.response.data.message)
+    } else {
+      toast.error('Erreur lors de la sauvegarde')
+    }
   } finally {
     isSaving.value = false
   }

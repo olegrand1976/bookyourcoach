@@ -363,7 +363,7 @@ class ClubController extends Controller
                 'legal_representative_role' => 'required|string|max:255',
                 'insurance_rc_company' => 'required|string|max:255',
                 'insurance_rc_policy_number' => 'required|string|max:255',
-                'insurance_additional_details' => 'required|string',
+                'insurance_additional_details' => 'required|string|max:1000',
                 'expense_reimbursement_type' => 'required|in:forfait,reel,aucun',
                 'expense_reimbursement_details' => 'required_if:expense_reimbursement_type,forfait,reel|nullable|string',
                 'phone' => 'nullable|string|max:20',
@@ -451,10 +451,10 @@ class ClubController extends Controller
                 $updateData['schedule_config'] = json_encode($updateData['schedule_config']);
             }
             
-            // Convertir les chaînes vides en NULL pour certains champs (mais PAS expense_reimbursement_type qui doit garder sa valeur)
-            foreach (['company_number', 'description', 'website', 'legal_representative_name', 'legal_representative_role',
-                      'insurance_rc_company', 'insurance_rc_policy_number', 'insurance_additional_company', 
-                      'insurance_additional_policy_number', 'insurance_additional_details', 'expense_reimbursement_details'] as $field) {
+            // Ne PAS convertir les champs obligatoires en NULL même s'ils sont vides (la validation les empêchera)
+            // Convertir les chaînes vides en NULL pour les champs optionnels uniquement
+            foreach (['description', 'website', 'insurance_additional_company', 
+                      'insurance_additional_policy_number', 'expense_reimbursement_details'] as $field) {
                 if (isset($updateData[$field]) && $updateData[$field] === '') {
                     $updateData[$field] = null;
                 }
