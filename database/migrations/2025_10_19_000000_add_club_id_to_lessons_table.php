@@ -20,11 +20,13 @@ return new class extends Migration
             
             // Ajouter un index pour améliorer les performances des requêtes par club
             if (!Schema::hasIndex('lessons', 'club_id')) {
-            $table->index('club_id');
+                $table->index('club_id');
             
             // Index composé pour les requêtes fréquentes (club + date)
             if (!Schema::hasIndex('lessons', ['club_id', 'start_time'])) {
-            $table->index(['club_id', 'start_time']);
+                $table->index(['club_id', 'start_time']);
+            }
+            }
         });
         
         // Migration des données existantes : affecter le club via la relation teacher
@@ -88,10 +90,10 @@ return new class extends Migration
                         
             // Supprimer la contrainte de clé étrangère
             if (Schema::hasForeign('lessons', 'club_id')) {
-            $table->dropForeign(['club_id']);
+                $table->dropForeign(['club_id']);
+            }
             
             // Supprimer la colonne
-            
             if (Schema::hasColumn('lessons', 'club_id')) {
                 $table->dropColumn('club_id');
             }
