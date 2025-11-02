@@ -16,8 +16,9 @@ return new class extends Migration
             throw new \Exception('La table clubs doit exister avant de créer subscription_templates. Veuillez exécuter toutes les migrations dans l\'ordre.');
         }
 
-        // Créer la table des modèles d'abonnements
-        Schema::create('subscription_templates', function (Blueprint $table) {
+        // Créer la table des modèles d'abonnements seulement si elle n'existe pas déjà
+        if (!Schema::hasTable('subscription_templates')) {
+            Schema::create('subscription_templates', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('club_id');
             $table->string('model_number'); // Numéro du modèle (ex: MOD001, MOD002)
@@ -36,10 +37,12 @@ return new class extends Migration
                   ->references('id')
                   ->on('clubs')
                   ->onDelete('cascade');
-        });
+            });
+        }
 
-        // Table de liaison entre modèles et types de cours
-        Schema::create('subscription_template_course_types', function (Blueprint $table) {
+        // Table de liaison entre modèles et types de cours (seulement si elle n'existe pas déjà)
+        if (!Schema::hasTable('subscription_template_course_types')) {
+            Schema::create('subscription_template_course_types', function (Blueprint $table) {
             $table->id();
             // Nom d'index court pour les clés étrangères (MySQL limite à 64 caractères)
             $table->unsignedBigInteger('subscription_template_id');
@@ -57,7 +60,8 @@ return new class extends Migration
                   ->references('id')
                   ->on('course_types')
                   ->onDelete('cascade');
-        });
+            });
+        }
 
         // Modifier la table subscriptions pour utiliser subscription_template_id
         if (Schema::hasTable('subscriptions')) {
