@@ -355,7 +355,6 @@ const assignForm = ref({
   expires_at: ''
 })
 
-const selectedSubscription = ref(null)
 const editingSubscription = ref(null)
 
 // Computed
