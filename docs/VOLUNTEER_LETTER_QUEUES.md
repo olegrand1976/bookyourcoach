@@ -269,7 +269,7 @@ Interface : `https://activibe.be/horizon`
 
 ### Les emails sont envoyés mais non reçus
 
-1. Vérifier MailHog (local) : http://localhost:8026
+1. Vérifier MailHog (local) : http://localhost:8025
 2. Vérifier les logs du serveur mail (production)
 3. Vérifier la configuration SMTP dans `.env`
 

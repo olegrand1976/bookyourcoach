@@ -10,7 +10,7 @@ MailHog est un outil de test d'emails qui capture tous les emails sortants de vo
 
 Une fois les conteneurs Docker lancés, accédez à MailHog via :
 
-**🌐 http://localhost:8026**
+**🌐 http://localhost:8025**
 
 Tous les emails envoyés par l'application Laravel seront capturés et affichés ici.
 
@@ -31,9 +31,8 @@ MAIL_FROM_NAME=ActiVibe
 
 ### Ports utilisés
 
-- **8026** : Interface web (http://localhost:8026)
-- **1026** : Port SMTP externe (mapping)
-- **1025** : Port SMTP interne (utilisé par le backend Docker)
+- **8025** : Interface web (http://localhost:8025)
+- **1025** : Port SMTP (utilisé par le backend Docker via le réseau interne)
 
 ## 🧪 Tester l'envoi d'emails
 
@@ -57,7 +56,7 @@ Mail::raw('Test email from Laravel', function($message) {
 1. Connectez-vous en tant que club
 2. Allez sur `/club/volunteer-letter`
 3. Cliquez sur "Envoyer par Email" pour un enseignant
-4. Vérifiez l'email dans http://localhost:8026
+4. Vérifiez l'email dans http://localhost:8025
 
 ## 🔧 Commandes utiles
 
