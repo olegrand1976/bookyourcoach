@@ -66,34 +66,42 @@ class TeacherController extends Controller
                 ->where('status', 'completed')
                 ->sum('price');
 
-            // Heures totales cette semaine (optimisé : seulement les champs nécessaires)
+            // Heures totales cette semaine (optimisé avec SQL au lieu de PHP)
             $weeklyHours = (clone $baseQuery)
                 ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
                 ->where('status', 'completed')
-                ->select('start_time', 'end_time')
-                ->get()
-                ->sum(function ($lesson) {
-                    if (!$lesson->start_time || !$lesson->end_time) {
-                        return 0;
-                    }
-                    return $lesson->start_time->diffInMinutes($lesson->end_time) / 60;
-                });
+                ->selectRaw('SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time)) / 60.0 as total_hours')
+                ->value('total_hours') ?? 0;
 
-            // Prochains cours (10 prochains au lieu de 5 pour plus de données)
+            // Prochains cours (limités à 10 pour optimiser les performances)
             $upcomingLessons = Lesson::where('teacher_id', $teacher->id)
-                ->with(['student.user', 'students.user', 'courseType', 'location', 'club'])
+                ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id', 
+                         'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
+                ->with([
+                    'student:id,user_id' => ['user:id,name'],
+                    'courseType:id,name',
+                    'location:id,name',
+                    'club:id,name'
+                ])
                 ->where('start_time', '>=', $now)
                 ->whereIn('status', ['confirmed', 'pending'])
                 ->orderBy('start_time', 'asc')
-                ->limit(20) // Augmenter la limite pour avoir plus de cours visibles
+                ->limit(10) // Réduit de 20 à 10 pour améliorer les performances
                 ->get();
 
-            // Cours récents (10 derniers au lieu de 5)
+            // Cours récents (limités à 5 pour optimiser les performances)
             $recentLessons = Lesson::where('teacher_id', $teacher->id)
-                ->with(['student.user', 'students.user', 'courseType', 'location', 'club'])
+                ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id',
+                         'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
+                ->with([
+                    'student:id,user_id' => ['user:id,name'],
+                    'courseType:id,name',
+                    'location:id,name',
+                    'club:id,name'
+                ])
                 ->whereIn('status', ['completed', 'cancelled'])
                 ->orderBy('start_time', 'desc')
-                ->limit(10) // Augmenter la limite pour avoir plus de cours visibles
+                ->limit(5) // Réduit de 10 à 5 pour améliorer les performances
                 ->get();
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
