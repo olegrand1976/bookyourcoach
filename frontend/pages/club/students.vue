@@ -199,9 +199,6 @@
                     <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex-shrink-0">
                       Actif
                     </span>
-                    <span v-if="student.level" class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full flex-shrink-0">
-                      {{ getLevelLabel(student.level) }}
-                    </span>
                   </div>
                   
                   <div class="mt-1 space-y-1 text-xs md:text-sm text-gray-600">

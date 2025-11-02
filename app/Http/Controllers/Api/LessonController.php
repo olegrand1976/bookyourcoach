@@ -95,6 +95,11 @@ class LessonController extends Controller
                     'teacher.user:id,name,email',
                     'student:id,user_id',
                     'student.user:id,name,email',
+                    'student.subscriptionInstances' => function ($query) {
+                        $query->where('status', 'active')
+                              ->where('expires_at', '>=', now())
+                              ->with(['subscription.template']);
+                    },
                     'courseType:id,name',
                     'location:id,name',
                     'club:id,name,email,phone'
@@ -568,6 +573,14 @@ class LessonController extends Controller
 
             $validated = $request->validate($validationRules);
 
+            // Si le statut passe à 'completed', déduire automatiquement le cours de l'abonnement
+            $oldStatus = $lesson->status;
+            $newStatus = $validated['status'] ?? $oldStatus;
+            
+            if ($oldStatus !== 'completed' && $newStatus === 'completed' && $lesson->student_id) {
+                $this->consumeLessonFromSubscription($lesson);
+            }
+
             $lesson->update($validated);
 
             return response()->json([
@@ -779,6 +792,15 @@ class LessonController extends Controller
         } catch (\Exception $e) {
             Log::error("Erreur lors de l'envoi des notifications d'annulation: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Consomme un cours de l'abonnement quand le statut passe à 'completed'
+     */
+    private function consumeLessonFromSubscription(Lesson $lesson): void
+    {
+        // Utiliser la même logique que tryConsumeSubscription
+        $this->tryConsumeSubscription($lesson);
     }
 
     /**
