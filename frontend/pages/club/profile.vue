@@ -217,6 +217,17 @@
         <!-- Activités, Disciplines et Configuration des cours -->
         <section class="border-b pb-6">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">Activités, Disciplines et Cours</h2>
+          <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm font-medium text-blue-900 mb-2">📚 Structure hiérarchique :</p>
+            <ul class="text-xs text-blue-800 space-y-1 ml-4 list-disc">
+              <li><strong>Activité</strong> : Catégorie générale (ex: Équitation, Natation, Fitness)</li>
+              <li><strong>Discipline</strong> : Spécialité dans une activité (ex: Dressage, CSO pour Équitation ; Cours individuel enfant pour Natation)</li>
+              <li><strong>Configuration</strong> : Paramètres par discipline (durée, prix, participants min/max)</li>
+            </ul>
+            <p class="text-xs text-blue-700 mt-2">
+              💡 Les <strong>Types de cours</strong> (Cours particulier, Cours collectif) sont gérés séparément dans la configuration des créneaux.
+            </p>
+          </div>
           <p class="text-sm text-gray-600 mb-4">
             Sélectionnez les activités proposées, puis les disciplines et configurez leurs tarifs
           </p>
@@ -260,14 +271,14 @@
                     <input type="checkbox" :value="discipline.id" v-model="selectedDisciplineIds"
                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
                     <span class="ml-2 font-medium text-gray-900">{{ discipline.name }}</span>
-                    <span v-if="selectedDisciplineIds.includes(discipline.id) && settings[discipline.id]" 
+                    <span v-if="selectedDisciplineIds.includes(discipline.id)" 
                           class="ml-auto text-sm text-gray-600">
-                      {{ settings[discipline.id].duration }}min · {{ settings[discipline.id].price }}€
+                      {{ getSettings(discipline.id).duration }}min · {{ getSettings(discipline.id).price }}€
                     </span>
                   </label>
 
                   <!-- Niveau 3: Configuration du cours (affichée si la discipline est sélectionnée) -->
-                  <div v-if="selectedDisciplineIds.includes(discipline.id) && settings[discipline.id]" 
+                  <div v-if="selectedDisciplineIds.includes(discipline.id)" 
                        class="bg-white p-4 pl-20 border-t border-gray-100">
                     
                     <div class="mb-3">
@@ -276,10 +287,15 @@
                       </h5>
                     </div>
 
+                    <!-- Message informatif si les settings sont nouveaux -->
+                    <div v-if="!settings[discipline.id]" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                      <p>💡 Les paramètres par défaut ont été initialisés. Vous pouvez les modifier ci-dessous.</p>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Durée</label>
-                        <select v-model.number="settings[discipline.id].duration"
+                        <select v-model.number="getSettings(discipline.id).duration"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
                           <!-- Paliers de 5 minutes de 15 à 60 min -->
                           <option :value="15">15 minutes</option>
@@ -297,7 +313,7 @@
                       
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
-                        <input v-model.number="settings[discipline.id].price" 
+                        <input v-model.number="getSettings(discipline.id).price" 
                                type="number" step="0.01" min="0"
                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
                       </div>
@@ -318,11 +334,11 @@
                           Participants (min - max)
                         </label>
                         <div class="flex space-x-2">
-                          <input v-model.number="settings[discipline.id].min_participants" 
+                          <input v-model.number="getSettings(discipline.id).min_participants" 
                                  type="number" min="1"
                                  placeholder="Min"
                                  class="w-1/2 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
-                          <input v-model.number="settings[discipline.id].max_participants" 
+                          <input v-model.number="getSettings(discipline.id).max_participants" 
                                  type="number" min="1"
                                  placeholder="Max"
                                  class="w-1/2 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
@@ -333,7 +349,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                           Notes (optionnel)
                         </label>
-                        <input v-model="settings[discipline.id].notes" 
+                        <input v-model="getSettings(discipline.id).notes" 
                                type="text"
                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                                placeholder="Matériel fourni, niveau requis..." />
@@ -342,10 +358,16 @@
                   </div>
                 </div>
 
-                <!-- Message si aucune discipline sélectionnée -->
-                <div v-if="getDisciplinesByActivityId(activity.id).filter(d => selectedDisciplineIds.includes(d.id)).length === 0"
+                <!-- Message si aucune discipline disponible pour cette activité -->
+                <div v-if="getDisciplinesByActivityId(activity.id).length === 0"
                      class="p-4 pl-12 text-sm text-gray-500 italic">
-                  Aucune discipline sélectionnée pour cette activité
+                  Aucune discipline disponible pour cette activité
+                </div>
+                
+                <!-- Message si disciplines disponibles mais aucune sélectionnée -->
+                <div v-else-if="getDisciplinesByActivityId(activity.id).filter(d => selectedDisciplineIds.includes(d.id)).length === 0"
+                     class="p-4 pl-12 text-sm text-blue-600 italic">
+                  Sélectionnez une ou plusieurs disciplines ci-dessus
                 </div>
               </div>
             </div>
@@ -370,6 +392,77 @@
                   <strong>{{ Object.keys(settings).length }}</strong> cours configuré(s)
                 </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Valeurs par défaut des abonnements -->
+        <section class="pb-6">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Valeurs par défaut des abonnements</h2>
+          <p class="text-sm text-gray-600 mb-4">Ces valeurs seront utilisées par défaut lors de la création d'un nouveau modèle d'abonnement.</p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de cours par défaut</label>
+              <input 
+                v-model.number="formData.default_subscription_total_lessons"
+                type="number" 
+                min="1"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Cours gratuits offerts par défaut</label>
+              <input 
+                v-model.number="formData.default_subscription_free_lessons"
+                type="number" 
+                min="0"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Prix par défaut (€)</label>
+              <input 
+                v-model.number="formData.default_subscription_price"
+                type="number" 
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Durée de validité par défaut</label>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <input 
+                    v-model.number="formData.default_subscription_validity_value"
+                    type="number" 
+                    min="1"
+                    :max="formData.default_subscription_validity_unit === 'weeks' ? 260 : 60"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div class="w-40">
+                  <select 
+                    v-model="formData.default_subscription_validity_unit"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="weeks">Semaines</option>
+                    <option value="months">Mois</option>
+                  </select>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                <span v-if="formData.default_subscription_validity_unit === 'weeks'">
+                  {{ formData.default_subscription_validity_value }} semaine{{ formData.default_subscription_validity_value > 1 ? 's' : '' }} = {{ (formData.default_subscription_validity_value / 4.33).toFixed(1) }} mois
+                </span>
+                <span v-else>
+                  {{ formData.default_subscription_validity_value }} mois
+                </span>
+              </p>
             </div>
           </div>
         </section>
@@ -445,7 +538,13 @@ const formData = reactive({
   insurance_additional_policy_number: '',
   insurance_additional_details: '',
   expense_reimbursement_type: 'aucun',
-  expense_reimbursement_details: ''
+  expense_reimbursement_details: '',
+  // Valeurs par défaut des abonnements
+  default_subscription_total_lessons: 10,
+  default_subscription_free_lessons: 1,
+  default_subscription_price: 180,
+  default_subscription_validity_value: 12,
+  default_subscription_validity_unit: 'weeks'
 })
 
 // IDs sélectionnés (la source de vérité)
@@ -467,7 +566,15 @@ const getDisciplineName = (id) => {
 }
 
 const getDisciplinesByActivityId = (activityId) => {
-  return disciplines.value.filter(d => d.activity_type_id === activityId)
+  const filtered = disciplines.value.filter(d => d.activity_type_id === activityId)
+  if (filtered.length === 0 && disciplines.value.length > 0) {
+    console.log(`🔍 Aucune discipline pour activité ${activityId}:`, {
+      totalDisciplines: disciplines.value.length,
+      disciplinesForActivity: filtered,
+      allDisciplines: disciplines.value.map(d => ({ id: d.id, name: d.name, activity_type_id: d.activity_type_id }))
+    })
+  }
+  return filtered
 }
 
 // Log pour debug de l'affichage
@@ -484,9 +591,24 @@ watch([activities, selectedActivityIds], ([newActivities, newSelectedIds]) => {
 }, { immediate: true })
 
 const calculatePricePerHour = (disciplineId) => {
-  const s = settings.value[disciplineId]
+  const s = getSettings(disciplineId)
   if (!s || !s.duration || !s.price) return '0.00'
   return ((s.price / s.duration) * 60).toFixed(2)
+}
+
+// Fonction helper pour obtenir les settings d'une discipline, en créant des valeurs par défaut si nécessaire
+const getSettings = (disciplineId) => {
+  if (!settings.value[disciplineId]) {
+    // Créer des settings par défaut si ils n'existent pas
+    settings.value[disciplineId] = {
+      duration: 45,
+      price: 25.00,
+      min_participants: 1,
+      max_participants: 8,
+      notes: ''
+    }
+  }
+  return settings.value[disciplineId]
 }
 
 // ============================================================================
@@ -531,15 +653,41 @@ async function loadData() {
     const config = useRuntimeConfig()
     
     // 1. Charger les référentiels (pas de token nécessaire)
-    const [activitiesRes, disciplinesRes] = await Promise.all([
-      $fetch(`${config.public.apiBase}/activity-types`),
-      $fetch(`${config.public.apiBase}/disciplines`)
-    ])
-    
-    activities.value = activitiesRes.data || []
-    disciplines.value = disciplinesRes.data || []
-    
-    console.log('✅ Référentiels chargés:', activities.value.length, 'activités,', disciplines.value.length, 'disciplines')
+    try {
+      const [activitiesRes, disciplinesRes] = await Promise.all([
+        $fetch(`${config.public.apiBase}/activity-types`),
+        $fetch(`${config.public.apiBase}/disciplines`)
+      ])
+      
+      // Gérer les différents formats de réponse API
+      activities.value = activitiesRes?.data || activitiesRes || []
+      disciplines.value = disciplinesRes?.data || disciplinesRes || []
+      
+      console.log('✅ Référentiels chargés:', activities.value.length, 'activités,', disciplines.value.length, 'disciplines')
+      console.log('📋 Format réponse activités:', {
+        hasSuccess: !!activitiesRes?.success,
+        hasData: !!activitiesRes?.data,
+        directArray: Array.isArray(activitiesRes),
+        keys: Object.keys(activitiesRes || {})
+      })
+      console.log('📋 Format réponse disciplines:', {
+        hasSuccess: !!disciplinesRes?.success,
+        hasData: !!disciplinesRes?.data,
+        directArray: Array.isArray(disciplinesRes),
+        keys: Object.keys(disciplinesRes || {}),
+        disciplinesCount: disciplinesRes?.data?.length || disciplinesRes?.length || 0
+      })
+      
+      if (disciplines.value.length === 0 && disciplinesRes) {
+        console.error('⚠️ Aucune discipline chargée mais réponse API existe:', disciplinesRes)
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des référentiels:', error)
+      toast.error('Erreur lors du chargement des activités et disciplines')
+      // Continuer quand même avec des tableaux vides
+      activities.value = []
+      disciplines.value = []
+    }
     
     // 2. Charger le profil du club
     const profileRes = await $api.get('/club/profile')
@@ -571,6 +719,13 @@ async function loadData() {
       formData.insurance_additional_details = club.insurance_additional_details || ''
       formData.expense_reimbursement_type = club.expense_reimbursement_type || 'aucun'
       formData.expense_reimbursement_details = club.expense_reimbursement_details || ''
+      
+      // Valeurs par défaut des abonnements
+      formData.default_subscription_total_lessons = club.default_subscription_total_lessons ?? 10
+      formData.default_subscription_free_lessons = club.default_subscription_free_lessons ?? 1
+      formData.default_subscription_price = club.default_subscription_price ?? 180
+      formData.default_subscription_validity_value = club.default_subscription_validity_value ?? 12
+      formData.default_subscription_validity_unit = club.default_subscription_validity_unit || 'weeks'
       
       // Si c'est un nouveau profil (needs_setup), afficher un message informatif
       if (club.needs_setup) {
@@ -606,16 +761,41 @@ async function loadData() {
                 return item.id // Objet avec ID
               }
               
-              // Nom de discipline → chercher l'ID
+              // Nom de discipline → chercher l'ID avec matching flexible
               if (typeof item === 'string') {
-                const found = disciplines.value.find(d => 
-                  d.name.toLowerCase().trim() === item.toLowerCase().trim()
-                )
+                // Normaliser les chaînes pour la comparaison (retirer accents, casse, espaces)
+                const normalizeString = (str) => {
+                  return str.toLowerCase()
+                    .trim()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // Retirer accents
+                    .replace(/\s+/g, ' ') // Normaliser espaces
+                }
+                
+                const normalizedItem = normalizeString(item)
+                const found = disciplines.value.find(d => {
+                  const normalizedName = normalizeString(d.name)
+                  return normalizedName === normalizedItem
+                })
+                
                 if (found) {
-                  console.log(`  ✓ "${item}" → ID ${found.id}`)
+                  console.log(`  ✓ "${item}" → ID ${found.id} (${found.name})`)
                   return found.id
                 }
-                console.warn(`  ⚠️ Discipline "${item}" introuvable`)
+                
+                // Essai avec matching partiel (si le nom contient le terme ou vice versa)
+                const partialMatch = disciplines.value.find(d => {
+                  const normalizedName = normalizeString(d.name)
+                  return normalizedName.includes(normalizedItem) || normalizedItem.includes(normalizedName)
+                })
+                
+                if (partialMatch) {
+                  console.log(`  ✓ "${item}" → ID ${partialMatch.id} (match partiel avec "${partialMatch.name}")`)
+                  return partialMatch.id
+                }
+                
+                console.warn(`  ⚠️ Discipline "${item}" introuvable dans ${disciplines.value.length} disciplines disponibles`)
+                console.warn(`     Disciplines disponibles:`, disciplines.value.map(d => d.name).join(', '))
               }
               return null
             })
@@ -706,24 +886,48 @@ async function loadData() {
               }
             }
             
-            // Cas 2: La clé est un nom de discipline (ex: "Dressage")
+            // Cas 2: La clé est un nom de discipline (ex: "Dressage", "dressage")
             if (disciplineId === null) {
-              const found = disciplines.value.find(d => 
-                d.name.toLowerCase().trim() === key.toLowerCase().trim()
-              )
+              // Normaliser les chaînes pour la comparaison (retirer accents, casse, espaces)
+              const normalizeString = (str) => {
+                return str.toLowerCase()
+                  .trim()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '') // Retirer accents
+                  .replace(/\s+/g, ' ') // Normaliser espaces
+              }
+              
+              const normalizedKey = normalizeString(key)
+              const found = disciplines.value.find(d => {
+                const normalizedName = normalizeString(d.name)
+                return normalizedName === normalizedKey
+              })
+              
               if (found) {
                 disciplineId = found.id
-                console.log(`  ✓ Settings "${key}" → ID ${found.id}`)
+                console.log(`  ✓ Settings "${key}" → ID ${found.id} (${found.name})`)
               } else {
-                console.warn(`  ⚠️ Settings pour "${key}" : discipline introuvable`)
+                // Essai avec matching partiel
+                const partialMatch = disciplines.value.find(d => {
+                  const normalizedName = normalizeString(d.name)
+                  return normalizedName.includes(normalizedKey) || normalizedKey.includes(normalizedName)
+                })
+                
+                if (partialMatch) {
+                  disciplineId = partialMatch.id
+                  console.log(`  ✓ Settings "${key}" → ID ${partialMatch.id} (match partiel avec "${partialMatch.name}")`)
+                } else {
+                  console.warn(`  ⚠️ Settings pour "${key}" : discipline introuvable parmi ${disciplines.value.length} disciplines`)
+                }
               }
             }
             
-            // Stocker les settings si la discipline est valide et sélectionnée
+            // Stocker les settings si la discipline est valide
+            // On stocke même si elle n'est pas encore dans selectedDisciplineIds car elle pourrait l'être
             console.log(`    → disciplineId final: ${disciplineId}`)
             console.log(`    → Est dans selectedDisciplineIds?`, selectedDisciplineIds.value.includes(disciplineId))
             
-            if (disciplineId && selectedDisciplineIds.value.includes(disciplineId)) {
+            if (disciplineId) {
               const settingToStore = {
                 duration: value.duration || 45,
                 price: value.price || 25.00,
@@ -734,7 +938,7 @@ async function loadData() {
               console.log(`    → Stockage settings pour ID ${disciplineId}:`, settingToStore)
               settings.value[disciplineId] = settingToStore
             } else {
-              console.warn(`    ⚠️ Settings non stockés pour ${key} (disciplineId: ${disciplineId})`)
+              console.warn(`    ⚠️ Settings non stockés pour ${key} (disciplineId invalide)`)
             }
           })
         }

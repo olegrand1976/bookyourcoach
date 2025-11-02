@@ -86,6 +86,20 @@ class SubscriptionInstance extends Model
     }
 
     /**
+     * Calculer expires_at depuis validity_months du template
+     */
+    public function calculateExpiresAt()
+    {
+        if (!$this->started_at) {
+            $this->started_at = Carbon::now();
+        }
+        
+        $startDate = Carbon::parse($this->started_at);
+        $validityMonths = $this->subscription->validity_months ?? 12;
+        $this->expires_at = $startDate->copy()->addMonths($validityMonths);
+    }
+
+    /**
      * Est-ce que l'abonnement est proche de la fin (< 20% restant)
      */
     public function getIsNearingEndAttribute()

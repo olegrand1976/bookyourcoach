@@ -42,8 +42,8 @@ class StudentSubscriptionController extends Controller
             // Récupérer les clubs où l'élève est inscrit
             $clubIds = $student->clubs()->wherePivot('is_active', true)->pluck('clubs.id');
 
-            // Récupérer les abonnements actifs de ces clubs
-            $subscriptions = Subscription::whereIn('club_id', $clubIds)
+            // Récupérer les modèles d'abonnements actifs de ces clubs
+            $templates = \App\Models\SubscriptionTemplate::whereIn('club_id', $clubIds)
                 ->where('is_active', true)
                 ->with(['club:id,name', 'courseTypes:id,name,description'])
                 ->orderBy('price', 'asc')
@@ -51,7 +51,7 @@ class StudentSubscriptionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $subscriptions
+                'data' => $templates
             ]);
 
         } catch (\Exception $e) {
@@ -91,9 +91,10 @@ class StudentSubscriptionController extends Controller
                     $query->where('students.id', $student->id);
                 })
                 ->with([
-                    'subscription:id,club_id,name,total_lessons,free_lessons,price,validity_months',
+                    'subscription:id,club_id,subscription_template_id,subscription_number',
                     'subscription.club:id,name',
-                    'subscription.courseTypes:id,name,description',
+                    'subscription.template:id,model_number,total_lessons,free_lessons,price,validity_months',
+                    'subscription.template.courseTypes:id,name,description',
                     'students.user:id,name,first_name,last_name'
                 ])
                 ->orderBy('status', 'asc')
@@ -143,17 +144,17 @@ class StudentSubscriptionController extends Controller
             }
 
             $validated = $request->validate([
-                'subscription_id' => 'required|exists:subscriptions,id',
+                'subscription_template_id' => 'required|exists:subscription_templates,id',
                 'started_at' => 'nullable|date|after_or_equal:today',
             ]);
 
-            // Récupérer l'abonnement
-            $subscription = Subscription::with('club')->findOrFail($validated['subscription_id']);
+            // Récupérer le modèle d'abonnement
+            $template = \App\Models\SubscriptionTemplate::with('club')->findOrFail($validated['subscription_template_id']);
 
-            // Vérifier que l'élève est inscrit dans le club qui propose cet abonnement
+            // Vérifier que l'élève est inscrit dans le club qui propose ce modèle
             $isMember = $student->clubs()
                 ->wherePivot('is_active', true)
-                ->where('clubs.id', $subscription->club_id)
+                ->where('clubs.id', $template->club_id)
                 ->exists();
 
             if (!$isMember) {
@@ -163,15 +164,21 @@ class StudentSubscriptionController extends Controller
                 ], 403);
             }
 
-            // Vérifier que l'abonnement est actif
-            if (!$subscription->is_active) {
+            // Vérifier que le modèle est actif
+            if (!$template->is_active) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cet abonnement n\'est plus disponible'
+                    'message' => 'Ce modèle d\'abonnement n\'est plus disponible'
                 ], 422);
             }
 
             DB::beginTransaction();
+
+            // Créer l'abonnement depuis le template
+            $subscription = Subscription::create([
+                'club_id' => $template->club_id,
+                'subscription_template_id' => $template->id,
+            ]);
 
             // Date de début (aujourd'hui par défaut)
             $startedAt = $validated['started_at'] ? Carbon::parse($validated['started_at']) : Carbon::now();
@@ -185,14 +192,9 @@ class StudentSubscriptionController extends Controller
                 'status' => 'active'
             ]);
 
-            // Recharger la relation pour calculer expires_at
-            $subscriptionInstance->load('subscription');
-            
             // Calculer la date d'expiration
-            if ($subscriptionInstance->subscription->validity_months) {
-                $subscriptionInstance->expires_at = $startedAt->copy()->addMonths($subscriptionInstance->subscription->validity_months);
-                $subscriptionInstance->save();
-            }
+            $subscriptionInstance->calculateExpiresAt();
+            $subscriptionInstance->save();
 
             // Attacher uniquement cet élève (abonnement personnel)
             $subscriptionInstance->students()->attach($student->id);
@@ -201,7 +203,7 @@ class StudentSubscriptionController extends Controller
 
             $subscriptionInstance->load([
                 'subscription.club',
-                'subscription.courseTypes',
+                'subscription.template.courseTypes',
                 'students.user'
             ]);
 
@@ -209,7 +211,7 @@ class StudentSubscriptionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Abonnement souscrit avec succès',
+                'message' => 'Abonnement souscrit avec succès (Numéro: ' . $subscription->subscription_number . ')',
                 'data' => $subscriptionInstance
             ], 201);
 
@@ -280,7 +282,8 @@ class StudentSubscriptionController extends Controller
             }
 
             // Vérifier que le template d'abonnement est toujours actif
-            if (!$existingInstance->subscription->is_active) {
+            $template = $existingInstance->subscription->template;
+            if (!$template || !$template->is_active) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Ce type d\'abonnement n\'est plus disponible'
@@ -289,26 +292,27 @@ class StudentSubscriptionController extends Controller
 
             DB::beginTransaction();
 
+            // Créer un nouvel abonnement depuis le même template (pour le renouvellement)
+            $newSubscription = Subscription::create([
+                'club_id' => $existingInstance->subscription->club_id,
+                'subscription_template_id' => $template->id,
+            ]);
+
             // Date de début (aujourd'hui par défaut, ou celle fournie)
             $startedAt = $validated['started_at'] ? Carbon::parse($validated['started_at']) : Carbon::now();
 
             // Créer une nouvelle instance d'abonnement (renouvellement)
             $newInstance = SubscriptionInstance::create([
-                'subscription_id' => $existingInstance->subscription_id,
+                'subscription_id' => $newSubscription->id,
                 'lessons_used' => 0,
                 'started_at' => $startedAt,
                 'expires_at' => null, // Sera calculé automatiquement
                 'status' => 'active'
             ]);
 
-            // Recharger la relation pour calculer expires_at
-            $newInstance->load('subscription');
-            
             // Calculer la date d'expiration
-            if ($newInstance->subscription->validity_months) {
-                $newInstance->expires_at = $startedAt->copy()->addMonths($newInstance->subscription->validity_months);
-                $newInstance->save();
-            }
+            $newInstance->calculateExpiresAt();
+            $newInstance->save();
 
             // Attacher les mêmes élèves (pour les abonnements familiaux, on garde la même structure)
             $studentIds = $existingInstance->students->pluck('id')->toArray();
@@ -318,7 +322,7 @@ class StudentSubscriptionController extends Controller
 
             $newInstance->load([
                 'subscription.club',
-                'subscription.courseTypes',
+                'subscription.template.courseTypes',
                 'students.user'
             ]);
 
@@ -326,7 +330,7 @@ class StudentSubscriptionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Abonnement renouvelé avec succès',
+                'message' => 'Abonnement renouvelé avec succès (Numéro: ' . $newSubscription->subscription_number . ')',
                 'data' => $newInstance
             ], 201);
 

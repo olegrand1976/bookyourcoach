@@ -73,9 +73,10 @@ class CourseTypesSeeder extends Seeder
             );
         }
 
-        // Pour chaque discipline existante, créer un type individuel et collectif
+        // Pour chaque discipline existante, créer les types de cours appropriés
         $disciplines = Discipline::all();
         foreach ($disciplines as $discipline) {
+            // Toujours créer un type individuel
             CourseType::firstOrCreate(
                 [
                     'name' => 'Cours individuel',
@@ -83,30 +84,35 @@ class CourseTypesSeeder extends Seeder
                 ],
                 [
                     'description' => "Cours particulier de {$discipline->name}",
-                    'duration_minutes' => 60,
+                    'duration_minutes' => $discipline->duration_minutes ?? 60,
                     'is_individual' => true,
                     'max_participants' => 1,
                     'is_active' => true,
                 ]
             );
 
-            CourseType::firstOrCreate(
-                [
-                    'name' => 'Cours collectif',
-                    'discipline_id' => $discipline->id
-                ],
-                [
-                    'description' => "Cours collectif de {$discipline->name}",
-                    'duration_minutes' => 60,
-                    'is_individual' => false,
-                    'max_participants' => 4,
-                    'is_active' => true,
-                ]
-            );
+            // Créer un type collectif SEULEMENT si la discipline le permet
+            // (max_participants > 1 indique qu'elle peut être collective)
+            if ($discipline->max_participants > 1) {
+                CourseType::firstOrCreate(
+                    [
+                        'name' => 'Cours collectif',
+                        'discipline_id' => $discipline->id
+                    ],
+                    [
+                        'description' => "Cours collectif de {$discipline->name}",
+                        'duration_minutes' => $discipline->duration_minutes ?? 60,
+                        'is_individual' => false,
+                        'max_participants' => min($discipline->max_participants, 10), // Limiter à 10
+                        'is_active' => true,
+                    ]
+                );
+            }
         }
 
+        $totalDisciplineTypes = CourseType::whereNotNull('discipline_id')->count();
         $this->command->info('✅ Types de cours créés avec succès!');
         $this->command->info('   - ' . count($genericTypes) . ' types génériques');
-        $this->command->info('   - ' . ($disciplines->count() * 2) . ' types par discipline');
+        $this->command->info('   - ' . $totalDisciplineTypes . ' types pour ' . $disciplines->count() . ' discipline(s)');
     }
 }

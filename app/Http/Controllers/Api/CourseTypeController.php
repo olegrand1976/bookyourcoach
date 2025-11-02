@@ -82,31 +82,58 @@ class CourseTypeController extends Controller
                     ]);
                 }
                 
-                // Récupérer les types de cours liés aux disciplines du club + types génériques
-                $courseTypes = CourseType::where(function($query) use ($clubDisciplineIds) {
-                    // Types liés aux disciplines du club
-                    $query->whereIn('discipline_id', $clubDisciplineIds)
-                        // OU types génériques (sans discipline)
-                        ->orWhereNull('discipline_id');
-                })
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get();
+                // Nettoyer les IDs : s'assurer qu'ils sont tous des entiers valides
+                $validDisciplineIds = array_filter($clubDisciplineIds, function($id) {
+                    return is_numeric($id) && $id > 0;
+                });
+                $validDisciplineIds = array_values(array_unique($validDisciplineIds));
+                
+                // Récupérer UNIQUEMENT les types de cours liés aux disciplines du club
+                // On exclut les types génériques si le club a des disciplines spécifiques
+                // pour éviter la confusion dans la sélection des types de cours
+                $courseTypes = CourseType::whereIn('discipline_id', $validDisciplineIds)
+                    ->where('is_active', true)
+                    ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
+                    ->orderBy('discipline_id')
+                    ->orderBy('name')
+                    ->get();
                 
                 \Log::info('CourseTypeController - Club courses filtered', [
                     'club_id' => $club->id,
-                    'club_disciplines' => $clubDisciplineIds,
+                    'club_disciplines_raw' => $clubDisciplineIds,
+                    'club_disciplines_valid' => $validDisciplineIds,
                     'total_types' => $courseTypes->count(),
-                    'types' => $courseTypes->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'discipline_id' => $t->discipline_id])->toArray()
+                    'types_by_discipline' => $courseTypes->groupBy('discipline_id')->map(fn($group) => $group->count())->toArray(),
+                    'sample_types' => $courseTypes->take(5)->map(fn($t) => [
+                        'id' => $t->id,
+                        'name' => $t->name,
+                        'discipline_id' => $t->discipline_id,
+                        'discipline_name' => $t->discipline?->name
+                    ])->toArray()
                 ]);
+                
+                // S'assurer que la relation discipline et activityType sont incluses dans la sérialisation JSON
+                $courseTypesData = $courseTypes->map(function($courseType) {
+                    $data = $courseType->toArray();
+                    // Ajouter explicitement l'activité si disponible
+                    if ($courseType->relationLoaded('discipline') && $courseType->discipline && $courseType->discipline->relationLoaded('activityType')) {
+                        if ($courseType->discipline->activityType) {
+                            $data['discipline']['activity'] = [
+                                'id' => $courseType->discipline->activityType->id,
+                                'name' => $courseType->discipline->activityType->name
+                            ];
+                        }
+                    }
+                    return $data;
+                });
                 
                 return response()->json([
                     'success' => true,
-                    'data' => $courseTypes,
+                    'data' => $courseTypesData,
                     'meta' => [
                         'total' => $courseTypes->count(),
                         'club_id' => $club->id,
-                        'club_disciplines' => $clubDisciplineIds
+                        'club_disciplines' => $validDisciplineIds
                     ]
                 ]);
             }
