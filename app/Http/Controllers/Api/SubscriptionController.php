@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class SubscriptionController extends Controller
 {
@@ -40,16 +41,39 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
+            // Vérifier si les tables nécessaires existent
+            if (!Schema::hasTable('subscriptions')) {
+                Log::warning('Table subscriptions n\'existe pas. Migrations non exécutées.');
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun abonnement disponible. Les migrations doivent être exécutées.'
+                ]);
+            }
+
             $subscriptions = Subscription::where('club_id', $club->id)
                 ->with([
                     'template.courseTypes',
                     'instances' => function ($query) {
-                        $query->where('status', 'active')
-                              ->with('students.user');
+                        $query->with('students.user');
                     }
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
+            
+            // Charger les cours pour chaque instance pour calculer lessons_used correctement
+            foreach ($subscriptions as $subscription) {
+                foreach ($subscription->instances as $instance) {
+                    // Compter les cours réels liés à cette instance
+                    $instance->lessons_count = DB::table('subscription_lessons')
+                        ->where('subscription_instance_id', $instance->id)
+                        ->count();
+                    // Utiliser lessons_count si lessons_used est incorrect
+                    if ($instance->lessons_count > $instance->lessons_used) {
+                        $instance->lessons_used = $instance->lessons_count;
+                    }
+                }
+            }
             
             // Ajouter l'alias subscriptionStudents pour compatibilité frontend
             foreach ($subscriptions as $subscription) {
@@ -187,9 +211,26 @@ class SubscriptionController extends Controller
             $subscription = Subscription::where('club_id', $club->id)
                 ->with([
                     'template.courseTypes',
-                    'instances.students.user'
+                    'instances' => function ($query) {
+                        $query->with([
+                            'students.user',
+                            'lessons' => function ($q) {
+                                $q->with(['teacher.user', 'courseType', 'location'])
+                                  ->orderBy('start_time', 'desc');
+                            }
+                        ]);
+                    }
                 ])
                 ->findOrFail($id);
+            
+            // Calculer le nombre réel de cours pour chaque instance
+            foreach ($subscription->instances as $instance) {
+                $instance->lessons_count = $instance->lessons->count();
+                // Mettre à jour lessons_used si nécessaire
+                if ($instance->lessons_count > $instance->lessons_used) {
+                    $instance->lessons_used = $instance->lessons_count;
+                }
+            }
 
             return response()->json([
                 'success' => true,

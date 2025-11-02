@@ -16,8 +16,13 @@
         <div>
           <h2 class="text-lg md:text-xl font-semibold text-gray-900">Créneaux horaires</h2>
           <p class="text-xs md:text-sm text-gray-500 mt-1">
-            {{ slots.length }} créneau{{ slots.length > 1 ? 'x' : '' }} configuré{{ slots.length > 1 ? 's' : '' }}
-            • Cliquez pour {{ isOpen ? 'masquer' : 'voir' }}
+            <span v-if="slots.length > 0">
+              {{ slots.length }} créneau{{ slots.length > 1 ? 'x' : '' }} configuré{{ slots.length > 1 ? 's' : '' }}
+              • Cliquez pour {{ isOpen ? 'masquer' : 'voir' }}
+            </span>
+            <span v-else class="text-amber-600 font-medium">
+              ⚠️ Aucun créneau configuré • Cliquez pour voir les options
+            </span>
           </p>
         </div>
       </button>
@@ -158,8 +163,20 @@
         </div>
       </div>
 
-      <div v-else class="text-center py-8 text-gray-500">
-        Aucun créneau horaire configuré. Créez-en un pour commencer.
+      <div v-else class="text-center py-12 text-gray-500">
+        <div class="text-6xl mb-4">🕐</div>
+        <p class="text-lg font-semibold text-gray-700 mb-2">Aucun créneau horaire configuré</p>
+        <p class="text-sm text-gray-500 mb-6">
+          Les créneaux horaires permettent de définir les plages horaires disponibles pour créer des cours.
+        </p>
+        <button 
+          @click="$emit('create-slot')"
+          class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Créer mon premier créneau horaire
+        </button>
       </div>
     </div>
   </div>
@@ -198,7 +215,7 @@ const emit = defineEmits<{
   'select-slot': [slot: OpenSlot]
 }>()
 
-const isOpen = ref(false) // Fermé par défaut
+const isOpen = ref(true) // Ouvert par défaut pour faciliter la visualisation
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
 function getDayName(dayOfWeek: number): string {

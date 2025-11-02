@@ -31,12 +31,31 @@
         </div>
       </div>
 
+      <!-- Filtre de recherche -->
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="flex items-center space-x-4">
+          <div class="flex-1">
+            <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
+              Rechercher par nom/prénom d'élève
+            </label>
+            <input
+              id="search"
+              v-model="searchQuery"
+              type="text"
+              placeholder="Ex: Jean, Dupont, Jean Dupont..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
       <!-- Liste des abonnements -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div 
-          v-for="subscription in subscriptions" 
+          v-for="subscription in filteredSubscriptions" 
           :key="subscription.id"
-          class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+          @click="viewSubscriptionHistory(subscription)"
+          class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border-2 hover:border-blue-400"
         >
           <!-- Header carte -->
           <div class="p-6 border-b border-gray-200">
@@ -124,7 +143,7 @@
                   </span>
                 </div>
                 <div class="mt-1 text-gray-500">
-                  {{ instance.lessons_used }} / {{ subscription.template?.total_available_lessons || 0 }} cours utilisés
+                  {{ getInstanceLessonsUsed(instance) }} / {{ subscription.template?.total_available_lessons || 0 }} cours utilisés
                 </div>
               </div>
               <div v-if="subscription.instances.length > 3" class="text-xs text-gray-500 italic px-2">
@@ -175,12 +194,129 @@
       @close="closeAssignModal"
       @success="handleSubscriptionAssigned"
     />
+
+    <!-- Modal : Historique de l'abonnement -->
+    <div 
+      v-if="showHistoryModal && selectedSubscription"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click.self="closeHistoryModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-900">
+                Historique - Abonnement {{ selectedSubscription.subscription_number }}
+              </h3>
+              <p v-if="selectedSubscription.template" class="text-sm text-gray-600 mt-1">
+                Modèle: {{ selectedSubscription.template.model_number }}
+              </p>
+            </div>
+            <button 
+              @click="closeHistoryModal"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Instances d'abonnement -->
+          <div v-if="selectedSubscription.instances?.length > 0" class="space-y-6">
+            <div 
+              v-for="instance in selectedSubscription.instances" 
+              :key="instance.id"
+              class="border border-gray-200 rounded-lg p-4"
+            >
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex-1">
+                  <h4 class="font-semibold text-gray-900 mb-2">
+                    {{ getInstanceStudentNames(instance) }}
+                  </h4>
+                  <div class="text-sm text-gray-600 space-y-1">
+                    <p>
+                      <strong>Début:</strong> {{ formatDate(instance.started_at) }}
+                    </p>
+                    <p v-if="instance.expires_at">
+                      <strong>Expiration:</strong> {{ formatDate(instance.expires_at) }}
+                    </p>
+                    <p>
+                      <strong>Statut:</strong> 
+                      <span 
+                        :class="{
+                          'text-green-600': instance.status === 'active',
+                          'text-gray-600': instance.status === 'completed',
+                          'text-red-600': instance.status === 'expired'
+                        }"
+                      >
+                        {{ getStatusLabel(instance.status) }}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-gray-900">
+                    {{ getInstanceLessonsUsed(instance) }} / {{ selectedSubscription.template?.total_available_lessons || 0 }}
+                  </div>
+                  <div class="text-sm text-gray-500">cours utilisés</div>
+                </div>
+              </div>
+
+              <!-- Liste des cours -->
+              <div v-if="instance.lessons && instance.lessons.length > 0" class="mt-4">
+                <h5 class="text-sm font-medium text-gray-700 mb-2">Cours consommés:</h5>
+                <div class="space-y-2">
+                  <div 
+                    v-for="lesson in instance.lessons" 
+                    :key="lesson.id"
+                    class="bg-gray-50 rounded p-3 text-sm"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div class="flex-1">
+                        <p class="font-medium text-gray-900">
+                          {{ formatDate(lesson.start_time) }} à {{ formatTime(lesson.start_time) }}
+                        </p>
+                        <p class="text-gray-600">
+                          {{ lesson.course_type?.name || 'Type de cours non défini' }}
+                          <span v-if="lesson.teacher?.user"> - {{ lesson.teacher.user.name }}</span>
+                        </p>
+                        <p v-if="lesson.location" class="text-gray-500 text-xs mt-1">
+                          📍 {{ lesson.location.name }}
+                        </p>
+                      </div>
+                      <span 
+                        :class="{
+                          'bg-green-100 text-green-800': lesson.status === 'completed',
+                          'bg-blue-100 text-blue-800': lesson.status === 'confirmed',
+                          'bg-gray-100 text-gray-800': lesson.status === 'cancelled'
+                        }"
+                        class="px-2 py-1 rounded text-xs font-medium"
+                      >
+                        {{ lesson.status === 'completed' ? 'Terminé' : lesson.status === 'confirmed' ? 'Confirmé' : 'Annulé' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="mt-4 text-sm text-gray-500 italic">
+                Aucun cours consommé pour cette instance
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center py-8 text-gray-500">
+            Aucune instance d'abonnement trouvée
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useNuxtApp } from '#app'
+import { useToast } from '~/composables/useToast'
 
 definePageMeta({
   middleware: ['auth']
@@ -191,11 +327,15 @@ const subscriptions = ref([])
 const availableDisciplines = ref([])
 const students = ref([])
 const selectedStudent = ref(null)
+const searchQuery = ref('')
 
 // Modals
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showAssignModal = ref(false)
+const showHistoryModal = ref(false)
+const selectedSubscription = ref(null)
+const subscriptionHistory = ref(null)
 
 // Formulaires
 const form = ref({
@@ -313,9 +453,94 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
-const viewSubscriptionDetails = (subscription) => {
-  // TODO: Implémenter la vue détaillée avec la liste des abonnés
-  alert('Fonctionnalité à venir : vue détaillée des abonnés')
+const getInstanceLessonsUsed = (instance) => {
+  // Utiliser lessons_count si disponible, sinon lessons_used
+  if (instance.lessons_count !== undefined) {
+    return instance.lessons_count
+  }
+  // Si lessons existe et est un array, utiliser sa longueur
+  if (instance.lessons && Array.isArray(instance.lessons)) {
+    return instance.lessons.length
+  }
+  return instance.lessons_used || 0
+}
+
+// Filtrer les abonnements par nom/prénom d'élève
+const filteredSubscriptions = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return subscriptions.value
+  }
+  
+  const query = searchQuery.value.toLowerCase().trim()
+  
+  return subscriptions.value.filter(subscription => {
+    // Vérifier dans toutes les instances et leurs élèves
+    if (!subscription.instances || subscription.instances.length === 0) {
+      return false
+    }
+    
+    return subscription.instances.some(instance => {
+      if (!instance.students || instance.students.length === 0) {
+        return false
+      }
+      
+      return instance.students.some(student => {
+        const user = student.user || {}
+        const firstName = (user.first_name || '').toLowerCase()
+        const lastName = (user.last_name || '').toLowerCase()
+        const name = (user.name || '').toLowerCase()
+        
+        // Rechercher dans le nom complet, prénom ou nom
+        return firstName.includes(query) || 
+               lastName.includes(query) || 
+               name.includes(query) ||
+               `${firstName} ${lastName}`.includes(query)
+      })
+    })
+  })
+})
+
+// Vue historique d'un abonnement
+const viewSubscriptionHistory = async (subscription) => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/club/subscriptions/${subscription.id}`)
+    
+    if (response.data.success) {
+      selectedSubscription.value = response.data.data
+      showHistoryModal.value = true
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement de l\'historique:', error)
+    const { error: showError } = useToast()
+    showError('Erreur lors du chargement de l\'historique')
+  }
+}
+
+const closeHistoryModal = () => {
+  showHistoryModal.value = false
+  selectedSubscription.value = null
+  subscriptionHistory.value = null
+}
+
+// Formats de date
+const formatDate = (date) => {
+  if (!date) return 'N/A'
+  const d = new Date(date)
+  return d.toLocaleDateString('fr-FR', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })
+}
+
+const formatTime = (date) => {
+  if (!date) return 'N/A'
+  const d = new Date(date)
+  return d.toLocaleTimeString('fr-FR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
 }
 
 const closeModals = () => {

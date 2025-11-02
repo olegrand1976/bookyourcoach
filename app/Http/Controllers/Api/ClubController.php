@@ -688,6 +688,18 @@ class ClubController extends Controller
         try {
             $user = $request->user();
             
+            // Vérifier si les tables nécessaires existent
+            if (!\Illuminate\Support\Facades\Schema::hasTable('club_students') || 
+                !\Illuminate\Support\Facades\Schema::hasTable('students') || 
+                !\Illuminate\Support\Facades\Schema::hasTable('users')) {
+                \Log::warning('Tables manquantes pour getStudents. Migrations non exécutées.');
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun élève disponible. Les migrations doivent être exécutées.'
+                ]);
+            }
+            
             // Récupérer le club associé à cet utilisateur
             $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
@@ -701,16 +713,20 @@ class ClubController extends Controller
                 ], 404);
             }
             
+            // Utiliser leftJoin pour gérer les étudiants sans user_id
             $students = DB::table('club_students')
                 ->join('students', 'club_students.student_id', '=', 'students.id')
-                ->join('users', 'students.user_id', '=', 'users.id')
+                ->leftJoin('users', 'students.user_id', '=', 'users.id')
                 ->where('club_students.club_id', $clubUser->club_id)
                 ->where('club_students.is_active', true)
                 ->select(
-                    'students.id',  // Corrigé : retourner students.id au lieu de users.id
+                    'students.id',
+                    'students.user_id',
                     'users.name',
                     'users.email',
                     'users.phone',
+                    'users.first_name',
+                    'users.last_name',
                     'students.date_of_birth',
                     'students.level',
                     'students.total_lessons',
@@ -734,6 +750,9 @@ class ClubController extends Controller
             ]);
             
         } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération des étudiants: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des étudiants'

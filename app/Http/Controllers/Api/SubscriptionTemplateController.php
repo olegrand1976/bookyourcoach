@@ -36,12 +36,14 @@ class SubscriptionTemplateController extends Controller
                 ], 404);
             }
 
-            // Vérifier si la table existe
+            // Vérifier si la table existe - si non, renvoyer un tableau vide plutôt qu'une erreur
             if (!Schema::hasTable('subscription_templates')) {
+                Log::warning('Table subscription_templates n\'existe pas. Migrations non exécutées.');
                 return response()->json([
-                    'success' => false,
-                    'message' => 'La table subscription_templates n\'existe pas. Veuillez exécuter les migrations avec: php artisan migrate'
-                ], 500);
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Aucun modèle d\'abonnement disponible. Les migrations doivent être exécutées.'
+                ]);
             }
 
             $templates = SubscriptionTemplate::where('club_id', $club->id)

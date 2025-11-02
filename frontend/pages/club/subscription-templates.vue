@@ -575,15 +575,18 @@ const loadCourseTypes = async () => {
       
       if (availableCourseTypes.value.length === 0) {
         console.warn('⚠️ Aucun type de cours disponible pour ce club')
-        toast.warning('Aucun type de cours disponible. Assurez-vous d\'avoir configuré des disciplines dans votre profil.')
+        const { warning } = useToast()
+        warning('Aucun type de cours disponible. Assurez-vous d\'avoir configuré des disciplines dans votre profil.')
       }
     } else {
       console.error('❌ Réponse API invalide:', response.data)
-      toast.error('Erreur lors du chargement des types de cours')
+      const { error: showError } = useToast()
+      showError('Erreur lors du chargement des types de cours')
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des types de cours:', error)
-    toast.error('Erreur lors du chargement des types de cours: ' + (error.message || 'Erreur inconnue'))
+    const { error: showError } = useToast()
+    showError('Erreur lors du chargement des types de cours: ' + (error.message || 'Erreur inconnue'))
     availableCourseTypes.value = []
   }
 }
