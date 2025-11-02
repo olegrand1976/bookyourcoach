@@ -177,7 +177,7 @@ docker compose exec mysql-local mysql -u activibe_user -pactivibe_password book_
 
 Les emails sont capturés par MailHog en développement :
 
-**Interface web** : http://localhost:8026
+**Interface web** : http://localhost:8025
 
 Vous y verrez :
 - ✅ Tous les emails envoyés
