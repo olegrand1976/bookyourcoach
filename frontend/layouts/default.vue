@@ -168,7 +168,7 @@
               </li>
               <li>
                 <NuxtLink to="/centers" class="text-gray-100/80 hover:text-blue-400 transition-colors">
-                  Centres équestres</NuxtLink>
+                  Nos clubs affiliés</NuxtLink>
               </li>
               <li>
                 <NuxtLink to="/disciplines"
