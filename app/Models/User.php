@@ -57,7 +57,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'birth_date' => 'date',
+        // birth_date n'est PAS casté en 'date' pour éviter les problèmes de fuseau horaire
+        // Il est géré manuellement via setBirthDateAttribute et getBirthDateAttribute
         'experience_start_date' => 'date',
         'is_active' => 'boolean',
     ];
