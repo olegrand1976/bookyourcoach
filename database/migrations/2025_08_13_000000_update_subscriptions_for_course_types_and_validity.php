@@ -14,8 +14,19 @@ return new class extends Migration
     {
         // Ajouter validity_months aux subscriptions (par défaut 12 mois = 1 an)
         if (Schema::hasTable('subscriptions') && !Schema::hasColumn('subscriptions', 'validity_months')) {
-            Schema::table('subscriptions', function (Blueprint $table) {
-                $table->integer('validity_months')->default(12)->after('price');
+            $hasPrice = Schema::hasColumn('subscriptions', 'price');
+            $hasIsActive = Schema::hasColumn('subscriptions', 'is_active');
+            
+            Schema::table('subscriptions', function (Blueprint $table) use ($hasPrice, $hasIsActive) {
+                // Ajouter validity_months après 'price' si la colonne existe, sinon après 'is_active'
+                if ($hasPrice) {
+                    $table->integer('validity_months')->default(12)->after('price');
+                } elseif ($hasIsActive) {
+                    $table->integer('validity_months')->default(12)->after('is_active');
+                } else {
+                    // Si ni price ni is_active n'existent, ajouter simplement la colonne
+                    $table->integer('validity_months')->default(12);
+                }
             });
         }
 
