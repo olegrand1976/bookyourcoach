@@ -65,17 +65,40 @@ return new class extends Migration
 
         // Modifier la table subscriptions pour utiliser subscription_template_id
         if (Schema::hasTable('subscriptions')) {
-            Schema::table('subscriptions', function (Blueprint $table) {
+            // Vérifier les colonnes existantes avant d'entrer dans la closure
+            $hasClubId = Schema::hasColumn('subscriptions', 'club_id');
+            $hasSubscriptionTemplateId = Schema::hasColumn('subscriptions', 'subscription_template_id');
+            
+            $subscriptionNumberAddedAfter = null; // Variable pour suivre après quelle colonne ajouter subscription_number
+            
+            Schema::table('subscriptions', function (Blueprint $table) use ($hasClubId, $hasSubscriptionTemplateId, &$subscriptionNumberAddedAfter) {
                 // Ajouter subscription_template_id et subscription_number
-                if (!Schema::hasColumn('subscriptions', 'subscription_template_id')) {
-                    $table->unsignedBigInteger('subscription_template_id')->nullable()->after('club_id');
+                if (!$hasSubscriptionTemplateId) {
+                    // Ajouter après club_id si elle existe, sinon sans position spécifique
+                    if ($hasClubId) {
+                        $table->unsignedBigInteger('subscription_template_id')->nullable()->after('club_id');
+                    } else {
+                        $table->unsignedBigInteger('subscription_template_id')->nullable();
+                    }
                     $table->foreign('subscription_template_id', 'sub_template_fk')
                           ->references('id')
                           ->on('subscription_templates')
                           ->onDelete('cascade');
+                    
+                    // Marquer que subscription_template_id existe maintenant pour subscription_number
+                    $subscriptionNumberAddedAfter = 'subscription_template_id';
+                } elseif ($hasSubscriptionTemplateId) {
+                    // Si subscription_template_id existe déjà, on peut l'utiliser pour subscription_number
+                    $subscriptionNumberAddedAfter = 'subscription_template_id';
                 }
+                
+                // Ajouter subscription_number après subscription_template_id si disponible
                 if (!Schema::hasColumn('subscriptions', 'subscription_number')) {
-                    $table->string('subscription_number')->unique()->nullable()->after('subscription_template_id');
+                    if ($subscriptionNumberAddedAfter) {
+                        $table->string('subscription_number')->unique()->nullable()->after($subscriptionNumberAddedAfter);
+                    } else {
+                        $table->string('subscription_number')->unique()->nullable();
+                    }
                 }
                 // Supprimer les colonnes name, description, total_lessons, free_lessons, price, validity_months
                 // On garde ces colonnes pour la migration progressive, on les rend nullable d'abord
