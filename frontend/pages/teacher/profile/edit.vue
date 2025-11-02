@@ -1,27 +1,41 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- En-tête -->
-      <div class="mb-6 md:mb-8">
+  <div class="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header avec gradient -->
+      <div class="mb-6 md:mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-4 md:p-6 border-2 border-blue-100">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Modifier mon profil</h1>
-            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Mettez à jour vos informations personnelles et professionnelles</p>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900">Modifier mon profil</h1>
+            <p class="mt-1 md:mt-2 text-xs md:text-base text-gray-600">Mettez à jour vos informations personnelles et professionnelles</p>
           </div>
-          <NuxtLink to="/teacher/profile"
-            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <span>←</span>
-            <span class="ml-2">Retour au profil</span>
-          </NuxtLink>
+          <div class="flex items-center space-x-4">
+            <NuxtLink to="/teacher/profile"
+              class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              <span>←</span>
+              <span class="ml-2 hidden md:inline">Retour au profil</span>
+            </NuxtLink>
+            <div class="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0">
+              <svg class="w-6 h-6 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="isLoadingProfile" class="flex items-center justify-center py-20">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-gray-600">Chargement des données...</p>
         </div>
       </div>
 
       <!-- Formulaire -->
-      <div class="bg-white rounded-xl shadow-lg p-6">
-        <form @submit.prevent="updateProfile" class="space-y-6">
+      <form v-else @submit.prevent="updateProfile" class="bg-white shadow-lg rounded-lg p-4 md:p-6 space-y-6 md:space-y-8">
           <!-- Informations personnelles -->
-          <div class="border-b border-gray-200 pb-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations personnelles</h2>
+          <section class="border-b pb-4 md:pb-6">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations personnelles</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
@@ -30,7 +44,7 @@
                   v-model="form.name"
                   type="text"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.name }"
                 />
                 <p v-if="errors.name" class="mt-1 text-sm text-red-600">{{ errors.name }}</p>
@@ -42,7 +56,7 @@
                   v-model="form.email"
                   type="email"
                   required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.email }"
                 />
                 <p v-if="errors.email" class="mt-1 text-sm text-red-600">{{ errors.email }}</p>
@@ -53,7 +67,7 @@
                   id="phone"
                   v-model="form.phone"
                   type="tel"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.phone }"
                 />
                 <p v-if="errors.phone" class="mt-1 text-sm text-red-600">{{ errors.phone }}</p>
@@ -64,17 +78,17 @@
                   id="birth_date"
                   v-model="form.birth_date"
                   type="date"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.birth_date }"
                 />
                 <p v-if="errors.birth_date" class="mt-1 text-sm text-red-600">{{ errors.birth_date }}</p>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- Informations professionnelles -->
-          <div class="border-b border-gray-200 pb-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations professionnelles</h2>
+          <section class="border-b pb-4 md:pb-6">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations professionnelles</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label for="specialties" class="block text-sm font-medium text-gray-700 mb-1">Spécialités</label>
@@ -82,7 +96,7 @@
                   id="specialties"
                   v-model="form.specialties"
                   rows="3"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.specialties }"
                   placeholder="Décrivez vos spécialités et domaines d'expertise..."
                 ></textarea>
@@ -107,7 +121,7 @@
                   id="certifications"
                   v-model="form.certifications"
                   rows="3"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   :class="{ 'border-red-500': errors.certifications }"
                   placeholder="Listez vos certifications et diplômes..."
                 ></textarea>
@@ -123,7 +137,7 @@
                   step="0.01"
                   disabled
                   readonly
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
                 />
                 <p class="mt-1 text-xs text-gray-500">Le tarif horaire est géré par le club</p>
               </div>
@@ -131,34 +145,34 @@
           </div>
 
           <!-- Description -->
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Description</h2>
+          <section>
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Description</h2>
             <div>
               <label for="bio" class="block text-sm font-medium text-gray-700 mb-1">Biographie</label>
               <textarea
                 id="bio"
                 v-model="form.bio"
                 rows="4"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 :class="{ 'border-red-500': errors.bio }"
                 placeholder="Décrivez votre parcours, votre approche pédagogique..."
               ></textarea>
               <p v-if="errors.bio" class="mt-1 text-sm text-red-600">{{ errors.bio }}</p>
             </div>
-          </div>
+          </section>
 
           <!-- Actions -->
-          <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+          <div class="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 md:pt-6 border-t border-gray-200">
             <button
               type="button"
               @click="goBack"
-              class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              class="inline-flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
               Annuler
             </button>
             <button
               type="submit"
               :disabled="loading"
-              class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div v-if="loading" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
               <span v-if="loading">Enregistrement...</span>
@@ -166,7 +180,6 @@
             </button>
           </div>
         </form>
-      </div>
     </div>
   </div>
 </template>
@@ -181,6 +194,7 @@ const authStore = useAuthStore()
 
 // État réactif
 const loading = ref(false)
+const isLoadingProfile = ref(true)
 const errors = ref({})
 
 // Formulaire
@@ -222,6 +236,7 @@ onMounted(() => {
 // Charger les données du profil
 const loadProfileData = async () => {
   try {
+    isLoadingProfile.value = true
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/profile')
     
@@ -245,8 +260,10 @@ const loadProfileData = async () => {
   } catch (err) {
     console.error('Erreur lors du chargement du profil:', err)
     // Afficher une notification d'erreur
-    const { showToast } = useToast()
-    showToast('Impossible de charger les données du profil', { type: 'error' })
+    const toast = useToast()
+    toast.error('Impossible de charger les données du profil')
+  } finally {
+    isLoadingProfile.value = false
   }
 }
 
@@ -264,8 +281,8 @@ const updateProfile = async () => {
     
     if (response.data) {
       // Afficher un message de succès
-      const { showToast } = useToast()
-      showToast('Profil mis à jour avec succès', { type: 'success' })
+      const toast = useToast()
+      toast.success('Profil mis à jour avec succès')
       
       // Rediriger vers la page du profil
       await navigateTo('/teacher/profile')
@@ -276,8 +293,8 @@ const updateProfile = async () => {
     if (err.response?.data?.errors) {
       errors.value = err.response.data.errors
     } else {
-      const { showToast } = useToast()
-      showToast('Erreur lors de la mise à jour du profil', { type: 'error' })
+      const toast = useToast()
+      toast.error('Erreur lors de la mise à jour du profil')
     }
   } finally {
     loading.value = false
