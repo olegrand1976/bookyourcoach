@@ -177,7 +177,7 @@ docker compose exec mysql-local mysql -u activibe_user -pactivibe_password book_
 
 Les emails sont capturés par MailHog en développement :
 
-**Interface web** : http://localhost:8025
+**Interface web** : http://localhost:8035
 
 Vous y verrez :
 - ✅ Tous les emails envoyés
@@ -269,7 +269,7 @@ Interface : `https://activibe.be/horizon`
 
 ### Les emails sont envoyés mais non reçus
 
-1. Vérifier MailHog (local) : http://localhost:8025
+1. Vérifier MailHog (local) : http://localhost:8035
 2. Vérifier les logs du serveur mail (production)
 3. Vérifier la configuration SMTP dans `.env`
 

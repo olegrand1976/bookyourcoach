@@ -96,8 +96,8 @@ services:
     container_name: activibe-mailhog-local
     restart: unless-stopped
     ports:
-      # Interface web pour visualiser les emails (port standard MailHog)
-      - "8025:8025"
+      # Interface web pour visualiser les emails
+      - "8035:8025"
       # Port SMTP interne (utilisé par le backend dans Docker via le réseau)
       # Pas besoin d'exposer le port externe car le backend se connecte via le réseau Docker
       - "1025:1025"
