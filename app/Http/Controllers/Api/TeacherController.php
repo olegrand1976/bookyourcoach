@@ -78,7 +78,8 @@ class TeacherController extends Controller
                 ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id', 
                          'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
                 ->with([
-                    'student:id,user_id' => ['user:id,name'],
+                    'student:id,user_id',
+                    'student.user:id,name',
                     'courseType:id,name',
                     'location:id,name',
                     'club:id,name'
@@ -94,7 +95,8 @@ class TeacherController extends Controller
                 ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id',
                          'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
                 ->with([
-                    'student:id,user_id' => ['user:id,name'],
+                    'student:id,user_id',
+                    'student.user:id,name',
                     'courseType:id,name',
                     'location:id,name',
                     'club:id,name'
