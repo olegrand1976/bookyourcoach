@@ -9,19 +9,28 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     
     // Côté serveur, vérifier les cookies directement
     if (process.server) {
-      console.log('🔴 Plugin auth: côté serveur - pas d\'initialisation')
+      console.log('🔴 Plugin auth: côté serveur - vérification cookies')
       
-      // Vérifier si un token existe dans les cookies
-      const token = useCookie('auth-token')
-      if (!token.value) {
-        console.log('❌ Pas de token côté serveur, redirection vers /login')
-        return navigateTo('/login')
+      try {
+        // Vérifier si un token existe dans les cookies avec default pour éviter les erreurs
+        const token = useCookie('auth-token', { default: () => null })
+        
+        // Si pas de token, rediriger vers login
+        if (!token.value) {
+          console.log('❌ Pas de token côté serveur, redirection vers /login')
+          return navigateTo('/login')
+        }
+        
+        // Pour le SSR, on fait confiance au token côté serveur
+        // La validation complète se fera côté client
+        console.log('✅ Token présent côté serveur, autorisation temporaire')
+        return
+      } catch (error) {
+        console.warn('⚠️ Erreur lecture cookies côté serveur, laisser passer pour validation client:', error)
+        // En cas d'erreur de lecture, laisser passer pour que le client puisse valider
+        // Cela évite de bloquer la navigation si les cookies sont dans un format non standard
+        return
       }
-      
-      // Pour le SSR, on fait confiance au token côté serveur
-      // La validation complète se fera côté client
-      console.log('✅ Token présent côté serveur, autorisation temporaire')
-      return
     }
     
     // Côté client, initialiser l'authentification complète
