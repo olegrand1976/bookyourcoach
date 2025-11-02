@@ -63,6 +63,45 @@ class User extends Authenticatable
     ];
 
     /**
+     * Set the birth_date attribute.
+     * Force the date to be saved as UTC midnight to avoid timezone shift issues.
+     */
+    public function setBirthDateAttribute($value)
+    {
+        if (empty($value) || $value === null) {
+            $this->attributes['birth_date'] = null;
+            return;
+        }
+
+        // If it's already a Carbon instance, extract the date part
+        if ($value instanceof \Carbon\Carbon) {
+            $dateString = $value->format('Y-m-d');
+        } elseif (is_string($value)) {
+            // Extract just the date part (YYYY-MM-DD) from string
+            $dateString = substr($value, 0, 10);
+        } else {
+            $dateString = $value;
+        }
+
+        // Create a Carbon date at UTC midnight to avoid timezone conversion issues
+        // This ensures the date is stored exactly as provided (no day shift)
+        try {
+            $date = \Carbon\Carbon::createFromFormat('Y-m-d', $dateString, 'UTC')
+                ->startOfDay()
+                ->setTimezone('UTC');
+            
+            $this->attributes['birth_date'] = $date->format('Y-m-d');
+        } catch (\Exception $e) {
+            // Fallback: try to parse the value directly
+            \Log::warning('User::setBirthDateAttribute - Error parsing date', [
+                'value' => $value,
+                'error' => $e->getMessage()
+            ]);
+            $this->attributes['birth_date'] = $value;
+        }
+    }
+
+    /**
      * Get the clubs associated with this user (for club managers).
      */
     public function clubs()
