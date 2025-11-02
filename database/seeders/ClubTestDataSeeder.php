@@ -163,9 +163,9 @@ class ClubTestDataSeeder extends Seeder
                 $userId = $existingManager->id;
                 $managers->push($existingManager);
             } else {
-                $userId = DB::table('users')->insertGetId($managerData);
-                $manager = DB::table('users')->where('id', $userId)->first();
-                $managers->push($manager);
+            $userId = DB::table('users')->insertGetId($managerData);
+            $manager = DB::table('users')->where('id', $userId)->first();
+            $managers->push($manager);
             }
 
             // Lier le gestionnaire au club via club_user (même s'il existe déjà, on s'assure de la liaison)
