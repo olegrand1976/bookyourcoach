@@ -88,20 +88,82 @@ class CourseTypeController extends Controller
                 });
                 $validDisciplineIds = array_values(array_unique($validDisciplineIds));
                 
+                // Vérifier d'abord que les disciplines existent vraiment
+                $existingDisciplines = \App\Models\Discipline::whereIn('id', $validDisciplineIds)->pluck('id')->toArray();
+                
+                // Filtrer pour ne garder que les IDs de disciplines qui existent réellement
+                $validExistingDisciplineIds = array_intersect($validDisciplineIds, $existingDisciplines);
+                
+                if (empty($validExistingDisciplineIds)) {
+                    \Log::warning('Aucune discipline valide trouvée pour le club', [
+                        'club_id' => $club->id,
+                        'requested_ids' => $validDisciplineIds,
+                        'existing_ids' => $existingDisciplines
+                    ]);
+                    
+                    return response()->json([
+                        'success' => true,
+                        'data' => [],
+                        'meta' => [
+                            'total' => 0,
+                            'club_id' => $club->id,
+                            'club_disciplines' => $validDisciplineIds,
+                            'existing_disciplines' => $existingDisciplines,
+                            'message' => 'Les disciplines sélectionnées n\'existent pas. Veuillez mettre à jour votre profil.'
+                        ]
+                    ]);
+                }
+                
                 // Récupérer UNIQUEMENT les types de cours liés aux disciplines du club
                 // On exclut les types génériques si le club a des disciplines spécifiques
                 // pour éviter la confusion dans la sélection des types de cours
-                $courseTypes = CourseType::whereIn('discipline_id', $validDisciplineIds)
+                $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
                     ->where('is_active', true)
                     ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
                     ->orderBy('discipline_id')
                     ->orderBy('name')
                     ->get();
                 
+                // Si aucun type de cours n'existe pour ces disciplines, créer des types par défaut
+                if ($courseTypes->isEmpty()) {
+                    \Log::info('Aucun type de cours existant, création automatique', [
+                        'club_id' => $club->id,
+                        'discipline_ids' => $validExistingDisciplineIds
+                    ]);
+                    
+                    $createdTypes = [];
+                    foreach ($validExistingDisciplineIds as $disciplineId) {
+                        $discipline = \App\Models\Discipline::find($disciplineId);
+                        if ($discipline) {
+                            // Créer un type de cours par défaut pour cette discipline
+                            $courseType = CourseType::create([
+                                'discipline_id' => $disciplineId,
+                                'name' => $discipline->name . ' - Cours standard',
+                                'description' => 'Cours standard de ' . $discipline->name,
+                                'duration_minutes' => 60,
+                                'price' => 25.00,
+                                'is_individual' => false,
+                                'max_participants' => 10,
+                                'is_active' => true
+                            ]);
+                            $createdTypes[] = $courseType;
+                        }
+                    }
+                    
+                    // Recharger les types de cours
+                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
+                        ->where('is_active', true)
+                        ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
+                        ->orderBy('discipline_id')
+                        ->orderBy('name')
+                        ->get();
+                }
+                
                 \Log::info('CourseTypeController - Club courses filtered', [
                     'club_id' => $club->id,
                     'club_disciplines_raw' => $clubDisciplineIds,
                     'club_disciplines_valid' => $validDisciplineIds,
+                    'club_disciplines_existing' => $validExistingDisciplineIds,
                     'total_types' => $courseTypes->count(),
                     'types_by_discipline' => $courseTypes->groupBy('discipline_id')->map(fn($group) => $group->count())->toArray(),
                     'sample_types' => $courseTypes->take(5)->map(fn($t) => [
@@ -133,7 +195,9 @@ class CourseTypeController extends Controller
                     'meta' => [
                         'total' => $courseTypes->count(),
                         'club_id' => $club->id,
-                        'club_disciplines' => $validDisciplineIds
+                        'club_disciplines' => $validExistingDisciplineIds,
+                        'requested_disciplines' => $validDisciplineIds,
+                        'invalid_disciplines' => array_diff($validDisciplineIds, $validExistingDisciplineIds)
                     ]
                 ]);
             }
