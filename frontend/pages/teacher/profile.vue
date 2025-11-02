@@ -110,8 +110,10 @@
 
           <!-- Actions -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button @click="editProfile"
-              class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button 
+              type="button"
+              @click.prevent="editProfile"
+              class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
               <span>✏️</span>
               <span class="ml-2">Modifier le profil</span>
             </button>
@@ -199,15 +201,40 @@ const loadProfileData = async () => {
 }
 
 // Modifier le profil
-const editProfile = () => {
+const editProfile = async () => {
+  console.log('🔵 [EDIT PROFILE] Fonction appelée')
+  
   try {
-    // Rediriger vers la page d'édition du profil
-    navigateTo('/teacher/profile/edit')
-  } catch (error) {
-    console.error('Erreur lors de la navigation vers la page d\'édition:', error)
+    console.log('🔵 [EDIT PROFILE] Tentative de navigation vers /teacher/profile/edit')
+    
+    // Vérifier que nous sommes côté client
+    if (!process.client) {
+      console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur, navigation différée')
+      return
+    }
+    
+    // Utiliser await pour attendre la navigation
+    const result = await navigateTo('/teacher/profile/edit')
+    
+    // Si navigateTo retourne quelque chose (redirection), on est bon
+    if (result) {
+      console.log('✅ [EDIT PROFILE] Navigation réussie (retour de navigateTo):', result)
+      return
+    }
+    
+    console.log('✅ [EDIT PROFILE] Navigation déclenchée')
+    
+  } catch (error: any) {
+    console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
+    
     // Fallback: utiliser window.location si navigateTo échoue
     if (process.client) {
-      window.location.href = '/teacher/profile/edit'
+      console.log('🔄 [EDIT PROFILE] Utilisation du fallback window.location')
+      try {
+        window.location.href = '/teacher/profile/edit'
+      } catch (fallbackError) {
+        console.error('❌ [EDIT PROFILE] Erreur même avec fallback:', fallbackError)
+      }
     }
   }
 }
