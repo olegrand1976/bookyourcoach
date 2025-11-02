@@ -14,12 +14,16 @@ return new class extends Migration
     {
         Schema::table('lessons', function (Blueprint $table) {
             // Ajouter le champ club_id après l'id
-            $table->foreignId('club_id')->nullable()->after('id')->constrained()->onDelete('cascade');
+            if (!Schema::hasColumn('lessons', 'club_id')) {
+                $table->foreignId('club_id')->nullable()->after('id')->constrained()->onDelete('cascade');
+            }
             
             // Ajouter un index pour améliorer les performances des requêtes par club
+            if (!Schema::hasIndex('lessons', 'club_id')) {
             $table->index('club_id');
             
             // Index composé pour les requêtes fréquentes (club + date)
+            if (!Schema::hasIndex('lessons', ['club_id', 'start_time'])) {
             $table->index(['club_id', 'start_time']);
         });
         
@@ -75,14 +79,22 @@ return new class extends Migration
     {
         Schema::table('lessons', function (Blueprint $table) {
             // Supprimer les index
-            $table->dropIndex(['club_id', 'start_time']);
-            $table->dropIndex(['club_id']);
-            
+            if (Schema::hasIndex('lessons', ['club_id', 'start_time'])) {
+                $table->dropIndex(['club_id', 'start_time']);
+            }
+            if (Schema::hasIndex('lessons', 'club_id')) {
+                $table->dropIndex(['club_id']);
+            }
+                        
             // Supprimer la contrainte de clé étrangère
+            if (Schema::hasForeign('lessons', 'club_id')) {
             $table->dropForeign(['club_id']);
             
             // Supprimer la colonne
-            $table->dropColumn('club_id');
+            
+            if (Schema::hasColumn('lessons', 'club_id')) {
+                $table->dropColumn('club_id');
+            }
         });
     }
 };
