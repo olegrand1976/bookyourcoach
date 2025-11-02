@@ -1,127 +1,186 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- En-tête -->
-      <div class="mb-6 md:mb-8">
+  <div class="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+      <!-- Header avec gradient -->
+      <div class="mb-6 md:mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-4 md:p-6 border-2 border-blue-100">
         <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mon Profil Enseignant</h1>
-            <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Gérez vos informations personnelles et professionnelles</p>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900 break-words">{{ form.name || 'Mon Profil Enseignant' }}</h1>
+            <p class="mt-1 md:mt-2 text-xs md:text-base text-gray-600">Gérez vos informations personnelles et professionnelles</p>
           </div>
-          <NuxtLink to="/teacher/dashboard"
-            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
-            <span>←</span>
-            <span class="ml-2">Retour au tableau de bord</span>
-          </NuxtLink>
+          <div class="flex items-center space-x-4">
+            <NuxtLink to="/teacher/dashboard"
+              class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
+              <span>←</span>
+              <span class="ml-2 hidden md:inline">Retour au tableau de bord</span>
+            </NuxtLink>
+            <div class="p-2 md:p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md flex-shrink-0">
+              <svg class="w-6 h-6 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Contenu du profil -->
-      <div class="bg-white rounded-xl shadow-lg p-6">
-        <div v-if="loading" class="text-center py-8">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p class="mt-4 text-gray-600">Chargement du profil...</p>
+      <!-- Loading State -->
+      <div v-if="loading" class="flex items-center justify-center py-20">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p class="text-gray-600">Chargement des données...</p>
         </div>
+      </div>
 
-        <div v-else-if="error" class="text-center py-8">
-          <div class="text-red-500 text-6xl mb-4">⚠️</div>
-          <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
-          <p class="text-gray-600 mb-4">{{ error }}</p>
-          <button @click="loadProfileData"
-            class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
-            Réessayer
+      <!-- Formulaire -->
+      <form v-else @submit.prevent="handleSubmit" class="bg-white shadow-lg rounded-lg p-4 md:p-6 space-y-6 md:space-y-8">
+        <!-- Informations personnelles -->
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations personnelles</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+              <input
+                id="name"
+                v-model="form.name"
+                type="text"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.name }"
+              />
+              <p v-if="errors.name" class="mt-1 text-sm text-red-600">{{ errors.name }}</p>
+            </div>
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input
+                id="email"
+                v-model="form.email"
+                type="email"
+                required
+                disabled
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p class="mt-1 text-xs text-gray-500">L'email ne peut pas être modifié</p>
+            </div>
+            <div>
+              <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+              <input
+                id="phone"
+                v-model="form.phone"
+                type="tel"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.phone }"
+              />
+              <p v-if="errors.phone" class="mt-1 text-sm text-red-600">{{ errors.phone }}</p>
+            </div>
+            <div>
+              <label for="birth_date" class="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
+              <input
+                id="birth_date"
+                v-model="form.birth_date"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.birth_date }"
+              />
+              <p v-if="errors.birth_date" class="mt-1 text-sm text-red-600">{{ errors.birth_date }}</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Informations professionnelles -->
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations professionnelles</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="specialties" class="block text-sm font-medium text-gray-700 mb-1">Spécialités</label>
+              <textarea
+                id="specialties"
+                v-model="form.specialties"
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.specialties }"
+                placeholder="Décrivez vos spécialités et domaines d'expertise..."
+              ></textarea>
+              <p v-if="errors.specialties" class="mt-1 text-sm text-red-600">{{ errors.specialties }}</p>
+              <p class="mt-1 text-xs text-gray-500">Séparez les spécialités par des virgules</p>
+            </div>
+            <div>
+              <label for="experience_years" class="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+              <input
+                id="experience_years"
+                v-model.number="form.experience_years"
+                type="number"
+                min="0"
+                disabled
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p class="mt-1 text-xs text-gray-500">Calculé automatiquement à partir de la date de début d'expérience</p>
+            </div>
+            <div>
+              <label for="certifications" class="block text-sm font-medium text-gray-700 mb-1">Certifications</label>
+              <textarea
+                id="certifications"
+                v-model="form.certifications"
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.certifications }"
+                placeholder="Listez vos certifications et diplômes..."
+              ></textarea>
+              <p v-if="errors.certifications" class="mt-1 text-sm text-red-600">{{ errors.certifications }}</p>
+              <p class="mt-1 text-xs text-gray-500">Séparez les certifications par des virgules</p>
+            </div>
+            <div>
+              <label for="hourly_rate" class="block text-sm font-medium text-gray-700 mb-1">Tarif horaire (€)</label>
+              <input
+                id="hourly_rate"
+                v-model.number="form.hourly_rate"
+                type="number"
+                min="0"
+                step="0.01"
+                disabled
+                readonly
+                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p class="mt-1 text-xs text-gray-500">Le tarif horaire est géré par le club</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Description -->
+        <section>
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Description</h2>
+          <div>
+            <label for="bio" class="block text-sm font-medium text-gray-700 mb-1">Biographie</label>
+            <textarea
+              id="bio"
+              v-model="form.bio"
+              rows="4"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.bio }"
+              placeholder="Décrivez votre parcours, votre approche pédagogique..."
+            ></textarea>
+            <p v-if="errors.bio" class="mt-1 text-sm text-red-600">{{ errors.bio }}</p>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 md:pt-6 border-t border-gray-200">
+          <NuxtLink to="/teacher/dashboard"
+            class="inline-flex items-center justify-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
+            Annuler
+          </NuxtLink>
+          <button
+            type="submit"
+            :disabled="isSaving"
+            class="inline-flex items-center justify-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div v-if="isSaving" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            <span v-if="isSaving">Enregistrement...</span>
+            <span v-else>Enregistrer les modifications</span>
           </button>
         </div>
-
-        <div v-else class="space-y-6">
-          <!-- Informations personnelles -->
-          <div class="border-b border-gray-200 pb-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations personnelles</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
-                <p class="text-gray-900">{{ profileData?.name || 'Non renseigné' }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <p class="text-gray-900">{{ profileData?.email || 'Non renseigné' }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                <p class="text-gray-900">{{ profileData?.phone || 'Non renseigné' }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date de naissance</label>
-                <p class="text-gray-900">{{ profileData?.birth_date || 'Non renseigné' }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Informations professionnelles -->
-          <div class="border-b border-gray-200 pb-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Informations professionnelles</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Spécialités</label>
-                <div v-if="teacherData?.specialties" class="flex flex-wrap gap-2">
-                  <span v-for="specialty in getSpecialtiesArray(teacherData.specialties)" :key="specialty"
-                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ specialty }}
-                  </span>
-                </div>
-                <p v-else class="text-gray-500">Non renseigné</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
-                <p class="text-gray-900">{{ teacherData?.experience_years ? `${teacherData.experience_years} ans` : 'Non renseigné' }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Tarif horaire</label>
-                <p class="text-gray-900">{{ teacherData?.hourly_rate ? `${teacherData.hourly_rate}€/h` : 'Non renseigné' }}</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                  :class="profileData?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'">
-                  {{ profileData?.status === 'active' ? 'Actif' : 'En attente' }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Description -->
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Description</h2>
-            <div class="bg-gray-50 rounded-lg p-4">
-              <p class="text-gray-700">{{ teacherData?.bio || 'Aucune description renseignée' }}</p>
-            </div>
-          </div>
-
-          <!-- Certifications -->
-          <div v-if="teacherData?.certifications">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Certifications</h2>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="certification in getCertificationsArray(teacherData.certifications)" :key="certification"
-                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                🏆 {{ certification }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button 
-              type="button"
-              @click="editProfile"
-              :disabled="isNavigating"
-              class="inline-flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-              <span v-if="isNavigating" class="animate-spin mr-2">⏳</span>
-              <span v-else>✏️</span>
-              <span class="ml-2">{{ isNavigating ? 'Chargement...' : 'Modifier le profil' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      </form>
     </div>
   </div>
 </template>
@@ -136,159 +195,174 @@ const authStore = useAuthStore()
 
 // État réactif
 const loading = ref(true)
-const error = ref(null)
-const profileData = ref(null)
-const teacherData = ref(null)
+const isSaving = ref(false)
+const errors = ref({})
+
+// Initialiser le formulaire avec les données de l'auth store immédiatement
+const initializeForm = () => {
+  const user = authStore.user
+  
+  return {
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    birth_date: user?.birth_date || '',
+    specialties: '',
+    experience_years: null,
+    certifications: '',
+    hourly_rate: null,
+    bio: ''
+  }
+}
+
+// Formulaire - pré-rempli immédiatement avec les données disponibles
+const form = ref(initializeForm())
 
 // Vérifier que l'utilisateur est un enseignant
-onMounted(() => {
-  if (!authStore.canActAsTeacher) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Accès non autorisé'
-    })
+onMounted(async () => {
+  try {
+    // S'assurer que l'auth est initialisée
+    if (!authStore.isInitialized) {
+      await authStore.initializeAuth()
+    }
+    
+    // Réinitialiser le formulaire avec les données mises à jour de l'auth store
+    form.value = initializeForm()
+    
+    if (!authStore.canActAsTeacher) {
+      await navigateTo('/teacher/dashboard')
+      return
+    }
+    
+    // Charger les données complètes
+    await loadProfileData()
+  } catch (error) {
+    console.error('Erreur dans onMounted:', error)
+    loading.value = false
   }
-  
-  loadProfileData()
 })
 
 // Charger les données du profil
 const loadProfileData = async () => {
   try {
     loading.value = true
-    error.value = null
-    
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/profile')
     
-    console.log('📥 Réponse complète du profil:', response)
-    
     // Le backend retourne { success: true, profile: {...}, teacher: {...} }
-    // $api.get retourne généralement response.data directement depuis axios
     const data = response.data || response
     
-    if (data) {
-      if (data.success) {
-        // Format avec success: true
-        profileData.value = data.profile || null
-        teacherData.value = data.teacher || null
-      } else if (data.profile || data.teacher) {
-        // Format direct sans success
-        profileData.value = data.profile || null
-        teacherData.value = data.teacher || null
-      } else if (data.id && data.role) {
-        // Les données sont peut-être directement dans data (format user)
-        profileData.value = data
-        // Chercher teacher dans les relations
-        teacherData.value = data.teacher || null
+    let profile = null
+    let teacher = null
+    
+    if (data.success) {
+      profile = data.profile
+      teacher = data.teacher
+    } else if (data.profile || data.teacher) {
+      profile = data.profile
+      teacher = data.teacher
+    }
+    
+    // Remplir le formulaire avec les données
+    if (profile || teacher) {
+      if (profile) {
+        form.value.name = profile?.name || authStore.user?.name || ''
+        form.value.email = profile?.email || authStore.user?.email || ''
+        form.value.phone = profile?.phone || ''
+        form.value.birth_date = profile?.birth_date || ''
       }
       
-      // Si les données sont toujours vides, afficher un message d'erreur plus clair
-      if (!profileData.value && !teacherData.value) {
-        error.value = 'Aucune donnée de profil disponible. Le profil enseignant peut être vide.'
-        console.warn('⚠️ Profil vide - aucune donnée chargée', { data, response })
-      } else {
-        console.log('✅ Profil chargé:', {
-          profile: profileData.value,
-          teacher: teacherData.value
-        })
+      if (teacher) {
+        // Gérer les spécialités (peuvent être un array, string JSON, ou string simple)
+        if (teacher.specialties) {
+          if (Array.isArray(teacher.specialties)) {
+            form.value.specialties = teacher.specialties.join(', ')
+          } else if (typeof teacher.specialties === 'string') {
+            try {
+              const parsed = JSON.parse(teacher.specialties)
+              form.value.specialties = Array.isArray(parsed) ? parsed.join(', ') : teacher.specialties
+            } catch {
+              form.value.specialties = teacher.specialties
+            }
+          }
+        }
+        
+        form.value.experience_years = teacher.experience_years || null
+        
+        // Gérer les certifications
+        if (teacher.certifications) {
+          if (Array.isArray(teacher.certifications)) {
+            form.value.certifications = teacher.certifications.join(', ')
+          } else if (typeof teacher.certifications === 'string') {
+            try {
+              const parsed = JSON.parse(teacher.certifications)
+              form.value.certifications = Array.isArray(parsed) ? parsed.join(', ') : teacher.certifications
+            } catch {
+              form.value.certifications = teacher.certifications
+            }
+          }
+        }
+        
+        form.value.hourly_rate = teacher.hourly_rate || null
+        form.value.bio = teacher.bio || ''
       }
     }
   } catch (err) {
     console.error('Erreur lors du chargement du profil:', err)
-    error.value = 'Impossible de charger les données du profil'
+    const toast = useToast()
+    toast.error('Impossible de charger les données du profil')
   } finally {
     loading.value = false
   }
 }
 
-// État pour empêcher les clics multiples
-const isNavigating = ref(false)
-
-// Modifier le profil
-const editProfile = async () => {
-  // Empêcher les clics multiples
-  if (isNavigating.value) {
-    console.warn('⚠️ [EDIT PROFILE] Navigation déjà en cours, ignore le clic')
-    return
-  }
-  
-  console.log('🔵 [EDIT PROFILE] Fonction appelée')
-  
-  // Vérifier que nous sommes côté client
-  if (!process.client) {
-    console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur')
-    return
-  }
-  
+// Enregistrer le profil
+const handleSubmit = async () => {
   try {
-    isNavigating.value = true
+    isSaving.value = true
+    errors.value = {}
     
-    // S'assurer que l'auth est initialisée avant de naviguer
-    await authStore.initializeAuth()
+    const { $api } = useNuxtApp()
     
-    // Vérifier les permissions
-    if (!authStore.canActAsTeacher) {
-      console.error('❌ [EDIT PROFILE] Pas de droits enseignant')
-      return
+    // Préparer les données à envoyer
+    const updateData = {
+      name: form.value.name,
+      phone: form.value.phone || null,
+      birth_date: form.value.birth_date || null,
+      bio: form.value.bio || null,
+      // Convertir specialties et certifications en arrays si ce sont des strings séparées par des virgules
+      specialties: form.value.specialties 
+        ? form.value.specialties.split(',').map(s => s.trim()).filter(s => s.length > 0)
+        : null,
+      certifications: form.value.certifications
+        ? form.value.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
+        : null
     }
     
-    console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
+    const response = await $api.put('/teacher/profile', updateData)
     
-    // Utiliser navigateTo de Nuxt - plus simple et plus fiable
-    await navigateTo('/teacher/profile/edit')
-    console.log('✅ [EDIT PROFILE] Navigation réussie')
-  } catch (error) {
-    console.error('❌ [EDIT PROFILE] Erreur navigation:', error)
-    isNavigating.value = false
+    if (response.data) {
+      const toast = useToast()
+      toast.success('Profil mis à jour avec succès')
+      
+      // Recharger les données pour avoir les valeurs à jour
+      await loadProfileData()
+    }
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour du profil:', err)
+    
+    if (err.response?.data?.errors) {
+      errors.value = err.response.data.errors
+    } else {
+      const toast = useToast()
+      toast.error(err.response?.data?.message || 'Erreur lors de la mise à jour du profil')
+    }
+  } finally {
+    isSaving.value = false
   }
 }
 
-// Fonctions utilitaires pour convertir les données JSON
-const getSpecialtiesArray = (specialties) => {
-  if (!specialties) return []
-  
-  try {
-    // Si c'est déjà un tableau
-    if (Array.isArray(specialties)) return specialties
-    
-    // Si c'est une chaîne JSON
-    if (typeof specialties === 'string') {
-      const parsed = JSON.parse(specialties)
-      return Array.isArray(parsed) ? parsed : [specialties]
-    }
-    
-    return []
-  } catch (error) {
-    console.error('Erreur lors du parsing des spécialités:', error)
-    return [specialties]
-  }
-}
-
-const getCertificationsArray = (certifications) => {
-  if (!certifications) return []
-  
-  try {
-    // Si c'est déjà un tableau
-    if (Array.isArray(certifications)) return certifications
-    
-    // Si c'est une chaîne JSON
-    if (typeof certifications === 'string') {
-      const parsed = JSON.parse(certifications)
-      return Array.isArray(parsed) ? parsed : [certifications]
-    }
-    
-    return []
-  } catch (error) {
-    console.error('Erreur lors du parsing des certifications:', error)
-    return [certifications]
-  }
-}
-
-// Watcher pour recharger les données si l'utilisateur change
-watch(() => authStore.user, (newUser) => {
-  if (newUser) {
-    loadProfileData()
-  }
-}, { immediate: false })
+useHead({
+  title: 'Mon Profil Enseignant'
+})
 </script>
