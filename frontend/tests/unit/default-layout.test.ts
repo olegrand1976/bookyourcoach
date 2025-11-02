@@ -68,7 +68,7 @@ describe('Layout par défaut', () => {
     })
 
     it('affiche le copyright dans le footer', () => {
-        expect(wrapper.text()).toContain('© 2025 BookYourCoach')
+        expect(wrapper.text()).toContain('© 2025 LL-IT Software & Computer')
         expect(wrapper.text()).toContain('Tous droits réservés')
     })
 

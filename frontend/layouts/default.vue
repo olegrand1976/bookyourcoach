@@ -192,7 +192,7 @@
         <hr class="border-blue-500/30 my-8">
 
         <div class="text-center text-gray-100/60">
-          <p>&copy; 2025 BookYourCoach. Tous droits réservés. 🏃</p>
+          <p>&copy; 2025 LL-IT Software & Computer. Tous droits réservés. 🏃</p>
         </div>
       </div>
     </footer>
