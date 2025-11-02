@@ -477,6 +477,18 @@ class TeacherController extends Controller
             if (array_key_exists('birth_date', $validated)) {
                 // S'assurer que birth_date est bien une date valide ou null
                 $newBirthDate = $validated['birth_date'] ?: null;
+                
+                // Si c'est une chaîne de date, s'assurer qu'elle est au format Y-m-d
+                if ($newBirthDate && is_string($newBirthDate)) {
+                    // Extraire seulement la partie date (YYYY-MM-DD) au cas où il y aurait une heure
+                    $newBirthDate = substr($newBirthDate, 0, 10);
+                    
+                    Log::info('🔵 [TeacherController::updateProfile] Formatage birth_date:', [
+                        'original' => $validated['birth_date'],
+                        'formatted' => $newBirthDate
+                    ]);
+                }
+                
                 $user->birth_date = $newBirthDate;
                 
                 Log::info('🔵 [TeacherController::updateProfile] Mise à jour birth_date:', [
