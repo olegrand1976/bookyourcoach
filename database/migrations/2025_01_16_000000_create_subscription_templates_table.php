@@ -79,12 +79,25 @@ return new class extends Migration
                 }
                 // Supprimer les colonnes name, description, total_lessons, free_lessons, price, validity_months
                 // On garde ces colonnes pour la migration progressive, on les rend nullable d'abord
-                $table->string('name')->nullable()->change();
-                $table->text('description')->nullable()->change();
-                $table->integer('total_lessons')->nullable()->change();
-                $table->integer('free_lessons')->nullable()->change();
-                $table->decimal('price', 10, 2)->nullable()->change();
-                $table->integer('validity_months')->nullable()->change();
+                // Vérifier que chaque colonne existe avant de la modifier
+                if (Schema::hasColumn('subscriptions', 'name')) {
+                    $table->string('name')->nullable()->change();
+                }
+                if (Schema::hasColumn('subscriptions', 'description')) {
+                    $table->text('description')->nullable()->change();
+                }
+                if (Schema::hasColumn('subscriptions', 'total_lessons')) {
+                    $table->integer('total_lessons')->nullable()->change();
+                }
+                if (Schema::hasColumn('subscriptions', 'free_lessons')) {
+                    $table->integer('free_lessons')->nullable()->change();
+                }
+                if (Schema::hasColumn('subscriptions', 'price')) {
+                    $table->decimal('price', 10, 2)->nullable()->change();
+                }
+                if (Schema::hasColumn('subscriptions', 'validity_months')) {
+                    $table->integer('validity_months')->nullable()->change();
+                }
             });
         }
     }

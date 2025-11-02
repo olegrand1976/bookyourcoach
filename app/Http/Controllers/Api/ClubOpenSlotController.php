@@ -179,16 +179,29 @@ class ClubOpenSlotController extends Controller
                 $query->where('club_id', $club->id);
             }
 
+            // Filtre par défaut : afficher uniquement les créneaux actifs
+            // (sauf si is_active=false est explicitement demandé)
+            if ($request->has('is_active')) {
+                $query->where('is_active', $request->is_active);
+            } else {
+                // Par défaut, afficher uniquement les créneaux actifs
+                $query->where('is_active', true);
+            }
+
             // Filtres optionnels
             if ($request->has('day_of_week')) {
                 $query->where('day_of_week', $request->day_of_week);
             }
 
-            if ($request->has('is_active')) {
-                $query->where('is_active', $request->is_active);
-            }
-
             $slots = $query->orderBy('day_of_week')->orderBy('start_time')->get();
+            
+            \Log::info('ClubOpenSlotController::index - Créneaux récupérés', [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'club_id' => $user->role === 'club' ? ($user->getFirstClub()?->id ?? null) : null,
+                'slots_count' => $slots->count(),
+                'is_active_filter' => $request->has('is_active') ? $request->is_active : true
+            ]);
 
             // Récupérer les IDs des disciplines du club pour filtrer les types de cours
             $clubDisciplineIds = [];

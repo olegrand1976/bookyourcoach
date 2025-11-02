@@ -78,6 +78,9 @@ class ClubDashboardController extends Controller
             // Récupérer les cours récents
             $recentLessons = $this->getRecentLessons($club->id);
             
+            // Récupérer les élèves avec données incomplètes (pas de nom ou pas d'email)
+            $incompleteStudents = $this->getIncompleteStudents($club->id);
+            
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -85,7 +88,8 @@ class ClubDashboardController extends Controller
                     'stats' => $stats,
                     'recentTeachers' => $recentTeachers,
                     'recentStudents' => $recentStudents,
-                    'recentLessons' => $recentLessons
+                    'recentLessons' => $recentLessons,
+                    'incompleteStudents' => $incompleteStudents
                 ]
             ]);
             
@@ -207,12 +211,15 @@ class ClubDashboardController extends Controller
     {
         return DB::table('club_students')
             ->join('students', 'club_students.student_id', '=', 'students.id')
-            ->join('users', 'students.user_id', '=', 'users.id')
+            ->leftJoin('users', 'students.user_id', '=', 'users.id')
             ->where('club_students.club_id', $clubId)
             ->where('club_students.is_active', true)
             ->select(
-                'users.id',
+                'students.id',
+                'users.id as user_id',
                 'users.name',
+                'users.first_name',
+                'users.last_name',
                 'users.email',
                 'students.level',
                 'students.total_lessons',
@@ -225,7 +232,10 @@ class ClubDashboardController extends Controller
             ->map(function ($student) {
                 return [
                     'id' => $student->id,
-                    'name' => $student->name,
+                    'user_id' => $student->user_id,
+                    'name' => $student->name ?? 'Élève sans nom',
+                    'first_name' => $student->first_name,
+                    'last_name' => $student->last_name,
                     'email' => $student->email,
                     'level' => $student->level,
                     'total_lessons' => $student->total_lessons,
@@ -269,5 +279,113 @@ class ClubDashboardController extends Controller
                     'teacher_name' => $lesson->teacher_name
                 ];
             });
+    }
+    
+    private function getIncompleteStudents($clubId)
+    {
+        // Récupérer les élèves sans user_id (pas de compte utilisateur créé)
+        $studentsWithoutUser = DB::table('club_students')
+            ->join('students', 'club_students.student_id', '=', 'students.id')
+            ->where('club_students.club_id', $clubId)
+            ->where('club_students.is_active', true)
+            ->whereNull('students.user_id')
+            ->select(
+                'students.id',
+                'students.club_id',
+                'students.date_of_birth',
+                DB::raw('NULL as name'),
+                DB::raw('NULL as first_name'),
+                DB::raw('NULL as last_name'),
+                DB::raw('NULL as email'),
+                DB::raw('"no_user" as missing_field')
+            )
+            ->get();
+        
+        // Récupérer les élèves avec user_id mais sans nom (first_name ou last_name null)
+        $studentsWithoutName = DB::table('club_students')
+            ->join('students', 'club_students.student_id', '=', 'students.id')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->where('club_students.club_id', $clubId)
+            ->where('club_students.is_active', true)
+            ->where(function($query) {
+                $query->whereNull('users.first_name')
+                      ->orWhereNull('users.last_name')
+                      ->orWhere('users.first_name', '')
+                      ->orWhere('users.last_name', '');
+            })
+            ->select(
+                'students.id',
+                'students.club_id',
+                'students.date_of_birth',
+                'users.name',
+                'users.first_name',
+                'users.last_name',
+                'users.email',
+                DB::raw('"no_name" as missing_field')
+            )
+            ->get();
+        
+        // Récupérer les élèves avec user_id mais sans email
+        $studentsWithoutEmail = DB::table('club_students')
+            ->join('students', 'club_students.student_id', '=', 'students.id')
+            ->join('users', 'students.user_id', '=', 'users.id')
+            ->where('club_students.club_id', $clubId)
+            ->where('club_students.is_active', true)
+            ->where(function($query) {
+                $query->whereNull('users.email')
+                      ->orWhere('users.email', '');
+            })
+            ->select(
+                'students.id',
+                'students.club_id',
+                'students.date_of_birth',
+                'users.name',
+                'users.first_name',
+                'users.last_name',
+                'users.email',
+                DB::raw('"no_email" as missing_field')
+            )
+            ->get();
+        
+        // Fusionner les résultats
+        $allIncomplete = $studentsWithoutUser
+            ->concat($studentsWithoutName)
+            ->concat($studentsWithoutEmail)
+            ->map(function ($student) {
+                return [
+                    'student_id' => $student->id,
+                    'club_id' => $student->club_id,
+                    'date_of_birth' => $student->date_of_birth,
+                    'name' => $student->name,
+                    'first_name' => $student->first_name,
+                    'last_name' => $student->last_name,
+                    'email' => $student->email,
+                    'missing_fields' => $this->getMissingFields($student)
+                ];
+            })
+            ->unique('student_id')
+            ->values();
+        
+        return $allIncomplete;
+    }
+    
+    private function getMissingFields($student)
+    {
+        $missing = [];
+        
+        if (!$student->email || empty($student->email)) {
+            $missing[] = 'email';
+        }
+        
+        if ((!$student->first_name || empty($student->first_name)) && 
+            (!$student->last_name || empty($student->last_name))) {
+            $missing[] = 'name';
+        } elseif (!$student->first_name || empty($student->first_name)) {
+            $missing[] = 'first_name';
+        } elseif (!$student->last_name || empty($student->last_name)) {
+            $missing[] = 'last_name';
+        }
+        
+        return $missing;
     }
 }

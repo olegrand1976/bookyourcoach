@@ -16,11 +16,28 @@ export default defineNuxtPlugin(() => {
   api.interceptors.request.use((config) => {
     const authStore = useAuthStore()
     
-    if (authStore.token) {
-      config.headers.Authorization = `Bearer ${authStore.token}`
-      console.log('🚀 [API SIMPLIFIÉ] Token ajouté du store:', authStore.token.substring(0, 10) + '...')
+    // Essayer d'abord depuis le store
+    let token = authStore.token
+    
+    // Si pas dans le store, essayer depuis les cookies (pour SSR/initialisation)
+    if (!token && process.client) {
+      const cookies = document.cookie.split(';')
+      const tokenCookie = cookies.find(c => c.trim().startsWith('auth-token='))
+      if (tokenCookie) {
+        try {
+          const encodedValue = tokenCookie.split('=')[1]
+          token = decodeURIComponent(escape(atob(encodedValue)))
+        } catch (e) {
+          console.warn('🚀 [API SIMPLIFIÉ] Erreur lors du décodage du cookie token:', e)
+        }
+      }
+    }
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+      console.log('🚀 [API SIMPLIFIÉ] Token ajouté:', token.substring(0, 10) + '...', 'URL:', config.url)
     } else {
-      console.log('🚀 [API SIMPLIFIÉ] Pas de token dans store')
+      console.warn('🚀 [API SIMPLIFIÉ] ⚠️ Pas de token disponible pour:', config.url)
     }
     return config
   })

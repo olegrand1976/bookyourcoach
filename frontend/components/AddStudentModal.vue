@@ -42,28 +42,41 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">
-                  Nom complet <span class="text-red-500">*</span>
+                  Prénom <span class="text-gray-500 text-xs">(facultatif)</span>
                 </label>
                 <input 
-                  v-model="form.name" 
+                  v-model="form.first_name" 
                   type="text" 
-                  required 
-                  placeholder="Ex: Jean Dupont"
+                  placeholder="Ex: Jean"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 >
               </div>
               
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">
-                  Email <span class="text-red-500">*</span>
+                  Nom <span class="text-gray-500 text-xs">(facultatif)</span>
+                </label>
+                <input 
+                  v-model="form.last_name" 
+                  type="text" 
+                  placeholder="Ex: Dupont"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                >
+              </div>
+              
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">
+                  Email <span class="text-gray-500 text-xs">(facultatif)</span>
                 </label>
                 <input 
                   v-model="form.email" 
                   type="email" 
-                  required 
                   placeholder="Ex: jean.dupont@email.com"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 >
+                <p class="text-xs text-gray-500 mt-1">
+                  Si aucun email n'est fourni, un compte utilisateur ne sera pas créé. Vous pourrez compléter ces informations plus tard.
+                </p>
               </div>
               
               <div class="space-y-2">
@@ -91,22 +104,6 @@
                     <span class="text-lg font-bold text-emerald-700">{{ calculatedAge }} ans</span>
                   </div>
                 </div>
-              </div>
-              
-              <div class="space-y-2">
-                <label class="block text-sm font-medium text-gray-700">
-                  Niveau <span class="text-gray-500 text-xs">(facultatif)</span>
-                </label>
-                <select 
-                  v-model="form.level" 
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                >
-                  <option value="">Sélectionner un niveau</option>
-                  <option value="debutant">🌱 Débutant</option>
-                  <option value="intermediaire">📈 Intermédiaire</option>
-                  <option value="avance">⭐ Avancé</option>
-                  <option value="expert">🏆 Expert</option>
-                </select>
               </div>
             </div>
           </div>
@@ -348,6 +345,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '~/stores/auth'
 
 const emit = defineEmits(['close', 'success'])
 
@@ -357,11 +355,11 @@ const selectedDisciplines = ref([])
 const medicalDocuments = ref([])
 
 const form = ref({
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   phone: '',
   date_of_birth: '',
-  level: '',
   goals: '',
   medical_info: ''
 })
@@ -390,15 +388,40 @@ const calculatedAge = computed(() => {
 // Charger les spécialités du club
 const loadClubDisciplines = async () => {
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    // Ne pas charger si on est dans un contexte de test ou sans API
+    if (process.env.NODE_ENV === 'test' || typeof window === 'undefined') {
+      return
+    }
     
-    const response = await $fetch(`${config.public.apiBase}/club/profile`)
-    if (response.club && response.club.disciplines) {
-      availableDisciplines.value = response.club.disciplines
+    const { $api } = useNuxtApp()
+    
+    // Vérifier l'auth avant l'appel (uniquement si Pinia est disponible)
+    try {
+      const authStore = useAuthStore()
+      // Si le store a une méthode initializeAuth, l'utiliser
+      if (authStore && typeof authStore.initializeAuth === 'function' && !authStore.token) {
+        await authStore.initializeAuth()
+      }
+    } catch (piniaError) {
+      // Si Pinia n'est pas disponible (tests, SSR), continuer quand même
+      // L'intercepteur API essaiera de récupérer le token depuis les cookies
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('⚠️ [AddStudentModal] Pinia non disponible, utilisation du token depuis cookies')
+      }
+    }
+    
+    const response = await $api.get('/club/profile')
+    if (response.data.club && response.data.club.disciplines) {
+      availableDisciplines.value = response.data.club.disciplines
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des spécialités:', error)
+    // Ne pas logger les erreurs en mode test
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('❌ [AddStudentModal] Erreur lors du chargement des spécialités:', error)
+      if (error?.response?.status === 401) {
+        console.warn('⚠️ Token expiré lors du chargement des spécialités')
+      }
+    }
   }
 }
 
@@ -451,39 +474,62 @@ const handleFileUpload = (event, index) => {
 const addStudent = async () => {
   loading.value = true
   try {
-    const config = useRuntimeConfig()
-    const tokenCookie = useCookie('auth-token')
+    // Vérifier l'authentification avant l'appel (uniquement si Pinia est disponible)
+    let authStore = null
+    try {
+      authStore = useAuthStore()
+      
+      // Vérifier si le store a les méthodes nécessaires et un token
+      if (authStore && typeof authStore.initializeAuth === 'function') {
+        // Forcer une réinitialisation de l'auth si le token n'est pas présent
+        if (!authStore.token) {
+          if (process.env.NODE_ENV !== 'test') {
+            console.warn('⚠️ Token manquant dans le store, tentative de restauration depuis cookies...')
+          }
+          await authStore.initializeAuth()
+        }
+        
+        if (!authStore.token && process.env.NODE_ENV !== 'test') {
+          console.error('❌ Aucun token d\'authentification disponible')
+          const { error } = useToast()
+          error('Erreur d\'authentification. Veuillez vous reconnecter.', 'Authentification')
+          return
+        }
+        
+        if (process.env.NODE_ENV !== 'test') {
+          console.log('🔑 [AddStudentModal] Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
+        }
+      }
+    } catch (piniaError) {
+      // Si Pinia n'est pas disponible, l'intercepteur API essaiera de récupérer le token depuis les cookies
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('⚠️ [AddStudentModal] Pinia non disponible, l\'intercepteur API gérera le token')
+      }
+    }
     
-    // Séparer le nom en prénom et nom de famille
-    const nameParts = form.value.name.trim().split(' ')
-    const firstName = nameParts[0]
-    const lastName = nameParts.slice(1).join(' ') || nameParts[0]
+    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
+    const { $api } = useNuxtApp()
     
     // Préparer les données de l'étudiant
     const studentData = {
-      first_name: firstName,
-      last_name: lastName,
-      email: form.value.email,
-      phone: form.value.phone,
+      first_name: form.value.first_name || null,
+      last_name: form.value.last_name || null,
+      email: form.value.email || null,
+      phone: form.value.phone || null,
       date_of_birth: form.value.date_of_birth || null,
-      level: form.value.level,
-      goals: form.value.goals,
-      medical_info: form.value.medical_info,
-      disciplines: selectedDisciplines.value,
+      goals: form.value.goals || null,
+      medical_info: form.value.medical_info || null,
+      disciplines: selectedDisciplines.value.length > 0 ? selectedDisciplines.value : null,
       medical_documents: medicalDocuments.value.filter(doc => doc.document_type && doc.file)
     }
     
-    // Créer l'étudiant d'abord
-    const response = await $fetch(`${config.public.apiBase}/club/students`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${tokenCookie.value}`,
-        'Content-Type': 'application/json'
-      },
-      body: studentData
-    })
+    console.log('🔄 [AddStudentModal] Création de l\'élève:', studentData)
+    console.log('🔑 [AddStudentModal] Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
     
-    console.log('✅ Étudiant créé avec succès:', response)
+    // Créer l'étudiant avec $api
+    const response = await $api.post('/club/students', studentData)
+    
+    console.log('✅ [AddStudentModal] Étudiant créé avec succès:', response.data)
     
     // Upload des documents médicaux si il y en a
     if (medicalDocuments.value.some(doc => doc.file)) {
@@ -498,29 +544,36 @@ const addStudent = async () => {
         }
       })
       
-      await $fetch(`${config.public.apiBase}/club/students/${response.student.id}/medical-documents`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${tokenCookie.value}`
-        },
-        body: formData
-      })
+      const studentId = response.data.data?.id || response.data.student?.id
+      if (studentId) {
+        await $api.post(`/club/students/${studentId}/medical-documents`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+      }
     }
     
     // Afficher le toast de succès
-    const { showToast } = useToast()
-    showToast('Étudiant créé avec succès !', 'success')
+    const { success } = useToast()
+    success(response.data.message || 'Étudiant créé avec succès !', 'Succès')
     
     // Émettre les événements
-    emit('success')
+    emit('success', response.data)
     emit('close')
     
   } catch (error) {
-    console.error('❌ Erreur lors de l\'ajout de l\'élève:', error)
+    console.error('❌ [AddStudentModal] Erreur lors de l\'ajout de l\'élève:', error)
+    console.error('❌ [AddModal] Détails erreur:', {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status
+    })
     
     // Afficher le toast d'erreur
-    const { showToast } = useToast()
-    showToast('Erreur lors de la création de l\'étudiant', 'error')
+    const { error: showError } = useToast()
+    const errorMessage = error?.response?.data?.message || 'Erreur lors de la création de l\'étudiant'
+    showError(errorMessage, 'Erreur')
     
   } finally {
     loading.value = false

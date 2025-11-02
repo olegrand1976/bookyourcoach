@@ -815,15 +815,34 @@ async function loadClubDisciplines() {
 async function loadOpenSlots() {
   try {
     const { $api } = useNuxtApp()
+    console.log('🔄 [Planning] Chargement des créneaux horaires...')
+    
     const response = await $api.get('/club/open-slots')
     
+    console.log('📥 [Planning] Réponse API créneaux:', {
+      success: response.data.success,
+      data_type: typeof response.data.data,
+      data_is_array: Array.isArray(response.data.data),
+      data_length: Array.isArray(response.data.data) ? response.data.data.length : 'N/A',
+      message: response.data.message
+    })
+    
     if (response.data.success) {
-      openSlots.value = response.data.data
-      console.log('✅ Créneaux chargés:', openSlots.value)
+      openSlots.value = Array.isArray(response.data.data) ? response.data.data : []
+      console.log('✅ Créneaux chargés:', openSlots.value.length, 'créneaux')
+      
+      if (openSlots.value.length === 0) {
+        console.warn('⚠️ Aucun créneau trouvé pour ce club')
+      }
       
       // 🔍 DEBUG: Vérifier les course_types dans chaque slot
       openSlots.value.forEach((slot, index) => {
         console.log(`🔍 [Slot ${index + 1}] ID: ${slot.id}`, {
+          club_id: slot.club_id,
+          day_of_week: slot.day_of_week,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          is_active: slot.is_active,
           discipline_id: slot.discipline_id,
           discipline_name: slot.discipline?.name,
           has_course_types: !!slot.course_types,
@@ -836,11 +855,17 @@ async function loadOpenSlots() {
           })) || []
         })
       })
-  } else {
-      console.error('Erreur chargement créneaux:', response.data.message)
+    } else {
+      console.error('❌ Erreur chargement créneaux:', response.data.message)
+      openSlots.value = []
     }
   } catch (err: any) {
-    console.error('Erreur chargement créneaux:', err)
+    console.error('❌ Erreur chargement créneaux:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    })
+    openSlots.value = []
   }
 }
 

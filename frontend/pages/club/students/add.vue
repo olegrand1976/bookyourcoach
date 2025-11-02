@@ -24,18 +24,33 @@
       <!-- Formulaire -->
       <div class="bg-white rounded-xl shadow-lg p-8">
         <form @submit.prevent="addStudent" class="space-y-6">
-          <!-- Nom complet -->
+          <!-- Prénom -->
           <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
-              Nom complet *
+            <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">
+              Prénom *
             </label>
             <input
-              id="name"
-              v-model="form.name"
+              id="first_name"
+              v-model="form.first_name"
               type="text"
               required
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              placeholder="Jean Dupont"
+              placeholder="Jean"
+            />
+          </div>
+
+          <!-- Nom -->
+          <div>
+            <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">
+              Nom *
+            </label>
+            <input
+              id="last_name"
+              v-model="form.last_name"
+              type="text"
+              required
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Dupont"
             />
           </div>
 
@@ -87,24 +102,6 @@
                 {{ calculatedAge }} ans
               </span>
             </div>
-          </div>
-
-          <!-- Niveau -->
-          <div>
-            <label for="level" class="block text-sm font-medium text-gray-700 mb-2">
-              Niveau
-            </label>
-            <select
-              id="level"
-              v-model="form.level"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            >
-              <option value="">Sélectionner un niveau</option>
-              <option value="debutant">🌱 Débutant</option>
-              <option value="intermediaire">📈 Intermédiaire</option>
-              <option value="avance">⭐ Avancé</option>
-              <option value="expert">🏆 Expert</option>
-            </select>
           </div>
 
           <!-- Objectifs -->
@@ -187,9 +184,6 @@
                 <p class="text-sm text-gray-600">{{ student.email }}</p>
               </div>
             </div>
-            <span v-if="student.level" class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-              {{ getLevelLabel(student.level) }}
-            </span>
           </div>
         </div>
       </div>
@@ -199,21 +193,23 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({
   middleware: ['auth']
 })
 
 const { $api } = useNuxtApp()
+const authStore = useAuthStore()
 const loading = ref(false)
 const existingStudents = ref([])
 
 const form = ref({
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   password: '',
   date_of_birth: '',
-  level: '',
   goals: '',
   medical_info: ''
 })
@@ -244,7 +240,25 @@ const addStudent = async () => {
   loading.value = true
   
   try {
+    // Vérifier et rafraîchir l'authentification avant l'appel
+    const authStore = useAuthStore()
+    
+    // Forcer une réinitialisation de l'auth si le token n'est pas présent
+    if (!authStore.token) {
+      console.warn('⚠️ Token manquant dans le store, tentative de restauration depuis cookies...')
+      await authStore.initializeAuth()
+    }
+    
+    if (!authStore.token) {
+      console.error('❌ Aucun token d\'authentification disponible')
+      alert('❌ Erreur d\'authentification. Veuillez vous reconnecter.')
+      await navigateTo('/login')
+      return
+    }
+    
     console.log('Création de l\'élève:', form.value)
+    console.log('🔑 Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
+    console.log('🔑 User role:', authStore.user?.role)
     
     const response = await $api.post('/club/students', form.value)
     
@@ -255,11 +269,11 @@ const addStudent = async () => {
     
     // Réinitialiser le formulaire
     form.value = {
-      name: '',
+      first_name: '',
+      last_name: '',
       email: '',
       password: '',
       date_of_birth: '',
-      level: '',
       goals: '',
       medical_info: ''
     }
@@ -278,22 +292,20 @@ const addStudent = async () => {
 // Charger les élèves existants
 const loadExistingStudents = async () => {
   try {
+    // Vérifier l'auth avant l'appel
+    if (!authStore.token) {
+      await authStore.initializeAuth()
+    }
+    
     const response = await $api.get('/club/students')
     existingStudents.value = response.data.data || []
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
+    if (error.response?.status === 401) {
+      console.warn('⚠️ Token expiré lors du chargement des élèves, redirection vers login')
+      await navigateTo('/login')
+    }
   }
-}
-
-// Fonction pour obtenir le label du niveau
-const getLevelLabel = (level) => {
-  const labels = {
-    debutant: '🌱 Débutant',
-    intermediaire: '📈 Intermédiaire',
-    avance: '⭐ Avancé',
-    expert: '🏆 Expert'
-  }
-  return labels[level] || level
 }
 
 onMounted(() => {

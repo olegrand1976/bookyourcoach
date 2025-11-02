@@ -33,23 +33,42 @@ describe('AddStudentModal', () => {
     })
 
     it('devrait afficher tous les champs requis', () => {
-      expect(wrapper.find('input[type="text"]').exists()).toBe(true) // Nom
+      const textInputs = wrapper.findAll('input[type="text"]')
+      expect(textInputs.length).toBeGreaterThanOrEqual(2) // Prénom et Nom
       expect(wrapper.find('input[type="email"]').exists()).toBe(true) // Email
       expect(wrapper.find('input[type="tel"]').exists()).toBe(true) // Téléphone
-      expect(wrapper.find('select').exists()).toBe(true) // Niveau
       expect(wrapper.findAll('textarea').length).toBeGreaterThanOrEqual(2) // Objectifs + Infos médicales
     })
   })
 
   describe('Champs du formulaire', () => {
-    it('devrait avoir un champ Nom complet avec astérisque obligatoire', () => {
-      expect(wrapper.text()).toContain('Nom complet')
-      expect(wrapper.text()).toContain('*')
+    it('devrait avoir un champ Prénom marqué comme facultatif', () => {
+      expect(wrapper.text()).toContain('Prénom')
+      expect(wrapper.text()).toContain('(facultatif)')
+      // Vérifier que le champ n'est pas requis
+      const firstNameInput = wrapper.find('input[type="text"]')
+      expect(firstNameInput.attributes('required')).toBeUndefined()
     })
 
-    it('devrait avoir un champ Email avec astérisque obligatoire', () => {
+    it('devrait avoir un champ Nom marqué comme facultatif', () => {
+      expect(wrapper.text()).toContain('Nom')
+      expect(wrapper.text()).toContain('(facultatif)')
+      const textInputs = wrapper.findAll('input[type="text"]')
+      expect(textInputs.length).toBeGreaterThanOrEqual(2)
+      // Vérifier que le champ nom n'est pas requis
+      const lastNameInput = textInputs[1]
+      expect(lastNameInput.attributes('required')).toBeUndefined()
+    })
+
+    it('devrait avoir un champ Email marqué comme facultatif', () => {
       expect(wrapper.text()).toContain('Email')
-      expect(wrapper.find('input[type="email"]').attributes('required')).toBeDefined()
+      expect(wrapper.text()).toContain('(facultatif)')
+      const emailInput = wrapper.find('input[type="email"]')
+      expect(emailInput.exists()).toBe(true)
+      // Vérifier que le champ n'est pas requis
+      expect(emailInput.attributes('required')).toBeUndefined()
+      // Vérifier que le message d'information est présent
+      expect(wrapper.text()).toContain('Si aucun email n\'est fourni')
     })
 
     it('devrait avoir un champ Téléphone optionnel', () => {
@@ -58,23 +77,15 @@ describe('AddStudentModal', () => {
       expect(phoneInput.attributes('required')).toBeUndefined()
     })
 
-    it('devrait avoir un select de niveau avec options', () => {
-      const select = wrapper.find('select')
-      expect(select.exists()).toBe(true)
-      const options = select.findAll('option')
-      expect(options.length).toBeGreaterThan(1)
-      
-      const optionsText = options.map((opt: any) => opt.text())
-      expect(optionsText.some(text => text.includes('Débutant'))).toBe(true)
-      expect(optionsText.some(text => text.includes('Intermédiaire'))).toBe(true)
-      expect(optionsText.some(text => text.includes('Avancé'))).toBe(true)
-      expect(optionsText.some(text => text.includes('Expert'))).toBe(true)
-    })
-
-    it('devrait avoir des émojis dans les options de niveau', () => {
-      const select = wrapper.find('select')
-      const html = select.html()
-      expect(html).toMatch(/[🌱📈⭐🏆]/u)
+    it('ne devrait PAS avoir de champ Niveau (supprimé)', () => {
+      expect(wrapper.text()).not.toContain('Niveau')
+      const selects = wrapper.findAll('select')
+      // Les selects restants sont pour les documents médicaux, pas pour le niveau
+      const hasLevelSelect = selects.some((select: any) => {
+        const html = select.html()
+        return html.includes('Débutant') || html.includes('Intermédiaire')
+      })
+      expect(hasLevelSelect).toBe(false)
     })
   })
 

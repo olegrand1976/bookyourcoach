@@ -55,7 +55,9 @@ class Lesson extends Model
         'rating' => 'integer'
     ];
 
-    protected $appends = ['teacher_name', 'student_name', 'duration', 'title'];
+    // Accessors désactivés par défaut pour améliorer les performances
+    // Ils peuvent être réactivés avec ->append() si nécessaire dans les contrôleurs
+    protected $appends = [];
 
     /**
      * Get the club for this lesson.
@@ -163,18 +165,28 @@ class Lesson extends Model
 
     /**
      * Get teacher name for API response.
+     * Optimisé pour éviter les requêtes N+1 si la relation n'est pas chargée.
      */
     public function getTeacherNameAttribute(): ?string
     {
-        return $this->teacher?->user?->name;
+        // Si la relation teacher n'est pas chargée, retourner null pour éviter les requêtes N+1
+        if (!$this->relationLoaded('teacher')) {
+            return null;
+        }
+        return $this->teacher?->user?->name ?? null;
     }
 
     /**
      * Get student name for API response.
+     * Optimisé pour éviter les requêtes N+1 si la relation n'est pas chargée.
      */
     public function getStudentNameAttribute(): ?string
     {
-        return $this->student?->user?->name;
+        // Si la relation student n'est pas chargée, retourner null pour éviter les requêtes N+1
+        if (!$this->relationLoaded('student')) {
+            return null;
+        }
+        return $this->student?->user?->name ?? null;
     }
 
     /**

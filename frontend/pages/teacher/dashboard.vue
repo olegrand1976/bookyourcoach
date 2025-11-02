@@ -15,7 +15,7 @@
       </div>
 
       <!-- Mes Clubs -->
-      <div v-if="clubs.length > 1" class="mb-6 md:mb-8">
+      <div v-if="clubs.length > 0" class="mb-6 md:mb-8">
         <div class="bg-white rounded-xl shadow-lg overflow-hidden">
           <div class="px-4 md:px-6 py-3 md:py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
             <h3 class="text-base md:text-lg font-semibold text-gray-900">Mes Clubs</h3>
@@ -130,61 +130,6 @@
         </div>
       </div>
 
-      <!-- Club unique affiché en info -->
-      <div v-else-if="clubs.length === 1" class="mb-8">
-        <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-lg p-6 border-2 border-purple-200">
-          <div class="flex items-start">
-            <div class="p-3 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md">
-              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <div class="ml-5 flex-1">
-              <h3 class="text-xl font-bold text-gray-900">{{ clubs[0].name }}</h3>
-              
-              <!-- Contact info -->
-              <div class="mt-3">
-                <h5 class="text-sm md:text-base font-semibold text-gray-700 mb-2">Nom du représentant légal du club</h5>
-                <div v-if="clubs[0].legal_representative_name" class="mb-2">
-                  <p class="text-sm font-medium text-gray-900">
-                    {{ clubs[0].legal_representative_name }}
-                    <span v-if="clubs[0].legal_representative_role" class="text-gray-600">({{ clubs[0].legal_representative_role }})</span>
-                  </p>
-                </div>
-                <div class="space-y-2">
-                <!-- Email -->
-                <div v-if="clubs[0].email" class="flex items-center text-sm">
-                  <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <a :href="'mailto:' + clubs[0].email" 
-                     class="text-blue-600 hover:text-blue-800 font-medium hover:underline">
-                    {{ clubs[0].email }}
-                  </a>
-                </div>
-                
-                <!-- Téléphone -->
-                <div v-if="clubs[0].phone" class="flex items-center text-sm text-gray-700">
-                  <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span class="font-medium">{{ clubs[0].phone }}</span>
-                </div>
-                
-                <!-- Adresse -->
-                <div v-if="getClubAddress(clubs[0])" class="flex items-start text-sm text-gray-700">
-                  <svg class="w-4 h-4 mr-2 mt-0.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span class="font-medium">{{ getClubAddress(clubs[0]) }}</span>
-                </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Notifications de demandes envoyées -->
       <div v-if="pendingReplacementsSent.length > 0" class="mb-8">
@@ -348,17 +293,33 @@
         </div>
       </div>
 
-      <!-- Bouton vers le calendrier -->
-      <div v-if="selectedClubId || clubs.length === 1" class="mb-8">
-        <NuxtLink 
-          :to="getCalendarLink()"
-          class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-        >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          Voir le calendrier {{ selectedClubName ? `de ${selectedClubName}` : '' }}
-        </NuxtLink>
+      <!-- Sélecteur de calendrier -->
+      <div class="mb-8">
+        <div class="bg-white rounded-lg shadow p-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Voir le calendrier</label>
+          <div class="flex flex-wrap gap-2">
+            <NuxtLink 
+              to="/teacher/schedule"
+              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Mon Calendrier Personnel
+            </NuxtLink>
+            <NuxtLink 
+              v-for="club in clubs"
+              :key="club.id"
+              :to="`/teacher/schedule?club=${club.id}`"
+              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {{ club.name }}
+            </NuxtLink>
+          </div>
+        </div>
       </div>
 
       <!-- Mes cours -->
@@ -447,6 +408,7 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remplacement</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -463,7 +425,7 @@
                   </td>
                   <td class="px-6 py-4">
                     <div class="text-sm text-gray-900">{{ lesson.course_type?.name || 'N/A' }}</div>
-                    <div class="text-xs text-gray-500">{{ lesson.duration }}min - {{ lesson.price }}€</div>
+                    <div class="text-xs text-gray-500">{{ calculateDuration(lesson.start_time, lesson.end_time) }}min - {{ lesson.price }}€</div>
                   </td>
                   <td class="px-6 py-4">
                     <div class="text-sm font-medium text-gray-900">
@@ -478,6 +440,60 @@
                       {{ getStatusLabel(lesson.status) }}
                     </span>
                   </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div v-if="getReplacementForLesson(lesson.id)">
+                      <div class="mb-1">
+                        <!-- Cas 1: On a demandé un remplacement (on est l'enseignant d'origine) -->
+                        <div v-if="isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id))" 
+                             class="text-xs">
+                          <div class="flex items-center gap-1 text-orange-700 font-medium">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Vous avez demandé un remplacement</span>
+                          </div>
+                          <div class="text-gray-600 mt-0.5">
+                            Demandé à: {{ getReplacementForLesson(lesson.id).replacement_teacher?.user?.name || 'N/A' }}
+                          </div>
+                          <!-- Boutons d'action pour l'enseignant d'origine -->
+                          <div v-if="getReplacementForLesson(lesson.id).status === 'pending'" class="mt-2 flex gap-2">
+                            <button
+                              @click="cancelReplacementRequest(getReplacementForLesson(lesson.id).id)"
+                              class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                            >
+                              ✗ Annuler
+                            </button>
+                            <button
+                              @click="modifyReplacementRequest(lesson, getReplacementForLesson(lesson.id))"
+                              class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                            >
+                              ✏️ Modifier
+                            </button>
+                          </div>
+                        </div>
+                        <!-- Cas 2: Un remplacement nous est demandé (on est le remplaçant) -->
+                        <div v-else 
+                             class="text-xs">
+                          <div class="flex items-center gap-1 text-blue-700 font-medium">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span>Remplacement demandé</span>
+                          </div>
+                          <div class="text-gray-600 mt-0.5">
+                            Demandé par: {{ getReplacementForLesson(lesson.id).original_teacher?.user?.name || 'N/A' }}
+                          </div>
+                        </div>
+                      </div>
+                      <span :class="getReplacementStatusClass(getReplacementForLesson(lesson.id).status)" 
+                            class="px-2 py-1 text-xs font-semibold rounded-full mt-1 inline-block">
+                        {{ getReplacementStatusLabel(getReplacementForLesson(lesson.id).status) }}
+                      </span>
+                    </div>
+                    <div v-else class="text-xs text-gray-400">
+                      Aucun
+                    </div>
+                  </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
                       @click="openLessonDetails(lesson)"
@@ -486,10 +502,18 @@
                       👁️ Voir
                     </button>
                     <button
+                      v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
                       @click="openReplacementRequest(lesson)"
                       class="text-orange-600 hover:text-orange-900"
                     >
                       🔄 Remplacer
+                    </button>
+                    <button
+                      v-if="hasPendingReplacementReceived(lesson.id)"
+                      @click="acceptReplacementForLesson(lesson.id)"
+                      class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-xs font-medium"
+                    >
+                      ✓ Accepter
                     </button>
                   </td>
                 </tr>
@@ -721,12 +745,12 @@ function getClubAddress(club: any): string {
   return parts.join(', ')
 }
 
-function getCalendarLink(): string {
-  const clubId = selectedClubId.value || (clubs.value.length === 1 ? clubs.value[0].id : null)
-  if (clubId) {
-    return `/teacher/schedule?club=${clubId}`
-  }
-  return '/teacher/schedule'
+// Fonction pour vérifier si on est l'enseignant d'origine pour ce remplacement
+function isOriginalTeacherForReplacement(replacement: any): boolean {
+  if (!replacement) return false
+  const teacherId = authStore.user?.teacher?.id
+  if (!teacherId) return false
+  return replacement.original_teacher_id === teacherId
 }
 
 function openLessonDetails(lesson: any) {
@@ -765,6 +789,53 @@ async function handleReplacementSuccess() {
   await loadData()
 }
 
+// Fonction pour annuler une demande de remplacement
+async function cancelReplacementRequest(replacementId: number) {
+  if (!confirm('Êtes-vous sûr de vouloir annuler cette demande de remplacement ?')) {
+    return
+  }
+  
+  try {
+    const response = await $api.delete(`/teacher/lesson-replacements/${replacementId}`)
+    
+    if (response.data.success) {
+      console.log('✅ Demande de remplacement annulée')
+      const toast = useToast()
+      toast.success('Demande de remplacement annulée avec succès')
+      await loadData()
+    } else {
+      alert('❌ ' + (response.data.message || 'Erreur lors de l\'annulation'))
+    }
+  } catch (error: any) {
+    console.error('❌ Erreur lors de l\'annulation:', error)
+    const errorMessage = error.response?.data?.message || 'Erreur lors de l\'annulation de la demande'
+    alert('❌ ' + errorMessage)
+  }
+}
+
+// Fonction pour modifier une demande de remplacement
+function modifyReplacementRequest(lesson: any, replacement: any) {
+  // Fermer la modale de détails si elle est ouverte
+  showDetailsModal.value = false
+  
+  // Pré-remplir le formulaire avec les données actuelles
+  selectedLesson.value = lesson
+  
+  // Pré-sélectionner le remplaçant actuel et la raison
+  // On ouvrira la modale avec ces valeurs pré-remplies
+  // Pour modifier, on devra d'abord annuler l'ancienne demande, puis créer une nouvelle
+  if (confirm('Pour modifier la demande, vous devrez d\'abord annuler l\'ancienne demande, puis en créer une nouvelle. Continuer ?')) {
+    // Annuler l'ancienne demande
+    cancelReplacementRequest(replacement.id).then(() => {
+      // Attendre un peu pour que l'annulation soit traitée
+      setTimeout(() => {
+        // Ouvrir la modale de création avec le cours pré-sélectionné
+        openReplacementRequest(lesson)
+      }, 500)
+    })
+  }
+}
+
 function formatDate(datetime: string): string {
   if (!datetime) return ''
   const date = new Date(datetime)
@@ -800,6 +871,64 @@ function getStatusClass(status: string): string {
     'pending': 'bg-yellow-100 text-yellow-800',
     'cancelled': 'bg-red-100 text-red-800',
     'completed': 'bg-blue-100 text-blue-800'
+  }
+  return classes[status] || 'bg-gray-100 text-gray-800'
+}
+
+function calculateDuration(startTime: string, endTime: string): number {
+  if (!startTime || !endTime) return 0
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  const diffMs = end.getTime() - start.getTime()
+  return Math.round(diffMs / (1000 * 60)) // Retourner la durée en minutes
+}
+
+// Fonction pour obtenir le remplacement d'un cours
+function getReplacementForLesson(lessonId: number) {
+  return allReplacements.value.find(r => r.lesson_id === lessonId)
+}
+
+// Fonction pour vérifier si on a reçu une demande de remplacement en attente pour ce cours
+function hasPendingReplacementReceived(lessonId: number): boolean {
+  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
+  const replacement = allReplacements.value.find(r => 
+    r.lesson_id === lessonId && 
+    r.status === 'pending' && 
+    r.replacement_teacher_id === teacherId
+  )
+  return !!replacement
+}
+
+// Fonction pour accepter un remplacement directement depuis la table
+async function acceptReplacementForLesson(lessonId: number) {
+  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
+  const replacement = allReplacements.value.find(r => 
+    r.lesson_id === lessonId && 
+    r.status === 'pending' && 
+    r.replacement_teacher_id === teacherId
+  )
+  
+  if (replacement) {
+    await respondToReplacement(replacement.id, 'accept')
+  }
+}
+
+function getReplacementStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    'pending': '⏳ En attente',
+    'accepted': '✓ Accepté',
+    'rejected': '✗ Refusé',
+    'cancelled': '✗ Annulé'
+  }
+  return labels[status] || status
+}
+
+function getReplacementStatusClass(status: string): string {
+  const classes: Record<string, string> = {
+    'pending': 'bg-yellow-100 text-yellow-800',
+    'accepted': 'bg-green-100 text-green-800',
+    'rejected': 'bg-red-100 text-red-800',
+    'cancelled': 'bg-gray-100 text-gray-800'
   }
   return classes[status] || 'bg-gray-100 text-gray-800'
 }

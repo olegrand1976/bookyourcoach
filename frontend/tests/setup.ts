@@ -50,10 +50,13 @@ global.nextTick = vi.fn(() => Promise.resolve())
 // Mock Pinia stores
 global.useAuthStore = vi.fn(() => ({
     user: null,
+    token: 'mock-token',
     isAuthenticated: false,
     login: vi.fn(),
     logout: vi.fn(),
-    register: vi.fn()
+    register: vi.fn(),
+    initializeAuth: vi.fn(() => Promise.resolve()),
+    clearAuth: vi.fn()
 }))
 
 global.useToast = vi.fn(() => ({

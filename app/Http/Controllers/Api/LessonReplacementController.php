@@ -247,20 +247,39 @@ class LessonReplacementController extends Controller
                     $replacement->responded_at = now();
                     $replacement->save();
 
-                    // Mettre à jour le cours avec le nouveau professeur
+                    // Transférer automatiquement le cours vers le remplaçant
                     $lesson = $replacement->lesson;
+                    $originalTeacherId = $lesson->teacher_id;
                     $lesson->teacher_id = $replacement->replacement_teacher_id;
                     $lesson->save();
+
+                    // Vérifier que le transfert a bien été effectué
+                    $lesson->refresh();
+                    if ($lesson->teacher_id !== $replacement->replacement_teacher_id) {
+                        Log::error('❌ [LessonReplacement] Échec du transfert du cours', [
+                            'lesson_id' => $lesson->id,
+                            'expected_teacher_id' => $replacement->replacement_teacher_id,
+                            'actual_teacher_id' => $lesson->teacher_id
+                        ]);
+                        throw new \Exception('Échec du transfert du cours vers le remplaçant');
+                    }
+
+                    Log::info('✅ [LessonReplacement] Cours transféré automatiquement', [
+                        'lesson_id' => $lesson->id,
+                        'original_teacher_id' => $originalTeacherId,
+                        'new_teacher_id' => $replacement->replacement_teacher_id,
+                        'replacement_id' => $replacement->id
+                    ]);
 
                     DB::commit();
 
                     // Notifier le professeur d'origine et le club
-                    $replacement->load(['lesson.club', 'originalTeacher.user', 'replacementTeacher.user']);
+                    $replacement->load(['lesson.club', 'lesson.teacher.user', 'originalTeacher.user', 'replacementTeacher.user']);
                     $this->notificationService->notifyReplacementAccepted($replacement);
 
                     return response()->json([
                         'success' => true,
-                        'message' => 'Remplacement accepté avec succès',
+                        'message' => 'Remplacement accepté avec succès. Le cours a été transféré automatiquement.',
                         'data' => $replacement
                     ]);
 

@@ -32,46 +32,43 @@ class TeacherController extends Controller
             $startOfMonth = $now->copy()->startOfMonth();
             $endOfMonth = $now->copy()->endOfMonth();
 
-            // Optimiser les statistiques avec une seule requête de base
-            $baseQuery = Lesson::where('teacher_id', $teacher->id);
+            // Optimiser les statistiques avec des requêtes DB raw plus rapides
+            // Utiliser DB::table() au lieu d'Eloquent pour de meilleures performances
+            $teacherId = $teacher->id;
+            $todayDate = $now->toDateString();
+            $startOfWeekStr = $startOfWeek->toDateTimeString();
+            $endOfWeekStr = $endOfWeek->toDateTimeString();
+            $startOfMonthStr = $startOfMonth->toDateTimeString();
+            $endOfMonthStr = $endOfMonth->toDateTimeString();
             
-            // Statistiques générales (optimisées)
-            $todayLessons = (clone $baseQuery)
-                ->whereDate('start_time', $now->toDateString())
-                ->whereIn('status', ['confirmed', 'completed'])
-                ->count();
-
-            $totalLessons = (clone $baseQuery)
-                ->whereIn('status', ['confirmed', 'completed'])
-                ->count();
-
-            $activeStudents = (clone $baseQuery)
-                ->whereIn('status', ['confirmed', 'completed'])
-                ->whereNotNull('student_id')
-                ->distinct('student_id')
-                ->count('student_id');
-
-            $weeklyLessons = (clone $baseQuery)
-                ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
-                ->whereIn('status', ['confirmed', 'completed'])
-                ->count();
-
-            $weeklyEarnings = (clone $baseQuery)
-                ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
-                ->where('status', 'completed')
-                ->sum('price');
-
-            $monthlyEarnings = (clone $baseQuery)
-                ->whereBetween('start_time', [$startOfMonth, $endOfMonth])
-                ->where('status', 'completed')
-                ->sum('price');
-
-            // Heures totales cette semaine (optimisé avec SQL au lieu de PHP)
-            $weeklyHours = (clone $baseQuery)
-                ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
-                ->where('status', 'completed')
-                ->selectRaw('SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time)) / 60.0 as total_hours')
-                ->value('total_hours') ?? 0;
+            // Utiliser une seule requête avec des sous-requêtes pour toutes les statistiques
+            // Cela réduit le nombre de round-trips vers la DB (de 7 requêtes à 1)
+            $stats = \Illuminate\Support\Facades\DB::table('lessons')
+                ->where('teacher_id', $teacherId)
+                ->selectRaw('
+                    COUNT(CASE WHEN DATE(start_time) = ? AND status IN (\'confirmed\', \'completed\') THEN 1 END) as today_lessons,
+                    COUNT(CASE WHEN status IN (\'confirmed\', \'completed\') THEN 1 END) as total_lessons,
+                    COUNT(DISTINCT CASE WHEN status IN (\'confirmed\', \'completed\') AND student_id IS NOT NULL THEN student_id END) as active_students,
+                    COUNT(CASE WHEN start_time BETWEEN ? AND ? AND status IN (\'confirmed\', \'completed\') THEN 1 END) as weekly_lessons,
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as weekly_earnings,
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as monthly_earnings,
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN TIMESTAMPDIFF(MINUTE, start_time, end_time) END) / 60.0, 0) as weekly_hours
+                ', [
+                    $todayDate,
+                    $startOfWeekStr, $endOfWeekStr,
+                    $startOfWeekStr, $endOfWeekStr,
+                    $startOfMonthStr, $endOfMonthStr,
+                    $startOfWeekStr, $endOfWeekStr
+                ])
+                ->first();
+            
+            $todayLessons = $stats->today_lessons ?? 0;
+            $totalLessons = $stats->total_lessons ?? 0;
+            $activeStudents = $stats->active_students ?? 0;
+            $weeklyLessons = $stats->weekly_lessons ?? 0;
+            $weeklyEarnings = round($stats->weekly_earnings ?? 0, 2);
+            $monthlyEarnings = round($stats->monthly_earnings ?? 0, 2);
+            $weeklyHours = round($stats->weekly_hours ?? 0, 1);
 
             // Gérer le filtre de période (par défaut: 7 jours à venir)
             $period = $request->get('period', '7days'); // 7days, 15days, previous_month, current_month, next_month
@@ -105,40 +102,136 @@ class TeacherController extends Controller
             }
 
             // Prochains cours selon la période sélectionnée
-            $upcomingLessons = Lesson::where('teacher_id', $teacher->id)
-                ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id', 
-                         'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
-                ->with([
-                    'student:id,user_id',
-                    'student.user:id,name',
-                    'courseType:id,name',
-                    'location:id,name',
-                    'club:id,name'
-                ])
-                ->whereBetween('start_time', [$dateFrom, $dateTo])
-                ->whereIn('status', ['confirmed', 'pending', 'completed', 'cancelled'])
-                ->orderBy('start_time', 'asc')
-                ->limit(100) // Limite augmentée pour permettre de voir tous les cours de la période
-                ->get();
+            // Utiliser une requête DB raw avec JOINs pour de meilleures performances (une seule requête au lieu de 7)
+            $upcomingLessonsRaw = \Illuminate\Support\Facades\DB::table('lessons')
+                ->leftJoin('students', 'lessons.student_id', '=', 'students.id')
+                ->leftJoin('users as student_users', 'students.user_id', '=', 'student_users.id')
+                ->leftJoin('course_types', 'lessons.course_type_id', '=', 'course_types.id')
+                ->leftJoin('locations', 'lessons.location_id', '=', 'locations.id')
+                ->leftJoin('clubs', 'lessons.club_id', '=', 'clubs.id')
+                ->where('lessons.teacher_id', $teacher->id)
+                ->whereBetween('lessons.start_time', [$dateFrom, $dateTo])
+                ->whereIn('lessons.status', ['confirmed', 'pending', 'completed', 'cancelled'])
+                ->select(
+                    'lessons.id',
+                    'lessons.teacher_id',
+                    'lessons.student_id',
+                    'lessons.course_type_id',
+                    'lessons.location_id',
+                    'lessons.club_id',
+                    'lessons.start_time',
+                    'lessons.end_time',
+                    'lessons.status',
+                    'lessons.price',
+                    'lessons.notes',
+                    'student_users.name as student_name',
+                    'course_types.name as course_type_name',
+                    'locations.name as location_name',
+                    'clubs.name as club_name'
+                )
+                ->orderBy('lessons.start_time', 'asc')
+                ->limit(100)
+                ->get()
+                ->map(function ($lesson) {
+                    return (object) [
+                        'id' => $lesson->id,
+                        'teacher_id' => $lesson->teacher_id,
+                        'student_id' => $lesson->student_id,
+                        'course_type_id' => $lesson->course_type_id,
+                        'location_id' => $lesson->location_id,
+                        'club_id' => $lesson->club_id,
+                        'start_time' => $lesson->start_time,
+                        'end_time' => $lesson->end_time,
+                        'status' => $lesson->status,
+                        'price' => $lesson->price,
+                        'notes' => $lesson->notes,
+                        'student' => $lesson->student_id ? (object) [
+                            'id' => $lesson->student_id,
+                            'user' => (object) ['id' => null, 'name' => $lesson->student_name]
+                        ] : null,
+                        'course_type' => $lesson->course_type_id ? (object) [
+                            'id' => $lesson->course_type_id,
+                            'name' => $lesson->course_type_name
+                        ] : null,
+                        'location' => $lesson->location_id ? (object) [
+                            'id' => $lesson->location_id,
+                            'name' => $lesson->location_name
+                        ] : null,
+                        'club' => $lesson->club_id ? (object) [
+                            'id' => $lesson->club_id,
+                            'name' => $lesson->club_name
+                        ] : null
+                    ];
+                });
+            
+            $upcomingLessons = $upcomingLessonsRaw;
 
             // Cours récents uniquement si la période inclut le passé
+            // Utiliser la même approche optimisée avec JOINs
             $recentLessons = collect();
             if (in_array($period, ['previous_month', 'current_month'])) {
-                $recentLessons = Lesson::where('teacher_id', $teacher->id)
-                    ->select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 'lessons.location_id', 'lessons.club_id',
-                             'lessons.start_time', 'lessons.end_time', 'lessons.status', 'lessons.price', 'lessons.notes')
-                    ->with([
-                        'student:id,user_id',
-                        'student.user:id,name',
-                        'courseType:id,name',
-                        'location:id,name',
-                        'club:id,name'
-                    ])
-                    ->whereBetween('start_time', [$dateFrom, $dateTo])
-                    ->whereIn('status', ['completed', 'cancelled'])
-                    ->orderBy('start_time', 'desc')
+                $recentLessonsRaw = \Illuminate\Support\Facades\DB::table('lessons')
+                    ->leftJoin('students', 'lessons.student_id', '=', 'students.id')
+                    ->leftJoin('users as student_users', 'students.user_id', '=', 'student_users.id')
+                    ->leftJoin('course_types', 'lessons.course_type_id', '=', 'course_types.id')
+                    ->leftJoin('locations', 'lessons.location_id', '=', 'locations.id')
+                    ->leftJoin('clubs', 'lessons.club_id', '=', 'clubs.id')
+                    ->where('lessons.teacher_id', $teacher->id)
+                    ->whereBetween('lessons.start_time', [$dateFrom, $dateTo])
+                    ->whereIn('lessons.status', ['completed', 'cancelled'])
+                    ->select(
+                        'lessons.id',
+                        'lessons.teacher_id',
+                        'lessons.student_id',
+                        'lessons.course_type_id',
+                        'lessons.location_id',
+                        'lessons.club_id',
+                        'lessons.start_time',
+                        'lessons.end_time',
+                        'lessons.status',
+                        'lessons.price',
+                        'lessons.notes',
+                        'student_users.name as student_name',
+                        'course_types.name as course_type_name',
+                        'locations.name as location_name',
+                        'clubs.name as club_name'
+                    )
+                    ->orderBy('lessons.start_time', 'desc')
                     ->limit(20)
-                    ->get();
+                    ->get()
+                    ->map(function ($lesson) {
+                        return (object) [
+                            'id' => $lesson->id,
+                            'teacher_id' => $lesson->teacher_id,
+                            'student_id' => $lesson->student_id,
+                            'course_type_id' => $lesson->course_type_id,
+                            'location_id' => $lesson->location_id,
+                            'club_id' => $lesson->club_id,
+                            'start_time' => $lesson->start_time,
+                            'end_time' => $lesson->end_time,
+                            'status' => $lesson->status,
+                            'price' => $lesson->price,
+                            'notes' => $lesson->notes,
+                            'student' => $lesson->student_id ? (object) [
+                                'id' => $lesson->student_id,
+                                'user' => (object) ['id' => null, 'name' => $lesson->student_name]
+                            ] : null,
+                            'course_type' => $lesson->course_type_id ? (object) [
+                                'id' => $lesson->course_type_id,
+                                'name' => $lesson->course_type_name
+                            ] : null,
+                            'location' => $lesson->location_id ? (object) [
+                                'id' => $lesson->location_id,
+                                'name' => $lesson->location_name
+                            ] : null,
+                            'club' => $lesson->club_id ? (object) [
+                                'id' => $lesson->club_id,
+                                'name' => $lesson->club_name
+                            ] : null
+                        ];
+                    });
+                
+                $recentLessons = $recentLessonsRaw;
             }
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
