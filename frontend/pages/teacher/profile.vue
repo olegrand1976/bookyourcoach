@@ -327,17 +327,21 @@ const handleSubmit = async () => {
     // Préparer les données à envoyer
     const updateData = {
       name: form.value.name,
-      phone: form.value.phone || null,
-      birth_date: form.value.birth_date || null,
-      bio: form.value.bio || null,
+      phone: form.value.phone && form.value.phone.trim() ? form.value.phone.trim() : null,
+      // Gérer la date de naissance : convertir chaîne vide en null
+      birth_date: form.value.birth_date && form.value.birth_date.trim() ? form.value.birth_date.trim() : null,
+      bio: form.value.bio && form.value.bio.trim() ? form.value.bio.trim() : null,
       // Convertir specialties et certifications en arrays si ce sont des strings séparées par des virgules
-      specialties: form.value.specialties 
+      specialties: form.value.specialties && form.value.specialties.trim()
         ? form.value.specialties.split(',').map(s => s.trim()).filter(s => s.length > 0)
         : null,
-      certifications: form.value.certifications
+      certifications: form.value.certifications && form.value.certifications.trim()
         ? form.value.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
         : null
     }
+    
+    // Log pour debug
+    console.log('📤 Envoi données profil enseignant:', updateData)
     
     const response = await $api.put('/teacher/profile', updateData)
     

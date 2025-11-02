@@ -413,16 +413,38 @@ class TeacherController extends Controller
                 // experience_years et hourly_rate sont exclus - ils ne peuvent pas être modifiés par l'enseignant
             ]);
 
+            // Normaliser les données avant validation
+            $requestData = $request->all();
+            
+            // Convertir les chaînes vides en null pour birth_date
+            if (isset($requestData['birth_date']) && $requestData['birth_date'] === '') {
+                $requestData['birth_date'] = null;
+                $request->merge(['birth_date' => null]);
+            }
+            
             // Mettre à jour les informations de l'utilisateur
             if (isset($validated['name'])) {
                 $user->name = $validated['name'];
             }
-            if (isset($validated['phone'])) {
-                $user->phone = $validated['phone'];
+            if (array_key_exists('phone', $validated)) {
+                // Convertir chaîne vide en null
+                $user->phone = $validated['phone'] ?: null;
             }
-            if (isset($validated['birth_date'])) {
-                $user->birth_date = $validated['birth_date'];
+            if (array_key_exists('birth_date', $validated)) {
+                // S'assurer que birth_date est bien une date valide ou null
+                $user->birth_date = $validated['birth_date'] ?: null;
             }
+            
+            Log::info('TeacherController::updateProfile - Mise à jour user:', [
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'phone' => $user->phone,
+                'birth_date' => $user->birth_date,
+                'birth_date_before' => $user->getOriginal('birth_date'),
+                'validated_birth_date' => $validated['birth_date'] ?? 'non défini',
+                'request_birth_date' => $request->input('birth_date')
+            ]);
+            
             $user->save();
 
             // Mettre à jour les informations de l'enseignant
