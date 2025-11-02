@@ -78,11 +78,16 @@
                     <span>Planning</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/subscriptions"
-                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
-                    <span>📋</span>
-                    <span>Abonnements</span>
-                  </NuxtLink>
+              <NuxtLink v-if="isClub" to="/club/subscriptions"
+                class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                <span>📋</span>
+                <span>Abonnements</span>
+              </NuxtLink>
+              <NuxtLink v-if="isClub" to="/club/subscription-templates"
+                class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                <span>📄</span>
+                <span>Modèles d'Abonnements</span>
+              </NuxtLink>
 
                   <NuxtLink v-if="isClub" to="/club/volunteer-letter"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">

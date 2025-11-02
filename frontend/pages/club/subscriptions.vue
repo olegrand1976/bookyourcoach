@@ -6,17 +6,28 @@
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">Gestion des Abonnements</h1>
-            <p class="text-gray-600">Créez et gérez les formules d'abonnement pour vos élèves</p>
+            <p class="text-gray-600">Consultez les abonnements créés pour vos élèves</p>
           </div>
-          <button 
-            @click="showCreateModal = true"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            <span>Nouvel Abonnement</span>
-          </button>
+          <div class="flex space-x-3">
+            <NuxtLink
+              to="/club/subscription-templates"
+              class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+              <span>Modèles</span>
+            </NuxtLink>
+            <button 
+              @click="showAssignModal = true"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Créer un Abonnement</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -31,27 +42,28 @@
           <div class="p-6 border-b border-gray-200">
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
-                <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ subscription.name }}</h3>
-                <p v-if="subscription.description" class="text-sm text-gray-600">{{ subscription.description }}</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-1">
+                  Abonnement {{ subscription.subscription_number }}
+                </h3>
+                <p v-if="subscription.template" class="text-sm text-gray-600">
+                  Modèle: {{ subscription.template.model_number }}
+                </p>
               </div>
-              <span 
-                :class="subscription.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
-                class="px-2 py-1 text-xs font-medium rounded-full"
-              >
-                {{ subscription.is_active ? 'Actif' : 'Inactif' }}
+              <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                {{ subscription.instances?.length || 0 }} instance(s)
               </span>
             </div>
 
             <!-- Détails de l'abonnement -->
-            <div class="space-y-2">
+            <div class="space-y-2" v-if="subscription.template">
               <div class="flex items-center text-sm">
                 <svg class="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 <span class="text-gray-700">
-                  <strong>{{ subscription.total_lessons }}</strong> cours
-                  <span v-if="subscription.free_lessons > 0" class="text-green-600">
-                    + {{ subscription.free_lessons }} gratuit{{ subscription.free_lessons > 1 ? 's' : '' }}
+                  <strong>{{ subscription.template.total_lessons }}</strong> cours
+                  <span v-if="subscription.template.free_lessons > 0" class="text-green-600">
+                    + {{ subscription.template.free_lessons }} gratuit{{ subscription.template.free_lessons > 1 ? 's' : '' }}
                   </span>
                 </span>
               </div>
@@ -60,86 +72,68 @@
                 <svg class="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                <span class="text-gray-700 font-semibold">{{ subscription.price }} €</span>
+                <span class="text-gray-700 font-semibold">{{ subscription.template.price }} €</span>
               </div>
 
               <div class="flex items-center text-sm">
                 <svg class="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                 </svg>
-                <span class="text-gray-700">{{ subscription.course_types?.length || 0 }} type(s) de cours</span>
+                <span class="text-gray-700">Validité: {{ subscription.template.validity_months }} mois</span>
               </div>
             </div>
           </div>
 
           <!-- Types de cours inclus -->
-          <div class="p-4 bg-gray-50">
+          <div v-if="subscription.template?.course_types?.length" class="p-4 bg-gray-50">
             <div class="text-xs font-medium text-gray-500 uppercase mb-2">Types de cours inclus</div>
             <div class="flex flex-wrap gap-1">
               <span 
-                v-for="courseType in subscription.course_types" 
+                v-for="courseType in subscription.template.course_types" 
                 :key="courseType.id"
                 class="bg-white text-gray-700 px-2 py-1 rounded text-xs border border-gray-200"
               >
                 {{ courseType.name }}
               </span>
-              <span v-if="!subscription.course_types?.length" class="text-xs text-gray-500 italic">
-                Aucun type défini
-              </span>
             </div>
           </div>
 
-          <!-- Abonnés actifs -->
+          <!-- Instances actives avec élèves -->
           <div class="p-4 bg-blue-50 border-t border-blue-100">
-            <div class="flex items-center justify-between text-sm mb-2">
-              <span class="text-gray-700">
-                <strong>{{ getActiveSubscribersCount(subscription) }}</strong> abonné(s) actif(s)
-              </span>
-              <button 
-                @click="viewSubscriptionDetails(subscription)"
-                class="text-blue-600 hover:text-blue-800 text-xs font-medium"
-              >
-                Voir détails →
-              </button>
-            </div>
+            <div class="text-xs font-medium text-blue-700 uppercase mb-2">Élèves avec cet abonnement</div>
             <!-- Liste des instances actives avec élèves -->
-            <div v-if="getActiveInstances(subscription).length > 0" class="space-y-1 mt-2">
+            <div v-if="subscription.instances?.length > 0" class="space-y-2 mt-2">
               <div 
-                v-for="instance in getActiveInstances(subscription).slice(0, 3)" 
+                v-for="instance in subscription.instances.slice(0, 3)" 
                 :key="instance.id"
-                class="text-xs text-gray-600 bg-white rounded px-2 py-1"
+                class="text-xs text-gray-700 bg-white rounded px-2 py-2 border border-blue-200"
               >
-                <span class="font-medium">{{ getInstanceStudentNames(instance) }}</span>
-                <span class="text-gray-500 ml-1">
-                  ({{ instance.lessons_used }}/{{ subscription.total_lessons + subscription.free_lessons }} cours)
-                </span>
+                <div class="flex items-center justify-between">
+                  <span class="font-medium">
+                    {{ getInstanceStudentNames(instance) }}
+                  </span>
+                  <span 
+                    :class="{
+                      'bg-green-100 text-green-800': instance.status === 'active',
+                      'bg-gray-100 text-gray-800': instance.status === 'completed',
+                      'bg-red-100 text-red-800': instance.status === 'expired'
+                    }"
+                    class="px-2 py-1 rounded text-xs"
+                  >
+                    {{ getStatusLabel(instance.status) }}
+                  </span>
+                </div>
+                <div class="mt-1 text-gray-500">
+                  {{ instance.lessons_used }} / {{ subscription.template?.total_available_lessons || 0 }} cours utilisés
+                </div>
               </div>
-              <div v-if="getActiveInstances(subscription).length > 3" class="text-xs text-gray-500 italic px-2">
-                +{{ getActiveInstances(subscription).length - 3 }} autre(s)...
+              <div v-if="subscription.instances.length > 3" class="text-xs text-gray-500 italic px-2">
+                +{{ subscription.instances.length - 3 }} autre(s)...
               </div>
             </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="p-4 bg-white border-t border-gray-200 flex justify-end gap-2">
-            <button 
-              @click="editSubscription(subscription)"
-              class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              Modifier
-            </button>
-            <button 
-              @click="assignSubscription(subscription)"
-              class="text-green-600 hover:text-green-800 text-sm font-medium"
-            >
-              Attribuer
-            </button>
-            <button 
-              @click="deleteSubscription(subscription)"
-              class="text-red-600 hover:text-red-800 text-sm font-medium"
-            >
-              Supprimer
-            </button>
+            <p v-else class="text-xs text-gray-500 italic">
+              Aucun élève assigné
+            </p>
           </div>
         </div>
       </div>
@@ -149,238 +143,38 @@
         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
         </svg>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun abonnement</h3>
-        <p class="text-gray-600 mb-4">Commencez par créer votre premier abonnement</p>
-        <button 
-          @click="showCreateModal = true"
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center space-x-2"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
-          <span>Créer un abonnement</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Modal : Créer/Modifier un abonnement -->
-    <div v-if="showCreateModal || showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">
-          {{ showEditModal ? 'Modifier l\'abonnement' : 'Nouvel abonnement' }}
-        </h3>
-        
-        <div class="space-y-4">
-          <!-- Nom -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nom de l'abonnement *</label>
-            <input 
-              v-model="form.name"
-              type="text" 
-              placeholder="Ex: Formule 10 cours"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            />
-          </div>
-
-          <!-- Description -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea 
-              v-model="form.description"
-              rows="2"
-              placeholder="Décrivez brièvement cet abonnement"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            ></textarea>
-          </div>
-
-          <!-- Nombre de cours -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de cours *</label>
-              <input 
-                v-model.number="form.total_lessons"
-                type="number" 
-                min="1"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Cours gratuits offerts</label>
-              <input 
-                v-model.number="form.free_lessons"
-                type="number" 
-                min="0"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2"
-              />
-            </div>
-          </div>
-
-          <!-- Prix -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Prix de l'abonnement (€) *</label>
-            <input 
-              v-model.number="form.price"
-              type="number" 
-              min="0"
-              step="0.01"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              <span v-if="form.total_lessons > 0 && form.price > 0">
-                Prix par cours : {{ (form.price / form.total_lessons).toFixed(2) }} €
-              </span>
-            </p>
-          </div>
-
-          <!-- Durée de validité -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Durée de validité (mois) *</label>
-            <input 
-              v-model.number="form.validity_months"
-              type="number" 
-              min="1"
-              max="60"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              Durée pendant laquelle l'abonnement reste valide après souscription (par défaut: 12 mois = 1 an)
-            </p>
-          </div>
-
-          <!-- Types de cours -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Types de cours inclus *</label>
-            <div class="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              <label 
-                v-for="discipline in availableDisciplines" 
-                :key="discipline.id"
-                class="flex items-center space-x-2 hover:bg-gray-50 p-2 rounded cursor-pointer"
-              >
-                <input 
-                  type="checkbox" 
-                  :value="discipline.id"
-                  v-model="form.course_type_ids"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span class="text-sm text-gray-700">{{ discipline.name }}</span>
-              </label>
-              <p v-if="availableDisciplines.length === 0" class="text-sm text-gray-500 italic">
-                Aucun type de cours disponible
-              </p>
-            </div>
-          </div>
-
-          <!-- Statut actif -->
-          <div class="flex items-center space-x-2">
-            <input 
-              type="checkbox" 
-              v-model="form.is_active"
-              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label class="text-sm text-gray-700">Abonnement actif (proposé aux élèves)</label>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-          <button 
-            @click="closeModals"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Annuler
-          </button>
-          <button 
-            @click="showEditModal ? updateSubscription() : createSubscription()"
-            :disabled="!isFormValid"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {{ showEditModal ? 'Mettre à jour' : 'Créer' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal : Attribuer un abonnement à un ou plusieurs élèves -->
-    <div v-if="showAssignModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-          Attribuer : {{ selectedSubscription?.name }}
-        </h3>
-        <p class="text-sm text-gray-600 mb-4">
-          💡 Vous pouvez sélectionner plusieurs élèves pour un abonnement familial partagé
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun abonnement créé</h3>
+        <p class="text-gray-600 mb-4">
+          Créez des abonnements pour vos élèves en utilisant les modèles d'abonnements.
         </p>
-        
-        <div class="space-y-4">
-          <!-- Sélection multiple d'élèves -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Élève(s) * 
-              <span class="text-xs text-gray-500">({{ assignForm.student_ids.length }} sélectionné{{ assignForm.student_ids.length > 1 ? 's' : '' }})</span>
-            </label>
-            <div class="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-              <label 
-                v-for="student in students" 
-                :key="student.id"
-                class="flex items-center space-x-2 hover:bg-gray-50 p-2 rounded cursor-pointer"
-              >
-                <input 
-                  type="checkbox" 
-                  :value="student.id"
-                  v-model="assignForm.student_ids"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span class="text-sm text-gray-700">{{ student.name }}</span>
-              </label>
-              <p v-if="students.length === 0" class="text-sm text-gray-500 italic">
-                Aucun élève disponible
-              </p>
-            </div>
-            <p v-if="assignForm.student_ids.length > 1" class="text-xs text-blue-600 mt-2">
-              ℹ️ Abonnement familial : les {{ assignForm.student_ids.length }} élèves partageront le même pool de cours
-            </p>
-          </div>
-
-          <!-- Date de début -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Date de début *</label>
-            <input 
-              v-model="assignForm.started_at"
-              type="date" 
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            />
-          </div>
-
-          <!-- Date d'expiration -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Date d'expiration (optionnel)</label>
-            <input 
-              v-model="assignForm.expires_at"
-              type="date" 
-              :min="assignForm.started_at"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2"
-            />
-            <p class="text-xs text-gray-500 mt-1">Si non renseignée, l'abonnement n'expire pas</p>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-          <button 
-            @click="showAssignModal = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        <div class="flex justify-center gap-3">
+          <NuxtLink
+            to="/club/subscription-templates"
+            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors inline-flex items-center space-x-2"
           >
-            Annuler
-          </button>
+            <span>Gérer les modèles</span>
+          </NuxtLink>
           <button 
-            @click="confirmAssign"
-            :disabled="assignForm.student_ids.length === 0 || !assignForm.started_at"
-            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="openAssignModal"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center space-x-2"
           >
-            Attribuer
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <span>Créer un abonnement</span>
           </button>
         </div>
       </div>
     </div>
+
+    <!-- Modal : Attribuer un abonnement -->
+    <AssignSubscriptionModal
+      v-if="showAssignModal"
+      :student="selectedStudent"
+      :show-family-option="true"
+      @close="closeAssignModal"
+      @success="handleSubscriptionAssigned"
+    />
   </div>
 </template>
 
@@ -396,6 +190,7 @@ definePageMeta({
 const subscriptions = ref([])
 const availableDisciplines = ref([])
 const students = ref([])
+const selectedStudent = ref(null)
 
 // Modals
 const showCreateModal = ref(false)
@@ -448,29 +243,14 @@ const loadSubscriptions = async () => {
 const loadDisciplines = async () => {
   try {
     const { $api } = useNuxtApp()
-    // Charger les course_types au lieu des disciplines
-    const response = await $api.get('/course-types')
+    const response = await $api.get('/disciplines')
     if (response.data.success) {
-      availableDisciplines.value = response.data.data
-    } else {
-      // Fallback sur les disciplines si course-types n'existe pas
-      const fallbackResponse = await $api.get('/disciplines')
-      if (fallbackResponse.data.success) {
-        availableDisciplines.value = fallbackResponse.data.data
-      }
+      availableDisciplines.value = response.data.data || []
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des types de cours:', error)
-    // Fallback silencieux sur les disciplines
-    try {
-      const { $api } = useNuxtApp()
-      const response = await $api.get('/disciplines')
-      if (response.data.success) {
-        availableDisciplines.value = response.data.data
-      }
-    } catch (e) {
-      console.error('Erreur lors du chargement des disciplines (fallback):', e)
-    }
+    console.error('Erreur lors du chargement des disciplines:', error)
+    // Ne pas bloquer si les disciplines ne chargent pas
+    availableDisciplines.value = []
   }
 }
 
@@ -479,135 +259,37 @@ const loadStudents = async () => {
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/students')
     if (response.data.success) {
-      students.value = response.data.data
+      students.value = response.data.data || []
     }
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
+    // Ne pas bloquer si les élèves ne chargent pas
+    students.value = []
   }
 }
 
-const createSubscription = async () => {
-  try {
-    const { $api } = useNuxtApp()
-    const response = await $api.post('/club/subscriptions', form.value)
-    if (response.data.success) {
-      await loadSubscriptions()
-      closeModals()
-      alert('Abonnement créé avec succès')
-    }
-  } catch (error) {
-    console.error('Erreur lors de la création:', error)
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.values(error.response.data.errors).flat().join('\n')
-      alert(`Erreur de validation:\n${errorMessages}`)
-    } else {
-      alert('Erreur lors de la création de l\'abonnement')
-    }
-  }
-}
-
-const editSubscription = (subscription) => {
-  editingSubscription.value = subscription
-  form.value = {
-    name: subscription.name,
-    description: subscription.description || '',
-    total_lessons: subscription.total_lessons,
-    free_lessons: subscription.free_lessons,
-    price: parseFloat(subscription.price),
-    validity_months: subscription.validity_months || 12,
-    course_type_ids: subscription.course_types?.map(ct => ct.id) || [],
-    is_active: subscription.is_active
-  }
-  showEditModal.value = true
-}
-
-const updateSubscription = async () => {
-  try {
-    const { $api } = useNuxtApp()
-    const response = await $api.put(`/club/subscriptions/${editingSubscription.value.id}`, form.value)
-    if (response.data.success) {
-      await loadSubscriptions()
-      closeModals()
-      alert('Abonnement mis à jour avec succès')
-    }
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour:', error)
-    alert('Erreur lors de la mise à jour de l\'abonnement')
-  }
-}
-
-const deleteSubscription = async (subscription) => {
-  if (!confirm(`Êtes-vous sûr de vouloir supprimer l'abonnement "${subscription.name}" ?`)) {
-    return
-  }
-
-  try {
-    const { $api } = useNuxtApp()
-    const response = await $api.delete(`/club/subscriptions/${subscription.id}`)
-    if (response.data.success) {
-      await loadSubscriptions()
-      alert('Abonnement supprimé avec succès')
-    }
-  } catch (error) {
-    console.error('Erreur lors de la suppression:', error)
-    if (error.response?.status === 422) {
-      alert(error.response.data.message || 'Impossible de supprimer cet abonnement')
-    } else {
-      alert('Erreur lors de la suppression de l\'abonnement')
-    }
-  }
-}
-
-const assignSubscription = (subscription) => {
-  selectedSubscription.value = subscription
-  assignForm.value = {
-    student_ids: [],
-    started_at: new Date().toISOString().split('T')[0],
-    expires_at: ''
-  }
+// Ouvrir le modal d'assignation (sans élève pré-sélectionné, on en choisira un dans le modal)
+const openAssignModal = () => {
+  // Initialiser avec un objet élève générique pour permettre la sélection dans le modal
+  selectedStudent.value = { id: null, name: 'Nouvel abonnement' }
   showAssignModal.value = true
 }
 
-const confirmAssign = async () => {
-  try {
-    const { $api } = useNuxtApp()
-    const payload = {
-      subscription_id: selectedSubscription.value.id,
-      ...assignForm.value
-    }
-    
-    // Ne pas envoyer expires_at si vide
-    if (!payload.expires_at) {
-      delete payload.expires_at
-    }
+const closeAssignModal = () => {
+  showAssignModal.value = false
+  selectedStudent.value = null
+}
 
-    const response = await $api.post('/club/subscriptions/assign', payload)
-    if (response.data.success) {
-      await loadSubscriptions()
-      showAssignModal.value = false
-      const studentCount = assignForm.value.student_ids.length
-      const message = studentCount > 1 
-        ? `Abonnement familial créé avec succès pour ${studentCount} élèves` 
-        : 'Abonnement attribué avec succès à l\'élève'
-      alert(message)
-    }
-  } catch (error) {
-    console.error('Erreur lors de l\'attribution:', error)
-    if (error.response?.data?.errors) {
-      const errorMessages = Object.values(error.response.data.errors).flat().join('\n')
-      alert(`Erreur de validation:\n${errorMessages}`)
-    } else {
-      alert('Erreur lors de l\'attribution de l\'abonnement')
-    }
-  }
+const handleSubscriptionAssigned = () => {
+  loadSubscriptions()
 }
 
 const getActiveSubscribersCount = (subscription) => {
-  return subscription.subscription_students?.filter(s => s.status === 'active').length || 0
+  return subscription.instances?.filter(i => i.status === 'active').length || 0
 }
 
 const getActiveInstances = (subscription) => {
-  return subscription.subscription_students?.filter(s => s.status === 'active') || []
+  return subscription.instances?.filter(i => i.status === 'active') || []
 }
 
 const getInstanceStudentNames = (instance) => {
@@ -619,6 +301,16 @@ const getInstanceStudentNames = (instance) => {
     return `👥 ${names}`
   }
   return names
+}
+
+const getStatusLabel = (status) => {
+  const labels = {
+    'active': 'Actif',
+    'completed': 'Terminé',
+    'expired': 'Expiré',
+    'cancelled': 'Annulé'
+  }
+  return labels[status] || status
 }
 
 const viewSubscriptionDetails = (subscription) => {

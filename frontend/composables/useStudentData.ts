@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useNuxtApp } from '#app'
 import { useToast } from '~/composables/useToast'
 
 /**

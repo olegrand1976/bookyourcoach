@@ -1,33 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useNuxtApp } from '#app'
+
+// Mock Nuxt composables - récupérer le mock depuis #app
+const { $api: mockApi } = useNuxtApp()
+
+// Imports après les mocks
 import { useStudentData } from '../../composables/useStudentData'
 import { useToast } from '../../composables/useToast'
 
-// Mock Nuxt composables
-const mockApi = {
-  get: vi.fn(),
-  post: vi.fn(),
-  put: vi.fn(),
-  delete: vi.fn()
+// Mock useToast - doit être fait avant l'import
+const mockToast = {
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn()
 }
 
-vi.mock('#app', () => ({
-  useNuxtApp: () => ({
-    $api: mockApi
-  })
-}))
-
 vi.mock('../../composables/useToast', () => ({
-  useToast: vi.fn(() => ({
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn()
-  }))
+  useToast: () => mockToast
 }))
 
 describe('useStudentData Composable', () => {
+  // Mock console.error pour éviter les logs dans stderr pendant les tests
+  const originalConsoleError = console.error
+  
   beforeEach(() => {
     vi.clearAllMocks()
+    // Réinitialiser les mocks
+    mockApi.get.mockReset()
+    mockApi.post.mockReset()
+    mockApi.put.mockReset()
+    mockApi.delete.mockReset()
+    mockToast.success.mockReset()
+    mockToast.error.mockReset()
+    mockToast.warning.mockReset()
+    mockToast.info.mockReset()
+    // Supprimer les logs console.error pendant les tests
+    console.error = vi.fn()
+  })
+  
+  afterEach(() => {
+    // Restaurer console.error après chaque test
+    console.error = originalConsoleError
   })
 
   describe('loadStats', () => {
@@ -210,7 +224,6 @@ describe('useStudentData Composable', () => {
       }
       mockApi.post.mockResolvedValue({ data: mockResponse })
       
-      const toast = useToast()
       const { bookLesson } = useStudentData()
 
       // Act
@@ -222,7 +235,7 @@ describe('useStudentData Composable', () => {
         notes: 'Note de test'
       })
       expect(result).toEqual(mockResponse.data)
-      expect(toast.success).toHaveBeenCalledWith('Cours réservé avec succès!')
+      expect(mockToast.success).toHaveBeenCalledWith('Cours réservé avec succès!')
     })
 
     it('devrait gérer les erreurs de réservation', async () => {
@@ -230,13 +243,12 @@ describe('useStudentData Composable', () => {
       const error = new Error('Erreur de réservation')
       mockApi.post.mockRejectedValue(error)
       
-      const toast = useToast()
       const { bookLesson, error: errorRef } = useStudentData()
 
       // Act & Assert
       await expect(bookLesson(10)).rejects.toThrow()
       expect(errorRef.value).toBeTruthy()
-      expect(toast.error).toHaveBeenCalled()
+      expect(mockToast.error).toHaveBeenCalled()
     })
   })
 
@@ -249,7 +261,6 @@ describe('useStudentData Composable', () => {
       }
       mockApi.put.mockResolvedValue({ data: mockResponse })
       
-      const toast = useToast()
       const { cancelBooking } = useStudentData()
 
       // Act
@@ -258,7 +269,7 @@ describe('useStudentData Composable', () => {
       // Assert
       expect(mockApi.put).toHaveBeenCalledWith('/student/bookings/1/cancel')
       expect(result).toEqual(mockResponse.data)
-      expect(toast.success).toHaveBeenCalledWith('Réservation annulée avec succès!')
+      expect(mockToast.success).toHaveBeenCalledWith('Réservation annulée avec succès!')
     })
 
     it('devrait gérer les erreurs d\'annulation', async () => {
@@ -266,13 +277,12 @@ describe('useStudentData Composable', () => {
       const error = new Error('Erreur d\'annulation')
       mockApi.put.mockRejectedValue(error)
       
-      const toast = useToast()
       const { cancelBooking, error: errorRef } = useStudentData()
 
       // Act & Assert
       await expect(cancelBooking(1)).rejects.toThrow()
       expect(errorRef.value).toBeTruthy()
-      expect(toast.error).toHaveBeenCalled()
+      expect(mockToast.error).toHaveBeenCalled()
     })
   })
 

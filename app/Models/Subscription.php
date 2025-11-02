@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class Subscription extends Model
 {
@@ -12,6 +13,9 @@ class Subscription extends Model
 
     protected $fillable = [
         'club_id',
+        'subscription_template_id',
+        'subscription_number',
+        // Colonnes legacy pour compatibilité
         'name',
         'total_lessons',
         'free_lessons',
@@ -29,12 +33,55 @@ class Subscription extends Model
         'validity_months' => 'integer',
     ];
 
-    protected $attributes = [
-        'validity_months' => 12, // 1 an par défaut
-    ];
+    /**
+     * Boot method pour générer le numéro d'abonnement
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($subscription) {
+            // Générer le numéro AAMM-incrément si non fourni
+            if (!$subscription->subscription_number) {
+                $subscription->subscription_number = static::generateSubscriptionNumber($subscription->club_id);
+            }
+        });
+    }
 
     /**
-     * Le club qui propose cet abonnement
+     * Générer un numéro d'abonnement au format AAMM-incrément
+     * Exemple : 2501-001 (année 2025, mois 01, incrément 001)
+     */
+    public static function generateSubscriptionNumber($clubId): string
+    {
+        $now = Carbon::now();
+        $yearMonth = $now->format('ym'); // Format AAMM (ex: 2501)
+        
+        // Trouver le dernier numéro pour ce mois et ce club
+        $lastSubscription = static::where('club_id', $clubId)
+            ->where('subscription_number', 'like', $yearMonth . '-%')
+            ->orderBy('subscription_number', 'desc')
+            ->first();
+        
+        if ($lastSubscription && $lastSubscription->subscription_number) {
+            // Extraire l'incrément et l'incrémenter
+            $parts = explode('-', $lastSubscription->subscription_number);
+            if (count($parts) === 2) {
+                $increment = (int) $parts[1];
+                $increment++;
+            } else {
+                $increment = 1;
+            }
+        } else {
+            // Premier abonnement du mois
+            $increment = 1;
+        }
+        
+        return sprintf('%s-%03d', $yearMonth, $increment);
+    }
+
+    /**
+     * Le club qui possède cet abonnement
      */
     public function club()
     {
@@ -42,23 +89,29 @@ class Subscription extends Model
     }
 
     /**
-     * Les types de cours inclus dans cet abonnement
+     * Le modèle d'abonnement utilisé
      */
-    public function courseTypes()
+    public function template()
     {
-        // Vérifier si la table utilise course_type_id ou discipline_id
-        if (Schema::hasColumn('subscription_course_types', 'course_type_id')) {
-            return $this->belongsToMany(CourseType::class, 'subscription_course_types', 'subscription_id', 'course_type_id')
-                ->withTimestamps();
-        } else {
-            // Fallback pour compatibilité avec l'ancienne structure
-            return $this->belongsToMany(Discipline::class, 'subscription_course_types', 'subscription_id', 'discipline_id')
-                ->withTimestamps();
-        }
+        return $this->belongsTo(SubscriptionTemplate::class, 'subscription_template_id');
     }
 
     /**
-     * Les instances d'abonnements (abonnements achetés)
+     * Les types de cours inclus dans cet abonnement (via le template)
+     */
+    public function courseTypes()
+    {
+        if ($this->subscription_template_id && $this->template) {
+            return $this->template->courseTypes();
+        }
+        
+        // Fallback pour compatibilité avec l'ancienne structure
+        return $this->belongsToMany(CourseType::class, 'subscription_course_types', 'subscription_id', 'course_type_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Les instances d'abonnements (abonnements utilisés par les élèves)
      */
     public function instances()
     {
@@ -74,10 +127,57 @@ class Subscription extends Model
     }
 
     /**
-     * Nombre total de cours (payés + gratuits)
+     * Nombre total de cours (via le template ou legacy)
      */
     public function getTotalAvailableLessonsAttribute()
     {
-        return $this->total_lessons + $this->free_lessons;
+        if ($this->template) {
+            return $this->template->total_available_lessons;
+        }
+        return ($this->total_lessons ?? 0) + ($this->free_lessons ?? 0);
+    }
+
+    /**
+     * Prix (via le template ou legacy)
+     */
+    public function getPriceAttribute($value)
+    {
+        if ($this->template) {
+            return $this->template->price;
+        }
+        return $value;
+    }
+
+    /**
+     * Nombre de cours total (via le template ou legacy)
+     */
+    public function getTotalLessonsAttribute($value)
+    {
+        if ($this->template) {
+            return $this->template->total_lessons;
+        }
+        return $value;
+    }
+
+    /**
+     * Nombre de cours gratuits (via le template ou legacy)
+     */
+    public function getFreeLessonsAttribute($value)
+    {
+        if ($this->template) {
+            return $this->template->free_lessons;
+        }
+        return $value ?? 0;
+    }
+
+    /**
+     * Durée de validité (via le template ou legacy)
+     */
+    public function getValidityMonthsAttribute($value)
+    {
+        if ($this->template) {
+            return $this->template->validity_months;
+        }
+        return $value ?? 12;
     }
 }

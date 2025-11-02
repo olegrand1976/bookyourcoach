@@ -88,11 +88,19 @@ global.useI18n = vi.fn(() => ({
 }))
 
 // Mock Nuxt composables
+const mockApi = {
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn()
+}
+
 global.useNuxtApp = vi.fn(() => ({
-    $router: {
-        push: vi.fn(),
-        replace: vi.fn()
-    }
+  $api: mockApi,
+  $router: {
+    push: vi.fn(),
+    replace: vi.fn()
+  }
 }))
 
 global.useLazyFetch = vi.fn(() => ({
@@ -125,14 +133,30 @@ vi.mock('@heroicons/vue/24/outline', () => ({
     }
 }))
 
-// Mock NuxtLink
-vi.mock('#app', () => ({
-    NuxtLink: {
-        name: 'NuxtLink',
-        template: '<a><slot></slot></a>',
-        props: ['to']
+// Mock NuxtLink et useNuxtApp depuis #app
+vi.mock('#app', async () => {
+    const mockApi = {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn()
     }
-}))
+    
+    return {
+        NuxtLink: {
+            name: 'NuxtLink',
+            template: '<a><slot></slot></a>',
+            props: ['to']
+        },
+        useNuxtApp: () => ({
+            $api: mockApi,
+            $router: {
+                push: vi.fn(),
+                replace: vi.fn()
+            }
+        })
+    }
+})
 
 // Mock $t function globally
 global.$t = vi.fn((key) => key)

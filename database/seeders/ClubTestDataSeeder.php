@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class ClubTestDataSeeder extends Seeder
@@ -159,19 +160,21 @@ class ClubTestDataSeeder extends Seeder
             $existingManager = DB::table('users')->where('email', $managerData['email'])->first();
             
             if ($existingManager) {
+                $userId = $existingManager->id;
                 $managers->push($existingManager);
-                continue;
+            } else {
+                $userId = DB::table('users')->insertGetId($managerData);
+                $manager = DB::table('users')->where('id', $userId)->first();
+                $managers->push($manager);
             }
 
-            $userId = DB::table('users')->insertGetId($managerData);
-            $manager = DB::table('users')->where('id', $userId)->first();
-            $managers->push($manager);
-
-            // Lier le gestionnaire au club
-            DB::table('club_managers')->updateOrInsert(
+            // Lier le gestionnaire au club via club_user (même s'il existe déjà, on s'assure de la liaison)
+            DB::table('club_user')->updateOrInsert(
                 ['club_id' => $club->id, 'user_id' => $userId],
                 [
-                    'role' => 'owner',
+                    'role' => 'manager',
+                    'is_admin' => true,
+                    'joined_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now()
                 ]
@@ -357,7 +360,12 @@ class ClubTestDataSeeder extends Seeder
             return;
         }
 
-        $courseTypes = [1, 2, 3, 4]; // IDs des course_types existants
+        // Récupérer les IDs réels des course_types existants
+        $courseTypes = DB::table('course_types')->pluck('id')->toArray();
+        if (empty($courseTypes)) {
+            $this->command->warn('⚠️ Aucun course_type trouvé, création de cours ignorée');
+            return;
+        }
         $lessonTitles = [
             'Cours de dressage',
             'Saut d\'obstacles',
@@ -403,7 +411,7 @@ class ClubTestDataSeeder extends Seeder
                     }
                     
                     // Créer le cours
-                    $lessonId = DB::table('lessons')->insertGetId([
+                    $lessonData = [
                         'teacher_id' => $teacherId,
                         'student_id' => $studentId,
                         'course_type_id' => $courseTypeId,
@@ -416,7 +424,14 @@ class ClubTestDataSeeder extends Seeder
                         'payment_status' => ['pending', 'paid', 'failed'][rand(0, 2)],
                         'created_at' => now(),
                         'updated_at' => now()
-                    ]);
+                    ];
+                    
+                    // Ajouter club_id si la colonne existe
+                    if (Schema::hasColumn('lessons', 'club_id')) {
+                        $lessonData['club_id'] = $clubId;
+                    }
+                    
+                    $lessonId = DB::table('lessons')->insertGetId($lessonData);
                     
                     // Lier l'étudiant au cours
                     DB::table('lesson_student')->insert([

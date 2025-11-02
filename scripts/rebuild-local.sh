@@ -32,6 +32,18 @@ echo "🚀 Démarrage des conteneurs..."
 docker-compose -f docker-compose.local.yml up -d
 
 echo ""
+echo "⏳ Attente du démarrage des services (15 secondes)..."
+sleep 15
+
+echo ""
+echo "🗄️  Exécution des migrations de base de données..."
+if docker-compose -f docker-compose.local.yml exec -T backend php artisan migrate --force; then
+  echo "✅ Migrations exécutées avec succès"
+else
+  echo "⚠️  Certaines migrations ont échoué (normal si tables existent déjà)"
+fi
+
+echo ""
 echo "✅ Rebuild terminé avec succès!"
 echo ""
 echo "📊 État des conteneurs:"

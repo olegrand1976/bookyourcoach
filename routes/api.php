@@ -176,12 +176,16 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/planning/suggest-optimal-slot', [App\Http\Controllers\Api\ClubPlanningController::class, 'suggestOptimalSlot']);
     Route::post('/planning/check-availability', [App\Http\Controllers\Api\ClubPlanningController::class, 'checkAvailability']);
     Route::get('/planning/statistics', [App\Http\Controllers\Api\ClubPlanningController::class, 'getStatistics']);
-    // Abonnements
+    // Modèles d'abonnements
+    Route::get('/subscription-templates', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'index']);
+    Route::post('/subscription-templates', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'store']);
+    Route::put('/subscription-templates/{id}', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'update']);
+    Route::delete('/subscription-templates/{id}', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'destroy']);
+    
+    // Abonnements (créés depuis les modèles)
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
-    Route::put('/subscriptions/{id}', [SubscriptionController::class, 'update']);
-    Route::delete('/subscriptions/{id}', [SubscriptionController::class, 'destroy']);
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
     Route::post('/subscriptions/{instanceId}/renew', [SubscriptionController::class, 'renew']);

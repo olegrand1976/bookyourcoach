@@ -278,7 +278,10 @@ class ClubController extends Controller
                         'insurance_rc_company', 'insurance_rc_policy_number',
                         'insurance_additional_company', 'insurance_additional_policy_number', 'insurance_additional_details',
                         'expense_reimbursement_type', 'expense_reimbursement_details',
-                        'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
+                        'activity_types', 'disciplines', 'discipline_settings', 'schedule_config',
+                        'default_subscription_total_lessons', 'default_subscription_free_lessons',
+                        'default_subscription_price', 'default_subscription_validity_value',
+                        'default_subscription_validity_unit'
                     ]);
                     
                     // Ne garder que les colonnes qui existent dans la table
@@ -359,7 +362,10 @@ class ClubController extends Controller
                 'insurance_rc_company', 'insurance_rc_policy_number',
                 'insurance_additional_company', 'insurance_additional_policy_number', 'insurance_additional_details',
                 'expense_reimbursement_type', 'expense_reimbursement_details',
-                'activity_types', 'disciplines', 'discipline_settings', 'schedule_config'
+                'activity_types', 'disciplines', 'discipline_settings', 'schedule_config',
+                'default_subscription_total_lessons', 'default_subscription_free_lessons',
+                'default_subscription_price', 'default_subscription_validity_value',
+                'default_subscription_validity_unit'
             ]);
             
             // Ne garder que les colonnes qui existent dans la table
@@ -371,8 +377,30 @@ class ClubController extends Controller
             if (isset($updateData['activity_types']) && is_array($updateData['activity_types'])) {
                 $updateData['activity_types'] = json_encode($updateData['activity_types']);
             }
-            if (isset($updateData['disciplines']) && is_array($updateData['disciplines'])) {
-                $updateData['disciplines'] = json_encode($updateData['disciplines']);
+            if (isset($updateData['disciplines'])) {
+                // S'assurer que c'est un tableau
+                if (is_array($updateData['disciplines'])) {
+                    // Filtrer pour ne garder que les IDs numériques valides
+                    $updateData['disciplines'] = array_values(array_filter($updateData['disciplines'], function($id) {
+                        return is_numeric($id) && $id > 0;
+                    }));
+                    $updateData['disciplines'] = json_encode($updateData['disciplines']);
+                } elseif (is_string($updateData['disciplines'])) {
+                    // Si c'est déjà une chaîne JSON, vérifier qu'elle est valide
+                    $decoded = json_decode($updateData['disciplines'], true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $decoded = array_values(array_filter($decoded, function($id) {
+                            return is_numeric($id) && $id > 0;
+                        }));
+                        $updateData['disciplines'] = json_encode($decoded);
+                    }
+                }
+                
+                \Log::info('ClubController::updateProfile - Disciplines traitées', [
+                    'raw_input' => $requestData['disciplines'] ?? null,
+                    'after_filtering' => $updateData['disciplines'],
+                    'club_id' => $clubUser->club_id
+                ]);
             }
             if (isset($updateData['discipline_settings']) && is_array($updateData['discipline_settings'])) {
                 $updateData['discipline_settings'] = json_encode($updateData['discipline_settings']);

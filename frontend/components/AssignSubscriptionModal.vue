@@ -21,37 +21,82 @@
 
         <!-- Content -->
         <div class="p-6">
-          <!-- Élève(s) sélectionné(s) -->
-          <div v-if="student" class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p class="text-sm font-medium text-gray-700 mb-2">Élève sélectionné:</p>
-            <p class="font-semibold text-gray-900">{{ student.name }}</p>
-          </div>
-
-          <!-- Sélection de l'abonnement -->
+          <!-- Sélection de l'élève principal (Autocomplete) -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Abonnement *
+              Élève principal *
+            </label>
+            <div class="relative">
+              <input
+                v-model="studentSearchQuery"
+                @input="filterStudents"
+                @focus="showStudentDropdown = true"
+                @blur="handleStudentBlur"
+                type="text"
+                placeholder="Rechercher un élève..."
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                :disabled="loadingStudents"
+              />
+              <div v-if="showStudentDropdown && filteredStudents.length > 0" 
+                   class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div
+                  v-for="s in filteredStudents"
+                  :key="s.id"
+                  @mousedown.prevent="selectStudent(s)"
+                  class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
+                  <div class="font-medium text-gray-900">{{ s.name }}</div>
+                  <div v-if="s.email" class="text-sm text-gray-500">{{ s.email }}</div>
+                </div>
+              </div>
+              <div v-if="selectedMainStudent" class="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                <span class="text-sm font-medium text-gray-900">Sélectionné: {{ selectedMainStudent.name }}</span>
+                <button 
+                  @click="clearMainStudent"
+                  class="ml-2 text-red-600 hover:text-red-800 text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+              <p v-if="!loadingStudents && allStudents.length === 0" class="mt-2 text-sm text-amber-600">
+                Aucun élève disponible.
+              </p>
+            </div>
+          </div>
+
+          <!-- Sélection du modèle d'abonnement -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Modèle d'abonnement *
             </label>
             <select 
-              v-model="form.subscription_id"
+              v-model="form.subscription_template_id"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              :disabled="loadingSubscriptions"
+              :disabled="loadingTemplates"
+              @change="onTemplateSelected"
             >
-              <option value="">Sélectionner un abonnement</option>
+              <option value="">Sélectionner un modèle</option>
               <option 
-                v-for="subscription in availableSubscriptions" 
-                :key="subscription.id"
-                :value="subscription.id"
+                v-for="template in availableTemplates" 
+                :key="template.id"
+                :value="template.id"
               >
-                {{ subscription.name }} - {{ subscription.price }}€ ({{ subscription.total_lessons }} cours, validité: {{ subscription.validity_months || 12 }} mois)
+                Modèle {{ template.model_number }} - {{ template.price }}€ ({{ template.total_lessons }} cours, validité: {{ template.validity_months || 12 }} mois)
               </option>
             </select>
-            <p v-if="!loadingSubscriptions && availableSubscriptions.length === 0" class="mt-2 text-sm text-amber-600">
-              Aucun abonnement disponible. Veuillez d'abord créer un abonnement dans la section "Abonnements".
+            <!-- Affichage du prix -->
+            <div v-if="selectedTemplate" class="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+              <p class="text-sm text-gray-700">
+                <span class="font-semibold">Prix total:</span>
+                <span class="text-lg font-bold text-green-700 ml-2">{{ selectedTemplate.price }} €</span>
+              </p>
+            </div>
+            <p v-if="!loadingTemplates && availableTemplates.length === 0" class="mt-2 text-sm text-amber-600">
+              Aucun modèle d'abonnement disponible. Veuillez d'abord créer un modèle dans la section "Modèles d'Abonnements".
             </p>
           </div>
 
-          <!-- Date de début -->
+          <!-- Date de début (sera automatiquement attribuée au premier cours) -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Date de début *
@@ -59,47 +104,96 @@
             <input 
               v-model="form.started_at"
               type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <!-- Date d'expiration (optionnelle, sera calculée automatiquement si non fournie) -->
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Date d'expiration (optionnelle)
-            </label>
-            <input 
-              v-model="form.expires_at"
-              type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+              readonly
             />
             <p class="mt-1 text-xs text-gray-500">
-              Laissé vide, la date d'expiration sera calculée automatiquement selon la durée de validité de l'abonnement.
+              Cette date sera automatiquement attribuée au premier cours affecté à l'élève.
             </p>
           </div>
 
-          <!-- Élèves additionnels (pour abonnement familial) -->
-          <div v-if="showFamilyOption" class="mb-6">
+          <!-- Date d'expiration (calculée automatiquement) -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Date d'expiration (calculée automatiquement)
+            </label>
+            <input 
+              v-model="calculatedExpiresAt"
+              type="date"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+              readonly
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Calculée automatiquement à partir du premier cours et selon les paramètres d'abonnement du profil club.
+            </p>
+          </div>
+
+          <!-- Nombre de cours déjà utilisés -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Nombre de cours déjà utilisés
+            </label>
+            <input 
+              v-model.number="form.lessons_used"
+              type="number"
+              min="0"
+              :max="selectedTemplate ? selectedTemplate.total_lessons + (selectedTemplate.free_lessons || 0) : 0"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="0"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              <span v-if="selectedTemplate">
+                Nombre de cours déjà utilisés sur les {{ selectedTemplate.total_lessons + (selectedTemplate.free_lessons || 0) }} cours disponibles.
+              </span>
+              <span v-else>
+                Sélectionnez d'abord un modèle d'abonnement.
+              </span>
+            </p>
+          </div>
+
+          <!-- Élèves additionnels (Autocomplete multiple) -->
+          <div v-if="showFamilyOption && selectedMainStudent" class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Ajouter d'autres élèves (abonnement familial)
             </label>
-            <div class="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-              <label 
-                v-for="s in otherStudents" 
+            <div class="relative">
+              <input
+                v-model="additionalStudentSearchQuery"
+                @input="filterAdditionalStudents"
+                @focus="showAdditionalDropdown = true"
+                @blur="handleAdditionalBlur"
+                type="text"
+                placeholder="Rechercher un élève à ajouter..."
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div v-if="showAdditionalDropdown && filteredAdditionalStudents.length > 0" 
+                   class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div
+                  v-for="s in filteredAdditionalStudents"
+                  :key="s.id"
+                  @mousedown.prevent="addAdditionalStudent(s)"
+                  class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
+                  <div class="font-medium text-gray-900">{{ s.name }}</div>
+                  <div v-if="s.email" class="text-sm text-gray-500">{{ s.email }}</div>
+                </div>
+              </div>
+            </div>
+            <!-- Liste des élèves additionnels sélectionnés -->
+            <div v-if="selectedAdditionalStudents.length > 0" class="mt-3 space-y-2">
+              <div 
+                v-for="s in selectedAdditionalStudents" 
                 :key="s.id"
-                class="flex items-center space-x-2 hover:bg-gray-50 p-2 rounded cursor-pointer"
+                class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
               >
-                <input 
-                  type="checkbox" 
-                  :value="s.id"
-                  v-model="form.additional_student_ids"
-                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span class="text-sm text-gray-700">{{ s.name }}</span>
-              </label>
-              <p v-if="otherStudents.length === 0" class="text-sm text-gray-500 italic">
-                Aucun autre élève disponible
-              </p>
+                <span class="text-sm text-gray-900">{{ s.name }}</span>
+                <button 
+                  @click="removeAdditionalStudent(s.id)"
+                  class="text-red-600 hover:text-red-800 text-sm"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -114,7 +208,7 @@
           </button>
           <button
             @click="assignSubscription"
-            :disabled="!form.subscription_id || !form.started_at || submitting"
+            :disabled="!selectedMainStudent || !form.subscription_template_id || submitting"
             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span v-if="!submitting">Assigner</span>
@@ -133,12 +227,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 const props = defineProps({
   student: {
     type: Object,
-    required: true
+    default: () => ({ id: null, name: 'Nouvel abonnement' })
   },
   showFamilyOption: {
     type: Boolean,
@@ -149,65 +243,284 @@ const props = defineProps({
 const emit = defineEmits(['close', 'success'])
 
 const form = ref({
-  subscription_id: '',
-  started_at: new Date().toISOString().split('T')[0],
+  subscription_template_id: '',
+  started_at: '',
   expires_at: '',
-  additional_student_ids: []
+  lessons_used: 0
 })
 
-const availableSubscriptions = ref([])
-const otherStudents = ref([])
-const loadingSubscriptions = ref(false)
+const availableTemplates = ref([])
+const selectedTemplate = ref(null)
+const allStudents = ref([])
+const loadingTemplates = ref(false)
+const loadingStudents = ref(false)
 const submitting = ref(false)
+const clubDefaults = ref(null)
 
-// Charger les abonnements disponibles
-const loadSubscriptions = async () => {
+// Autocomplete pour élève principal
+const studentSearchQuery = ref('')
+const showStudentDropdown = ref(false)
+const selectedMainStudent = ref(null)
+const filteredStudents = ref([])
+
+// Autocomplete pour élèves additionnels
+const additionalStudentSearchQuery = ref('')
+const showAdditionalDropdown = ref(false)
+const selectedAdditionalStudents = ref([])
+const filteredAdditionalStudents = ref([])
+
+// Date d'expiration calculée
+const calculatedExpiresAt = ref('')
+
+// Charger les modèles d'abonnements disponibles
+const loadTemplates = async () => {
   try {
-    loadingSubscriptions.value = true
+    loadingTemplates.value = true
     const { $api } = useNuxtApp()
-    const response = await $api.get('/club/subscriptions')
+    const response = await $api.get('/club/subscription-templates')
     
     if (response.data.success) {
-      availableSubscriptions.value = response.data.data.filter(s => s.is_active)
+      availableTemplates.value = response.data.data.filter(t => t.is_active)
+      
+      // Auto-sélectionner si un seul modèle existe
+      if (availableTemplates.value.length === 1) {
+        form.value.subscription_template_id = availableTemplates.value[0].id.toString()
+        onTemplateSelected()
+        // Recalculer après que la date de début soit initialisée
+        setTimeout(() => {
+          calculateExpirationDate()
+        }, 100)
+      }
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des abonnements:', error)
+    console.error('Erreur lors du chargement des modèles:', error)
   } finally {
-    loadingSubscriptions.value = false
+    loadingTemplates.value = false
   }
 }
 
-// Charger les autres élèves (pour abonnement familial)
-const loadOtherStudents = async () => {
-  if (!props.showFamilyOption) return
-  
+// Charger les paramètres par défaut du club
+const loadClubDefaults = async () => {
   try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/profile')
+    
+    if (response.data.success && response.data.club) {
+      clubDefaults.value = response.data.club
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des paramètres du club:', error)
+  }
+}
+
+// Lorsqu'un modèle est sélectionné
+const onTemplateSelected = () => {
+  if (form.value.subscription_template_id) {
+    selectedTemplate.value = availableTemplates.value.find(
+      t => t.id === parseInt(form.value.subscription_template_id)
+    )
+    // Recalculer la date d'expiration
+    calculateExpirationDate()
+    // Réinitialiser lessons_used si nécessaire (si la valeur dépasse le nouveau max)
+    if (selectedTemplate.value && form.value.lessons_used > (selectedTemplate.value.total_lessons + (selectedTemplate.value.free_lessons || 0))) {
+      form.value.lessons_used = 0
+    }
+  } else {
+    selectedTemplate.value = null
+    calculatedExpiresAt.value = ''
+  }
+}
+
+// Calculer la date d'expiration à partir du premier cours et des paramètres du club
+const calculateExpirationDate = () => {
+  if (!selectedTemplate.value || !form.value.started_at) {
+    calculatedExpiresAt.value = ''
+    return
+  }
+  
+  const startDate = new Date(form.value.started_at)
+  
+  // Utiliser validity_months du template si disponible
+  let monthsToAdd = selectedTemplate.value.validity_months || 12
+  
+  // Sinon utiliser les paramètres par défaut du club
+  if (!monthsToAdd && clubDefaults.value) {
+    const validityValue = clubDefaults.value.default_subscription_validity_value || 12
+    const validityUnit = clubDefaults.value.default_subscription_validity_unit || 'months'
+    
+    if (validityUnit === 'weeks') {
+      monthsToAdd = Math.ceil(validityValue / 4.33) // Approximation : 4.33 semaines = 1 mois
+    } else {
+      monthsToAdd = validityValue
+    }
+  }
+  
+  // Ajouter les mois à la date de début
+  const expirationDate = new Date(startDate)
+  expirationDate.setMonth(expirationDate.getMonth() + monthsToAdd)
+  
+  // Formater en YYYY-MM-DD
+  calculatedExpiresAt.value = expirationDate.toISOString().split('T')[0]
+  form.value.expires_at = calculatedExpiresAt.value
+}
+
+// Charger tous les élèves du club
+const loadStudents = async () => {
+  try {
+    loadingStudents.value = true
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/students')
     
     if (response.data.success) {
-      // Exclure l'élève actuel
-      otherStudents.value = response.data.data.filter(s => s.id !== props.student.id)
+      allStudents.value = response.data.data || []
+      filteredStudents.value = allStudents.value
+      filteredAdditionalStudents.value = allStudents.value
+      
+      // Si un élève est fourni en prop, le présélectionner
+      if (props.student?.id) {
+        const found = allStudents.value.find(s => s.id === props.student.id)
+        if (found) {
+          selectStudent(found)
+        }
+      }
+      
+      // Initialiser la date de début avec aujourd'hui
+      form.value.started_at = new Date().toISOString().split('T')[0]
+      // Réinitialiser lessons_used
+      form.value.lessons_used = 0
     }
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
+    allStudents.value = []
+    filteredStudents.value = []
+    filteredAdditionalStudents.value = []
+  } finally {
+    loadingStudents.value = false
   }
 }
 
+// Filtrer les élèves pour l'autocomplete principal
+const filterStudents = () => {
+  const query = studentSearchQuery.value.toLowerCase()
+  if (!query) {
+    filteredStudents.value = allStudents.value.filter(s => 
+      !selectedMainStudent.value || s.id !== selectedMainStudent.value.id
+    )
+  } else {
+    filteredStudents.value = allStudents.value.filter(s => {
+      const matches = s.name.toLowerCase().includes(query) || 
+                      (s.email && s.email.toLowerCase().includes(query))
+      return matches && (!selectedMainStudent.value || s.id !== selectedMainStudent.value.id)
+    })
+  }
+}
+
+// Sélectionner un élève principal
+const selectStudent = (student) => {
+  selectedMainStudent.value = student
+  studentSearchQuery.value = student.name
+  showStudentDropdown.value = false
+  
+  // Mettre à jour les filtres des élèves additionnels
+  filterAdditionalStudents()
+  calculateExpirationDate()
+}
+
+// Effacer la sélection de l'élève principal
+const clearMainStudent = () => {
+  selectedMainStudent.value = null
+  studentSearchQuery.value = ''
+  selectedAdditionalStudents.value = []
+  filterStudents()
+  filterAdditionalStudents()
+}
+
+// Gestion du blur pour l'autocomplete principal
+const handleStudentBlur = () => {
+  setTimeout(() => {
+    showStudentDropdown.value = false
+  }, 200)
+}
+
+// Filtrer les élèves pour l'autocomplete additionnel
+const filterAdditionalStudents = () => {
+  const query = additionalStudentSearchQuery.value.toLowerCase()
+  const excludedIds = [
+    selectedMainStudent.value?.id,
+    ...selectedAdditionalStudents.value.map(s => s.id)
+  ].filter(Boolean)
+  
+  if (!query) {
+    filteredAdditionalStudents.value = allStudents.value.filter(s => 
+      !excludedIds.includes(s.id)
+    )
+  } else {
+    filteredAdditionalStudents.value = allStudents.value.filter(s => {
+      const matches = s.name.toLowerCase().includes(query) || 
+                      (s.email && s.email.toLowerCase().includes(query))
+      return matches && !excludedIds.includes(s.id)
+    })
+  }
+}
+
+// Ajouter un élève additionnel
+const addAdditionalStudent = (student) => {
+  if (!selectedAdditionalStudents.value.find(s => s.id === student.id)) {
+    selectedAdditionalStudents.value.push(student)
+  }
+  additionalStudentSearchQuery.value = ''
+  showAdditionalDropdown.value = false
+  filterAdditionalStudents()
+}
+
+// Retirer un élève additionnel
+const removeAdditionalStudent = (studentId) => {
+  selectedAdditionalStudents.value = selectedAdditionalStudents.value.filter(
+    s => s.id !== studentId
+  )
+  filterAdditionalStudents()
+}
+
+// Gestion du blur pour l'autocomplete additionnel
+const handleAdditionalBlur = () => {
+  setTimeout(() => {
+    showAdditionalDropdown.value = false
+  }, 200)
+}
+
+// Watch pour recalculer la date d'expiration quand la date de début change
+watch(() => form.value.started_at, () => {
+  calculateExpirationDate()
+})
+
 // Assigner l'abonnement
 const assignSubscription = async () => {
+  if (!selectedMainStudent.value) {
+    alert('Veuillez sélectionner un élève principal')
+    return
+  }
+  
+  if (!form.value.subscription_template_id) {
+    alert('Veuillez sélectionner un modèle d\'abonnement')
+    return
+  }
+  
   try {
     submitting.value = true
     const { $api } = useNuxtApp()
     
     // Préparer les IDs des élèves (l'élève principal + éventuellement d'autres)
-    const studentIds = [props.student.id, ...form.value.additional_student_ids]
+    const studentIds = [
+      selectedMainStudent.value.id,
+      ...selectedAdditionalStudents.value.map(s => s.id)
+    ]
     
     const response = await $api.post('/club/subscriptions/assign', {
-      subscription_id: form.value.subscription_id,
+      subscription_template_id: form.value.subscription_template_id,
       student_ids: studentIds,
       started_at: form.value.started_at,
-      expires_at: form.value.expires_at || null
+      expires_at: calculatedExpiresAt.value || null,
+      lessons_used: form.value.lessons_used || 0
     })
     
     if (response.data.success) {
@@ -225,9 +538,12 @@ const assignSubscription = async () => {
   }
 }
 
-onMounted(() => {
-  loadSubscriptions()
-  loadOtherStudents()
+onMounted(async () => {
+  await Promise.all([
+    loadTemplates(),
+    loadStudents(),
+    loadClubDefaults()
+  ])
 })
 </script>
 
