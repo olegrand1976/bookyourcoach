@@ -7,30 +7,10 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (to.path.startsWith('/teacher/') || to.path.startsWith('/student/') || to.path.startsWith('/admin') || to.path.startsWith('/club/')) {
     console.log('🛡️ Route protégée détectée:', to.path)
     
-    // Côté serveur, vérifier les cookies directement
+    // Côté serveur, déléguer la validation complète au client pour éviter les redirections intempestives
     if (process.server) {
-      console.log('🔴 Plugin auth: côté serveur - vérification cookies')
-      
-      try {
-        // Vérifier si un token existe dans les cookies avec default pour éviter les erreurs
-        const token = useCookie('auth-token', { default: () => null })
-        
-        // Si pas de token, rediriger vers login
-        if (!token.value) {
-          console.log('❌ Pas de token côté serveur, redirection vers /login')
-          return navigateTo('/login')
-        }
-        
-        // Pour le SSR, on fait confiance au token côté serveur
-        // La validation complète se fera côté client
-        console.log('✅ Token présent côté serveur, autorisation temporaire')
-        return
-      } catch (error) {
-        console.warn('⚠️ Erreur lecture cookies côté serveur, laisser passer pour validation client:', error)
-        // En cas d'erreur de lecture, laisser passer pour que le client puisse valider
-        // Cela évite de bloquer la navigation si les cookies sont dans un format non standard
-        return
-      }
+      console.log('🔴 Plugin auth: côté serveur - validation déléguée au client')
+      return
     }
     
     // Côté client, initialiser l'authentification complète
