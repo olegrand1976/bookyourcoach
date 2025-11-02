@@ -85,9 +85,8 @@
                 :class="{ 'border-red-500': errors.birth_date }"
               />
               <p v-if="errors.birth_date" class="mt-1 text-sm text-red-600">{{ errors.birth_date }}</p>
-              <p v-if="form.birth_date" class="mt-1 text-xs text-gray-500">
-                Date saisie : {{ form.birth_date }}
-                <span v-if="form.birth_date.length === 10" class="text-green-600">✓ Format correct</span>
+              <p v-if="form.birth_date && form.birth_date.length === 10" class="mt-1 text-xs text-gray-600">
+                Âge : {{ calculateAge(form.birth_date) }} ans
               </p>
             </div>
           </div>
@@ -448,6 +447,31 @@ const handleSubmit = async () => {
   }
 }
 
+// Fonction pour calculer l'âge à partir d'une date de naissance (format YYYY-MM-DD)
+const calculateAge = (birthDate) => {
+  if (!birthDate || birthDate.length !== 10) {
+    return ''
+  }
+  
+  try {
+    const birth = new Date(birthDate)
+    const today = new Date()
+    
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    
+    // Si l'anniversaire n'est pas encore passé cette année, on soustrait 1 an
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    
+    return age
+  } catch (error) {
+    console.error('Erreur calcul âge:', error)
+    return ''
+  }
+}
+
 // Fonction appelée lors de la modification de la date de naissance
 const onBirthDateChange = (event) => {
   const newValue = event.target.value
@@ -470,7 +494,8 @@ const onBirthDateChange = (event) => {
       'type': typeof form.value.birth_date,
       'is empty string': form.value.birth_date === '',
       'is null': form.value.birth_date === null,
-      'is undefined': form.value.birth_date === undefined
+      'is undefined': form.value.birth_date === undefined,
+      'âge calculé': calculateAge(form.value.birth_date)
     })
   })
 }
