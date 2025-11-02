@@ -206,34 +206,14 @@ const editProfile = () => {
   
   // Vérifier que nous sommes côté client
   if (!process.client) {
-    console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur, navigation différée')
+    console.warn('⚠️ [EDIT PROFILE] Exécution côté serveur')
     return
   }
   
-  try {
-    console.log('🔵 [EDIT PROFILE] Tentative de navigation vers /teacher/profile/edit')
-    
-    // Utiliser navigateTo avec gestion d'erreur appropriée
-    navigateTo('/teacher/profile/edit', { 
-      replace: false,
-      external: false 
-    }).then(() => {
-      console.log('✅ [EDIT PROFILE] Navigation réussie')
-    }).catch((error) => {
-      console.error('❌ [EDIT PROFILE] Erreur navigateTo, utilisation du fallback:', error)
-      // Fallback: utiliser window.location si navigateTo échoue
-      window.location.href = '/teacher/profile/edit'
-    })
-    
-  } catch (error) {
-    console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
-    
-    // Fallback: utiliser window.location si navigateTo échoue
-    if (process.client) {
-      console.log('🔄 [EDIT PROFILE] Utilisation du fallback window.location')
-      window.location.href = '/teacher/profile/edit'
-    }
-  }
+  console.log('🔵 [EDIT PROFILE] Navigation vers /teacher/profile/edit')
+  
+  // Utiliser window.location directement pour une navigation fiable
+  window.location.href = '/teacher/profile/edit'
 }
 
 // Fonctions utilitaires pour convertir les données JSON
