@@ -224,8 +224,8 @@ const editProfile = async () => {
     
     console.log('✅ [EDIT PROFILE] Navigation déclenchée')
     
-  } catch (error: any) {
-    console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
+  } catch (error) {
+      console.error('❌ [EDIT PROFILE] Erreur lors de la navigation:', error)
     
     // Fallback: utiliser window.location si navigateTo échoue
     if (process.client) {
