@@ -185,7 +185,9 @@ class SubscriptionTemplateController extends Controller
 
             DB::commit();
 
+            // Recharger le modèle pour s'assurer que toutes les données sont présentes
             $template->load('courseTypes');
+            $template->refresh(); // S'assurer que validity_value et validity_unit sont chargés
 
             return response()->json([
                 'success' => true,
@@ -285,7 +287,9 @@ class SubscriptionTemplateController extends Controller
 
             DB::commit();
 
+            // Recharger le modèle pour s'assurer que toutes les données sont présentes
             $template->load('courseTypes');
+            $template->refresh(); // S'assurer que validity_value et validity_unit sont chargés
 
             return response()->json([
                 'success' => true,

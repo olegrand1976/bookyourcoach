@@ -32,41 +32,45 @@ class TeacherController extends Controller
             $startOfMonth = $now->copy()->startOfMonth();
             $endOfMonth = $now->copy()->endOfMonth();
 
-            // Statistiques générales
-            $todayLessons = Lesson::where('teacher_id', $teacher->id)
+            // Optimiser les statistiques avec une seule requête de base
+            $baseQuery = Lesson::where('teacher_id', $teacher->id);
+            
+            // Statistiques générales (optimisées)
+            $todayLessons = (clone $baseQuery)
                 ->whereDate('start_time', $now->toDateString())
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->count();
 
-            $totalLessons = Lesson::where('teacher_id', $teacher->id)
+            $totalLessons = (clone $baseQuery)
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->count();
 
-            $activeStudents = Lesson::where('teacher_id', $teacher->id)
+            $activeStudents = (clone $baseQuery)
                 ->whereIn('status', ['confirmed', 'completed'])
-                ->distinct('student_id')
                 ->whereNotNull('student_id')
+                ->distinct('student_id')
                 ->count('student_id');
 
-            $weeklyLessons = Lesson::where('teacher_id', $teacher->id)
+            $weeklyLessons = (clone $baseQuery)
                 ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->count();
 
-            $weeklyEarnings = Lesson::where('teacher_id', $teacher->id)
+            $weeklyEarnings = (clone $baseQuery)
                 ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
                 ->where('status', 'completed')
                 ->sum('price');
 
-            $monthlyEarnings = Lesson::where('teacher_id', $teacher->id)
+            $monthlyEarnings = (clone $baseQuery)
                 ->whereBetween('start_time', [$startOfMonth, $endOfMonth])
                 ->where('status', 'completed')
                 ->sum('price');
 
-            // Heures totales cette semaine
-            $weeklyHours = Lesson::where('teacher_id', $teacher->id)
+            // Heures totales cette semaine (optimisé : seulement les champs nécessaires)
+            $weeklyHours = (clone $baseQuery)
                 ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
                 ->where('status', 'completed')
+                ->select('start_time', 'end_time')
                 ->get()
                 ->sum(function ($lesson) {
                     if (!$lesson->start_time || !$lesson->end_time) {
@@ -75,25 +79,25 @@ class TeacherController extends Controller
                     return $lesson->start_time->diffInMinutes($lesson->end_time) / 60;
                 });
 
-            // Prochains cours (5 prochains)
+            // Prochains cours (10 prochains au lieu de 5 pour plus de données)
             $upcomingLessons = Lesson::where('teacher_id', $teacher->id)
-                ->with(['student.user', 'courseType', 'location', 'club'])
+                ->with(['student.user', 'students.user', 'courseType', 'location', 'club'])
                 ->where('start_time', '>=', $now)
                 ->whereIn('status', ['confirmed', 'pending'])
                 ->orderBy('start_time', 'asc')
-                ->limit(5)
+                ->limit(20) // Augmenter la limite pour avoir plus de cours visibles
                 ->get();
 
-            // Cours récents (5 derniers)
+            // Cours récents (10 derniers au lieu de 5)
             $recentLessons = Lesson::where('teacher_id', $teacher->id)
-                ->with(['student.user', 'courseType', 'location', 'club'])
+                ->with(['student.user', 'students.user', 'courseType', 'location', 'club'])
                 ->whereIn('status', ['completed', 'cancelled'])
                 ->orderBy('start_time', 'desc')
-                ->limit(5)
+                ->limit(10) // Augmenter la limite pour avoir plus de cours visibles
                 ->get();
 
-            // Clubs de l'enseignant
-            $clubs = $teacher->clubs()->get();
+            // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
+            $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country')->get();
 
             // Demandes de remplacement en attente
             $pendingReplacements = \App\Models\LessonReplacement::where(function($query) use ($teacher) {
@@ -398,7 +402,7 @@ class TeacherController extends Controller
                 ], 404);
             }
 
-            // Validation des données
+            // Validation des données (exclure hourly_rate et experience_years qui ne doivent pas être modifiables)
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:20',
@@ -406,8 +410,7 @@ class TeacherController extends Controller
                 'bio' => 'nullable|string',
                 'specialties' => 'nullable|array',
                 'certifications' => 'nullable|array',
-                'experience_years' => 'nullable|integer|min:0',
-                'hourly_rate' => 'nullable|numeric|min:0',
+                // experience_years et hourly_rate sont exclus - ils ne peuvent pas être modifiés par l'enseignant
             ]);
 
             // Mettre à jour les informations de l'utilisateur
@@ -423,6 +426,7 @@ class TeacherController extends Controller
             $user->save();
 
             // Mettre à jour les informations de l'enseignant
+            // Note: hourly_rate et experience_years ne peuvent pas être modifiés par l'enseignant
             $teacherData = [];
             if (isset($validated['bio'])) {
                 $teacherData['bio'] = $validated['bio'];
@@ -435,12 +439,7 @@ class TeacherController extends Controller
                 // Le casting du modèle s'occupera de la conversion en JSON
                 $teacherData['certifications'] = $validated['certifications'];
             }
-            if (isset($validated['experience_years'])) {
-                $teacherData['experience_years'] = $validated['experience_years'];
-            }
-            if (isset($validated['hourly_rate'])) {
-                $teacherData['hourly_rate'] = $validated['hourly_rate'];
-            }
+            // experience_years et hourly_rate sont volontairement exclus
 
             if (!empty($teacherData)) {
                 $teacher->update($teacherData);

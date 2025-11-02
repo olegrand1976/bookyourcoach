@@ -50,7 +50,7 @@
 
                   <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
-                    <span>🏇</span>
+                    <span>🏃</span>
                     <span>Espace Enseignant</span>
                   </NuxtLink>
 
@@ -125,7 +125,7 @@
               </NuxtLink>
               <NuxtLink to="/register"
                 class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
-                🏇 Inscription
+                🏃 Inscription
               </NuxtLink>
             </template>
           </div>
@@ -145,7 +145,7 @@
           <!-- Logo et description -->
           <div class="md:col-span-2">
             <div class="flex items-center space-x-3 mb-4">
-<span class="text-2xl">⚽</span>
+<span class="text-2xl">🏃</span>
               <span class="text-xl font-bold">BookYourCoach</span>
             </div>
             <p class="text-gray-100/80 mb-4">
@@ -168,7 +168,7 @@
               </li>
               <li>
                 <NuxtLink to="/centers" class="text-gray-100/80 hover:text-blue-400 transition-colors">
-                  Centres Équestres</NuxtLink>
+                  Centres équestres</NuxtLink>
               </li>
               <li>
                 <NuxtLink to="/disciplines"
@@ -182,7 +182,7 @@
           <div>
             <h4 class="font-semibold text-blue-400 mb-4">Contact</h4>
             <ul class="space-y-2 text-gray-100/80">
-              <li>📧 o.legrand@ll-it-sc.be</li>
+              <li>📧 info@activibe.be</li>
               <li>📞 +32 478.02.33.77</li>
               <li>🏠 Waudrez, Belgique</li>
             </ul>
@@ -192,7 +192,7 @@
         <hr class="border-blue-500/30 my-8">
 
         <div class="text-center text-gray-100/60">
-          <p>&copy; 2025 BookYourCoach. Tous droits réservés. 🐎</p>
+          <p>&copy; 2025 BookYourCoach. Tous droits réservés. 🏃</p>
         </div>
       </div>
     </footer>

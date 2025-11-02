@@ -130,7 +130,7 @@
                     type="number" 
                     min="0" 
                     step="0.01" 
-                    placeholder="50.00"
+                    placeholder="24.00"
                     class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   >
                 </div>
@@ -187,9 +187,9 @@ const form = ref({
   email: '',
   phone: '',
   experience_years: 0,
-  hourly_rate: 50,
+  hourly_rate: 24,
   bio: '',
-  contract_type: 'freelance', // Valeur par défaut
+  contract_type: 'volunteer', // Valeur par défaut : Bénévole
 });
 
 const addTeacher = async () => {

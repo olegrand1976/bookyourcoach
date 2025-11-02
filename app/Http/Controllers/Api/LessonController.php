@@ -78,13 +78,28 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
+            // Optimiser les relations chargées
+            $query = Lesson::with([
+                'teacher:id,user_id',
+                'teacher.user:id,name,email',
+                'student:id,user_id',
+                'student.user:id,name,email',
+                'students:id',
+                'students.user:id,name,email',
+                'courseType:id,name',
+                'location:id,name',
+                'club:id,name,email,phone'
+            ]);
 
             // Filtrage selon le rôle de l'utilisateur
             if ($user->role === 'teacher') {
-                $query->whereHas('teacher', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
+                $teacher = $user->teacher;
+                if ($teacher) {
+                    $query->where('teacher_id', $teacher->id);
+                } else {
+                    // Si pas de profil enseignant, ne retourner aucun cours
+                    $query->whereRaw('1 = 0');
+                }
             } elseif ($user->role === 'student') {
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
@@ -118,7 +133,9 @@ class LessonController extends Controller
                 $query->whereDate('start_time', '<=', $request->date_to);
             }
 
-            $lessons = $query->orderBy('start_time', 'desc')->get();
+            // Limiter le nombre de résultats pour éviter les chargements trop longs
+            $limit = $request->get('limit', 100); // Par défaut 100 cours max
+            $lessons = $query->orderBy('start_time', 'desc')->limit($limit)->get();
 
             return response()->json([
                 'success' => true,

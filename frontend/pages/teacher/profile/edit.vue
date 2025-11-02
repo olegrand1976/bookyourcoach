@@ -95,10 +95,11 @@
                   v-model.number="form.experience_years"
                   type="number"
                   min="0"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  :class="{ 'border-red-500': errors.experience_years }"
+                  disabled
+                  readonly
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                 />
-                <p v-if="errors.experience_years" class="mt-1 text-sm text-red-600">{{ errors.experience_years }}</p>
+                <p class="mt-1 text-xs text-gray-500">Calculé automatiquement à partir de la date de début d'expérience</p>
               </div>
               <div>
                 <label for="certifications" class="block text-sm font-medium text-gray-700 mb-1">Certifications</label>
@@ -120,10 +121,11 @@
                   type="number"
                   min="0"
                   step="0.01"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  :class="{ 'border-red-500': errors.hourly_rate }"
+                  disabled
+                  readonly
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                 />
-                <p v-if="errors.hourly_rate" class="mt-1 text-sm text-red-600">{{ errors.hourly_rate }}</p>
+                <p class="mt-1 text-xs text-gray-500">Le tarif horaire est géré par le club</p>
               </div>
             </div>
           </div>
@@ -254,8 +256,11 @@ const updateProfile = async () => {
     loading.value = true
     errors.value = {}
     
+    // Exclure hourly_rate et experience_years du formulaire car ils ne doivent pas être modifiés
+    const { hourly_rate, experience_years, ...updateData } = form.value
+    
     const { $api } = useNuxtApp()
-    const response = await $api.put('/teacher/profile', form.value)
+    const response = await $api.put('/teacher/profile', updateData)
     
     if (response.data) {
       // Afficher un message de succès

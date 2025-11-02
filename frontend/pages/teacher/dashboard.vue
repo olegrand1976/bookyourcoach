@@ -68,7 +68,9 @@
                     </div>
                     
                     <!-- Contact info -->
-                    <div class="mt-2 md:mt-3 space-y-1 md:space-y-2 ml-7 md:ml-11">
+                    <div class="mt-2 md:mt-3 ml-7 md:ml-11">
+                      <h5 class="text-xs md:text-sm font-semibold text-gray-700 mb-1 md:mb-2">Personne de contact club</h5>
+                      <div class="space-y-1 md:space-y-2">
                       <!-- Email -->
                       <div v-if="club.email" class="flex items-center text-xs md:text-sm text-gray-600">
                         <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,6 +98,7 @@
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         <span class="break-words">{{ getClubAddress(club) }}</span>
+                      </div>
                       </div>
                     </div>
                     
@@ -136,7 +139,9 @@
               <h3 class="text-xl font-bold text-gray-900">{{ clubs[0].name }}</h3>
               
               <!-- Contact info -->
-              <div class="mt-3 space-y-2">
+              <div class="mt-3">
+                <h5 class="text-sm md:text-base font-semibold text-gray-700 mb-2">Personne de contact club</h5>
+                <div class="space-y-2">
                 <!-- Email -->
                 <div v-if="clubs[0].email" class="flex items-center text-sm">
                   <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,6 +168,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   <span class="font-medium">{{ getClubAddress(clubs[0]) }}</span>
+                </div>
                 </div>
               </div>
             </div>
@@ -543,11 +549,18 @@ async function loadData() {
         
         // Utiliser les cours depuis le dashboard qui sont déjà triés
         if (data.upcoming_lessons && data.recent_lessons) {
-          lessons.value = [...data.upcoming_lessons, ...data.recent_lessons]
+          // Combiner et dédupliquer les cours par ID
+          const allLessons = [...data.upcoming_lessons, ...data.recent_lessons]
+          const uniqueLessons = Array.from(new Map(allLessons.map(lesson => [lesson.id, lesson])).values())
+          lessons.value = uniqueLessons
         } else {
-          // Fallback: charger les cours séparément
-          const lessonsResponse = await $api.get('/teacher/lessons')
-          lessons.value = lessonsResponse.data.data || []
+          // Fallback: charger les cours séparément avec limite
+          const lessonsResponse = await $api.get('/teacher/lessons', {
+            params: {
+              limit: 50 // Limiter le nombre de cours chargés
+            }
+          })
+          lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
         }
         
         console.log('✅ Dashboard data loaded:', data.stats)
@@ -568,12 +581,13 @@ async function loadData() {
       }
     }
 
-    // Charger les demandes de remplacement
-    const replacementsResponse = await $api.get('/teacher/lesson-replacements')
+    // Charger les demandes de remplacement et enseignants en parallèle (plus rapide)
+    const [replacementsResponse, teachersResponse] = await Promise.all([
+      $api.get('/teacher/lesson-replacements').catch(() => ({ data: { data: [] } })),
+      $api.get('/teacher/teachers').catch(() => ({ data: { data: [] } }))
+    ])
+    
     allReplacements.value = replacementsResponse.data.data || []
-
-    // Charger les enseignants disponibles
-    const teachersResponse = await $api.get('/teacher/teachers')
     availableTeachers.value = teachersResponse.data.data || []
 
     console.log('✅ Données chargées:', {

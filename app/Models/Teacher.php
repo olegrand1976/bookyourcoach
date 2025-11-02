@@ -201,4 +201,35 @@ class Teacher extends Model
 
         return true;
     }
+
+    /**
+     * Accessor pour calculer automatiquement les années d'expérience
+     * à partir de experience_start_date de l'utilisateur ou de la date de création du profil
+     */
+    public function getExperienceYearsAttribute($value)
+    {
+        // Si on a déjà une valeur stockée et qu'il n'y a pas de date de début, retourner la valeur stockée
+        if ($value !== null && $value > 0) {
+            // Si l'utilisateur a une date de début d'expérience, recalculer dynamiquement
+            if ($this->user && $this->user->experience_start_date) {
+                $startDate = \Carbon\Carbon::parse($this->user->experience_start_date);
+                return max(0, $startDate->diffInYears(now()));
+            }
+            return $value;
+        }
+
+        // Si l'utilisateur a une date de début d'expérience, calculer à partir de celle-ci
+        if ($this->user && $this->user->experience_start_date) {
+            $startDate = \Carbon\Carbon::parse($this->user->experience_start_date);
+            return max(0, $startDate->diffInYears(now()));
+        }
+
+        // Sinon, utiliser la date de création du profil Teacher comme référence
+        if ($this->created_at) {
+            $startDate = \Carbon\Carbon::parse($this->created_at);
+            return max(0, $startDate->diffInYears(now()));
+        }
+
+        return 0;
+    }
 }

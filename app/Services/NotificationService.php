@@ -170,9 +170,25 @@ class NotificationService
      */
     public function getUnreadCount(User $user): int
     {
-        return Notification::where('user_id', $user->id)
-            ->where('read', false)
-            ->count();
+        try {
+            // Vérifier si la table existe et si la colonne read existe
+            if (!\Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+                Log::warning('Table notifications does not exist');
+                return 0;
+            }
+            
+            // Utiliser whereRaw pour gérer les cas où 'read' pourrait être une colonne réservée
+            return Notification::where('user_id', $user->id)
+                ->where('read', false)
+                ->count();
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur dans getUnreadCount: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Retourner 0 en cas d'erreur pour ne pas bloquer l'interface
+            return 0;
+        }
     }
 
     /**

@@ -157,9 +157,38 @@ const loadProfileData = async () => {
     const { $api } = useNuxtApp()
     const response = await $api.get('/teacher/profile')
     
-    if (response.data) {
-      profileData.value = response.data.profile
-      teacherData.value = response.data.teacher
+    console.log('📥 Réponse complète du profil:', response)
+    
+    // Le backend retourne { success: true, profile: {...}, teacher: {...} }
+    // $api.get retourne généralement response.data directement depuis axios
+    const data = response.data || response
+    
+    if (data) {
+      if (data.success) {
+        // Format avec success: true
+        profileData.value = data.profile || null
+        teacherData.value = data.teacher || null
+      } else if (data.profile || data.teacher) {
+        // Format direct sans success
+        profileData.value = data.profile || null
+        teacherData.value = data.teacher || null
+      } else if (data.id && data.role) {
+        // Les données sont peut-être directement dans data (format user)
+        profileData.value = data
+        // Chercher teacher dans les relations
+        teacherData.value = data.teacher || null
+      }
+      
+      // Si les données sont toujours vides, afficher un message d'erreur plus clair
+      if (!profileData.value && !teacherData.value) {
+        error.value = 'Aucune donnée de profil disponible. Le profil enseignant peut être vide.'
+        console.warn('⚠️ Profil vide - aucune donnée chargée', { data, response })
+      } else {
+        console.log('✅ Profil chargé:', {
+          profile: profileData.value,
+          teacher: teacherData.value
+        })
+      }
     }
   } catch (err) {
     console.error('Erreur lors du chargement du profil:', err)
@@ -171,8 +200,16 @@ const loadProfileData = async () => {
 
 // Modifier le profil
 const editProfile = () => {
-  // Rediriger vers la page d'édition du profil
-  navigateTo('/teacher/profile/edit')
+  try {
+    // Rediriger vers la page d'édition du profil
+    navigateTo('/teacher/profile/edit')
+  } catch (error) {
+    console.error('Erreur lors de la navigation vers la page d\'édition:', error)
+    // Fallback: utiliser window.location si navigateTo échoue
+    if (process.client) {
+      window.location.href = '/teacher/profile/edit'
+    }
+  }
 }
 
 // Fonctions utilitaires pour convertir les données JSON
