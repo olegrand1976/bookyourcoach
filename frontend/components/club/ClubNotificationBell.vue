@@ -121,6 +121,8 @@ const loading = ref(false)
 const notifications = ref<any[]>([])
 const unreadCount = ref(0)
 let pollInterval: NodeJS.Timeout | null = null
+let consecutiveErrors = 0
+const MAX_CONSECUTIVE_ERRORS = 3 // Arrêter le polling après 3 erreurs consécutives
 
 // Methods
 async function loadNotifications() {
@@ -128,8 +130,13 @@ async function loadNotifications() {
     loading.value = true
     const response = await $api.get('/club/notifications')
     notifications.value = response.data.data || []
-  } catch (error) {
-    console.error('❌ Erreur chargement notifications:', error)
+    consecutiveErrors = 0 // Réinitialiser le compteur en cas de succès
+  } catch (error: any) {
+    // Ne pas logger les erreurs réseau/CORS de manière répétée
+    if (error.code !== 'ERR_NETWORK' && error.code !== 'ERR_CANCELED') {
+      console.error('❌ Erreur chargement notifications:', error)
+    }
+    consecutiveErrors++
   } finally {
     loading.value = false
   }
@@ -139,8 +146,25 @@ async function loadUnreadCount() {
   try {
     const response = await $api.get('/club/notifications/unread-count')
     unreadCount.value = response.data.count || 0
-  } catch (error) {
-    console.error('❌ Erreur comptage notifications:', error)
+    consecutiveErrors = 0 // Réinitialiser le compteur en cas de succès
+    return true
+  } catch (error: any) {
+    consecutiveErrors++
+    
+    // Si erreur réseau/CORS, arrêter le polling après plusieurs tentatives
+    if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CANCELED') {
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        stopPolling()
+        // Ne logger qu'une seule fois pour éviter le spam dans la console
+        if (consecutiveErrors === MAX_CONSECUTIVE_ERRORS) {
+          console.warn('⚠️ Polling des notifications arrêté après erreurs réseau répétées')
+        }
+      }
+    } else {
+      // Pour les autres erreurs (500, 401, etc.), logger normalement
+      console.error('❌ Erreur comptage notifications:', error)
+    }
+    return false
   }
 }
 
@@ -174,6 +198,9 @@ function togglePanel() {
 }
 
 function startPolling() {
+  // Réinitialiser le compteur d'erreurs
+  consecutiveErrors = 0
+  
   // Vérifier le nombre de notifications non lues toutes les 30 secondes
   pollInterval = setInterval(() => {
     loadUnreadCount()
