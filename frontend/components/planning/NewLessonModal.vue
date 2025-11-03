@@ -295,25 +295,37 @@ const availableCourseTypes = computed(() => {
     }))
   })
   
-  // Filtrer par disciplines du club
+  // 🔒 FILTRAGE STRICT : Filtrer par disciplines du club ET discipline du créneau
+  const slotDisciplineId = props.lessonData.slot?.discipline_id
+  
   const filtered = slotCourseTypes.filter(courseType => {
-    // Type générique : toujours garder
+    // ✅ Le type DOIT avoir une discipline_id (plus de types génériques acceptés)
     if (!courseType.discipline_id || courseType.discipline_id === null) {
-      console.log(`✅ [NewLessonModal] Type générique gardé: ${courseType.name}`)
-      return true
+      console.warn(`❌ [NewLessonModal] Type générique rejeté: ${courseType.name} (les types génériques ne sont plus acceptés pour garantir la cohérence)`)
+      return false
     }
     
     // Convertir en nombre pour comparaison
     const typeDiscId = parseInt(courseType.discipline_id)
-    const matches = clubDisciplineIds.includes(typeDiscId)
     
-    if (matches) {
-      console.log(`✅ [NewLessonModal] Type gardé: ${courseType.name} (disc:${typeDiscId})`)
+    // ✅ DOUBLE VALIDATION :
+    // 1. Le type doit correspondre à la discipline du créneau (si définie)
+    // 2. Le type doit correspondre aux disciplines du club
+    
+    if (slotDisciplineId && typeDiscId !== parseInt(slotDisciplineId)) {
+      console.warn(`❌ [NewLessonModal] Type rejeté: ${courseType.name} (disc:${typeDiscId}) - Créneau demande disc:${slotDisciplineId}`)
+      return false
+    }
+    
+    const matchesClub = clubDisciplineIds.includes(typeDiscId)
+    
+    if (matchesClub) {
+      console.log(`✅ [NewLessonModal] Type gardé: ${courseType.name} (disc:${typeDiscId}) - OK avec club et créneau`)
     } else {
       console.warn(`❌ [NewLessonModal] Type filtré: ${courseType.name} (disc:${typeDiscId}) - Club a: [${clubDisciplineIds.join(', ')}]`)
     }
     
-    return matches
+    return matchesClub
   })
   
   console.log('🎯 [NewLessonModal] Résultat du filtrage:', {
