@@ -157,11 +157,13 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
     Route::post('/students', [StudentController::class, 'store']);
-    Route::put('/students/{id}', [StudentController::class, 'update']);
-    Route::delete('/students/{id}', [StudentController::class, 'destroy']);
+    // Routes spécifiques avec suffixe AVANT les routes génériques {id}
+    Route::get('/students/{id}/history', [StudentController::class, 'history']);
     Route::patch('/students/{id}/toggle-status', [StudentController::class, 'toggleStatus']);
     Route::post('/students/{id}/resend-invitation', [StudentController::class, 'resendInvitation']);
-    Route::get('/students/{id}/history', [StudentController::class, 'history']);
+    // Routes génériques APRÈS les routes spécifiques
+    Route::put('/students/{id}', [StudentController::class, 'update']);
+    Route::delete('/students/{id}', [StudentController::class, 'destroy']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);
@@ -189,6 +191,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
+    // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
     Route::post('/subscriptions/{instanceId}/renew', [SubscriptionController::class, 'renew']);
     // Analyse prédictive IA
