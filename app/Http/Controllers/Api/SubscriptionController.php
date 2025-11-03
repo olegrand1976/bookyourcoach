@@ -51,7 +51,8 @@ class SubscriptionController extends Controller
             }
 
             // Si pas d'abonnements, retourner un tableau vide directement
-            $subscriptionCount = Subscription::where('club_id', $club->id)->count();
+            // Utiliser scopeForClub qui gère automatiquement le cas où club_id n'existe pas
+            $subscriptionCount = Subscription::forClub($club->id)->count();
             if ($subscriptionCount === 0) {
                 return response()->json([
                     'success' => true,
@@ -59,7 +60,7 @@ class SubscriptionController extends Controller
                 ]);
             }
 
-            $subscriptions = Subscription::where('club_id', $club->id)
+            $subscriptions = Subscription::forClub($club->id)
                 ->with([
                     'template' => function ($query) {
                         $query->with('courseTypes');
@@ -238,7 +239,7 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
-            $subscription = Subscription::where('club_id', $club->id)
+            $subscription = Subscription::forClub($club->id)
                 ->with([
                     'template.courseTypes',
                     'instances' => function ($query) {
@@ -422,7 +423,8 @@ class SubscriptionController extends Controller
                     $query->where('students.id', $studentId);
                 })
                 ->whereHas('subscription', function ($query) use ($club) {
-                    $query->where('club_id', $club->id);
+                    // Utiliser forClub scope qui gère automatiquement le cas où club_id n'existe pas
+                    Subscription::forClub($club->id)->applyScopes($query);
                 })
                 ->with([
                     'subscription.template.courseTypes',

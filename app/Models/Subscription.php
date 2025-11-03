@@ -118,10 +118,40 @@ class Subscription extends Model
 
     /**
      * Le club qui possède cet abonnement
+     * Utilise club_id directement, ou passe par template si club_id n'existe pas
      */
     public function club()
     {
-        return $this->belongsTo(Club::class);
+        // Si club_id existe dans la table, utiliser la relation directe
+        if (static::hasClubIdColumn()) {
+            return $this->belongsTo(Club::class);
+        }
+        
+        // Sinon, passer par la relation template -> club
+        return $this->hasOneThrough(
+            Club::class,
+            SubscriptionTemplate::class,
+            'id', // Foreign key on subscription_templates table
+            'id', // Foreign key on clubs table
+            'subscription_template_id', // Local key on subscriptions table
+            'club_id' // Local key on subscription_templates table
+        );
+    }
+
+    /**
+     * Scope pour filtrer les abonnements par club
+     * Gère automatiquement le cas où club_id n'existe pas (passe par template)
+     */
+    public function scopeForClub($query, $clubId)
+    {
+        if (static::hasClubIdColumn()) {
+            return $query->where('club_id', $clubId);
+        }
+        
+        // Si club_id n'existe pas, filtrer via template
+        return $query->whereHas('template', function ($q) use ($clubId) {
+            $q->where('club_id', $clubId);
+        });
     }
 
     /**
