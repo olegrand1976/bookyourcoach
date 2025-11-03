@@ -22,6 +22,10 @@ class ClubOpenSlot extends Model
         'is_active',
     ];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     /**
      * Get the club that owns this slot
      */

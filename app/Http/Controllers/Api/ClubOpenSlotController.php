@@ -375,12 +375,13 @@ class ClubOpenSlotController extends Controller
                 'max_slots' => 'nullable|integer|min:1|max:100',
                 'duration' => 'required|integer|min:15',
                 'price' => 'required|numeric|min:0',
-                'is_active' => 'boolean'
+                'is_active' => 'nullable|boolean'
             ]);
 
             // Ajouter le club_id et valeurs par défaut
             $validated['club_id'] = $club->id;
-            $validated['is_active'] = $validated['is_active'] ?? true;
+            // S'assurer que is_active est un booléen (true par défaut si non fourni)
+            $validated['is_active'] = isset($validated['is_active']) ? (bool) $validated['is_active'] : true;
             $validated['max_slots'] = $validated['max_slots'] ?? 1;
 
             $slot = ClubOpenSlot::create($validated);
@@ -503,7 +504,28 @@ class ClubOpenSlotController extends Controller
                 'is_active' => 'sometimes|boolean'
             ]);
 
+            // S'assurer que is_active est bien traité
+            // Si is_active est présent dans la request (même false), l'utiliser
+            // Sinon, ne pas modifier la valeur existante
+            if ($request->has('is_active')) {
+                $validated['is_active'] = filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN);
+            } else {
+                // Si is_active n'est pas dans la request, ne pas le modifier
+                unset($validated['is_active']);
+            }
+
+            Log::info('ClubOpenSlotController::update - Mise à jour créneau', [
+                'slot_id' => $id,
+                'validated' => $validated,
+                'is_active_in_request' => $request->has('is_active'),
+                'is_active_value' => $request->input('is_active'),
+                'is_active_final' => $validated['is_active'] ?? 'non modifié'
+            ]);
+
             $slot->update($validated);
+            
+            // Recharger pour avoir les données à jour
+            $slot->refresh();
 
             return response()->json([
                 'success' => true,

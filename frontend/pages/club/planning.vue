@@ -1089,6 +1089,9 @@ async function saveSlot() {
     saving.value = true
     const { $api } = useNuxtApp()
     
+    // S'assurer que is_active est toujours un booléen (pas undefined)
+    const isActive = slotForm.value.is_active !== undefined ? Boolean(slotForm.value.is_active) : true
+    
     const payload = {
       day_of_week: slotForm.value.day_of_week,
       start_time: slotForm.value.start_time,
@@ -1098,25 +1101,36 @@ async function saveSlot() {
       price: slotForm.value.price,
       max_capacity: slotForm.value.max_capacity,
       max_slots: slotForm.value.max_slots,
-      is_active: slotForm.value.is_active
+      is_active: isActive
     }
+    
+    console.log('💾 [saveSlot] Envoi du payload:', {
+      ...payload,
+      is_active_type: typeof payload.is_active,
+      is_active_value: payload.is_active
+    })
     
     if (editingSlot.value) {
       // Mise à jour
-      await $api.put(`/club/open-slots/${editingSlot.value.id}`, payload)
-      console.log('✅ Créneau mis à jour')
+      const response = await $api.put(`/club/open-slots/${editingSlot.value.id}`, payload)
+      console.log('✅ Créneau mis à jour:', response.data)
     } else {
       // Création
-      await $api.post('/club/open-slots', payload)
-      console.log('✅ Créneau créé')
+      const response = await $api.post('/club/open-slots', payload)
+      console.log('✅ Créneau créé:', response.data)
     }
     
     // Recharger la liste
-      await loadOpenSlots()
+    await loadOpenSlots()
     closeSlotModal()
   } catch (err: any) {
     console.error('Erreur sauvegarde créneau:', err)
-    alert('Erreur lors de la sauvegarde du créneau')
+    console.error('Détails de l\'erreur:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    })
+    alert('Erreur lors de la sauvegarde du créneau: ' + (err.response?.data?.message || err.message))
   } finally {
     saving.value = false
   }
