@@ -121,7 +121,17 @@ class SubscriptionInstance extends Model
      */
     public function getStudentNamesAttribute()
     {
-        return $this->students->pluck('user.name')->join(', ');
+        return $this->students->map(function ($student) {
+            // Gérer le cas où l'élève n'a pas de compte utilisateur
+            if ($student->user) {
+                return $student->user->name;
+            }
+            // Utiliser first_name et last_name de la table students si user n'existe pas
+            $firstName = $student->first_name ?? '';
+            $lastName = $student->last_name ?? '';
+            $name = trim($firstName . ' ' . $lastName);
+            return !empty($name) ? $name : 'Élève sans nom';
+        })->filter()->join(', ');
     }
 
     /**
