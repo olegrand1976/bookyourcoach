@@ -283,49 +283,88 @@ class ClubDashboardController extends Controller
     
     private function getIncompleteStudents($clubId)
     {
-        // Récupérer les élèves sans user_id (pas de compte utilisateur créé)
+        // Récupérer les élèves sans user_id qui n'ont pas de nom dans students
         $studentsWithoutUser = DB::table('club_students')
             ->join('students', 'club_students.student_id', '=', 'students.id')
             ->where('club_students.club_id', $clubId)
             ->where('club_students.is_active', true)
             ->whereNull('students.user_id')
-            ->select(
-                'students.id',
-                'students.club_id',
-                'students.date_of_birth',
-                DB::raw('NULL as name'),
-                DB::raw('NULL as first_name'),
-                DB::raw('NULL as last_name'),
-                DB::raw('NULL as email'),
-                DB::raw('"no_user" as missing_field')
-            )
-            ->get();
-        
-        // Récupérer les élèves avec user_id mais sans nom (first_name ou last_name null)
-        $studentsWithoutName = DB::table('club_students')
-            ->join('students', 'club_students.student_id', '=', 'students.id')
-            ->join('users', 'students.user_id', '=', 'users.id')
-            ->where('club_students.club_id', $clubId)
-            ->where('club_students.is_active', true)
             ->where(function($query) {
-                $query->whereNull('users.first_name')
-                      ->orWhereNull('users.last_name')
-                      ->orWhere('users.first_name', '')
-                      ->orWhere('users.last_name', '');
+                $query->whereNull('students.first_name')
+                      ->orWhereNull('students.last_name')
+                      ->orWhere('students.first_name', '')
+                      ->orWhere('students.last_name', '');
             })
             ->select(
                 'students.id',
                 'students.club_id',
                 'students.date_of_birth',
+                'students.first_name',
+                'students.last_name',
+                DB::raw('NULL as name'),
+                DB::raw('NULL as email'),
+                DB::raw('"no_name" as missing_field')
+            )
+            ->get();
+        
+        // Récupérer les élèves avec user_id mais sans nom (vérifier dans users ET students)
+        $studentsWithoutName = DB::table('club_students')
+            ->join('students', 'club_students.student_id', '=', 'students.id')
+            ->leftJoin('users', 'students.user_id', '=', 'users.id')
+            ->where('club_students.club_id', $clubId)
+            ->where('club_students.is_active', true)
+            ->whereNotNull('students.user_id')
+            ->where(function($query) {
+                // Vérifier dans students
+                $query->where(function($q) {
+                    $q->whereNull('students.first_name')
+                      ->orWhereNull('students.last_name')
+                      ->orWhere('students.first_name', '')
+                      ->orWhere('students.last_name', '');
+                })
+                // OU vérifier dans users si students n'a pas de nom
+                ->orWhere(function($q) {
+                    $q->where(function($subQ) {
+                        $subQ->whereNull('students.first_name')
+                             ->orWhere('students.first_name', '');
+                    })
+                    ->where(function($subQ) {
+                        $subQ->whereNull('users.first_name')
+                             ->orWhereNull('users.last_name')
+                             ->orWhere('users.first_name', '')
+                             ->orWhere('users.last_name', '');
+                    });
+                });
+            })
+            ->select(
+                'students.id',
+                'students.club_id',
+                'students.date_of_birth',
+                'students.first_name as student_first_name',
+                'students.last_name as student_last_name',
                 'users.name',
                 'users.first_name',
                 'users.last_name',
                 'users.email',
                 DB::raw('"no_name" as missing_field')
             )
-            ->get();
+            ->get()
+            ->map(function($student) {
+                // Utiliser les noms de students si disponibles, sinon ceux de users
+                return (object) [
+                    'id' => $student->id,
+                    'club_id' => $student->club_id,
+                    'date_of_birth' => $student->date_of_birth,
+                    'name' => $student->name,
+                    'first_name' => $student->student_first_name ?: $student->first_name,
+                    'last_name' => $student->student_last_name ?: $student->last_name,
+                    'email' => $student->email,
+                    'missing_field' => 'no_name'
+                ];
+            });
         
         // Récupérer les élèves avec user_id mais sans email
+        // Un élève sans email est considéré comme incomplet même s'il a un nom
         $studentsWithoutEmail = DB::table('club_students')
             ->join('students', 'club_students.student_id', '=', 'students.id')
             ->join('users', 'students.user_id', '=', 'users.id')
@@ -339,13 +378,28 @@ class ClubDashboardController extends Controller
                 'students.id',
                 'students.club_id',
                 'students.date_of_birth',
+                'students.first_name as student_first_name',
+                'students.last_name as student_last_name',
                 'users.name',
                 'users.first_name',
                 'users.last_name',
                 'users.email',
                 DB::raw('"no_email" as missing_field')
             )
-            ->get();
+            ->get()
+            ->map(function($student) {
+                // Utiliser les noms de students si disponibles, sinon ceux de users
+                return (object) [
+                    'id' => $student->id,
+                    'club_id' => $student->club_id,
+                    'date_of_birth' => $student->date_of_birth,
+                    'name' => $student->name,
+                    'first_name' => $student->student_first_name ?: $student->first_name,
+                    'last_name' => $student->student_last_name ?: $student->last_name,
+                    'email' => $student->email,
+                    'missing_field' => 'no_email'
+                ];
+            });
         
         // Fusionner les résultats
         $allIncomplete = $studentsWithoutUser
@@ -373,16 +427,26 @@ class ClubDashboardController extends Controller
     {
         $missing = [];
         
+        // Vérifier l'email
         if (!$student->email || empty($student->email)) {
             $missing[] = 'email';
         }
         
-        if ((!$student->first_name || empty($student->first_name)) && 
-            (!$student->last_name || empty($student->last_name))) {
+        // Vérifier le nom : il faut au moins un first_name ou last_name non vide
+        $hasFirstName = !empty($student->first_name);
+        $hasLastName = !empty($student->last_name);
+        
+        // Si on a un name complet dans users, on le considère comme OK
+        if (!empty($student->name)) {
+            // Le nom existe dans users, pas besoin de vérifier first_name/last_name
+        } elseif (!$hasFirstName && !$hasLastName) {
+            // Ni first_name ni last_name n'est rempli
             $missing[] = 'name';
-        } elseif (!$student->first_name || empty($student->first_name)) {
+        } elseif (!$hasFirstName) {
+            // Pas de prénom
             $missing[] = 'first_name';
-        } elseif (!$student->last_name || empty($student->last_name)) {
+        } elseif (!$hasLastName) {
+            // Pas de nom
             $missing[] = 'last_name';
         }
         
