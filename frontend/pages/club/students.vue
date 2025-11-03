@@ -239,6 +239,17 @@
               
               <div class="flex items-center space-x-1 md:space-x-2 ml-auto md:ml-0">
                 <button 
+                  @click="viewStudentHistory(student)"
+                  class="text-purple-600 hover:text-purple-800 p-1.5 md:p-2 hover:bg-purple-50 rounded-lg transition-colors"
+                  title="Historique (abonnements + cours)"
+                >
+                  <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                  </svg>
+                </button>
+                
+                <button 
                   @click="viewStudentSubscriptions(student)"
                   class="text-blue-600 hover:text-blue-800 p-1.5 md:p-2 hover:bg-blue-50 rounded-lg transition-colors"
                   title="Abonnements"
@@ -379,6 +390,13 @@
       @close="showSubscriptionsModal = false" 
       @success="loadStudents" 
     />
+
+    <!-- Modal d'historique -->
+    <StudentHistoryModal 
+      v-if="showHistoryModal && selectedStudent" 
+      :student="selectedStudent"
+      @close="showHistoryModal = false" 
+    />
   </div>
 </template>
 
@@ -386,6 +404,7 @@
 import { ref, computed, onMounted } from 'vue'
 import EditStudentModal from '~/components/EditStudentModal.vue'
 import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
+import StudentHistoryModal from '~/components/StudentHistoryModal.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -397,6 +416,7 @@ const showAddStudentModal = ref(false)
 const showAddExistingStudentModal = ref(false)
 const showEditStudentModal = ref(false)
 const showSubscriptionsModal = ref(false)
+const showHistoryModal = ref(false)
 const selectedStudent = ref(null)
 const searchQuery = ref('')
 const selectedStatus = ref('active')
@@ -599,6 +619,12 @@ const editStudent = (student) => {
   console.log('📝 Modifier élève:', student)
   selectedStudent.value = { ...student }
   showEditStudentModal.value = true
+}
+
+const viewStudentHistory = (student) => {
+  console.log('👁️ Voir historique de l\'élève:', student)
+  selectedStudent.value = { ...student }
+  showHistoryModal.value = true
 }
 
 const viewStudentSubscriptions = (student) => {
