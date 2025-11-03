@@ -449,9 +449,6 @@
                     <p class="text-sm text-gray-600">{{ student.email }}</p>
                   </div>
                 </div>
-                <span v-if="student.level" class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                  {{ getLevelLabel(student.level) }}
-                </span>
               </div>
             </div>
           </div>
