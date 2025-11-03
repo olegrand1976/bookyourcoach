@@ -773,7 +773,8 @@ const getMissingFieldLabel = (field) => {
     'email': 'Pas d\'email',
     'name': 'Pas de nom',
     'first_name': 'Pas de prénom',
-    'last_name': 'Pas de nom'
+    'last_name': 'Pas de nom',
+    'phone': 'Pas de téléphone'
   }
   return labels[field] || field
 }
