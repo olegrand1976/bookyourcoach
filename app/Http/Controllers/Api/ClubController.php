@@ -722,6 +722,8 @@ class ClubController extends Controller
                 ->select(
                     'students.id',
                     'students.user_id',
+                    'students.first_name as student_first_name',
+                    'students.last_name as student_last_name',
                     'users.name',
                     'users.email',
                     'users.phone',
@@ -741,6 +743,26 @@ class ClubController extends Controller
                     } else {
                         $student->age = null;
                     }
+                    
+                    // Construire le nom : utiliser users.name si disponible, sinon construire depuis users.first_name/last_name, sinon depuis students.first_name/last_name
+                    if ($student->name) {
+                        // Nom déjà construit dans users
+                    } elseif ($student->first_name || $student->last_name) {
+                        // Construire depuis users.first_name et users.last_name
+                        $student->name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+                        if (empty($student->name)) {
+                            $student->name = null;
+                        }
+                    } elseif ($student->student_first_name || $student->student_last_name) {
+                        // Construire depuis students.first_name et students.last_name
+                        $student->name = trim(($student->student_first_name ?? '') . ' ' . ($student->student_last_name ?? ''));
+                        if (empty($student->name)) {
+                            $student->name = null;
+                        }
+                    } else {
+                        $student->name = null;
+                    }
+                    
                     return $student;
                 });
             
