@@ -195,7 +195,7 @@
                 
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start flex-wrap gap-2 mb-2">
-                    <h4 class="text-base md:text-lg font-medium text-gray-900 break-words">{{ student.name }}</h4>
+                    <h4 class="text-base md:text-lg font-medium text-gray-900 break-words">{{ getStudentName(student) }}</h4>
                     <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex-shrink-0">
                       Actif
                     </span>
@@ -206,7 +206,7 @@
                       <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                       </svg>
-                      <span>{{ student.email }}</span>
+                      <span>{{ getStudentEmail(student) }}</span>
                     </div>
                     
                     <div v-if="student.phone" class="flex items-center">
@@ -355,6 +355,25 @@ const studentsWithDocuments = computed(() =>
   students.value.filter(student => student.medical_documents && student.medical_documents.length > 0).length
 )
 
+// Helper pour obtenir le nom complet d'un élève de manière sécurisée
+const getStudentName = (student) => {
+  if (student?.name) return student.name
+  if (student?.first_name || student?.last_name) {
+    const name = ((student.first_name || '') + ' ' + (student.last_name || '')).trim()
+    return name || 'Élève sans nom'
+  }
+  if (student?.student_first_name || student?.student_last_name) {
+    const name = ((student.student_first_name || '') + ' ' + (student.student_last_name || '')).trim()
+    return name || 'Élève sans nom'
+  }
+  return 'Élève sans nom'
+}
+
+// Helper pour obtenir l'email d'un élève de manière sécurisée
+const getStudentEmail = (student) => {
+  return student.email || 'Pas d\'email'
+}
+
 // Filtrage et tri des élèves
 const filteredStudents = computed(() => {
   let filtered = students.value
@@ -362,10 +381,11 @@ const filteredStudents = computed(() => {
   // Filtrage par recherche
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(student => 
-      student.name.toLowerCase().includes(query) ||
-      student.email.toLowerCase().includes(query)
-    )
+    filtered = filtered.filter(student => {
+      const name = getStudentName(student).toLowerCase()
+      const email = getStudentEmail(student).toLowerCase()
+      return name.includes(query) || email.includes(query)
+    })
   }
 
   // Filtrage par niveau
@@ -384,9 +404,13 @@ const filteredStudents = computed(() => {
   filtered.sort((a, b) => {
     switch (sortBy.value) {
       case 'name':
-        return a.name.localeCompare(b.name)
+        const nameA = getStudentName(a)
+        const nameB = getStudentName(b)
+        return nameA.localeCompare(nameB)
       case 'name_desc':
-        return b.name.localeCompare(a.name)
+        const nameADesc = getStudentName(a)
+        const nameBDesc = getStudentName(b)
+        return nameBDesc.localeCompare(nameADesc)
       case 'level':
         const levelOrder = { 'debutant': 1, 'intermediaire': 2, 'avance': 3, 'expert': 4 }
         return (levelOrder[a.level] || 0) - (levelOrder[b.level] || 0)
@@ -478,7 +502,7 @@ const closeEditModal = () => {
 }
 
 const deleteStudent = async (student) => {
-  if (!confirm(`Êtes-vous sûr de vouloir retirer l'élève ${student.name} de votre club ?`)) {
+  if (!confirm(`Êtes-vous sûr de vouloir retirer l'élève ${getStudentName(student)} de votre club ?`)) {
     return
   }
   

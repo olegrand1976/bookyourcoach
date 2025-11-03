@@ -136,6 +136,8 @@ class StudentController extends Controller
             $student = Student::create([
                 'user_id' => $newUser?->id, // Peut être null si pas d'email
                 'club_id' => $club->id,
+                'first_name' => $validated['first_name'] ?? null,
+                'last_name' => $validated['last_name'] ?? null,
                 'date_of_birth' => $validated['date_of_birth'] ?? null,
                 // 'level' supprimé - n'est plus utilisé
                 'goals' => $validated['goals'] ?? null,
@@ -317,6 +319,8 @@ class StudentController extends Controller
 
             // Mettre à jour le profil étudiant
             $studentData = [];
+            if (isset($validated['first_name'])) $studentData['first_name'] = $validated['first_name'];
+            if (isset($validated['last_name'])) $studentData['last_name'] = $validated['last_name'];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
             if (isset($validated['goals'])) $studentData['goals'] = $validated['goals'];
             if (isset($validated['medical_info'])) $studentData['medical_info'] = $validated['medical_info'];
