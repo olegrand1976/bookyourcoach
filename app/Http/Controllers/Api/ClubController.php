@@ -716,29 +716,39 @@ class ClubController extends Controller
             // Pagination
             $perPage = $request->get('per_page', 20);
             $page = $request->get('page', 1);
+            $status = $request->get('status', 'active'); // Par défaut, seulement les actifs
             
             // Utiliser leftJoin pour gérer les étudiants sans user_id
             $query = DB::table('club_students')
                 ->join('students', 'club_students.student_id', '=', 'students.id')
                 ->leftJoin('users', 'students.user_id', '=', 'users.id')
-                ->where('club_students.club_id', $clubUser->club_id)
-                ->where('club_students.is_active', true)
-                ->select(
-                    'students.id',
-                    'students.user_id',
-                    'students.first_name as student_first_name',
-                    'students.last_name as student_last_name',
-                    'users.name',
-                    'users.email',
-                    'users.phone',
-                    'users.first_name',
-                    'users.last_name',
-                    'students.date_of_birth',
-                    'students.level',
-                    'students.total_lessons',
-                    'students.total_spent',
-                    'club_students.joined_at'
-                );
+                ->where('club_students.club_id', $clubUser->club_id);
+            
+            // Filtrer par statut
+            if ($status === 'active') {
+                $query->where('club_students.is_active', true);
+            } elseif ($status === 'inactive') {
+                $query->where('club_students.is_active', false);
+            }
+            // Si 'all', pas de filtre
+            
+            $query->select(
+                'students.id',
+                'students.user_id',
+                'students.first_name as student_first_name',
+                'students.last_name as student_last_name',
+                'users.name',
+                'users.email',
+                'users.phone',
+                'users.first_name',
+                'users.last_name',
+                'students.date_of_birth',
+                'students.level',
+                'students.total_lessons',
+                'students.total_spent',
+                'club_students.joined_at',
+                'club_students.is_active'
+            );
             
             // Compter le total avant pagination
             $total = $query->count();

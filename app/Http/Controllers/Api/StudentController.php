@@ -535,4 +535,87 @@ class StudentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Activer ou désactiver un élève
+     */
+    public function toggleStatus(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Vérifier que l'utilisateur est un club
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $student = Student::findOrFail($id);
+
+            // Vérifier que l'élève appartient au club
+            $clubStudent = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->first();
+            
+            if (!$clubStudent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            DB::beginTransaction();
+
+            // Basculer le statut
+            $newStatus = !$clubStudent->is_active;
+            
+            DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->update([
+                    'is_active' => $newStatus,
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+
+            \Log::info('Statut de l\'élève modifié', [
+                'student_id' => $id,
+                'club_id' => $club->id,
+                'is_active' => $newStatus
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $newStatus ? 'Élève activé avec succès' : 'Élève désactivé avec succès',
+                'data' => [
+                    'is_active' => $newStatus
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Erreur lors de la modification du statut de l\'élève', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification du statut de l\'élève: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -444,26 +444,10 @@ class ClubDashboardController extends Controller
             ->map(function ($student) {
                 $missingFields = $this->getMissingFields($student);
                 
-                // Un élève n'est vraiment incomplet que s'il manque nom OU email (requis pour connexion)
-                // Le téléphone est optionnel et ne fait pas apparaître un élève comme incomplet
-                $hasCriticalMissing = in_array('name', $missingFields) || 
-                                     in_array('first_name', $missingFields) || 
-                                     in_array('last_name', $missingFields) ||
-                                     in_array('email', $missingFields);
-                
-                // Si l'élève a nom/prénom ET email, il ne devrait pas être dans la liste
-                // sauf si c'était un faux positif
-                if (!$hasCriticalMissing) {
-                    // Vérifier une dernière fois : a-t-il vraiment un nom et un email ?
-                    $hasName = !empty($student->name) || 
-                               (!empty($student->first_name) && !empty($student->last_name)) ||
-                               (!empty($student->first_name) || !empty($student->last_name));
-                    $hasEmail = !empty($student->email);
-                    
-                    // Si il a nom ET email, ne pas l'inclure (il ne devrait pas être ici)
-                    if ($hasName && $hasEmail) {
-                        return null;
-                    }
+                // Un élève est incomplet s'il manque une des quatre infos : prénom, nom, email ou téléphone
+                // Garder tous les élèves qui ont au moins un champ manquant
+                if (empty($missingFields)) {
+                    return null; // Tous les champs sont remplis
                 }
                 
                 return [
