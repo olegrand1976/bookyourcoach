@@ -52,7 +52,7 @@
     >
       <div
         v-for="(item, index) in filteredResults"
-        :key="getItemId(item)"
+        :key="getItemIdFn(item)"
         @click="selectItem(item)"
         @mouseenter="highlightedIndex = index"
         :class="[
@@ -61,7 +61,7 @@
         ]"
       >
         <slot name="item" :item="item">
-          {{ getItemLabel(item) }}
+          {{ getItemLabelFn(item) }}
         </slot>
       </div>
     </div>
@@ -108,20 +108,27 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   error: false,
   isLoading: false,
-  getItemLabel: (item: any) => {
-    if (typeof item === 'string' || typeof item === 'number') {
-      return String(item)
-    }
-    return item.name || item.label || String(item.id || '')
-  },
-  getItemId: (item: any) => {
-    return item.id || item
-  },
-  filterFunction: (item: any, query: string) => {
-    const label = props.getItemLabel(item).toLowerCase()
-    return label.includes(query.toLowerCase())
-  }
+  getItemLabel: undefined,
+  getItemId: undefined,
+  filterFunction: undefined
 })
+
+// Fonctions par défaut (ne peuvent pas référencer props dans les valeurs par défaut)
+function defaultGetItemLabel(item: any): string {
+  if (typeof item === 'string' || typeof item === 'number') {
+    return String(item)
+  }
+  return item.name || item.label || String(item.id || '')
+}
+
+function defaultGetItemId(item: any): any {
+  return item.id || item
+}
+
+function defaultFilterFunction(item: any, query: string, getLabelFn: (item: any) => string): boolean {
+  const label = getLabelFn(item).toLowerCase()
+  return label.includes(query.toLowerCase())
+}
 
 const emit = defineEmits<{
   'update:modelValue': [value: any]
@@ -133,16 +140,21 @@ const searchQuery = ref('')
 const showResults = ref(false)
 const highlightedIndex = ref(-1)
 
+// Helpers pour utiliser les fonctions par défaut ou celles passées en props
+const getItemLabelFn = computed(() => props.getItemLabel || defaultGetItemLabel)
+const getItemIdFn = computed(() => props.getItemId || defaultGetItemId)
+const filterFunctionFn = computed(() => props.filterFunction || ((item: any, query: string) => defaultFilterFunction(item, query, getItemLabelFn.value)))
+
 // Trouver l'item sélectionné pour afficher son label
 const selectedItem = computed(() => {
   if (!props.modelValue) return null
-  return props.items.find(item => props.getItemId(item) === props.modelValue) || null
+  return props.items.find(item => getItemIdFn.value(item) === props.modelValue) || null
 })
 
 // Affichage dans l'input
 watch(selectedItem, (item) => {
   if (item) {
-    searchQuery.value = props.getItemLabel(item)
+    searchQuery.value = getItemLabelFn.value(item)
   } else {
     searchQuery.value = ''
   }
@@ -155,7 +167,7 @@ const filteredResults = computed(() => {
   }
   
   return props.items
-    .filter(item => props.filterFunction(item, searchQuery.value))
+    .filter(item => filterFunctionFn.value(item, searchQuery.value))
     .slice(0, 10)
 })
 
@@ -189,17 +201,17 @@ function handleBlur(event: FocusEvent) {
     if (!props.modelValue && searchQuery.value) {
       searchQuery.value = ''
     } else if (selectedItem.value) {
-      searchQuery.value = props.getItemLabel(selectedItem.value)
+      searchQuery.value = getItemLabelFn.value(selectedItem.value)
     }
   }, 200)
 }
 
 function selectItem(item: any) {
-  const itemId = props.getItemId(item)
+  const itemId = getItemIdFn.value(item)
   emit('update:modelValue', itemId)
   showResults.value = false
   highlightedIndex.value = -1
-  searchQuery.value = props.getItemLabel(item)
+  searchQuery.value = getItemLabelFn.value(item)
 }
 
 function selectFirstResult() {
