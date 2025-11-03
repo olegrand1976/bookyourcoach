@@ -156,7 +156,7 @@ class SubscriptionController extends Controller
             DB::beginTransaction();
 
             // Créer l'abonnement (le numéro sera généré automatiquement)
-            $subscription = Subscription::create([
+            $subscription = Subscription::createSafe([
                 'club_id' => $club->id,
                 'subscription_template_id' => $template->id,
             ]);
@@ -317,7 +317,8 @@ class SubscriptionController extends Controller
                 ->findOrFail($validated['subscription_template_id']);
 
             // Créer un nouvel abonnement depuis le template
-            $subscription = Subscription::create([
+            // Utiliser createSafe pour gérer automatiquement club_id
+            $subscription = Subscription::createSafe([
                 'club_id' => $club->id,
                 'subscription_template_id' => $template->id,
             ]);
@@ -523,7 +524,7 @@ class SubscriptionController extends Controller
             DB::beginTransaction();
 
             // Créer un nouvel abonnement depuis le même template (pour le renouvellement)
-            $newSubscription = Subscription::create([
+            $newSubscription = Subscription::createSafe([
                 'club_id' => $club->id,
                 'subscription_template_id' => $template->id,
             ]);

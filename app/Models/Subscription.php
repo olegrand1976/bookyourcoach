@@ -34,6 +34,27 @@ class Subscription extends Model
     ];
 
     /**
+     * Vérifier si la colonne club_id existe dans la table
+     */
+    public static function hasClubIdColumn(): bool
+    {
+        return \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
+    }
+
+    /**
+     * Créer un abonnement en gérant automatiquement club_id
+     */
+    public static function createSafe(array $attributes = [])
+    {
+        // Retirer club_id si la colonne n'existe pas
+        if (!static::hasClubIdColumn() && isset($attributes['club_id'])) {
+            unset($attributes['club_id']);
+        }
+        
+        return static::create($attributes);
+    }
+
+    /**
      * Boot method pour générer le numéro d'abonnement
      */
     protected static function boot()
@@ -41,9 +62,18 @@ class Subscription extends Model
         parent::boot();
 
         static::creating(function ($subscription) {
+            // Vérifier si la colonne club_id existe
+            $hasClubIdColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
+            
+            // Si club_id est défini mais que la colonne n'existe pas, le retirer des attributs
+            if (!$hasClubIdColumn && isset($subscription->attributes['club_id'])) {
+                unset($subscription->attributes['club_id']);
+            }
+            
             // Générer le numéro AAMM-incrément si non fourni
             if (!$subscription->subscription_number) {
-                $subscription->subscription_number = static::generateSubscriptionNumber($subscription->club_id);
+                $clubId = $hasClubIdColumn ? ($subscription->club_id ?? null) : null;
+                $subscription->subscription_number = static::generateSubscriptionNumber($clubId);
             }
         });
     }

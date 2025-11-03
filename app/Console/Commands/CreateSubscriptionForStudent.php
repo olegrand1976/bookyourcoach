@@ -100,7 +100,7 @@ class CreateSubscriptionForStudent extends Command
                 $subscriptionNumber = sprintf('%s-%03d', $yearMonth, $increment);
             }
             
-            $subscription = \App\Models\Subscription::create([
+            $subscription = \App\Models\Subscription::createSafe([
                 'club_id' => $clubId,
                 'subscription_template_id' => $template->id,
                 'subscription_number' => $subscriptionNumber
