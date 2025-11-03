@@ -94,7 +94,7 @@
 
       <!-- Filtres et recherche -->
       <div class="bg-white rounded-xl shadow p-6 mb-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Rechercher</label>
             <div class="relative">
@@ -110,6 +110,19 @@
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
             </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+            <select 
+              v-model="selectedStatus" 
+              @change="loadStudents(1)"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              <option value="active">Actifs</option>
+              <option value="inactive">Inactifs</option>
+              <option value="all">Tous</option>
+            </select>
           </div>
           
           <div>
@@ -178,8 +191,11 @@
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start flex-wrap gap-2 mb-2">
                     <h4 class="text-base md:text-lg font-medium text-gray-900 break-words">{{ getStudentName(student) }}</h4>
-                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex-shrink-0">
+                    <span v-if="student.is_active !== false" class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex-shrink-0">
                       Actif
+                    </span>
+                    <span v-else class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full flex-shrink-0">
+                      Inactif
                     </span>
                   </div>
                   
@@ -254,6 +270,24 @@
                 >
                   <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
+                
+                <button 
+                  @click="toggleStudentStatus(student)"
+                  :class="[
+                    'p-1.5 md:p-2 rounded-lg transition-colors',
+                    student.is_active 
+                      ? 'text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50' 
+                      : 'text-green-600 hover:text-green-800 hover:bg-green-50'
+                  ]"
+                  :title="student.is_active ? 'Désactiver' : 'Activer'"
+                >
+                  <svg v-if="student.is_active" class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                  </svg>
+                  <svg v-else class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 </button>
                 
@@ -365,6 +399,7 @@ const showEditStudentModal = ref(false)
 const showSubscriptionsModal = ref(false)
 const selectedStudent = ref(null)
 const searchQuery = ref('')
+const selectedStatus = ref('active')
 const sortBy = ref('name')
 const resending = ref({})
 const loading = ref(false)
@@ -462,14 +497,15 @@ const getActivityIcon = (activityTypeId) => {
 const loadStudents = async (page = 1) => {
   try {
     loading.value = true
-    console.log('🔄 Chargement des élèves...', { page })
+    console.log('🔄 Chargement des élèves...', { page, status: selectedStatus.value })
     
     // Utiliser $api qui inclut automatiquement le token via l'intercepteur
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/students', {
       params: {
         page: page,
-        per_page: perPage
+        per_page: perPage,
+        status: selectedStatus.value
       }
     })
     
@@ -576,8 +612,32 @@ const closeEditModal = () => {
   selectedStudent.value = null
 }
 
+const toggleStudentStatus = async (student) => {
+  const action = student.is_active ? 'désactiver' : 'activer'
+  if (!confirm(`Êtes-vous sûr de vouloir ${action} l'élève ${getStudentName(student)} ?`)) {
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.patch(`/club/students/${student.id}/toggle-status`)
+    
+    console.log('✅ Statut de l\'élève modifié:', response)
+    
+    if (response.data.success) {
+      alert(response.data.message || `Élève ${action} avec succès`)
+      loadStudents(currentPage.value)
+    } else {
+      alert('Erreur lors de la modification du statut de l\'élève')
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la modification du statut:', error)
+    alert('Erreur lors de la modification du statut. Veuillez réessayer.')
+  }
+}
+
 const deleteStudent = async (student) => {
-  if (!confirm(`Êtes-vous sûr de vouloir retirer l'élève ${getStudentName(student)} de votre club ?`)) {
+  if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement l'élève ${getStudentName(student)} de votre club ? Cette action est irréversible.`)) {
     return
   }
   
@@ -589,7 +649,7 @@ const deleteStudent = async (student) => {
     
     if (response.data.success) {
       alert(response.data.message || 'Élève retiré du club avec succès')
-      loadStudents()
+      loadStudents(currentPage.value)
     } else {
       alert('Erreur lors de la suppression de l\'élève')
     }
