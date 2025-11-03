@@ -161,6 +161,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::delete('/students/{id}', [StudentController::class, 'destroy']);
     Route::patch('/students/{id}/toggle-status', [StudentController::class, 'toggleStatus']);
     Route::post('/students/{id}/resend-invitation', [StudentController::class, 'resendInvitation']);
+    Route::get('/students/{id}/history', [StudentController::class, 'history']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);
