@@ -57,11 +57,17 @@ class Subscription extends Model
         $now = Carbon::now();
         $yearMonth = $now->format('ym'); // Format AAMM (ex: 2501)
         
-        // Trouver le dernier numéro pour ce mois et ce club
-        $lastSubscription = static::where('club_id', $clubId)
-            ->where('subscription_number', 'like', $yearMonth . '-%')
-            ->orderBy('subscription_number', 'desc')
-            ->first();
+        // Vérifier si la colonne club_id existe dans la table
+        $hasClubIdColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
+        
+        // Trouver le dernier numéro pour ce mois (et ce club si la colonne existe)
+        $query = static::where('subscription_number', 'like', $yearMonth . '-%');
+        
+        if ($hasClubIdColumn && $clubId) {
+            $query->where('club_id', $clubId);
+        }
+        
+        $lastSubscription = $query->orderBy('subscription_number', 'desc')->first();
         
         if ($lastSubscription && $lastSubscription->subscription_number) {
             // Extraire l'incrément et l'incrémenter
