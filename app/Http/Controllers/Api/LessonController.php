@@ -357,6 +357,39 @@ class LessonController extends Controller
                 }
             }
 
+            // 💰 CORRECTION : Utiliser automatiquement le prix du CourseType si aucun prix n'est fourni
+            if (!isset($validated['price']) || $validated['price'] === null || $validated['price'] == 0) {
+                $courseType = \App\Models\CourseType::find($validated['course_type_id']);
+                if ($courseType && $courseType->price) {
+                    $validated['price'] = $courseType->price;
+                    Log::info("💰 Prix automatique depuis CourseType", [
+                        'course_type_id' => $courseType->id,
+                        'course_type_name' => $courseType->name,
+                        'price' => $courseType->price
+                    ]);
+                } else {
+                    // Si le CourseType n'a pas de prix, essayer de récupérer depuis les discipline_settings du club
+                    if ($user->role === 'club') {
+                        $club = $user->getFirstClub();
+                        if ($club && $courseType && $courseType->discipline_id) {
+                            $disciplineSettings = $club->discipline_settings ?? [];
+                            if (is_string($disciplineSettings)) {
+                                $disciplineSettings = json_decode($disciplineSettings, true) ?? [];
+                            }
+                            
+                            if (isset($disciplineSettings[$courseType->discipline_id]['price'])) {
+                                $validated['price'] = $disciplineSettings[$courseType->discipline_id]['price'];
+                                Log::info("💰 Prix automatique depuis discipline_settings du club", [
+                                    'club_id' => $club->id,
+                                    'discipline_id' => $courseType->discipline_id,
+                                    'price' => $validated['price']
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
             // 🔧 CORRECTION : Fournir une location_id par défaut si elle n'est pas fournie
             if (!isset($validated['location_id']) || empty($validated['location_id'])) {
                 // Chercher une location par défaut (première disponible)
