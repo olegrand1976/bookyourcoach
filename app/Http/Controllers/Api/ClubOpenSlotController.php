@@ -511,9 +511,10 @@ class ClubOpenSlotController extends Controller
             ]);
 
             // S'assurer que is_active est bien traité
-            // Si is_active est présent dans la request (même false), l'utiliser
-            // Sinon, ne pas modifier la valeur existante
-            if ($request->has('is_active')) {
+            // Vérifier si is_active est présent dans la request (même si false)
+            // has() retourne false si la valeur est false, donc on utilise array_key_exists
+            $requestData = $request->all();
+            if (array_key_exists('is_active', $requestData)) {
                 $validated['is_active'] = filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN);
             } else {
                 // Si is_active n'est pas dans la request, ne pas le modifier
@@ -523,9 +524,10 @@ class ClubOpenSlotController extends Controller
             Log::info('ClubOpenSlotController::update - Mise à jour créneau', [
                 'slot_id' => $id,
                 'validated' => $validated,
-                'is_active_in_request' => $request->has('is_active'),
-                'is_active_value' => $request->input('is_active'),
-                'is_active_final' => $validated['is_active'] ?? 'non modifié'
+                'is_active_in_request' => array_key_exists('is_active', $requestData),
+                'is_active_value' => $request->input('is_active', 'non fourni'),
+                'is_active_final' => $validated['is_active'] ?? 'non modifié',
+                'request_all' => $requestData
             ]);
 
             $slot->update($validated);
