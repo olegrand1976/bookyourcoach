@@ -837,7 +837,15 @@ class LessonController extends Controller
                     // Consommer un cours de cet abonnement
                     $subscriptionInstance->consumeLesson($lesson);
                     
-                    $studentNames = $subscriptionInstance->students->pluck('user.name')->join(', ');
+                    $studentNames = $subscriptionInstance->students->map(function ($student) {
+                        if ($student->user) {
+                            return $student->user->name;
+                        }
+                        $firstName = $student->first_name ?? '';
+                        $lastName = $student->last_name ?? '';
+                        $name = trim($firstName . ' ' . $lastName);
+                        return !empty($name) ? $name : 'Élève sans nom';
+                    })->filter()->join(', ');
                     Log::info("Cours {$lesson->id} consommé depuis l'abonnement partagé {$subscriptionInstance->id} (élèves: {$studentNames})");
                     
                     return; // Un seul abonnement consommé par cours

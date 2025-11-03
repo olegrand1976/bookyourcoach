@@ -65,7 +65,9 @@ class SubscriptionController extends Controller
                         $query->with('courseTypes');
                     },
                     'instances' => function ($query) {
-                        $query->with('students.user');
+                        $query->with(['students' => function ($q) {
+                            $q->with('user');
+                        }]);
                     }
                 ])
                 ->orderBy('created_at', 'desc')
@@ -182,7 +184,14 @@ class SubscriptionController extends Controller
 
             DB::commit();
 
-            $subscription->load(['template.courseTypes', 'instances.students.user']);
+            $subscription->load([
+                'template.courseTypes',
+                'instances' => function ($query) {
+                    $query->with(['students' => function ($q) {
+                        $q->with('user');
+                    }]);
+                }
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -234,7 +243,9 @@ class SubscriptionController extends Controller
                     'template.courseTypes',
                     'instances' => function ($query) {
                         $query->with([
-                            'students.user',
+                            'students' => function ($q) {
+                                $q->with('user');
+                            },
                             'lessons' => function ($q) {
                                 $q->with(['teacher.user', 'courseType', 'location'])
                                   ->orderBy('start_time', 'desc');
@@ -348,7 +359,13 @@ class SubscriptionController extends Controller
 
             DB::commit();
 
-            $subscriptionInstance->load(['subscription.template.courseTypes', 'students.user']);
+            // Charger les relations en gérant le cas où students.user peut être null
+            $subscriptionInstance->load([
+                'subscription.template.courseTypes',
+                'students' => function ($query) {
+                    $query->with('user');
+                }
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -361,10 +378,17 @@ class SubscriptionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Erreur lors de l\'attribution de l\'abonnement: ' . $e->getMessage());
+            Log::error('Erreur lors de l\'attribution de l\'abonnement: ' . $e->getMessage(), [
+                'student_ids' => $validated['student_ids'] ?? null,
+                'template_id' => $validated['subscription_template_id'] ?? null,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'attribution de l\'abonnement'
+                'message' => 'Erreur lors de l\'attribution de l\'abonnement: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -402,7 +426,9 @@ class SubscriptionController extends Controller
                 ->with([
                     'subscription.template.courseTypes',
                     'subscription.club',
-                    'students.user'
+                    'students' => function ($query) {
+                        $query->with('user');
+                    }
                 ])
                 ->orderBy('status', 'asc')
                 ->orderBy('created_at', 'desc')
@@ -431,7 +457,9 @@ class SubscriptionController extends Controller
             Log::error('Erreur lors de la récupération des abonnements de l\'élève: ' . $e->getMessage(), [
                 'student_id' => $studentId,
                 'user_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ]);
             return response()->json([
                 'success' => false,
@@ -525,7 +553,9 @@ class SubscriptionController extends Controller
             $newInstance->load([
                 'subscription.club',
                 'subscription.template.courseTypes',
-                'students.user'
+                'students' => function ($query) {
+                    $query->with('user');
+                }
             ]);
 
             return response()->json([
