@@ -107,19 +107,39 @@ class ClubOpenSlotController extends Controller
                 'course_type_ids.*' => 'exists:course_types,id'
             ]);
 
-            // Vérifier que les types de cours correspondent à la discipline du créneau (si définie)
+            // 🔒 VALIDATION STRICTE : Vérifier que les types de cours correspondent à la discipline du créneau
             if ($slot->discipline_id) {
                 $courseTypes = CourseType::whereIn('id', $validated['course_type_ids'])->get();
                 
+                $slotDisciplineName = \App\Models\Discipline::find($slot->discipline_id)?->name ?? "ID {$slot->discipline_id}";
+                
                 foreach ($courseTypes as $courseType) {
-                    // Le type de cours doit soit être générique (pas de discipline), soit correspondre à la discipline du créneau
-                    if ($courseType->discipline_id && $courseType->discipline_id != $slot->discipline_id) {
+                    // ✅ CORRECTION : Le type de cours DOIT avoir la même discipline_id que le créneau
+                    // On n'accepte PAS les types génériques (discipline_id = NULL) pour éviter les incohérences
+                    if ($courseType->discipline_id != $slot->discipline_id) {
+                        $courseTypeDisciplineName = $courseType->discipline?->name ?? ($courseType->discipline_id ? "ID {$courseType->discipline_id}" : "Générique");
+                        
                         return response()->json([
                             'success' => false,
-                            'message' => "Le type de cours '{$courseType->name}' ne correspond pas à la discipline du créneau"
+                            'message' => "Le type de cours '{$courseType->name}' (discipline: {$courseTypeDisciplineName}) ne correspond pas à la discipline du créneau ({$slotDisciplineName}). Pour garantir la cohérence, seuls les types de cours de la discipline '{$slotDisciplineName}' peuvent être associés à ce créneau.",
+                            'errors' => [
+                                'course_type_ids' => [
+                                    "Incohérence détectée : Type '{$courseType->name}' (discipline: {$courseTypeDisciplineName}) incompatible avec le créneau (discipline: {$slotDisciplineName})"
+                                ]
+                            ]
                         ], 422);
                     }
                 }
+                
+                Log::info('ClubOpenSlotController::updateCourseTypes - Validation OK', [
+                    'slot_id' => $slot->id,
+                    'slot_discipline' => $slotDisciplineName,
+                    'course_types_validated' => $courseTypes->map(fn($ct) => [
+                        'id' => $ct->id,
+                        'name' => $ct->name,
+                        'discipline_id' => $ct->discipline_id
+                    ])->toArray()
+                ]);
             }
 
             // Synchroniser les types de cours
