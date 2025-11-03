@@ -22,6 +22,119 @@ class StudentController extends Controller
     }
 
     /**
+     * Récupérer l'historique complet d'un élève (abonnements + cours)
+     */
+    public function history(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Vérifier que l'élève appartient au club
+            $clubStudent = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $id)
+                ->first();
+            
+            if (!$clubStudent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            $student = Student::with(['user', 'disciplines'])->findOrFail($id);
+
+            // Récupérer les abonnements de l'élève
+            $subscriptionInstances = \App\Models\SubscriptionInstance::whereHas('students', function ($query) use ($id) {
+                    $query->where('students.id', $id);
+                })
+                ->whereHas('subscription', function ($query) use ($club) {
+                    if (\App\Models\Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->with([
+                    'subscription.template.courseTypes',
+                    'subscription.club',
+                    'students' => function ($q) {
+                        $q->with('user');
+                    }
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Récupérer les cours de l'élève (via relation many-to-many ou student_id)
+            $lessons = \App\Models\Lesson::where(function ($query) use ($id) {
+                    $query->whereHas('students', function ($q) use ($id) {
+                        $q->where('students.id', $id);
+                    })
+                    ->orWhere('student_id', $id);
+                })
+                ->with([
+                    'teacher.user',
+                    'courseType',
+                    'location',
+                    'club',
+                    'students.user'
+                ])
+                ->orderBy('start_time', 'desc')
+                ->limit(100) // Limiter à 100 cours récents
+                ->get()
+                ->unique('id') // Éviter les doublons si l'élève est à la fois dans students et student_id
+                ->values();
+
+            // Statistiques
+            $stats = [
+                'total_subscriptions' => $subscriptionInstances->count(),
+                'active_subscriptions' => $subscriptionInstances->where('status', 'active')->count(),
+                'total_lessons' => $lessons->count(),
+                'completed_lessons' => $lessons->where('status', 'completed')->count(),
+                'total_spent' => $lessons->where('status', 'completed')->sum('price'),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'student' => $student,
+                    'subscriptions' => $subscriptionInstances,
+                    'lessons' => $lessons,
+                    'stats' => $stats
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération de l\'historique de l\'élève: ' . $e->getMessage(), [
+                'student_id' => $id,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération de l\'historique: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Créer un nouvel élève (utilisateur + profil étudiant)
      */
     public function store(Request $request): JsonResponse
