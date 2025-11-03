@@ -381,8 +381,14 @@ class ClubOpenSlotController extends Controller
             // Ajouter le club_id et valeurs par défaut
             $validated['club_id'] = $club->id;
             // S'assurer que is_active est un booléen (true par défaut si non fourni)
-            $validated['is_active'] = isset($validated['is_active']) ? (bool) $validated['is_active'] : true;
+            $validated['is_active'] = isset($validated['is_active']) ? filter_var($validated['is_active'], FILTER_VALIDATE_BOOLEAN) : true;
             $validated['max_slots'] = $validated['max_slots'] ?? 1;
+
+            Log::info('ClubOpenSlotController::store - Création créneau', [
+                'club_id' => $club->id,
+                'validated' => $validated,
+                'is_active' => $validated['is_active']
+            ]);
 
             $slot = ClubOpenSlot::create($validated);
 
