@@ -74,20 +74,13 @@ class SubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
             
-            // Charger les cours pour chaque instance pour calculer lessons_used correctement
+            // Recalculer automatiquement lessons_used pour chaque instance
             foreach ($subscriptions as $subscription) {
                 if ($subscription->instances && $subscription->instances->count() > 0) {
                     foreach ($subscription->instances as $instance) {
-                        // Compter les cours réels liés à cette instance
-                        if (Schema::hasTable('subscription_lessons')) {
-                            $instance->lessons_count = DB::table('subscription_lessons')
-                                ->where('subscription_instance_id', $instance->id)
-                                ->count();
-                            // Utiliser lessons_count si lessons_used est incorrect
-                            if ($instance->lessons_count > $instance->lessons_used) {
-                                $instance->lessons_used = $instance->lessons_count;
-                            }
-                        }
+                        // Le recalcul est maintenant automatique via recalculateLessonsUsed()
+                        // On force juste le recalcul pour s'assurer que les données sont à jour
+                        $instance->recalculateLessonsUsed();
                     }
                 }
             }
@@ -258,11 +251,8 @@ class SubscriptionController extends Controller
             
             // Calculer le nombre réel de cours pour chaque instance
             foreach ($subscription->instances as $instance) {
-                $instance->lessons_count = $instance->lessons->count();
-                // Mettre à jour lessons_used si nécessaire
-                if ($instance->lessons_count > $instance->lessons_used) {
-                    $instance->lessons_used = $instance->lessons_count;
-                }
+                // Recalculer automatiquement lessons_used
+                $instance->recalculateLessonsUsed();
             }
 
             return response()->json([

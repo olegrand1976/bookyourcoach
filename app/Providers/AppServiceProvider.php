@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Lesson;
+use App\Observers\LessonObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -31,5 +33,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Log::info('AppServiceProvider booted successfully.');
+        
+        // Enregistrer l'observer pour mettre à jour automatiquement lessons_used
+        Lesson::observe(LessonObserver::class);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Models\CourseType;
 
 class SubscriptionInstance extends Model
 {
@@ -67,10 +68,42 @@ class SubscriptionInstance extends Model
     }
 
     /**
+     * Calcule automatiquement lessons_used en comptant les cours réellement consommés
+     * (exclut les cours annulés et futurs)
+     */
+    public function recalculateLessonsUsed(): void
+    {
+        // Compter uniquement les cours non annulés dans subscription_lessons
+        // On compte seulement les cours qui ont réellement été consommés (pas les cours futurs)
+        // Statuts valides: pending, confirmed, completed
+        // Statuts exclus: cancelled
+        $consumedLessons = $this->lessons()
+            ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+            ->count();
+
+        // Mettre à jour seulement si différent pour éviter les requêtes inutiles
+        if ($this->lessons_used != $consumedLessons) {
+            $oldValue = $this->lessons_used;
+            $this->lessons_used = $consumedLessons;
+            $this->saveQuietly(); // saveQuietly() évite de déclencher les events
+            
+            \Log::info("Recalcul lessons_used pour subscription_instance {$this->id}", [
+                'old_value' => $oldValue,
+                'new_value' => $consumedLessons
+            ]);
+            
+            // Vérifier et mettre à jour le statut (mais éviter la récursion infinie)
+            $this->checkAndUpdateStatus();
+        }
+    }
+
+    /**
      * Nombre de cours restants
      */
     public function getRemainingLessonsAttribute()
     {
+        // Recalculer avant de retourner pour être sûr d'avoir la valeur à jour
+        $this->recalculateLessonsUsed();
         $total = $this->subscription->total_available_lessons;
         return max(0, $total - $this->lessons_used);
     }
@@ -80,6 +113,8 @@ class SubscriptionInstance extends Model
      */
     public function getUsagePercentageAttribute()
     {
+        // Recalculer avant de calculer le pourcentage
+        $this->recalculateLessonsUsed();
         $total = $this->subscription->total_available_lessons;
         if ($total === 0) return 0;
         return round(($this->lessons_used / $total) * 100, 1);
@@ -139,17 +174,23 @@ class SubscriptionInstance extends Model
      */
     public function checkAndUpdateStatus()
     {
+        // Ne pas recalculer ici pour éviter la récursion (recalculé ailleurs avant l'appel)
+        
         // Si tous les cours sont utilisés
         if ($this->lessons_used >= $this->subscription->total_available_lessons) {
-            $this->status = 'completed';
-            $this->save();
+            if ($this->status !== 'completed') {
+                $this->status = 'completed';
+                $this->saveQuietly();
+            }
             return 'completed';
         }
 
         // Si la date d'expiration est dépassée
         if ($this->expires_at && Carbon::now()->isAfter($this->expires_at)) {
-            $this->status = 'expired';
-            $this->save();
+            if ($this->status !== 'expired') {
+                $this->status = 'expired';
+                $this->saveQuietly();
+            }
             return 'expired';
         }
 
@@ -157,13 +198,22 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Consommer un cours (incrémenter le compteur)
+     * Consommer un cours (attacher au abonnement)
+     * Le compteur lessons_used sera recalculé automatiquement par l'observer
      */
     public function consumeLesson(Lesson $lesson)
     {
-        // Vérifier qu'il reste des cours
+        // Vérifier qu'il reste des cours (recalculer d'abord pour avoir la valeur à jour)
+        $this->recalculateLessonsUsed();
         if ($this->remaining_lessons <= 0) {
             throw new \Exception('Aucun cours restant dans cet abonnement');
+        }
+
+        // Vérifier que le cours n'est pas déjà attaché à cet abonnement
+        if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
+            // Le cours est déjà attaché, juste recalculer
+            $this->recalculateLessonsUsed();
+            return;
         }
 
         // Vérifier que le cours est bien du bon type
@@ -191,6 +241,10 @@ class SubscriptionInstance extends Model
         $studentIds = $this->students()->pluck('students.id')->toArray();
         // Vérifier aussi via lesson_student (many-to-many)
         $lessonStudentIds = $lesson->students()->pluck('students.id')->toArray();
+        // Vérifier aussi via student_id du cours (pour compatibilité)
+        if ($lesson->student_id) {
+            $lessonStudentIds[] = $lesson->student_id;
+        }
         $allStudentIds = array_unique(array_merge($studentIds, $lessonStudentIds));
         
         // Vérifier si au moins un des élèves du cours est dans l'abonnement
@@ -206,11 +260,18 @@ class SubscriptionInstance extends Model
             throw new \Exception('Cet élève ne fait pas partie de cet abonnement');
         }
 
-        // Créer la liaison
-        $this->lessons()->attach($lesson->id);
+        // Vérifier que le cours n'est pas annulé
+        if ($lesson->status === 'cancelled') {
+            throw new \Exception('Un cours annulé ne peut pas être consommé depuis un abonnement');
+        }
+
+        // Créer la liaison (seulement si le cours n'est pas déjà attaché)
+        if (!$this->lessons()->where('lesson_id', $lesson->id)->exists()) {
+            $this->lessons()->attach($lesson->id);
+        }
         
-        // Incrémenter le compteur
-        $this->increment('lessons_used');
+        // Recalculer automatiquement le compteur (exclut les cours annulés)
+        $this->recalculateLessonsUsed();
         
         // Vérifier et mettre à jour le statut
         $this->checkAndUpdateStatus();
