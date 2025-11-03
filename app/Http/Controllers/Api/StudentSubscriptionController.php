@@ -175,7 +175,7 @@ class StudentSubscriptionController extends Controller
             DB::beginTransaction();
 
             // Créer l'abonnement depuis le template
-            $subscription = Subscription::create([
+            $subscription = Subscription::createSafe([
                 'club_id' => $template->club_id,
                 'subscription_template_id' => $template->id,
             ]);
@@ -293,8 +293,8 @@ class StudentSubscriptionController extends Controller
             DB::beginTransaction();
 
             // Créer un nouvel abonnement depuis le même template (pour le renouvellement)
-            $newSubscription = Subscription::create([
-                'club_id' => $existingInstance->subscription->club_id,
+            $newSubscription = Subscription::createSafe([
+                'club_id' => $existingInstance->subscription->club_id ?? null,
                 'subscription_template_id' => $template->id,
             ]);
 
