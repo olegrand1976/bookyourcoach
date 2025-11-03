@@ -713,8 +713,12 @@ class ClubController extends Controller
                 ], 404);
             }
             
+            // Pagination
+            $perPage = $request->get('per_page', 20);
+            $page = $request->get('page', 1);
+            
             // Utiliser leftJoin pour gérer les étudiants sans user_id
-            $students = DB::table('club_students')
+            $query = DB::table('club_students')
                 ->join('students', 'club_students.student_id', '=', 'students.id')
                 ->leftJoin('users', 'students.user_id', '=', 'users.id')
                 ->where('club_students.club_id', $clubUser->club_id)
@@ -734,7 +738,14 @@ class ClubController extends Controller
                     'students.total_lessons',
                     'students.total_spent',
                     'club_students.joined_at'
-                )
+                );
+            
+            // Compter le total avant pagination
+            $total = $query->count();
+            
+            // Appliquer la pagination
+            $students = $query->skip(($page - 1) * $perPage)
+                ->take($perPage)
                 ->get()
                 ->map(function($student) {
                     // Calculer l'âge si date_of_birth existe
@@ -768,7 +779,13 @@ class ClubController extends Controller
             
             return response()->json([
                 'success' => true,
-                'data' => $students
+                'data' => $students,
+                'pagination' => [
+                    'current_page' => (int) $page,
+                    'per_page' => (int) $perPage,
+                    'total' => $total,
+                    'last_page' => (int) ceil($total / $perPage)
+                ]
             ]);
             
         } catch (\Exception $e) {
