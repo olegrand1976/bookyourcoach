@@ -216,6 +216,8 @@ class ClubDashboardController extends Controller
             ->where('club_students.is_active', true)
             ->select(
                 'students.id',
+                'students.first_name as student_first_name',
+                'students.last_name as student_last_name',
                 'users.id as user_id',
                 'users.name',
                 'users.first_name',
@@ -230,12 +232,28 @@ class ClubDashboardController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($student) {
+                // Construire le nom : utiliser users.name si disponible, sinon construire depuis users.first_name/last_name, sinon depuis students.first_name/last_name
+                $name = null;
+                if ($student->name) {
+                    $name = $student->name;
+                } elseif ($student->first_name || $student->last_name) {
+                    $name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+                    if (empty($name)) {
+                        $name = null;
+                    }
+                } elseif ($student->student_first_name || $student->student_last_name) {
+                    $name = trim(($student->student_first_name ?? '') . ' ' . ($student->student_last_name ?? ''));
+                    if (empty($name)) {
+                        $name = null;
+                    }
+                }
+                
                 return [
                     'id' => $student->id,
                     'user_id' => $student->user_id,
-                    'name' => $student->name ?? 'Élève sans nom',
-                    'first_name' => $student->first_name,
-                    'last_name' => $student->last_name,
+                    'name' => $name ?? 'Élève sans nom',
+                    'first_name' => $student->first_name ?? $student->student_first_name,
+                    'last_name' => $student->last_name ?? $student->student_last_name,
                     'email' => $student->email,
                     'level' => $student->level,
                     'total_lessons' => $student->total_lessons,
@@ -303,11 +321,13 @@ class ClubDashboardController extends Controller
                 'students.last_name',
                 DB::raw('NULL as name'),
                 DB::raw('NULL as email'),
+                DB::raw('NULL as phone'),
                 DB::raw('"no_name" as missing_field')
             )
             ->get();
         
-        // Récupérer les élèves avec user_id mais sans nom (vérifier dans users ET students)
+        // Récupérer les élèves avec user_id mais sans nom
+        // Un élève est considéré sans nom UNIQUEMENT s'il n'a de nom ni dans students ni dans users
         $studentsWithoutName = DB::table('club_students')
             ->join('students', 'club_students.student_id', '=', 'students.id')
             ->leftJoin('users', 'students.user_id', '=', 'users.id')
@@ -315,24 +335,35 @@ class ClubDashboardController extends Controller
             ->where('club_students.is_active', true)
             ->whereNotNull('students.user_id')
             ->where(function($query) {
-                // Vérifier dans students
+                // Pas de nom dans students
                 $query->where(function($q) {
-                    $q->whereNull('students.first_name')
-                      ->orWhereNull('students.last_name')
-                      ->orWhere('students.first_name', '')
-                      ->orWhere('students.last_name', '');
-                })
-                // OU vérifier dans users si students n'a pas de nom
-                ->orWhere(function($q) {
-                    $q->where(function($subQ) {
-                        $subQ->whereNull('students.first_name')
-                             ->orWhere('students.first_name', '');
+                    $q->where(function($nameQ) {
+                        $nameQ->whereNull('students.first_name')
+                              ->orWhere('students.first_name', '');
                     })
-                    ->where(function($subQ) {
-                        $subQ->whereNull('users.first_name')
-                             ->orWhereNull('users.last_name')
-                             ->orWhere('users.first_name', '')
-                             ->orWhere('users.last_name', '');
+                    ->where(function($nameQ) {
+                        $nameQ->whereNull('students.last_name')
+                              ->orWhere('students.last_name', '');
+                    });
+                })
+                // ET pas de nom dans users non plus
+                ->where(function($q) {
+                    $q->where(function($subQ) {
+                        // Pas de users.name ET pas de users.first_name/last_name
+                        $subQ->where(function($nameQ) {
+                            $nameQ->whereNull('users.name')
+                                  ->orWhere('users.name', '');
+                        })
+                        ->where(function($nameQ) {
+                            $nameQ->where(function($fn) {
+                                $fn->whereNull('users.first_name')
+                                   ->orWhere('users.first_name', '');
+                            })
+                            ->where(function($ln) {
+                                $ln->whereNull('users.last_name')
+                                   ->orWhere('users.last_name', '');
+                            });
+                        });
                     });
                 });
             })
@@ -346,6 +377,7 @@ class ClubDashboardController extends Controller
                 'users.first_name',
                 'users.last_name',
                 'users.email',
+                'users.phone',
                 DB::raw('"no_name" as missing_field')
             )
             ->get()
@@ -359,6 +391,7 @@ class ClubDashboardController extends Controller
                     'first_name' => $student->student_first_name ?: $student->first_name,
                     'last_name' => $student->student_last_name ?: $student->last_name,
                     'email' => $student->email,
+                    'phone' => $student->phone,
                     'missing_field' => 'no_name'
                 ];
             });
@@ -384,6 +417,7 @@ class ClubDashboardController extends Controller
                 'users.first_name',
                 'users.last_name',
                 'users.email',
+                'users.phone',
                 DB::raw('"no_email" as missing_field')
             )
             ->get()
@@ -397,15 +431,41 @@ class ClubDashboardController extends Controller
                     'first_name' => $student->student_first_name ?: $student->first_name,
                     'last_name' => $student->student_last_name ?: $student->last_name,
                     'email' => $student->email,
+                    'phone' => $student->phone,
                     'missing_field' => 'no_email'
                 ];
             });
         
-        // Fusionner les résultats
+        // Fusionner les résultats et filtrer les doublons
         $allIncomplete = $studentsWithoutUser
             ->concat($studentsWithoutName)
             ->concat($studentsWithoutEmail)
+            ->unique('id')
             ->map(function ($student) {
+                $missingFields = $this->getMissingFields($student);
+                
+                // Un élève n'est vraiment incomplet que s'il manque nom OU email (requis pour connexion)
+                // Le téléphone est optionnel et ne fait pas apparaître un élève comme incomplet
+                $hasCriticalMissing = in_array('name', $missingFields) || 
+                                     in_array('first_name', $missingFields) || 
+                                     in_array('last_name', $missingFields) ||
+                                     in_array('email', $missingFields);
+                
+                // Si l'élève a nom/prénom ET email, il ne devrait pas être dans la liste
+                // sauf si c'était un faux positif
+                if (!$hasCriticalMissing) {
+                    // Vérifier une dernière fois : a-t-il vraiment un nom et un email ?
+                    $hasName = !empty($student->name) || 
+                               (!empty($student->first_name) && !empty($student->last_name)) ||
+                               (!empty($student->first_name) || !empty($student->last_name));
+                    $hasEmail = !empty($student->email);
+                    
+                    // Si il a nom ET email, ne pas l'inclure (il ne devrait pas être ici)
+                    if ($hasName && $hasEmail) {
+                        return null;
+                    }
+                }
+                
                 return [
                     'student_id' => $student->id,
                     'club_id' => $student->club_id,
@@ -414,10 +474,11 @@ class ClubDashboardController extends Controller
                     'first_name' => $student->first_name,
                     'last_name' => $student->last_name,
                     'email' => $student->email,
-                    'missing_fields' => $this->getMissingFields($student)
+                    'phone' => $student->phone ?? null,
+                    'missing_fields' => $missingFields
                 ];
             })
-            ->unique('student_id')
+            ->filter() // Retirer les null
             ->values();
         
         return $allIncomplete;
@@ -427,12 +488,12 @@ class ClubDashboardController extends Controller
     {
         $missing = [];
         
-        // Vérifier l'email
+        // Vérifier l'email (requis pour la connexion)
         if (!$student->email || empty($student->email)) {
             $missing[] = 'email';
         }
         
-        // Vérifier le nom : il faut au moins un first_name ou last_name non vide
+        // Vérifier le nom : il faut au moins un first_name ou last_name non vide (requis pour la connexion)
         $hasFirstName = !empty($student->first_name);
         $hasLastName = !empty($student->last_name);
         
@@ -448,6 +509,11 @@ class ClubDashboardController extends Controller
         } elseif (!$hasLastName) {
             // Pas de nom
             $missing[] = 'last_name';
+        }
+        
+        // Vérifier le téléphone (optionnel mais mentionné si manquant)
+        if (!$student->phone || empty($student->phone)) {
+            $missing[] = 'phone';
         }
         
         return $missing;
