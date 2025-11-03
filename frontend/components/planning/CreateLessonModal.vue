@@ -30,27 +30,48 @@
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Enseignant -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Enseignant *</label>
-            <select v-model.number="form.teacher_id" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-              <option :value="null">Sélectionnez un enseignant</option>
-              <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-                {{ teacher.user?.name || teacher.name }}
-              </option>
-            </select>
+            <Autocomplete
+              v-model="form.teacher_id"
+              :items="teachers"
+              label="Enseignant"
+              placeholder="Rechercher un enseignant..."
+              :required="true"
+              :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
+              :get-item-id="(teacher) => teacher.id"
+            >
+              <template #item="{ item: teacher }">
+                <div>
+                  <div class="font-medium">{{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}</div>
+                  <div v-if="teacher.user?.email" class="text-xs text-gray-500">{{ teacher.user.email }}</div>
+                </div>
+              </template>
+            </Autocomplete>
           </div>
 
           <!-- Élève (optionnel) -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Élève (optionnel)</label>
-            <select v-model.number="form.student_id"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-              <option :value="null">Aucun élève assigné</option>
-              <option v-for="student in students" :key="student.id" :value="student.id">
-                {{ student.user?.name || student.name }}
-                <template v-if="student.age"> ({{ student.age }} ans)</template>
-              </option>
-            </select>
+            <Autocomplete
+              v-model="form.student_id"
+              :items="students"
+              label="Élève (optionnel)"
+              placeholder="Rechercher un élève..."
+              :get-item-label="(student) => {
+                const name = student.user?.name || student.name || 'Élève sans nom'
+                const age = student.age ? ` (${student.age} ans)` : ''
+                return name + age
+              }"
+              :get-item-id="(student) => student.id"
+            >
+              <template #item="{ item: student }">
+                <div>
+                  <div class="font-medium">
+                    {{ student.user?.name || student.name || 'Élève sans nom' }}
+                    <span v-if="student.age" class="text-xs text-gray-500"> ({{ student.age }} ans)</span>
+                  </div>
+                  <div v-if="student.user?.email" class="text-xs text-gray-500">{{ student.user.email }}</div>
+                </div>
+              </template>
+            </Autocomplete>
           </div>
 
           <!-- Type de cours -->
@@ -133,14 +154,24 @@
 
           <!-- Durée -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Durée (minutes) *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Durée (minutes) *
+              <span v-if="form.course_type_id" class="text-xs text-green-600 ml-2">
+                ✓ Défini automatiquement selon le type de cours
+              </span>
+            </label>
             <input v-model.number="form.duration" type="number" min="15" step="5" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <!-- Prix -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Prix (€) *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Prix (€) *
+              <span v-if="form.course_type_id" class="text-xs text-green-600 ml-2">
+                ✓ Défini automatiquement selon le type de cours
+              </span>
+            </label>
             <input v-model.number="form.price" type="number" min="0" step="0.01" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
           </div>
@@ -172,6 +203,7 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import Autocomplete from '~/components/Autocomplete.vue'
 
 interface OpenSlot {
   id: number
@@ -325,25 +357,23 @@ watch(() => props.courseTypes, (newCourseTypes) => {
 }, { deep: true, immediate: true })
 
 // Watcher pour auto-remplir durée et prix quand un type de cours est sélectionné
-watch(() => props.form.course_type_id, (newCourseTypeId) => {
+watch(() => props.form.course_type_id, (newCourseTypeId, oldCourseTypeId) => {
+  // Mettre à jour automatiquement à chaque changement de type de cours
   if (newCourseTypeId && props.courseTypes.length > 0) {
     const selectedCourseType = props.courseTypes.find(ct => ct.id === newCourseTypeId)
     if (selectedCourseType) {
-      // Auto-remplir la durée si elle n'est pas déjà définie
-      if (!props.form.duration || props.form.duration === 0) {
-        props.form.duration = selectedCourseType.duration_minutes || selectedCourseType.duration || 60
-      }
-      // Auto-remplir le prix si il n'est pas déjà défini
-      if (!props.form.price || props.form.price === 0) {
-        props.form.price = selectedCourseType.price || 0
-      }
-      console.log('✨ [CreateLessonModal] Durée et prix auto-remplis:', {
+      // Toujours mettre à jour la durée et le prix selon le type de cours sélectionné
+      props.form.duration = selectedCourseType.duration_minutes || selectedCourseType.duration || 60
+      props.form.price = selectedCourseType.price || 0
+      
+      console.log('✨ [CreateLessonModal] Durée et prix mis à jour automatiquement:', {
         duration: props.form.duration,
         price: props.form.price,
-        courseType: selectedCourseType.name
+        courseType: selectedCourseType.name,
+        previousType: oldCourseTypeId
       })
     }
   }
-})
+}, { immediate: false })
 </script>
 
