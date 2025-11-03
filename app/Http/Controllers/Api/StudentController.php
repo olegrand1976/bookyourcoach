@@ -245,6 +245,8 @@ class StudentController extends Controller
                 'date_of_birth' => 'nullable|date|before:today',
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
+                'disciplines' => 'nullable|array',
+                'disciplines.*' => 'integer|exists:disciplines,id',
             ];
             
             // Si l'élève n'a pas de user_id, l'email devient requis si fourni
@@ -327,6 +329,17 @@ class StudentController extends Controller
 
             if (!empty($studentData)) {
                 $student->update($studentData);
+            }
+
+            // Gérer les disciplines
+            if (isset($validated['disciplines'])) {
+                // Synchroniser les disciplines de l'étudiant
+                $student->disciplines()->sync($validated['disciplines']);
+                
+                \Log::info('Disciplines liées à l\'élève', [
+                    'student_id' => $student->id,
+                    'disciplines' => $validated['disciplines']
+                ]);
             }
 
             DB::commit();
