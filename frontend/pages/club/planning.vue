@@ -1002,19 +1002,65 @@ function isDateAvailable(dateStr: string): boolean {
 }
 
 // Gestion de la modale
-function openSlotModal(slot?: OpenSlot) {
-    if (slot) {
-    editingSlot.value = slot
-    slotForm.value = {
-      day_of_week: slot.day_of_week,
-      start_time: formatTime(slot.start_time),
-      end_time: formatTime(slot.end_time),
-      discipline_id: slot.discipline_id,
-      duration: slot.duration || 60,
-      price: slot.price || 0,
-      max_capacity: slot.max_capacity || 1,
-      max_slots: slot.max_slots || 1,
-      is_active: slot.is_active
+async function openSlotModal(slot?: OpenSlot) {
+  if (slot) {
+    // Recharger le slot depuis la DB pour avoir le statut actuel
+    try {
+      const { $api } = useNuxtApp()
+      console.log('🔄 [openSlotModal] Rechargement du créneau depuis la DB:', slot.id)
+      
+      const response = await $api.get(`/club/open-slots/${slot.id}`)
+      
+      if (response.data.success && response.data.data) {
+        const freshSlot = response.data.data
+        console.log('✅ [openSlotModal] Créneau rechargé depuis la DB:', {
+          id: freshSlot.id,
+          is_active: freshSlot.is_active
+        })
+        
+        editingSlot.value = freshSlot
+        slotForm.value = {
+          day_of_week: freshSlot.day_of_week,
+          start_time: formatTime(freshSlot.start_time),
+          end_time: formatTime(freshSlot.end_time),
+          discipline_id: freshSlot.discipline_id,
+          duration: freshSlot.duration || 60,
+          price: freshSlot.price || 0,
+          max_capacity: freshSlot.max_capacity || 1,
+          max_slots: freshSlot.max_slots || 1,
+          is_active: freshSlot.is_active ?? true // Utiliser le statut de la DB
+        }
+      } else {
+        // Fallback : utiliser le slot passé en paramètre si le rechargement échoue
+        console.warn('⚠️ [openSlotModal] Échec rechargement, utilisation du slot local')
+        editingSlot.value = slot
+        slotForm.value = {
+          day_of_week: slot.day_of_week,
+          start_time: formatTime(slot.start_time),
+          end_time: formatTime(slot.end_time),
+          discipline_id: slot.discipline_id,
+          duration: slot.duration || 60,
+          price: slot.price || 0,
+          max_capacity: slot.max_capacity || 1,
+          max_slots: slot.max_slots || 1,
+          is_active: slot.is_active ?? true
+        }
+      }
+    } catch (error) {
+      console.error('❌ [openSlotModal] Erreur lors du rechargement du créneau:', error)
+      // Fallback : utiliser le slot passé en paramètre
+      editingSlot.value = slot
+      slotForm.value = {
+        day_of_week: slot.day_of_week,
+        start_time: formatTime(slot.start_time),
+        end_time: formatTime(slot.end_time),
+        discipline_id: slot.discipline_id,
+        duration: slot.duration || 60,
+        price: slot.price || 0,
+        max_capacity: slot.max_capacity || 1,
+        max_slots: slot.max_slots || 1,
+        is_active: slot.is_active ?? true
+      }
     }
   } else {
     editingSlot.value = null
