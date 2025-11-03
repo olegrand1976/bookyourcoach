@@ -10,12 +10,16 @@ class LessonObserver
 {
     /**
      * Handle the Lesson "created" event.
-     * Si un cours est créé et qu'il est lié à un abonnement, le compteur est mis à jour
+     * Si un cours est créé et qu'il est déjà lié à un abonnement, recalculer
      */
     public function created(Lesson $lesson): void
     {
-        // Ne rien faire ici car le cours n'est pas encore consommé dans un abonnement
-        // Le lien sera fait plus tard via consumeLesson
+        // Attendre un peu pour que la liaison dans subscription_lessons soit faite
+        // (consumeLesson est appelé juste après la création dans LessonController)
+        // Utiliser un délai court pour laisser le temps à la transaction de se terminer
+        dispatch(function () use ($lesson) {
+            $this->recalculateSubscriptionsForLesson($lesson);
+        })->afterResponse();
     }
 
     /**

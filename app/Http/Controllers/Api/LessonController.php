@@ -833,22 +833,46 @@ class LessonController extends Controller
                 // Vérifier si ce cours fait partie de l'abonnement
                 $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
                 
+                // Recalculer avant de vérifier remaining_lessons pour avoir la valeur à jour
+                $subscriptionInstance->recalculateLessonsUsed();
+                
                 if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
-                    // Consommer un cours de cet abonnement
-                    $subscriptionInstance->consumeLesson($lesson);
-                    
-                    $studentNames = $subscriptionInstance->students->map(function ($student) {
-                        if ($student->user) {
-                            return $student->user->name;
-                        }
-                        $firstName = $student->first_name ?? '';
-                        $lastName = $student->last_name ?? '';
-                        $name = trim($firstName . ' ' . $lastName);
-                        return !empty($name) ? $name : 'Élève sans nom';
-                    })->filter()->join(', ');
-                    Log::info("Cours {$lesson->id} consommé depuis l'abonnement partagé {$subscriptionInstance->id} (élèves: {$studentNames})");
-                    
-                    return; // Un seul abonnement consommé par cours
+                    try {
+                        // Consommer un cours de cet abonnement
+                        $subscriptionInstance->consumeLesson($lesson);
+                        
+                        $studentNames = $subscriptionInstance->students->map(function ($student) {
+                            if ($student->user) {
+                                return $student->user->name;
+                            }
+                            $firstName = $student->first_name ?? '';
+                            $lastName = $student->last_name ?? '';
+                            $name = trim($firstName . ' ' . $lastName);
+                            return !empty($name) ? $name : 'Élève sans nom';
+                        })->filter()->join(', ');
+                        
+                        // Recharger l'instance pour avoir les valeurs à jour
+                        $subscriptionInstance->refresh();
+                        
+                        Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id}", [
+                            'lesson_id' => $lesson->id,
+                            'subscription_instance_id' => $subscriptionInstance->id,
+                            'lessons_used' => $subscriptionInstance->lessons_used,
+                            'remaining_lessons' => $subscriptionInstance->remaining_lessons,
+                            'students' => $studentNames
+                        ]);
+                        
+                        return; // Un seul abonnement consommé par cours
+                    } catch (\Exception $e) {
+                        Log::error("❌ Erreur lors de la consommation du cours {$lesson->id} depuis l'abonnement {$subscriptionInstance->id}: " . $e->getMessage(), [
+                            'lesson_id' => $lesson->id,
+                            'subscription_instance_id' => $subscriptionInstance->id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        // Continuer avec l'instance suivante si celle-ci échoue
+                        continue;
+                    }
                 }
             }
 
