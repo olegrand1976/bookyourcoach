@@ -501,7 +501,15 @@ class SubscriptionController extends Controller
 
             // Récupérer l'instance d'abonnement existante
             $existingInstance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
-                    $query->where('club_id', $club->id);
+                    // Utiliser le scope forClub pour gérer le cas où club_id n'existe pas
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        // Si club_id n'existe pas, filtrer via template
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
                 })
                 ->with(['subscription.template', 'students'])
                 ->findOrFail($instanceId);
