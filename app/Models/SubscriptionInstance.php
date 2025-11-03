@@ -69,16 +69,17 @@ class SubscriptionInstance extends Model
 
     /**
      * Calcule automatiquement lessons_used en comptant les cours réellement consommés
-     * (exclut les cours annulés et futurs)
+     * (exclut les cours annulés)
      */
     public function recalculateLessonsUsed(): void
     {
-        // Compter uniquement les cours non annulés dans subscription_lessons
-        // On compte seulement les cours qui ont réellement été consommés (pas les cours futurs)
-        // Statuts valides: pending, confirmed, completed
-        // Statuts exclus: cancelled
-        $consumedLessons = $this->lessons()
+        // Compter directement dans la table subscription_lessons avec un JOIN sur lessons
+        // pour être sûr d'avoir les données à jour (évite les problèmes de cache Eloquent)
+        $consumedLessons = \Illuminate\Support\Facades\DB::table('subscription_lessons')
+            ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
+            ->where('subscription_lessons.subscription_instance_id', $this->id)
             ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+            ->where('lessons.status', '!=', 'cancelled')
             ->count();
 
         // Mettre à jour seulement si différent pour éviter les requêtes inutiles
@@ -89,7 +90,8 @@ class SubscriptionInstance extends Model
             
             \Log::info("Recalcul lessons_used pour subscription_instance {$this->id}", [
                 'old_value' => $oldValue,
-                'new_value' => $consumedLessons
+                'new_value' => $consumedLessons,
+                'subscription_instance_id' => $this->id
             ]);
             
             // Vérifier et mettre à jour le statut (mais éviter la récursion infinie)
@@ -203,17 +205,17 @@ class SubscriptionInstance extends Model
      */
     public function consumeLesson(Lesson $lesson)
     {
-        // Vérifier qu'il reste des cours (recalculer d'abord pour avoir la valeur à jour)
-        $this->recalculateLessonsUsed();
-        if ($this->remaining_lessons <= 0) {
-            throw new \Exception('Aucun cours restant dans cet abonnement');
-        }
-
         // Vérifier que le cours n'est pas déjà attaché à cet abonnement
         if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
             // Le cours est déjà attaché, juste recalculer
             $this->recalculateLessonsUsed();
             return;
+        }
+
+        // Vérifier qu'il reste des cours (recalculer d'abord pour avoir la valeur à jour)
+        $this->recalculateLessonsUsed();
+        if ($this->remaining_lessons <= 0) {
+            throw new \Exception('Aucun cours restant dans cet abonnement');
         }
 
         // Vérifier que le cours est bien du bon type
@@ -265,16 +267,27 @@ class SubscriptionInstance extends Model
             throw new \Exception('Un cours annulé ne peut pas être consommé depuis un abonnement');
         }
 
-        // Créer la liaison (seulement si le cours n'est pas déjà attaché)
+        // Créer la liaison dans subscription_lessons
         if (!$this->lessons()->where('lesson_id', $lesson->id)->exists()) {
             $this->lessons()->attach($lesson->id);
+            
+            // Forcer le rafraîchissement de la relation pour que le recalcul fonctionne
+            $this->load('lessons');
         }
         
-        // Recalculer automatiquement le compteur (exclut les cours annulés)
+        // Recalculer automatiquement le compteur APRÈS l'attachement
+        // Utiliser une requête directe pour s'assurer que le cours est bien dans la table
         $this->recalculateLessonsUsed();
         
         // Vérifier et mettre à jour le statut
         $this->checkAndUpdateStatus();
+        
+        \Log::info("Cours {$lesson->id} consommé depuis l'abonnement {$this->id}", [
+            'lesson_id' => $lesson->id,
+            'subscription_instance_id' => $this->id,
+            'lessons_used_after' => $this->lessons_used,
+            'remaining_lessons' => $this->remaining_lessons
+        ]);
     }
 
     /**
