@@ -11,9 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('subscriptions_table_if_missing', function (Blueprint $table) {
-            //
-        });
+        // Ajouter club_id à la table subscriptions si elle n'existe pas
+        if (Schema::hasTable('subscriptions') && !Schema::hasColumn('subscriptions', 'club_id')) {
+            Schema::table('subscriptions', function (Blueprint $table) {
+                // Ajouter club_id après l'id
+                $table->foreignId('club_id')->nullable()->after('id')->constrained('clubs')->onDelete('cascade');
+            });
+            
+            // Mettre à jour les subscriptions existantes si nécessaire
+            // (on les laisse nullable pour l'instant pour éviter de perdre des données)
+        }
     }
 
     /**
@@ -21,8 +28,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('subscriptions_table_if_missing', function (Blueprint $table) {
-            //
-        });
+        if (Schema::hasTable('subscriptions') && Schema::hasColumn('subscriptions', 'club_id')) {
+            Schema::table('subscriptions', function (Blueprint $table) {
+                $table->dropForeign(['club_id']);
+                $table->dropColumn('club_id');
+            });
+        }
     }
 };
