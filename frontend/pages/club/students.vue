@@ -94,7 +94,7 @@
 
       <!-- Filtres et recherche -->
       <div class="bg-white rounded-xl shadow p-6 mb-8">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Rechercher</label>
             <div class="relative">
@@ -113,33 +113,6 @@
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Niveau</label>
-            <select 
-              v-model="selectedLevel" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              <option value="">Tous les niveaux</option>
-              <option value="debutant">🌱 Débutant</option>
-              <option value="intermediaire">📈 Intermédiaire</option>
-              <option value="avance">⭐ Avancé</option>
-              <option value="expert">🏆 Expert</option>
-            </select>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Spécialité</label>
-            <select 
-              v-model="selectedDiscipline" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              <option value="">Toutes les spécialités</option>
-              <option v-for="discipline in availableDisciplines" :key="discipline.id" :value="discipline.id">
-                {{ getActivityIcon(discipline.activity_type_id) }} {{ discipline.name }}
-              </option>
-            </select>
-          </div>
-          
-          <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Tri</label>
             <select 
               v-model="sortBy" 
@@ -147,8 +120,6 @@
             >
               <option value="name">Nom (A-Z)</option>
               <option value="name_desc">Nom (Z-A)</option>
-              <option value="level">Niveau (croissant)</option>
-              <option value="level_desc">Niveau (décroissant)</option>
               <option value="created">Date d'inscription</option>
             </select>
           </div>
@@ -157,13 +128,24 @@
 
       <!-- Liste des élèves -->
       <div class="bg-white rounded-xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <h3 class="text-lg font-medium text-gray-900">
-            Liste des élèves ({{ filteredStudents.length }})
+            Liste des élèves ({{ totalStudents }})
           </h3>
+          <div v-if="pagination && pagination.total > pagination.per_page" class="text-sm text-gray-600">
+            Page {{ pagination.current_page }} sur {{ pagination.last_page }}
+          </div>
         </div>
         
-        <div v-if="filteredStudents.length === 0" class="text-center py-12">
+        <div v-if="loading" class="text-center py-12">
+          <svg class="animate-spin h-8 w-8 text-emerald-600 mx-auto" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="mt-2 text-sm text-gray-600">Chargement...</p>
+        </div>
+        
+        <div v-else-if="filteredStudents.length === 0" class="text-center py-12">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
           </svg>
@@ -288,6 +270,48 @@
             </div>
           </div>
         </div>
+        
+        <!-- Pagination -->
+        <div v-if="pagination && pagination.last_page > 1" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+              Affichage de {{ ((pagination.current_page - 1) * pagination.per_page) + 1 }} à {{ Math.min(pagination.current_page * pagination.per_page, pagination.total) }} sur {{ pagination.total }} élèves
+            </div>
+            <div class="flex space-x-2">
+              <button
+                @click="changePage(pagination.current_page - 1)"
+                :disabled="pagination.current_page === 1"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Précédent
+              </button>
+              <template v-for="page in getPageNumbers()" :key="page">
+                <button
+                  v-if="page !== '...'"
+                  @click="changePage(page)"
+                  :class="[
+                    'px-4 py-2 text-sm font-medium rounded-lg',
+                    page === pagination.current_page
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  ]"
+                >
+                  {{ page }}
+                </button>
+                <span v-else class="px-4 py-2 text-sm font-medium text-gray-500">
+                  {{ page }}
+                </span>
+              </template>
+              <button
+                @click="changePage(pagination.current_page + 1)"
+                :disabled="pagination.current_page === pagination.last_page"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -341,12 +365,15 @@ const showEditStudentModal = ref(false)
 const showSubscriptionsModal = ref(false)
 const selectedStudent = ref(null)
 const searchQuery = ref('')
-const selectedLevel = ref('')
-const selectedDiscipline = ref('')
 const sortBy = ref('name')
 const resending = ref({})
+const loading = ref(false)
+const pagination = ref(null)
+const currentPage = ref(1)
+const perPage = 20
 
 // Computed properties pour les statistiques
+const totalStudents = computed(() => pagination.value?.total || students.value.length)
 const activeStudents = computed(() => students.value.length)
 const beginnerStudents = computed(() => 
   students.value.filter(student => student.level === 'debutant').length
@@ -388,18 +415,6 @@ const filteredStudents = computed(() => {
     })
   }
 
-  // Filtrage par niveau
-  if (selectedLevel.value) {
-    filtered = filtered.filter(student => student.level === selectedLevel.value)
-  }
-
-  // Filtrage par spécialité
-  if (selectedDiscipline.value) {
-    filtered = filtered.filter(student => 
-      student.disciplines && student.disciplines.some(d => d.id == selectedDiscipline.value)
-    )
-  }
-
   // Tri
   filtered.sort((a, b) => {
     switch (sortBy.value) {
@@ -411,12 +426,6 @@ const filteredStudents = computed(() => {
         const nameADesc = getStudentName(a)
         const nameBDesc = getStudentName(b)
         return nameBDesc.localeCompare(nameADesc)
-      case 'level':
-        const levelOrder = { 'debutant': 1, 'intermediaire': 2, 'avance': 3, 'expert': 4 }
-        return (levelOrder[a.level] || 0) - (levelOrder[b.level] || 0)
-      case 'level_desc':
-        const levelOrderDesc = { 'debutant': 1, 'intermediaire': 2, 'avance': 3, 'expert': 4 }
-        return (levelOrderDesc[b.level] || 0) - (levelOrderDesc[a.level] || 0)
       case 'created':
         return new Date(b.created_at) - new Date(a.created_at)
       default:
@@ -449,21 +458,29 @@ const getActivityIcon = (activityTypeId) => {
   return icons[activityTypeId] || '🎯'
 }
 
-// Charger les élèves et spécialités
-const loadStudents = async () => {
+// Charger les élèves avec pagination
+const loadStudents = async (page = 1) => {
   try {
-    console.log('🔄 Chargement des élèves...')
+    loading.value = true
+    console.log('🔄 Chargement des élèves...', { page })
     
     // Utiliser $api qui inclut automatiquement le token via l'intercepteur
     const { $api } = useNuxtApp()
-    const response = await $api.get('/club/students')
+    const response = await $api.get('/club/students', {
+      params: {
+        page: page,
+        per_page: perPage
+      }
+    })
     
     console.log('✅ Élèves reçus:', response)
     
     if (response.data.success && response.data.data) {
       students.value = response.data.data
+      pagination.value = response.data.pagination || null
+      currentPage.value = page
       
-      // Charger aussi les spécialités disponibles
+      // Charger aussi les spécialités disponibles (pour les afficher dans les cards)
       try {
         const disciplinesResponse = await $api.get('/disciplines')
         if (disciplinesResponse.data.success && disciplinesResponse.data.data) {
@@ -475,7 +492,65 @@ const loadStudents = async () => {
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des élèves:', error)
+  } finally {
+    loading.value = false
   }
+}
+
+// Changer de page
+const changePage = (page) => {
+  if (page >= 1 && page <= (pagination.value?.last_page || 1)) {
+    loadStudents(page)
+    // Scroll en haut de la page
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// Obtenir les numéros de page à afficher
+const getPageNumbers = () => {
+  if (!pagination.value) return []
+  
+  const current = pagination.value.current_page
+  const last = pagination.value.last_page
+  const pages = []
+  
+  if (last <= 7) {
+    // Si moins de 7 pages, afficher toutes
+    for (let i = 1; i <= last; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Sinon, afficher intelligemment
+    if (current <= 4) {
+      // Au début
+      for (let i = 1; i <= 5; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(last)
+    } else if (current >= last - 3) {
+      // À la fin
+      pages.push(1)
+      pages.push('...')
+      for (let i = last - 4; i <= last; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Au milieu
+      pages.push(1)
+      pages.push('...')
+      for (let i = current - 1; i <= current + 1; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(last)
+    }
+  }
+  
+  return pages.filter((p, i, arr) => {
+    if (p === '...') return arr[i - 1] !== '...'
+    return true
+  })
 }
 
 // Actions sur les élèves
