@@ -158,8 +158,8 @@
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Détails de la couverture *</label>
-              <textarea v-model="formData.insurance_additional_details" rows="2" required
+              <label class="block text-sm font-medium text-gray-700 mb-1">Détails de la couverture</label>
+              <textarea v-model="formData.insurance_additional_details" rows="2"
                         placeholder="Couverture corporelle, accidents sur le trajet, etc."
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"></textarea>
             </div>
