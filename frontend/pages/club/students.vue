@@ -415,6 +415,16 @@ const currentPage = ref(1)
 const perPage = 20
 
 // Les statistiques sont maintenant fournies par le backend via stats.value
+const totalStudents = computed(() => {
+  // Utiliser le filtre en cours pour afficher le bon total
+  if (selectedStatus.value === 'active') {
+    return stats.value.active
+  } else if (selectedStatus.value === 'inactive') {
+    return stats.value.inactive
+  } else {
+    return stats.value.total
+  }
+})
 
 // Helper pour obtenir le nom complet d'un élève de manière sécurisée
 const getStudentName = (student) => {
