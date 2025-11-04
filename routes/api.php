@@ -191,7 +191,6 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
-    Route::post('/subscriptions/initialize', [SubscriptionController::class, 'initializeBatch']);
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
     // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
