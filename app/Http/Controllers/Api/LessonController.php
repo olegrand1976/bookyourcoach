@@ -415,6 +415,9 @@ class LessonController extends Controller
             // Essayer de consommer un abonnement si l'élève en a un actif
             if (isset($validated['student_id'])) {
                 $this->tryConsumeSubscription($lesson);
+                
+                // 🔄 RÉCURRENCE AUTOMATIQUE : Bloquer le créneau pour les 6 prochains mois
+                $this->createRecurringSlotIfSubscription($lesson);
             }
 
             // Envoyer les notifications
@@ -989,6 +992,104 @@ class LessonController extends Controller
             }
             // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
             Log::warning("Erreur lors de la vérification de capacité du créneau: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * 🔄 Crée automatiquement un créneau récurrent si l'élève a un abonnement actif
+     * Bloque le créneau (jour + heure) pour les 6 prochains mois
+     */
+    private function createRecurringSlotIfSubscription(Lesson $lesson): void
+    {
+        try {
+            if (!$lesson->student_id || !$lesson->teacher_id) {
+                return;
+            }
+
+            // Vérifier si l'élève a un abonnement actif
+            $activeSubscription = SubscriptionInstance::where('status', 'active')
+                ->whereHas('students', function ($query) use ($lesson) {
+                    $query->where('students.id', $lesson->student_id);
+                })
+                ->with('subscription')
+                ->orderBy('started_at', 'asc')
+                ->first();
+
+            if (!$activeSubscription) {
+                Log::info("🔄 Pas de récurrence créée : aucun abonnement actif pour l'élève {$lesson->student_id}");
+                return;
+            }
+
+            // Extraire les informations du cours
+            $startTime = Carbon::parse($lesson->start_time);
+            $dayOfWeek = $startTime->dayOfWeek; // 0 = Dimanche, 1 = Lundi, etc.
+            $timeStart = $startTime->format('H:i:s');
+            $timeEnd = $startTime->copy()->addMinutes($lesson->duration ?? 60)->format('H:i:s');
+
+            // Date de début : aujourd'hui
+            $recurringStartDate = now()->startOfDay();
+            
+            // Date de fin : 6 mois à partir d'aujourd'hui OU date d'expiration de l'abonnement (le plus proche)
+            $recurringEndDate = now()->addMonths(6);
+            if ($activeSubscription->expires_at && Carbon::parse($activeSubscription->expires_at)->lessThan($recurringEndDate)) {
+                $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
+            }
+
+            // Vérifier si une récurrence existe déjà pour ce même créneau
+            $existingRecurring = \App\Models\SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
+                ->where('student_id', $lesson->student_id)
+                ->where('teacher_id', $lesson->teacher_id)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('start_time', $timeStart)
+                ->where('status', 'active')
+                ->first();
+
+            if ($existingRecurring) {
+                Log::info("🔄 Récurrence déjà existante pour ce créneau", [
+                    'recurring_slot_id' => $existingRecurring->id,
+                    'student_id' => $lesson->student_id,
+                    'day_of_week' => $dayOfWeek,
+                    'start_time' => $timeStart
+                ]);
+                return;
+            }
+
+            // Créer le créneau récurrent
+            $recurringSlot = \App\Models\SubscriptionRecurringSlot::create([
+                'subscription_instance_id' => $activeSubscription->id,
+                'open_slot_id' => null, // Pas forcément lié à un open_slot
+                'teacher_id' => $lesson->teacher_id,
+                'student_id' => $lesson->student_id,
+                'day_of_week' => $dayOfWeek,
+                'start_time' => $timeStart,
+                'end_time' => $timeEnd,
+                'start_date' => $recurringStartDate,
+                'end_date' => $recurringEndDate,
+                'status' => 'active',
+                'notes' => "Créneau récurrent créé automatiquement pour le cours #{$lesson->id}",
+            ]);
+
+            Log::info("✅ Créneau récurrent créé automatiquement", [
+                'recurring_slot_id' => $recurringSlot->id,
+                'subscription_instance_id' => $activeSubscription->id,
+                'lesson_id' => $lesson->id,
+                'student_id' => $lesson->student_id,
+                'teacher_id' => $lesson->teacher_id,
+                'day_of_week' => $dayOfWeek,
+                'start_time' => $timeStart,
+                'end_time' => $timeEnd,
+                'start_date' => $recurringStartDate->format('Y-m-d'),
+                'end_date' => $recurringEndDate->format('Y-m-d'),
+                'duration_months' => 6
+            ]);
+
+        } catch (\Exception $e) {
+            // Log l'erreur mais ne pas faire échouer la création du cours
+            Log::error("Erreur lors de la création de la récurrence: " . $e->getMessage(), [
+                'lesson_id' => $lesson->id,
+                'student_id' => $lesson->student_id,
+                'trace' => $e->getTraceAsString()
+            ]);
         }
     }
 }
