@@ -28,6 +28,19 @@
               <span>Initialiser des Abonnements</span>
             </button>
             <button 
+              @click="handleRecalculateAll"
+              :disabled="recalculating"
+              class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+            >
+              <svg v-if="recalculating" class="animate-spin h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{{ recalculating ? 'Recalcul en cours...' : 'Recalculer les Cours Restants' }}</span>
+            </button>
+            <button 
               @click="showAssignModal = true"
               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
@@ -360,6 +373,7 @@ const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
 const showOpenSubscriptions = ref(false) // Par défaut, masquer les abonnements "open"
+const recalculating = ref(false)
 
 // Modals
 const showCreateModal = ref(false)
@@ -642,6 +656,39 @@ const handleInitializeSubmit = async (data) => {
     console.error('Erreur lors de l\'initialisation:', error)
     const { error: showError } = useToast()
     showError('Erreur lors de l\'initialisation des abonnements')
+  }
+}
+
+// Recalculer tous les abonnements
+const handleRecalculateAll = async () => {
+  if (!confirm('Voulez-vous recalculer le nombre de cours restants pour tous les abonnements actifs ?\n\nCette opération va mettre à jour les compteurs en se basant sur l\'historique réel des cours suivis.')) {
+    return
+  }
+
+  try {
+    recalculating.value = true
+    const { $api } = useNuxtApp()
+    const { success, error } = useToast()
+    
+    const response = await $api.post('/club/subscriptions/recalculate')
+    
+    if (response.data.success) {
+      const stats = response.data.data
+      success(`✅ ${response.data.message}`)
+      
+      // Afficher les détails si des abonnements ont été mis à jour
+      if (stats.total_updated > 0 && stats.details && stats.details.length > 0) {
+        console.log('📊 Détails du recalcul:', stats.details)
+      }
+      
+      await loadSubscriptions() // Recharger la liste
+    }
+  } catch (error) {
+    console.error('Erreur lors du recalcul:', error)
+    const { error: showError } = useToast()
+    showError('Erreur lors du recalcul des abonnements')
+  } finally {
+    recalculating.value = false
   }
 }
 

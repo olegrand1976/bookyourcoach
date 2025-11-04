@@ -589,6 +589,91 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Recalculer le nombre de cours restants pour tous les abonnements actifs
+     * Utile pour corriger les compteurs en se basant sur l'historique réel
+     */
+    public function recalculateAll(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Récupérer tous les abonnements actifs du club
+            $subscriptions = Subscription::forClub($club->id)
+                ->with('instances')
+                ->get();
+
+            $stats = [
+                'total_checked' => 0,
+                'total_updated' => 0,
+                'details' => []
+            ];
+
+            foreach ($subscriptions as $subscription) {
+                foreach ($subscription->instances as $instance) {
+                    // Ne recalculer que les instances actives
+                    if ($instance->status !== 'active') {
+                        continue;
+                    }
+
+                    $stats['total_checked']++;
+                    
+                    // Sauvegarder l'ancienne valeur
+                    $oldLessonsUsed = $instance->lessons_used;
+                    
+                    // Recalculer
+                    $instance->recalculateLessonsUsed();
+                    
+                    // Si la valeur a changé, compter comme mise à jour
+                    if ($oldLessonsUsed != $instance->lessons_used) {
+                        $stats['total_updated']++;
+                        $stats['details'][] = [
+                            'subscription_number' => $subscription->subscription_number,
+                            'instance_id' => $instance->id,
+                            'old_lessons_used' => $oldLessonsUsed,
+                            'new_lessons_used' => $instance->lessons_used,
+                            'remaining_lessons' => $instance->remaining_lessons
+                        ];
+                    }
+                }
+            }
+
+            Log::info('Recalcul de tous les abonnements', [
+                'club_id' => $club->id,
+                'total_checked' => $stats['total_checked'],
+                'total_updated' => $stats['total_updated']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Recalcul terminé : {$stats['total_updated']} abonnement(s) mis à jour sur {$stats['total_checked']} vérifié(s)",
+                'data' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors du recalcul des abonnements: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du recalcul: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Initialiser des abonnements en batch (créer plusieurs abonnements ouverts)
      */
     public function initializeBatch(Request $request): JsonResponse
