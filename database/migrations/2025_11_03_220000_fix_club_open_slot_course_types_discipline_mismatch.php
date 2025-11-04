@@ -71,20 +71,40 @@ return new class extends Migration
                 ->first();
             
             if ($compatibleCourseType) {
-                // Remplacer par le type compatible
-                DB::table('club_open_slot_course_types')
-                    ->where('id', $assoc->association_id)
-                    ->update([
-                        'course_type_id' => $compatibleCourseType->id,
-                        'updated_at' => now()
-                    ]);
+                // Vérifier si l'association (slot + course_type) existe déjà
+                $existingAssociation = DB::table('club_open_slot_course_types')
+                    ->where('club_open_slot_id', $assoc->club_open_slot_id)
+                    ->where('course_type_id', $compatibleCourseType->id)
+                    ->exists();
                 
-                Log::info('✅ Association corrigée', [
-                    'association_id' => $assoc->association_id,
-                    'old_course_type' => $assoc->course_type_id,
-                    'new_course_type' => $compatibleCourseType->id,
-                    'new_course_type_name' => $compatibleCourseType->name
-                ]);
+                if ($existingAssociation) {
+                    // L'association existe déjà, supprimer l'ancienne entrée
+                    DB::table('club_open_slot_course_types')
+                        ->where('id', $assoc->association_id)
+                        ->delete();
+                    
+                    Log::info('🔄 Doublon évité - Ancienne association supprimée', [
+                        'association_id' => $assoc->association_id,
+                        'slot_id' => $assoc->club_open_slot_id,
+                        'old_course_type' => $assoc->course_type_id,
+                        'existing_course_type' => $compatibleCourseType->id
+                    ]);
+                } else {
+                    // Remplacer par le type compatible
+                    DB::table('club_open_slot_course_types')
+                        ->where('id', $assoc->association_id)
+                        ->update([
+                            'course_type_id' => $compatibleCourseType->id,
+                            'updated_at' => now()
+                        ]);
+                    
+                    Log::info('✅ Association corrigée', [
+                        'association_id' => $assoc->association_id,
+                        'old_course_type' => $assoc->course_type_id,
+                        'new_course_type' => $compatibleCourseType->id,
+                        'new_course_type_name' => $compatibleCourseType->name
+                    ]);
+                }
                 
                 $corrected++;
             } else {
