@@ -44,7 +44,7 @@
         </div>
       </div>
 
-      <!-- Filtre de recherche -->
+      <!-- Filtres -->
       <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <div class="flex items-center space-x-4">
           <div class="flex-1">
@@ -61,14 +61,16 @@
           </div>
           <div class="w-64">
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Afficher
+              Filtrer par statut
             </label>
             <select
-              v-model="showOpenSubscriptions"
+              v-model="statusFilter"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option :value="false">Abonnements assignés uniquement</option>
-              <option :value="true">Tous les abonnements</option>
+              <option value="all">Tous les abonnements</option>
+              <option value="normal">✅ Normal (< 70%)</option>
+              <option value="warning">⚠️ Approchant (70-89%)</option>
+              <option value="urgent">🚨 Urgent (≥ 90%)</option>
             </select>
           </div>
         </div>
@@ -381,7 +383,7 @@ const availableDisciplines = ref([])
 const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
-const showOpenSubscriptions = ref(false) // Par défaut, masquer les abonnements "open"
+const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
 const recalculating = ref(false)
 
 // Modals
@@ -519,18 +521,30 @@ const getInstanceLessonsUsed = (instance) => {
   return instance.lessons_used || 0
 }
 
-// Filtrer les abonnements par nom/prénom d'élève ET statut
+// Déterminer le statut d'une instance pour le filtrage
+const getInstanceStatus = (instance, template) => {
+  const percentage = getUsagePercentage(instance, template)
+  if (percentage >= 90) return 'urgent'
+  if (percentage >= 70) return 'warning'
+  return 'normal'
+}
+
+// Filtrer les abonnements par nom/prénom d'élève ET statut d'utilisation
 const filteredSubscriptions = computed(() => {
   let filtered = subscriptions.value
   
-  // 1. Filtrer par statut (masquer les abonnements "open" par défaut)
-  if (!showOpenSubscriptions.value) {
+  // 1. Filtrer par statut d'utilisation (couleur)
+  if (statusFilter.value !== 'all') {
     filtered = filtered.filter(subscription => {
-      // Vérifier si l'abonnement a au moins une instance qui n'est pas "open"
       if (!subscription.instances || subscription.instances.length === 0) {
         return false
       }
-      return subscription.instances.some(instance => instance.status !== 'open')
+      // Un abonnement est inclus si AU MOINS UNE de ses instances correspond au filtre
+      return subscription.instances.some(instance => {
+        if (instance.status !== 'active') return false
+        const instanceStatus = getInstanceStatus(instance, subscription.template)
+        return instanceStatus === statusFilter.value
+      })
     })
   }
   
@@ -548,12 +562,6 @@ const filteredSubscriptions = computed(() => {
     }
     
     return subscription.instances.some(instance => {
-      // Si l'instance est "open", ne pas chercher dans les élèves (il n'y en a pas)
-      if (instance.status === 'open') {
-        // Chercher dans le numéro d'abonnement
-        return subscription.subscription_number?.toLowerCase().includes(query)
-      }
-      
       if (!instance.students || instance.students.length === 0) {
         return false
       }
