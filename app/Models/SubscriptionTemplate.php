@@ -37,6 +37,13 @@ class SubscriptionTemplate extends Model
     ];
 
     /**
+     * Accesseurs à ajouter automatiquement à la sérialisation JSON
+     */
+    protected $appends = [
+        'total_available_lessons',
+    ];
+
+    /**
      * Le club qui possède ce modèle
      */
     public function club()
