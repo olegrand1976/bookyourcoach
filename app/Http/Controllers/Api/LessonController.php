@@ -838,6 +838,7 @@ class LessonController extends Controller
 
     /**
      * Essaie de consommer un abonnement actif pour ce cours
+     * RÈGLE FIFO : Consomme toujours l'abonnement le plus ancien en premier
      */
     private function tryConsumeSubscription(Lesson $lesson): void
     {
@@ -847,12 +848,21 @@ class LessonController extends Controller
             }
 
             // Récupérer les instances d'abonnements actifs où l'élève est inscrit
+            // 📌 IMPORTANT : Tri par started_at ASC pour consommer le plus ancien en premier (FIFO)
             $subscriptionInstances = SubscriptionInstance::where('status', 'active')
                 ->whereHas('students', function ($query) use ($lesson) {
                     $query->where('students.id', $lesson->student_id);
                 })
                 ->with(['subscription.courseTypes', 'students'])
+                ->orderBy('started_at', 'asc') // 🔄 FIFO : Le plus ancien d'abord
                 ->get();
+
+            Log::info("🔍 Recherche d'abonnement pour le cours {$lesson->id}", [
+                'student_id' => $lesson->student_id,
+                'course_type_id' => $lesson->course_type_id,
+                'subscriptions_found' => $subscriptionInstances->count(),
+                'order' => 'FIFO (oldest first)'
+            ]);
 
             // Trouver la première instance valide pour ce type de cours
             foreach ($subscriptionInstances as $subscriptionInstance) {
@@ -887,12 +897,32 @@ class LessonController extends Controller
                         // Recharger l'instance pour avoir les valeurs à jour
                         $subscriptionInstance->refresh();
                         
-                        Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id}", [
+                        // 📦 ARCHIVAGE : Si l'abonnement est plein (100% utilisé), le marquer comme completed
+                        $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
+                        $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
+                        
+                        if ($isFullyUsed && $subscriptionInstance->status === 'active') {
+                            $subscriptionInstance->status = 'completed';
+                            $subscriptionInstance->save();
+                            
+                            Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
+                                'subscription_instance_id' => $subscriptionInstance->id,
+                                'lessons_used' => $subscriptionInstance->lessons_used,
+                                'total_lessons' => $totalLessons,
+                                'students' => $studentNames
+                            ]);
+                        }
+                        
+                        Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
                             'lesson_id' => $lesson->id,
                             'subscription_instance_id' => $subscriptionInstance->id,
+                            'started_at' => $subscriptionInstance->started_at,
                             'lessons_used' => $subscriptionInstance->lessons_used,
+                            'total_lessons' => $totalLessons,
                             'remaining_lessons' => $subscriptionInstance->remaining_lessons,
-                            'students' => $studentNames
+                            'status' => $subscriptionInstance->status,
+                            'students' => $studentNames,
+                            'archived' => $isFullyUsed
                         ]);
                         
                         return; // Un seul abonnement consommé par cours
