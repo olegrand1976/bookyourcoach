@@ -190,8 +190,9 @@ class LessonController extends Controller
             }
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
-            $limit = min($request->get('limit', 50), 100); // Par défaut 50 cours max, max 100
-            $lessons = $query->orderBy('start_time', 'desc')
+            $limit = min($request->get('limit', 50), 200); // Par défaut 50 cours max, max 200
+            // ✅ Tri ASC (chronologique) pour afficher les cours à venir dans l'ordre
+            $lessons = $query->orderBy('start_time', 'asc')
                 ->limit($limit)
                 ->get()
                 ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']); // Désactiver les accessors coûteux
