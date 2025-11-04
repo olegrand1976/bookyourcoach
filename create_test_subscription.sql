@@ -17,29 +17,29 @@ SET @student_user_id = (SELECT id FROM users WHERE email = 'test.student@example
 SET @teacher_user_id = (SELECT id FROM users WHERE email = 'test.teacher@example.com' LIMIT 1);
 
 -- Créer l'élève
-INSERT IGNORE INTO students (user_id, club_id, is_active, created_at, updated_at)
-VALUES (@student_user_id, @club_id, 1, NOW(), NOW());
+INSERT IGNORE INTO students (user_id, club_id, created_at, updated_at)
+VALUES (@student_user_id, @club_id, NOW(), NOW());
 
 SET @student_id = (SELECT id FROM students WHERE user_id = @student_user_id LIMIT 1);
 
 -- Créer l'enseignant
-INSERT IGNORE INTO teachers (user_id, club_id, specialties, is_active, created_at, updated_at)
-VALUES (@teacher_user_id, @club_id, '["test"]', 1, NOW(), NOW());
+INSERT IGNORE INTO teachers (user_id, club_id, specialties, created_at, updated_at)
+VALUES (@teacher_user_id, @club_id, '["test"]', NOW(), NOW());
 
 SET @teacher_id = (SELECT id FROM teachers WHERE user_id = @teacher_user_id LIMIT 1);
 
 -- Créer un lieu si nécessaire
-INSERT IGNORE INTO locations (club_id, name, address, city, postal_code, is_active, created_at, updated_at)
-VALUES (@club_id, 'Test Location', '123 Test Street', 'Test City', '12345', 1, NOW(), NOW());
+INSERT IGNORE INTO locations (name, address, city, postal_code, country, created_at, updated_at)
+VALUES ('Test Location', '123 Test Street', 'Test City', '12345', 'France', NOW(), NOW());
 
-SET @location_id = (SELECT id FROM locations WHERE club_id = @club_id AND name = 'Test Location' LIMIT 1);
+SET @location_id = (SELECT id FROM locations WHERE name = 'Test Location' LIMIT 1);
 
 -- Récupérer un type de cours existant
 SET @course_type_id = (SELECT id FROM course_types WHERE (club_id = @club_id OR club_id IS NULL) AND is_active = 1 LIMIT 1);
 
 -- Créer un modèle d'abonnement de test
-INSERT INTO subscription_templates (club_id, model_number, name, total_lessons, price, validity_months, is_active, created_at, updated_at)
-VALUES (@club_id, CONCAT('TEST-', UNIX_TIMESTAMP()), 'Abonnement Test 10 cours', 10, 150.00, 6, 1, NOW(), NOW());
+INSERT INTO subscription_templates (club_id, model_number, total_lessons, price, validity_months, is_active, created_at, updated_at)
+VALUES (@club_id, CONCAT('TEST-', UNIX_TIMESTAMP()), 10, 150.00, 6, 1, NOW(), NOW());
 
 SET @template_id = LAST_INSERT_ID();
 
