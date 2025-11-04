@@ -163,7 +163,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/students/{id}/resend-invitation', [StudentController::class, 'resendInvitation']);
     // Routes génériques APRÈS les routes spécifiques
     Route::put('/students/{id}', [StudentController::class, 'update']);
-    Route::delete('/students/{id}', [StudentController::class, 'destroy']);
+    Route::delete('/students/{id}', [ClubController::class, 'removeStudent']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);

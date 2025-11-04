@@ -44,7 +44,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">Total</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ students.length }}</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ pagination?.total || students.length }}</p>
             </div>
           </div>
         </div>
@@ -429,7 +429,15 @@ const perPage = 20
 
 // Computed properties pour les statistiques
 const totalStudents = computed(() => pagination.value?.total || students.value.length)
-const activeStudents = computed(() => students.value.length)
+// Note : Ces stats sont basées sur la page actuelle uniquement (pagination)
+// Pour un comptage global, il faudrait que le backend retourne ces stats
+const activeStudents = computed(() => {
+  // Si un filtre status est actif, utiliser le total de la pagination
+  if (statusFilter.value === 'active' && pagination.value?.total) {
+    return pagination.value.total
+  }
+  return students.value.filter(s => s.is_active).length
+})
 const beginnerStudents = computed(() => 
   students.value.filter(student => student.level === 'debutant').length
 )
