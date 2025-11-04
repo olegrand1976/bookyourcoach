@@ -82,20 +82,32 @@ class SubscriptionInstance extends Model
             ->where('lessons.status', '!=', 'cancelled')
             ->count();
 
+        $oldValue = $this->lessons_used;
+        
+        // Log AVANT la mise à jour pour debug
+        \Log::info("🔍 Recalcul lessons_used pour subscription_instance {$this->id}", [
+            'old_lessons_used' => $oldValue,
+            'new_calculated' => $consumedLessons,
+            'will_update' => ($oldValue != $consumedLessons),
+            'subscription_id' => $this->subscription_id,
+            'subscription_instance_id' => $this->id
+        ]);
+
         // Mettre à jour seulement si différent pour éviter les requêtes inutiles
         if ($this->lessons_used != $consumedLessons) {
-            $oldValue = $this->lessons_used;
             $this->lessons_used = $consumedLessons;
             $this->saveQuietly(); // saveQuietly() évite de déclencher les events
             
-            \Log::info("Recalcul lessons_used pour subscription_instance {$this->id}", [
+            \Log::info("✅ Lessons_used mis à jour pour subscription_instance {$this->id}", [
                 'old_value' => $oldValue,
                 'new_value' => $consumedLessons,
-                'subscription_instance_id' => $this->id
+                'diff' => ($consumedLessons - $oldValue)
             ]);
             
             // Vérifier et mettre à jour le statut (mais éviter la récursion infinie)
             $this->checkAndUpdateStatus();
+        } else {
+            \Log::info("ℹ️ Aucune mise à jour nécessaire pour subscription_instance {$this->id} (déjà à jour)");
         }
     }
 

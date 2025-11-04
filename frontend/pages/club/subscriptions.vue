@@ -150,7 +150,10 @@
               <div 
                 v-for="instance in subscription.instances.slice(0, 3)" 
                 :key="instance.id"
-                class="text-xs text-gray-700 bg-white rounded px-2 py-2 border border-blue-200"
+                :class="[
+                  'text-xs rounded px-2 py-2 border',
+                  getInstanceColorClass(instance, subscription.template)
+                ]"
               >
                 <div class="flex items-center justify-between">
                   <span class="font-medium">
@@ -167,8 +170,33 @@
                     {{ getStatusLabel(instance.status) }}
                   </span>
                 </div>
-                <div class="mt-1 text-gray-500">
-                  {{ getInstanceLessonsUsed(instance) }} / {{ subscription.template?.total_available_lessons || 0 }} cours utilisés
+                
+                <!-- Progression avec code couleur -->
+                <div class="mt-1 flex items-center justify-between">
+                  <span :class="getUsageTextColor(instance, subscription.template)">
+                    <strong>{{ getInstanceLessonsUsed(instance) }} / {{ subscription.template?.total_available_lessons || 0 }}</strong> cours utilisés
+                    <span v-if="getUsagePercentage(instance, subscription.template) >= 70" class="ml-1">
+                      ({{ getUsagePercentage(instance, subscription.template) }}%)
+                    </span>
+                  </span>
+                </div>
+                
+                <!-- Période de validité -->
+                <div v-if="instance.started_at || instance.expires_at" class="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                  <div v-if="instance.started_at" class="flex items-center">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Début: {{ formatDate(instance.started_at) }}
+                  </div>
+                  <div v-if="instance.expires_at" class="flex items-center mt-1">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span :class="isExpiringSoon(instance) ? 'text-red-600 font-semibold' : ''">
+                      Expire: {{ formatDate(instance.expires_at) }}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div v-if="subscription.instances.length > 3" class="text-xs text-gray-500 italic px-2">
@@ -605,6 +633,59 @@ const closeModals = () => {
   }
 }
 
+// Obtenir le pourcentage d'utilisation
+const getUsagePercentage = (instance, template) => {
+  if (!template || !template.total_available_lessons) return 0
+  const lessonsUsed = getInstanceLessonsUsed(instance)
+  return Math.round((lessonsUsed / template.total_available_lessons) * 100)
+}
+
+// Obtenir la classe de couleur pour l'instance selon le pourcentage
+const getInstanceColorClass = (instance, template) => {
+  const percentage = getUsagePercentage(instance, template)
+  
+  if (percentage >= 90) {
+    // Rouge foncé : >90% (renouvellement urgent)
+    return 'bg-red-100 border-red-300 text-red-900'
+  } else if (percentage >= 70) {
+    // Rouge clair : >70% (approchant de la fin)
+    return 'bg-orange-50 border-orange-300 text-orange-900'
+  } else {
+    // Blanc : <70% (normal)
+    return 'bg-white border-blue-200 text-gray-700'
+  }
+}
+
+// Obtenir la couleur du texte d'utilisation
+const getUsageTextColor = (instance, template) => {
+  const percentage = getUsagePercentage(instance, template)
+  
+  if (percentage >= 90) {
+    return 'text-red-700 font-bold'
+  } else if (percentage >= 70) {
+    return 'text-orange-700 font-semibold'
+  } else {
+    return 'text-gray-600'
+  }
+}
+
+// Formater une date
+const formatDate = (date) => {
+  if (!date) return '-'
+  const d = new Date(date)
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+// Vérifier si l'abonnement expire bientôt (moins de 30 jours)
+const isExpiringSoon = (instance) => {
+  if (!instance.expires_at) return false
+  const expiresAt = new Date(instance.expires_at)
+  const now = new Date()
+  const diffTime = expiresAt - now
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays <= 30 && diffDays >= 0
+}
+
 // Recalculer tous les abonnements
 const handleRecalculateAll = async () => {
   if (!confirm('Voulez-vous recalculer le nombre de cours restants pour tous les abonnements actifs ?\n\nCette opération va mettre à jour les compteurs en se basant sur l\'historique réel des cours suivis.')) {
@@ -614,17 +695,22 @@ const handleRecalculateAll = async () => {
   try {
     recalculating.value = true
     const { $api } = useNuxtApp()
-    const { success, error } = useToast()
+    const { success, error, info } = useToast()
     
     const response = await $api.post('/club/subscriptions/recalculate')
     
     if (response.data.success) {
       const stats = response.data.data
-      success(`✅ ${response.data.message}`)
       
-      // Afficher les détails si des abonnements ont été mis à jour
-      if (stats.total_updated > 0 && stats.details && stats.details.length > 0) {
-        console.log('📊 Détails du recalcul:', stats.details)
+      if (stats.total_updated > 0) {
+        success(`✅ ${response.data.message}`)
+        
+        // Afficher les détails si des abonnements ont été mis à jour
+        if (stats.details && stats.details.length > 0) {
+          console.log('📊 Détails du recalcul:', stats.details)
+        }
+      } else {
+        info(`ℹ️ ${response.data.message} - Les compteurs sont déjà corrects.`)
       }
       
       await loadSubscriptions() // Recharger la liste
