@@ -755,8 +755,21 @@ class ClubController extends Controller
                 'club_students.is_active'
             );
             
-            // Compter le total avant pagination
+            // Compter le total avant pagination (pour le filtre en cours)
             $total = $query->count();
+            
+            // Compter les stats globales (indépendamment de la pagination et du filtre)
+            $totalActiveStudents = DB::table('club_students')
+                ->where('club_id', $clubUser->club_id)
+                ->where('is_active', true)
+                ->count();
+            
+            $totalInactiveStudents = DB::table('club_students')
+                ->where('club_id', $clubUser->club_id)
+                ->where('is_active', false)
+                ->count();
+            
+            $totalAllStudents = $totalActiveStudents + $totalInactiveStudents;
             
             // Appliquer la pagination
             $students = $query->skip(($page - 1) * $perPage)
@@ -800,6 +813,11 @@ class ClubController extends Controller
                     'per_page' => (int) $perPage,
                     'total' => $total,
                     'last_page' => (int) ceil($total / $perPage)
+                ],
+                'stats' => [
+                    'total' => $totalAllStudents,
+                    'active' => $totalActiveStudents,
+                    'inactive' => $totalInactiveStudents
                 ]
             ]);
             
