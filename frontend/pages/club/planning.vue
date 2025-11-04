@@ -73,29 +73,74 @@
         
         <!-- Bloc 3: Cours programmés (filtrés par créneau sélectionné) -->
         <div class="bg-white shadow rounded-lg p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">
-                Cours programmés
-                <span v-if="selectedSlot" class="text-base font-normal text-gray-600">
-                  • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
-                </span>
-              </h2>
-              <p class="text-sm text-gray-500 mt-1">
-                <span v-if="!selectedSlot" class="text-blue-600 font-medium">
-                  ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
-                </span>
-                <span v-else class="font-bold" :class="filteredLessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
-                  {{ filteredLessons.length }} cours dans ce créneau
-                </span>
-              </p>
+          <div class="mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">
+                  Cours programmés
+                  <span v-if="selectedSlot" class="text-base font-normal text-gray-600">
+                    • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
+                  </span>
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">
+                  <span v-if="!selectedSlot" class="text-blue-600 font-medium">
+                    ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
+                  </span>
+                  <span v-else class="font-bold" :class="filteredLessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
+                    {{ filteredLessons.length }} cours {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
+                  </span>
+                </p>
+              </div>
+              <button 
+                v-if="selectedSlot"
+                @click="resetSlotSelection"
+                class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                Voir tous les cours
+              </button>
             </div>
-            <button 
-              v-if="selectedSlot"
-              @click="selectedSlot = null"
-              class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Voir tous les cours
-            </button>
+
+            <!-- Navigation par date (visible uniquement si un créneau est sélectionné) -->
+            <div v-if="selectedSlot" class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <button
+                @click="navigateToPreviousDate"
+                class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!canNavigatePrevious"
+                title="Semaine précédente">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div class="flex-1 flex items-center justify-center gap-3">
+                <span class="text-sm font-medium text-gray-700">
+                  📅 {{ formatDateFull(selectedDate) }}
+                </span>
+                <input
+                  type="date"
+                  v-model="selectedDateInput"
+                  @change="onDateChange"
+                  class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  :min="getMinDate()"
+                  :max="getMaxDate()" />
+              </div>
+
+              <button
+                @click="navigateToNextDate"
+                class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!canNavigateNext"
+                title="Semaine suivante">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <button
+                @click="navigateToToday"
+                class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                title="Aller à la prochaine occurrence">
+                Aujourd'hui
+              </button>
+            </div>
           </div>
 
           <!-- Liste des cours (filtrés) -->
@@ -522,6 +567,8 @@ const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
+const selectedDate = ref<Date | null>(null) // Date sélectionnée pour filtrage des cours
+const selectedDateInput = ref<string>('') // Input date (format YYYY-MM-DD)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
@@ -555,7 +602,7 @@ const activeDisciplines = computed(() => {
   return clubDisciplines.value.filter(d => d.is_active)
 })
 
-// Cours filtrés par créneau sélectionné
+// Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
   if (!selectedSlot.value) {
     // Si aucun créneau sélectionné, afficher tous les cours
@@ -581,25 +628,15 @@ const filteredLessons = computed(() => {
     const dayMatch = lessonDay === selectedSlot.value!.day_of_week
     const timeMatch = lessonTime >= slotStartTime && lessonTime < slotEndTime
     
-    // 🔍 Log de débogage (peut être retiré en production)
-    if (lesson.id) { // Seulement pour les cours existants
-      console.log('🔍 [filteredLessons] Comparaison cours/créneau:', {
-        lessonId: lesson.id,
-        lessonStartTime: lesson.start_time,
-        lessonDateUTC: lessonDate.toISOString(),
-        lessonDateLocal: lessonDate.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }),
-        lessonDay: lessonDay,
-        lessonTime: lessonTime,
-        slotDayOfWeek: selectedSlot.value!.day_of_week,
-        slotStartTime: slotStartTime,
-        slotEndTime: slotEndTime,
-        dayMatch,
-        timeMatch,
-        willShow: dayMatch && timeMatch
-      })
+    // 📅 FILTRE PAR DATE : Si une date est sélectionnée, ne garder que les cours de cette date
+    let dateMatch = true
+    if (selectedDate.value) {
+      const selectedDateStr = selectedDate.value.toISOString().split('T')[0] // Format: YYYY-MM-DD
+      const lessonDateStr = lessonDate.toISOString().split('T')[0]
+      dateMatch = lessonDateStr === selectedDateStr
     }
     
-    return dayMatch && timeMatch
+    return dayMatch && timeMatch && dateMatch
   })
 })
 
@@ -1246,6 +1283,10 @@ function handleSlotSelection(slot: OpenSlot) {
   console.log('🎯 [handleSlotSelection] Créneau sélectionné:', slot.id)
   selectedSlot.value = slot
   
+  // 📅 Initialiser la date à la prochaine occurrence du créneau
+  selectedDate.value = getNextOccurrence(slot.day_of_week)
+  selectedDateInput.value = formatDateForInput(selectedDate.value)
+  
   // Fermer automatiquement le dropdown SlotsList
   // (géré par le composant lui-même via isOpen = false)
 }
@@ -1475,6 +1516,148 @@ function getLessonBorderClass(lesson: Lesson): string {
   }
   return classes[lesson.status] || 'border-blue-300 bg-blue-50'
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 📅 NAVIGATION PAR DATE
+// ═══════════════════════════════════════════════════════════════════
+
+// Calculer la prochaine occurrence d'un jour de la semaine
+function getNextOccurrence(dayOfWeek: number): Date {
+  const today = new Date()
+  const todayDayOfWeek = today.getDay() // 0 = Dimanche, 1 = Lundi, etc.
+  
+  // Calculer combien de jours ajouter pour atteindre le prochain jour désiré
+  let daysToAdd = dayOfWeek - todayDayOfWeek
+  
+  // Si le jour est déjà passé cette semaine, aller à la semaine prochaine
+  if (daysToAdd < 0) {
+    daysToAdd += 7
+  }
+  
+  // Si c'est aujourd'hui mais l'heure est déjà passée, aller à la semaine prochaine
+  if (daysToAdd === 0 && selectedSlot.value) {
+    const now = new Date()
+    const slotTime = selectedSlot.value.start_time.split(':')
+    const slotHour = parseInt(slotTime[0])
+    const slotMinute = parseInt(slotTime[1])
+    
+    if (now.getHours() > slotHour || (now.getHours() === slotHour && now.getMinutes() >= slotMinute)) {
+      daysToAdd = 7 // Aller à la semaine prochaine
+    }
+  }
+  
+  const nextDate = new Date(today)
+  nextDate.setDate(today.getDate() + daysToAdd)
+  nextDate.setHours(0, 0, 0, 0) // Reset à minuit
+  
+  return nextDate
+}
+
+// Naviguer vers la date précédente (même jour, semaine précédente)
+function navigateToPreviousDate() {
+  if (!selectedDate.value) return
+  
+  const newDate = new Date(selectedDate.value)
+  newDate.setDate(newDate.getDate() - 7) // Soustraire 7 jours
+  
+  selectedDate.value = newDate
+  selectedDateInput.value = formatDateForInput(newDate)
+}
+
+// Naviguer vers la date suivante (même jour, semaine suivante)
+function navigateToNextDate() {
+  if (!selectedDate.value) return
+  
+  const newDate = new Date(selectedDate.value)
+  newDate.setDate(newDate.getDate() + 7) // Ajouter 7 jours
+  
+  selectedDate.value = newDate
+  selectedDateInput.value = formatDateForInput(newDate)
+}
+
+// Aller à la prochaine occurrence (aujourd'hui ou prochain jour du créneau)
+function navigateToToday() {
+  if (!selectedSlot.value) return
+  
+  selectedDate.value = getNextOccurrence(selectedSlot.value.day_of_week)
+  selectedDateInput.value = formatDateForInput(selectedDate.value)
+}
+
+// Gérer le changement de date via l'input
+function onDateChange() {
+  if (!selectedDateInput.value) return
+  
+  const newDate = new Date(selectedDateInput.value + 'T00:00:00')
+  
+  // Vérifier que c'est le bon jour de la semaine
+  if (selectedSlot.value && newDate.getDay() !== selectedSlot.value.day_of_week) {
+    alert(`Cette date ne correspond pas au jour du créneau (${getDayName(selectedSlot.value.day_of_week)})`)
+    selectedDateInput.value = formatDateForInput(selectedDate.value!)
+    return
+  }
+  
+  selectedDate.value = newDate
+}
+
+// Réinitialiser la sélection de créneau et de date
+function resetSlotSelection() {
+  selectedSlot.value = null
+  selectedDate.value = null
+  selectedDateInput.value = ''
+}
+
+// Formater une date pour l'input (YYYY-MM-DD)
+function formatDateForInput(date: Date): string {
+  if (!date) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Formater une date complète (ex: "Mercredi 6 novembre 2025")
+function formatDateFull(date: Date | null): string {
+  if (!date) return ''
+  
+  const options: Intl.DateTimeFormatOptions = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }
+  
+  return date.toLocaleDateString('fr-FR', options)
+}
+
+// Obtenir la date minimum (par exemple, 2 semaines avant aujourd'hui)
+function getMinDate(): string {
+  const minDate = new Date()
+  minDate.setDate(minDate.getDate() - 14) // 2 semaines avant
+  return formatDateForInput(minDate)
+}
+
+// Obtenir la date maximum (par exemple, 3 mois après aujourd'hui)
+function getMaxDate(): string {
+  const maxDate = new Date()
+  maxDate.setMonth(maxDate.getMonth() + 3) // 3 mois après
+  return formatDateForInput(maxDate)
+}
+
+// Computed: Peut-on naviguer vers la date précédente ?
+const canNavigatePrevious = computed(() => {
+  if (!selectedDate.value) return false
+  const minDate = new Date()
+  minDate.setDate(minDate.getDate() - 14)
+  return selectedDate.value > minDate
+})
+
+// Computed: Peut-on naviguer vers la date suivante ?
+const canNavigateNext = computed(() => {
+  if (!selectedDate.value) return false
+  const maxDate = new Date()
+  maxDate.setMonth(maxDate.getMonth() + 3)
+  return selectedDate.value < maxDate
+})
 
 // Lifecycle
 onMounted(async () => {
