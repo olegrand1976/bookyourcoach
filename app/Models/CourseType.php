@@ -12,6 +12,7 @@ class CourseType extends Model
     use HasFactory;
 
     protected $fillable = [
+        'club_id',  // Ajouté pour permettre les CourseTypes spécifiques aux clubs
         'discipline_id',
         'name',
         'description',
