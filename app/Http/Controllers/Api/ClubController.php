@@ -814,6 +814,71 @@ class ClubController extends Controller
         }
     }
 
+    /**
+     * Retirer un élève du club (soft delete)
+     */
+    public function removeStudent(Request $request, $studentId)
+    {
+        try {
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+            
+            // Vérifier que l'élève appartient à ce club
+            $clubStudent = DB::table('club_students')
+                ->where('club_id', $clubUser->club_id)
+                ->where('student_id', $studentId)
+                ->first();
+            
+            if (!$clubStudent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 404);
+            }
+            
+            // Soft delete : désactiver l'élève au lieu de le supprimer
+            DB::table('club_students')
+                ->where('club_id', $clubUser->club_id)
+                ->where('student_id', $studentId)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now()
+                ]);
+            
+            \Log::info('Élève retiré du club', [
+                'club_id' => $clubUser->club_id,
+                'student_id' => $studentId,
+                'user_id' => $user->id
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Élève retiré du club avec succès'
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la suppression de l\'élève: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de l\'élève'
+            ], 500);
+        }
+    }
+
     public function createTeacher(Request $request)
     {
         try {
