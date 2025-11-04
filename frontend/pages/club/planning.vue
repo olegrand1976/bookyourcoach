@@ -135,10 +135,18 @@
               </button>
 
               <button
+                v-if="isTodaySlotDay"
+                @click="navigateToToday"
+                class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                title="Aller à aujourd'hui">
+                Aujourd'hui
+              </button>
+              <button
+                v-else
                 @click="navigateToToday"
                 class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 title="Aller à la prochaine occurrence">
-                Aujourd'hui
+                Prochain
               </button>
             </div>
           </div>
@@ -1668,6 +1676,14 @@ const canNavigateNext = computed(() => {
   const maxDate = new Date()
   maxDate.setMonth(maxDate.getMonth() + 3)
   return selectedDate.value < maxDate
+})
+
+// Computed: Est-ce que le jour actuel correspond au jour du créneau sélectionné ?
+const isTodaySlotDay = computed(() => {
+  if (!selectedSlot.value) return false
+  const today = new Date()
+  const todayDayOfWeek = today.getDay() // 0 = Dimanche, 1 = Lundi, etc.
+  return todayDayOfWeek === selectedSlot.value.day_of_week
 })
 
 // Lifecycle
