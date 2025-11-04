@@ -34,7 +34,7 @@
       </div>
 
       <!-- Stats rapides -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div class="bg-white rounded-xl shadow p-6">
           <div class="flex items-center">
             <div class="p-3 bg-emerald-100 rounded-lg">
@@ -44,7 +44,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">Total</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ pagination?.total || students.length }}</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ stats?.total || 0 }}</p>
             </div>
           </div>
         </div>
@@ -58,35 +58,21 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">Actifs</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ activeStudents }}</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ stats?.active || 0 }}</p>
             </div>
           </div>
         </div>
 
         <div class="bg-white rounded-xl shadow p-6">
           <div class="flex items-center">
-            <div class="p-3 bg-yellow-100 rounded-lg">
-              <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            <div class="p-3 bg-gray-100 rounded-lg">
+              <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
               </svg>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Débutants</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ beginnerStudents }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow p-6">
-          <div class="flex items-center">
-            <div class="p-3 bg-purple-100 rounded-lg">
-              <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-              </svg>
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Documents</p>
-              <p class="text-2xl font-semibold text-gray-900">{{ studentsWithDocuments }}</p>
+              <p class="text-sm font-medium text-gray-600">Inactifs</p>
+              <p class="text-2xl font-semibold text-gray-900">{{ stats?.inactive || 0 }}</p>
             </div>
           </div>
         </div>
@@ -411,6 +397,7 @@ definePageMeta({
 })
 
 const students = ref([])
+const stats = ref({ total: 0, active: 0, inactive: 0 })
 const availableDisciplines = ref([])
 const showAddStudentModal = ref(false)
 const showAddExistingStudentModal = ref(false)
@@ -427,23 +414,7 @@ const pagination = ref(null)
 const currentPage = ref(1)
 const perPage = 20
 
-// Computed properties pour les statistiques
-const totalStudents = computed(() => pagination.value?.total || students.value.length)
-// Note : Ces stats sont basées sur la page actuelle uniquement (pagination)
-// Pour un comptage global, il faudrait que le backend retourne ces stats
-const activeStudents = computed(() => {
-  // Si un filtre status est actif, utiliser le total de la pagination
-  if (statusFilter.value === 'active' && pagination.value?.total) {
-    return pagination.value.total
-  }
-  return students.value.filter(s => s.is_active).length
-})
-const beginnerStudents = computed(() => 
-  students.value.filter(student => student.level === 'debutant').length
-)
-const studentsWithDocuments = computed(() => 
-  students.value.filter(student => student.medical_documents && student.medical_documents.length > 0).length
-)
+// Les statistiques sont maintenant fournies par le backend via stats.value
 
 // Helper pour obtenir le nom complet d'un élève de manière sécurisée
 const getStudentName = (student) => {
@@ -542,6 +513,7 @@ const loadStudents = async (page = 1) => {
     if (response.data.success && response.data.data) {
       students.value = response.data.data
       pagination.value = response.data.pagination || null
+      stats.value = response.data.stats || { total: 0, active: 0, inactive: 0 }
       currentPage.value = page
       
       // Charger aussi les spécialités disponibles (pour les afficher dans les cards)
