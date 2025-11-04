@@ -587,5 +587,107 @@ class SubscriptionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Initialiser des abonnements en batch (créer plusieurs abonnements ouverts)
+     */
+    public function initializeBatch(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'subscription_template_id' => 'required|exists:subscription_templates,id',
+                'quantity' => 'required|integer|min:1|max:50',
+                'opened_at' => 'nullable|date|after_or_equal:today'
+            ]);
+
+            // Vérifier que le template appartient au club
+            $template = SubscriptionTemplate::where('club_id', $club->id)
+                ->where('is_active', true)
+                ->with('courseTypes')
+                ->findOrFail($validated['subscription_template_id']);
+
+            DB::beginTransaction();
+
+            $createdSubscriptions = [];
+            $openedAt = $validated['opened_at'] ? Carbon::parse($validated['opened_at']) : Carbon::now();
+
+            // Créer N abonnements "ouverts" (sans élèves assignés)
+            for ($i = 0; $i < $validated['quantity']; $i++) {
+                // Créer l'abonnement (le numéro sera généré automatiquement)
+                $subscription = Subscription::createSafe([
+                    'club_id' => $club->id,
+                    'subscription_template_id' => $template->id,
+                ]);
+
+                // Créer l'instance d'abonnement avec le statut 'open' (non assigné)
+                $subscriptionInstance = SubscriptionInstance::create([
+                    'subscription_id' => $subscription->id,
+                    'lessons_used' => 0,
+                    'started_at' => $openedAt,
+                    'expires_at' => null, // Sera calculé lors de l'assignation à un élève
+                    'status' => 'open' // Nouveau statut pour les abonnements non assignés
+                ]);
+
+                $subscription->load(['template.courseTypes', 'instances']);
+                $createdSubscriptions[] = $subscription;
+            }
+
+            DB::commit();
+
+            Log::info('Initialisation batch d\'abonnements', [
+                'club_id' => $club->id,
+                'template_id' => $template->id,
+                'quantity' => $validated['quantity'],
+                'opened_at' => $openedAt->toDateString(),
+                'subscription_numbers' => array_map(fn($sub) => $sub->subscription_number, $createdSubscriptions)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$validated['quantity']} abonnement(s) initialisé(s) avec succès",
+                'data' => [
+                    'subscriptions' => $createdSubscriptions,
+                    'template' => $template,
+                    'summary' => [
+                        'total_created' => count($createdSubscriptions),
+                        'template_name' => $template->model_number,
+                        'opened_at' => $openedAt->toDateString(),
+                        'subscription_numbers' => array_map(fn($sub) => $sub->subscription_number, $createdSubscriptions)
+                    ]
+                ]
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de l\'initialisation batch des abonnements: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'initialisation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 

@@ -19,6 +19,15 @@
               <span>Modèles</span>
             </NuxtLink>
             <button 
+              @click="showInitializeModal = true"
+              class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+              <span>Initialiser des Abonnements</span>
+            </button>
+            <button 
               @click="showAssignModal = true"
               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
@@ -195,6 +204,14 @@
       @success="handleSubscriptionAssigned"
     />
 
+    <!-- Modal : Initialiser des abonnements -->
+    <InitializeSubscriptionsModal
+      :show="showInitializeModal"
+      :templates="subscriptionTemplates"
+      @close="showInitializeModal = false"
+      @submit="handleInitializeSubmit"
+    />
+
     <!-- Modal : Historique de l'abonnement -->
     <div 
       v-if="showHistoryModal && selectedSubscription"
@@ -317,6 +334,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useNuxtApp } from '#app'
 import { useToast } from '~/composables/useToast'
+import InitializeSubscriptionsModal from '~/components/subscriptions/InitializeSubscriptionsModal.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -324,6 +342,7 @@ definePageMeta({
 
 // État
 const subscriptions = ref([])
+const subscriptionTemplates = ref([])
 const availableDisciplines = ref([])
 const students = ref([])
 const selectedStudent = ref(null)
@@ -333,6 +352,7 @@ const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showAssignModal = ref(false)
+const showInitializeModal = ref(false)
 const showHistoryModal = ref(false)
 const selectedSubscription = ref(null)
 const subscriptionHistory = ref(null)
@@ -558,10 +578,45 @@ const closeModals = () => {
   }
 }
 
+// Charger les modèles d'abonnement
+const loadSubscriptionTemplates = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/subscription-templates')
+    
+    if (response.data.success) {
+      subscriptionTemplates.value = response.data.data
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des modèles:', error)
+  }
+}
+
+// Initialiser des abonnements en batch
+const handleInitializeSubmit = async (data) => {
+  try {
+    const { $api } = useNuxtApp()
+    const { success, error } = useToast()
+    
+    const response = await $api.post('/club/subscriptions/initialize', data)
+    
+    if (response.data.success) {
+      success(`${data.quantity} abonnement(s) initialisé(s) avec succès`)
+      showInitializeModal.value = false
+      await loadSubscriptions() // Recharger la liste
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation:', error)
+    const { error: showError } = useToast()
+    showError('Erreur lors de l\'initialisation des abonnements')
+  }
+}
+
 // Initialisation
 onMounted(async () => {
   await Promise.all([
     loadSubscriptions(),
+    loadSubscriptionTemplates(),
     loadDisciplines(),
     loadStudents()
   ])
