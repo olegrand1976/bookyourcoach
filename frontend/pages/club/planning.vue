@@ -629,10 +629,21 @@ const filteredLessons = computed(() => {
     const timeMatch = lessonTime >= slotStartTime && lessonTime < slotEndTime
     
     // 📅 FILTRE PAR DATE : Si une date est sélectionnée, ne garder que les cours de cette date
+    // ⚠️ IMPORTANT : Comparer les dates en LOCAL, pas en UTC (problème de timezone)
     let dateMatch = true
     if (selectedDate.value) {
-      const selectedDateStr = selectedDate.value.toISOString().split('T')[0] // Format: YYYY-MM-DD
-      const lessonDateStr = lessonDate.toISOString().split('T')[0]
+      // Extraire la date locale (YYYY-MM-DD) de la date sélectionnée
+      const selectedYear = selectedDate.value.getFullYear()
+      const selectedMonth = String(selectedDate.value.getMonth() + 1).padStart(2, '0')
+      const selectedDay = String(selectedDate.value.getDate()).padStart(2, '0')
+      const selectedDateStr = `${selectedYear}-${selectedMonth}-${selectedDay}`
+      
+      // Extraire la date locale (YYYY-MM-DD) du cours
+      const lessonYear = lessonDate.getFullYear()
+      const lessonMonth = String(lessonDate.getMonth() + 1).padStart(2, '0')
+      const lessonDay = String(lessonDate.getDate()).padStart(2, '0')
+      const lessonDateStr = `${lessonYear}-${lessonMonth}-${lessonDay}`
+      
       dateMatch = lessonDateStr === selectedDateStr
     }
     
