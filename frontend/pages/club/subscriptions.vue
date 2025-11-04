@@ -55,6 +55,18 @@
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+          <div class="w-64">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Afficher
+            </label>
+            <select
+              v-model="showOpenSubscriptions"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option :value="false">Abonnements assignés uniquement</option>
+              <option :value="true">Tous les abonnements</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -347,6 +359,7 @@ const availableDisciplines = ref([])
 const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
+const showOpenSubscriptions = ref(false) // Par défaut, masquer les abonnements "open"
 
 // Modals
 const showCreateModal = ref(false)
@@ -484,21 +497,41 @@ const getInstanceLessonsUsed = (instance) => {
   return instance.lessons_used || 0
 }
 
-// Filtrer les abonnements par nom/prénom d'élève
+// Filtrer les abonnements par nom/prénom d'élève ET statut
 const filteredSubscriptions = computed(() => {
+  let filtered = subscriptions.value
+  
+  // 1. Filtrer par statut (masquer les abonnements "open" par défaut)
+  if (!showOpenSubscriptions.value) {
+    filtered = filtered.filter(subscription => {
+      // Vérifier si l'abonnement a au moins une instance qui n'est pas "open"
+      if (!subscription.instances || subscription.instances.length === 0) {
+        return false
+      }
+      return subscription.instances.some(instance => instance.status !== 'open')
+    })
+  }
+  
+  // 2. Filtrer par recherche de nom/prénom
   if (!searchQuery.value.trim()) {
-    return subscriptions.value
+    return filtered
   }
   
   const query = searchQuery.value.toLowerCase().trim()
   
-  return subscriptions.value.filter(subscription => {
+  return filtered.filter(subscription => {
     // Vérifier dans toutes les instances et leurs élèves
     if (!subscription.instances || subscription.instances.length === 0) {
       return false
     }
     
     return subscription.instances.some(instance => {
+      // Si l'instance est "open", ne pas chercher dans les élèves (il n'y en a pas)
+      if (instance.status === 'open') {
+        // Chercher dans le numéro d'abonnement
+        return subscription.subscription_number?.toLowerCase().includes(query)
+      }
+      
       if (!instance.students || instance.students.length === 0) {
         return false
       }
