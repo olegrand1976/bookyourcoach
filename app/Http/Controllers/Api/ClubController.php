@@ -491,6 +491,11 @@ class ClubController extends Controller
                 ->where('id', $clubUser->club_id)
                 ->update($updateData);
             
+            // 🆕 SYNCHRONISATION : Créer/Mettre à jour les CourseTypes spécifiques au club
+            if (isset($requestData['discipline_settings']) && is_array($requestData['discipline_settings'])) {
+                $this->syncClubCourseTypes($clubUser->club_id, $requestData['discipline_settings']);
+            }
+            
             // Vérifier les données après update
             $updatedClub = DB::table('clubs')->where('id', $clubUser->club_id)->first();
             
@@ -1276,6 +1281,87 @@ class ClubController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la suppression de l\'enseignant: ' . $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Synchroniser les CourseTypes spécifiques au club basés sur discipline_settings
+     * 
+     * @param int $clubId
+     * @param array $disciplineSettings
+     * @return void
+     */
+    private function syncClubCourseTypes(int $clubId, array $disciplineSettings): void
+    {
+        \Log::info('🔄 syncClubCourseTypes - Début', [
+            'club_id' => $clubId,
+            'discipline_settings' => $disciplineSettings
+        ]);
+        
+        try {
+            foreach ($disciplineSettings as $disciplineId => $settings) {
+                // Vérifier que la discipline existe
+                $discipline = \App\Models\Discipline::find($disciplineId);
+                if (!$discipline) {
+                    \Log::warning('syncClubCourseTypes - Discipline non trouvée', ['discipline_id' => $disciplineId]);
+                    continue;
+                }
+                
+                // Extraire les paramètres
+                $duration = $settings['duration'] ?? $settings['duration_minutes'] ?? 60;
+                $price = $settings['price'] ?? 0;
+                $isIndividual = $settings['is_individual'] ?? true;
+                $maxParticipants = $isIndividual ? 1 : ($settings['max_participants'] ?? 8);
+                
+                // Chercher un CourseType existant pour ce club + discipline
+                $existingCourseType = \App\Models\CourseType::where('club_id', $clubId)
+                    ->where('discipline_id', $disciplineId)
+                    ->first();
+                
+                if ($existingCourseType) {
+                    // Mettre à jour le CourseType existant
+                    $existingCourseType->update([
+                        'duration_minutes' => $duration,
+                        'price' => $price,
+                        'is_individual' => $isIndividual,
+                        'max_participants' => $maxParticipants,
+                    ]);
+                    
+                    \Log::info('✅ CourseType mis à jour', [
+                        'course_type_id' => $existingCourseType->id,
+                        'discipline' => $discipline->name,
+                        'duration' => $duration,
+                        'price' => $price
+                    ]);
+                } else {
+                    // Créer un nouveau CourseType spécifique au club
+                    $newCourseType = \App\Models\CourseType::create([
+                        'club_id' => $clubId,
+                        'discipline_id' => $disciplineId,
+                        'name' => $isIndividual ? 'Cours individuel' : 'Cours collectif',
+                        'description' => "Type de cours configuré pour {$discipline->name}",
+                        'duration_minutes' => $duration,
+                        'price' => $price,
+                        'is_individual' => $isIndividual,
+                        'max_participants' => $maxParticipants,
+                        'is_active' => true,
+                    ]);
+                    
+                    \Log::info('✅ CourseType créé', [
+                        'course_type_id' => $newCourseType->id,
+                        'discipline' => $discipline->name,
+                        'duration' => $duration,
+                        'price' => $price
+                    ]);
+                }
+            }
+            
+            \Log::info('✅ syncClubCourseTypes - Terminé avec succès');
+        } catch (\Exception $e) {
+            \Log::error('❌ syncClubCourseTypes - Erreur', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
     }
 }
