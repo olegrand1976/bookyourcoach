@@ -185,16 +185,27 @@ class SubscriptionInstance extends Model
 
     /**
      * Vérifier et mettre à jour le statut si nécessaire
+     * 📦 ARCHIVAGE : Les abonnements pleins (100% utilisés) passent en 'completed'
      */
     public function checkAndUpdateStatus()
     {
         // Ne pas recalculer ici pour éviter la récursion (recalculé ailleurs avant l'appel)
         
-        // Si tous les cours sont utilisés
+        // 📦 ARCHIVAGE : Si tous les cours sont utilisés, marquer comme completed (archive)
         if ($this->lessons_used >= $this->subscription->total_available_lessons) {
             if ($this->status !== 'completed') {
+                $oldStatus = $this->status;
                 $this->status = 'completed';
                 $this->saveQuietly();
+                
+                \Log::info("📦 Abonnement {$this->id} archivé automatiquement", [
+                    'subscription_instance_id' => $this->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'completed',
+                    'reason' => '100% des cours utilisés',
+                    'lessons_used' => $this->lessons_used,
+                    'total_available' => $this->subscription->total_available_lessons
+                ]);
             }
             return 'completed';
         }
