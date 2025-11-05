@@ -19,10 +19,8 @@ services:
       # Mode CI
       - CI=true
     depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      - frontend
+      - backend
     networks:
       - bookyourcoach-network
     # Monter les tests et le code source
@@ -48,10 +46,8 @@ services:
     environment:
       - PLAYWRIGHT_BASE_URL=http://frontend:3000
     depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      - frontend
+      - backend
     networks:
       - bookyourcoach-network
     volumes:

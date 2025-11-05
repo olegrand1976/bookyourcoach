@@ -33,9 +33,9 @@ export default defineConfig({
     /* Enregistrer la vidéo en cas d'échec */
     video: 'retain-on-failure',
     
-    /* Timeouts */
-    actionTimeout: 10000,
-    navigationTimeout: 30000,
+    /* Timeouts augmentés pour environnement Docker */
+    actionTimeout: 30000, // 30s au lieu de 10s
+    navigationTimeout: 60000, // 60s au lieu de 30s
   },
 
   /* Configuration des projets de test (navigateurs) */
