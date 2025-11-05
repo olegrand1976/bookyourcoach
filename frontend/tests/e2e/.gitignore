@@ -1,0 +1,12 @@
+# Playwright artifacts
+.auth/
+playwright-report/
+test-results/
+*.zip
+*.png
+*.webm
+*.mp4
+
+# Traces
+trace.json
+

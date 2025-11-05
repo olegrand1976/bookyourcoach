@@ -12,13 +12,20 @@
         "test": "npx vitest --run",
         "test:watch": "npx vitest",
         "test:unit": "npx vitest --run tests/unit",
-        "test:e2e": "npx playwright test"
+        "test:e2e": "npx playwright test",
+        "test:e2e:headed": "npx playwright test --headed",
+        "test:e2e:debug": "npx playwright test --debug",
+        "test:e2e:ui": "npx playwright test --ui",
+        "test:e2e:report": "npx playwright show-report",
+        "test:e2e:auth": "npx playwright test tests/e2e/auth",
+        "test:e2e:club": "npx playwright test tests/e2e/club"
     },
     "devDependencies": {
         "@nuxt/devtools": "^1.6.1",
         "@nuxt/test-utils": "^3.15.4",
         "@nuxtjs/tailwindcss": "^6.13.1",
-        "@playwright/test": "^1.49.1",
+        "@playwright/test": "^1.56.1",
+        "@types/node": "^24.10.0",
         "@vitejs/plugin-vue": "^5.2.1",
         "@vue/test-utils": "^2.4.6",
         "happy-dom": "^15.11.7",
