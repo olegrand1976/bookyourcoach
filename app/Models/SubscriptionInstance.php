@@ -68,6 +68,14 @@ class SubscriptionInstance extends Model
     }
 
     /**
+     * Les créneaux récurrents bloqués pour cet abonnement
+     */
+    public function recurringSlots()
+    {
+        return $this->hasMany(SubscriptionRecurringSlot::class);
+    }
+
+    /**
      * Calcule automatiquement lessons_used en comptant les cours réellement consommés
      * (exclut les cours annulés)
      */

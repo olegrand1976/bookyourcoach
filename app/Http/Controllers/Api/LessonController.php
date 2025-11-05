@@ -7,6 +7,7 @@ use App\Models\Lesson;
 use App\Models\User;
 use App\Models\Teacher;
 use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionRecurringSlot;
 use App\Models\ClubOpenSlot;
 use App\Notifications\LessonBookedNotification;
 use App\Notifications\LessonCancelledNotification;
@@ -1037,7 +1038,7 @@ class LessonController extends Controller
             }
 
             // Vérifier si une récurrence existe déjà pour ce même créneau (même élève + enseignant)
-            $existingRecurring = \App\Models\SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
+            $existingRecurring = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
                 ->where('student_id', $lesson->student_id)
                 ->where('teacher_id', $lesson->teacher_id)
                 ->where('day_of_week', $dayOfWeek)
@@ -1079,7 +1080,7 @@ class LessonController extends Controller
             }
 
             // Créer le créneau récurrent
-            $recurringSlot = \App\Models\SubscriptionRecurringSlot::create([
+            $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
                 'open_slot_id' => null, // Pas forcément lié à un open_slot
                 'teacher_id' => $lesson->teacher_id,
@@ -1140,7 +1141,7 @@ class LessonController extends Controller
         $conflicts = [];
 
         // 1. Vérifier si l'enseignant a déjà une récurrence active sur ce créneau
-        $teacherRecurringConflicts = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+        $teacherRecurringConflicts = SubscriptionRecurringSlot::where('teacher_id', $teacherId)
             ->where('day_of_week', $dayOfWeek)
             ->where('status', 'active')
             ->where(function ($query) use ($startDate, $endDate) {
@@ -1221,7 +1222,7 @@ class LessonController extends Controller
             $altEndTime = $startTimeCarbon->copy()->addMinutes($offset + $duration)->format('H:i:s');
             
             // Vérifier si ce créneau est libre
-            $hasConflict = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+            $hasConflict = SubscriptionRecurringSlot::where('teacher_id', $teacherId)
                 ->where('day_of_week', $dayOfWeek)
                 ->where('status', 'active')
                 ->where(function ($query) use ($altStartTime, $altEndTime) {
@@ -1249,7 +1250,7 @@ class LessonController extends Controller
         foreach ([-1, 1, -2, 2] as $dayOffset) {
             $altDayOfWeek = ($dayOfWeek + $dayOffset + 7) % 7;
             
-            $hasConflict = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+            $hasConflict = SubscriptionRecurringSlot::where('teacher_id', $teacherId)
                 ->where('day_of_week', $altDayOfWeek)
                 ->where('status', 'active')
                 ->where(function ($query) use ($startTime, $endTime) {
