@@ -12,6 +12,7 @@ use App\Models\ClubOpenSlot;
 use App\Notifications\LessonBookedNotification;
 use App\Notifications\LessonCancelledNotification;
 use App\Jobs\SendLessonReminderJob;
+use App\Jobs\ProcessLessonPostCreationJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -413,31 +414,23 @@ class LessonController extends Controller
 
             $lesson = Lesson::create($validated);
 
-            // Essayer de consommer un abonnement si l'élève en a un actif
+            // ⚡ OPTIMISATION : Déplacer tous les traitements post-création en asynchrone
+            // Cela permet de retourner immédiatement une réponse au client sans attendre
+            // - Consommation d'abonnement
+            // - Création de créneaux récurrents
+            // - Envoi des notifications
+            // - Programmation des rappels
             if (isset($validated['student_id'])) {
-                $this->tryConsumeSubscription($lesson);
-                
-                // 🔄 RÉCURRENCE AUTOMATIQUE : Bloquer le créneau pour les 6 prochains mois
-                $this->createRecurringSlotIfSubscription($lesson);
+                ProcessLessonPostCreationJob::dispatch($lesson);
+                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id}");
             }
 
-            // Envoyer les notifications
-            $this->sendBookingNotifications($lesson);
-
-            // Programmer un rappel 24h avant le cours
-            try {
-                $reminderTime = Carbon::parse($lesson->start_time)->subHours(24);
-                if ($reminderTime->isFuture()) {
-                    SendLessonReminderJob::dispatch($lesson)->delay($reminderTime);
-                }
-            } catch (\Exception $e) {
-                // Logger l'erreur mais ne pas bloquer la création du cours
-                Log::warning("Impossible de programmer le rappel pour le cours {$lesson->id}: " . $e->getMessage());
-            }
+            // Charger les relations nécessaires pour la réponse
+            $lesson->load(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
 
             return response()->json([
                 'success' => true,
-                'data' => $lesson->load(['teacher.user', 'student.user', 'courseType', 'location', 'club']),
+                'data' => $lesson,
                 'message' => 'Cours créé avec succès'
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
