@@ -153,17 +153,6 @@
                         <h4 class="font-semibold text-gray-900">
                           {{ lesson.course_type?.name || 'Cours' }}
                         </h4>
-                        <span 
-                          :class="{
-                            'bg-green-100 text-green-800': lesson.status === 'completed',
-                            'bg-blue-100 text-blue-800': lesson.status === 'confirmed',
-                            'bg-yellow-100 text-yellow-800': lesson.status === 'pending',
-                            'bg-red-100 text-red-800': lesson.status === 'cancelled'
-                          }"
-                          class="px-2 py-1 text-xs font-medium rounded-full"
-                        >
-                          {{ getLessonStatusLabel(lesson.status) }}
-                        </span>
                       </div>
                       
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -284,16 +273,6 @@ const getStatusLabel = (status) => {
     active: 'Actif',
     completed: 'Terminé',
     expired: 'Expiré',
-    cancelled: 'Annulé'
-  }
-  return labels[status] || status
-}
-
-const getLessonStatusLabel = (status) => {
-  const labels = {
-    completed: 'Terminé',
-    confirmed: 'Confirmé',
-    pending: 'En attente',
     cancelled: 'Annulé'
   }
   return labels[status] || status
