@@ -36,5 +36,8 @@ class AppServiceProvider extends ServiceProvider
         
         // Enregistrer l'observer pour mettre à jour automatiquement lessons_used
         Lesson::observe(LessonObserver::class);
+        
+        // Enregistrer l'observer pour gérer automatiquement les récurrences
+        \App\Models\SubscriptionInstance::observe(\App\Observers\SubscriptionInstanceObserver::class);
     }
 }
