@@ -145,7 +145,7 @@ class SubscriptionRecurringSlot extends Model
     }
 
     /**
-     * Annuler cette récurrence
+     * Annuler cette récurrence (libère le créneau)
      */
     public function cancel(string $reason = null): void
     {
@@ -154,6 +154,30 @@ class SubscriptionRecurringSlot extends Model
             $this->notes = ($this->notes ? $this->notes . "\n" : '') . "Annulé : " . $reason;
         }
         $this->save();
+    }
+
+    /**
+     * Libérer manuellement le créneau (annulation manuelle pour libérer le créneau)
+     * Utilisé quand on sait que l'abonnement va se terminer
+     */
+    public function release(string $reason = null): void
+    {
+        $this->cancel("Libération manuelle du créneau" . ($reason ? " - " . $reason : ""));
+    }
+
+    /**
+     * Réactiver une récurrence annulée
+     * Utilisé si on veut rétablir la réservation
+     */
+    public function reactivate(string $reason = null): void
+    {
+        if ($this->status === 'cancelled') {
+            $this->status = 'active';
+            if ($reason) {
+                $this->notes = ($this->notes ? $this->notes . "\n" : '') . "Réactivé : " . $reason;
+            }
+            $this->save();
+        }
     }
 
     /**

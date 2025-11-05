@@ -176,6 +176,13 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/volunteer-letters/history', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'history']);
     // Gestion des types de cours pour les créneaux
     Route::put('/open-slots/{id}/course-types', [ClubOpenSlotController::class, 'updateCourseTypes']);
+    
+    // Gestion des créneaux récurrents (réservations d'abonnements)
+    Route::get('/recurring-slots', [\App\Http\Controllers\Api\RecurringSlotController::class, 'index']);
+    Route::get('/recurring-slots/{id}', [\App\Http\Controllers\Api\RecurringSlotController::class, 'show']);
+    Route::post('/recurring-slots/{id}/release', [\App\Http\Controllers\Api\RecurringSlotController::class, 'release']);
+    Route::post('/recurring-slots/{id}/reactivate', [\App\Http\Controllers\Api\RecurringSlotController::class, 'reactivate']);
+    
     // Planning avancé (suggestions, statistiques, vérifications)
     Route::post('/planning/suggest-optimal-slot', [App\Http\Controllers\Api\ClubPlanningController::class, 'suggestOptimalSlot']);
     Route::post('/planning/check-availability', [App\Http\Controllers\Api\ClubPlanningController::class, 'checkAvailability']);
