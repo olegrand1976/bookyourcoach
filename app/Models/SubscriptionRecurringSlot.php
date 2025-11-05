@@ -89,8 +89,8 @@ class SubscriptionRecurringSlot extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active')
-            ->where('started_at', '<=', now())
-            ->where('expires_at', '>=', now());
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now());
     }
 
     /**
@@ -141,7 +141,7 @@ class SubscriptionRecurringSlot extends Model
         }
 
         $now = Carbon::now();
-        return $now->isBetween($this->started_at, $this->expires_at, true);
+        return $now->isBetween($this->start_date, $this->end_date, true);
     }
 
     /**
@@ -170,7 +170,7 @@ class SubscriptionRecurringSlot extends Model
      */
     public function checkAndUpdateStatus(): void
     {
-        if ($this->status === 'active' && Carbon::now()->isAfter($this->expires_at)) {
+        if ($this->status === 'active' && Carbon::now()->isAfter($this->end_date)) {
             $this->status = 'expired';
             $this->save();
         }
