@@ -1028,8 +1028,8 @@ class LessonController extends Controller
             $timeStart = $startTime->format('H:i:s');
             $timeEnd = $startTime->copy()->addMinutes($lesson->duration ?? 60)->format('H:i:s');
 
-            // Date de début : aujourd'hui
-            $recurringStartDate = now()->startOfDay();
+            // Date de début : date du cours (pas aujourd'hui, pour éviter de bloquer des créneaux dans le passé)
+            $recurringStartDate = Carbon::parse($lesson->start_time)->startOfDay();
             
             // Date de fin : 6 mois à partir d'aujourd'hui OU date d'expiration de l'abonnement (le plus proche)
             $recurringEndDate = now()->addMonths(6);
@@ -1177,7 +1177,41 @@ class LessonController extends Controller
             ];
         }
 
-        // 2. Suggestions de créneaux alternatifs (si conflits détectés)
+        // 2. Vérifier si l'élève lui-même a déjà une récurrence active sur ce créneau
+        // (éviter qu'un élève ait 2 cours en même temps avec 2 enseignants différents)
+        // Note: On ne filtre pas par clubId car on veut détecter les conflits même inter-clubs
+        $studentRecurringConflicts = SubscriptionRecurringSlot::where('day_of_week', $dayOfWeek)
+            ->where('status', 'active')
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->where(function ($q) use ($startDate, $endDate) {
+                    $q->where('start_date', '<=', $endDate->format('Y-m-d'))
+                      ->where('end_date', '>=', $startDate->format('Y-m-d'));
+                });
+            })
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
+                    $q->where('start_time', '<', $endTime)
+                      ->where('end_time', '>', $startTime);
+                });
+            })
+            ->with(['teacher.user', 'subscriptionInstance'])
+            ->get();
+
+        foreach ($studentRecurringConflicts as $conflict) {
+            $teacherName = $conflict->teacher->user->name ?? 'Enseignant inconnu';
+            
+            $conflicts[] = [
+                'type' => 'student_recurring',
+                'message' => "L'élève a déjà un créneau récurrent avec {$teacherName}",
+                'day_of_week' => $dayOfWeek,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'conflicting_teacher' => $teacherName,
+                'recurring_slot_id' => $conflict->id
+            ];
+        }
+
+        // 3. Suggestions de créneaux alternatifs (si conflits détectés)
         if (!empty($conflicts)) {
             $alternatives = $this->findAlternativeSlots(
                 $clubId,
