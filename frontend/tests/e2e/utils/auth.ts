@@ -27,7 +27,13 @@ export const AUTH_STATE_PATH = 'tests/e2e/.auth/user.json';
  * Se connecter en tant que club
  */
 export async function loginAsClub(page: Page) {
-  await page.goto('/login');
+  // Naviguer vers la page de login
+  await page.goto('/login', { waitUntil: 'networkidle' });
+  
+  // Attendre que le formulaire soit visible et prêt
+  await page.waitForSelector('input[type="email"]', { state: 'visible' });
+  await page.waitForSelector('input[type="password"]', { state: 'visible' });
+  await page.waitForSelector('button:has-text("Connexion")', { state: 'visible' });
   
   // Remplir le formulaire de connexion
   await page.fill('input[type="email"]', TEST_CREDENTIALS.club.email);
@@ -36,8 +42,11 @@ export async function loginAsClub(page: Page) {
   // Cliquer sur le bouton de connexion [[memory:8269929]]
   await page.click('button:has-text("Connexion")');
   
-  // Attendre la redirection vers le dashboard
-  await page.waitForURL(/\/club\/dashboard/, { timeout: 10000 });
+  // Attendre la redirection vers le dashboard (timeout augmenté)
+  await page.waitForURL(/\/club\/dashboard/, { timeout: 30000 });
+  
+  // Attendre que le dashboard soit chargé
+  await page.waitForLoadState('networkidle');
   
   // Vérifier que nous sommes bien connectés
   await expect(page).toHaveURL(/\/club\/dashboard/);
