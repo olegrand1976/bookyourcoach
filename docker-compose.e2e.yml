@@ -1,0 +1,68 @@
+# =============================================================================
+# Docker Compose - Tests E2E avec Playwright
+# =============================================================================
+# Utilisation : docker compose -f docker-compose.yml -f docker-compose.e2e.yml up e2e-tests
+# =============================================================================
+
+services:
+  # =============================================================================
+  # Service de tests E2E avec Playwright
+  # =============================================================================
+  e2e-tests:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.e2e
+    container_name: activibe-e2e-tests
+    environment:
+      # URL de l'application à tester (pointe vers le service frontend)
+      - PLAYWRIGHT_BASE_URL=http://frontend:3000
+      # Mode CI
+      - CI=true
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - bookyourcoach-network
+    # Monter les tests et le code source
+    volumes:
+      - ./frontend/tests:/app/tests:ro
+      - ./frontend/playwright.config.ts:/app/playwright.config.ts:ro
+      # Volume pour les rapports de tests
+      - ./frontend/playwright-report:/app/playwright-report
+      - ./frontend/test-results:/app/test-results
+    # Commande par défaut : lancer les tests
+    command: npm run test:e2e
+    # Pas de restart automatique (one-shot)
+    restart: "no"
+
+  # =============================================================================
+  # Service de tests E2E en mode UI (pour développement)
+  # =============================================================================
+  e2e-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.e2e
+    container_name: activibe-e2e-ui
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://frontend:3000
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - bookyourcoach-network
+    volumes:
+      - ./frontend/tests:/app/tests:ro
+      - ./frontend/playwright.config.ts:/app/playwright.config.ts:ro
+      - ./frontend/playwright-report:/app/playwright-report
+      - ./frontend/test-results:/app/test-results
+    ports:
+      # Port pour l'interface Playwright UI
+      - "9323:9323"
+    # Commande pour lancer l'UI
+    command: npx playwright test --ui-host=0.0.0.0 --ui-port=9323
+    restart: "no"
+
