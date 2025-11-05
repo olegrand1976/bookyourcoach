@@ -848,103 +848,124 @@ class LessonController extends Controller
     private function tryConsumeSubscription(Lesson $lesson): void
     {
         try {
-            if (!$lesson->student_id || !$lesson->course_type_id) {
+            if (!$lesson->course_type_id) {
                 return;
             }
 
-            // Récupérer les instances d'abonnements actifs où l'élève est inscrit
-            // 📌 IMPORTANT : Tri par started_at ASC pour consommer le plus ancien en premier (FIFO)
-            $subscriptionInstances = SubscriptionInstance::where('status', 'active')
-                ->whereHas('students', function ($query) use ($lesson) {
-                    $query->where('students.id', $lesson->student_id);
-                })
-                ->with(['subscription.courseTypes', 'students'])
-                ->orderBy('started_at', 'asc') // 🔄 FIFO : Le plus ancien d'abord
-                ->get();
+            // Récupérer les IDs des étudiants pour ce cours
+            // Vérifier d'abord student_id (ancien système), sinon la relation many-to-many
+            $studentIds = [];
+            if ($lesson->student_id) {
+                $studentIds[] = $lesson->student_id;
+            }
+            
+            // Charger aussi les étudiants via la relation many-to-many
+            $lessonStudents = $lesson->students()->pluck('students.id')->toArray();
+            $studentIds = array_unique(array_merge($studentIds, $lessonStudents));
+            
+            // Si aucun étudiant, pas d'abonnement à consommer
+            if (empty($studentIds)) {
+                return;
+            }
 
-            Log::info("🔍 Recherche d'abonnement pour le cours {$lesson->id}", [
-                'student_id' => $lesson->student_id,
-                'course_type_id' => $lesson->course_type_id,
-                'subscriptions_found' => $subscriptionInstances->count(),
-                'order' => 'FIFO (oldest first)'
-            ]);
+            // Pour chaque étudiant du cours, essayer de consommer un abonnement
+            foreach ($studentIds as $studentId) {
+                // Récupérer les instances d'abonnements actifs où l'élève est inscrit
+                // 📌 IMPORTANT : Tri par started_at ASC pour consommer le plus ancien en premier (FIFO)
+                $subscriptionInstances = SubscriptionInstance::where('status', 'active')
+                    ->whereHas('students', function ($query) use ($studentId) {
+                        $query->where('students.id', $studentId);
+                    })
+                    ->with(['subscription.courseTypes', 'students'])
+                    ->orderBy('started_at', 'asc') // 🔄 FIFO : Le plus ancien d'abord
+                    ->get();
 
-            // Trouver la première instance valide pour ce type de cours
-            foreach ($subscriptionInstances as $subscriptionInstance) {
-                $subscriptionInstance->checkAndUpdateStatus();
-                
-                // Si le statut n'est plus actif après la vérification, passer au suivant
-                if ($subscriptionInstance->status !== 'active') {
-                    continue;
-                }
+                Log::info("🔍 Recherche d'abonnement pour le cours {$lesson->id}", [
+                    'student_id' => $studentId,
+                    'course_type_id' => $lesson->course_type_id,
+                    'subscriptions_found' => $subscriptionInstances->count(),
+                    'order' => 'FIFO (oldest first)'
+                ]);
 
-                // Vérifier si ce cours fait partie de l'abonnement
-                $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
-                
-                // Recalculer avant de vérifier remaining_lessons pour avoir la valeur à jour
-                $subscriptionInstance->recalculateLessonsUsed();
-                
-                if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
-                    try {
-                        // Consommer un cours de cet abonnement
-                        $subscriptionInstance->consumeLesson($lesson);
-                        
-                        $studentNames = $subscriptionInstance->students->map(function ($student) {
-                            if ($student->user) {
-                                return $student->user->name;
-                            }
-                            $firstName = $student->first_name ?? '';
-                            $lastName = $student->last_name ?? '';
-                            $name = trim($firstName . ' ' . $lastName);
-                            return !empty($name) ? $name : 'Élève sans nom';
-                        })->filter()->join(', ');
-                        
-                        // Recharger l'instance pour avoir les valeurs à jour
-                        $subscriptionInstance->refresh();
-                        
-                        // 📦 ARCHIVAGE : Si l'abonnement est plein (100% utilisé), le marquer comme completed
-                        $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
-                        $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
-                        
-                        if ($isFullyUsed && $subscriptionInstance->status === 'active') {
-                            $subscriptionInstance->status = 'completed';
-                            $subscriptionInstance->save();
+                // Trouver la première instance valide pour ce type de cours
+                foreach ($subscriptionInstances as $subscriptionInstance) {
+                    $subscriptionInstance->checkAndUpdateStatus();
+                    
+                    // Si le statut n'est plus actif après la vérification, passer au suivant
+                    if ($subscriptionInstance->status !== 'active') {
+                        continue;
+                    }
+
+                    // Vérifier si ce cours fait partie de l'abonnement
+                    $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
+                    
+                    // Recalculer avant de vérifier remaining_lessons pour avoir la valeur à jour
+                    $subscriptionInstance->recalculateLessonsUsed();
+                    
+                    if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
+                        try {
+                            // Consommer un cours de cet abonnement
+                            $subscriptionInstance->consumeLesson($lesson);
                             
-                            Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
+                            $studentNames = $subscriptionInstance->students->map(function ($student) {
+                                if ($student->user) {
+                                    return $student->user->name;
+                                }
+                                $firstName = $student->first_name ?? '';
+                                $lastName = $student->last_name ?? '';
+                                $name = trim($firstName . ' ' . $lastName);
+                                return !empty($name) ? $name : 'Élève sans nom';
+                            })->filter()->join(', ');
+                            
+                            // Recharger l'instance pour avoir les valeurs à jour
+                            $subscriptionInstance->refresh();
+                            
+                            // 📦 ARCHIVAGE : Si l'abonnement est plein (100% utilisé), le marquer comme completed
+                            $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
+                            $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
+                            
+                            if ($isFullyUsed && $subscriptionInstance->status === 'active') {
+                                $subscriptionInstance->status = 'completed';
+                                $subscriptionInstance->save();
+                                
+                                Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
+                                    'subscription_instance_id' => $subscriptionInstance->id,
+                                    'lessons_used' => $subscriptionInstance->lessons_used,
+                                    'total_lessons' => $totalLessons,
+                                    'students' => $studentNames
+                                ]);
+                            }
+                            
+                            Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
+                                'lesson_id' => $lesson->id,
                                 'subscription_instance_id' => $subscriptionInstance->id,
+                                'student_id' => $studentId,
+                                'started_at' => $subscriptionInstance->started_at,
                                 'lessons_used' => $subscriptionInstance->lessons_used,
                                 'total_lessons' => $totalLessons,
-                                'students' => $studentNames
+                                'remaining_lessons' => $subscriptionInstance->remaining_lessons,
+                                'status' => $subscriptionInstance->status,
+                                'students' => $studentNames,
+                                'archived' => $isFullyUsed
                             ]);
+                            
+                            break; // Un seul abonnement consommé par étudiant
+                        } catch (\Exception $e) {
+                            Log::error("❌ Erreur lors de la consommation du cours {$lesson->id} depuis l'abonnement {$subscriptionInstance->id}: " . $e->getMessage(), [
+                                'lesson_id' => $lesson->id,
+                                'subscription_instance_id' => $subscriptionInstance->id,
+                                'student_id' => $studentId,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                            // Continuer avec l'instance suivante si celle-ci échoue
+                            continue;
                         }
-                        
-                        Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
-                            'lesson_id' => $lesson->id,
-                            'subscription_instance_id' => $subscriptionInstance->id,
-                            'started_at' => $subscriptionInstance->started_at,
-                            'lessons_used' => $subscriptionInstance->lessons_used,
-                            'total_lessons' => $totalLessons,
-                            'remaining_lessons' => $subscriptionInstance->remaining_lessons,
-                            'status' => $subscriptionInstance->status,
-                            'students' => $studentNames,
-                            'archived' => $isFullyUsed
-                        ]);
-                        
-                        return; // Un seul abonnement consommé par cours
-                    } catch (\Exception $e) {
-                        Log::error("❌ Erreur lors de la consommation du cours {$lesson->id} depuis l'abonnement {$subscriptionInstance->id}: " . $e->getMessage(), [
-                            'lesson_id' => $lesson->id,
-                            'subscription_instance_id' => $subscriptionInstance->id,
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString()
-                        ]);
-                        // Continuer avec l'instance suivante si celle-ci échoue
-                        continue;
                     }
                 }
             }
 
-            Log::info("Aucun abonnement actif trouvé pour le cours {$lesson->id} (élève {$lesson->student_id}, type {$lesson->course_type_id})");
+            Log::info("Aucun abonnement actif trouvé pour le cours {$lesson->id} (étudiants: " . implode(', ', $studentIds) . ", type {$lesson->course_type_id})");
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création du cours
             Log::error("Erreur lors de la consommation de l'abonnement: " . $e->getMessage());

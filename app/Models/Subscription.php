@@ -167,12 +167,21 @@ class Subscription extends Model
      */
     public function courseTypes()
     {
-        if ($this->subscription_template_id && $this->template) {
-            return $this->template->courseTypes();
+        // Toujours utiliser le template si disponible
+        if ($this->subscription_template_id) {
+            // Charger le template si nécessaire
+            if (!$this->relationLoaded('template')) {
+                $this->load('template');
+            }
+            
+            if ($this->template) {
+                return $this->template->courseTypes();
+            }
         }
         
-        // Fallback pour compatibilité avec l'ancienne structure
-        return $this->belongsToMany(CourseType::class, 'subscription_course_types', 'subscription_id', 'course_type_id')
+        // Fallback pour compatibilité avec l'ancienne structure (utilise discipline_id)
+        // Note: subscription_course_types utilise discipline_id, pas course_type_id
+        return $this->belongsToMany(CourseType::class, 'subscription_course_types', 'subscription_id', 'discipline_id', 'id', 'discipline_id')
             ->withTimestamps();
     }
 
