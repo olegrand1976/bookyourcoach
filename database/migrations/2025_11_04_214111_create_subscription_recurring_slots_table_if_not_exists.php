@@ -14,7 +14,7 @@ return new class extends Migration
         // Vérifier si la table existe déjà pour éviter les erreurs
         if (!Schema::hasTable('subscription_recurring_slots')) {
             Schema::create('subscription_recurring_slots', function (Blueprint $table) {
-            $table->id();
+                $table->id();
                 
                 // Relations
                 $table->foreignId('subscription_instance_id')
@@ -48,14 +48,14 @@ return new class extends Migration
                     ->default('active');
                 $table->text('notes')->nullable();
                 
-            $table->timestamps();
+                $table->timestamps();
                 
                 // Index pour améliorer les performances
                 $table->index(['day_of_week', 'start_time', 'end_time', 'status'], 'recurring_slots_schedule_idx');
                 $table->index(['teacher_id', 'status'], 'recurring_slots_teacher_idx');
                 $table->index(['subscription_instance_id', 'status'], 'recurring_slots_subscription_idx');
                 $table->index(['student_id', 'status'], 'recurring_slots_student_idx');
-        });
+            });
         }
     }
 
