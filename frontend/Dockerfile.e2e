@@ -1,0 +1,39 @@
+# =============================================================================
+# Dockerfile E2E Tests - Playwright pour BookYourCoach
+# =============================================================================
+
+FROM mcr.microsoft.com/playwright:v1.56.1-jammy
+
+# Installer Node.js 20 (compatible avec Nuxt 3)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package.json package-lock.json ./
+
+# Installer les dépendances (y compris Playwright)
+RUN npm ci
+
+# Copier le code source
+COPY . .
+
+# Les navigateurs Playwright sont déjà installés dans l'image de base
+# Pas besoin de npx playwright install
+
+# Variables d'environnement
+ENV CI=true
+ENV PLAYWRIGHT_BASE_URL=http://frontend:3000
+
+# Exposer le port pour le serveur Playwright UI (optionnel)
+EXPOSE 9323
+
+# Commande par défaut : lancer les tests
+CMD ["npm", "run", "test:e2e"]
+
