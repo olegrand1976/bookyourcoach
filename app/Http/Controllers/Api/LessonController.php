@@ -998,8 +998,13 @@ class LessonController extends Controller
 
     /**
      * 🔄 Crée automatiquement un créneau récurrent si l'élève a un abonnement actif
-     * Bloque le créneau (jour + heure) pour les 6 prochains mois
-     * Vérifie et avertit en cas de conflits potentiels
+     * 
+     * IMPORTANT : Ceci RÉSERVE le créneau (pas un blocage dur)
+     * - Les créneaux réservés servent d'avertissement mais n'empêchent PAS la création d'autres cours
+     * - Ils peuvent être libérés manuellement via l'API /club/recurring-slots/{id}/release
+     * - Utile pour gérer les abonnements à terme ou les changements de planning
+     * 
+     * @param Lesson $lesson Le cours qui déclenche la réservation
      */
     private function createRecurringSlotIfSubscription(Lesson $lesson): void
     {
@@ -1068,18 +1073,19 @@ class LessonController extends Controller
             );
 
             if (!empty($conflicts)) {
-                Log::warning("⚠️ Conflits détectés lors de la création de la récurrence", [
+                Log::warning("⚠️ Conflits détectés lors de la réservation du créneau récurrent", [
                     'lesson_id' => $lesson->id,
                     'student_id' => $lesson->student_id,
                     'conflicts_count' => count($conflicts),
-                    'conflicts' => array_slice($conflicts, 0, 5) // Limiter aux 5 premiers
+                    'conflicts' => array_slice($conflicts, 0, 5), // Limiter aux 5 premiers
+                    'note' => 'Créneaux RÉSERVÉS (pas bloqués) - Peuvent être libérés manuellement'
                 ]);
                 
-                // On crée quand même la récurrence mais on log l'avertissement
-                // Possibilité future : envoyer une notification au club
+                // On crée quand même la réservation mais on log l'avertissement
+                // Les conflits n'empêchent PAS la création, ils servent juste d'avertissement
             }
 
-            // Créer le créneau récurrent
+            // Créer la réservation de créneau récurrent
             $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
                 'open_slot_id' => null, // Pas forcément lié à un open_slot
@@ -1091,7 +1097,7 @@ class LessonController extends Controller
                 'start_date' => $recurringStartDate,
                 'end_date' => $recurringEndDate,
                 'status' => 'active',
-                'notes' => "Créneau récurrent créé automatiquement pour le cours #{$lesson->id}",
+                'notes' => "Créneau récurrent RÉSERVÉ automatiquement pour le cours #{$lesson->id} - Peut être libéré via API si nécessaire",
             ]);
 
             $logData = [
@@ -1106,13 +1112,14 @@ class LessonController extends Controller
                 'start_date' => $recurringStartDate->format('Y-m-d'),
                 'end_date' => $recurringEndDate->format('Y-m-d'),
                 'duration_months' => 6,
-                'conflicts_detected' => !empty($conflicts)
+                'conflicts_detected' => !empty($conflicts),
+                'note' => 'Réservation flexible - libérable via POST /club/recurring-slots/{id}/release'
             ];
 
             if (!empty($conflicts)) {
-                Log::warning("⚠️ Créneau récurrent créé AVEC AVERTISSEMENTS", $logData);
+                Log::warning("⚠️ Créneau récurrent RÉSERVÉ avec avertissements", $logData);
             } else {
-                Log::info("✅ Créneau récurrent créé sans conflit", $logData);
+                Log::info("✅ Créneau récurrent RÉSERVÉ sans conflit", $logData);
             }
 
         } catch (\Exception $e) {
