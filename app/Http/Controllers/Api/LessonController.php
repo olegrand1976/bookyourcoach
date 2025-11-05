@@ -998,6 +998,7 @@ class LessonController extends Controller
     /**
      * 🔄 Crée automatiquement un créneau récurrent si l'élève a un abonnement actif
      * Bloque le créneau (jour + heure) pour les 6 prochains mois
+     * Vérifie et avertit en cas de conflits potentiels
      */
     private function createRecurringSlotIfSubscription(Lesson $lesson): void
     {
@@ -1035,7 +1036,7 @@ class LessonController extends Controller
                 $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
             }
 
-            // Vérifier si une récurrence existe déjà pour ce même créneau
+            // Vérifier si une récurrence existe déjà pour ce même créneau (même élève + enseignant)
             $existingRecurring = \App\Models\SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
                 ->where('student_id', $lesson->student_id)
                 ->where('teacher_id', $lesson->teacher_id)
@@ -1054,6 +1055,29 @@ class LessonController extends Controller
                 return;
             }
 
+            // ⚠️ VÉRIFICATION DES CONFLITS : Vérifier s'il existe d'autres récurrences sur ce créneau
+            $conflicts = $this->checkRecurringConflicts(
+                $dayOfWeek,
+                $timeStart,
+                $timeEnd,
+                $lesson->teacher_id,
+                $lesson->club_id,
+                $recurringStartDate,
+                $recurringEndDate
+            );
+
+            if (!empty($conflicts)) {
+                Log::warning("⚠️ Conflits détectés lors de la création de la récurrence", [
+                    'lesson_id' => $lesson->id,
+                    'student_id' => $lesson->student_id,
+                    'conflicts_count' => count($conflicts),
+                    'conflicts' => array_slice($conflicts, 0, 5) // Limiter aux 5 premiers
+                ]);
+                
+                // On crée quand même la récurrence mais on log l'avertissement
+                // Possibilité future : envoyer une notification au club
+            }
+
             // Créer le créneau récurrent
             $recurringSlot = \App\Models\SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
@@ -1069,7 +1093,7 @@ class LessonController extends Controller
                 'notes' => "Créneau récurrent créé automatiquement pour le cours #{$lesson->id}",
             ]);
 
-            Log::info("✅ Créneau récurrent créé automatiquement", [
+            $logData = [
                 'recurring_slot_id' => $recurringSlot->id,
                 'subscription_instance_id' => $activeSubscription->id,
                 'lesson_id' => $lesson->id,
@@ -1080,8 +1104,15 @@ class LessonController extends Controller
                 'end_time' => $timeEnd,
                 'start_date' => $recurringStartDate->format('Y-m-d'),
                 'end_date' => $recurringEndDate->format('Y-m-d'),
-                'duration_months' => 6
-            ]);
+                'duration_months' => 6,
+                'conflicts_detected' => !empty($conflicts)
+            ];
+
+            if (!empty($conflicts)) {
+                Log::warning("⚠️ Créneau récurrent créé AVEC AVERTISSEMENTS", $logData);
+            } else {
+                Log::info("✅ Créneau récurrent créé sans conflit", $logData);
+            }
 
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création du cours
@@ -1091,5 +1122,158 @@ class LessonController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+
+    /**
+     * Vérifier s'il existe des conflits de récurrence sur un créneau donné
+     * Retourne un tableau de conflits détectés
+     */
+    private function checkRecurringConflicts(
+        int $dayOfWeek,
+        string $startTime,
+        string $endTime,
+        int $teacherId,
+        int $clubId,
+        Carbon $startDate,
+        Carbon $endDate
+    ): array {
+        $conflicts = [];
+
+        // 1. Vérifier si l'enseignant a déjà une récurrence active sur ce créneau
+        $teacherRecurringConflicts = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+            ->where('day_of_week', $dayOfWeek)
+            ->where('status', 'active')
+            ->where(function ($query) use ($startDate, $endDate) {
+                // Vérifier le chevauchement de dates
+                $query->where(function ($q) use ($startDate, $endDate) {
+                    $q->where('start_date', '<=', $endDate->format('Y-m-d'))
+                      ->where('end_date', '>=', $startDate->format('Y-m-d'));
+                });
+            })
+            ->where(function ($query) use ($startTime, $endTime) {
+                // Vérifier le chevauchement d'horaires
+                $query->where(function ($q) use ($startTime, $endTime) {
+                    $q->where('start_time', '<', $endTime)
+                      ->where('end_time', '>', $startTime);
+                });
+            })
+            ->with(['student.user', 'subscriptionInstance'])
+            ->get();
+
+        foreach ($teacherRecurringConflicts as $conflict) {
+            $studentName = $conflict->student->user->name ?? 
+                          ($conflict->student->first_name . ' ' . $conflict->student->last_name) ?? 
+                          'Élève inconnu';
+            
+            $conflicts[] = [
+                'type' => 'teacher_recurring',
+                'message' => "L'enseignant a déjà un créneau récurrent avec {$studentName}",
+                'day_of_week' => $dayOfWeek,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'conflicting_student' => $studentName,
+                'recurring_slot_id' => $conflict->id
+            ];
+        }
+
+        // 2. Suggestions de créneaux alternatifs (si conflits détectés)
+        if (!empty($conflicts)) {
+            $alternatives = $this->findAlternativeSlots(
+                $clubId,
+                $teacherId,
+                $dayOfWeek,
+                $startTime,
+                $endTime,
+                $startDate
+            );
+            
+            if (!empty($alternatives)) {
+                Log::info("💡 Créneaux alternatifs suggérés", [
+                    'alternatives_count' => count($alternatives),
+                    'alternatives' => $alternatives
+                ]);
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Trouver des créneaux alternatifs en cas de conflit
+     * Retourne un tableau de suggestions
+     */
+    private function findAlternativeSlots(
+        int $clubId,
+        int $teacherId,
+        int $dayOfWeek,
+        string $startTime,
+        string $endTime,
+        Carbon $startDate
+    ): array {
+        $alternatives = [];
+        
+        // Stratégie 1 : Même jour, horaires différents (± 1 heure)
+        $startTimeCarbon = Carbon::parse($startTime);
+        $duration = Carbon::parse($startTime)->diffInMinutes(Carbon::parse($endTime));
+        
+        foreach ([-60, -30, 30, 60] as $offset) {
+            $altStartTime = $startTimeCarbon->copy()->addMinutes($offset)->format('H:i:s');
+            $altEndTime = $startTimeCarbon->copy()->addMinutes($offset + $duration)->format('H:i:s');
+            
+            // Vérifier si ce créneau est libre
+            $hasConflict = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('status', 'active')
+                ->where(function ($query) use ($altStartTime, $altEndTime) {
+                    $query->where(function ($q) use ($altStartTime, $altEndTime) {
+                        $q->where('start_time', '<', $altEndTime)
+                          ->where('end_time', '>', $altStartTime);
+                    });
+                })
+                ->exists();
+            
+            if (!$hasConflict) {
+                $alternatives[] = [
+                    'type' => 'same_day_different_time',
+                    'day_of_week' => $dayOfWeek,
+                    'start_time' => $altStartTime,
+                    'end_time' => $altEndTime,
+                    'description' => "Même jour, " . ($offset > 0 ? "+" : "") . ($offset / 60) . "h"
+                ];
+                
+                if (count($alternatives) >= 3) break;
+            }
+        }
+        
+        // Stratégie 2 : Jours adjacents, même horaire
+        foreach ([-1, 1, -2, 2] as $dayOffset) {
+            $altDayOfWeek = ($dayOfWeek + $dayOffset + 7) % 7;
+            
+            $hasConflict = \App\Models\SubscriptionRecurringSlot::where('teacher_id', $teacherId)
+                ->where('day_of_week', $altDayOfWeek)
+                ->where('status', 'active')
+                ->where(function ($query) use ($startTime, $endTime) {
+                    $query->where(function ($q) use ($startTime, $endTime) {
+                        $q->where('start_time', '<', $endTime)
+                          ->where('end_time', '>', $startTime);
+                    });
+                })
+                ->exists();
+            
+            if (!$hasConflict) {
+                $dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+                $alternatives[] = [
+                    'type' => 'different_day_same_time',
+                    'day_of_week' => $altDayOfWeek,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                    'description' => $dayNames[$altDayOfWeek] . " (au lieu de " . $dayNames[$dayOfWeek] . ")"
+                ];
+                
+                if (count($alternatives) >= 5) break;
+            }
+        }
+        
+        return array_slice($alternatives, 0, 5); // Limiter à 5 suggestions
     }
 }
