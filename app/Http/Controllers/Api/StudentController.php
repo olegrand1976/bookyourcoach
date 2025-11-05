@@ -24,7 +24,7 @@ class StudentController extends Controller
     /**
      * Récupérer l'historique complet d'un élève (abonnements + cours)
      */
-    public function history(Request $request, $id): JsonResponse
+    public function history(Request $request, $studentId): JsonResponse
     {
         try {
             $user = Auth::user();
@@ -47,7 +47,7 @@ class StudentController extends Controller
             // Vérifier que l'élève appartient au club
             $clubStudent = DB::table('club_students')
                 ->where('club_id', $club->id)
-                ->where('student_id', $id)
+                ->where('student_id', $studentId)
                 ->first();
             
             if (!$clubStudent) {
@@ -57,11 +57,11 @@ class StudentController extends Controller
                 ], 403);
             }
 
-            $student = Student::with(['user', 'disciplines'])->findOrFail($id);
+            $student = Student::with(['user', 'disciplines'])->findOrFail($studentId);
 
             // Récupérer les abonnements de l'élève
-            $subscriptionInstances = \App\Models\SubscriptionInstance::whereHas('students', function ($query) use ($id) {
-                    $query->where('students.id', $id);
+            $subscriptionInstances = \App\Models\SubscriptionInstance::whereHas('students', function ($query) use ($studentId) {
+                    $query->where('students.id', $studentId);
                 })
                 ->whereHas('subscription', function ($query) use ($club) {
                     if (\App\Models\Subscription::hasClubIdColumn()) {
@@ -83,11 +83,11 @@ class StudentController extends Controller
                 ->get();
 
             // Récupérer les cours de l'élève (via relation many-to-many ou student_id)
-            $lessons = \App\Models\Lesson::where(function ($query) use ($id) {
-                    $query->whereHas('students', function ($q) use ($id) {
-                        $q->where('students.id', $id);
+            $lessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
+                    $query->whereHas('students', function ($q) use ($studentId) {
+                        $q->where('students.id', $studentId);
                     })
-                    ->orWhere('student_id', $id);
+                    ->orWhere('student_id', $studentId);
                 })
                 ->with([
                     'teacher.user',
@@ -122,7 +122,7 @@ class StudentController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Erreur lors de la récupération de l\'historique de l\'élève: ' . $e->getMessage(), [
-                'student_id' => $id,
+                'student_id' => $studentId,
                 'user_id' => Auth::id(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -329,12 +329,12 @@ class StudentController extends Controller
     /**
      * Mettre à jour un élève
      */
-    public function update(Request $request, $id): JsonResponse
+    public function update(Request $request, $studentId): JsonResponse
     {
         try {
             $user = Auth::user();
             
-            $student = Student::findOrFail($id);
+            $student = Student::findOrFail($studentId);
 
             // Vérifier les permissions
             if ($user->role === 'club') {
@@ -478,7 +478,7 @@ class StudentController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Erreur lors de la mise à jour de l\'élève', [
-                'student_id' => $id,
+                'student_id' => $studentId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -493,7 +493,7 @@ class StudentController extends Controller
     /**
      * Renvoyer l'email d'invitation à un élève
      */
-    public function resendInvitation(Request $request, $id): JsonResponse
+    public function resendInvitation(Request $request, $studentId): JsonResponse
     {
         try {
             $user = Auth::user();
@@ -514,7 +514,7 @@ class StudentController extends Controller
                 ], 404);
             }
 
-            $student = Student::with('user')->findOrFail($id);
+            $student = Student::with('user')->findOrFail($studentId);
 
             // Vérifier que l'élève appartient au club
             if (!DB::table('club_students')
@@ -550,7 +550,7 @@ class StudentController extends Controller
             $studentUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
 
             \Log::info('Email d\'invitation renvoyé à l\'élève', [
-                'student_id' => $id,
+                'student_id' => $studentId,
                 'user_id' => $studentUser->id,
                 'club_id' => $club->id,
                 'email' => $studentUser->email
@@ -652,7 +652,7 @@ class StudentController extends Controller
     /**
      * Activer ou désactiver un élève
      */
-    public function toggleStatus(Request $request, $id): JsonResponse
+    public function toggleStatus(Request $request, $studentId): JsonResponse
     {
         try {
             $user = Auth::user();
@@ -673,7 +673,7 @@ class StudentController extends Controller
                 ], 404);
             }
 
-            $student = Student::findOrFail($id);
+            $student = Student::findOrFail($studentId);
 
             // Vérifier que l'élève appartient au club
             $clubStudent = DB::table('club_students')
@@ -704,7 +704,7 @@ class StudentController extends Controller
             DB::commit();
 
             \Log::info('Statut de l\'élève modifié', [
-                'student_id' => $id,
+                'student_id' => $studentId,
                 'club_id' => $club->id,
                 'is_active' => $newStatus
             ]);

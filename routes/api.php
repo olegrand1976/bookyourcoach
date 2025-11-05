@@ -157,13 +157,11 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
     Route::post('/students', [StudentController::class, 'store']);
-    // Routes spécifiques avec suffixe AVANT les routes génériques {id}
-    Route::get('/students/{id}/history', [StudentController::class, 'history']);
-    Route::patch('/students/{id}/toggle-status', [StudentController::class, 'toggleStatus']);
-    Route::post('/students/{id}/resend-invitation', [StudentController::class, 'resendInvitation']);
-    // Routes génériques APRÈS les routes spécifiques
-    Route::put('/students/{id}', [StudentController::class, 'update']);
-    Route::delete('/students/{id}', [ClubController::class, 'removeStudent']);
+    Route::get('/students/{studentId}/history', [StudentController::class, 'history']);
+    Route::patch('/students/{studentId}/toggle-status', [StudentController::class, 'toggleStatus']);
+    Route::post('/students/{studentId}/resend-invitation', [StudentController::class, 'resendInvitation']);
+    Route::put('/students/{studentId}', [StudentController::class, 'update']);
+    Route::delete('/students/{studentId}', [ClubController::class, 'removeStudent']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);
@@ -196,9 +194,10 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     // Abonnements (créés depuis les modèles)
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
-    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
+    // Routes spécifiques AVANT les routes génériques avec {id}
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
+    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
     // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
     Route::post('/subscriptions/{instanceId}/renew', [SubscriptionController::class, 'renew']);
