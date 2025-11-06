@@ -173,3 +173,5 @@ Pour plus de détails :
 
 *Dernière vérification : `./verification-optimisation.sh`*
 
+
+

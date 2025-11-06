@@ -169,3 +169,5 @@ L'optimisation est maintenant active ! La création de cours devrait être quasi
 
 **Pour toute question, consultez** : `docs/OPTIMISATION_CREATION_COURS.md`
 
+
+

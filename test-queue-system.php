@@ -235,3 +235,5 @@ echo "\n";
 echo "Pour plus d'informations: cat DEMARRAGE_RAPIDE.txt\n";
 echo "\n";
 
+
+
