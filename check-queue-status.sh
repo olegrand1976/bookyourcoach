@@ -164,3 +164,5 @@ echo ""
 echo "📚 Documentation complète: cat DEMARRAGE_RAPIDE.txt"
 echo ""
 
+
+
