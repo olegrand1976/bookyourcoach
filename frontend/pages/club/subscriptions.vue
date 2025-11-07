@@ -19,19 +19,6 @@
               <span>Modèles</span>
             </NuxtLink>
             <button 
-              @click="handleRecalculateAll"
-              :disabled="recalculating"
-              class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-            >
-              <svg v-if="recalculating" class="animate-spin h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>{{ recalculating ? 'Recalcul en cours...' : 'Recalculer les Cours Restants' }}</span>
-            </button>
-            <button 
               @click="showAssignModal = true"
               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
@@ -373,6 +360,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useNuxtApp } from '#app'
 import { useToast } from '~/composables/useToast'
 
+console.log('🚀🚀🚀 FICHIER SUBSCRIPTIONS.VUE CHARGÉ - VERSION DEBUG ACTIVE 🚀🚀🚀')
+console.log('🚀 Timestamp:', new Date().toISOString())
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -384,7 +374,6 @@ const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
-const recalculating = ref(false)
 
 // Modals
 const showCreateModal = ref(false)
@@ -529,9 +518,63 @@ const getInstanceStatus = (instance, template) => {
   return 'normal'
 }
 
+// Fonction helper pour convertir le statut en priorité numérique
+const getUrgencyPriority = (status) => {
+  if (status === 'urgent') return 3
+  if (status === 'warning') return 2
+  return 1 // normal
+}
+
+// Fonction helper pour obtenir l'instance la plus urgente d'un abonnement
+const getMostUrgentInstance = (subscription) => {
+  if (!subscription.instances || subscription.instances.length === 0) {
+    return null
+  }
+  
+  const activeInstances = subscription.instances.filter(i => i.status === 'active')
+  if (activeInstances.length === 0) return null
+  
+  // Trouver l'instance la plus urgente en considérant :
+  // 1. La priorité (urgent > warning > normal)
+  // 2. À priorité égale, le pourcentage le plus élevé
+  // 3. À pourcentage égal, la date d'expiration la plus proche
+  let mostUrgent = activeInstances[0]
+  let highestPriority = getUrgencyPriority(getInstanceStatus(mostUrgent, subscription.template))
+  let highestPercentage = getUsagePercentage(mostUrgent, subscription.template)
+  
+  activeInstances.forEach(instance => {
+    const priority = getUrgencyPriority(getInstanceStatus(instance, subscription.template))
+    const percentage = getUsagePercentage(instance, subscription.template)
+    
+    // Priorité plus haute = toujours sélectionner
+    if (priority > highestPriority) {
+      highestPriority = priority
+      highestPercentage = percentage
+      mostUrgent = instance
+    } 
+    // Même priorité mais pourcentage plus élevé = sélectionner
+    else if (priority === highestPriority && percentage > highestPercentage) {
+      highestPercentage = percentage
+      mostUrgent = instance
+    }
+    // Même priorité et même pourcentage, vérifier la date d'expiration
+    else if (priority === highestPriority && percentage === highestPercentage) {
+      const currentExpires = mostUrgent.expires_at ? new Date(mostUrgent.expires_at).getTime() : Infinity
+      const newExpires = instance.expires_at ? new Date(instance.expires_at).getTime() : Infinity
+      if (newExpires < currentExpires) {
+        mostUrgent = instance
+      }
+    }
+  })
+  
+  return mostUrgent
+}
+
 // Filtrer les abonnements par nom/prénom d'élève ET statut d'utilisation
 const filteredSubscriptions = computed(() => {
   let filtered = subscriptions.value
+  
+  console.log('🔍 [DEBUG TRI] Abonnements bruts reçus:', filtered.length)
   
   // 1. Filtrer par statut d'utilisation (couleur)
   if (statusFilter.value !== 'all') {
@@ -549,37 +592,84 @@ const filteredSubscriptions = computed(() => {
   }
   
   // 2. Filtrer par recherche de nom/prénom
-  if (!searchQuery.value.trim()) {
-    return filtered
-  }
-  
-  const query = searchQuery.value.toLowerCase().trim()
-  
-  return filtered.filter(subscription => {
-    // Vérifier dans toutes les instances et leurs élèves
-    if (!subscription.instances || subscription.instances.length === 0) {
-      return false
-    }
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim()
     
-    return subscription.instances.some(instance => {
-      if (!instance.students || instance.students.length === 0) {
+    filtered = filtered.filter(subscription => {
+      // Vérifier dans toutes les instances et leurs élèves
+      if (!subscription.instances || subscription.instances.length === 0) {
         return false
       }
       
-      return instance.students.some(student => {
-        const user = student.user || {}
-        const firstName = (user.first_name || '').toLowerCase()
-        const lastName = (user.last_name || '').toLowerCase()
-        const name = (user.name || '').toLowerCase()
+      return subscription.instances.some(instance => {
+        if (!instance.students || instance.students.length === 0) {
+          return false
+        }
         
-        // Rechercher dans le nom complet, prénom ou nom
-        return firstName.includes(query) || 
-               lastName.includes(query) || 
-               name.includes(query) ||
-               `${firstName} ${lastName}`.includes(query)
+        return instance.students.some(student => {
+          const user = student.user || {}
+          const firstName = (user.first_name || '').toLowerCase()
+          const lastName = (user.last_name || '').toLowerCase()
+          const name = (user.name || '').toLowerCase()
+          
+          // Rechercher dans le nom complet, prénom ou nom
+          return firstName.includes(query) || 
+                 lastName.includes(query) || 
+                 name.includes(query) ||
+                 `${firstName} ${lastName}`.includes(query)
+        })
       })
     })
+  }
+  
+  console.log('🔍 [DEBUG TRI] Après filtrage:', filtered.length)
+  
+  // 3. Tri par urgence décroissante, puis date d'expiration croissante
+  // IMPORTANT: Créer une copie avant de trier pour que Vue détecte les changements
+  const sorted = [...filtered].sort((a, b) => {
+    const instanceA = getMostUrgentInstance(a)
+    const instanceB = getMostUrgentInstance(b)
+    
+    // Si pas d'instance active, mettre à la fin
+    if (!instanceA && !instanceB) return 0
+    if (!instanceA) return 1
+    if (!instanceB) return -1
+    
+    const priorityA = getUrgencyPriority(getInstanceStatus(instanceA, a.template))
+    const priorityB = getUrgencyPriority(getInstanceStatus(instanceB, b.template))
+    const percentageA = getUsagePercentage(instanceA, a.template)
+    const percentageB = getUsagePercentage(instanceB, b.template)
+    
+    console.log(`📊 [DEBUG TRI] Comparaison:
+      ${a.subscription_number} (P:${priorityA}, %:${percentageA}, Inst:${instanceA?.id})
+      vs
+      ${b.subscription_number} (P:${priorityB}, %:${percentageB}, Inst:${instanceB?.id})`)
+    
+    // Tri par urgence décroissante (priorité la plus haute en premier)
+    if (priorityA !== priorityB) {
+      console.log(`  → Tri par priorité: ${priorityB - priorityA}`)
+      return priorityB - priorityA
+    }
+    
+    // Si même urgence, trier par date d'expiration croissante (plus proche en premier)
+    const expiresA = instanceA.expires_at ? new Date(instanceA.expires_at).getTime() : Infinity
+    const expiresB = instanceB.expires_at ? new Date(instanceB.expires_at).getTime() : Infinity
+    
+    console.log(`  → Même priorité, tri par date: ${expiresA - expiresB}`)
+    return expiresA - expiresB
   })
+  
+  console.log('🎯 [DEBUG TRI] ORDRE FINAL:')
+  sorted.forEach((sub, index) => {
+    const instance = getMostUrgentInstance(sub)
+    if (instance) {
+      const priority = getUrgencyPriority(getInstanceStatus(instance, sub.template))
+      const percentage = getUsagePercentage(instance, sub.template)
+      console.log(`  ${index + 1}. ${sub.subscription_number} - Priorité:${priority} - ${percentage}% - Instance:${instance.id}`)
+    }
+  })
+  
+  return sorted
 })
 
 // Vue historique d'un abonnement
@@ -683,44 +773,6 @@ const isExpiringSoon = (instance) => {
   const diffTime = expiresAt - now
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   return diffDays <= 30 && diffDays >= 0
-}
-
-// Recalculer tous les abonnements
-const handleRecalculateAll = async () => {
-  if (!confirm('Voulez-vous recalculer le nombre de cours restants pour tous les abonnements actifs ?\n\nCette opération va mettre à jour les compteurs en se basant sur l\'historique réel des cours suivis.')) {
-    return
-  }
-
-  try {
-    recalculating.value = true
-    const { $api } = useNuxtApp()
-    const { success, error, info } = useToast()
-    
-    const response = await $api.post('/club/subscriptions/recalculate')
-    
-    if (response.data.success) {
-      const stats = response.data.data
-      
-      if (stats.total_updated > 0) {
-        success(`✅ ${response.data.message}`)
-        
-        // Afficher les détails si des abonnements ont été mis à jour
-        if (stats.details && stats.details.length > 0) {
-          console.log('📊 Détails du recalcul:', stats.details)
-        }
-      } else {
-        info(`ℹ️ ${response.data.message} - Les compteurs sont déjà corrects.`)
-      }
-      
-      await loadSubscriptions() // Recharger la liste
-    }
-  } catch (error) {
-    console.error('Erreur lors du recalcul:', error)
-    const { error: showError } = useToast()
-    showError('Erreur lors du recalcul des abonnements')
-  } finally {
-    recalculating.value = false
-  }
 }
 
 // Initialisation

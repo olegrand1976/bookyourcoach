@@ -74,12 +74,48 @@ class SubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
             
-            // Recalculer automatiquement lessons_used pour chaque instance
+            // Recalculer automatiquement et lier les cours manquants pour chaque instance active
             foreach ($subscriptions as $subscription) {
                 if ($subscription->instances && $subscription->instances->count() > 0) {
                     foreach ($subscription->instances as $instance) {
-                        // Le recalcul est maintenant automatique via recalculateLessonsUsed()
-                        // On force juste le recalcul pour s'assurer que les données sont à jour
+                        // Ne traiter que les instances actives
+                        if ($instance->status !== 'active') {
+                            continue;
+                        }
+                        
+                        // 🔧 Trouver et lier les cours manquants
+                        $studentIds = $instance->students->pluck('id')->toArray();
+                        
+                        if (!empty($studentIds)) {
+                            // Récupérer les types de cours acceptés par cet abonnement
+                            $courseTypeIds = $subscription->courseTypes->pluck('id')->toArray();
+                            
+                            if (!empty($courseTypeIds)) {
+                                // Trouver les cours des élèves qui ne sont pas encore liés à un abonnement
+                                $unlinkedLessons = \App\Models\Lesson::whereIn('student_id', $studentIds)
+                                    ->whereIn('course_type_id', $courseTypeIds)
+                                    ->whereNotIn('status', ['cancelled'])
+                                    ->whereDoesntHave('subscriptionInstances')
+                                    ->get();
+                                
+                                foreach ($unlinkedLessons as $lesson) {
+                                    try {
+                                        // Vérifier s'il reste des cours disponibles
+                                        $totalLessons = $instance->subscription->total_available_lessons;
+                                        $lessonsUsed = $instance->lessons_used;
+                                        
+                                        if ($lessonsUsed < $totalLessons) {
+                                            $instance->consumeLesson($lesson);
+                                            Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} au chargement");
+                                        }
+                                    } catch (\Exception $e) {
+                                        Log::warning("Impossible de lier le cours {$lesson->id} à l'abonnement {$instance->id}: " . $e->getMessage());
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Recalculer après avoir lié les cours
                         $instance->recalculateLessonsUsed();
                     }
                 }
@@ -306,6 +342,31 @@ class SubscriptionController extends Controller
             $template = SubscriptionTemplate::where('club_id', $club->id)
                 ->where('is_active', true)
                 ->findOrFail($validated['subscription_template_id']);
+
+            // 🔒 VALIDATION : Vérifier qu'aucun élève n'a déjà une instance active pour ce type d'abonnement
+            foreach ($validated['student_ids'] as $studentId) {
+                $existingActiveInstance = SubscriptionInstance::whereHas('subscription', function ($query) use ($template, $club) {
+                        $query->where('subscription_template_id', $template->id);
+                        if (Subscription::hasClubIdColumn()) {
+                            $query->where('club_id', $club->id);
+                        }
+                    })
+                    ->whereHas('students', function ($query) use ($studentId) {
+                        $query->where('students.id', $studentId);
+                    })
+                    ->where('status', 'active')
+                    ->first();
+
+                if ($existingActiveInstance) {
+                    $student = \App\Models\Student::with('user')->find($studentId);
+                    $studentName = $student->user->name ?? 'Élève #' . $studentId;
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => "{$studentName} a déjà un abonnement actif de type '{$template->model_number}'. Veuillez d'abord clôturer l'abonnement existant avant d'en créer un nouveau."
+                    ], 422);
+                }
+            }
 
             // Créer un nouvel abonnement depuis le template
             // Utiliser createSafe pour gérer automatiquement club_id
@@ -614,12 +675,13 @@ class SubscriptionController extends Controller
 
             // Récupérer tous les abonnements actifs du club
             $subscriptions = Subscription::forClub($club->id)
-                ->with('instances')
+                ->with('instances.students')
                 ->get();
 
             $stats = [
                 'total_checked' => 0,
                 'total_updated' => 0,
+                'lessons_linked' => 0,
                 'details' => []
             ];
 
@@ -632,10 +694,46 @@ class SubscriptionController extends Controller
 
                     $stats['total_checked']++;
                     
+                    // 🔧 NOUVELLE FONCTIONNALITÉ : Trouver et lier les cours manquants
+                    // Récupérer les élèves de cet abonnement
+                    $studentIds = $instance->students->pluck('id')->toArray();
+                    
+                    if (!empty($studentIds)) {
+                        // Récupérer les types de cours acceptés par cet abonnement
+                        $courseTypeIds = $subscription->courseTypes->pluck('id')->toArray();
+                        
+                        if (!empty($courseTypeIds)) {
+                            // Trouver les cours des élèves qui ne sont pas encore liés à un abonnement
+                            // et qui correspondent aux types de cours de cet abonnement
+                            $unlinkedLessons = \App\Models\Lesson::whereIn('student_id', $studentIds)
+                                ->whereIn('course_type_id', $courseTypeIds)
+                                ->whereNotIn('status', ['cancelled'])
+                                ->whereDoesntHave('subscriptionInstances') // Cours non encore liés à un abonnement
+                                ->get();
+                            
+                            foreach ($unlinkedLessons as $lesson) {
+                                try {
+                                    // Vérifier s'il reste des cours disponibles
+                                    $totalLessons = $instance->subscription->total_available_lessons;
+                                    $lessonsUsed = $instance->lessons_used;
+                                    
+                                    if ($lessonsUsed < $totalLessons) {
+                                        $instance->consumeLesson($lesson);
+                                        $stats['lessons_linked']++;
+                                        
+                                        Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} lors du recalcul");
+                                    }
+                                } catch (\Exception $e) {
+                                    Log::warning("Impossible de lier le cours {$lesson->id} à l'abonnement {$instance->id}: " . $e->getMessage());
+                                }
+                            }
+                        }
+                    }
+                    
                     // Sauvegarder l'ancienne valeur
                     $oldLessonsUsed = $instance->lessons_used;
                     
-                    // Recalculer
+                    // Recalculer après avoir lié les cours
                     $instance->recalculateLessonsUsed();
                     
                     // Si la valeur a changé, compter comme mise à jour
@@ -655,12 +753,20 @@ class SubscriptionController extends Controller
             Log::info('Recalcul de tous les abonnements', [
                 'club_id' => $club->id,
                 'total_checked' => $stats['total_checked'],
-                'total_updated' => $stats['total_updated']
+                'total_updated' => $stats['total_updated'],
+                'lessons_linked' => $stats['lessons_linked']
             ]);
+
+            $message = "Recalcul terminé : {$stats['total_updated']} abonnement(s) mis à jour sur {$stats['total_checked']} vérifié(s)";
+            if ($stats['lessons_linked'] > 0) {
+                $message .= " - {$stats['lessons_linked']} cours lié(s) automatiquement";
+            } else {
+                $message .= " - Les compteurs sont déjà corrects";
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => "Recalcul terminé : {$stats['total_updated']} abonnement(s) mis à jour sur {$stats['total_checked']} vérifié(s)",
+                'message' => $message,
                 'data' => $stats
             ]);
 
