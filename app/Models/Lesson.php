@@ -110,6 +110,15 @@ class Lesson extends Model
     }
 
     /**
+     * Get the subscription instances that consumed this lesson.
+     */
+    public function subscriptionInstances(): BelongsToMany
+    {
+        return $this->belongsToMany(SubscriptionInstance::class, 'subscription_lessons', 'lesson_id', 'subscription_instance_id')
+                    ->withTimestamps();
+    }
+
+    /**
      * Scope to filter lessons by status.
      */
     public function scopeByStatus($query, $status)

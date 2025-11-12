@@ -115,50 +115,84 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                     $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
                     $subscriptionInstance->recalculateLessonsUsed();
                     
-                    if (in_array($this->lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
-                        try {
-                            $subscriptionInstance->consumeLesson($this->lesson);
-                            
-                            $studentNames = $subscriptionInstance->students->map(function ($student) {
-                                if ($student->user) {
-                                    return $student->user->name;
-                                }
-                                $firstName = $student->first_name ?? '';
-                                $lastName = $student->last_name ?? '';
-                                $name = trim($firstName . ' ' . $lastName);
-                                return !empty($name) ? $name : 'Élève sans nom';
-                            })->filter()->join(', ');
-                            
-                            $subscriptionInstance->refresh();
-                            
-                            $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
-                            $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
-                            
-                            if ($isFullyUsed && $subscriptionInstance->status === 'active') {
-                                $subscriptionInstance->status = 'completed';
-                                $subscriptionInstance->save();
+                    // 🐛 DEBUG : Log avant de vérifier les conditions
+                    Log::info("🔍 [DEBUG] Vérification conditions pour subscription_instance {$subscriptionInstance->id}", [
+                        'course_type_id' => $this->lesson->course_type_id,
+                        'allowed_course_types' => $courseTypeIds,
+                        'type_match' => in_array($this->lesson->course_type_id, $courseTypeIds),
+                        'remaining_lessons_check_started' => true
+                    ]);
+                    
+                    if (in_array($this->lesson->course_type_id, $courseTypeIds)) {
+                        // Vérifier remaining_lessons SANS appeler l'attribut qui pourrait causer des problèmes
+                        // Calculer manuellement pour éviter les effets de bord
+                        $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
+                        $lessonsUsed = $subscriptionInstance->lessons_used;
+                        $remainingLessons = max(0, $totalLessons - $lessonsUsed);
+                        
+                        Log::info("🔍 [DEBUG] Calcul manuel remaining_lessons", [
+                            'subscription_instance_id' => $subscriptionInstance->id,
+                            'total_lessons' => $totalLessons,
+                            'lessons_used' => $lessonsUsed,
+                            'remaining_lessons' => $remainingLessons
+                        ]);
+                        
+                        if ($remainingLessons > 0) {
+                            try {
+                                Log::info("🎯 [DEBUG] Tentative de consommation du cours {$this->lesson->id} pour l'abonnement {$subscriptionInstance->id}");
                                 
-                                Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
+                                $subscriptionInstance->consumeLesson($this->lesson);
+                                
+                                $studentNames = $subscriptionInstance->students->map(function ($student) {
+                                    if ($student->user) {
+                                        return $student->user->name;
+                                    }
+                                    $firstName = $student->first_name ?? '';
+                                    $lastName = $student->last_name ?? '';
+                                    $name = trim($firstName . ' ' . $lastName);
+                                    return !empty($name) ? $name : 'Élève sans nom';
+                                })->filter()->join(', ');
+                                
+                                $subscriptionInstance->refresh();
+                                
+                                $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
+                                $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
+                                
+                                if ($isFullyUsed && $subscriptionInstance->status === 'active') {
+                                    $subscriptionInstance->status = 'completed';
+                                    $subscriptionInstance->save();
+                                    
+                                    Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
+                                        'subscription_instance_id' => $subscriptionInstance->id,
+                                        'lessons_used' => $subscriptionInstance->lessons_used,
+                                        'total_lessons' => $totalLessons,
+                                        'students' => $studentNames
+                                    ]);
+                                }
+                                
+                                Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
+                                    'lesson_id' => $this->lesson->id,
                                     'subscription_instance_id' => $subscriptionInstance->id,
+                                    'student_id' => $studentId,
                                     'lessons_used' => $subscriptionInstance->lessons_used,
-                                    'total_lessons' => $totalLessons,
-                                    'students' => $studentNames
+                                    'remaining_lessons' => $subscriptionInstance->remaining_lessons
                                 ]);
+                                
+                                break;
+                            } catch (\Exception $e) {
+                                Log::error("❌ Erreur lors de la consommation du cours {$this->lesson->id} pour l'abonnement {$subscriptionInstance->id}", [
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString(),
+                                    'line' => $e->getLine(),
+                                    'file' => $e->getFile()
+                                ]);
+                                continue;
                             }
-                            
-                            Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
-                                'lesson_id' => $this->lesson->id,
-                                'subscription_instance_id' => $subscriptionInstance->id,
-                                'student_id' => $studentId,
-                                'lessons_used' => $subscriptionInstance->lessons_used,
-                                'remaining_lessons' => $subscriptionInstance->remaining_lessons
-                            ]);
-                            
-                            break;
-                        } catch (\Exception $e) {
-                            Log::error("❌ Erreur lors de la consommation: " . $e->getMessage());
-                            continue;
+                        } else {
+                            Log::info("⚠️ [DEBUG] Pas de cours restants pour l'abonnement {$subscriptionInstance->id}");
                         }
+                    } else {
+                        Log::info("⚠️ [DEBUG] Type de cours {$this->lesson->course_type_id} non compatible avec l'abonnement {$subscriptionInstance->id}");
                     }
                 }
             }
