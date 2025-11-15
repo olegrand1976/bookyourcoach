@@ -68,11 +68,19 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Les créneaux récurrents bloqués pour cet abonnement
+     * Les créneaux récurrents bloqués pour cet abonnement (ancien modèle)
      */
-    public function recurringSlots()
+    public function legacyRecurringSlots()
     {
         return $this->hasMany(SubscriptionRecurringSlot::class);
+    }
+
+    /**
+     * Les créneaux récurrents (nouveau modèle) liés à cet abonnement
+     */
+    public function recurringSlotSubscriptions()
+    {
+        return $this->hasMany(RecurringSlotSubscription::class);
     }
 
     /**
