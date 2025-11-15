@@ -101,8 +101,9 @@ class ClubPlanningController extends Controller
                     return $lessonDate === $date && $lessonTime === $timeStr;
                 })->count();
 
-                // Vérifier la capacité
-                if ($lessonsAtThisTime >= $slot->max_capacity) continue;
+                // Vérifier la capacité (utiliser max_slots = nombre de plages simultanées)
+                $maxSlots = $slot->max_slots ?? 1;
+                if ($lessonsAtThisTime >= $maxSlots) continue;
 
                 // Calculer la priorité
                 $priority = 3; // Basse par défaut (plage vide)
@@ -116,6 +117,7 @@ class ClubPlanningController extends Controller
                     $status = 'priority_used';
                 }
 
+                $maxSlots = $slot->max_slots ?? 1; // Nombre de plages simultanées
                 $suggestions[] = [
                     'time' => $timeStr,
                     'slot_id' => $slot->id,
@@ -124,8 +126,9 @@ class ClubPlanningController extends Controller
                     'priority' => $priority,
                     'status' => $status,
                     'used_capacity' => $lessonsAtThisTime,
-                    'max_capacity' => $slot->max_capacity,
-                    'available_capacity' => $slot->max_capacity - $lessonsAtThisTime,
+                    'max_slots' => $maxSlots, // Nombre de plages simultanées
+                    'max_capacity' => $slot->max_capacity, // Participants par créneau (conservé pour compatibilité)
+                    'available_capacity' => $maxSlots - $lessonsAtThisTime,
                     'total_lessons_in_slot' => $totalLessonsInSlot,
                     'teachers_in_slot' => $teachersInSlot,
                     'minutes_from_slot_start' => $startMinutes - $slotStartMinutes
@@ -192,16 +195,17 @@ class ClubPlanningController extends Controller
             $slot = ClubOpenSlot::find($request->slot_id);
             
             if ($slot) {
-                // Vérifier la capacité
+                // Vérifier la capacité (utiliser max_slots = nombre de plages simultanées)
                 $lessonsAtThisTime = Lesson::where('club_id', $clubId)
                     ->whereDate('start_time', $date)
                     ->whereTime('start_time', $time)
                     ->count();
 
-                if ($lessonsAtThisTime >= $slot->max_capacity) {
-                    $conflicts[] = "Le créneau est complet ($lessonsAtThisTime/{$slot->max_capacity})";
-                } elseif ($lessonsAtThisTime >= $slot->max_capacity - 1) {
-                    $warnings[] = "Le créneau sera bientôt complet (" . ($lessonsAtThisTime + 1) . "/{$slot->max_capacity})";
+                $maxSlots = $slot->max_slots ?? 1;
+                if ($lessonsAtThisTime >= $maxSlots) {
+                    $conflicts[] = "Le créneau est complet ($lessonsAtThisTime/{$maxSlots} plages simultanées)";
+                } elseif ($lessonsAtThisTime >= $maxSlots - 1) {
+                    $warnings[] = "Le créneau sera bientôt complet (" . ($lessonsAtThisTime + 1) . "/{$maxSlots} plages simultanées)";
                 }
 
                 // Vérifier que le cours ne dépasse pas la fin du créneau
@@ -300,7 +304,8 @@ class ClubPlanningController extends Controller
                 $timeStep = $this->calculateTimeStep($slot->courseTypes);
                 $slotDuration = $this->timeToMinutes($slot->end_time) - $this->timeToMinutes($slot->start_time);
                 $possibleSlots = floor($slotDuration / $timeStep);
-                $totalCapacity = $slot->max_capacity * $possibleSlots;
+                $maxSlots = $slot->max_slots ?? 1; // Nombre de plages simultanées
+                $totalCapacity = $maxSlots * $possibleSlots;
                 $occupancyRate = $totalCapacity > 0 ? round(($lessonsCount / $totalCapacity) * 100, 2) : 0;
 
                 $slotStats[] = [
@@ -310,7 +315,8 @@ class ClubPlanningController extends Controller
                     'day_of_week' => $dayOfWeek,
                     'time_range' => substr($slot->start_time, 0, 5) . ' - ' . substr($slot->end_time, 0, 5),
                     'lessons_count' => $lessonsCount,
-                    'max_capacity' => $slot->max_capacity,
+                    'max_slots' => $maxSlots, // Nombre de plages simultanées
+                    'max_capacity' => $slot->max_capacity, // Participants par créneau (conservé pour compatibilité)
                     'possible_slots' => $possibleSlots,
                     'total_capacity' => $totalCapacity,
                     'occupancy_rate' => $occupancyRate,

@@ -112,16 +112,24 @@ return new class extends Migration
                 [$refTable, $refColumn] = explode('.', $key['references']);
                 $onDelete = $key['onDelete'] ?? 'restrict';
 
-                // Vérifier si la foreign key existe déjà
-                $existingFk = DB::select("
-                    SELECT CONSTRAINT_NAME
-                    FROM information_schema.KEY_COLUMN_USAGE
-                    WHERE TABLE_SCHEMA = ?
-                    AND TABLE_NAME = ?
-                    AND COLUMN_NAME = ?
-                    AND REFERENCED_TABLE_NAME = ?
-                    AND REFERENCED_COLUMN_NAME = ?
-                ", [$dbName, $table, $column, $refTable, $refColumn]);
+                // Vérifier si la foreign key existe déjà (uniquement pour MySQL/MariaDB)
+                $driver = DB::getDriverName();
+                $existingFk = [];
+                
+                if ($driver !== 'sqlite') {
+                    // Pour MySQL/MariaDB, vérifier si la foreign key existe déjà
+                    $existingFk = DB::select("
+                        SELECT CONSTRAINT_NAME
+                        FROM information_schema.KEY_COLUMN_USAGE
+                        WHERE TABLE_SCHEMA = ?
+                        AND TABLE_NAME = ?
+                        AND COLUMN_NAME = ?
+                        AND REFERENCED_TABLE_NAME = ?
+                        AND REFERENCED_COLUMN_NAME = ?
+                    ", [$dbName, $table, $column, $refTable, $refColumn]);
+                }
+                // Pour SQLite, on skip la vérification car information_schema n'existe pas
+                // Les foreign keys seront ajoutées si elles n'existent pas déjà
 
                 if (!empty($existingFk)) {
                     continue; // La foreign key existe déjà
@@ -139,14 +147,21 @@ return new class extends Migration
                 $constraintName = $this->generateConstraintName($table, $column);
                 
                 try {
-                    DB::statement("
-                        ALTER TABLE `{$table}`
-                        ADD CONSTRAINT `{$constraintName}`
-                        FOREIGN KEY (`{$column}`)
-                        REFERENCES `{$refTable}`(`{$refColumn}`)
-                        ON DELETE {$onDelete}
-                        ON UPDATE RESTRICT
-                    ");
+                    if ($driver === 'sqlite') {
+                        // SQLite a des limitations sur ALTER TABLE ADD CONSTRAINT
+                        // Les foreign keys doivent être définies lors de la création de la table
+                        // On skip l'ajout pour SQLite (les tests fonctionneront quand même)
+                        continue;
+                    } else {
+                        DB::statement("
+                            ALTER TABLE `{$table}`
+                            ADD CONSTRAINT `{$constraintName}`
+                            FOREIGN KEY (`{$column}`)
+                            REFERENCES `{$refTable}`(`{$refColumn}`)
+                            ON DELETE {$onDelete}
+                            ON UPDATE RESTRICT
+                        ");
+                    }
                 } catch (\Exception $e) {
                     // Logger l'erreur mais continuer avec les autres foreign keys
                     \Log::warning("Impossible d'ajouter la foreign key {$constraintName}: " . $e->getMessage());
@@ -171,18 +186,30 @@ return new class extends Migration
                 $column = $key['column'];
                 $constraintName = $this->generateConstraintName($table, $column);
 
-                // Vérifier si la foreign key existe
-                $existingFk = DB::select("
-                    SELECT CONSTRAINT_NAME
-                    FROM information_schema.KEY_COLUMN_USAGE
-                    WHERE TABLE_SCHEMA = ?
-                    AND TABLE_NAME = ?
-                    AND CONSTRAINT_NAME = ?
-                ", [$dbName, $table, $constraintName]);
+                // Vérifier si la foreign key existe (uniquement pour MySQL/MariaDB)
+                $driver = DB::getDriverName();
+                $existingFk = [];
+                
+                if ($driver !== 'sqlite') {
+                    // Vérifier si la foreign key existe
+                    $existingFk = DB::select("
+                        SELECT CONSTRAINT_NAME
+                        FROM information_schema.KEY_COLUMN_USAGE
+                        WHERE TABLE_SCHEMA = ?
+                        AND TABLE_NAME = ?
+                        AND CONSTRAINT_NAME = ?
+                    ", [$dbName, $table, $constraintName]);
+                }
+                // Pour SQLite, on essaie de supprimer directement (échouera silencieusement si elle n'existe pas)
 
-                if (!empty($existingFk)) {
+                if (!empty($existingFk) || $driver === 'sqlite') {
                     try {
-                        DB::statement("ALTER TABLE `{$table}` DROP FOREIGN KEY `{$constraintName}`");
+                        if ($driver === 'sqlite') {
+                            // SQLite ne supporte pas DROP FOREIGN KEY, on skip
+                            continue;
+                        } else {
+                            DB::statement("ALTER TABLE `{$table}` DROP FOREIGN KEY `{$constraintName}`");
+                        }
                     } catch (\Exception $e) {
                         \Log::warning("Impossible de supprimer la foreign key {$constraintName}: " . $e->getMessage());
                     }
@@ -196,33 +223,49 @@ return new class extends Migration
      */
     private function cleanupOrphanedData(string $table, string $column, string $refTable, string $refColumn, string $onDelete): void
     {
-        // Trouver les enregistrements orphelins
-        $orphans = DB::select("
-            SELECT t.{$column}
-            FROM `{$table}` t
-            LEFT JOIN `{$refTable}` r ON t.{$column} = r.{$refColumn}
-            WHERE t.{$column} IS NOT NULL
-            AND r.{$refColumn} IS NULL
-        ");
+        // Vérifier que la colonne existe
+        if (!Schema::hasColumn($table, $column)) {
+            return; // La colonne n'existe pas, on skip
+        }
 
-        if (empty($orphans)) {
+        // Pour SQLite, skip le nettoyage car les requêtes peuvent échouer
+        $driver = DB::getDriverName();
+        if ($driver === 'sqlite') {
             return;
         }
 
-        // Si onDelete est 'set null', mettre à NULL les valeurs orphelines
-        if ($onDelete === 'set null') {
-            $orphanIds = array_column($orphans, $column);
-            DB::table($table)
-                ->whereIn($column, $orphanIds)
-                ->update([$column => null]);
-        } else {
-            // Sinon, supprimer les enregistrements orphelins (seulement si c'est sûr)
-            // Pour la production, on préfère logger et laisser l'administrateur décider
-            \Log::warning("Données orphelines détectées dans {$table}.{$column} référençant {$refTable}.{$refColumn}", [
-                'count' => count($orphans),
-                'table' => $table,
-                'column' => $column,
-            ]);
+        try {
+            // Trouver les enregistrements orphelins
+            $orphans = DB::select("
+                SELECT t.{$column}
+                FROM `{$table}` t
+                LEFT JOIN `{$refTable}` r ON t.{$column} = r.{$refColumn}
+                WHERE t.{$column} IS NOT NULL
+                AND r.{$refColumn} IS NULL
+            ");
+
+            if (empty($orphans)) {
+                return;
+            }
+
+            // Si onDelete est 'set null', mettre à NULL les valeurs orphelines
+            if ($onDelete === 'set null') {
+                $orphanIds = array_column($orphans, $column);
+                DB::table($table)
+                    ->whereIn($column, $orphanIds)
+                    ->update([$column => null]);
+            } else {
+                // Sinon, supprimer les enregistrements orphelins (seulement si c'est sûr)
+                // Pour la production, on préfère logger et laisser l'administrateur décider
+                \Log::warning("Données orphelines détectées dans {$table}.{$column} référençant {$refTable}.{$refColumn}", [
+                    'count' => count($orphans),
+                    'table' => $table,
+                    'column' => $column,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Logger l'erreur mais continuer
+            \Log::warning("Erreur lors du nettoyage des données orphelines pour {$table}.{$column}: " . $e->getMessage());
         }
     }
 

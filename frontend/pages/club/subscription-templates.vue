@@ -8,25 +8,35 @@
             <h1 class="text-2xl font-bold text-gray-900">Modèles d'Abonnements</h1>
             <p class="text-gray-600">Créez et gérez les modèles d'abonnement (templates) pour créer des abonnements</p>
           </div>
-          <button 
-            @click="openCreateModal"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            <span>Nouveau Modèle</span>
-          </button>
+          <div class="flex space-x-3">
+            <NuxtLink
+              to="/club/subscriptions"
+              class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+              <span>Abonnements</span>
+            </NuxtLink>
+            <button 
+              @click="openCreateModal"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              <span>Nouveau Modèle</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Liste des modèles -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Liste des modèles -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <div 
         v-for="template in templates" 
         :key="template.id"
-        class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+        class="bg-white rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden border-2 border-gray-100 hover:border-blue-300"
       >
         <!-- Header carte -->
         <div class="p-6 border-b border-gray-200">
@@ -94,39 +104,46 @@
         </div>
 
         <!-- Actions -->
-        <div class="p-4 bg-white border-t border-gray-200 flex justify-end gap-2">
-          <button 
-            @click="editTemplate(template)"
-            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            Modifier
-          </button>
-          <button 
-            @click="deleteTemplate(template)"
-            class="text-red-600 hover:text-red-800 text-sm font-medium"
-          >
-            Supprimer
-          </button>
+        <div class="p-4 bg-white border-t border-gray-200">
+          <div class="flex items-center justify-between">
+            <button 
+              @click="editTemplate(template)"
+              class="flex-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Modifier
+            </button>
+            <div class="w-px h-6 bg-gray-200 mx-2"></div>
+            <button 
+              @click="deleteTemplate(template)"
+              class="flex-1 text-red-600 hover:text-red-800 hover:bg-red-50 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Supprimer
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Message si aucun modèle -->
-    <div v-if="templates.length === 0 && !loading" class="bg-white rounded-lg shadow-sm p-12 text-center">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-      </svg>
-      <h3 class="mt-4 text-lg font-medium text-gray-900">Aucun modèle d'abonnement</h3>
-      <p class="mt-2 text-sm text-gray-500">
-        Créez votre premier modèle d'abonnement pour commencer.
-      </p>
-      <div class="mt-6">
-        <button 
-          @click="openCreateModal"
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Créer un modèle
-        </button>
+      <!-- Message si aucun modèle -->
+      <div v-if="templates.length === 0 && !loading" class="bg-white rounded-lg shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun modèle d'abonnement</h3>
+        <p class="text-gray-600 mb-4">
+          Créez votre premier modèle d'abonnement pour pouvoir ensuite créer des abonnements pour vos élèves.
+        </p>
+        <div class="flex justify-center gap-3">
+          <button 
+            @click="openCreateModal"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center space-x-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <span>Créer un modèle</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -499,13 +516,36 @@ const formatValidity = (template) => {
 const loadTemplates = async () => {
   try {
     loading.value = true
+    console.log('🔄 [loadTemplates] Début du chargement...')
     const response = await $api.get('/club/subscription-templates')
+    console.log('📥 [loadTemplates] Réponse API:', {
+      success: response.data?.success,
+      dataLength: response.data?.data?.length || 0,
+      hasData: !!response.data?.data,
+      data: response.data?.data
+    })
     if (response.data.success) {
-      templates.value = response.data.data
+      templates.value = response.data.data || []
+      console.log('✅ [loadTemplates] Modèles chargés:', templates.value.length)
+      console.log('📋 [loadTemplates] Détails des modèles:', templates.value.map(t => ({
+        id: t.id,
+        model_number: t.model_number,
+        is_active: t.is_active,
+        course_types_count: t.course_types?.length || t.courseTypes?.length || 0
+      })))
+    } else {
+      console.error('❌ [loadTemplates] Réponse non réussie:', response.data)
+      templates.value = []
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des modèles:', error)
-    alert('Erreur lors du chargement des modèles')
+    console.error('❌ [loadTemplates] Erreur lors du chargement des modèles:', error)
+    console.error('❌ [loadTemplates] Détails de l\'erreur:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
+    alert('Erreur lors du chargement des modèles: ' + (error.message || 'Erreur inconnue'))
+    templates.value = []
   } finally {
     loading.value = false
   }

@@ -12,6 +12,7 @@ use App\Models\Student;
 use App\Models\CourseType;
 use App\Models\Location;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -122,29 +123,41 @@ class DashboardController extends Controller
      */
     public function createLesson(Request $request)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'start_time' => 'required|date|after:now',
-            'end_time' => 'required|date|after:start_time',
-            'student_id' => 'nullable|exists:students,id', // Étudiant principal optionnel (pour compatibilité)
-            'student_ids' => 'nullable|array', // Nouveaux étudiants multiples
-            'student_ids.*' => 'exists:students,id', // Validation de chaque ID d'étudiant
-            'course_type_id' => 'nullable|exists:course_types,id',
-            'location_id' => 'nullable|exists:locations,id',
-            'location' => 'nullable|string',
-            'price' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-        ]);
+        try {
+            $request->validate([
+                'title' => 'required|string|max:255',
+                'description' => 'required|string',
+                'start_time' => 'required|date|after:now',
+                'end_time' => 'required|date|after:start_time',
+                'student_id' => 'nullable|exists:students,id', // Étudiant principal optionnel (pour compatibilité)
+                'student_ids' => 'nullable|array', // Nouveaux étudiants multiples
+                'student_ids.*' => 'exists:students,id', // Validation de chaque ID d'étudiant
+                'course_type_id' => 'nullable|exists:course_types,id',
+                'location_id' => 'nullable|exists:locations,id',
+                'location' => 'nullable|string',
+                'price' => 'nullable|numeric|min:0',
+                'notes' => 'nullable|string',
+            ]);
 
-        $user = $request->user();
-        $teacherId = $user->teacher->id;
+            $user = $request->user();
+            $teacherId = $user->teacher->id;
 
-        // Déterminer le statut du cours
-        $hasStudents = $request->student_id || ($request->student_ids && count($request->student_ids) > 0);
-        $status = $hasStudents ? 'pending' : 'available';
+            // Vérifier qu'un élève n'est pas déjà inscrit à la même heure
+            if ($request->student_id) {
+                $this->checkStudentTimeConflict($request->student_id, $request->start_time);
+            }
+            // Vérifier aussi pour les étudiants multiples
+            if ($request->student_ids && count($request->student_ids) > 0) {
+                foreach ($request->student_ids as $studentId) {
+                    $this->checkStudentTimeConflict($studentId, $request->start_time);
+                }
+            }
 
-        $lesson = Lesson::create([
+            // Déterminer le statut du cours
+            $hasStudents = $request->student_id || ($request->student_ids && count($request->student_ids) > 0);
+            $status = $hasStudents ? 'pending' : 'available';
+
+            $lesson = Lesson::create([
             'teacher_id' => $teacherId,
             'student_id' => $request->student_id, // Étudiant principal (pour compatibilité)
             'course_type_id' => $request->course_type_id ?? 1, // Type par défaut
@@ -159,29 +172,44 @@ class DashboardController extends Controller
             'status' => $status,
         ]);
 
-        // Ajouter les étudiants multiples via la table de liaison
-        if ($request->student_ids && count($request->student_ids) > 0) {
-            $studentData = [];
-            foreach ($request->student_ids as $studentId) {
-                $studentData[$studentId] = [
-                    'status' => 'pending',
-                    'price' => $request->price, // Prix par défaut, peut être personnalisé
-                    'notes' => null,
-                ];
+            // Ajouter les étudiants multiples via la table de liaison
+            if ($request->student_ids && count($request->student_ids) > 0) {
+                $studentData = [];
+                foreach ($request->student_ids as $studentId) {
+                    $studentData[$studentId] = [
+                        'status' => 'pending',
+                        'price' => $request->price, // Prix par défaut, peut être personnalisé
+                        'notes' => null,
+                    ];
+                }
+                $lesson->students()->attach($studentData);
             }
-            $lesson->students()->attach($studentData);
-        }
 
-        // Si un étudiant principal est spécifié, l'ajouter aussi à la table de liaison
-        if ($request->student_id && !in_array($request->student_id, $request->student_ids ?? [])) {
-            $lesson->students()->attach($request->student_id, [
-                'status' => 'pending',
-                'price' => $request->price,
-                'notes' => null,
-            ]);
-        }
+            // Si un étudiant principal est spécifié, l'ajouter aussi à la table de liaison
+            if ($request->student_id && !in_array($request->student_id, $request->student_ids ?? [])) {
+                $lesson->students()->attach($request->student_id, [
+                    'status' => 'pending',
+                    'price' => $request->price,
+                    'notes' => null,
+                ]);
+            }
 
-        return response()->json($lesson->load(['courseType', 'location', 'students.user', 'club']), 201);
+            return response()->json($lesson->load(['courseType', 'location', 'students.user', 'club']), 201);
+        } catch (\Exception $e) {
+            // Vérifier si c'est une erreur de conflit horaire pour l'élève
+            if (str_contains($e->getMessage(), 'déjà un cours programmé')) {
+                Log::warning('Conflit horaire pour l\'élève:', [
+                    'message' => $e->getMessage(),
+                    'request' => $request->all()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 422);
+            }
+            // Propager les autres exceptions
+            throw $e;
+        }
     }
 
     /**
@@ -369,5 +397,57 @@ class DashboardController extends Controller
         $students = Student::with('user')->get();
 
         return response()->json($students);
+    }
+
+    /**
+     * Vérifie qu'un élève n'est pas déjà inscrit à la même heure
+     * 
+     * @param int $studentId L'ID de l'élève
+     * @param string $startTime L'heure de début du cours (format Y-m-d H:i:s)
+     * @throws \Exception Si l'élève a déjà un cours à cette heure
+     */
+    private function checkStudentTimeConflict(int $studentId, string $startTime): void
+    {
+        try {
+            $startDateTime = Carbon::parse($startTime);
+            $date = $startDateTime->format('Y-m-d');
+            $time = $startDateTime->format('H:i');
+            
+            // Créer une plage de temps très précise (même heure et minute)
+            $exactStartTime = Carbon::parse($date . ' ' . $time . ':00');
+            $exactEndTime = $exactStartTime->copy()->addMinute(); // +1 minute pour avoir la plage exacte
+            
+            // Vérifier les cours où l'élève est l'étudiant principal (student_id)
+            $conflictingLessonsAsMain = Lesson::where('student_id', $studentId)
+                ->where('start_time', '>=', $exactStartTime)
+                ->where('start_time', '<', $exactEndTime)
+                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
+                ->exists();
+            
+            if ($conflictingLessonsAsMain) {
+                throw new \Exception("Cet élève a déjà un cours programmé à cette heure ({$time}).");
+            }
+            
+            // Vérifier les cours où l'élève est dans la relation many-to-many (students)
+            $conflictingLessonsAsSecondary = Lesson::whereHas('students', function ($query) use ($studentId) {
+                    $query->where('students.id', $studentId);
+                })
+                ->where('start_time', '>=', $exactStartTime)
+                ->where('start_time', '<', $exactEndTime)
+                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
+                ->exists();
+            
+            if ($conflictingLessonsAsSecondary) {
+                throw new \Exception("Cet élève a déjà un cours programmé à cette heure ({$time}).");
+            }
+            
+        } catch (\Exception $e) {
+            // Si c'est notre exception de conflit, la propager
+            if (str_contains($e->getMessage(), 'déjà un cours programmé')) {
+                throw $e;
+            }
+            // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
+            Log::warning("Erreur lors de la vérification de conflit horaire pour l'élève: " . $e->getMessage());
+        }
     }
 }

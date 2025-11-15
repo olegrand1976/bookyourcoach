@@ -74,52 +74,72 @@ class SubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
             
-            // Recalculer automatiquement et lier les cours manquants pour chaque instance active
+            // 🔧 Lier automatiquement les cours non liés aux abonnements actifs
+            // Utiliser l'ordre chronologique : les abonnements les plus anciens sont utilisés en premier
+            $allStudentIds = [];
             foreach ($subscriptions as $subscription) {
                 if ($subscription->instances && $subscription->instances->count() > 0) {
                     foreach ($subscription->instances as $instance) {
-                        // Ne traiter que les instances actives
-                        if ($instance->status !== 'active') {
-                            continue;
+                        if ($instance->status === 'active') {
+                            $allStudentIds = array_merge($allStudentIds, $instance->students->pluck('id')->toArray());
                         }
-                        
-                        // 🔧 Trouver et lier les cours manquants
-                        $studentIds = $instance->students->pluck('id')->toArray();
-                        
-                        if (!empty($studentIds)) {
-                            // Récupérer les types de cours acceptés par cet abonnement
-                            $courseTypeIds = $subscription->courseTypes->pluck('id')->toArray();
-                            
-                            if (!empty($courseTypeIds)) {
-                                // Trouver les cours des élèves qui ne sont pas encore liés à un abonnement
-                                $unlinkedLessons = \App\Models\Lesson::whereIn('student_id', $studentIds)
-                                    ->whereIn('course_type_id', $courseTypeIds)
-                                    ->whereNotIn('status', ['cancelled'])
-                                    ->whereDoesntHave('subscriptionInstances')
-                                    ->get();
-                                
-                                foreach ($unlinkedLessons as $lesson) {
-                                    try {
-                                        // Vérifier s'il reste des cours disponibles
-                                        $totalLessons = $instance->subscription->total_available_lessons;
-                                        $lessonsUsed = $instance->lessons_used;
-                                        
-                                        if ($lessonsUsed < $totalLessons) {
-                                            $instance->consumeLesson($lesson);
-                                            Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} au chargement");
-                                        }
-                                    } catch (\Exception $e) {
-                                        Log::warning("Impossible de lier le cours {$lesson->id} à l'abonnement {$instance->id}: " . $e->getMessage());
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Recalculer après avoir lié les cours
-                        $instance->recalculateLessonsUsed();
                     }
                 }
             }
+            $allStudentIds = array_unique($allStudentIds);
+
+            // Pour chaque élève, trouver ses cours non liés et les lier au bon abonnement
+            foreach ($allStudentIds as $studentId) {
+                // Récupérer tous les cours non liés de cet élève
+                $unlinkedLessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
+                        $query->where('student_id', $studentId)
+                              ->orWhereHas('students', function ($q) use ($studentId) {
+                                  $q->where('students.id', $studentId);
+                              });
+                    })
+                    ->whereNotIn('status', ['cancelled'])
+                    ->whereDoesntHave('subscriptionInstances')
+                    ->get();
+
+                foreach ($unlinkedLessons as $lesson) {
+                    if (!$lesson->course_type_id) {
+                        continue;
+                    }
+
+                    try {
+                        // Trouver le bon abonnement actif pour cet élève et ce type de cours
+                        // (le plus ancien qui a encore des cours disponibles)
+                        $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                            $studentId,
+                            $lesson->course_type_id,
+                            $club->id
+                        );
+
+                        if ($instance) {
+                            $instance->consumeLesson($lesson);
+                            Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} (le plus ancien disponible)", [
+                                'lesson_id' => $lesson->id,
+                                'student_id' => $studentId,
+                                'course_type_id' => $lesson->course_type_id,
+                                'subscription_instance_id' => $instance->id,
+                                'subscription_created_at' => $instance->created_at
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning("Impossible de lier le cours {$lesson->id} à un abonnement: " . $e->getMessage(), [
+                            'lesson_id' => $lesson->id,
+                            'student_id' => $studentId,
+                            'course_type_id' => $lesson->course_type_id
+                        ]);
+                    }
+                }
+            }
+
+            // ⚠️ IMPORTANT : Ne pas recalculer automatiquement lessons_used ici
+            // car cela écraserait les valeurs manuelles entrées lors de la création
+            // (ex: si un élève a déjà consommé 5 cours ailleurs, cette info serait perdue)
+            // Le recalcul doit être fait à la demande via l'endpoint /recalculate ou 
+            // automatiquement lors de l'ajout/suppression de cours (via observers)
             
             // Ajouter l'alias subscriptionStudents pour compatibilité frontend
             foreach ($subscriptions as $subscription) {
@@ -285,10 +305,25 @@ class SubscriptionController extends Controller
                 ])
                 ->findOrFail($id);
             
-            // Calculer le nombre réel de cours pour chaque instance
+            // ⚠️ IMPORTANT : Ne pas recalculer automatiquement lessons_used ici
+            // car cela écraserait les valeurs manuelles entrées lors de la création.
+            // Le recalcul se fait maintenant intelligemment dans le modèle :
+            // - Si des cours sont attachés dans subscription_lessons, on utilise le comptage réel
+            // - Si aucun cours n'est attaché et qu'une valeur manuelle existe, on la préserve
+            // 
+            // Pour forcer un recalcul basé sur les cours réels, utiliser l'endpoint /recalculate
+            // ou laisser le système recalculer automatiquement lors de l'ajout/suppression de cours
+            
+            // Log pour debug : vérifier les valeurs de lessons_used avant envoi
             foreach ($subscription->instances as $instance) {
-                // Recalculer automatiquement lessons_used
-                $instance->recalculateLessonsUsed();
+                Log::info("📊 [show] Instance {$instance->id} avant envoi:", [
+                    'instance_id' => $instance->id,
+                    'lessons_used' => $instance->lessons_used,
+                    'lessons_count' => $instance->lessons ? $instance->lessons->count() : 0,
+                    'subscription_lessons_count' => \DB::table('subscription_lessons')
+                        ->where('subscription_instance_id', $instance->id)
+                        ->count()
+                ]);
             }
 
             return response()->json([
@@ -337,36 +372,20 @@ class SubscriptionController extends Controller
                 'expires_at' => 'nullable|date',
                 'lessons_used' => 'nullable|integer|min:0'
             ]);
+            
+            Log::info('📥 [assignToStudent] Données reçues:', [
+                'validated' => $validated,
+                'lessons_used_raw' => $request->input('lessons_used'),
+                'lessons_used_validated' => $validated['lessons_used'] ?? null
+            ]);
 
             // Vérifier que le template appartient au club et est actif
             $template = SubscriptionTemplate::where('club_id', $club->id)
                 ->where('is_active', true)
                 ->findOrFail($validated['subscription_template_id']);
 
-            // 🔒 VALIDATION : Vérifier qu'aucun élève n'a déjà une instance active pour ce type d'abonnement
-            foreach ($validated['student_ids'] as $studentId) {
-                $existingActiveInstance = SubscriptionInstance::whereHas('subscription', function ($query) use ($template, $club) {
-                        $query->where('subscription_template_id', $template->id);
-                        if (Subscription::hasClubIdColumn()) {
-                            $query->where('club_id', $club->id);
-                        }
-                    })
-                    ->whereHas('students', function ($query) use ($studentId) {
-                        $query->where('students.id', $studentId);
-                    })
-                    ->where('status', 'active')
-                    ->first();
-
-                if ($existingActiveInstance) {
-                    $student = \App\Models\Student::with('user')->find($studentId);
-                    $studentName = $student->user->name ?? 'Élève #' . $studentId;
-                    
-                    return response()->json([
-                        'success' => false,
-                        'message' => "{$studentName} a déjà un abonnement actif de type '{$template->model_number}'. Veuillez d'abord clôturer l'abonnement existant avant d'en créer un nouveau."
-                    ], 422);
-                }
-            }
+            // ✅ Plusieurs abonnements actifs sont maintenant autorisés pour un même élève
+            // Les abonnements seront traités par ordre chronologique (les plus anciens en premier)
 
             // Créer un nouvel abonnement depuis le template
             // Utiliser createSafe pour gérer automatiquement club_id
@@ -409,6 +428,12 @@ class SubscriptionController extends Controller
 
             // Attacher les élèves à cette instance
             $subscriptionInstance->students()->attach($validated['student_ids']);
+
+            Log::info('✅ [assignToStudent] Instance créée:', [
+                'instance_id' => $subscriptionInstance->id,
+                'lessons_used_saved' => $subscriptionInstance->lessons_used,
+                'expected_lessons_used' => $lessonsUsed
+            ]);
 
             DB::commit();
 
@@ -775,6 +800,96 @@ class SubscriptionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors du recalcul: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Clôturer un abonnement (mettre le statut à 'completed' ou 'cancelled')
+     */
+    public function close(Request $request, $instanceId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'status' => 'required|in:completed,cancelled',
+                'reason' => 'nullable|string|max:500'
+            ]);
+
+            // Récupérer l'instance d'abonnement
+            $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->with(['subscription.template', 'students.user'])
+                ->findOrFail($instanceId);
+
+            // Vérifier que l'abonnement est actif
+            if ($instance->status !== 'active') {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cet abonnement est déjà {$instance->status} et ne peut pas être clôturé."
+                ], 422);
+            }
+
+            // Mettre à jour le statut
+            $oldStatus = $instance->status;
+            $instance->status = $validated['status'];
+            $instance->save();
+
+            Log::info("Abonnement clôturé par le club", [
+                'instance_id' => $instance->id,
+                'old_status' => $oldStatus,
+                'new_status' => $validated['status'],
+                'reason' => $validated['reason'] ?? null,
+                'club_id' => $club->id,
+                'user_id' => $user->id
+            ]);
+
+            // Recharger les relations
+            $instance->load(['subscription.template.courseTypes', 'students.user']);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Abonnement clôturé avec succès (statut: {$validated['status']})",
+                'data' => $instance
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Abonnement non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la clôture de l\'abonnement: ' . $e->getMessage(), [
+                'instance_id' => $instanceId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la clôture de l\'abonnement: ' . $e->getMessage()
             ], 500);
         }
     }

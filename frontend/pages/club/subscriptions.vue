@@ -112,7 +112,7 @@
                 <svg class="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                 </svg>
-                <span class="text-gray-700">Validité: {{ subscription.template.validity_months }} mois</span>
+                <span class="text-gray-700">Validité: {{ formatValidity(subscription.template) }}</span>
               </div>
             </div>
           </div>
@@ -171,8 +171,14 @@
                 </div>
                 
                 <!-- Période de validité -->
-                <div v-if="instance.started_at || instance.expires_at" class="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
-                  <div v-if="instance.started_at" class="flex items-center">
+                <div v-if="instance.started_at || instance.expires_at || instance.created_at" class="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                  <div v-if="instance.created_at" class="flex items-center">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Créé: {{ formatDate(instance.created_at) }}
+                  </div>
+                  <div v-if="instance.started_at" class="flex items-center mt-1">
                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
@@ -200,7 +206,7 @@
       </div>
 
       <!-- Message si aucun abonnement -->
-      <div v-if="subscriptions.length === 0" class="bg-white rounded-lg shadow-sm p-12 text-center">
+      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0" class="bg-white rounded-lg shadow-sm p-12 text-center">
         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
         </svg>
@@ -277,6 +283,9 @@
                     {{ getInstanceStudentNames(instance) }}
                   </h4>
                   <div class="text-sm text-gray-600 space-y-1">
+                    <p v-if="instance.created_at">
+                      <strong>Créé:</strong> {{ formatDate(instance.created_at) }}
+                    </p>
                     <p>
                       <strong>Début:</strong> {{ formatDate(instance.started_at) }}
                     </p>
@@ -362,6 +371,7 @@ import { useToast } from '~/composables/useToast'
 
 console.log('🚀🚀🚀 FICHIER SUBSCRIPTIONS.VUE CHARGÉ - VERSION DEBUG ACTIVE 🚀🚀🚀')
 console.log('🚀 Timestamp:', new Date().toISOString())
+console.log('🚀 [SUBSCRIPTIONS] Script setup exécuté')
 
 definePageMeta({
   middleware: ['auth']
@@ -413,15 +423,27 @@ const isFormValid = computed(() => {
 
 // Méthodes
 const loadSubscriptions = async () => {
+  console.log('📦 [SUBSCRIPTIONS] loadSubscriptions appelé')
   try {
     const { $api } = useNuxtApp()
+    console.log('📦 [SUBSCRIPTIONS] $api disponible:', !!$api)
+    console.log('📦 [SUBSCRIPTIONS] Appel API vers /club/subscriptions')
     const response = await $api.get('/club/subscriptions')
+    console.log('📦 [SUBSCRIPTIONS] Réponse API reçue:', response)
+    console.log('📦 [SUBSCRIPTIONS] Réponse API data:', response.data)
     if (response.data.success) {
-      subscriptions.value = response.data.data
+      subscriptions.value = response.data.data || []
+      console.log('📦 [SUBSCRIPTIONS] Abonnements chargés:', subscriptions.value.length)
+      console.log('📦 [SUBSCRIPTIONS] Détails:', subscriptions.value)
+    } else {
+      console.error('📦 [SUBSCRIPTIONS] Réponse non réussie:', response.data)
+      subscriptions.value = []
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des abonnements:', error)
-    alert('Erreur lors du chargement des abonnements')
+    console.error('📦 [SUBSCRIPTIONS] Erreur lors du chargement des abonnements:', error)
+    console.error('📦 [SUBSCRIPTIONS] Erreur complète:', error.response?.data || error.message)
+    subscriptions.value = []
+    // Ne pas afficher d'alert pour ne pas bloquer l'interface
   }
 }
 
@@ -478,10 +500,44 @@ const getActiveInstances = (subscription) => {
 }
 
 const getInstanceStudentNames = (instance) => {
-  if (!instance.students || instance.students.length === 0) {
+  if (!instance || !instance.students || instance.students.length === 0) {
     return '(Aucun élève)'
   }
-  const names = instance.students.map(s => s.user?.name || s.name || 'Élève').join(' & ')
+  
+  const names = instance.students.map(s => {
+    if (!s) {
+      return 'Élève'
+    }
+    
+    // Essayer d'abord le nom de l'utilisateur (si l'élève a un compte)
+    if (s.user && s.user.name) {
+      return s.user.name
+    }
+    
+    // Utiliser first_name et last_name de l'élève
+    // Les données viennent directement de l'API avec ces clés exactes
+    const firstName = s.first_name || ''
+    const lastName = s.last_name || ''
+    const fullName = `${firstName} ${lastName}`.trim()
+    
+    if (fullName) {
+      return fullName
+    }
+    
+    // En dernier recours, utiliser le nom de l'utilisateur si disponible
+    if (s.name) {
+      return s.name
+    }
+    
+    // Si vraiment rien n'est disponible, retourner "Élève"
+    return 'Élève'
+  }).join(' & ')
+  
+  // Si on n'a toujours rien trouvé
+  if (!names || names.trim() === '') {
+    return 'Élève'
+  }
+  
   if (instance.students.length > 1) {
     return `👥 ${names}`
   }
@@ -499,15 +555,28 @@ const getStatusLabel = (status) => {
 }
 
 const getInstanceLessonsUsed = (instance) => {
-  // Utiliser lessons_count si disponible, sinon lessons_used
-  if (instance.lessons_count !== undefined) {
+  // ⚠️ IMPORTANT : Utiliser lessons_used en PRIORITÉ car c'est la valeur source de vérité
+  // Cette valeur peut être manuelle (entrée lors de la création) ou calculée automatiquement
+  // Ne pas utiliser lessons.length car cela ne reflète que les cours chargés dans la relation,
+  // pas nécessairement tous les cours attachés dans subscription_lessons
+  
+  // Priorité 1 : lessons_used (valeur source de vérité, peut être manuelle)
+  if (instance.lessons_used !== undefined && instance.lessons_used !== null) {
+    return instance.lessons_used
+  }
+  
+  // Priorité 2 : lessons_count (si fourni par l'API)
+  if (instance.lessons_count !== undefined && instance.lessons_count !== null) {
     return instance.lessons_count
   }
-  // Si lessons existe et est un array, utiliser sa longueur
+  
+  // Priorité 3 : Compter les cours dans le tableau (fallback)
   if (instance.lessons && Array.isArray(instance.lessons)) {
     return instance.lessons.length
   }
-  return instance.lessons_used || 0
+  
+  // Par défaut : 0
+  return 0
 }
 
 // Déterminer le statut d'une instance pour le filtrage
@@ -575,6 +644,7 @@ const filteredSubscriptions = computed(() => {
   let filtered = subscriptions.value
   
   console.log('🔍 [DEBUG TRI] Abonnements bruts reçus:', filtered.length)
+  console.log('🔍 [DEBUG TRI] Abonnements bruts:', filtered)
   
   // 1. Filtrer par statut d'utilisation (couleur)
   if (statusFilter.value !== 'all') {
@@ -680,6 +750,26 @@ const viewSubscriptionHistory = async (subscription) => {
     
     if (response.data.success) {
       selectedSubscription.value = response.data.data
+      
+      // Debug: vérifier les données reçues
+      console.log('🔍 [viewSubscriptionHistory] Subscription data:', selectedSubscription.value)
+      if (selectedSubscription.value.instances) {
+        selectedSubscription.value.instances.forEach((inst, idx) => {
+          console.log(`🔍 [viewSubscriptionHistory] Instance ${idx} (ID: ${inst.id}):`, inst)
+          if (inst.students) {
+            inst.students.forEach((student, sIdx) => {
+              console.log(`🔍 [viewSubscriptionHistory] Student ${sIdx} in instance ${idx}:`, {
+                id: student.id,
+                first_name: student.first_name,
+                last_name: student.last_name,
+                user: student.user,
+                allKeys: Object.keys(student)
+              })
+            })
+          }
+        })
+      }
+      
       showHistoryModal.value = true
     }
   } catch (error) {
@@ -775,13 +865,41 @@ const isExpiringSoon = (instance) => {
   return diffDays <= 30 && diffDays >= 0
 }
 
+// Formater l'affichage de la validité en fonction du modèle (semaines ou mois)
+const formatValidity = (template) => {
+  if (!template) return 'N/A'
+  
+  // Utiliser validity_value et validity_unit si disponibles (vérifier explicitement null/undefined)
+  if (template.validity_value != null && template.validity_unit != null) {
+    if (template.validity_unit === 'weeks') {
+      return `${template.validity_value} semaine${template.validity_value > 1 ? 's' : ''}`
+    } else {
+      return `${template.validity_value} mois`
+    }
+  }
+  
+  // Fallback pour les anciens modèles sans validity_value/validity_unit
+  const months = template.validity_months || 12
+  if (months < 3) {
+    const weeks = Math.round(months * 4.33)
+    return `${weeks} semaine${weeks > 1 ? 's' : ''} (${months} mois)`
+  }
+  return `${months} mois`
+}
+
 // Initialisation
 onMounted(async () => {
-  await Promise.all([
-    loadSubscriptions(),
-    loadDisciplines(),
-    loadStudents()
-  ])
+  console.log('🚀 [SUBSCRIPTIONS] onMounted appelé')
+  try {
+    await Promise.all([
+      loadSubscriptions(),
+      loadDisciplines(),
+      loadStudents()
+    ])
+    console.log('🚀 [SUBSCRIPTIONS] Toutes les données chargées')
+  } catch (error) {
+    console.error('🚀 [SUBSCRIPTIONS] Erreur lors du chargement initial:', error)
+  }
 })
 </script>
 

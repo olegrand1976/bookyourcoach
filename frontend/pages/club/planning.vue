@@ -181,9 +181,9 @@
                   <!-- Participants -->
                   <div class="flex items-center gap-4 text-sm text-gray-600">
                     <span>
-                      👤 {{ lesson.student?.user?.name || 'Aucun élève' }}
+                      👤 {{ getLessonStudents(lesson) }}
                       <span 
-                        v-if="lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0"
+                        v-if="hasActiveSubscription(lesson)"
                         class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
                         title="Avec abonnement actif"
                       >
@@ -376,10 +376,17 @@
               <!-- Participants -->
               <div class="grid grid-cols-2 gap-4">
                 <div class="bg-gray-50 rounded-lg p-4">
-                  <label class="block text-sm font-medium text-gray-500 mb-1">Étudiant</label>
+                  <label class="block text-sm font-medium text-gray-500 mb-1">Étudiant(s)</label>
                   <p class="text-base font-semibold text-gray-900">
-                    {{ selectedLesson.student?.user?.name || 'Non assigné' }}
+                    {{ getLessonStudents(selectedLesson) }}
                   </p>
+                  <span 
+                    v-if="hasActiveSubscription(selectedLesson)"
+                    class="mt-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+                    title="Avec abonnement actif"
+                  >
+                    📋 Abonnement
+                  </span>
                 </div>
                 <div class="bg-gray-50 rounded-lg p-4">
                   <label class="block text-sm font-medium text-gray-500 mb-1">Coach</label>
@@ -478,10 +485,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
+
+// Composable pour les toasts
+const { success, error: showError, warning } = useToast()
 
 definePageMeta({
   middleware: ['auth']
@@ -555,7 +565,15 @@ interface Lesson {
     user: {
       name: string
     }
+    subscription_instances?: any[]
   }
+  students?: Array<{
+    id: number
+    user: {
+      name: string
+    }
+    subscription_instances?: any[]
+  }>
   course_type?: CourseType
   location?: any
   notes?: string
@@ -605,9 +623,26 @@ const slotForm = ref({
   is_active: true
 })
 
-// Computed
+// Computed : Disciplines actives filtrées pour n'afficher que celles avec des types de cours individuels
 const activeDisciplines = computed(() => {
-  return clubDisciplines.value.filter(d => d.is_active)
+  const active = clubDisciplines.value.filter(d => d.is_active)
+  
+  // Si on a chargé les types de cours, filtrer pour n'afficher que les disciplines
+  // qui ont au moins un type de cours individuel
+  if (courseTypes.value.length > 0) {
+    return active.filter(discipline => {
+      // Trouver les types de cours qui correspondent à cette discipline et qui sont individuels
+      const individualTypes = courseTypes.value.filter(ct => 
+        ct.discipline_id === discipline.id && ct.is_individual === true
+      )
+      
+      // Garder la discipline seulement si elle a au moins un type individuel
+      return individualTypes.length > 0
+    })
+  }
+  
+  // Si pas de types de cours chargés, retourner toutes les disciplines actives
+  return active
 })
 
 // Cours filtrés par créneau sélectionné ET par date
@@ -741,7 +776,13 @@ watch(() => slotForm.value.discipline_id, (newDisciplineId) => {
 // Watcher pour pré-remplir durée et prix quand on sélectionne un type de cours
 watch(() => lessonForm.value.course_type_id, (newCourseTypeId) => {
   if (newCourseTypeId) {
-    const courseType = courseTypes.value.find(ct => ct.id === newCourseTypeId)
+    // ✅ CORRECTION : Chercher d'abord dans les types de cours filtrés du créneau
+    // Si pas trouvé, chercher dans tous les types de cours
+    let courseType = filteredCourseTypes.value.find(ct => ct.id === newCourseTypeId)
+    if (!courseType) {
+      courseType = courseTypes.value.find(ct => ct.id === newCourseTypeId)
+    }
+    
     if (courseType) {
       // Utiliser duration_minutes en priorité, puis duration
       lessonForm.value.duration = courseType.duration_minutes || courseType.duration || 60
@@ -749,7 +790,8 @@ watch(() => lessonForm.value.course_type_id, (newCourseTypeId) => {
       console.log('✨ Durée et prix initialisés depuis type de cours:', {
         name: courseType.name,
         duration: lessonForm.value.duration,
-        price: lessonForm.value.price
+        price: lessonForm.value.price,
+        source: filteredCourseTypes.value.find(ct => ct.id === newCourseTypeId) ? 'filtered' : 'all'
       })
     }
   }
@@ -885,7 +927,9 @@ async function loadClubDisciplines() {
     console.log('📊 Nombre de disciplines actives:', activeDisciplines.value.length)
   } catch (err: any) {
     console.error('❌ ERREUR:', err)
-    error.value = err.message || 'Erreur lors du chargement des cours disponibles'
+    const errorMessage = err.message || 'Erreur lors du chargement des disciplines'
+    error.value = errorMessage
+    showError(errorMessage, 'Erreur de chargement')
   } finally {
     loading.value = false
   }
@@ -946,6 +990,15 @@ async function loadOpenSlots() {
       status: err.response?.status
     })
     openSlots.value = []
+    
+    let errorMessage = 'Erreur lors du chargement des créneaux horaires'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de chargement')
   }
 }
 
@@ -968,13 +1021,22 @@ async function loadLessons() {
     if (response.data.success) {
       lessons.value = response.data.data
       console.log('✅ Cours chargés:', lessons.value)
-      // Debug: Afficher le statut de chaque cours
+      // Debug: Afficher le statut de chaque cours avec les élèves
       lessons.value.forEach((lesson, index) => {
         console.log(`  Cours ${index + 1}:`, {
           id: lesson.id,
           status: lesson.status,
           course_type: lesson.course_type?.name,
-          start_time: lesson.start_time
+          start_time: lesson.start_time,
+          student_id: lesson.student_id,
+          student: lesson.student ? {
+            id: lesson.student.id,
+            name: lesson.student.user?.name
+          } : null,
+          students: lesson.students ? lesson.students.map((s: any) => ({
+            id: s.id,
+            name: s.user?.name
+          })) : []
         })
       })
     } else {
@@ -982,6 +1044,15 @@ async function loadLessons() {
     }
   } catch (err: any) {
     console.error('Erreur chargement cours:', err)
+    
+    let errorMessage = 'Erreur lors du chargement des cours'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de chargement')
   }
 }
 
@@ -996,8 +1067,17 @@ async function loadTeachers() {
       teachers.value = response.data.teachers || response.data.data || []
       console.log('✅ Enseignants chargés:', teachers.value.length)
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Erreur chargement enseignants:', err)
+    
+    let errorMessage = 'Erreur lors du chargement des enseignants'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de chargement')
   }
 }
 
@@ -1011,8 +1091,17 @@ async function loadStudents() {
       students.value = response.data.data || []
       console.log('✅ Élèves chargés:', students.value.length)
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Erreur chargement élèves:', err)
+    
+    let errorMessage = 'Erreur lors du chargement des élèves'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de chargement')
   }
 }
 
@@ -1032,8 +1121,17 @@ async function loadCourseTypes() {
         price: ct.price
       })))
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Erreur chargement types de cours:', err)
+    
+    let errorMessage = 'Erreur lors du chargement des types de cours'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de chargement')
   }
 }
 
@@ -1102,8 +1200,12 @@ async function openSlotModal(slot?: OpenSlot) {
           is_active: slot.is_active ?? true
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ [openSlotModal] Erreur lors du rechargement du créneau:', error)
+      
+      // Afficher un avertissement mais continuer avec le slot local
+      warning('Impossible de recharger le créneau depuis le serveur. Utilisation des données locales.', 'Avertissement')
+      
       // Fallback : utiliser le slot passé en paramètre
       editingSlot.value = slot
       slotForm.value = {
@@ -1178,6 +1280,7 @@ async function saveSlot() {
     
     // Recharger la liste
     await loadOpenSlots()
+    success(editingSlot.value ? 'Créneau mis à jour avec succès' : 'Créneau créé avec succès', 'Succès')
     closeSlotModal()
   } catch (err: any) {
     console.error('Erreur sauvegarde créneau:', err)
@@ -1186,7 +1289,28 @@ async function saveSlot() {
       response: err.response?.data,
       status: err.response?.status
     })
-    alert('Erreur lors de la sauvegarde du créneau: ' + (err.response?.data?.message || err.message))
+    
+    let errorMessage = 'Erreur lors de la sauvegarde du créneau'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      if (typeof errors === 'object') {
+        const formattedErrors = Object.entries(errors)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs : [msgs]
+            return messages.join(', ')
+          })
+          .join('\n')
+        errorMessage = formattedErrors
+      } else {
+        errorMessage = errors
+      }
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de sauvegarde')
   } finally {
     saving.value = false
   }
@@ -1204,13 +1328,22 @@ async function deleteSlot(id: number) {
     
     // Recharger la liste
     await loadOpenSlots()
+    success('Créneau supprimé avec succès', 'Succès')
   } catch (err: any) {
     console.error('Erreur suppression créneau:', err)
-    alert('Erreur lors de la suppression du créneau')
+    
+    let errorMessage = 'Erreur lors de la suppression du créneau'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de suppression')
   }
 }
 
-function openCreateLessonModal(slot?: OpenSlot) {
+async function openCreateLessonModal(slot?: OpenSlot) {
   console.log('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
     hasSlot: !!slot,
     slotId: slot?.id,
@@ -1232,6 +1365,12 @@ function openCreateLessonModal(slot?: OpenSlot) {
     newSelectedSlotCourseTypesCount: selectedSlotForLesson.value?.course_types?.length || 0
   })
   
+  // Ouvrir la modale AVANT d'initialiser le formulaire pour que filteredCourseTypes soit calculé
+  showCreateLessonModal.value = true
+  
+  // Utiliser nextTick pour s'assurer que le computed filteredCourseTypes est recalculé
+  await nextTick()
+  
   if (slot) {
     // Calculer la prochaine date correspondant au jour du créneau
     const today = new Date()
@@ -1243,18 +1382,48 @@ function openCreateLessonModal(slot?: OpenSlot) {
     const dateStr = nextDate.toISOString().split('T')[0]
     const timeStr = slot.start_time.substring(0, 5)
     
-    // Trouver le course_type correspondant à la discipline si possible
+    // ✅ CORRECTION : Utiliser les types de cours du créneau (slot.course_types) au lieu de tous les types
+    // Les types de cours du créneau sont déjà filtrés par le backend selon la discipline
     let courseTypeId = null
-    if (slot.discipline_id) {
-      const matchingCourseType = courseTypes.value.find(ct => ct.discipline_id === slot.discipline_id)
+    let initialDuration = slot.duration || 60
+    let initialPrice = slot.price || 0
+    
+    // Utiliser les types de cours du créneau s'ils sont disponibles
+    const slotCourseTypes = slot.course_types || []
+    if (slotCourseTypes.length > 0) {
+      // Prendre le premier type de cours du créneau (ou celui qui correspond à la discipline)
+      const matchingCourseType = slotCourseTypes.find(ct => 
+        ct.discipline_id === slot.discipline_id || !ct.discipline_id
+      ) || slotCourseTypes[0]
+      
       if (matchingCourseType) {
         courseTypeId = matchingCourseType.id
+        // Utiliser la durée et le prix du type de cours si disponibles
+        initialDuration = matchingCourseType.duration_minutes || matchingCourseType.duration || initialDuration
+        initialPrice = matchingCourseType.price || initialPrice
       }
+      
       console.log('🔍 Recherche type de cours pour discipline', slot.discipline_id, ':', {
         found: !!matchingCourseType,
         selectedId: courseTypeId,
+        selectedName: matchingCourseType?.name,
+        slotCourseTypes: slotCourseTypes.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id })),
         allTypes: courseTypes.value.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id }))
       })
+    } else {
+      // Fallback : chercher dans tous les types de cours si le créneau n'a pas de types
+      if (slot.discipline_id) {
+        const matchingCourseType = courseTypes.value.find(ct => ct.discipline_id === slot.discipline_id)
+        if (matchingCourseType) {
+          courseTypeId = matchingCourseType.id
+          initialDuration = matchingCourseType.duration_minutes || matchingCourseType.duration || initialDuration
+          initialPrice = matchingCourseType.price || initialPrice
+        }
+        console.log('⚠️ [openCreateLessonModal] Aucun type de cours dans le créneau, recherche dans tous les types:', {
+          found: !!matchingCourseType,
+          selectedId: courseTypeId
+        })
+      }
     }
     
     lessonForm.value = {
@@ -1264,8 +1433,8 @@ function openCreateLessonModal(slot?: OpenSlot) {
       date: dateStr,
       time: timeStr,
       start_time: `${dateStr}T${timeStr}`,
-      duration: slot.duration || 60,
-      price: slot.price || 0,
+      duration: initialDuration,
+      price: initialPrice,
       notes: ''
     }
   } else {
@@ -1282,8 +1451,6 @@ function openCreateLessonModal(slot?: OpenSlot) {
       notes: ''
     }
   }
-  
-  showCreateLessonModal.value = true
 }
 
 function closeCreateLessonModal() {
@@ -1375,7 +1542,7 @@ async function createLesson() {
     
     // Afficher les erreurs s'il y en a
     if (validationErrors.length > 0) {
-      alert('⚠️ Erreurs de validation:\n\n' + validationErrors.map((e, i) => `${i + 1}. ${e}`).join('\n'))
+      warning(validationErrors.join('\n'), 'Erreurs de validation')
       return
     }
     
@@ -1395,22 +1562,40 @@ async function createLesson() {
     
     if (response.data.success) {
       console.log('✅ Cours créé:', response.data.data)
+      success('Cours créé avec succès', 'Succès')
       await loadLessons()
       closeCreateLessonModal()
     } else {
-      alert('❌ ' + (response.data.message || 'Erreur lors de la création du cours'))
+      showError(response.data.message || 'Erreur lors de la création du cours', 'Erreur')
     }
   } catch (err: any) {
     console.error('Erreur création cours:', err)
-    const errorMessage = err.response?.data?.message || err.response?.data?.errors || 'Erreur lors de la création du cours'
     
-    if (typeof errorMessage === 'object') {
-      // Formater les erreurs de validation Laravel
-      const errors = Object.entries(errorMessage).map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`).join('\n')
-      alert('❌ Erreurs de validation:\n\n' + errors)
-    } else {
-      alert('❌ ' + errorMessage)
+    // Gérer les différents types d'erreurs
+    let errorMessage = 'Erreur lors de la création du cours'
+    
+    if (err.response?.data?.message) {
+      // Message d'erreur direct (conflit horaire, capacité, etc.)
+      errorMessage = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      // Erreurs de validation Laravel
+      const errors = err.response.data.errors
+      if (typeof errors === 'object') {
+        const formattedErrors = Object.entries(errors)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs : [msgs]
+            return messages.join(', ')
+          })
+          .join('\n')
+        errorMessage = formattedErrors
+      } else {
+        errorMessage = errors
+      }
+    } else if (err.message) {
+      errorMessage = err.message
     }
+    
+    showError(errorMessage, 'Erreur de création')
   } finally {
     saving.value = false
   }
@@ -1437,15 +1622,24 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
     })
     
     if (response.data.success) {
+      success('Statut du cours mis à jour avec succès', 'Succès')
       // Recharger les cours
       await loadLessons()
       closeLessonModal()
     } else {
-      alert('Erreur lors de la mise à jour du statut')
+      showError(response.data.message || 'Erreur lors de la mise à jour du statut', 'Erreur')
     }
   } catch (err: any) {
     console.error('Erreur mise à jour cours:', err)
-    alert('Erreur lors de la mise à jour du statut')
+    
+    let errorMessage = 'Erreur lors de la mise à jour du statut'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur')
   } finally {
     saving.value = false
   }
@@ -1461,14 +1655,23 @@ async function deleteLesson(lessonId: number) {
     const response = await $api.delete(`/lessons/${lessonId}`)
     
     if (response.data.success) {
+      success('Cours supprimé avec succès', 'Succès')
       await loadLessons()
       closeLessonModal()
     } else {
-      alert('Erreur lors de la suppression')
+      showError(response.data.message || 'Erreur lors de la suppression', 'Erreur')
     }
   } catch (err: any) {
     console.error('Erreur suppression cours:', err)
-    alert('Erreur lors de la suppression')
+    
+    let errorMessage = 'Erreur lors de la suppression du cours'
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur')
   } finally {
     saving.value = false
   }
@@ -1610,7 +1813,7 @@ function onDateChange() {
   
   // Vérifier que c'est le bon jour de la semaine
   if (selectedSlot.value && newDate.getDay() !== selectedSlot.value.day_of_week) {
-    alert(`Cette date ne correspond pas au jour du créneau (${getDayName(selectedSlot.value.day_of_week)})`)
+    warning(`Cette date ne correspond pas au jour du créneau (${getDayName(selectedSlot.value.day_of_week)})`, 'Date invalide')
     selectedDateInput.value = formatDateForInput(selectedDate.value!)
     return
   }
@@ -1635,6 +1838,74 @@ function formatDateForInput(date: Date): string {
 }
 
 // Formater une date complète (ex: "Mercredi 6 novembre 2025")
+// Fonction pour obtenir les élèves d'un cours (student_id ou relation many-to-many)
+function getLessonStudents(lesson: Lesson | null): string {
+  if (!lesson) return 'Aucun élève'
+  
+  const studentNames: string[] = []
+  
+  // Ajouter l'élève principal (student_id) s'il existe
+  if (lesson.student?.user?.name) {
+    studentNames.push(lesson.student.user.name)
+  } else if (lesson.student_id) {
+    // Fallback : si student_id existe mais que la relation n'est pas chargée,
+    // chercher l'élève dans la liste des élèves chargés
+    const foundStudent = students.value.find((s: any) => s.id === lesson.student_id)
+    if (foundStudent) {
+      const studentName = foundStudent.user?.name || foundStudent.name || `Élève #${foundStudent.id}`
+      studentNames.push(studentName)
+    } else {
+      // Debug si l'élève n'est pas trouvé
+      console.warn('⚠️ [getLessonStudents] student_id existe mais élève non trouvé dans la liste:', {
+        lesson_id: lesson.id,
+        student_id: lesson.student_id,
+        students_loaded: students.value.length
+      })
+    }
+  }
+  
+  // Ajouter les élèves de la relation many-to-many
+  if (lesson.students && Array.isArray(lesson.students)) {
+    lesson.students.forEach((student: any) => {
+      if (student.user?.name && !studentNames.includes(student.user.name)) {
+        studentNames.push(student.user.name)
+      }
+    })
+  }
+  
+  // Debug si aucun élève trouvé mais qu'il y a un student_id
+  if (studentNames.length === 0 && lesson.student_id) {
+    console.warn('⚠️ [getLessonStudents] Aucun élève trouvé mais student_id existe:', {
+      lesson_id: lesson.id,
+      student_id: lesson.student_id,
+      student: lesson.student,
+      students: lesson.students,
+      students_loaded_count: students.value.length
+    })
+  }
+  
+  return studentNames.length > 0 ? studentNames.join(', ') : 'Aucun élève'
+}
+
+// Fonction pour vérifier si un cours a un abonnement actif
+function hasActiveSubscription(lesson: Lesson | null): boolean {
+  if (!lesson) return false
+  
+  // Vérifier l'élève principal
+  if (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) {
+    return true
+  }
+  
+  // Vérifier les élèves de la relation many-to-many
+  if (lesson.students && Array.isArray(lesson.students)) {
+    return lesson.students.some((student: any) => 
+      student.subscription_instances && student.subscription_instances.length > 0
+    )
+  }
+  
+  return false
+}
+
 function formatDateFull(date: Date | null): string {
   if (!date) return ''
   
@@ -1699,3 +1970,4 @@ onMounted(async () => {
   updateAvailableDays()
 })
 </script>
+

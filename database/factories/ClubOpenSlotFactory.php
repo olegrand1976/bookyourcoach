@@ -22,7 +22,8 @@ class ClubOpenSlotFactory extends Factory
             'start_time' => sprintf('%02d:00:00', $startHour),
             'end_time' => sprintf('%02d:00:00', $endHour),
             'discipline_id' => Discipline::factory(),
-            'max_capacity' => $this->faker->numberBetween(1, 10),
+            'max_slots' => $this->faker->numberBetween(1, 10), // Nombre de plages simultanées
+            'max_capacity' => $this->faker->numberBetween(1, 10), // Nombre d'élèves par enseignant
             'duration' => $this->faker->randomElement([30, 45, 60, 90]),
             'price' => $this->faker->randomFloat(2, 20, 80),
         ];

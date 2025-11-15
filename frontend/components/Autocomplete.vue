@@ -57,10 +57,11 @@
         @mouseenter="highlightedIndex = index"
         :class="[
           'px-4 py-2 cursor-pointer transition-colors',
-          index === highlightedIndex ? 'bg-blue-50 text-blue-900' : 'text-gray-900 hover:bg-gray-50'
+          index === highlightedIndex ? 'bg-blue-50 text-blue-900' : 'text-gray-900 hover:bg-gray-50',
+          isItemUnavailable && isItemUnavailable(item) ? 'bg-red-50' : ''
         ]"
       >
-        <slot name="item" :item="item">
+        <slot name="item" :item="item" :isUnavailable="isItemUnavailable && isItemUnavailable(item)">
           {{ getItemLabelFn(item) }}
         </slot>
       </div>
@@ -100,6 +101,7 @@ interface Props {
   getItemId?: (item: any) => any
   filterFunction?: (item: any, query: string) => boolean
   isLoading?: boolean
+  isItemUnavailable?: (item: any) => boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -110,7 +112,8 @@ const props = withDefaults(defineProps<Props>(), {
   isLoading: false,
   getItemLabel: undefined,
   getItemId: undefined,
-  filterFunction: undefined
+  filterFunction: undefined,
+  isItemUnavailable: undefined
 })
 
 // Fonctions par défaut (ne peuvent pas référencer props dans les valeurs par défaut)

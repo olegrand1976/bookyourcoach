@@ -28,53 +28,7 @@
 
         <!-- Formulaire -->
         <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- Enseignant -->
-          <div>
-            <Autocomplete
-              v-model="form.teacher_id"
-              :items="teachers"
-              label="Enseignant"
-              placeholder="Rechercher un enseignant..."
-              :required="true"
-              :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
-              :get-item-id="(teacher) => teacher.id"
-            >
-              <template #item="{ item: teacher }">
-                <div>
-                  <div class="font-medium">{{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}</div>
-                  <div v-if="teacher.user?.email" class="text-xs text-gray-500">{{ teacher.user.email }}</div>
-                </div>
-              </template>
-            </Autocomplete>
-          </div>
-
-          <!-- Élève (optionnel) -->
-          <div>
-            <Autocomplete
-              v-model="form.student_id"
-              :items="students"
-              label="Élève (optionnel)"
-              placeholder="Rechercher un élève..."
-              :get-item-label="(student) => {
-                const name = student.user?.name || student.name || 'Élève sans nom'
-                const age = student.age ? ` (${student.age} ans)` : ''
-                return name + age
-              }"
-              :get-item-id="(student) => student.id"
-            >
-              <template #item="{ item: student }">
-                <div>
-                  <div class="font-medium">
-                    {{ student.user?.name || student.name || 'Élève sans nom' }}
-                    <span v-if="student.age" class="text-xs text-gray-500"> ({{ student.age }} ans)</span>
-                  </div>
-                  <div v-if="student.user?.email" class="text-xs text-gray-500">{{ student.user.email }}</div>
-                </div>
-              </template>
-            </Autocomplete>
-          </div>
-
-          <!-- Type de cours -->
+          <!-- 1. Type de cours -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours *</label>
             <select v-model.number="form.course_type_id" required
@@ -88,21 +42,21 @@
                 ({{ courseType.duration_minutes || courseType.duration }}min - {{ courseType.price }}€)
               </option>
             </select>
-                <p v-if="selectedSlot && courseTypes.length === 0" class="text-xs text-red-600 mt-1">
-                  ⚠️ Aucun type de cours disponible pour ce créneau
-                  <br>
-                  <span class="text-xs">
-                    Vérifiez que :
-                    <br>• Des types de cours sont associés à ce créneau
-                    <br>• Ces types correspondent aux disciplines activées pour votre club
-                  </span>
-                </p>
-                <p v-else-if="selectedSlot && courseTypes.length > 0" class="text-xs text-green-600 mt-1">
-                  ✓ {{ courseTypes.length }} type(s) de cours disponible(s) pour ce créneau
-                </p>
+            <p v-if="selectedSlot && courseTypes.length === 0" class="text-xs text-red-600 mt-1">
+              ⚠️ Aucun type de cours disponible pour ce créneau
+              <br>
+              <span class="text-xs">
+                Vérifiez que :
+                <br>• Des types de cours sont associés à ce créneau
+                <br>• Ces types correspondent aux disciplines activées pour votre club
+              </span>
+            </p>
+            <p v-else-if="selectedSlot && courseTypes.length > 0" class="text-xs text-green-600 mt-1">
+              ✓ {{ courseTypes.length }} type(s) de cours disponible(s) pour ce créneau
+            </p>
           </div>
 
-          <!-- Date -->
+          <!-- 2. Date -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Date *
@@ -145,38 +99,117 @@
             </div>
           </div>
 
-          <!-- Heure -->
+          <!-- 3. Heure -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
-            <input v-model="form.time" type="time" required
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+            <select 
+              v-model="form.time" 
+              required
+              :disabled="!availableTimes.length"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+              <option :value="''">
+                {{ availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure' }}
+              </option>
+              <option v-for="time in availableTimes" :key="time.value" :value="time.value">
+                {{ time.label }}
+              </option>
+            </select>
+            <p v-if="selectedSlot && form.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
+              ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
+            </p>
+            <p v-else-if="selectedSlot && form.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
+              ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
+            </p>
+            <p v-if="loadingLessons" class="text-xs text-gray-500 mt-1">
+              🔄 Chargement des cours existants...
+            </p>
           </div>
 
-          <!-- Durée -->
+          <!-- 4. Enseignant -->
+          <div>
+            <Autocomplete
+              v-model="form.teacher_id"
+              :items="teachers"
+              label="Enseignant"
+              placeholder="Rechercher un enseignant..."
+              :required="true"
+              :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
+              :get-item-id="(teacher) => teacher.id"
+              :is-item-unavailable="(teacher) => !isTeacherAvailable(teacher.id)"
+            >
+              <template #item="{ item: teacher, isUnavailable }">
+                <div :class="isUnavailable ? 'bg-red-50' : ''">
+                  <div class="font-medium flex items-center gap-2">
+                    {{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}
+                    <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
+                  </div>
+                  <div v-if="teacher.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                    {{ teacher.user.email }}
+                  </div>
+                </div>
+              </template>
+            </Autocomplete>
+          </div>
+
+          <!-- 5. Élève (optionnel) -->
+          <div>
+            <Autocomplete
+              v-model="form.student_id"
+              :items="students"
+              label="Élève (optionnel)"
+              placeholder="Rechercher un élève..."
+              :get-item-label="(student) => {
+                const name = student.user?.name || student.name || 'Élève sans nom'
+                const age = student.age ? ` (${student.age} ans)` : ''
+                return name + age
+              }"
+              :get-item-id="(student) => student.id"
+              :is-item-unavailable="(student) => !isStudentAvailable(student.id)"
+            >
+              <template #item="{ item: student, isUnavailable }">
+                <div :class="isUnavailable ? 'bg-red-50' : ''">
+                  <div class="font-medium flex items-center gap-2">
+                    {{ student.user?.name || student.name || 'Élève sans nom' }}
+                    <span v-if="student.age" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                      ({{ student.age }} ans)
+                    </span>
+                    <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
+                  </div>
+                  <div v-if="student.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                    {{ student.user.email }}
+                  </div>
+                </div>
+              </template>
+            </Autocomplete>
+          </div>
+
+          <!-- 6. Durée (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Durée (minutes) *
-              <span v-if="form.course_type_id" class="text-xs text-green-600 ml-2">
-                ✓ Défini automatiquement selon le type de cours
-              </span>
+              Durée (minutes)
             </label>
-            <input v-model.number="form.duration" type="number" min="15" step="5" required
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+            <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+              {{ form.duration || 0 }} minutes
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              ⓘ Définie automatiquement selon le type de cours sélectionné
+            </p>
           </div>
 
-          <!-- Prix -->
+          <!-- 7. Prix (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Prix (€) *
-              <span v-if="form.course_type_id" class="text-xs text-green-600 ml-2">
-                ✓ Défini automatiquement selon le type de cours
-              </span>
+              Prix (€)
             </label>
-            <input v-model.number="form.price" type="number" min="0" step="0.01" required
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
+            <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+              {{ formatPrice(form.price || 0) }} €
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+              ⓘ Défini automatiquement selon le type de cours sélectionné
+            </p>
           </div>
 
-          <!-- Notes -->
+          <!-- 8. Notes -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea v-model="form.notes" rows="3"
@@ -202,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, watch, ref, nextTick } from 'vue'
 import Autocomplete from '~/components/Autocomplete.vue'
 
 interface OpenSlot {
@@ -334,6 +367,17 @@ function handleSubmit() {
   emit('submit', props.form)
 }
 
+// Formater le prix pour l'affichage
+function formatPrice(price: number | string | null | undefined): string {
+  // Convertir en nombre si c'est une chaîne
+  const numPrice = typeof price === 'string' ? parseFloat(price) : (price || 0)
+  // Vérifier que c'est un nombre valide
+  if (isNaN(numPrice)) {
+    return '0,00'
+  }
+  return numPrice.toFixed(2).replace('.', ',')
+}
+
 // Watcher pour auto-sélectionner le type de cours s'il n'y en a qu'un seul
 watch(() => props.courseTypes, (newCourseTypes) => {
   if (props.show && newCourseTypes) {
@@ -357,7 +401,7 @@ watch(() => props.courseTypes, (newCourseTypes) => {
 }, { deep: true, immediate: true })
 
 // Watcher pour auto-remplir durée et prix quand un type de cours est sélectionné
-watch(() => props.form.course_type_id, (newCourseTypeId, oldCourseTypeId) => {
+watch(() => props.form.course_type_id, async (newCourseTypeId, oldCourseTypeId) => {
   // Mettre à jour automatiquement à chaque changement de type de cours
   if (newCourseTypeId && props.courseTypes.length > 0) {
     const selectedCourseType = props.courseTypes.find(ct => ct.id === newCourseTypeId)
@@ -372,8 +416,325 @@ watch(() => props.form.course_type_id, (newCourseTypeId, oldCourseTypeId) => {
         courseType: selectedCourseType.name,
         previousType: oldCourseTypeId
       })
+      
+      // Attendre que availableTimes soit recalculé avec la nouvelle durée
+      await nextTick()
+      // Auto-sélectionner la première heure disponible
+      if (availableTimes.value.length > 0 && props.form.date) {
+        props.form.time = availableTimes.value[0].value
+        console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de type de cours:', availableTimes.value[0].value)
+      }
     }
   }
 }, { immediate: false })
+
+// Charger les cours existants pour calculer les heures disponibles
+const existingLessons = ref<any[]>([])
+const loadingLessons = ref(false)
+
+// Fonction pour charger les cours existants pour une date donnée
+async function loadExistingLessons(date: string) {
+  if (!date || !props.selectedSlot) {
+    existingLessons.value = []
+    return
+  }
+  
+  try {
+    loadingLessons.value = true
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/lessons', {
+      params: {
+        date_from: date,
+        date_to: date
+      }
+    })
+    
+    if (response.data.success) {
+      existingLessons.value = response.data.data || []
+    } else {
+      existingLessons.value = []
+    }
+  } catch (err) {
+    console.error('Erreur chargement cours existants:', err)
+    existingLessons.value = []
+  } finally {
+    loadingLessons.value = false
+  }
+}
+
+// Convertir une heure (HH:MM) en minutes depuis minuit
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+// Convertir des minutes depuis minuit en heure (HH:MM)
+function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+// Calculer les heures disponibles pour le créneau sélectionné
+const availableTimes = computed(() => {
+  if (!props.selectedSlot || !props.form.date || !props.form.duration) {
+    return []
+  }
+  
+  const slot = props.selectedSlot
+  const duration = props.form.duration || 60
+  const date = props.form.date
+  
+  // Extraire les heures de début et fin du créneau
+  const slotStart = slot.start_time?.substring(0, 5) || '09:00'
+  const slotEnd = slot.end_time?.substring(0, 5) || '18:00'
+  
+  const slotStartMinutes = timeToMinutes(slotStart)
+  const slotEndMinutes = timeToMinutes(slotEnd)
+  
+  // Calculer le pas de temps (utiliser la durée du cours comme pas)
+  const timeStep = duration
+  
+  // Générer toutes les heures possibles dans le créneau
+  const allTimes: { value: string; label: string; minutes: number }[] = []
+  
+  for (let minutes = slotStartMinutes; minutes + duration <= slotEndMinutes; minutes += timeStep) {
+    const timeStr = minutesToTime(minutes)
+    allTimes.push({
+      value: timeStr,
+      label: timeStr,
+      minutes
+    })
+  }
+  
+  // Filtrer les heures qui sont déjà complètes (max_slots atteint)
+  // Les plages complètes sont automatiquement supprimées du select
+  const maxSlots = slot.max_slots || 1
+  
+  const available = allTimes.filter(time => {
+    // Vérifier combien de cours se chevauchent avec cette heure
+    const timeStart = new Date(`${date}T${time.value}:00`)
+    const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+    
+    let overlappingCount = 0
+    
+    for (const lesson of existingLessons.value) {
+      if (lesson.status === 'cancelled') continue
+      
+      const lessonStart = new Date(lesson.start_time)
+      let lessonEnd: Date
+      
+      // Calculer la fin du cours existant
+      if (lesson.end_time) {
+        lessonEnd = new Date(lesson.end_time)
+      } else if (lesson.course_type?.duration_minutes) {
+        lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
+      } else {
+        lessonEnd = new Date(lessonStart.getTime() + 60 * 60000) // 60 min par défaut
+      }
+      
+      // Vérifier le chevauchement : le nouveau cours chevauche si :
+      // - Il commence avant la fin du cours existant ET
+      // - - Il se termine après le début du cours existant
+      if (timeStart < lessonEnd && timeEnd > lessonStart) {
+        overlappingCount++
+      }
+    }
+    
+    // L'heure est disponible UNIQUEMENT si le nombre de cours qui se chevauchent est STRICTEMENT inférieur à max_slots
+    // Si overlappingCount >= maxSlots, la plage est complète et sera supprimée du select
+    const isAvailable = overlappingCount < maxSlots
+    
+    if (!isAvailable) {
+      console.log(`🚫 [availableTimes] Plage ${time.value} complète (${overlappingCount}/${maxSlots} cours) - supprimée du select`)
+    }
+    
+    return isAvailable
+  })
+  
+  console.log(`✅ [availableTimes] ${available.length} plage(s) horaire(s) disponible(s) sur ${allTimes.length} possibles`)
+  
+  return available
+})
+
+// Watcher pour charger les cours existants quand la date change
+watch(() => props.form.date, async (newDate) => {
+  if (newDate && props.selectedSlot) {
+    await loadExistingLessons(newDate)
+    // Attendre que le computed availableTimes soit recalculé
+    await nextTick()
+    // Auto-sélectionner la première heure disponible (toujours, même si une heure était déjà sélectionnée)
+    // car la date a changé, donc l'heure précédente pourrait ne plus être valide
+    if (availableTimes.value.length > 0 && props.form.course_type_id) {
+      props.form.time = availableTimes.value[0].value
+      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de date:', availableTimes.value[0].value)
+    } else if (availableTimes.value.length === 0) {
+      props.form.time = ''
+      console.log('⚠️ [CreateLessonModal] Aucune heure disponible pour cette date')
+    }
+  } else {
+    existingLessons.value = []
+    props.form.time = ''
+  }
+}, { immediate: true })
+
+// Watcher pour auto-sélectionner la première heure disponible quand availableTimes change
+watch(() => availableTimes.value, (newTimes, oldTimes) => {
+  // Auto-sélectionner la première heure disponible si :
+  // - Il y a des heures disponibles
+  // - La date et le type de cours sont définis
+  // - Aucune heure n'est sélectionnée OU l'heure sélectionnée n'est plus disponible
+  if (newTimes.length > 0 && props.form.date && props.form.course_type_id) {
+    const currentTime = props.form.time
+    const isCurrentTimeAvailable = currentTime && newTimes.some(t => t.value === currentTime)
+    
+    // Si aucune heure n'est sélectionnée ou si l'heure actuelle n'est plus disponible
+    if (!currentTime || !isCurrentTimeAvailable) {
+      props.form.time = newTimes[0].value
+      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée depuis availableTimes:', newTimes[0].value)
+    }
+  } else if (newTimes.length === 0 && props.form.time) {
+    // Si plus aucune heure n'est disponible, réinitialiser
+    props.form.time = ''
+    console.log('⚠️ [CreateLessonModal] Plus d\'heures disponibles, heure réinitialisée')
+  }
+}, { immediate: true })
+
+// Watcher pour recharger les cours quand le créneau change
+watch(() => props.selectedSlot, async (newSlot) => {
+  if (newSlot && props.form.date) {
+    await loadExistingLessons(props.form.date)
+    // Attendre que le computed availableTimes soit recalculé
+    await nextTick()
+    // Auto-sélectionner la première heure disponible si le type de cours est défini
+    if (availableTimes.value.length > 0 && props.form.course_type_id) {
+      props.form.time = availableTimes.value[0].value
+      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de créneau:', availableTimes.value[0].value)
+    }
+  } else {
+    existingLessons.value = []
+    props.form.time = ''
+  }
+})
+
+// Watcher pour recharger les cours quand la durée change (pour recalculer les heures disponibles)
+watch(() => props.form.duration, async () => {
+  if (props.form.date && props.selectedSlot && props.form.course_type_id) {
+    // Les heures disponibles sont recalculées automatiquement via le computed
+    // Mais on peut recharger les cours si nécessaire
+    await loadExistingLessons(props.form.date)
+    // Attendre que le computed availableTimes soit recalculé
+    await nextTick()
+    // Auto-sélectionner la première heure disponible (toujours, car la durée a changé)
+    if (availableTimes.value.length > 0) {
+      props.form.time = availableTimes.value[0].value
+      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de durée:', availableTimes.value[0].value)
+    } else {
+      props.form.time = ''
+      console.log('⚠️ [CreateLessonModal] Plus d\'heures disponibles après changement de durée')
+    }
+  }
+})
+
+// Watcher pour recalculer la disponibilité quand l'heure change
+watch(() => props.form.time, () => {
+  // La disponibilité est recalculée automatiquement via les fonctions isTeacherAvailable et isStudentAvailable
+  // Pas besoin de recharger les cours, ils sont déjà chargés pour la date
+})
+
+// Vérifier si un enseignant est disponible pour la plage horaire sélectionnée
+function isTeacherAvailable(teacherId: number): boolean {
+  if (!props.form.date || !props.form.time || !props.form.duration) {
+    return true // Si pas de date/heure/durée, considérer comme disponible
+  }
+  
+  const lessonStart = new Date(`${props.form.date}T${props.form.time}:00`)
+  const lessonEnd = new Date(lessonStart.getTime() + props.form.duration * 60000)
+  
+  // Vérifier si l'enseignant a déjà un cours qui se chevauche
+  for (const lesson of existingLessons.value) {
+    if (lesson.status === 'cancelled') continue
+    if (lesson.teacher_id !== teacherId) continue
+    
+    const existingStart = new Date(lesson.start_time)
+    let existingEnd: Date
+    
+    // Calculer la fin du cours existant
+    if (lesson.end_time) {
+      existingEnd = new Date(lesson.end_time)
+    } else if (lesson.course_type?.duration_minutes) {
+      existingEnd = new Date(existingStart.getTime() + lesson.course_type.duration_minutes * 60000)
+    } else {
+      existingEnd = new Date(existingStart.getTime() + 60 * 60000) // 60 min par défaut
+    }
+    
+    // Vérifier le chevauchement
+    if (lessonStart < existingEnd && lessonEnd > existingStart) {
+      return false // L'enseignant n'est pas disponible
+    }
+  }
+  
+  return true // L'enseignant est disponible
+}
+
+// Vérifier si un élève est disponible pour la plage horaire sélectionnée
+function isStudentAvailable(studentId: number): boolean {
+  if (!props.form.date || !props.form.time || !props.form.duration) {
+    return true // Si pas de date/heure/durée, considérer comme disponible
+  }
+  
+  const lessonStart = new Date(`${props.form.date}T${props.form.time}:00`)
+  const lessonEnd = new Date(lessonStart.getTime() + props.form.duration * 60000)
+  
+  // Vérifier si l'élève a déjà un cours qui se chevauche
+  for (const lesson of existingLessons.value) {
+    if (lesson.status === 'cancelled') continue
+    
+    // Vérifier si l'élève est l'étudiant principal
+    if (lesson.student_id === studentId) {
+      const existingStart = new Date(lesson.start_time)
+      let existingEnd: Date
+      
+      // Calculer la fin du cours existant
+      if (lesson.end_time) {
+        existingEnd = new Date(lesson.end_time)
+      } else if (lesson.course_type?.duration_minutes) {
+        existingEnd = new Date(existingStart.getTime() + lesson.course_type.duration_minutes * 60000)
+      } else {
+        existingEnd = new Date(existingStart.getTime() + 60 * 60000) // 60 min par défaut
+      }
+      
+      // Vérifier le chevauchement
+      if (lessonStart < existingEnd && lessonEnd > existingStart) {
+        return false // L'élève n'est pas disponible
+      }
+    }
+    
+    // Vérifier si l'élève est dans la relation many-to-many
+    if (lesson.students && Array.isArray(lesson.students)) {
+      const isInStudents = lesson.students.some((s: any) => s.id === studentId)
+      if (isInStudents) {
+        const existingStart = new Date(lesson.start_time)
+        let existingEnd: Date
+        
+        // Calculer la fin du cours existant
+        if (lesson.end_time) {
+          existingEnd = new Date(lesson.end_time)
+        } else if (lesson.course_type?.duration_minutes) {
+          existingEnd = new Date(existingStart.getTime() + lesson.course_type.duration_minutes * 60000)
+        } else {
+          existingEnd = new Date(existingStart.getTime() + 60 * 60000) // 60 min par défaut
+        }
+        
+        // Vérifier le chevauchement
+        if (lessonStart < existingEnd && lessonEnd > existingStart) {
+          return false // L'élève n'est pas disponible
+        }
+      }
+    }
+  }
+  
+  return true // L'élève est disponible
+}
 </script>
 
