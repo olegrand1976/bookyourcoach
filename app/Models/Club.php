@@ -115,6 +115,14 @@ class Club extends Model
     }
 
     /**
+     * Get the recurring slots for this club (blocage long terme).
+     */
+    public function recurringSlots()
+    {
+        return $this->hasMany(RecurringSlot::class);
+    }
+
+    /**
      * Get the full address as a single string
      */
     public function getFullAddressAttribute(): string
