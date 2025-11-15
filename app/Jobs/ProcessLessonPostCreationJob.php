@@ -91,75 +91,67 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             }
 
             foreach ($studentIds as $studentId) {
-                $subscriptionInstances = SubscriptionInstance::where('status', 'active')
-                    ->whereHas('students', function ($query) use ($studentId) {
-                        $query->where('students.id', $studentId);
-                    })
-                    ->with(['subscription.courseTypes', 'students'])
-                    ->orderBy('started_at', 'asc')
-                    ->get();
+                // Vérifier si le cours est déjà lié à un abonnement
+                if ($this->lesson->subscriptionInstances()->count() > 0) {
+                    Log::info("⏭️ Cours {$this->lesson->id} déjà lié à un abonnement, on passe", [
+                        'student_id' => $studentId
+                    ]);
+                    continue;
+                }
 
-                Log::info("🔍 Recherche d'abonnement pour le cours {$this->lesson->id}", [
-                    'student_id' => $studentId,
-                    'course_type_id' => $this->lesson->course_type_id,
-                    'subscriptions_found' => $subscriptionInstances->count()
-                ]);
+                // Trouver le bon abonnement actif pour cet élève et ce type de cours
+                // (le plus ancien par date de création qui a encore des cours disponibles)
+                $clubId = $this->lesson->club_id ?? null;
+                $subscriptionInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                    $studentId,
+                    $this->lesson->course_type_id,
+                    $clubId
+                );
 
-                foreach ($subscriptionInstances as $subscriptionInstance) {
-                    $subscriptionInstance->checkAndUpdateStatus();
-                    
-                    if ($subscriptionInstance->status !== 'active') {
+                if ($subscriptionInstance) {
+                    try {
+                        $subscriptionInstance->consumeLesson($this->lesson);
+                        
+                        $studentNames = $subscriptionInstance->students->map(function ($student) {
+                            if ($student->user) {
+                                return $student->user->name;
+                            }
+                            $firstName = $student->first_name ?? '';
+                            $lastName = $student->last_name ?? '';
+                            $name = trim($firstName . ' ' . $lastName);
+                            return !empty($name) ? $name : 'Élève sans nom';
+                        })->filter()->join(', ');
+                        
+                        $subscriptionInstance->refresh();
+                        
+                        // Vérifier et mettre à jour le statut (peut passer en completed si plein)
+                        // Cette méthode gère aussi la réouverture si l'abonnement redevient disponible
+                        $subscriptionInstance->checkAndUpdateStatus();
+                        
+                        Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (ordre chronologique)", [
+                            'lesson_id' => $this->lesson->id,
+                            'subscription_instance_id' => $subscriptionInstance->id,
+                            'subscription_created_at' => $subscriptionInstance->created_at,
+                            'student_id' => $studentId,
+                            'lessons_used' => $subscriptionInstance->lessons_used,
+                            'remaining_lessons' => $subscriptionInstance->remaining_lessons
+                        ]);
+                        
+                        // Un seul abonnement par cours, on arrête après le premier lien réussi
+                        break;
+                    } catch (\Exception $e) {
+                        Log::error("❌ Erreur lors de la consommation: " . $e->getMessage(), [
+                            'lesson_id' => $this->lesson->id,
+                            'student_id' => $studentId,
+                            'subscription_instance_id' => $subscriptionInstance->id ?? null
+                        ]);
                         continue;
                     }
-
-                    $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
-                    $subscriptionInstance->recalculateLessonsUsed();
-                    
-                    if (in_array($this->lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
-                        try {
-                            $subscriptionInstance->consumeLesson($this->lesson);
-                            
-                            $studentNames = $subscriptionInstance->students->map(function ($student) {
-                                if ($student->user) {
-                                    return $student->user->name;
-                                }
-                                $firstName = $student->first_name ?? '';
-                                $lastName = $student->last_name ?? '';
-                                $name = trim($firstName . ' ' . $lastName);
-                                return !empty($name) ? $name : 'Élève sans nom';
-                            })->filter()->join(', ');
-                            
-                            $subscriptionInstance->refresh();
-                            
-                            $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
-                            $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
-                            
-                            if ($isFullyUsed && $subscriptionInstance->status === 'active') {
-                                $subscriptionInstance->status = 'completed';
-                                $subscriptionInstance->save();
-                                
-                                Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
-                                    'subscription_instance_id' => $subscriptionInstance->id,
-                                    'lessons_used' => $subscriptionInstance->lessons_used,
-                                    'total_lessons' => $totalLessons,
-                                    'students' => $studentNames
-                                ]);
-                            }
-                            
-                            Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
-                                'lesson_id' => $this->lesson->id,
-                                'subscription_instance_id' => $subscriptionInstance->id,
-                                'student_id' => $studentId,
-                                'lessons_used' => $subscriptionInstance->lessons_used,
-                                'remaining_lessons' => $subscriptionInstance->remaining_lessons
-                            ]);
-                            
-                            break;
-                        } catch (\Exception $e) {
-                            Log::error("❌ Erreur lors de la consommation: " . $e->getMessage());
-                            continue;
-                        }
-                    }
+                } else {
+                    Log::info("ℹ️ Aucun abonnement actif disponible pour le cours {$this->lesson->id}", [
+                        'student_id' => $studentId,
+                        'course_type_id' => $this->lesson->course_type_id
+                    ]);
                 }
             }
         } catch (\Exception $e) {

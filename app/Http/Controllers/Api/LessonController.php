@@ -102,6 +102,8 @@ class LessonController extends Controller
                               ->where('expires_at', '>=', now())
                               ->with(['subscription.template']);
                     },
+                    'students:id,user_id',
+                    'students.user:id,name,email',
                     'courseType:id,name',
                     'location:id,name',
                     'club:id,name,email,phone'
@@ -352,11 +354,23 @@ class LessonController extends Controller
                 $validated['duration'] = 60;
             }
 
+            // Vérifier qu'un élève n'est pas déjà inscrit à la même heure
+            if (isset($validated['student_id']) && $validated['student_id']) {
+                $this->checkStudentTimeConflict($validated['student_id'], $validated['start_time']);
+            }
+
             // Vérifier la capacité du créneau si c'est pour un club
             if ($user->role === 'club') {
                 $club = $user->getFirstClub();
                 if ($club) {
-                    $this->checkSlotCapacity($validated['start_time'], $club->id);
+                    // Calculer le nombre d'élèves du nouveau cours (au moins 1 si student_id est défini)
+                    $newLessonStudentCount = 0;
+                    if (isset($validated['student_id']) && $validated['student_id']) {
+                        $newLessonStudentCount = 1;
+                    }
+                    // TODO: Si support de student_ids (array) dans le futur, ajouter le count ici
+                    
+                    $this->checkSlotCapacity($validated['start_time'], $club->id, $validated['teacher_id'], $newLessonStudentCount, $validated);
                 }
             }
 
@@ -426,7 +440,20 @@ class LessonController extends Controller
             }
 
             // Charger les relations nécessaires pour la réponse
-            $lesson->load(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
+            $lesson->load([
+                'teacher.user',
+                'student.user',
+                'student.subscriptionInstances' => function ($query) {
+                    $query->where('status', 'active')
+                          ->where('expires_at', '>=', now())
+                          ->with(['subscription.template']);
+                },
+                'students:id,user_id',
+                'students.user:id,name,email',
+                'courseType',
+                'location',
+                'club'
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -444,6 +471,32 @@ class LessonController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            // Vérifier si c'est une erreur de conflit horaire pour l'élève
+            if (str_contains($e->getMessage(), 'déjà un cours programmé')) {
+                Log::warning('Conflit horaire pour l\'élève:', [
+                    'message' => $e->getMessage(),
+                    'request' => $request->all()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 422);
+            }
+            // Vérifier si c'est une erreur de capacité de créneau
+            if (str_contains($e->getMessage(), 'complet') || str_contains($e->getMessage(), 'capacité')) {
+                Log::warning('Capacité de créneau atteinte:', [
+                    'message' => $e->getMessage(),
+                    'request' => $request->all()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'errors' => [
+                        'start_time' => [$e->getMessage()]
+                    ]
+                ], 422);
+            }
+            
             Log::error('Exception in Lesson store:', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -494,7 +547,20 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            $query = Lesson::with(['teacher.user', 'student.user', 'courseType', 'location', 'club']);
+            $query = Lesson::with([
+                'teacher.user',
+                'student.user',
+                'student.subscriptionInstances' => function ($query) {
+                    $query->where('status', 'active')
+                          ->where('expires_at', '>=', now())
+                          ->with(['subscription.template']);
+                },
+                'students:id,user_id',
+                'students.user:id,name,email',
+                'courseType',
+                'location',
+                'club'
+            ]);
 
             // Vérifier les permissions selon le rôle
             if ($user->role === 'teacher') {
@@ -616,7 +682,19 @@ class LessonController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $lesson->fresh(['teacher.user', 'student.user', 'courseType', 'location']),
+                'data' => $lesson->fresh([
+                    'teacher.user',
+                    'student.user',
+                    'student.subscriptionInstances' => function ($query) {
+                        $query->where('status', 'active')
+                              ->where('expires_at', '>=', now())
+                              ->with(['subscription.template']);
+                    },
+                    'students:id,user_id',
+                    'students.user:id,name,email',
+                    'courseType',
+                    'location'
+                ]),
                 'message' => 'Cours mis à jour avec succès'
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -892,8 +970,9 @@ class LessonController extends Controller
                     // Vérifier si ce cours fait partie de l'abonnement
                     $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
                     
-                    // Recalculer avant de vérifier remaining_lessons pour avoir la valeur à jour
-                    $subscriptionInstance->recalculateLessonsUsed();
+                    // ⚠️ Ne pas recalculer ici pour préserver les valeurs manuelles
+                    // remaining_lessons utilise directement lessons_used qui peut contenir une valeur manuelle
+                    // consumeLesson() gérera l'incrémentation correctement
                     
                     if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
                         try {
@@ -967,8 +1046,12 @@ class LessonController extends Controller
 
     /**
      * Vérifie que le créneau n'est pas complet avant de créer un cours
+     * 
+     * Vérifie deux choses :
+     * 1. max_slots : Nombre total de cours simultanés possibles dans le créneau
+     * 2. max_capacity : Nombre maximum d'élèves pour l'enseignant dans ce créneau
      */
-    private function checkSlotCapacity(string $startTime, int $clubId): void
+    private function checkSlotCapacity(string $startTime, int $clubId, int $teacherId, int $newLessonStudentCount = 1, array $validated = []): void
     {
         try {
             $startDateTime = Carbon::parse($startTime);
@@ -988,25 +1071,152 @@ class LessonController extends Controller
                 return;
             }
             
-            // Compter les cours déjà existants sur cette plage horaire pour cette date
-            // 🔧 CORRECTION : Utilisation directe de club_id pour des requêtes plus performantes
-            $existingLessonsCount = Lesson::where('club_id', $clubId)
-                ->whereDate('start_time', $date)
-                ->whereTime('start_time', '>=', $openSlot->start_time)
-                ->whereTime('start_time', '<', $openSlot->end_time)
-                ->count();
+            // 1. Vérifier max_slots : Nombre total de cours simultanés qui se chevauchent avec le nouveau cours
+            // ⚠️ IMPORTANT : Vérifier uniquement les cours qui se chevauchent réellement, pas tous les cours dans la plage horaire
+            // Un cours se chevauche si : start_time < other_end_time && end_time > other_start_time
             
-            if ($existingLessonsCount >= $openSlot->max_capacity) {
-                throw new \Exception("Ce créneau est complet ({$existingLessonsCount}/{$openSlot->max_capacity} cours). Impossible d'ajouter un nouveau cours.");
+            // Calculer la fin du nouveau cours (on a besoin de la durée)
+            // La durée devrait être dans $validated, mais on peut aussi la récupérer depuis le CourseType
+            $courseType = null;
+            if (isset($validated['course_type_id'])) {
+                $courseType = \App\Models\CourseType::find($validated['course_type_id']);
+            }
+            $duration = $validated['duration'] ?? ($courseType ? $courseType->duration_minutes : 60);
+            $newLessonEndTime = $startDateTime->copy()->addMinutes($duration);
+            
+            // Charger la relation courseType pour les cours existants
+            $existingLessons = Lesson::where('club_id', $clubId)
+                ->whereDate('start_time', $date)
+                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
+                ->with('courseType') // Charger la relation pour obtenir la durée
+                ->get();
+            
+            // Compter les cours qui se chevauchent avec le nouveau cours
+            $overlappingLessonsCount = 0;
+            foreach ($existingLessons as $lesson) {
+                // Calculer la fin du cours existant
+                $lessonStart = Carbon::parse($lesson->start_time);
+                $lessonEnd = $lessonStart->copy();
+                
+                // Si le cours a une durée stockée, l'utiliser, sinon utiliser la durée du type de cours
+                if ($lesson->courseType && $lesson->courseType->duration_minutes) {
+                    $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
+                } else {
+                    // Fallback : utiliser end_time si disponible, sinon 60 minutes par défaut
+                    if ($lesson->end_time) {
+                        $lessonEnd = Carbon::parse($lesson->end_time);
+                    } else {
+                        $lessonEnd->addMinutes(60);
+                    }
+                }
+                
+                // Vérifier le chevauchement : le nouveau cours chevauche si :
+                // - Il commence avant la fin du cours existant ET
+                // - Il se termine après le début du cours existant
+                if ($startDateTime->lt($lessonEnd) && $newLessonEndTime->gt($lessonStart)) {
+                    $overlappingLessonsCount++;
+                }
+            }
+            
+            $maxSlots = $openSlot->max_slots ?? 1; // Par défaut 1 si non défini
+            
+            if ($overlappingLessonsCount >= $maxSlots) {
+                throw new \Exception("Ce créneau est complet ({$overlappingLessonsCount}/{$maxSlots} plages simultanées). Impossible d'ajouter un nouveau cours.");
+            }
+            
+            // 2. Vérifier max_capacity : Nombre maximum d'élèves pour cet enseignant à l'heure exacte du cours
+            // ⚠️ IMPORTANT : Vérifier uniquement les cours qui commencent à la même heure (même start_time)
+            // et non pas tous les cours dans la plage horaire du créneau ouvert
+            // Utiliser une comparaison de datetime pour être compatible avec SQLite et MySQL
+            $startDateTime = Carbon::parse($date . ' ' . $time . ':00');
+            $endDateTime = $startDateTime->copy()->addMinute(); // +1 minute pour avoir la plage exacte
+            
+            $teacherLessonsAtThisTime = Lesson::where('club_id', $clubId)
+                ->where('teacher_id', $teacherId)
+                ->where('start_time', '>=', $startDateTime)
+                ->where('start_time', '<', $endDateTime)
+                ->get();
+            
+            // Compter le nombre total d'élèves (student_id + relation many-to-many students)
+            $totalStudentsForTeacher = 0;
+            foreach ($teacherLessonsAtThisTime as $lesson) {
+                // Compter student_id (ancien système)
+                if ($lesson->student_id) {
+                    $totalStudentsForTeacher++;
+                }
+                // Compter les étudiants via la relation many-to-many
+                $totalStudentsForTeacher += $lesson->students()->count();
+            }
+            
+            $maxCapacity = $openSlot->max_capacity ?? 1; // Par défaut 1 si non défini
+            
+            // Calculer le total après ajout du nouveau cours
+            $totalAfterNewLesson = $totalStudentsForTeacher + $newLessonStudentCount;
+            
+            // Vérifier si on dépasse la capacité avec le nouveau cours
+            if ($totalAfterNewLesson > $maxCapacity) {
+                throw new \Exception("L'enseignant dépasserait sa capacité maximale d'élèves ({$totalAfterNewLesson}/{$maxCapacity} élèves) dans ce créneau. Actuellement : {$totalStudentsForTeacher} élèves, nouveau cours : {$newLessonStudentCount} élève(s).");
             }
             
         } catch (\Exception $e) {
             // Si c'est notre exception de capacité, la propager
-            if (str_contains($e->getMessage(), 'complet')) {
+            if (str_contains($e->getMessage(), 'complet') || str_contains($e->getMessage(), 'capacité maximale')) {
                 throw $e;
             }
             // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
             Log::warning("Erreur lors de la vérification de capacité du créneau: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Vérifie qu'un élève n'est pas déjà inscrit à la même heure
+     * 
+     * @param int $studentId L'ID de l'élève
+     * @param string $startTime L'heure de début du cours (format Y-m-d H:i:s)
+     * @throws \Exception Si l'élève a déjà un cours à cette heure
+     */
+    private function checkStudentTimeConflict(int $studentId, string $startTime): void
+    {
+        try {
+            $startDateTime = Carbon::parse($startTime);
+            $date = $startDateTime->format('Y-m-d');
+            $time = $startDateTime->format('H:i');
+            
+            // Créer une plage de temps très précise (même heure et minute)
+            $exactStartTime = Carbon::parse($date . ' ' . $time . ':00');
+            $exactEndTime = $exactStartTime->copy()->addMinute(); // +1 minute pour avoir la plage exacte
+            
+            // Vérifier les cours où l'élève est l'étudiant principal (student_id)
+            $conflictingLessonsAsMain = Lesson::where('student_id', $studentId)
+                ->where('start_time', '>=', $exactStartTime)
+                ->where('start_time', '<', $exactEndTime)
+                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
+                ->exists();
+            
+            if ($conflictingLessonsAsMain) {
+                throw new \Exception("Cet élève a déjà un cours programmé à cette heure ({$time}).");
+            }
+            
+            // Vérifier les cours où l'élève est dans la relation many-to-many (students)
+            $conflictingLessonsAsSecondary = Lesson::whereHas('students', function ($query) use ($studentId) {
+                    $query->where('students.id', $studentId);
+                })
+                ->where('start_time', '>=', $exactStartTime)
+                ->where('start_time', '<', $exactEndTime)
+                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
+                ->exists();
+            
+            if ($conflictingLessonsAsSecondary) {
+                throw new \Exception("Cet élève a déjà un cours programmé à cette heure ({$time}).");
+            }
+            
+        } catch (\Exception $e) {
+            // Si c'est notre exception de conflit, la propager
+            if (str_contains($e->getMessage(), 'déjà un cours programmé')) {
+                throw $e;
+            }
+            // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
+            Log::warning("Erreur lors de la vérification de conflit horaire pour l'élève: " . $e->getMessage());
         }
     }
 

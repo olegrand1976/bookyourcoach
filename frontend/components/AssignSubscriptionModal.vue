@@ -515,13 +515,19 @@ const assignSubscription = async () => {
       ...selectedAdditionalStudents.value.map(s => s.id)
     ]
     
-    const response = await $api.post('/club/subscriptions/assign', {
+    // Préparer les données à envoyer
+    const payload = {
       subscription_template_id: form.value.subscription_template_id,
       student_ids: studentIds,
       started_at: form.value.started_at,
       expires_at: calculatedExpiresAt.value || null,
       lessons_used: form.value.lessons_used || 0
-    })
+    }
+    
+    console.log('📤 [AssignSubscription] Payload envoyé:', payload)
+    console.log('📤 [AssignSubscription] lessons_used value:', form.value.lessons_used, 'type:', typeof form.value.lessons_used)
+    
+    const response = await $api.post('/club/subscriptions/assign', payload)
     
     if (response.data.success) {
       alert(response.data.message || 'Abonnement assigné avec succès')

@@ -70,8 +70,9 @@ class Subscription extends Model
                 unset($subscription->attributes['club_id']);
             }
             
-            // Générer le numéro AAMM-incrément si non fourni
-            if (!$subscription->subscription_number) {
+            // Générer le numéro AAMM-incrément si non fourni et si la colonne existe
+            $hasSubscriptionNumberColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'subscription_number');
+            if ($hasSubscriptionNumberColumn && !$subscription->subscription_number) {
                 $clubId = $hasClubIdColumn ? ($subscription->club_id ?? null) : null;
                 $subscription->subscription_number = static::generateSubscriptionNumber($clubId);
             }

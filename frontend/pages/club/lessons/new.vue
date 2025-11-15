@@ -223,6 +223,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+// Composable pour les toasts
+const { success, error: showError } = useToast()
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -401,12 +404,38 @@ const createLesson = async () => {
     
     console.log('✅ Cours créé:', response)
     
-    // Rediriger vers le dashboard avec un message de succès
+    // Afficher un message de succès
+    success('Cours créé avec succès', 'Succès')
+    
+    // Rediriger vers le dashboard
     await navigateTo('/club/dashboard')
     
   } catch (error) {
     console.error('Erreur lors de la création du cours:', error)
-    alert('Erreur lors de la création du cours. Veuillez réessayer.')
+    
+    // Gérer les différents types d'erreurs
+    let errorMessage = 'Erreur lors de la création du cours. Veuillez réessayer.'
+    
+    if (error.data?.message) {
+      errorMessage = error.data.message
+    } else if (error.data?.errors) {
+      const errors = error.data.errors
+      if (typeof errors === 'object') {
+        const formattedErrors = Object.entries(errors)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs : [msgs]
+            return messages.join(', ')
+          })
+          .join('\n')
+        errorMessage = formattedErrors
+      } else {
+        errorMessage = errors
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    showError(errorMessage, 'Erreur de création')
   } finally {
     loading.value = false
   }

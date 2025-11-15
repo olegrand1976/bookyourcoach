@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ClubController;
 use App\Http\Controllers\Api\ClubDashboardController;
 use App\Http\Controllers\Api\ClubOpenSlotController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\SubscriptionTemplateController;
 
 // Health check endpoint pour Docker healthcheck
 Route::get('/health', function () {
@@ -197,6 +198,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     // Routes spécifiques AVANT les routes génériques avec {id}
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
+    Route::post('/subscriptions/{instanceId}/close', [SubscriptionController::class, 'close']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
     // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);

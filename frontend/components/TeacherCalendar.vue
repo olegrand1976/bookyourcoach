@@ -388,6 +388,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 
+// Composable pour les toasts
+const { success, error: showError } = useToast()
+
 // Props
 const props = defineProps({
   teacherId: {
@@ -646,6 +649,9 @@ const addLesson = async () => {
     
     await $api.post('/teacher/lessons', lessonData)
     
+    // Afficher un message de succès
+    success('Cours créé avec succès', 'Succès')
+    
     // Recharger les événements
     await loadCalendarEvents()
     
@@ -659,8 +665,32 @@ const addLesson = async () => {
     }
     
     showAddLessonModal.value = false
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors de l\'ajout du cours:', error)
+    
+    // Gérer les différents types d'erreurs
+    let errorMessage = 'Erreur lors de la création du cours. Veuillez réessayer.'
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message
+    } else if (error.response?.data?.errors) {
+      const errors = error.response.data.errors
+      if (typeof errors === 'object') {
+        const formattedErrors = Object.entries(errors)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs : [msgs]
+            return messages.join(', ')
+          })
+          .join('\n')
+        errorMessage = formattedErrors
+      } else {
+        errorMessage = errors
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    showError(errorMessage, 'Erreur de création')
   } finally {
     isAddingLesson.value = false
   }
