@@ -31,22 +31,22 @@ class RecurringSlotMigrationTest extends TestCase
         $method = $reflection->getMethod('convertToRrule');
         $method->setAccessible(true);
 
-        // Créer un mock de SubscriptionRecurringSlot
-        $slot = $this->createMock(SubscriptionRecurringSlot::class);
-        
         // Test samedi (6)
-        $slot->day_of_week = 6;
-        $rrule = $method->invoke($command, $slot);
+        $slot1 = new SubscriptionRecurringSlot();
+        $slot1->day_of_week = 6;
+        $rrule = $method->invoke($command, $slot1);
         $this->assertEquals('FREQ=WEEKLY;BYDAY=SA', $rrule);
 
         // Test lundi (1)
-        $slot->day_of_week = 1;
-        $rrule = $method->invoke($command, $slot);
+        $slot2 = new SubscriptionRecurringSlot();
+        $slot2->day_of_week = 1;
+        $rrule = $method->invoke($command, $slot2);
         $this->assertEquals('FREQ=WEEKLY;BYDAY=MO', $rrule);
 
         // Test dimanche (0)
-        $slot->day_of_week = 0;
-        $rrule = $method->invoke($command, $slot);
+        $slot3 = new SubscriptionRecurringSlot();
+        $slot3->day_of_week = 0;
+        $rrule = $method->invoke($command, $slot3);
         $this->assertEquals('FREQ=WEEKLY;BYDAY=SU', $rrule);
     }
 
@@ -77,18 +77,18 @@ class RecurringSlotMigrationTest extends TestCase
         $method = $reflection->getMethod('calculateDuration');
         $method->setAccessible(true);
 
-        $slot = $this->createMock(SubscriptionRecurringSlot::class);
-        
         // Test avec start_time et end_time
+        $slot = new SubscriptionRecurringSlot();
         $slot->start_time = '09:00:00';
         $slot->end_time = '10:30:00';
         $duration = $method->invoke($command, $slot);
         $this->assertEquals(90, $duration); // 1h30 = 90 minutes
 
         // Test sans heures (devrait retourner 60 par défaut)
-        $slot->start_time = null;
-        $slot->end_time = null;
-        $duration = $method->invoke($command, $slot);
+        $slot2 = new SubscriptionRecurringSlot();
+        $slot2->start_time = null;
+        $slot2->end_time = null;
+        $duration = $method->invoke($command, $slot2);
         $this->assertEquals(60, $duration);
     }
 
@@ -102,24 +102,25 @@ class RecurringSlotMigrationTest extends TestCase
         $method = $reflection->getMethod('getReferenceStartTime');
         $method->setAccessible(true);
 
-        $slot = $this->createMock(SubscriptionRecurringSlot::class);
-        
         // Test avec start_date et start_time
         // Utiliser un samedi (22 novembre 2025 est un samedi)
-        $slot->start_date = '2025-11-22';
-        $slot->start_time = '09:00:00';
-        $slot->day_of_week = 6; // Samedi
+        $slot1 = new SubscriptionRecurringSlot();
+        $slot1->start_date = '2025-11-22';
+        $slot1->start_time = '09:00:00';
+        $slot1->day_of_week = 6; // Samedi
         
-        $referenceTime = $method->invoke($command, $slot);
+        $referenceTime = $method->invoke($command, $slot1);
         $this->assertInstanceOf(Carbon::class, $referenceTime);
         $this->assertEquals('2025-11-22', $referenceTime->format('Y-m-d'));
         $this->assertEquals('09:00:00', $referenceTime->format('H:i:s'));
 
         // Test sans start_date (devrait utiliser prochaine occurrence)
-        $slot->start_date = null;
-        $slot->start_time = '14:00:00';
+        $slot2 = new SubscriptionRecurringSlot();
+        $slot2->start_date = null;
+        $slot2->start_time = '14:00:00';
+        $slot2->day_of_week = 6; // Samedi
         
-        $referenceTime = $method->invoke($command, $slot);
+        $referenceTime = $method->invoke($command, $slot2);
         $this->assertInstanceOf(Carbon::class, $referenceTime);
         // Vérifier que c'est un samedi
         $this->assertEquals(6, $referenceTime->dayOfWeek);
