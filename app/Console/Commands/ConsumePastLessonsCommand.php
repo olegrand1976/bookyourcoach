@@ -57,37 +57,51 @@ class ConsumePastLessonsCommand extends Command
             ->get();
 
         foreach ($subscriptionInstances as $instance) {
-            foreach ($instance->lessons as $lesson) {
+            // Récupérer tous les cours attachés qui sont passés mais pas encore consommés
+            $pastLessons = $instance->lessons()
+                ->where('start_time', '<=', $now)
+                ->whereIn('status', ['pending', 'confirmed', 'completed'])
+                ->where('status', '!=', 'cancelled')
+                ->get();
+            
+            foreach ($pastLessons as $lesson) {
                 $stats['processed']++;
                 
                 try {
-                    // Vérifier si le cours est déjà consommé (en vérifiant lessons_used)
-                    // On recalcule pour voir si le cours est déjà compté
-                    $oldLessonsUsed = $instance->lessons_used;
-                    $instance->recalculateLessonsUsed();
-                    $newLessonsUsed = $instance->lessons_used;
+                    // Vérifier si le cours est déjà compté dans lessons_used
+                    // On compte combien de cours passés sont actuellement dans lessons_used
+                    $currentConsumedCount = \Illuminate\Support\Facades\DB::table('subscription_lessons')
+                        ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
+                        ->where('subscription_lessons.subscription_instance_id', $instance->id)
+                        ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+                        ->where('lessons.status', '!=', 'cancelled')
+                        ->where('lessons.start_time', '<=', $now)
+                        ->count();
                     
-                    // Si lessons_used n'a pas changé, c'est que le cours n'était pas encore consommé
-                    if ($oldLessonsUsed === $newLessonsUsed) {
-                        // Le cours n'est pas encore consommé, le consommer maintenant
-                        $instance->lessons_used = $instance->lessons_used + 1;
+                    // Si lessons_used est inférieur au nombre de cours passés, il y a des cours non consommés
+                    if ($instance->lessons_used < $currentConsumedCount) {
+                        // Il y a des cours passés non encore consommés
+                        // Consommer la différence
+                        $toConsume = $currentConsumedCount - $instance->lessons_used;
+                        $oldLessonsUsed = $instance->lessons_used;
+                        $instance->lessons_used = $instance->lessons_used + $toConsume;
                         $instance->saveQuietly();
                         
-                        $stats['consumed']++;
+                        $stats['consumed'] += $toConsume;
                         
-                        Log::info("✅ Cours passé consommé automatiquement", [
-                            'lesson_id' => $lesson->id,
-                            'lesson_start_time' => $lesson->start_time,
+                        Log::info("✅ Cours passés consommés automatiquement", [
                             'subscription_instance_id' => $instance->id,
                             'old_lessons_used' => $oldLessonsUsed,
                             'new_lessons_used' => $instance->lessons_used,
+                            'courses_consumed' => $toConsume,
+                            'total_past_lessons' => $currentConsumedCount,
                         ]);
                     } else {
                         $stats['skipped']++;
                     }
                 } catch (\Exception $e) {
                     $stats['errors']++;
-                    Log::error("Erreur lors de la consommation du cours passé", [
+                    Log::error("Erreur lors de la consommation des cours passés", [
                         'lesson_id' => $lesson->id,
                         'subscription_instance_id' => $instance->id,
                         'error' => $e->getMessage(),
