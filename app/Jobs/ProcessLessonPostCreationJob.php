@@ -185,7 +185,15 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             $startTime = Carbon::parse($this->lesson->start_time);
             $dayOfWeek = $startTime->dayOfWeek;
             $timeStart = $startTime->format('H:i:s');
-            $timeEnd = $startTime->copy()->addMinutes($this->lesson->duration ?? 60)->format('H:i:s');
+            
+            // Calculer la durée depuis start_time et end_time (les lessons n'ont pas de colonne duration)
+            $durationMinutes = 60; // Par défaut
+            if ($this->lesson->end_time) {
+                $endTime = Carbon::parse($this->lesson->end_time);
+                $durationMinutes = $startTime->diffInMinutes($endTime);
+            }
+            
+            $timeEnd = $startTime->copy()->addMinutes($durationMinutes)->format('H:i:s');
 
             $recurringStartDate = Carbon::parse($this->lesson->start_time)->startOfDay();
             $recurringEndDate = now()->addMonths(6);
@@ -194,12 +202,12 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
             }
 
+            // Vérifier si une récurrence existe déjà (sans filtre status car la colonne n'existe pas)
             $existingRecurring = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
                 ->where('student_id', $this->lesson->student_id)
                 ->where('teacher_id', $this->lesson->teacher_id)
                 ->where('day_of_week', $dayOfWeek)
                 ->where('start_time', $timeStart)
-                ->where('status', 'active')
                 ->first();
 
             if ($existingRecurring) {
@@ -209,6 +217,7 @@ class ProcessLessonPostCreationJob implements ShouldQueue
 
             // ✅ OPTIMISATION : Ne pas vérifier les conflits - les créer directement
             // Les conflits seront gérés manuellement par le club via l'interface
+            // Note: La table n'a pas de colonne 'status', donc on ne l'inclut pas
             $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
                 'open_slot_id' => null,
@@ -219,7 +228,6 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'end_time' => $timeEnd,
                 'start_date' => $recurringStartDate,
                 'end_date' => $recurringEndDate,
-                'status' => 'active',
                 'notes' => "Créneau récurrent RÉSERVÉ automatiquement pour le cours #{$this->lesson->id}",
             ]);
 
