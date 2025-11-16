@@ -27,7 +27,13 @@ class LegacyRecurringSlotService
     ): array {
         // Par défaut, générer jusqu'à la fin de la période de validité de la récurrence
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
-        $startDate = $startDate ?? Carbon::now()->addWeek(); // Commencer à partir de la semaine prochaine
+        // Commencer à partir de la semaine prochaine, ou à partir de la date de début de la récurrence si elle est dans le futur
+        $recurringStartDate = Carbon::parse($recurringSlot->start_date);
+        $defaultStartDate = Carbon::now()->addWeek();
+        if ($recurringStartDate->isAfter($defaultStartDate)) {
+            $defaultStartDate = $recurringStartDate->copy();
+        }
+        $startDate = $startDate ?? $defaultStartDate;
         $endDate = $endDate ?? $recurringEndDate->copy();
         
         // Ne pas dépasser la fin de la récurrence
