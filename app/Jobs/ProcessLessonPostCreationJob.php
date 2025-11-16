@@ -217,10 +217,9 @@ class ProcessLessonPostCreationJob implements ShouldQueue
 
             // ✅ OPTIMISATION : Ne pas vérifier les conflits - les créer directement
             // Les conflits seront gérés manuellement par le club via l'interface
-            // Note: La table n'a pas de colonne 'status', donc on ne l'inclut pas
+            // Note: La table n'a pas de colonnes 'status' ni 'open_slot_id', donc on ne les inclut pas
             $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
-                'open_slot_id' => null,
                 'teacher_id' => $this->lesson->teacher_id,
                 'student_id' => $this->lesson->student_id,
                 'day_of_week' => $dayOfWeek,
