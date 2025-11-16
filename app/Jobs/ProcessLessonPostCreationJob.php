@@ -237,12 +237,12 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'day_of_week' => $dayOfWeek
             ]);
 
-            // Générer automatiquement les cours pour les 3 prochains mois
+            // Générer automatiquement les cours pour toute la période de validité de la récurrence
             try {
                 $legacyService = new \App\Services\LegacyRecurringSlotService();
                 $startDate = Carbon::now()->addWeek(); // Commencer à partir de la semaine prochaine
-                $endDate = Carbon::now()->addMonths(3);
-                $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, $endDate);
+                // endDate sera automatiquement limité à la fin de la récurrence dans le service
+                $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
                 
                 Log::info("✅ Cours générés automatiquement depuis créneau récurrent", [
                     'recurring_slot_id' => $recurringSlot->id,
