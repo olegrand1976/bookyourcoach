@@ -217,7 +217,7 @@ class ProcessLessonPostCreationJob implements ShouldQueue
 
             // ✅ OPTIMISATION : Ne pas vérifier les conflits - les créer directement
             // Les conflits seront gérés manuellement par le club via l'interface
-            // Note: La table n'a pas de colonnes 'status' ni 'open_slot_id', donc on ne les inclut pas
+            // Note: La table n'a que les colonnes de base (pas de status, open_slot_id, ni notes)
             $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
                 'teacher_id' => $this->lesson->teacher_id,
@@ -227,7 +227,6 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'end_time' => $timeEnd,
                 'start_date' => $recurringStartDate,
                 'end_date' => $recurringEndDate,
-                'notes' => "Créneau récurrent RÉSERVÉ automatiquement pour le cours #{$this->lesson->id}",
             ]);
 
             Log::info("✅ Créneau récurrent RÉSERVÉ", [
