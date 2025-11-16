@@ -237,6 +237,27 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'day_of_week' => $dayOfWeek
             ]);
 
+            // Générer automatiquement les cours pour les 3 prochains mois
+            try {
+                $legacyService = new \App\Services\LegacyRecurringSlotService();
+                $startDate = Carbon::now()->addWeek(); // Commencer à partir de la semaine prochaine
+                $endDate = Carbon::now()->addMonths(3);
+                $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, $endDate);
+                
+                Log::info("✅ Cours générés automatiquement depuis créneau récurrent", [
+                    'recurring_slot_id' => $recurringSlot->id,
+                    'generated' => $stats['generated'],
+                    'skipped' => $stats['skipped'],
+                    'errors' => $stats['errors']
+                ]);
+            } catch (\Exception $e) {
+                // Ne pas faire échouer le job si la génération échoue
+                Log::error("Erreur lors de la génération automatique des cours: " . $e->getMessage(), [
+                    'recurring_slot_id' => $recurringSlot->id,
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+
         } catch (\Exception $e) {
             Log::error("Erreur createRecurringSlotIfSubscription: " . $e->getMessage());
         }

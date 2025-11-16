@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\GenerateRecurringLessonsJob;
 use App\Services\RecurringSlotService;
+use App\Services\LegacyRecurringSlotService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -39,7 +40,7 @@ class GenerateRecurringLessonsCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(RecurringSlotService $service): int
+    public function handle(RecurringSlotService $service, LegacyRecurringSlotService $legacyService): int
     {
         $slotId = $this->option('slot');
         $startDateStr = $this->option('start-date');
@@ -100,12 +101,33 @@ class GenerateRecurringLessonsCommand extends Command
 
                     $this->displayStats($stats);
                 } else {
-                    $this->info("🎯 Génération pour tous les créneaux actifs...");
+                    $this->info("🎯 Génération pour tous les créneaux actifs (nouveau système)...");
                     $this->newLine();
 
                     $stats = $service->generateLessonsForAllActiveSlots($startDate, $endDate);
 
                     $this->displayStats($stats, true);
+                    
+                    // Générer aussi les lessons pour les créneaux récurrents legacy
+                    $this->newLine();
+                    $this->info("🎯 Génération pour tous les créneaux legacy...");
+                    $this->newLine();
+                    
+                    $legacyStats = $legacyService->generateLessonsForAllActiveSlots($startDate, $endDate);
+                    
+                    $this->table(
+                        ['Métrique', 'Valeur'],
+                        [
+                            ['Lessons générées', $legacyStats['generated']],
+                            ['Lessons ignorées', $legacyStats['skipped']],
+                            ['Erreurs', $legacyStats['errors']],
+                        ]
+                    );
+                    
+                    // Combiner les stats
+                    $stats['lessons_generated'] += $legacyStats['generated'];
+                    $stats['lessons_skipped'] += $legacyStats['skipped'];
+                    $stats['errors'] += $legacyStats['errors'];
                 }
             }
 
