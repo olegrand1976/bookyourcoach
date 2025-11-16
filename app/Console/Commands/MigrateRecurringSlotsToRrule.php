@@ -63,7 +63,8 @@ class MigrateRecurringSlotsToRrule extends Command
         }
 
         // Compter les SubscriptionRecurringSlot à migrer
-        $legacySlots = SubscriptionRecurringSlot::where('status', '!=', 'cancelled')
+        // Récupérer tous les créneaux (la table legacy n'a peut-être pas de colonne status)
+        $legacySlots = SubscriptionRecurringSlot::query()
             ->with(['subscriptionInstance', 'student', 'teacher'])
             ->get();
 
