@@ -383,7 +383,7 @@
                           <span class="text-lg">{{ getDayEmoji(recurring.day_of_week) }}</span>
                           <span class="font-medium text-gray-900">{{ getDayName(recurring.day_of_week) }}</span>
                           <span class="text-gray-600">
-                            {{ formatTime(recurring.start_time) }} - {{ formatTime(recurring.end_time) }}
+                            {{ formatTimeOnly(recurring.start_time) }} - {{ formatTimeOnly(recurring.end_time) }}
                           </span>
                         </div>
                         <div class="text-xs text-gray-600 space-y-1 mt-2">
@@ -849,6 +849,28 @@ const formatTime = (date) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
+}
+
+// Formater uniquement une heure (format HH:mm:ss ou HH:mm)
+const formatTimeOnly = (time) => {
+  if (!time) return 'N/A'
+  // Si c'est déjà au format HH:mm, le retourner tel quel
+  if (typeof time === 'string' && time.match(/^\d{2}:\d{2}/)) {
+    return time.substring(0, 5) // Retourner HH:mm
+  }
+  // Sinon, essayer de parser comme une date
+  try {
+    const d = new Date(time)
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('fr-FR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    }
+  } catch (e) {
+    // Ignorer l'erreur
+  }
+  return time
 }
 
 const closeModals = () => {
