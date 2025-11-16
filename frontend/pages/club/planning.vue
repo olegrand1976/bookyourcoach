@@ -1024,8 +1024,10 @@ async function loadLessons() {
     if (response.data.success) {
       lessons.value = response.data.data
       console.log('✅ Cours chargés:', lessons.value)
+      console.log('📊 Nombre total de cours reçus:', lessons.value.length)
+      console.log('📋 IDs des cours reçus:', lessons.value.map((l: any) => l.id).join(', '))
       // Debug: Afficher le statut de chaque cours avec les élèves
-      lessons.value.forEach((lesson, index) => {
+      lessons.value.forEach((lesson: any, index: number) => {
         console.log(`  Cours ${index + 1}:`, {
           id: lesson.id,
           status: lesson.status,
@@ -1042,6 +1044,14 @@ async function loadLessons() {
           })) : []
         })
       })
+      
+      // Vérifier spécifiquement les cours du 29/11
+      const lessonsNov29 = lessons.value.filter((l: any) => {
+        if (!l.start_time) return false
+        const date = new Date(l.start_time)
+        return date.getDate() === 29 && date.getMonth() === 10 && date.getFullYear() === 2025
+      })
+      console.log('🔍 Cours du 29/11 trouvés:', lessonsNov29.length, lessonsNov29.map((l: any) => ({ id: l.id, start_time: l.start_time })))
     } else {
       console.error('Erreur chargement cours:', response.data.message)
     }
