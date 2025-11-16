@@ -362,6 +362,52 @@
               <div v-else class="mt-4 text-sm text-gray-500 italic">
                 Aucun cours consommé pour cette instance
               </div>
+
+              <!-- Récurrences planifiées -->
+              <div v-if="instance.legacy_recurring_slots && instance.legacy_recurring_slots.length > 0" class="mt-6 pt-4 border-t border-gray-200">
+                <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                  Créneaux récurrents planifiés ({{ instance.legacy_recurring_slots.length }})
+                </h5>
+                <div class="space-y-2">
+                  <div 
+                    v-for="recurring in instance.legacy_recurring_slots" 
+                    :key="recurring.id"
+                    class="bg-purple-50 rounded-lg p-3 text-sm border border-purple-200"
+                  >
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="text-lg">{{ getDayEmoji(recurring.day_of_week) }}</span>
+                          <span class="font-medium text-gray-900">{{ getDayName(recurring.day_of_week) }}</span>
+                          <span class="text-gray-600">
+                            {{ formatTime(recurring.start_time) }} - {{ formatTime(recurring.end_time) }}
+                          </span>
+                        </div>
+                        <div class="text-xs text-gray-600 space-y-1 mt-2">
+                          <p v-if="recurring.student?.user">
+                            👤 <strong>Élève:</strong> {{ recurring.student.user.name }}
+                          </p>
+                          <p v-if="recurring.teacher?.user">
+                            🎓 <strong>Enseignant:</strong> {{ recurring.teacher.user.name }}
+                          </p>
+                          <p>
+                            📅 <strong>Du</strong> {{ formatDate(recurring.start_date) }} 
+                            <strong>au</strong> {{ formatDate(recurring.end_date) }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-500 italic">
+                  Aucun créneau récurrent planifié pour cette instance
+                </p>
+              </div>
             </div>
           </div>
           <div v-else class="text-center py-8 text-gray-500">
@@ -862,6 +908,16 @@ const formatDate = (date) => {
   if (!date) return '-'
   const d = new Date(date)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const getDayName = (dayOfWeek) => {
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+  return days[dayOfWeek] || 'Jour inconnu'
+}
+
+const getDayEmoji = (dayOfWeek) => {
+  const emojis = ['☀️', '📅', '📅', '📅', '📅', '📅', '🎉']
+  return emojis[dayOfWeek] || '📅'
 }
 
 // Vérifier si l'abonnement expire bientôt (moins de 30 jours)
