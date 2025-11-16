@@ -176,6 +176,15 @@ class LessonController extends Controller
                 if ($dateFrom && $dateTo) {
                     $query->whereBetween('start_time', [$dateFrom, $dateTo]);
                 }
+            } elseif ($request->has('date_from') || $request->has('date_to')) {
+                // Si date_from ou date_to sont fournis, les utiliser (pas de filtre par défaut)
+                if ($request->has('date_from')) {
+                    $query->whereDate('start_time', '>=', $request->date_from);
+                }
+
+                if ($request->has('date_to')) {
+                    $query->whereDate('start_time', '<=', $request->date_to);
+                }
             } else {
                 // Par défaut: filtrer sur les 7 prochains jours si aucune période spécifiée
                 $now = now();
@@ -183,14 +192,6 @@ class LessonController extends Controller
                     $now->copy()->startOfDay(),
                     $now->copy()->addDays(7)->endOfDay()
                 ]);
-            }
-
-            if ($request->has('date_from')) {
-                $query->whereDate('start_time', '>=', $request->date_from);
-            }
-
-            if ($request->has('date_to')) {
-                $query->whereDate('start_time', '<=', $request->date_to);
             }
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
