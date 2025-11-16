@@ -42,3 +42,15 @@ Schedule::command('recurring-slots:expire-subscriptions')
     ->onFailure(function () {
         \Log::error('Échec de l\'expiration automatique des liaisons abonnement-créneau récurrent');
     });
+
+// Consommer automatiquement les cours dont la date/heure est passée
+// Exécuté toutes les heures pour consommer les cours qui viennent de passer
+Schedule::command('subscriptions:consume-past-lessons')
+    ->hourly()
+    ->timezone('Europe/Brussels')
+    ->onSuccess(function () {
+        \Log::info('Consommation automatique des cours passés terminée');
+    })
+    ->onFailure(function () {
+        \Log::error('Échec de la consommation automatique des cours passés');
+    });

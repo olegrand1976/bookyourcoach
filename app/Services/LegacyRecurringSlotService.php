@@ -224,12 +224,18 @@ class LegacyRecurringSlotService
         ]);
 
         // Lier la lesson à l'abonnement seulement si l'abonnement est actif
+        // ⚠️ IMPORTANT : Les cours futurs seront attachés mais ne consommeront l'abonnement qu'après leur date/heure
         if ($subscriptionInstance) {
             try {
                 $subscriptionInstance->consumeLesson($lesson);
+                $lessonStartTime = \Carbon\Carbon::parse($lesson->start_time);
+                $isPastLesson = $lessonStartTime->isPast();
                 Log::info("✅ Lesson générée et liée à l'abonnement", [
                     'lesson_id' => $lesson->id,
                     'subscription_instance_id' => $subscriptionInstance->id,
+                    'lesson_start_time' => $lesson->start_time,
+                    'is_past' => $isPastLesson,
+                    'consumed' => $isPastLesson ? 'Oui (cours passé)' : 'Non (cours futur, sera consommé automatiquement)',
                 ]);
             } catch (\Exception $e) {
                 // Si la consommation échoue (abonnement expiré, etc.), on continue quand même
