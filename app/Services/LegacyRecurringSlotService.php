@@ -25,8 +25,15 @@ class LegacyRecurringSlotService
         ?Carbon $startDate = null,
         ?Carbon $endDate = null
     ): array {
-        $startDate = $startDate ?? Carbon::now();
-        $endDate = $endDate ?? Carbon::now()->addMonths(3);
+        // Par défaut, générer jusqu'à la fin de la période de validité de la récurrence
+        $recurringEndDate = Carbon::parse($recurringSlot->end_date);
+        $startDate = $startDate ?? Carbon::now()->addWeek(); // Commencer à partir de la semaine prochaine
+        $endDate = $endDate ?? $recurringEndDate->copy();
+        
+        // Ne pas dépasser la fin de la récurrence
+        if ($endDate->isAfter($recurringEndDate)) {
+            $endDate = $recurringEndDate->copy();
+        }
 
         $stats = [
             'generated' => 0,
@@ -37,11 +44,14 @@ class LegacyRecurringSlotService
         // Charger les relations nécessaires
         $recurringSlot->load(['subscriptionInstance', 'student', 'teacher']);
 
-        // Vérifier que l'abonnement est actif
+        // Récupérer l'abonnement (peut être inactif, on continue quand même)
         $subscriptionInstance = $recurringSlot->subscriptionInstance;
-        if (!$subscriptionInstance || $subscriptionInstance->status !== 'active') {
-            Log::info("L'abonnement #{$subscriptionInstance->id} n'est pas actif pour le créneau récurrent #{$recurringSlot->id}");
-            return $stats;
+        $isSubscriptionActive = $subscriptionInstance && $subscriptionInstance->status === 'active';
+        
+        if (!$subscriptionInstance) {
+            Log::warning("Aucun abonnement trouvé pour le créneau récurrent #{$recurringSlot->id}, génération sans consommation d'abonnement");
+        } else if (!$isSubscriptionActive) {
+            Log::info("L'abonnement #{$subscriptionInstance->id} n'est pas actif pour le créneau récurrent #{$recurringSlot->id}, génération sans consommation d'abonnement");
         }
 
         // Vérifier que le créneau est dans sa période de validité
@@ -63,12 +73,13 @@ class LegacyRecurringSlotService
         $subscriptionExpiresAt = $subscriptionInstance->expires_at ? Carbon::parse($subscriptionInstance->expires_at) : null;
 
         // Générer les dates pour chaque semaine dans la plage
+        // On ne filtre plus par la validité de l'abonnement, on génère pour toute la période de la récurrence
         $dates = $this->generateDatesForRecurringSlot(
             $recurringSlot,
             $startDate,
             $endDate,
-            $subscriptionStartedAt,
-            $subscriptionExpiresAt
+            null, // Ne plus filtrer par subscriptionStartedAt
+            null  // Ne plus filtrer par subscriptionExpiresAt
         );
 
         Log::info("Génération de lessons pour créneau récurrent legacy #{$recurringSlot->id}", [
@@ -81,7 +92,11 @@ class LegacyRecurringSlotService
         // Générer les lessons pour chaque date valide
         foreach ($dates as $date) {
             try {
-                $lesson = $this->createLessonFromRecurringSlot($recurringSlot, $date, $subscriptionInstance);
+                $lesson = $this->createLessonFromRecurringSlot(
+                    $recurringSlot, 
+                    $date, 
+                    $isSubscriptionActive ? $subscriptionInstance : null
+                );
                 
                 if ($lesson) {
                     $stats['generated']++;
@@ -103,13 +118,14 @@ class LegacyRecurringSlotService
 
     /**
      * Génère les dates pour un créneau récurrent legacy
+     * Ne filtre plus par la validité de l'abonnement, seulement par la période de la récurrence
      */
     private function generateDatesForRecurringSlot(
         SubscriptionRecurringSlot $recurringSlot,
         Carbon $startDate,
         Carbon $endDate,
-        Carbon $subscriptionStartedAt,
-        ?Carbon $subscriptionExpiresAt
+        ?Carbon $subscriptionStartedAt = null,
+        ?Carbon $subscriptionExpiresAt = null
     ): array {
         $dates = [];
         
@@ -130,23 +146,12 @@ class LegacyRecurringSlotService
             }
         }
 
-        // Générer les dates jusqu'à endDate
-        while ($currentDate->lte($endDate)) {
-            // Vérifier que la date est dans la période de validité de l'abonnement
-            if ($currentDate->isBefore($subscriptionStartedAt)) {
-                $currentDate->addWeek();
-                continue;
-            }
-            
-            if ($subscriptionExpiresAt && $currentDate->isAfter($subscriptionExpiresAt)) {
-                break;
-            }
+        $recurringEndDate = Carbon::parse($recurringSlot->end_date);
 
+        // Générer les dates jusqu'à endDate (limité par la fin de la récurrence)
+        while ($currentDate->lte($endDate) && $currentDate->lte($recurringEndDate)) {
             // Vérifier que la date est dans la période de validité du créneau récurrent
-            $recurringStartDate = Carbon::parse($recurringSlot->start_date);
-            $recurringEndDate = Carbon::parse($recurringSlot->end_date);
-            
-            if ($currentDate->isBefore($recurringStartDate) || $currentDate->isAfter($recurringEndDate)) {
+            if ($currentDate->isBefore($recurringStartDate)) {
                 $currentDate->addWeek();
                 continue;
             }
@@ -160,11 +165,14 @@ class LegacyRecurringSlotService
 
     /**
      * Crée une lesson depuis un créneau récurrent legacy
+     * @param SubscriptionRecurringSlot $recurringSlot
+     * @param Carbon $date
+     * @param SubscriptionInstance|null $subscriptionInstance Si null, le cours est créé sans consommer l'abonnement
      */
     private function createLessonFromRecurringSlot(
         SubscriptionRecurringSlot $recurringSlot,
         Carbon $date,
-        SubscriptionInstance $subscriptionInstance
+        ?SubscriptionInstance $subscriptionInstance = null
     ): ?Lesson {
         // Vérifier si une lesson existe déjà pour cette date et ce créneau
         $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $recurringSlot->start_time);
@@ -209,14 +217,30 @@ class LegacyRecurringSlotService
             'notes' => "Cours généré automatiquement depuis créneau récurrent",
         ]);
 
-        // Lier la lesson à l'abonnement
-        $subscriptionInstance->consumeLesson($lesson);
+        // Lier la lesson à l'abonnement seulement si l'abonnement est actif
+        if ($subscriptionInstance) {
+            try {
+                $subscriptionInstance->consumeLesson($lesson);
+                Log::info("✅ Lesson générée et liée à l'abonnement", [
+                    'lesson_id' => $lesson->id,
+                    'subscription_instance_id' => $subscriptionInstance->id,
+                ]);
+            } catch (\Exception $e) {
+                // Si la consommation échoue (abonnement expiré, etc.), on continue quand même
+                Log::warning("Impossible de consommer l'abonnement pour la lesson #{$lesson->id}: " . $e->getMessage());
+            }
+        } else {
+            Log::info("✅ Lesson générée sans consommation d'abonnement (abonnement inactif ou inexistant)", [
+                'lesson_id' => $lesson->id,
+            ]);
+        }
 
         Log::info("✅ Lesson générée depuis créneau récurrent legacy", [
             'lesson_id' => $lesson->id,
             'recurring_slot_id' => $recurringSlot->id,
             'date' => $date->format('Y-m-d'),
-            'subscription_instance_id' => $subscriptionInstance->id,
+            'subscription_instance_id' => $subscriptionInstance?->id,
+            'subscription_consumed' => $subscriptionInstance !== null,
         ]);
 
         return $lesson;
@@ -238,11 +262,9 @@ class LegacyRecurringSlotService
             'errors' => 0,
         ];
 
-        // Récupérer tous les créneaux récurrents avec des abonnements actifs
-        $recurringSlots = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($query) {
-                $query->where('status', 'active');
-            })
-            ->where('start_date', '<=', $endDate)
+        // Récupérer tous les créneaux récurrents (même si l'abonnement n'est plus actif)
+        // La récurrence reste active pour le jour et la plage horaire
+        $recurringSlots = SubscriptionRecurringSlot::where('start_date', '<=', $endDate)
             ->where('end_date', '>=', $startDate)
             ->get();
 
