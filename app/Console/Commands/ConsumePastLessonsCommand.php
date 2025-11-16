@@ -45,68 +45,44 @@ class ConsumePastLessonsCommand extends Command
             'errors' => 0,
         ];
 
-        // Récupérer tous les abonnements actifs
+        // Récupérer tous les abonnements actifs qui ont des cours attachés
         $subscriptionInstances = SubscriptionInstance::where('status', 'active')
-            ->with(['lessons' => function ($query) use ($now) {
-                // Charger seulement les cours futurs qui sont maintenant passés
+            ->whereHas('lessons', function ($query) use ($now) {
+                // Chercher les abonnements qui ont des cours passés
                 $query->where('start_time', '<=', $now)
-                      ->where('start_time', '>', $now->copy()->subHours(24)) // Seulement les cours des dernières 24h
-                      ->whereIn('status', ['pending', 'confirmed'])
+                      ->whereIn('status', ['pending', 'confirmed', 'completed'])
                       ->where('status', '!=', 'cancelled');
-            }])
+            })
             ->get();
 
         foreach ($subscriptionInstances as $instance) {
-            // Récupérer tous les cours attachés qui sont passés mais pas encore consommés
-            $pastLessons = $instance->lessons()
-                ->where('start_time', '<=', $now)
-                ->whereIn('status', ['pending', 'confirmed', 'completed'])
-                ->where('status', '!=', 'cancelled')
-                ->get();
-            
-            foreach ($pastLessons as $lesson) {
-                $stats['processed']++;
+            try {
+                $oldLessonsUsed = $instance->lessons_used;
                 
-                try {
-                    // Vérifier si le cours est déjà compté dans lessons_used
-                    // On compte combien de cours passés sont actuellement dans lessons_used
-                    $currentConsumedCount = \Illuminate\Support\Facades\DB::table('subscription_lessons')
-                        ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
-                        ->where('subscription_lessons.subscription_instance_id', $instance->id)
-                        ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                        ->where('lessons.status', '!=', 'cancelled')
-                        ->where('lessons.start_time', '<=', $now)
-                        ->count();
+                // Recalculer lessons_used (ne compte que les cours passés)
+                $instance->recalculateLessonsUsed();
+                
+                // Si lessons_used a changé, c'est qu'il y avait des cours passés non consommés
+                if ($instance->lessons_used != $oldLessonsUsed) {
+                    $consumed = $instance->lessons_used - $oldLessonsUsed;
+                    $stats['consumed'] += $consumed;
+                    $stats['processed']++;
                     
-                    // Si lessons_used est inférieur au nombre de cours passés, il y a des cours non consommés
-                    if ($instance->lessons_used < $currentConsumedCount) {
-                        // Il y a des cours passés non encore consommés
-                        // Consommer la différence
-                        $toConsume = $currentConsumedCount - $instance->lessons_used;
-                        $oldLessonsUsed = $instance->lessons_used;
-                        $instance->lessons_used = $instance->lessons_used + $toConsume;
-                        $instance->saveQuietly();
-                        
-                        $stats['consumed'] += $toConsume;
-                        
-                        Log::info("✅ Cours passés consommés automatiquement", [
-                            'subscription_instance_id' => $instance->id,
-                            'old_lessons_used' => $oldLessonsUsed,
-                            'new_lessons_used' => $instance->lessons_used,
-                            'courses_consumed' => $toConsume,
-                            'total_past_lessons' => $currentConsumedCount,
-                        ]);
-                    } else {
-                        $stats['skipped']++;
-                    }
-                } catch (\Exception $e) {
-                    $stats['errors']++;
-                    Log::error("Erreur lors de la consommation des cours passés", [
-                        'lesson_id' => $lesson->id,
+                    Log::info("✅ Cours passés consommés automatiquement", [
                         'subscription_instance_id' => $instance->id,
-                        'error' => $e->getMessage(),
+                        'old_lessons_used' => $oldLessonsUsed,
+                        'new_lessons_used' => $instance->lessons_used,
+                        'courses_consumed' => $consumed,
                     ]);
+                } else {
+                    $stats['skipped']++;
                 }
+            } catch (\Exception $e) {
+                $stats['errors']++;
+                Log::error("Erreur lors de la consommation des cours passés", [
+                    'subscription_instance_id' => $instance->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
