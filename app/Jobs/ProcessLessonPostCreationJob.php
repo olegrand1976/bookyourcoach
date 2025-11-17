@@ -240,6 +240,8 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             // Générer automatiquement les cours pour toute la période de validité de la récurrence
             try {
                 $legacyService = new \App\Services\LegacyRecurringSlotService();
+                // Générer à partir de la semaine prochaine, mais jusqu'à la fin de la récurrence
+                // Le service ajustera automatiquement si la date de début de la récurrence est dans le futur
                 $startDate = Carbon::now()->addWeek(); // Commencer à partir de la semaine prochaine
                 // endDate sera automatiquement limité à la fin de la récurrence dans le service
                 $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
