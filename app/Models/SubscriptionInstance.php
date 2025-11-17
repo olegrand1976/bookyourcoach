@@ -68,11 +68,19 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Les créneaux récurrents bloqués pour cet abonnement
+     * Les créneaux récurrents bloqués pour cet abonnement (ancien modèle)
      */
-    public function recurringSlots()
+    public function legacyRecurringSlots()
     {
         return $this->hasMany(SubscriptionRecurringSlot::class);
+    }
+
+    /**
+     * Les créneaux récurrents (nouveau modèle) liés à cet abonnement
+     */
+    public function recurringSlotSubscriptions()
+    {
+        return $this->hasMany(RecurringSlotSubscription::class);
     }
 
     /**
@@ -86,11 +94,14 @@ class SubscriptionInstance extends Model
     {
         // Compter directement dans la table subscription_lessons avec un JOIN sur lessons
         // pour être sûr d'avoir les données à jour (évite les problèmes de cache Eloquent)
+        // ⚠️ IMPORTANT : Ne compter que les cours dont la date/heure est passée
+        $now = Carbon::now();
         $consumedLessons = \Illuminate\Support\Facades\DB::table('subscription_lessons')
             ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
             ->where('subscription_lessons.subscription_instance_id', $this->id)
             ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
             ->where('lessons.status', '!=', 'cancelled')
+            ->where('lessons.start_time', '<=', $now) // ⚠️ Seulement les cours passés
             ->count();
 
         $oldValue = $this->lessons_used;
@@ -504,6 +515,24 @@ class SubscriptionInstance extends Model
             
             // Forcer le rafraîchissement de la relation
             $this->load('lessons');
+            
+            // ⚠️ LOGIQUE CRITIQUE : Ne consommer l'abonnement que si le cours est passé
+            // Si le cours est dans le futur, on l'attache mais on ne consomme pas encore
+            $lessonStartTime = Carbon::parse($lesson->start_time);
+            $isPastLesson = $lessonStartTime->isPast();
+            
+            if (!$isPastLesson) {
+                // Cours futur : juste attacher, ne pas consommer
+                \Log::info("📅 Cours futur attaché à l'abonnement (non consommé)", [
+                    'lesson_id' => $lesson->id,
+                    'lesson_start_time' => $lesson->start_time,
+                    'subscription_instance_id' => $this->id,
+                    'note' => 'Le cours sera consommé automatiquement quand sa date/heure sera passée'
+                ]);
+                // Recalculer quand même pour mettre à jour les autres valeurs si nécessaire
+                $this->recalculateLessonsUsed();
+                return;
+            }
             
             // ⚠️ LOGIQUE CRITIQUE : Incrémenter directement lessons_used au lieu de recalculer
             // Cela préserve la valeur manuelle initiale

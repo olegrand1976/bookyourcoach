@@ -160,6 +160,14 @@ class Student extends Model
     }
 
     /**
+     * Get the recurring slots for this student (blocage long terme).
+     */
+    public function recurringSlots(): HasMany
+    {
+        return $this->hasMany(RecurringSlot::class);
+    }
+
+    /**
      * Get the total number of lessons for this student.
      */
     public function getTotalLessonsAttribute(): int

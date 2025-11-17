@@ -203,6 +203,14 @@ class Teacher extends Model
     }
 
     /**
+     * Get the recurring slots for this teacher (blocage long terme).
+     */
+    public function recurringSlots()
+    {
+        return $this->hasMany(RecurringSlot::class);
+    }
+
+    /**
      * Accessor pour calculer automatiquement les années d'expérience
      * à partir de experience_start_date de l'utilisateur ou de la date de création du profil
      */

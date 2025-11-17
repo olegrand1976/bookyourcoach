@@ -119,6 +119,14 @@ class Lesson extends Model
     }
 
     /**
+     * Get the recurring slot link for this lesson (if generated from a recurring slot).
+     */
+    public function lessonRecurringSlot()
+    {
+        return $this->hasOne(LessonRecurringSlot::class);
+    }
+
+    /**
      * Scope to filter lessons by status.
      */
     public function scopeByStatus($query, $status)
