@@ -18,6 +18,15 @@
               </svg>
               <span>Modèles</span>
             </NuxtLink>
+            <NuxtLink
+              to="/club/recurring-slots"
+              class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <span>Créneaux Récurrents</span>
+            </NuxtLink>
             <button 
               @click="showAssignModal = true"
               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -352,6 +361,52 @@
               </div>
               <div v-else class="mt-4 text-sm text-gray-500 italic">
                 Aucun cours consommé pour cette instance
+              </div>
+
+              <!-- Récurrences planifiées -->
+              <div v-if="instance.legacy_recurring_slots && instance.legacy_recurring_slots.length > 0" class="mt-6 pt-4 border-t border-gray-200">
+                <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                  Créneaux récurrents planifiés ({{ instance.legacy_recurring_slots.length }})
+                </h5>
+                <div class="space-y-2">
+                  <div 
+                    v-for="recurring in instance.legacy_recurring_slots" 
+                    :key="recurring.id"
+                    class="bg-purple-50 rounded-lg p-3 text-sm border border-purple-200"
+                  >
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="text-lg">{{ getDayEmoji(recurring.day_of_week) }}</span>
+                          <span class="font-medium text-gray-900">{{ getDayName(recurring.day_of_week) }}</span>
+                          <span class="text-gray-600">
+                            {{ formatTimeOnly(recurring.start_time) }} - {{ formatTimeOnly(recurring.end_time) }}
+                          </span>
+                        </div>
+                        <div class="text-xs text-gray-600 space-y-1 mt-2">
+                          <p v-if="recurring.student?.user">
+                            👤 <strong>Élève:</strong> {{ recurring.student.user.name }}
+                          </p>
+                          <p v-if="recurring.teacher?.user">
+                            🎓 <strong>Enseignant:</strong> {{ recurring.teacher.user.name }}
+                          </p>
+                          <p>
+                            📅 <strong>Du</strong> {{ formatDate(recurring.start_date) }} 
+                            <strong>au</strong> {{ formatDate(recurring.end_date) }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-500 italic">
+                  Aucun créneau récurrent planifié pour cette instance
+                </p>
               </div>
             </div>
           </div>
@@ -796,6 +851,28 @@ const formatTime = (date) => {
   })
 }
 
+// Formater uniquement une heure (format HH:mm:ss ou HH:mm)
+const formatTimeOnly = (time) => {
+  if (!time) return 'N/A'
+  // Si c'est déjà au format HH:mm, le retourner tel quel
+  if (typeof time === 'string' && time.match(/^\d{2}:\d{2}/)) {
+    return time.substring(0, 5) // Retourner HH:mm
+  }
+  // Sinon, essayer de parser comme une date
+  try {
+    const d = new Date(time)
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('fr-FR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    }
+  } catch (e) {
+    // Ignorer l'erreur
+  }
+  return time
+}
+
 const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
@@ -853,6 +930,16 @@ const formatDate = (date) => {
   if (!date) return '-'
   const d = new Date(date)
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const getDayName = (dayOfWeek) => {
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+  return days[dayOfWeek] || 'Jour inconnu'
+}
+
+const getDayEmoji = (dayOfWeek) => {
+  const emojis = ['☀️', '📅', '📅', '📅', '📅', '📅', '🎉']
+  return emojis[dayOfWeek] || '📅'
 }
 
 // Vérifier si l'abonnement expire bientôt (moins de 30 jours)

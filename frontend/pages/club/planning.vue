@@ -1002,27 +1002,62 @@ async function loadOpenSlots() {
   }
 }
 
+// Variables pour suivre la plage de dates chargée
+const loadedLessonsRange = ref<{ start: Date | null, end: Date | null }>({ start: null, end: null })
+
 // Charger les cours réels
-async function loadLessons() {
+async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
   try {
     const { $api } = useNuxtApp()
-    // Charger les cours de la semaine en cours et prochaines semaines
-  const today = new Date()
-    const nextWeek = new Date(today)
-    nextWeek.setDate(today.getDate() + 14) // 2 semaines
+    // Charger les cours sur une plage plus large pour couvrir toutes les semaines navigables
+    const today = new Date()
+    const startDate = customStartDate || new Date(today)
+    if (!customStartDate) {
+      startDate.setDate(today.getDate() - 7) // 1 semaine en arrière
+    }
+    const endDate = customEndDate || new Date(today)
+    if (!customEndDate) {
+      endDate.setDate(today.getDate() + 180) // 6 mois en avant pour couvrir toutes les récurrences
+    }
     
     const response = await $api.get('/lessons', {
       params: {
-        date_from: today.toISOString().split('T')[0],
-        date_to: nextWeek.toISOString().split('T')[0]
+        date_from: startDate.toISOString().split('T')[0],
+        date_to: endDate.toISOString().split('T')[0],
+        limit: 200 // Augmenter la limite pour inclure tous les cours générés
       }
     })
     
     if (response.data.success) {
-      lessons.value = response.data.data
-      console.log('✅ Cours chargés:', lessons.value)
+      // Si on recharge une plage spécifique, fusionner avec les cours existants
+      if (customStartDate || customEndDate) {
+        const newLessons = response.data.data
+        const existingLessonIds = new Set(lessons.value.map((l: any) => l.id))
+        const lessonsToAdd = newLessons.filter((l: any) => !existingLessonIds.has(l.id))
+        lessons.value = [...lessons.value, ...lessonsToAdd]
+        console.log('✅ Cours fusionnés:', { 
+          nouveaux: lessonsToAdd.length, 
+          total: lessons.value.length 
+        })
+      } else {
+        lessons.value = response.data.data
+        console.log('✅ Cours chargés:', lessons.value)
+      }
+      
+      // Mettre à jour la plage chargée
+      loadedLessonsRange.value = {
+        start: new Date(startDate),
+        end: new Date(endDate)
+      }
+      
+      console.log('📊 Nombre total de cours:', lessons.value.length)
+      console.log('📋 Plage chargée:', {
+        start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
+        end: loadedLessonsRange.value.end?.toISOString().split('T')[0]
+      })
+      console.log('📋 IDs des cours reçus:', lessons.value.map((l: any) => l.id).join(', '))
       // Debug: Afficher le statut de chaque cours avec les élèves
-      lessons.value.forEach((lesson, index) => {
+      lessons.value.forEach((lesson: any, index: number) => {
         console.log(`  Cours ${index + 1}:`, {
           id: lesson.id,
           status: lesson.status,
@@ -1039,6 +1074,14 @@ async function loadLessons() {
           })) : []
         })
       })
+      
+      // Vérifier spécifiquement les cours du 29/11
+      const lessonsNov29 = lessons.value.filter((l: any) => {
+        if (!l.start_time) return false
+        const date = new Date(l.start_time)
+        return date.getDate() === 29 && date.getMonth() === 10 && date.getFullYear() === 2025
+      })
+      console.log('🔍 Cours du 29/11 trouvés:', lessonsNov29.length, lessonsNov29.map((l: any) => ({ id: l.id, start_time: l.start_time })))
     } else {
       console.error('Erreur chargement cours:', response.data.message)
     }
@@ -1784,6 +1827,9 @@ function navigateToPreviousDate() {
   
   selectedDate.value = newDate
   selectedDateInput.value = formatDateForInput(newDate)
+  
+  // Recharger les cours si nécessaire pour couvrir la nouvelle plage
+  checkAndReloadLessonsIfNeeded(newDate)
 }
 
 // Naviguer vers la date suivante (même jour, semaine suivante)
@@ -1795,6 +1841,55 @@ function navigateToNextDate() {
   
   selectedDate.value = newDate
   selectedDateInput.value = formatDateForInput(newDate)
+  
+  // Recharger les cours si nécessaire pour couvrir la nouvelle plage
+  checkAndReloadLessonsIfNeeded(newDate)
+}
+
+// Vérifier si on doit recharger les cours pour couvrir la nouvelle date
+async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
+  // Vérifier si la date cible est dans la plage actuellement chargée
+  const loadedStart = loadedLessonsRange.value.start
+  const loadedEnd = loadedLessonsRange.value.end
+  
+  if (!loadedStart || !loadedEnd) {
+    // Si aucune plage n'est chargée, charger autour de la date cible
+    console.log('🔄 Aucune plage chargée, chargement autour de la date:', targetDate.toISOString().split('T')[0])
+    const startDate = new Date(targetDate)
+    startDate.setDate(targetDate.getDate() - 7) // 1 semaine avant
+    const endDate = new Date(targetDate)
+    endDate.setDate(targetDate.getDate() + 180) // 6 mois après
+    await loadLessons(startDate, endDate)
+    return
+  }
+  
+  // Si la date cible est en dehors de la plage chargée, étendre la plage
+  const marginDays = 7 // Marge de sécurité
+  const needsReload = targetDate < new Date(loadedStart.getTime() + marginDays * 24 * 60 * 60 * 1000) || 
+                      targetDate > new Date(loadedEnd.getTime() - marginDays * 24 * 60 * 60 * 1000)
+  
+  if (needsReload) {
+    console.log('🔄 Extension de la plage de cours pour couvrir la date:', targetDate.toISOString().split('T')[0])
+    
+    // Calculer la nouvelle plage à charger
+    let newStartDate = new Date(loadedStart)
+    let newEndDate = new Date(loadedEnd)
+    
+    // Si la date est avant la plage chargée, étendre vers le passé
+    if (targetDate < loadedStart) {
+      newStartDate = new Date(targetDate)
+      newStartDate.setDate(targetDate.getDate() - 7) // 1 semaine avant
+    }
+    
+    // Si la date est après la plage chargée, étendre vers le futur
+    if (targetDate > loadedEnd) {
+      newEndDate = new Date(targetDate)
+      newEndDate.setDate(targetDate.getDate() + 180) // 6 mois après
+    }
+    
+    // Charger seulement la partie manquante
+    await loadLessons(newStartDate, newEndDate)
+  }
 }
 
 // Aller à la prochaine occurrence (aujourd'hui ou prochain jour du créneau)
@@ -1806,7 +1901,7 @@ function navigateToToday() {
 }
 
 // Gérer le changement de date via l'input
-function onDateChange() {
+async function onDateChange() {
   if (!selectedDateInput.value) return
   
   const newDate = new Date(selectedDateInput.value + 'T00:00:00')
@@ -1819,6 +1914,9 @@ function onDateChange() {
   }
   
   selectedDate.value = newDate
+  
+  // Recharger les cours si nécessaire pour couvrir la nouvelle date
+  await checkAndReloadLessonsIfNeeded(newDate)
 }
 
 // Réinitialiser la sélection de créneau et de date

@@ -299,6 +299,11 @@ class SubscriptionController extends Controller
                             'lessons' => function ($q) {
                                 $q->with(['teacher.user', 'courseType', 'location'])
                                   ->orderBy('start_time', 'desc');
+                            },
+                            'legacyRecurringSlots' => function ($q) {
+                                $q->with(['teacher.user', 'student.user'])
+                                  ->orderBy('day_of_week')
+                                  ->orderBy('start_time');
                             }
                         ]);
                     }
