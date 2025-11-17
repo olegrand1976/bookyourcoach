@@ -16,10 +16,24 @@ class StudentMiddleware
      */
     public function handle(Request $request, Closure $next)
     {
-        if ($request->user() && $request->user()->role === 'student') {
-            return $next($request);
+        $user = $request->user();
+        
+        // Si l'utilisateur n'est pas authentifié, retourner 401
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
         }
 
-        return response()->json(['message' => 'Unauthorized'], 403);
+        // Si l'utilisateur est authentifié mais n'a pas le rôle student, retourner 403
+        if ($user->role !== 'student') {
+            return response()->json([
+                'message' => 'Unauthorized',
+                'error' => 'Access denied. Student role required.'
+            ], 403);
+        }
+
+        return $next($request);
     }
 }
