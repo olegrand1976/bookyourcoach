@@ -853,5 +853,124 @@ class SubscriptionInstanceTest extends TestCase
         $expectedExpiresAt = $startDate->copy()->addMonths($validityMonths);
         $this->assertEquals($expectedExpiresAt->format('Y-m-d'), $this->subscriptionInstance->expires_at->format('Y-m-d'));
     }
+
+    /**
+     * Test : Suppression d'une instance d'abonnement
+     * 
+     * BUT : Vérifier qu'une instance d'abonnement peut être supprimée correctement
+     * 
+     * ENTRÉE :
+     * - Une instance d'abonnement existante créée dans setUp()
+     * - Appel de la méthode delete()
+     * 
+     * SORTIE ATTENDUE :
+     * - L'instance est supprimée de la base de données
+     * - La tentative de récupération retourne null
+     * 
+     * POURQUOI : Il doit être possible de supprimer une instance d'abonnement pour gérer
+     *            les cas d'erreur de saisie, d'annulation complète ou de nettoyage des données.
+     *            La suppression doit également nettoyer les relations many-to-many (cascade).
+     */
+    #[Test]
+    public function it_can_be_deleted(): void
+    {
+        $instanceId = $this->subscriptionInstance->id;
+
+        // Vérifier que l'instance existe
+        $this->assertDatabaseHas('subscription_instances', [
+            'id' => $instanceId
+        ]);
+
+        // Vérifier qu'il y a une liaison élève-abonnement
+        $this->assertDatabaseHas('subscription_instance_students', [
+            'subscription_instance_id' => $instanceId,
+            'student_id' => $this->student->id
+        ]);
+
+        // Supprimer l'instance
+        $this->subscriptionInstance->delete();
+
+        // Vérifier que l'instance est supprimée
+        $this->assertDatabaseMissing('subscription_instances', [
+            'id' => $instanceId
+        ]);
+
+        // Vérifier que la liaison many-to-many est également supprimée (cascade)
+        $this->assertDatabaseMissing('subscription_instance_students', [
+            'subscription_instance_id' => $instanceId
+        ]);
+
+        // Vérifier qu'on ne peut plus récupérer l'instance
+        $deletedInstance = SubscriptionInstance::find($instanceId);
+        $this->assertNull($deletedInstance);
+    }
+
+    /**
+     * Test : Suppression d'une instance avec cours attachés
+     * 
+     * BUT : Vérifier que la suppression d'une instance avec des cours attachés
+     *       gère correctement les relations (les cours ne sont pas supprimés)
+     * 
+     * ENTRÉE :
+     * - Une instance d'abonnement avec un cours attaché
+     * - Appel de la méthode delete()
+     * 
+     * SORTIE ATTENDUE :
+     * - L'instance est supprimée
+     * - Le cours existe toujours dans la base de données
+     * - La liaison dans subscription_lessons est supprimée
+     * 
+     * POURQUOI : La suppression d'un abonnement ne doit pas supprimer les cours eux-mêmes,
+     *            car ils peuvent avoir une existence indépendante. Seule la liaison doit être supprimée.
+     */
+    #[Test]
+    public function it_can_be_deleted_with_attached_lessons(): void
+    {
+        // Créer un cours
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDay(),
+            'end_time' => Carbon::now()->addDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        // Attacher le cours à l'abonnement
+        $this->subscriptionInstance->lessons()->attach($lesson->id);
+
+        $instanceId = $this->subscriptionInstance->id;
+        $lessonId = $lesson->id;
+
+        // Vérifier que la liaison existe
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $instanceId,
+            'lesson_id' => $lessonId
+        ]);
+
+        // Supprimer l'instance
+        $this->subscriptionInstance->delete();
+
+        // Vérifier que l'instance est supprimée
+        $this->assertDatabaseMissing('subscription_instances', [
+            'id' => $instanceId
+        ]);
+
+        // Vérifier que la liaison est supprimée
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $instanceId
+        ]);
+
+        // Vérifier que le cours existe toujours
+        $this->assertDatabaseHas('lessons', [
+            'id' => $lessonId
+        ]);
+
+        $existingLesson = Lesson::find($lessonId);
+        $this->assertNotNull($existingLesson);
+    }
 }
 

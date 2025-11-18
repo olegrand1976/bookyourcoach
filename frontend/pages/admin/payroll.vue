@@ -58,8 +58,8 @@
               </svg>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Type 1 (€)</p>
-              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_type1 || 0) }}</p>
+              <p class="text-sm font-medium text-gray-600">DCL (€)</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_dcl || 0) }}</p>
             </div>
           </div>
         </div>
@@ -72,8 +72,8 @@
               </svg>
             </div>
             <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Type 2 (€)</p>
-              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_type2 || 0) }}</p>
+              <p class="text-sm font-medium text-gray-600">NDCL (€)</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_ndcl || 0) }}</p>
             </div>
           </div>
         </div>
@@ -104,8 +104,8 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type 1 (€)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type 2 (€)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -125,10 +125,10 @@
                   {{ report.teachers_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(report.statistics?.total_commissions_type1 || 0) }}
+                  {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(report.statistics?.total_commissions_type2 || 0) }}
+                  {{ formatCurrency(report.statistics?.total_commissions_ndcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                   {{ formatCurrency(report.statistics?.total_a_payer || 0) }}
@@ -184,8 +184,8 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions Type 1 (€)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions Type 2 (€)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
               </tr>
             </thead>
@@ -198,10 +198,10 @@
                   {{ data.nom_enseignant }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_type1) }}
+                  {{ formatCurrency(data.total_commissions_dcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_type2) }}
+                  {{ formatCurrency(data.total_commissions_ndcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                   {{ formatCurrency(data.total_a_payer) }}

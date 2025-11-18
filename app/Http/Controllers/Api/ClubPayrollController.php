@@ -328,9 +328,8 @@ class ClubPayrollController extends Controller
 
                 // Données
                 foreach ($report as $teacherId => $data) {
-                    // Support des anciens noms (type1/type2) et nouveaux noms (dcl/ndcl) pour compatibilité
-                    $dcl = $data['total_commissions_dcl'] ?? $data['total_commissions_type1'] ?? 0;
-                    $ndcl = $data['total_commissions_ndcl'] ?? $data['total_commissions_type2'] ?? 0;
+                    $dcl = $data['total_commissions_dcl'] ?? 0;
+                    $ndcl = $data['total_commissions_ndcl'] ?? 0;
                     
                     fputcsv($handle, [
                         $data['enseignant_id'],
@@ -375,9 +374,8 @@ class ClubPayrollController extends Controller
         $totalAPayer = 0;
 
         foreach ($report as $data) {
-            // Support des anciens noms (type1/type2) et nouveaux noms (dcl/ndcl) pour compatibilité
-            $totalDcl += $data['total_commissions_dcl'] ?? $data['total_commissions_type1'] ?? 0;
-            $totalNdcl += $data['total_commissions_ndcl'] ?? $data['total_commissions_type2'] ?? 0;
+            $totalDcl += $data['total_commissions_dcl'] ?? 0;
+            $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
         }
 
@@ -385,9 +383,6 @@ class ClubPayrollController extends Controller
             'nombre_enseignants' => count($report),
             'total_commissions_dcl' => round($totalDcl, 2),
             'total_commissions_ndcl' => round($totalNdcl, 2),
-            // Alias pour compatibilité avec l'ancien code
-            'total_commissions_type1' => round($totalDcl, 2),
-            'total_commissions_type2' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
         ];
     }
