@@ -22,8 +22,24 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('students', function (Blueprint $table) {
-            $table->dropColumn(['first_name', 'last_name']);
-        });
+        // SQLite ne supporte pas plusieurs dropColumn dans une seule modification
+        $driver = \Illuminate\Support\Facades\DB::getDriverName();
+        
+        if ($driver === 'sqlite') {
+            if (Schema::hasColumn('students', 'last_name')) {
+                Schema::table('students', function (Blueprint $table) {
+                    $table->dropColumn('last_name');
+                });
+            }
+            if (Schema::hasColumn('students', 'first_name')) {
+                Schema::table('students', function (Blueprint $table) {
+                    $table->dropColumn('first_name');
+                });
+            }
+        } else {
+            Schema::table('students', function (Blueprint $table) {
+                $table->dropColumn(['first_name', 'last_name']);
+            });
+        }
     }
 };

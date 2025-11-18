@@ -9,9 +9,11 @@ use App\Models\ClubOpenSlot;
 use App\Models\Discipline;
 use App\Models\CourseType;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ClubOpenSlotControllerTest extends TestCase
 {
+    use RefreshDatabase;
     /** @test */
     public function it_can_list_club_open_slots()
     {

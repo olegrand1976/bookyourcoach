@@ -12,9 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         // Modifier la colonne role pour inclure 'club'
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'teacher', 'student', 'club'])->change();
-        });
+        // Note: SQLite ne supporte pas nativement les ENUMs ni les ->change()
+        // Pour SQLite, on accepte simplement toute valeur varchar
+        $driver = \Illuminate\Support\Facades\DB::getDriverName();
+        
+        if ($driver !== 'sqlite') {
+            Schema::table('users', function (Blueprint $table) {
+                $table->enum('role', ['admin', 'teacher', 'student', 'club'])->change();
+            });
+        }
+        // Pour SQLite, pas de modification nécessaire car ENUM est déjà un VARCHAR
 
         // Ajouter club_id aux enseignants
         Schema::table('teachers', function (Blueprint $table) {

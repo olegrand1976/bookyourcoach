@@ -151,6 +151,75 @@
             </p>
           </div>
 
+          <!-- Classification DCL/NDCL pour les commissions -->
+          <div class="mb-6 border-t pt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              Classification pour les commissions
+            </label>
+            <div class="space-y-3">
+              <div class="flex items-center">
+                <input
+                  id="sub_dcl"
+                  v-model="form.est_legacy"
+                  :value="false"
+                  type="radio"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="sub_dcl" class="ml-2 block text-sm text-gray-700">
+                  <span class="font-medium">DCL</span> (Déclaré) - Commission standard
+                </label>
+              </div>
+              <div class="flex items-center">
+                <input
+                  id="sub_ndcl"
+                  v-model="form.est_legacy"
+                  :value="true"
+                  type="radio"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="sub_ndcl" class="ml-2 block text-sm text-gray-700">
+                  <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
+                </label>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie.
+            </p>
+          </div>
+
+          <!-- Date de paiement et montant (optionnel) -->
+          <div class="mb-6 grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Date de paiement (optionnel)
+              </label>
+              <input
+                v-model="form.date_paiement"
+                type="date"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                Détermine le mois de commission dans les rapports de paie
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Montant payé (optionnel)
+              </label>
+              <input
+                v-model.number="form.montant"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Montant réellement payé"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                Montant réellement payé (peut différer du prix du template)
+              </p>
+            </div>
+          </div>
+
           <!-- Élèves additionnels (Autocomplete multiple) -->
           <div v-if="showFamilyOption && selectedMainStudent" class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -246,7 +315,11 @@ const form = ref({
   subscription_template_id: '',
   started_at: '',
   expires_at: '',
-  lessons_used: 0
+  lessons_used: 0,
+  // Champs pour les commissions
+  est_legacy: false, // Par défaut DCL (false)
+  date_paiement: null,
+  montant: null
 })
 
 const availableTemplates = ref([])
@@ -521,7 +594,11 @@ const assignSubscription = async () => {
       student_ids: studentIds,
       started_at: form.value.started_at,
       expires_at: calculatedExpiresAt.value || null,
-      lessons_used: form.value.lessons_used || 0
+      lessons_used: form.value.lessons_used || 0,
+      // Champs pour les commissions
+      est_legacy: form.value.est_legacy === true || form.value.est_legacy === 'true',
+      date_paiement: form.value.date_paiement || null,
+      montant: form.value.montant ? parseFloat(form.value.montant) : null
     }
     
     console.log('📤 [AssignSubscription] Payload envoyé:', payload)

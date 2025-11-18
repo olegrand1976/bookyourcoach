@@ -45,14 +45,21 @@ class Lesson extends Model
         'notes',
         'teacher_feedback',
         'rating',
-        'review'
+        'review',
+        // Champs pour le calcul des commissions
+        'est_legacy',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
+        'date_paiement',   // Date de paiement (détermine le mois de commission)
+        'montant',         // Montant réellement payé (peut différer de price)
     ];
 
     protected $casts = [
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'price' => 'decimal:2',
-        'rating' => 'integer'
+        'rating' => 'integer',
+        'est_legacy' => 'boolean',
+        'date_paiement' => 'date',
+        'montant' => 'decimal:2',
     ];
 
     // Accessors désactivés par défaut pour améliorer les performances

@@ -15,7 +15,13 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('club_id');
             $table->unsignedBigInteger('user_id');
-            $table->enum('role', ['owner', 'manager', 'member', 'teacher', 'student'])->default('member');
+            // Utiliser string au lieu d'enum pour SQLite pour éviter les contraintes CHECK
+            $driver = \Illuminate\Support\Facades\DB::getDriverName();
+            if ($driver === 'sqlite') {
+                $table->string('role')->default('member');
+            } else {
+                $table->enum('role', ['owner', 'manager', 'member', 'teacher', 'student', 'admin'])->default('member');
+            }
             $table->boolean('is_admin')->default(false);
             $table->timestamp('joined_at')->useCurrent();
             $table->timestamps();

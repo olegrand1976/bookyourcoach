@@ -42,13 +42,44 @@ class Subscription extends Model
     }
 
     /**
-     * Créer un abonnement en gérant automatiquement club_id
+     * Créer un abonnement en gérant automatiquement club_id et les champs depuis le template
      */
     public static function createSafe(array $attributes = [])
     {
         // Retirer club_id si la colonne n'existe pas
         if (!static::hasClubIdColumn() && isset($attributes['club_id'])) {
             unset($attributes['club_id']);
+        }
+        
+        // Si un template est fourni, remplir les champs manquants depuis le template
+        if (isset($attributes['subscription_template_id'])) {
+            $template = SubscriptionTemplate::find($attributes['subscription_template_id']);
+            if ($template) {
+                // Remplir name si manquant (utiliser le model_number du template)
+                if (!isset($attributes['name'])) {
+                    $attributes['name'] = "Abonnement {$template->model_number}";
+                }
+                
+                // Remplir total_lessons si manquant
+                if (!isset($attributes['total_lessons'])) {
+                    $attributes['total_lessons'] = $template->total_lessons;
+                }
+                
+                // Remplir free_lessons si manquant
+                if (!isset($attributes['free_lessons'])) {
+                    $attributes['free_lessons'] = $template->free_lessons ?? 0;
+                }
+                
+                // Remplir price si manquant
+                if (!isset($attributes['price'])) {
+                    $attributes['price'] = $template->price;
+                }
+                
+                // Remplir validity_months si manquant
+                if (!isset($attributes['validity_months'])) {
+                    $attributes['validity_months'] = $template->validity_months ?? 12;
+                }
+            }
         }
         
         return static::create($attributes);

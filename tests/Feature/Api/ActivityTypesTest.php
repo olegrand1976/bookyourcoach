@@ -3,9 +3,11 @@
 namespace Tests\Feature\Api;
 
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ActivityTypesTest extends TestCase
 {
+    use RefreshDatabase;
     /**
      * Test de la route publique activity-types
      */

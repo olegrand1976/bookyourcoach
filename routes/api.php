@@ -67,6 +67,14 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::delete('/clubs/{id}', [AdminController::class, 'deleteClub']);
     Route::post('/clubs/{id}/toggle-status', [AdminController::class, 'toggleClubStatus']);
     Route::post('/clubs/upload-logo', [AdminController::class, 'uploadLogo']);
+    
+    // Routes pour les rapports de paie
+    Route::prefix('payroll')->group(function () {
+        Route::get('/reports', [App\Http\Controllers\Api\PayrollController::class, 'getReports']);
+        Route::post('/generate', [App\Http\Controllers\Api\PayrollController::class, 'generate']);
+        Route::get('/reports/{year}/{month}', [App\Http\Controllers\Api\PayrollController::class, 'getReportDetails']);
+        Route::get('/export/{year}/{month}/csv', [App\Http\Controllers\Api\PayrollController::class, 'exportCsv']);
+    });
 });
 
 Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
@@ -212,6 +220,14 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/notifications/unread-count', [App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
     Route::post('/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    
+    // Routes pour les rapports de paie du club
+    Route::prefix('payroll')->group(function () {
+        Route::get('/reports', [App\Http\Controllers\Api\ClubPayrollController::class, 'getReports']);
+        Route::post('/generate', [App\Http\Controllers\Api\ClubPayrollController::class, 'generate']);
+        Route::get('/reports/{year}/{month}', [App\Http\Controllers\Api\ClubPayrollController::class, 'getReportDetails']);
+        Route::get('/export/{year}/{month}/csv', [App\Http\Controllers\Api\ClubPayrollController::class, 'exportCsv']);
+    });
 });
 
 // Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés
