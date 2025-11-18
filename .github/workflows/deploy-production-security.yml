@@ -401,62 +401,93 @@ jobs:
         log_info "⏳ Attente du démarrage des services (30 secondes)..."
         sleep 30
 
+        # Vérification de la connexion à la base de données
+        log_info "🔍 Vérification de la connexion à la base de données..."
+        if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
+          log_error "❌ Impossible de se connecter à la base de données"
+          log_info "⏳ Attente supplémentaire (30 secondes)..."
+          sleep 30
+          if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
+            log_error "❌ La base de données n'est toujours pas accessible"
+            exit 1
+          fi
+        fi
+        log_info "✅ Connexion à la base de données établie"
+        
         # Exécution des migrations de base de données avec vérification
         log_info "🗄️  Exécution des migrations de base de données..."
         
         # Vérifier l'état des migrations avant
         log_info "📊 Vérification de l'état des migrations avant exécution..."
-        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status --json 2>/dev/null || echo "[]")
+        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" || echo "0")
         log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
+        if [ "$PENDING_BEFORE" -gt 0 ]; then
+          log_info "📋 Liste des migrations en attente :"
+          echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
+        fi
         
         # Exécuter les migrations
         log_step "🚀 Exécution des migrations..."
-        if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
+        MIGRATION_OUTPUT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force 2>&1)
+        MIGRATION_EXIT_CODE=$?
+        
+        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
           log_info "✅ Migrations exécutées avec succès"
+          echo "$MIGRATION_OUTPUT" | tail -20
           
           # Vérifier l'état après migration
           log_info "📊 Vérification de l'état des migrations après exécution..."
-          sleep 2
-          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status --json 2>/dev/null || echo "[]")
+          sleep 3
+          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
           PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" || echo "0")
           
           if [ "$PENDING_AFTER" -gt 0 ]; then
             log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
             log_info "📋 Liste des migrations en attente :"
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status | grep "Pending" || true
+            echo "$MIGRATIONS_AFTER" | grep "Pending" || true
             
-            # Réessayer une fois
+            # Réessayer une fois après une courte pause
             log_info "🔄 Nouvelle tentative d'exécution des migrations..."
+            sleep 5
             if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
               log_info "✅ Migrations complémentaires exécutées"
             else
               log_error "❌ Échec de l'exécution des migrations complémentaires"
+              log_warning "⚠️  Vérifiez les logs pour identifier le problème"
             fi
           else
             log_info "✅ Toutes les migrations ont été appliquées avec succès"
           fi
         else
           log_error "❌ Échec de l'exécution des migrations"
-          log_warning "⚠️  Tentative de réparation..."
+          log_error "📋 Détails de l'erreur :"
+          echo "$MIGRATION_OUTPUT" | tail -30
           
-          # Essayer de réparer en cas d'erreur
-          docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:refresh --force --seed=false 2>/dev/null || {
-            log_warning "⚠️  Refresh échoué, nouvelle tentative de migration simple..."
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force || {
-              log_error "❌ Échec définitif des migrations"
-              exit 1
-            }
-          }
+          # En production, on ne fait JAMAIS de migrate:refresh (trop dangereux)
+          log_warning "⚠️  Tentative de réparation sécurisée..."
+          
+          # Essayer de réparer seulement les migrations spécifiques qui ont échoué
+          log_info "🔄 Nouvelle tentative d'exécution des migrations..."
+          sleep 5
+          if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
+            log_info "✅ Migrations réparées avec succès"
+          else
+            log_error "❌ Échec définitif des migrations"
+            log_error "⚠️  ACTION REQUISE : Vérifiez manuellement les migrations en échec"
+            log_error "   Commande à exécuter : docker compose -f $COMPOSE_FILE exec backend php artisan migrate:status"
+            exit 1
+          fi
         fi
         
         # Vérification finale
         log_step "🔍 Vérification finale de l'état des migrations..."
-        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null)
+        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         if echo "$FINAL_STATUS" | grep -q "Pending"; then
           PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" || echo "0")
           log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
-          echo "$FINAL_STATUS"
+          log_info "📋 État final des migrations :"
+          echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
         else
           log_info "✅ Toutes les migrations sont appliquées"
         fi
@@ -679,62 +710,93 @@ jobs:
         log_info "⏳ Attente du démarrage des services (30 secondes)..."
         sleep 30
 
+        # Vérification de la connexion à la base de données
+        log_info "🔍 Vérification de la connexion à la base de données..."
+        if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
+          log_error "❌ Impossible de se connecter à la base de données"
+          log_info "⏳ Attente supplémentaire (30 secondes)..."
+          sleep 30
+          if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
+            log_error "❌ La base de données n'est toujours pas accessible"
+            exit 1
+          fi
+        fi
+        log_info "✅ Connexion à la base de données établie"
+        
         # Exécution des migrations de base de données avec vérification
         log_info "🗄️  Exécution des migrations de base de données..."
         
         # Vérifier l'état des migrations avant
         log_info "📊 Vérification de l'état des migrations avant exécution..."
-        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status --json 2>/dev/null || echo "[]")
+        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" || echo "0")
         log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
+        if [ "$PENDING_BEFORE" -gt 0 ]; then
+          log_info "📋 Liste des migrations en attente :"
+          echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
+        fi
         
         # Exécuter les migrations
         log_step "🚀 Exécution des migrations..."
-        if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
+        MIGRATION_OUTPUT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force 2>&1)
+        MIGRATION_EXIT_CODE=$?
+        
+        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
           log_info "✅ Migrations exécutées avec succès"
+          echo "$MIGRATION_OUTPUT" | tail -20
           
           # Vérifier l'état après migration
           log_info "📊 Vérification de l'état des migrations après exécution..."
-          sleep 2
-          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status --json 2>/dev/null || echo "[]")
+          sleep 3
+          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
           PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" || echo "0")
           
           if [ "$PENDING_AFTER" -gt 0 ]; then
             log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
             log_info "📋 Liste des migrations en attente :"
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status | grep "Pending" || true
+            echo "$MIGRATIONS_AFTER" | grep "Pending" || true
             
-            # Réessayer une fois
+            # Réessayer une fois après une courte pause
             log_info "🔄 Nouvelle tentative d'exécution des migrations..."
+            sleep 5
             if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
               log_info "✅ Migrations complémentaires exécutées"
             else
               log_error "❌ Échec de l'exécution des migrations complémentaires"
+              log_warning "⚠️  Vérifiez les logs pour identifier le problème"
             fi
           else
             log_info "✅ Toutes les migrations ont été appliquées avec succès"
           fi
         else
           log_error "❌ Échec de l'exécution des migrations"
-          log_warning "⚠️  Tentative de réparation..."
+          log_error "📋 Détails de l'erreur :"
+          echo "$MIGRATION_OUTPUT" | tail -30
           
-          # Essayer de réparer en cas d'erreur
-          docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:refresh --force --seed=false 2>/dev/null || {
-            log_warning "⚠️  Refresh échoué, nouvelle tentative de migration simple..."
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force || {
-              log_error "❌ Échec définitif des migrations"
-              exit 1
-            }
-          }
+          # En production, on ne fait JAMAIS de migrate:refresh (trop dangereux)
+          log_warning "⚠️  Tentative de réparation sécurisée..."
+          
+          # Essayer de réparer seulement les migrations spécifiques qui ont échoué
+          log_info "🔄 Nouvelle tentative d'exécution des migrations..."
+          sleep 5
+          if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
+            log_info "✅ Migrations réparées avec succès"
+          else
+            log_error "❌ Échec définitif des migrations"
+            log_error "⚠️  ACTION REQUISE : Vérifiez manuellement les migrations en échec"
+            log_error "   Commande à exécuter : docker compose -f $COMPOSE_FILE exec backend php artisan migrate:status"
+            exit 1
+          fi
         fi
         
         # Vérification finale
         log_step "🔍 Vérification finale de l'état des migrations..."
-        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null)
+        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         if echo "$FINAL_STATUS" | grep -q "Pending"; then
           PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" || echo "0")
           log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
-          echo "$FINAL_STATUS"
+          log_info "📋 État final des migrations :"
+          echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
         else
           log_info "✅ Toutes les migrations sont appliquées"
         fi
