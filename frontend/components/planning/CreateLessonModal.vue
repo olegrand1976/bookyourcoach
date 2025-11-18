@@ -28,7 +28,45 @@
 
         <!-- Formulaire -->
         <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- 1. Type de cours -->
+          <!-- 1. Classification pour les commissions (DCL/NDCL) -->
+          <div class="border-b pb-4">
+<!--             <label class="block text-sm font-medium text-gray-700 mb-3">
+              Classification pour les commissions *
+            </label> -->
+            <div class="flex gap-6">
+              <div class="flex items-center">
+                <input
+                  id="dcl"
+                  v-model="form.est_legacy"
+                  :value="false"
+                  type="radio"
+                  required
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="dcl" class="ml-2 block text-sm font-medium text-gray-700">
+                  DCL
+                </label>
+              </div>
+              <div class="flex items-center">
+                <input
+                  id="ndcl"
+                  v-model="form.est_legacy"
+                  :value="true"
+                  type="radio"
+                  required
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="ndcl" class="ml-2 block text-sm font-medium text-gray-700">
+                  NDCL
+                </label>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              ⓘ DCL (Déclaré) - Commission standard | NDCL (Non Déclaré) - Commission legacy
+            </p>
+          </div>
+
+          <!-- 2. Type de cours -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours *</label>
             <select v-model.number="form.course_type_id" required
@@ -56,7 +94,7 @@
             </p>
           </div>
 
-          <!-- 2. Date -->
+          <!-- 3. Date -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Date *
@@ -99,7 +137,7 @@
             </div>
           </div>
 
-          <!-- 3. Heure -->
+          <!-- 4. Heure -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
             <select 
@@ -125,7 +163,7 @@
             </p>
           </div>
 
-          <!-- 4. Enseignant -->
+          <!-- 5. Enseignant -->
           <div>
             <Autocomplete
               v-model="form.teacher_id"
@@ -151,7 +189,7 @@
             </Autocomplete>
           </div>
 
-          <!-- 5. Élève (optionnel) -->
+          <!-- 6. Élève (optionnel) -->
           <div>
             <Autocomplete
               v-model="form.student_id"
@@ -183,7 +221,7 @@
             </Autocomplete>
           </div>
 
-          <!-- 6. Durée (affichage uniquement) -->
+          <!-- 7. Durée (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Durée (minutes)
@@ -196,7 +234,7 @@
             </p>
           </div>
 
-          <!-- 7. Prix (affichage uniquement) -->
+          <!-- 8. Prix (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Prix (€)
@@ -209,48 +247,12 @@
             </p>
           </div>
 
-          <!-- 8. Notes -->
+          <!-- 9. Notes -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea v-model="form.notes" rows="3"
                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                       placeholder="Notes sur le cours..."></textarea>
-          </div>
-
-          <!-- 9. Classification DCL/NDCL pour les commissions -->
-          <div class="border-t pt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Classification pour les commissions
-            </label>
-            <div class="space-y-3">
-              <div class="flex items-center">
-                <input
-                  id="dcl"
-                  v-model="form.est_legacy"
-                  :value="false"
-                  type="radio"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="dcl" class="ml-2 block text-sm text-gray-700">
-                  <span class="font-medium">DCL</span> (Déclaré) - Commission standard
-                </label>
-              </div>
-              <div class="flex items-center">
-                <input
-                  id="ndcl"
-                  v-model="form.est_legacy"
-                  :value="true"
-                  type="radio"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="ndcl" class="ml-2 block text-sm text-gray-700">
-                  <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
-                </label>
-              </div>
-            </div>
-            <p class="mt-2 text-xs text-gray-500">
-              ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie.
-            </p>
           </div>
 
           <!-- 10. Date de paiement et montant (optionnel) -->
