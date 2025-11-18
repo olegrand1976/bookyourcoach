@@ -10,7 +10,7 @@ use Carbon\Carbon;
  * Commande pour générer le rapport de paie mensuel des enseignants
  * 
  * Cette commande génère un rapport détaillé des commissions dues aux enseignants
- * pour une période donnée, en distinguant les abonnements Type 1 et Type 2.
+ * pour une période donnée, en distinguant les abonnements DCL (Déclaré) et NDCL (Non Déclaré).
  * 
  * Usage:
  *   php artisan payroll:generate 2025 11
@@ -35,7 +35,7 @@ class GenerateMonthlyPayrollReport extends Command
      *
      * @var string
      */
-    protected $description = 'Génère un rapport de paie mensuel pour les enseignants (commissions Type 1 et Type 2)';
+    protected $description = 'Génère un rapport de paie mensuel pour les enseignants (commissions DCL et NDCL)';
 
     /**
      * Service de calcul des commissions
@@ -114,16 +114,16 @@ class GenerateMonthlyPayrollReport extends Command
         $this->info("\n=== Statistiques du rapport {$month}/{$year} ===");
         
         $totalTeachers = count($report);
-        $totalType1 = array_sum(array_column($report, 'total_commissions_type1'));
-        $totalType2 = array_sum(array_column($report, 'total_commissions_type2'));
+        $totalDcl = array_sum(array_column($report, 'total_commissions_dcl'));
+        $totalNdcl = array_sum(array_column($report, 'total_commissions_ndcl'));
         $totalGlobal = array_sum(array_column($report, 'total_a_payer'));
 
         $this->table(
             ['Métrique', 'Valeur'],
             [
                 ['Nombre d\'enseignants', $totalTeachers],
-                ['Total commissions Type 1', number_format($totalType1, 2, ',', ' ') . ' €'],
-                ['Total commissions Type 2', number_format($totalType2, 2, ',', ' ') . ' €'],
+                ['Total commissions DCL', number_format($totalDcl, 2, ',', ' ') . ' €'],
+                ['Total commissions NDCL', number_format($totalNdcl, 2, ',', ' ') . ' €'],
                 ['Total à payer', number_format($totalGlobal, 2, ',', ' ') . ' €'],
             ]
         );
@@ -167,14 +167,14 @@ class GenerateMonthlyPayrollReport extends Command
         foreach ($report as $teacherId => $data) {
             $tableData[] = [
                 $data['nom_enseignant'],
-                number_format($data['total_commissions_type1'], 2, ',', ' ') . ' €',
-                number_format($data['total_commissions_type2'], 2, ',', ' ') . ' €',
+                number_format($data['total_commissions_dcl'] ?? 0, 2, ',', ' ') . ' €',
+                number_format($data['total_commissions_ndcl'] ?? 0, 2, ',', ' ') . ' €',
                 number_format($data['total_a_payer'], 2, ',', ' ') . ' €',
             ];
         }
 
         $this->table(
-            ['Enseignant', 'Commissions Type 1', 'Commissions Type 2', 'Total à payer'],
+            ['Enseignant', 'Commissions DCL', 'Commissions NDCL', 'Total à payer'],
             $tableData
         );
 
@@ -186,15 +186,15 @@ class GenerateMonthlyPayrollReport extends Command
      */
     private function formatCsv(array $report): string
     {
-        $output = "Enseignant ID,Nom Enseignant,Total Commissions Type 1,Total Commissions Type 2,Total à payer\n";
+        $output = "Enseignant ID,Nom Enseignant,Total Commissions DCL,Total Commissions NDCL,Total à payer\n";
         
         foreach ($report as $teacherId => $data) {
             $output .= sprintf(
                 "%d,%s,%.2f,%.2f,%.2f\n",
                 $data['enseignant_id'],
                 $data['nom_enseignant'],
-                $data['total_commissions_type1'],
-                $data['total_commissions_type2'],
+                $data['total_commissions_dcl'] ?? 0,
+                $data['total_commissions_ndcl'] ?? 0,
                 $data['total_a_payer']
             );
         }

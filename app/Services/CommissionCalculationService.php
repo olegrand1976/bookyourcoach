@@ -9,56 +9,56 @@ use Carbon\Carbon;
  * Service de calcul des commissions enseignants
  * 
  * Ce service gère le calcul des commissions pour deux types d'abonnements :
- * - Type 1 (est_legacy = false) : Modèle standard et pérenne
- * - Type 2 (est_legacy = true) : Ancien modèle legacy
+ * - DCL (est_legacy = false) : Déclaré - Modèle standard et pérenne
+ * - NDCL (est_legacy = true) : Non Déclaré - Ancien modèle legacy
  * 
  * Les règles de calcul sont différentes pour chaque type et peuvent être facilement
- * modifiées ou supprimées (pour Type 2) sans affecter le reste du code.
+ * modifiées ou supprimées (pour NDCL) sans affecter le reste du code.
  */
 class CommissionCalculationService
 {
     /**
-     * Taux de commission pour Type 1 (standard)
+     * Taux de commission pour DCL (Déclaré - standard)
      * 1.00 = 100% de commission (le montant complet)
      */
-    private const TYPE1_COMMISSION_RATE = 1.00;
+    private const DCL_COMMISSION_RATE = 1.00;
 
     /**
-     * Taux de commission pour Type 2 (legacy)
+     * Taux de commission pour NDCL (Non Déclaré - legacy)
      * 1.00 = 100% de commission (le montant complet)
      * 
-     * Note : Identique au Type 1. Cette méthode peut être supprimée
-     *        lorsque tous les abonnements Type 2 seront expirés.
+     * Note : Identique au DCL. Cette méthode peut être supprimée
+     *        lorsque tous les abonnements NDCL seront expirés.
      */
-    private const TYPE2_COMMISSION_RATE = 1.00;
+    private const NDCL_COMMISSION_RATE = 1.00;
 
     /**
-     * Calculer la commission pour un abonnement Type 1 (standard)
+     * Calculer la commission pour un abonnement DCL (Déclaré - standard)
      * 
-     * RÈGLE TYPE 1 : Commission = montant × taux_type1
+     * RÈGLE DCL : Commission = montant × taux_dcl
      * 
      * @param float $montant Montant de base de l'abonnement
      * @return float Montant de la commission
      */
-    private function calculateType1Commission(float $montant): float
+    private function calculateDclCommission(float $montant): float
     {
-        return round($montant * self::TYPE1_COMMISSION_RATE, 2);
+        return round($montant * self::DCL_COMMISSION_RATE, 2);
     }
 
     /**
-     * Calculer la commission pour un abonnement Type 2 (legacy)
+     * Calculer la commission pour un abonnement NDCL (Non Déclaré - legacy)
      * 
-     * RÈGLE TYPE 2 : Commission = montant × taux_type2
+     * RÈGLE NDCL : Commission = montant × taux_ndcl
      * 
      * Note : Cette méthode peut être supprimée facilement lorsque tous les
-     *        abonnements Type 2 seront expirés.
+     *        abonnements NDCL seront expirés.
      * 
      * @param float $montant Montant de base de l'abonnement
      * @return float Montant de la commission
      */
-    private function calculateType2Commission(float $montant): float
+    private function calculateNdclCommission(float $montant): float
     {
-        return round($montant * self::TYPE2_COMMISSION_RATE, 2);
+        return round($montant * self::NDCL_COMMISSION_RATE, 2);
     }
 
     /**
@@ -81,11 +81,11 @@ class CommissionCalculationService
 
         // Appliquer la règle selon le type d'abonnement
         if ($subscriptionInstance->est_legacy) {
-            // Type 2 (Legacy)
-            return $this->calculateType2Commission($montant);
+            // NDCL (Non Déclaré - Legacy)
+            return $this->calculateNdclCommission($montant);
         } else {
-            // Type 1 (Standard)
-            return $this->calculateType1Commission($montant);
+            // DCL (Déclaré - Standard)
+            return $this->calculateDclCommission($montant);
         }
     }
 
@@ -217,10 +217,10 @@ class CommissionCalculationService
 
                 // Calculer la commission selon le type
                 if ($lesson->est_legacy) {
-                    $commission = $amount * self::TYPE2_COMMISSION_RATE;
+                    $commission = $amount * self::NDCL_COMMISSION_RATE;
                     $report[$teacherId]['total_commissions_ndcl'] += $commission;
                 } else {
-                    $commission = $amount * self::TYPE1_COMMISSION_RATE;
+                    $commission = $amount * self::DCL_COMMISSION_RATE;
                     $report[$teacherId]['total_commissions_dcl'] += $commission;
                 }
 
@@ -306,10 +306,8 @@ class CommissionCalculationService
     public function getCommissionRates(): array
     {
         return [
-            'dcl_rate' => self::TYPE1_COMMISSION_RATE,   // DCL = Déclaré
-            'ndcl_rate' => self::TYPE2_COMMISSION_RATE,  // NDCL = Non Déclaré
-            'type1_rate' => self::TYPE1_COMMISSION_RATE, // Alias pour compatibilité
-            'type2_rate' => self::TYPE2_COMMISSION_RATE, // Alias pour compatibilité
+            'dcl_rate' => self::DCL_COMMISSION_RATE,   // DCL = Déclaré
+            'ndcl_rate' => self::NDCL_COMMISSION_RATE, // NDCL = Non Déclaré
         ];
     }
 

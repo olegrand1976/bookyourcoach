@@ -264,18 +264,21 @@ class PayrollController extends Controller
                 fputcsv($handle, [
                     'ID Enseignant',
                     'Nom Enseignant',
-                    'Commissions Type 1 (€)',
-                    'Commissions Type 2 (€)',
+                    'Commissions DCL (€)',
+                    'Commissions NDCL (€)',
                     'Total à Payer (€)'
                 ], ';');
 
                 // Données
                 foreach ($report as $teacherId => $data) {
+                    $dcl = $data['total_commissions_dcl'] ?? 0;
+                    $ndcl = $data['total_commissions_ndcl'] ?? 0;
+                    
                     fputcsv($handle, [
                         $data['enseignant_id'],
                         $data['nom_enseignant'],
-                        number_format($data['total_commissions_type1'], 2, ',', ' '),
-                        number_format($data['total_commissions_type2'], 2, ',', ' '),
+                        number_format($dcl, 2, ',', ' '),
+                        number_format($ndcl, 2, ',', ' '),
                         number_format($data['total_a_payer'], 2, ',', ' '),
                     ], ';');
                 }
@@ -309,20 +312,20 @@ class PayrollController extends Controller
      */
     private function calculateStats(array $report): array
     {
-        $totalType1 = 0;
-        $totalType2 = 0;
+        $totalDcl = 0;
+        $totalNdcl = 0;
         $totalAPayer = 0;
 
         foreach ($report as $data) {
-            $totalType1 += $data['total_commissions_type1'];
-            $totalType2 += $data['total_commissions_type2'];
+            $totalDcl += $data['total_commissions_dcl'] ?? 0;
+            $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
         }
 
         return [
             'nombre_enseignants' => count($report),
-            'total_commissions_type1' => round($totalType1, 2),
-            'total_commissions_type2' => round($totalType2, 2),
+            'total_commissions_dcl' => round($totalDcl, 2),
+            'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
         ];
     }

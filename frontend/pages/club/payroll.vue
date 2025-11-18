@@ -59,12 +59,12 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">DCL (€)</p>
-              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_dcl || selectedReport.statistics?.total_commissions_type1 || 0) }}</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_dcl || 0) }}</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+        <div v-if="hasNdclInSelectedReport" class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
           <div class="flex items-center">
             <div class="p-2 bg-purple-100 rounded-lg">
               <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">NDCL (€)</p>
-              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_ndcl || selectedReport.statistics?.total_commissions_type2 || 0) }}</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(selectedReport.statistics?.total_commissions_ndcl || 0) }}</p>
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
+                <th v-if="hasNdclInReports" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -125,10 +125,10 @@
                   {{ report.teachers_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(report.statistics?.total_commissions_dcl || report.statistics?.total_commissions_type1 || 0) }}
+                  {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(report.statistics?.total_commissions_ndcl || report.statistics?.total_commissions_type2 || 0) }}
+                <td v-if="hasNdclInReports" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {{ formatCurrency(report.statistics?.total_commissions_ndcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                   {{ formatCurrency(report.statistics?.total_a_payer || 0) }}
@@ -185,7 +185,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
+                <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
               </tr>
             </thead>
@@ -198,10 +198,10 @@
                   {{ data.nom_enseignant }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_dcl || data.total_commissions_type1 || 0) }}
+                  {{ formatCurrency(data.total_commissions_dcl || 0) }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_ndcl || data.total_commissions_type2 || 0) }}
+                <td v-if="hasNdclInReportDetails" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {{ formatCurrency(data.total_commissions_ndcl || 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                   {{ formatCurrency(data.total_a_payer) }}
@@ -406,6 +406,28 @@ const getExportUrl = (year, month) => {
   const apiBase = config.public.apiBase || '/api'
   return `${apiBase}/club/payroll/export/${year}/${month}/csv`
 }
+
+// Computed properties pour vérifier la présence de valeurs NDCL
+const hasNdclInReports = computed(() => {
+  return reports.value.some(report => {
+    const ndcl = report.statistics?.total_commissions_ndcl || 0
+    return ndcl > 0
+  })
+})
+
+const hasNdclInSelectedReport = computed(() => {
+  if (!selectedReport.value) return false
+  const ndcl = selectedReport.value.statistics?.total_commissions_ndcl || 0
+  return ndcl > 0
+})
+
+const hasNdclInReportDetails = computed(() => {
+  if (!selectedReportDetails.value?.report) return false
+  return Object.values(selectedReportDetails.value.report).some(data => {
+    const ndcl = data.total_commissions_ndcl || 0
+    return ndcl > 0
+  })
+})
 
 // Lifecycle
 onMounted(() => {
