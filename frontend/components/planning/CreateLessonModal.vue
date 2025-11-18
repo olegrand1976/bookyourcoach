@@ -255,40 +255,6 @@
                       placeholder="Notes sur le cours..."></textarea>
           </div>
 
-          <!-- 10. Date de paiement et montant (optionnel) -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Date de paiement (optionnel)
-              </label>
-              <input
-                v-model="form.date_paiement"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Date de paiement"
-              />
-              <p class="mt-1 text-xs text-gray-500">
-                Détermine le mois de commission dans les rapports de paie
-              </p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Montant payé (optionnel)
-              </label>
-              <input
-                v-model.number="form.montant"
-                type="number"
-                step="0.01"
-                min="0"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="Montant réellement payé"
-              />
-              <p class="mt-1 text-xs text-gray-500">
-                Montant réellement payé (peut différer du prix du cours)
-              </p>
-            </div>
-          </div>
-
           <!-- Boutons -->
           <div class="flex justify-end gap-3 pt-4 border-t">
             <button type="button" @click="$emit('close')"
@@ -332,8 +298,6 @@ interface LessonForm {
   notes: string
   // Champs pour les commissions
   est_legacy: boolean | null
-  date_paiement: string | null
-  montant: number | null
 }
 
 interface Props {
