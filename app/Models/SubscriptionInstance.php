@@ -17,12 +17,20 @@ class SubscriptionInstance extends Model
         'started_at',
         'expires_at',
         'status',
+        // Champs pour le calcul des commissions
+        'est_legacy',
+        'date_paiement',
+        'montant',
+        'teacher_id',
     ];
 
     protected $casts = [
         'lessons_used' => 'integer',
         'started_at' => 'date',
         'expires_at' => 'date',
+        'est_legacy' => 'boolean',
+        'date_paiement' => 'date',
+        'montant' => 'decimal:2',
     ];
 
     /**
@@ -47,6 +55,14 @@ class SubscriptionInstance extends Model
     public function subscription()
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    /**
+     * L'enseignant qui doit recevoir la commission pour cet abonnement
+     */
+    public function teacher()
+    {
+        return $this->belongsTo(Teacher::class);
     }
 
     /**

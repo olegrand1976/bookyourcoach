@@ -351,32 +351,38 @@ class SubscriptionController extends Controller
      */
     public function assignToStudent(Request $request): JsonResponse
     {
+        $user = Auth::user();
+        
+        if ($user->role !== 'club') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès réservé aux clubs'
+            ], 403);
+        }
+
+        $club = $user->getFirstClub();
+        if (!$club) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Club non trouvé'
+            ], 404);
+        }
+
+        // Validation des données (Laravel gère automatiquement les erreurs 422)
+        $validated = $request->validate([
+            'subscription_template_id' => 'required|exists:subscription_templates,id',
+            'student_ids' => 'required|array|min:1',
+            'student_ids.*' => 'exists:students,id',
+            'started_at' => 'nullable|date|after_or_equal:today',
+            'expires_at' => 'nullable|date',
+            'lessons_used' => 'nullable|integer|min:0',
+            // Champs pour les commissions
+            'est_legacy' => 'nullable|boolean',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
+            'date_paiement' => 'nullable|date',      // Date de paiement (détermine le mois de commission)
+            'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer du prix du template)
+        ]);
+        
         try {
-            $user = Auth::user();
-            
-            if ($user->role !== 'club') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Accès réservé aux clubs'
-                ], 403);
-            }
-
-            $club = $user->getFirstClub();
-            if (!$club) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Club non trouvé'
-                ], 404);
-            }
-
-            $validated = $request->validate([
-                'subscription_template_id' => 'required|exists:subscription_templates,id',
-                'student_ids' => 'required|array|min:1',
-                'student_ids.*' => 'exists:students,id',
-                'started_at' => 'nullable|date|after_or_equal:today',
-                'expires_at' => 'nullable|date',
-                'lessons_used' => 'nullable|integer|min:0'
-            ]);
             
             Log::info('📥 [assignToStudent] Données reçues:', [
                 'validated' => $validated,
@@ -416,14 +422,27 @@ class SubscriptionController extends Controller
                 ], 422);
             }
 
-            // Créer une instance d'abonnement
-            $subscriptionInstance = SubscriptionInstance::create([
+            // Créer une instance d'abonnement avec les champs de commission
+            $subscriptionInstanceData = [
                 'subscription_id' => $subscription->id,
                 'lessons_used' => $lessonsUsed,
                 'started_at' => $startedAt,
-                'expires_at' => $validated['expires_at'] ? Carbon::parse($validated['expires_at']) : null,
+                'expires_at' => isset($validated['expires_at']) && $validated['expires_at'] ? Carbon::parse($validated['expires_at']) : null,
                 'status' => 'active'
-            ]);
+            ];
+            
+            // Ajouter les champs de commission si fournis
+            if (isset($validated['est_legacy'])) {
+                $subscriptionInstanceData['est_legacy'] = $validated['est_legacy'];
+            }
+            if (isset($validated['date_paiement'])) {
+                $subscriptionInstanceData['date_paiement'] = Carbon::parse($validated['date_paiement'])->format('Y-m-d');
+            }
+            if (isset($validated['montant'])) {
+                $subscriptionInstanceData['montant'] = $validated['montant'];
+            }
+            
+            $subscriptionInstance = SubscriptionInstance::create($subscriptionInstanceData);
             
             // Calculer expires_at si non fourni
             if (!$subscriptionInstance->expires_at) {

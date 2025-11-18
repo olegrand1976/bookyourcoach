@@ -11,11 +11,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'teacher', 'student'])->default('student');
-            $table->string('phone')->nullable();
-            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
-        });
+        // Vérifier que la table users existe avant de la modifier
+        if (Schema::hasTable('users')) {
+            Schema::table('users', function (Blueprint $table) {
+                // Vérifier que les colonnes n'existent pas déjà
+                if (!Schema::hasColumn('users', 'role')) {
+                    // SQLite ne supporte pas bien les ENUMs avec default
+                    // On utilise string avec default pour compatibilité
+                    $table->string('role')->default('student');
+                }
+                if (!Schema::hasColumn('users', 'phone')) {
+                    $table->string('phone')->nullable();
+                }
+                if (!Schema::hasColumn('users', 'status')) {
+                    // Même chose pour status
+                    $table->string('status')->default('active');
+                }
+            });
+        }
     }
 
     /**

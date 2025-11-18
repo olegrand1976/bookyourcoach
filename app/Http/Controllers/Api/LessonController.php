@@ -265,7 +265,11 @@ class LessonController extends Controller
                 'start_time' => 'required|date|after_or_equal:today',
                 'duration' => 'nullable|integer|min:15|max:180',
                 'price' => 'nullable|numeric|min:0',
-                'notes' => 'nullable|string|max:1000'
+                'notes' => 'nullable|string|max:1000',
+                // Champs pour le calcul des commissions
+                'est_legacy' => 'nullable|boolean',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
+                'date_paiement' => 'nullable|date',      // Date de paiement (détermine le mois de commission)
+                'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer de price)
             ]);
 
             // 🔒 Validation : vérifier que la durée correspond au type de cours sélectionné

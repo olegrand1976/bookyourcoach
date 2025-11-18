@@ -45,9 +45,17 @@ class SubscriptionInstanceObserver
      */
     private function cancelRecurringSlotsForSubscription(SubscriptionInstance $subscriptionInstance, string $reason): void
     {
+        // Récupérer les récurrences valides (sans utiliser la colonne status qui n'existe peut-être pas)
         $recurringSlots = SubscriptionRecurringSlot::where('subscription_instance_id', $subscriptionInstance->id)
-            ->where('status', 'active')
-            ->get();
+            ->where(function($query) {
+                $query->where('end_date', '>=', now())
+                      ->orWhereNull('end_date');
+            })
+            ->get()
+            ->filter(function($slot) {
+                // Filtrer uniquement les récurrences valides
+                return method_exists($slot, 'isValid') ? $slot->isValid() : true;
+            });
 
         $cancelledCount = 0;
         foreach ($recurringSlots as $recurringSlot) {
@@ -75,9 +83,17 @@ class SubscriptionInstanceObserver
             return;
         }
 
+        // Récupérer les récurrences valides (sans utiliser la colonne status qui n'existe peut-être pas)
         $recurringSlots = SubscriptionRecurringSlot::where('subscription_instance_id', $subscriptionInstance->id)
-            ->where('status', 'active')
-            ->get();
+            ->where(function($query) {
+                $query->where('end_date', '>=', now())
+                      ->orWhereNull('end_date');
+            })
+            ->get()
+            ->filter(function($slot) {
+                // Filtrer uniquement les récurrences valides
+                return method_exists($slot, 'isValid') ? $slot->isValid() : true;
+            });
 
         $updatedCount = 0;
         foreach ($recurringSlots as $recurringSlot) {

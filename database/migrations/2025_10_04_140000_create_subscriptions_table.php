@@ -16,10 +16,10 @@ return new class extends Migration
             Schema::create('subscriptions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('club_id')->constrained()->onDelete('cascade');
-                $table->string('name'); // Nom de l'abonnement (ex: "Formule 10 cours")
-                $table->integer('total_lessons'); // Nombre total de cours inclus
-                $table->integer('free_lessons')->default(0); // Nombre de cours gratuits offerts
-                $table->decimal('price', 10, 2); // Prix de l'abonnement
+                $table->string('name')->nullable(); // Nom de l'abonnement (ex: "Formule 10 cours") - nullable car peut utiliser un template
+                $table->integer('total_lessons')->nullable(); // Nombre total de cours inclus - nullable car peut venir du template
+                $table->integer('free_lessons')->default(0)->nullable(); // Nombre de cours gratuits offerts
+                $table->decimal('price', 10, 2)->nullable(); // Prix de l'abonnement - nullable car peut venir du template
                 $table->text('description')->nullable(); // Description de l'abonnement
                 $table->boolean('is_active')->default(true); // L'abonnement est-il proposé actuellement
                 $table->timestamps();

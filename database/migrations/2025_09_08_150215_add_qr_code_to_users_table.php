@@ -22,8 +22,24 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['qr_code', 'qr_code_generated_at']);
-        });
+        // SQLite ne supporte pas plusieurs dropColumn dans une seule modification
+        $driver = \Illuminate\Support\Facades\DB::getDriverName();
+        
+        if ($driver === 'sqlite') {
+            if (Schema::hasColumn('users', 'qr_code_generated_at')) {
+                Schema::table('users', function (Blueprint $table) {
+                    $table->dropColumn('qr_code_generated_at');
+                });
+            }
+            if (Schema::hasColumn('users', 'qr_code')) {
+                Schema::table('users', function (Blueprint $table) {
+                    $table->dropColumn('qr_code');
+                });
+            }
+        } else {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn(['qr_code', 'qr_code_generated_at']);
+            });
+        }
     }
 };

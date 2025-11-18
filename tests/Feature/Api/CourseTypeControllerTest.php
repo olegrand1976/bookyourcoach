@@ -5,9 +5,11 @@ namespace Tests\Feature\Api;
 use App\Models\User;
 use App\Models\CourseType;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class CourseTypeControllerTest extends TestCase
 {
+    use RefreshDatabase;
     /** @test */
     public function it_can_list_course_types()
     {

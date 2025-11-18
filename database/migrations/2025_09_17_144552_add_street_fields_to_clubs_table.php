@@ -23,8 +23,29 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('clubs', function (Blueprint $table) {
-            $table->dropColumn(['street', 'street_number', 'street_box']);
-        });
+        // SQLite ne supporte pas plusieurs dropColumn dans une seule modification
+        $driver = \Illuminate\Support\Facades\DB::getDriverName();
+        
+        if ($driver === 'sqlite') {
+            if (Schema::hasColumn('clubs', 'street_box')) {
+                Schema::table('clubs', function (Blueprint $table) {
+                    $table->dropColumn('street_box');
+                });
+            }
+            if (Schema::hasColumn('clubs', 'street_number')) {
+                Schema::table('clubs', function (Blueprint $table) {
+                    $table->dropColumn('street_number');
+                });
+            }
+            if (Schema::hasColumn('clubs', 'street')) {
+                Schema::table('clubs', function (Blueprint $table) {
+                    $table->dropColumn('street');
+                });
+            }
+        } else {
+            Schema::table('clubs', function (Blueprint $table) {
+                $table->dropColumn(['street', 'street_number', 'street_box']);
+            });
+        }
     }
 };

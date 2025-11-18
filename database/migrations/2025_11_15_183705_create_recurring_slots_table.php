@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             
             // Relations
-            $table->foreignId('student_id')->constrained('students')->onDelete('cascade');
+            $table->foreignId('student_id')->nullable()->constrained('students')->onDelete('cascade');
             $table->foreignId('teacher_id')->constrained('teachers')->onDelete('cascade');
             $table->foreignId('club_id')->constrained('clubs')->onDelete('cascade');
             $table->foreignId('course_type_id')->nullable()->constrained('course_types')->onDelete('set null');

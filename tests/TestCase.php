@@ -13,6 +13,28 @@ abstract class TestCase extends BaseTestCase
     use CreatesApplication, RefreshDatabase;
 
     /**
+     * Configuration de la base de données pour les tests
+     * Force l'utilisation de SQLite en mémoire même si .env définit MySQL
+     */
+    protected function setUp(): void
+    {
+        // Forcer SQLite AVANT d'appeler parent::setUp() pour que RefreshDatabase utilise SQLite
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_DATABASE=:memory:');
+        
+        parent::setUp();
+        
+        // Forcer SQLite dans la configuration également
+        config(['database.default' => 'sqlite']);
+        config(['database.connections.sqlite' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]]);
+    }
+
+    /**
      * Authentifie un utilisateur admin et retourne l'instance.
      */
     protected function actingAsAdmin(): User
