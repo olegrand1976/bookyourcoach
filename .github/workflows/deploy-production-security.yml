@@ -414,15 +414,35 @@ jobs:
         fi
         log_info "✅ Connexion à la base de données établie"
         
+        # Vérifier si la table activity_types existe (migration critique)
+        log_info "🔍 Vérification de la table activity_types..."
+        # Vérifier via une requête SQL simple
+        ACTIVITY_TYPES_CHECK=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="try { DB::select('SELECT 1 FROM activity_types LIMIT 1'); echo 'exists'; } catch (Exception \$e) { echo 'not_exists'; }" 2>/dev/null | grep -E "(exists|not_exists)" | tail -1 || echo "not_exists")
+        if [ "$ACTIVITY_TYPES_CHECK" != "exists" ]; then
+          log_warning "⚠️  La table activity_types n'existe pas, exécution de la migration spécifique..."
+          # Exécuter directement la migration pour créer activity_types
+          MIGRATION_RESULT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --path=database/migrations/2025_09_07_110546_create_activity_types_table.php --force 2>&1)
+          if [ $? -eq 0 ]; then
+            log_info "✅ Migration activity_types exécutée avec succès"
+          else
+            log_warning "⚠️  Migration spécifique échouée, vérification si la table existe maintenant..."
+            echo "$MIGRATION_RESULT" | tail -10
+          fi
+        else
+          log_info "✅ La table activity_types existe"
+        fi
+        
         # Exécution des migrations de base de données avec vérification
         log_info "🗄️  Exécution des migrations de base de données..."
         
         # Vérifier l'état des migrations avant
         log_info "📊 Vérification de l'état des migrations avant exécution..."
         MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" || echo "0")
+        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" 2>/dev/null || echo "0")
+        # S'assurer que PENDING_BEFORE est un nombre
+        PENDING_BEFORE=${PENDING_BEFORE:-0}
         log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
-        if [ "$PENDING_BEFORE" -gt 0 ]; then
+        if [ "$PENDING_BEFORE" -gt 0 ] 2>/dev/null; then
           log_info "📋 Liste des migrations en attente :"
           echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
         fi
@@ -440,9 +460,11 @@ jobs:
           log_info "📊 Vérification de l'état des migrations après exécution..."
           sleep 3
           MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" || echo "0")
+          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" 2>/dev/null || echo "0")
+          # S'assurer que PENDING_AFTER est un nombre
+          PENDING_AFTER=${PENDING_AFTER:-0}
           
-          if [ "$PENDING_AFTER" -gt 0 ]; then
+          if [ "$PENDING_AFTER" -gt 0 ] 2>/dev/null; then
             log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
             log_info "📋 Liste des migrations en attente :"
             echo "$MIGRATIONS_AFTER" | grep "Pending" || true
@@ -484,7 +506,9 @@ jobs:
         log_step "🔍 Vérification finale de l'état des migrations..."
         FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         if echo "$FINAL_STATUS" | grep -q "Pending"; then
-          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" || echo "0")
+          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" 2>/dev/null || echo "0")
+          # S'assurer que PENDING_COUNT est un nombre
+          PENDING_COUNT=${PENDING_COUNT:-0}
           log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
           log_info "📋 État final des migrations :"
           echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
@@ -723,15 +747,35 @@ jobs:
         fi
         log_info "✅ Connexion à la base de données établie"
         
+        # Vérifier si la table activity_types existe (migration critique)
+        log_info "🔍 Vérification de la table activity_types..."
+        # Vérifier via une requête SQL simple
+        ACTIVITY_TYPES_CHECK=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="try { DB::select('SELECT 1 FROM activity_types LIMIT 1'); echo 'exists'; } catch (Exception \$e) { echo 'not_exists'; }" 2>/dev/null | grep -E "(exists|not_exists)" | tail -1 || echo "not_exists")
+        if [ "$ACTIVITY_TYPES_CHECK" != "exists" ]; then
+          log_warning "⚠️  La table activity_types n'existe pas, exécution de la migration spécifique..."
+          # Exécuter directement la migration pour créer activity_types
+          MIGRATION_RESULT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --path=database/migrations/2025_09_07_110546_create_activity_types_table.php --force 2>&1)
+          if [ $? -eq 0 ]; then
+            log_info "✅ Migration activity_types exécutée avec succès"
+          else
+            log_warning "⚠️  Migration spécifique échouée, vérification si la table existe maintenant..."
+            echo "$MIGRATION_RESULT" | tail -10
+          fi
+        else
+          log_info "✅ La table activity_types existe"
+        fi
+        
         # Exécution des migrations de base de données avec vérification
         log_info "🗄️  Exécution des migrations de base de données..."
         
         # Vérifier l'état des migrations avant
         log_info "📊 Vérification de l'état des migrations avant exécution..."
         MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" || echo "0")
+        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" 2>/dev/null || echo "0")
+        # S'assurer que PENDING_BEFORE est un nombre
+        PENDING_BEFORE=${PENDING_BEFORE:-0}
         log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
-        if [ "$PENDING_BEFORE" -gt 0 ]; then
+        if [ "$PENDING_BEFORE" -gt 0 ] 2>/dev/null; then
           log_info "📋 Liste des migrations en attente :"
           echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
         fi
@@ -749,9 +793,11 @@ jobs:
           log_info "📊 Vérification de l'état des migrations après exécution..."
           sleep 3
           MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" || echo "0")
+          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" 2>/dev/null || echo "0")
+          # S'assurer que PENDING_AFTER est un nombre
+          PENDING_AFTER=${PENDING_AFTER:-0}
           
-          if [ "$PENDING_AFTER" -gt 0 ]; then
+          if [ "$PENDING_AFTER" -gt 0 ] 2>/dev/null; then
             log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
             log_info "📋 Liste des migrations en attente :"
             echo "$MIGRATIONS_AFTER" | grep "Pending" || true
@@ -793,7 +839,9 @@ jobs:
         log_step "🔍 Vérification finale de l'état des migrations..."
         FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
         if echo "$FINAL_STATUS" | grep -q "Pending"; then
-          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" || echo "0")
+          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" 2>/dev/null || echo "0")
+          # S'assurer que PENDING_COUNT est un nombre
+          PENDING_COUNT=${PENDING_COUNT:-0}
           log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
           log_info "📋 État final des migrations :"
           echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
