@@ -609,9 +609,7 @@ const lessonForm = ref({
   price: 0,
   notes: '',
   // Champs pour les commissions
-  est_legacy: false as boolean | null, // Par défaut DCL (false)
-  date_paiement: null as string | null,
-  montant: null as number | null
+  est_legacy: false as boolean | null // Par défaut DCL (false)
 })
 const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
 
@@ -1484,9 +1482,7 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       price: initialPrice,
       notes: '',
       // Champs pour les commissions (par défaut DCL)
-      est_legacy: false,
-      date_paiement: null,
-      montant: null
+      est_legacy: false
     }
   } else {
     // Réinitialiser le formulaire
@@ -1501,9 +1497,7 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       price: 0,
       notes: '',
       // Champs pour les commissions (par défaut DCL)
-      est_legacy: false,
-      date_paiement: null,
-      montant: null
+      est_legacy: false
     }
   }
 }
@@ -1610,9 +1604,7 @@ async function createLesson() {
       price: lessonForm.value.price,
       notes: lessonForm.value.notes,
       // Champs pour les commissions
-      est_legacy: lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true',
-      date_paiement: lessonForm.value.date_paiement || null,
-      montant: lessonForm.value.montant ? parseFloat(String(lessonForm.value.montant)) : null
+      est_legacy: lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'
     }
     
     console.log('📤 Création du cours avec payload:', payload)
