@@ -52,6 +52,68 @@
             </div>
           </div>
 
+          <!-- Actions en masse -->
+          <div v-if="paymentData.lessons && paymentData.lessons.length > 0" class="mb-4 p-4 bg-gray-50 rounded-lg">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <span class="text-sm font-medium text-gray-700">
+                  {{ selectedLessons.length }} cours sélectionné(s)
+                </span>
+                <div class="flex gap-2">
+                  <button
+                    @click="markSelectedAsPaid"
+                    :disabled="selectedLessons.length === 0 || saving"
+                    class="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Marquer comme payé
+                  </button>
+                  <button
+                    @click="showUnpaidReasonModal = true"
+                    :disabled="selectedLessons.length === 0 || saving"
+                    class="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Marquer comme non payé
+                  </button>
+                  <button
+                    @click="markSelectedAsDeferred"
+                    :disabled="selectedLessons.length === 0 || saving"
+                    class="px-3 py-1.5 text-sm bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reporter au mois suivant
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal pour raison du non-paiement -->
+          <div v-if="showUnpaidReasonModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 class="text-lg font-semibold mb-4">Raison du non-paiement</h3>
+              <textarea
+                v-model="unpaidReason"
+                rows="4"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
+                placeholder="Indiquez la raison du non-paiement..."
+              ></textarea>
+              <div class="flex justify-end gap-3">
+                <button
+                  @click="showUnpaidReasonModal = false; unpaidReason = ''"
+                  class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Annuler
+                </button>
+                <button
+                  @click="markSelectedAsUnpaid"
+                  :disabled="!unpaidReason.trim()"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  Confirmer
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Cours individuels -->
           <div v-if="paymentData.lessons && paymentData.lessons.length > 0">
             <h4 class="text-lg font-semibold text-gray-900 mb-3">Cours individuels</h4>
@@ -59,6 +121,14 @@
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      <input
+                        type="checkbox"
+                        :checked="allLessonsSelected"
+                        @change="toggleSelectAll"
+                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
@@ -67,12 +137,21 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant payé</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commission</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-for="lesson in paymentData.lessons" :key="`lesson-${lesson.id}`" 
-                      :class="editingItems[`lesson-${lesson.id}`] ? 'bg-blue-50' : ''">
+                      :class="editingItems[`lesson-${lesson.id}`] ? 'bg-blue-50' : (isSelected(lesson.id) ? 'bg-yellow-50' : '')">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        :checked="isSelected(lesson.id)"
+                        @change="toggleSelect(lesson.id)"
+                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                       {{ formatDate(lesson.date) }}
                     </td>
@@ -119,6 +198,20 @@
                     <td class="px-4 py-3 whitespace-nowrap text-sm">
                       <span :class="lesson.est_legacy ? 'px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium' : 'px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium'">
                         {{ lesson.est_legacy ? 'NDCL' : 'DCL' }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm">
+                      <span v-if="lesson.date_paiement" class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                        Payé
+                      </span>
+                      <span v-else-if="lesson.non_paiement_reason" class="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium" :title="lesson.non_paiement_reason">
+                        Non payé
+                      </span>
+                      <span v-else-if="isDeferred(lesson)" class="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                        Reporté
+                      </span>
+                      <span v-else class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
+                        En attente
                       </span>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm">
@@ -326,7 +419,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 interface PaymentItem {
   id: number
@@ -376,6 +469,9 @@ const error = ref<string | null>(null)
 const saving = ref(false)
 const paymentData = ref<PaymentData | null>(null)
 const editingItems = ref<Record<string, Partial<PaymentItem>>>({})
+const selectedLessons = ref<number[]>([])
+const showUnpaidReasonModal = ref(false)
+const unpaidReason = ref('')
 
 // Charger les données quand la modale s'ouvre
 watch(() => props.show, async (newValue) => {
@@ -384,6 +480,9 @@ watch(() => props.show, async (newValue) => {
   } else {
     paymentData.value = null
     editingItems.value = {}
+    selectedLessons.value = []
+    showUnpaidReasonModal.value = false
+    unpaidReason.value = ''
   }
 })
 
@@ -505,6 +604,7 @@ async function reloadReport(resetManualChanges: boolean) {
     if (response.data?.success) {
       toast.success(resetManualChanges ? 'Rapport rechargé et modifications réinitialisées' : 'Rapport rechargé')
       await loadPayments()
+      selectedLessons.value = []
       emit('reload')
     } else {
       toast.error(response.data?.message || 'Erreur lors du rechargement')
@@ -515,6 +615,144 @@ async function reloadReport(resetManualChanges: boolean) {
   } finally {
     saving.value = false
   }
+}
+
+// Fonctions de sélection
+function isSelected(lessonId: number): boolean {
+  return selectedLessons.value.includes(lessonId)
+}
+
+function toggleSelect(lessonId: number) {
+  const index = selectedLessons.value.indexOf(lessonId)
+  if (index > -1) {
+    selectedLessons.value.splice(index, 1)
+  } else {
+    selectedLessons.value.push(lessonId)
+  }
+}
+
+function toggleSelectAll() {
+  if (allLessonsSelected.value) {
+    selectedLessons.value = []
+  } else {
+    selectedLessons.value = paymentData.value?.lessons.map(l => l.id) || []
+  }
+}
+
+const allLessonsSelected = computed(() => {
+  if (!paymentData.value?.lessons || paymentData.value.lessons.length === 0) return false
+  return paymentData.value.lessons.every(lesson => selectedLessons.value.includes(lesson.id))
+})
+
+// Actions en masse
+async function markSelectedAsPaid() {
+  if (selectedLessons.value.length === 0) return
+  
+  saving.value = true
+  try {
+    const updates = selectedLessons.value.map(id => ({
+      id,
+      type: 'lesson' as const,
+      action: 'validate' as const
+    }))
+    
+    const response = await $api.put(
+      `/club/payroll/reports/${props.year}/${props.month}/teachers/${props.teacherId}/payments`,
+      { updates }
+    )
+    
+    if (response.data?.success) {
+      toast.success(`${selectedLessons.value.length} cours marqué(s) comme payé(s)`)
+      selectedLessons.value = []
+      await loadPayments()
+      emit('reload')
+    } else {
+      toast.error(response.data?.message || 'Erreur lors de la mise à jour')
+    }
+  } catch (err: any) {
+    console.error('Erreur marquage payé:', err)
+    toast.error(err.response?.data?.message || err.message || 'Erreur lors de la mise à jour')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function markSelectedAsUnpaid() {
+  if (selectedLessons.value.length === 0 || !unpaidReason.value.trim()) return
+  
+  saving.value = true
+  try {
+    const updates = selectedLessons.value.map(id => ({
+      id,
+      type: 'lesson' as const,
+      action: 'unpaid' as const,
+      non_paiement_reason: unpaidReason.value.trim()
+    }))
+    
+    const response = await $api.put(
+      `/club/payroll/reports/${props.year}/${props.month}/teachers/${props.teacherId}/payments`,
+      { updates }
+    )
+    
+    if (response.data?.success) {
+      toast.success(`${selectedLessons.value.length} cours marqué(s) comme non payé(s)`)
+      selectedLessons.value = []
+      showUnpaidReasonModal.value = false
+      unpaidReason.value = ''
+      await loadPayments()
+      emit('reload')
+    } else {
+      toast.error(response.data?.message || 'Erreur lors de la mise à jour')
+    }
+  } catch (err: any) {
+    console.error('Erreur marquage non payé:', err)
+    toast.error(err.response?.data?.message || err.message || 'Erreur lors de la mise à jour')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function markSelectedAsDeferred() {
+  if (selectedLessons.value.length === 0) return
+  
+  if (!confirm(`Êtes-vous sûr de vouloir reporter ${selectedLessons.value.length} cours au mois suivant ?`)) {
+    return
+  }
+  
+  saving.value = true
+  try {
+    const updates = selectedLessons.value.map(id => ({
+      id,
+      type: 'lesson' as const,
+      action: 'defer' as const
+    }))
+    
+    const response = await $api.put(
+      `/club/payroll/reports/${props.year}/${props.month}/teachers/${props.teacherId}/payments`,
+      { updates }
+    )
+    
+    if (response.data?.success) {
+      toast.success(`${selectedLessons.value.length} cours reporté(s) au mois suivant`)
+      selectedLessons.value = []
+      await loadPayments()
+      emit('reload')
+    } else {
+      toast.error(response.data?.message || 'Erreur lors de la mise à jour')
+    }
+  } catch (err: any) {
+    console.error('Erreur report:', err)
+    toast.error(err.response?.data?.message || err.message || 'Erreur lors de la mise à jour')
+  } finally {
+    saving.value = false
+  }
+}
+
+function isDeferred(lesson: PaymentItem): boolean {
+  if (!lesson.date_paiement) return false
+  const paymentDate = new Date(lesson.date_paiement)
+  const nextMonth = new Date(props.year, props.month, 1) // Mois suivant
+  return paymentDate >= nextMonth
 }
 </script>
 

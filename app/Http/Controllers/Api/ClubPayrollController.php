@@ -437,14 +437,26 @@ class ClubPayrollController extends Controller
             $startDate = Carbon::create($year, $month, 1)->startOfMonth();
             $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
-            // Récupérer les cours individuels payés durant la période
+            // Récupérer TOUS les cours individuels de l'enseignant sur la période
+            // (pas seulement ceux avec date_paiement, pour permettre la gestion complète)
             $lessons = \App\Models\Lesson::where('teacher_id', $teacherId)
                 ->where('club_id', $clubId)
-                ->whereBetween('date_paiement', [$startDate, $endDate])
-                ->whereNotNull('date_paiement')
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->whereDoesntHave('subscriptionInstances')
+                ->where(function($query) use ($startDate, $endDate) {
+                    // Soit date_paiement est dans la période, soit start_time est dans la période (si date_paiement est null)
+                    $query->where(function($q) use ($startDate, $endDate) {
+                        // Cas 1 : date_paiement est définie et dans la période
+                        $q->whereNotNull('date_paiement')
+                          ->whereBetween('date_paiement', [$startDate, $endDate]);
+                    })->orWhere(function($q) use ($startDate, $endDate) {
+                        // Cas 2 : date_paiement est null et start_time dans la période (cours à payer dans cette période)
+                        $q->whereNull('date_paiement')
+                          ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]);
+                    });
+                })
                 ->where(function($query) {
+                    // Soit montant est défini et > 0, soit price est défini et > 0
                     $query->where(function($q) {
                         $q->whereNotNull('montant')->where('montant', '>', 0);
                     })->orWhere(function($q) {
@@ -453,7 +465,6 @@ class ClubPayrollController extends Controller
                     });
                 })
                 ->with(['courseType', 'student.user', 'students.user'])
-                ->orderBy('date_paiement')
                 ->orderBy('start_time')
                 ->get()
                 ->map(function($lesson) {
@@ -461,6 +472,12 @@ class ClubPayrollController extends Controller
                     // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
                     // Utiliser le même taux pour les deux (1.00 = 100%)
                     $commission = round($amount * 1.00, 2);
+                    
+                    // Extraire la raison du non-paiement depuis les notes
+                    $nonPaiementReason = null;
+                    if ($lesson->notes && preg_match('/\[NON PAYÉ\]\s*(.+?)(?:\n|$)/', $lesson->notes, $matches)) {
+                        $nonPaiementReason = trim($matches[1]);
+                    }
                     
                     return [
                         'id' => $lesson->id,
@@ -477,6 +494,7 @@ class ClubPayrollController extends Controller
                         'est_legacy' => $lesson->est_legacy ?? null, // Garder null pour l'affichage (null = NDCL)
                         'status' => $lesson->status,
                         'is_manual_override' => $lesson->montant !== null && $lesson->montant != $lesson->price,
+                        'non_paiement_reason' => $nonPaiementReason,
                     ];
                 });
 
@@ -587,9 +605,10 @@ class ClubPayrollController extends Controller
                 'updates' => 'required|array',
                 'updates.*.id' => 'required|integer',
                 'updates.*.type' => 'required|in:lesson,subscription',
-                'updates.*.action' => 'required|in:validate,modify,defer',
+                'updates.*.action' => 'required|in:validate,modify,defer,unpaid',
                 'updates.*.montant' => 'nullable|numeric|min:0',
                 'updates.*.date_paiement' => 'nullable|date',
+                'updates.*.non_paiement_reason' => 'nullable|string|max:500',
             ]);
 
             $updates = $request->input('updates', []);
@@ -613,6 +632,11 @@ class ClubPayrollController extends Controller
                         if ($lesson->montant === null) {
                             $lesson->montant = $lesson->price;
                         }
+                        // Supprimer la raison de non-paiement si elle existe
+                        if ($lesson->notes && strpos($lesson->notes, '[NON PAYÉ]') !== false) {
+                            $lesson->notes = preg_replace('/\[NON PAYÉ\].*?(\n|$)/', '', $lesson->notes);
+                            $lesson->notes = trim($lesson->notes);
+                        }
                         $lesson->save();
                         $updated[] = ['id' => $lesson->id, 'type' => 'lesson', 'action' => 'validated'];
                     } elseif ($update['action'] === 'modify') {
@@ -625,6 +649,20 @@ class ClubPayrollController extends Controller
                         }
                         $lesson->save();
                         $updated[] = ['id' => $lesson->id, 'type' => 'lesson', 'action' => 'modified'];
+                    } elseif ($update['action'] === 'unpaid') {
+                        // Marquer comme non payé avec raison
+                        $lesson->date_paiement = null;
+                        $lesson->montant = null;
+                        // Ajouter la raison dans les notes
+                        $reason = $update['non_paiement_reason'] ?? 'Non payé';
+                        $existingNotes = $lesson->notes ?? '';
+                        // Supprimer l'ancienne raison si elle existe
+                        $existingNotes = preg_replace('/\[NON PAYÉ\].*?(\n|$)/', '', $existingNotes);
+                        $existingNotes = trim($existingNotes);
+                        // Ajouter la nouvelle raison
+                        $lesson->notes = $existingNotes . ($existingNotes ? "\n" : '') . '[NON PAYÉ] ' . $reason;
+                        $lesson->save();
+                        $updated[] = ['id' => $lesson->id, 'type' => 'lesson', 'action' => 'unpaid'];
                     } elseif ($update['action'] === 'defer') {
                         // Reporter au mois suivant
                         $nextMonth = Carbon::create($year, $month, 1)->addMonth();

@@ -240,7 +240,6 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
@@ -250,9 +249,6 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ data.enseignant_id }}
-                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {{ data.nom_enseignant }}
                 </td>
