@@ -257,12 +257,12 @@ class LessonController extends Controller
         try {
             $user = Auth::user();
 
-            // Validation de base avec date moins stricte
+            // Validation de base - permettre les dates dans le passé pour l'encodage rétroactif
             $validated = $request->validate([
                 'teacher_id' => 'required|exists:teachers,id',
                 'course_type_id' => 'required|exists:course_types,id',
                 'location_id' => 'nullable|exists:locations,id',
-                'start_time' => 'required|date|after_or_equal:today',
+                'start_time' => 'required|date', // Permettre toutes les dates (passé et futur)
                 'duration' => 'nullable|integer|min:15|max:180',
                 'price' => 'nullable|numeric|min:0',
                 'notes' => 'nullable|string|max:1000',

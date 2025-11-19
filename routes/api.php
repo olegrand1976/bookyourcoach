@@ -226,6 +226,9 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
         Route::get('/reports', [App\Http\Controllers\Api\ClubPayrollController::class, 'getReports']);
         Route::post('/generate', [App\Http\Controllers\Api\ClubPayrollController::class, 'generate']);
         Route::get('/reports/{year}/{month}', [App\Http\Controllers\Api\ClubPayrollController::class, 'getReportDetails']);
+        Route::post('/reports/{year}/{month}/reload', [App\Http\Controllers\Api\ClubPayrollController::class, 'reloadReport']);
+        Route::get('/reports/{year}/{month}/teachers/{teacherId}/payments', [App\Http\Controllers\Api\ClubPayrollController::class, 'getTeacherPaymentsDetails']);
+        Route::put('/reports/{year}/{month}/teachers/{teacherId}/payments', [App\Http\Controllers\Api\ClubPayrollController::class, 'updatePayments']);
         Route::get('/export/{year}/{month}/csv', [App\Http\Controllers\Api\ClubPayrollController::class, 'exportCsv']);
     });
 });

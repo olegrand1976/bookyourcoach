@@ -61,9 +61,7 @@
                 </label>
               </div>
             </div>
-            <p class="mt-2 text-xs text-gray-500">
-              ⓘ DCL (Déclaré) - Commission standard | NDCL (Non Déclaré) - Commission legacy
-            </p>
+
           </div>
 
           <!-- 2. Type de cours -->
@@ -105,16 +103,51 @@
                 (Jours disponibles: {{ availableDays.map(d => getDayName(d)).join(', ') }})
               </span>
             </label>
-            <input 
-              v-model="form.date" 
-              type="date" 
-              required
-              :min="minDate"
-              @input="validateDate"
-              :class="[
-                'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
-                form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
-              ]" />
+            <!-- Conteneur avec flèches de navigation -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="navigateDate(-1)"
+                :disabled="!canNavigateDate(-1)"
+                :class="[
+                  'px-3 py-2 border rounded-md transition-colors',
+                  canNavigateDate(-1)
+                    ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                ]"
+                title="Date précédente"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <input 
+                v-model="form.date" 
+                type="date" 
+                required
+                :min="minDate || undefined"
+                @input="validateDate"
+                :class="[
+                  'flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                  form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                ]" />
+              <button
+                type="button"
+                @click="navigateDate(1)"
+                :disabled="!canNavigateDate(1)"
+                :class="[
+                  'px-3 py-2 border rounded-md transition-colors',
+                  canNavigateDate(1)
+                    ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                ]"
+                title="Date suivante"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
             <p v-if="form.date && !isDateAvailable(form.date)" class="text-xs text-red-600 mt-1">
               ⚠️ Cette date doit être un {{ getDayName(selectedSlot?.day_of_week || 0) }}
             </p>
@@ -324,10 +357,10 @@ function getDayName(dayOfWeek: number): string {
   return dayNames[dayOfWeek] || 'Inconnu'
 }
 
-// Date minimale : aujourd'hui
+// Date minimale : pas de restriction (permet l'encodage dans le passé)
 const minDate = computed(() => {
-  const today = new Date()
-  return today.toISOString().split('T')[0]
+  // Retourner null pour permettre toutes les dates
+  return null
 })
 
 // Génère les 4 prochaines dates valides pour le créneau sélectionné
@@ -401,6 +434,115 @@ function validateDate(event: Event) {
       }, 100)
     }
   }
+}
+
+// Navigue vers la date précédente ou suivante du même jour de la semaine
+function navigateDate(direction: number) {
+  if (!props.form.date || !props.selectedSlot) return
+  
+  // Parser la date en local (pas UTC) pour éviter les problèmes de timezone
+  const [year, month, day] = props.form.date.split('-').map(Number)
+  const currentDate = new Date(year, month - 1, day, 12, 0, 0) // Utiliser midi pour éviter les problèmes de timezone
+  const targetDayOfWeek = props.selectedSlot.day_of_week
+  const currentDayOfWeek = currentDate.getDay()
+  
+  let daysToAdd = 0
+  
+  if (currentDayOfWeek === targetDayOfWeek) {
+    // Si on est déjà sur le bon jour, avancer/reculer d'une semaine complète
+    daysToAdd = direction * 7
+    console.log('🔍 Navigation: déjà sur le bon jour', {
+      currentDate: props.form.date,
+      currentDay: currentDayOfWeek,
+      direction,
+      daysToAdd
+    })
+  } else {
+    // Si on n'est pas sur le bon jour, trouver le prochain/précédent jour cible
+    let diff = targetDayOfWeek - currentDayOfWeek
+    
+    if (direction > 0) {
+      // Navigation vers l'avenir (flèche droite)
+      // Toujours aller au jour cible suivant (semaine suivante si nécessaire)
+      if (diff > 0) {
+        // Le jour cible est plus tard cette semaine → aller directement à ce jour
+        daysToAdd = diff
+      } else {
+        // Le jour cible est déjà passé cette semaine → aller à la semaine suivante
+        // diff est négatif, donc 7 + diff donne le nombre de jours jusqu'au jour cible de la semaine suivante
+        daysToAdd = 7 + diff
+      }
+      console.log('🔍 Navigation droite calculée', {
+        currentDay: currentDayOfWeek,
+        targetDay: targetDayOfWeek,
+        diff,
+        daysToAdd
+      })
+    } else {
+      // Navigation vers le passé (flèche gauche)
+      // Toujours aller au jour cible précédent (semaine précédente)
+      // On trouve d'abord le jour cible de cette semaine, puis on recule d'une semaine
+      // diff peut être positif ou négatif selon où on se trouve dans la semaine
+      // Exemple: si on est vendredi (5) et cible mercredi (3), diff = -2
+      //          si on est lundi (1) et cible mercredi (3), diff = 2
+      // Dans les deux cas, on veut le mercredi précédent
+      
+      // Normaliser diff pour trouver le jour cible de cette semaine
+      let daysToTargetThisWeek = diff
+      if (daysToTargetThisWeek < 0) {
+        // Le jour cible est déjà passé cette semaine
+        daysToTargetThisWeek = 7 + diff
+      }
+      
+      // Aller au jour cible de la semaine précédente
+      daysToAdd = daysToTargetThisWeek - 7
+    }
+  }
+  
+  // Créer une nouvelle date en ajoutant les jours
+  const newDate = new Date(currentDate)
+  newDate.setDate(currentDate.getDate() + daysToAdd)
+  
+  // Vérifier que la nouvelle date correspond bien au jour du créneau
+  const newDayOfWeek = newDate.getDay()
+  // Formater la date en YYYY-MM-DD en local (pas UTC)
+  const newDateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`
+  
+  console.log('🔍 Navigation calculée', {
+    currentDate: props.form.date,
+    currentDay: currentDayOfWeek,
+    targetDay: targetDayOfWeek,
+    direction,
+    daysToAdd,
+    newDate: newDateStr,
+    newDay: newDayOfWeek,
+    expectedDay: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][targetDayOfWeek],
+    actualDay: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][newDayOfWeek]
+  })
+  
+  if (newDayOfWeek !== targetDayOfWeek) {
+    console.warn('⚠️ Erreur de navigation : le jour ne correspond pas au créneau', {
+      currentDay: currentDayOfWeek,
+      targetDay: targetDayOfWeek,
+      newDay: newDayOfWeek,
+      daysToAdd,
+      currentDate: props.form.date,
+      newDate: newDateStr
+    })
+    return
+  }
+  
+  // Permettre la navigation vers le passé pour encoder des cours dans le passé
+  props.form.date = newDateStr
+}
+
+// Vérifie si on peut naviguer dans une direction donnée
+// Toujours autoriser la navigation (vers le passé et l'avenir)
+function canNavigateDate(direction: number): boolean {
+  if (!props.form.date || !props.selectedSlot) return false
+  
+  // Permettre toujours la navigation (vers le passé et l'avenir)
+  return true
 }
 
 function handleSubmit() {
