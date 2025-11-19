@@ -1621,7 +1621,9 @@ async function createLesson() {
       price: lessonForm.value.price,
       notes: lessonForm.value.notes,
       // Champs pour les commissions
-      est_legacy: lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'
+      // DCL = false, NDCL = true
+      // Convertir explicitement en boolean pour garantir la bonne valeur
+      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true')
     }
     
     console.log('📤 Création du cours avec payload:', payload)

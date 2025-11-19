@@ -182,15 +182,26 @@ class CommissionCalculationService
             ->whereIn('status', ['confirmed', 'completed']) // Seulement les cours confirmés ou complétés
             ->whereDoesntHave('subscriptionInstances') // Exclure les cours liés à un abonnement via subscription_lessons
             ->where(function($query) use ($startDate, $endDate) {
-                // Soit date_paiement est dans la période (cours payé), soit start_time est dans la période (cours à payer)
+                // Soit date_paiement est dans la période (cours payé ou reporté), soit start_time est dans la période (cours à payer)
+                // Exclure les cours marqués comme non payés (notes contient [NON PAYÉ])
                 $query->where(function($q) use ($startDate, $endDate) {
-                    // Cas 1 : date_paiement est définie et dans la période (cours déjà payé dans cette période)
+                    // Cas 1 : date_paiement est définie et dans la période (cours déjà payé ou reporté dans cette période)
                     $q->whereNotNull('date_paiement')
-                      ->whereBetween('date_paiement', [$startDate, $endDate]);
+                      ->whereBetween('date_paiement', [$startDate, $endDate])
+                      ->where(function($subQ) {
+                          // Exclure les cours marqués comme non payés
+                          $subQ->whereNull('notes')
+                               ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
+                      });
                 })->orWhere(function($q) use ($startDate, $endDate) {
                     // Cas 2 : date_paiement est null et start_time dans la période (cours à payer dans cette période)
+                    // Exclure les cours marqués comme non payés
                     $q->whereNull('date_paiement')
-                      ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]);
+                      ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+                      ->where(function($subQ) {
+                          $subQ->whereNull('notes')
+                               ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
+                      });
                 });
             })
             ->where(function($query) {
