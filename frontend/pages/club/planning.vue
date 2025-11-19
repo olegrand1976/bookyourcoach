@@ -814,10 +814,14 @@ watch(openSlots, () => {
   updateAvailableDays()
 }, { deep: true })
 
-// Watcher pour combiner date et heure
+// Watcher pour combiner date et heure (avec secondes pour Laravel)
 watch(() => [lessonForm.value.date, lessonForm.value.time], ([date, time]) => {
   if (date && time) {
-    lessonForm.value.start_time = `${date}T${time}`
+    // Ajouter les secondes si elles ne sont pas déjà présentes
+    const timeWithSeconds = time.includes(':') && time.split(':').length === 2 
+      ? `${time}:00` 
+      : time
+    lessonForm.value.start_time = `${date}T${timeWithSeconds}`
   }
 })
 
@@ -1477,7 +1481,7 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       course_type_id: courseTypeId,
       date: dateStr,
       time: timeStr,
-      start_time: `${dateStr}T${timeStr}`,
+      start_time: `${dateStr}T${timeStr}:00`, // Format avec secondes pour Laravel
       duration: initialDuration,
       price: initialPrice,
       notes: '',
@@ -1595,11 +1599,24 @@ async function createLesson() {
       return
     }
     
+    // Formater start_time correctement avec les secondes pour Laravel
+    let startTime = lessonForm.value.start_time
+    // Toujours construire depuis date et time pour garantir le bon format
+    if (lessonForm.value.date && lessonForm.value.time) {
+      const timeStr = lessonForm.value.time.includes(':') && lessonForm.value.time.split(':').length === 2
+        ? `${lessonForm.value.time}:00`
+        : lessonForm.value.time
+      startTime = `${lessonForm.value.date}T${timeStr}`
+    } else if (startTime && startTime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+      // Si le format est YYYY-MM-DDTHH:mm (sans secondes), ajouter les secondes
+      startTime = `${startTime}:00`
+    }
+    
     const payload = {
       teacher_id: lessonForm.value.teacher_id,
       student_id: lessonForm.value.student_id,
       course_type_id: lessonForm.value.course_type_id,
-      start_time: lessonForm.value.start_time,
+      start_time: startTime,
       duration: lessonForm.value.duration,
       price: lessonForm.value.price,
       notes: lessonForm.value.notes,

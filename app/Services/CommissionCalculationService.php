@@ -10,7 +10,9 @@ use Carbon\Carbon;
  * 
  * Ce service gère le calcul des commissions pour deux types d'abonnements :
  * - DCL (est_legacy = false) : Déclaré - Modèle standard et pérenne
- * - NDCL (est_legacy = true) : Non Déclaré - Ancien modèle legacy
+ * - NDCL (est_legacy = true ou null) : Non Déclaré - Ancien modèle legacy ou cours non flaggés
+ * 
+ * RÈGLE IMPORTANTE : Les cours/abonnements non flaggés (est_legacy = null) sont traités comme NDCL.
  * 
  * Les règles de calcul sont différentes pour chaque type et peuvent être facilement
  * modifiées ou supprimées (pour NDCL) sans affecter le reste du code.
@@ -80,12 +82,13 @@ class CommissionCalculationService
         $montant = (float) $subscriptionInstance->montant;
 
         // Appliquer la règle selon le type d'abonnement
-        if ($subscriptionInstance->est_legacy) {
-            // NDCL (Non Déclaré - Legacy)
-            return $this->calculateNdclCommission($montant);
-        } else {
+        // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
+        if ($subscriptionInstance->est_legacy === false) {
             // DCL (Déclaré - Standard)
             return $this->calculateDclCommission($montant);
+        } else {
+            // NDCL (Non Déclaré - Legacy) ou non flaggé (null)
+            return $this->calculateNdclCommission($montant);
         }
     }
 
@@ -145,10 +148,11 @@ class CommissionCalculationService
                 $commission = $this->calculateCommission($instance);
 
                 // Ajouter au bon "panier" selon le type (DCL ou NDCL)
-                if ($instance->est_legacy) {
-                    $report[$teacherId]['total_commissions_ndcl'] += $commission;
-                } else {
+                // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
+                if ($instance->est_legacy === false) {
                     $report[$teacherId]['total_commissions_dcl'] += $commission;
+                } else {
+                    $report[$teacherId]['total_commissions_ndcl'] += $commission;
                 }
 
                 // Arrondir les totaux
@@ -167,14 +171,28 @@ class CommissionCalculationService
         }
 
         // ===== PARTIE 2 : COURS INDIVIDUELS =====
-        // Collecter tous les cours individuels payés durant la période (non liés à un abonnement)
+        // Collecter tous les cours individuels à payer ou payés durant la période (non liés à un abonnement)
         // Un cours individuel est un cours qui n'a pas d'entrée dans la table subscription_lessons
         // Utiliser montant OU price (si montant est null ou 0)
-        $lessonQuery = \App\Models\Lesson::whereBetween('date_paiement', [$startDate, $endDate])
-            ->whereNotNull('date_paiement')
-            ->whereNotNull('teacher_id')
+        // RÈGLE : 
+        // - Si date_paiement est définie et dans la période : cours déjà payé dans cette période
+        // - Si date_paiement est null et start_time dans la période : cours à payer dans cette période
+        // Note : date_paiement sert à marquer un cours comme payé (étape future du développement)
+        $lessonQuery = \App\Models\Lesson::whereNotNull('teacher_id')
             ->whereIn('status', ['confirmed', 'completed']) // Seulement les cours confirmés ou complétés
             ->whereDoesntHave('subscriptionInstances') // Exclure les cours liés à un abonnement via subscription_lessons
+            ->where(function($query) use ($startDate, $endDate) {
+                // Soit date_paiement est dans la période (cours payé), soit start_time est dans la période (cours à payer)
+                $query->where(function($q) use ($startDate, $endDate) {
+                    // Cas 1 : date_paiement est définie et dans la période (cours déjà payé dans cette période)
+                    $q->whereNotNull('date_paiement')
+                      ->whereBetween('date_paiement', [$startDate, $endDate]);
+                })->orWhere(function($q) use ($startDate, $endDate) {
+                    // Cas 2 : date_paiement est null et start_time dans la période (cours à payer dans cette période)
+                    $q->whereNull('date_paiement')
+                      ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]);
+                });
+            })
             ->where(function($query) {
                 // Soit montant est défini et > 0, soit price est défini et > 0
                 $query->where(function($q) {
@@ -216,12 +234,13 @@ class CommissionCalculationService
                 }
 
                 // Calculer la commission selon le type
-                if ($lesson->est_legacy) {
-                    $commission = $amount * self::NDCL_COMMISSION_RATE;
-                    $report[$teacherId]['total_commissions_ndcl'] += $commission;
-                } else {
+                // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
+                if ($lesson->est_legacy === false) {
                     $commission = $amount * self::DCL_COMMISSION_RATE;
                     $report[$teacherId]['total_commissions_dcl'] += $commission;
+                } else {
+                    $commission = $amount * self::NDCL_COMMISSION_RATE;
+                    $report[$teacherId]['total_commissions_ndcl'] += $commission;
                 }
 
                 // Arrondir les totaux
@@ -337,21 +356,46 @@ class CommissionCalculationService
             ->get();
 
         // Chercher dans les cours individuels
-        $lessonQuery = \App\Models\Lesson::whereNotNull('date_paiement')
-            ->whereNotNull('montant')
-            ->where('montant', '>', 0)
-            ->whereDoesntHave('subscriptionInstances');
+        // RÈGLE : Inclure les cours avec date_paiement OU les cours sans date_paiement (basés sur start_time)
+        $baseLessonQuery = function($clubId) {
+            $query = \App\Models\Lesson::whereDoesntHave('subscriptionInstances')
+                ->whereIn('status', ['confirmed', 'completed'])
+                ->where(function($q) {
+                    // Soit montant est défini et > 0, soit price est défini et > 0
+                    $q->where(function($subQ) {
+                        $subQ->whereNotNull('montant')->where('montant', '>', 0);
+                    })->orWhere(function($subQ) {
+                        $subQ->whereNull('montant')->orWhere('montant', '<=', 0);
+                        $subQ->whereNotNull('price')->where('price', '>', 0);
+                    });
+                });
 
-        if ($clubId !== null) {
-            $lessonQuery->where('club_id', $clubId);
-        }
+            if ($clubId !== null) {
+                $query->where('club_id', $clubId);
+            }
 
-        $lessonDates = $lessonQuery->selectRaw('YEAR(date_paiement) as year, MONTH(date_paiement) as month')
+            return $query;
+        };
+
+        // Récupérer les dates depuis date_paiement
+        $lessonDatesWithPayment = $baseLessonQuery($clubId)
+            ->whereNotNull('date_paiement')
+            ->selectRaw('YEAR(date_paiement) as year, MONTH(date_paiement) as month')
             ->distinct()
             ->get();
 
-        // Combiner et dédupliquer
-        $allDates = $subscriptionDates->merge($lessonDates)->unique(function ($item) {
+        // Récupérer les dates depuis start_time (pour les cours sans date_paiement)
+        $lessonDatesWithoutPayment = $baseLessonQuery($clubId)
+            ->whereNull('date_paiement')
+            ->selectRaw('YEAR(start_time) as year, MONTH(start_time) as month')
+            ->distinct()
+            ->get();
+
+        // Combiner les dates de cours (avec et sans date_paiement)
+        $lessonDates = $lessonDatesWithPayment->concat($lessonDatesWithoutPayment);
+
+        // Combiner avec les dates d'abonnements et dédupliquer
+        $allDates = $subscriptionDates->concat($lessonDates)->unique(function ($item) {
             return $item->year . '-' . $item->month;
         });
 
