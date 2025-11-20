@@ -98,17 +98,22 @@
 
           <!-- Date de début -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2" for="started_at">
               Date de début *
             </label>
-            <input 
-              v-model="form.started_at"
-              type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-              :min="new Date().toISOString().split('T')[0]"
-            />
+            <div class="relative">
+              <input 
+                id="started_at"
+                v-model="form.started_at"
+                type="date"
+                required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                @click.stop
+                @focus.stop
+              />
+            </div>
             <p class="mt-1 text-xs text-gray-500">
-              Date de début de l'abonnement. Cette date sera utilisée pour calculer la date d'expiration.
+              Date de début de l'abonnement. Vous pouvez sélectionner n'importe quelle date (passée ou future).
             </p>
           </div>
 
