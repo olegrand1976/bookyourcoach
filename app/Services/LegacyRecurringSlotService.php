@@ -27,12 +27,37 @@ class LegacyRecurringSlotService
     ): array {
         // Par défaut, générer jusqu'à la fin de la période de validité de la récurrence
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
-        // Commencer à partir de la semaine prochaine, ou à partir de la date de début de la récurrence si elle est dans le futur
         $recurringStartDate = Carbon::parse($recurringSlot->start_date);
-        $defaultStartDate = Carbon::now()->addWeek();
-        if ($recurringStartDate->isAfter($defaultStartDate)) {
+        
+        // ⚠️ IMPORTANT : Utiliser la date du dernier cours créé pour ce créneau récurrent
+        // au lieu de Carbon::now() pour éviter de sauter des semaines
+        $lastLesson = Lesson::where('student_id', $recurringSlot->student_id)
+            ->where('teacher_id', $recurringSlot->teacher_id)
+            ->orderBy('start_time', 'desc')
+            ->first();
+        
+        if ($lastLesson) {
+            // Commencer à partir de la semaine suivant le dernier cours créé
+            $defaultStartDate = Carbon::parse($lastLesson->start_time)->addWeek();
+            Log::info("📅 Utilisation du dernier cours pour déterminer la date de début", [
+                'last_lesson_date' => $lastLesson->start_time,
+                'calculated_start_date' => $defaultStartDate->format('Y-m-d'),
+                'recurring_slot_id' => $recurringSlot->id
+            ]);
+        } else {
+            // Si aucun cours n'existe encore, utiliser la date de début de la récurrence
+            $defaultStartDate = $recurringStartDate->copy();
+            Log::info("📅 Aucun cours précédent, utilisation de la date de début de la récurrence", [
+                'recurring_start_date' => $recurringStartDate->format('Y-m-d'),
+                'recurring_slot_id' => $recurringSlot->id
+            ]);
+        }
+        
+        // S'assurer que la date de début n'est pas avant la date de début de la récurrence
+        if ($defaultStartDate->isBefore($recurringStartDate)) {
             $defaultStartDate = $recurringStartDate->copy();
         }
+        
         $startDate = $startDate ?? $defaultStartDate;
         $endDate = $endDate ?? $recurringEndDate->copy();
         

@@ -324,11 +324,22 @@
                     </p>
                   </div>
                 </div>
-                <div class="text-right">
-                  <div class="text-2xl font-bold text-gray-900">
-                    {{ getInstanceLessonsUsed(instance) }} / {{ selectedSubscription.template?.total_available_lessons || 0 }}
+                <div class="flex items-center gap-4">
+                  <div class="text-right">
+                    <div class="text-2xl font-bold text-gray-900">
+                      {{ getInstanceLessonsUsed(instance) }} / {{ selectedSubscription.template?.total_available_lessons || 0 }}
+                    </div>
+                    <div class="text-sm text-gray-500">cours utilisés</div>
                   </div>
-                  <div class="text-sm text-gray-500">cours utilisés</div>
+                  <button
+                    @click.stop="openEditInstanceModal(instance)"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    <span>Modifier</span>
+                  </button>
                 </div>
               </div>
 
@@ -469,11 +480,153 @@
                   Aucun créneau récurrent planifié pour cette instance
                 </p>
               </div>
+
+              <!-- Historique des actions pour cette instance -->
+              <div v-if="instance.history && instance.history.length > 0" class="mt-6 pt-4 border-t border-gray-200">
+                <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  Historique des actions
+                </h5>
+                <div class="space-y-2">
+                  <div 
+                    v-for="action in instance.history" 
+                    :key="action.id"
+                    class="bg-gray-50 rounded-lg p-3 text-sm border border-gray-200"
+                  >
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <p class="font-medium text-gray-900">{{ action.description }}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                          {{ formatDate(action.created_at) }} à {{ formatTime(action.created_at) }}
+                          <span v-if="action.user"> - par {{ action.user.name }}</span>
+                        </p>
+                      </div>
+                      <span class="text-xs text-gray-400">{{ action.icon }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div v-else class="text-center py-8 text-gray-500">
             Aucune instance d'abonnement trouvée
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal : Modifier une instance d'abonnement -->
+    <div 
+      v-if="showEditInstanceModal && editingInstance"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click.self="closeEditInstanceModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-900">
+                Modifier l'abonnement
+              </h3>
+              <p class="text-sm text-gray-600 mt-1">
+                {{ getInstanceStudentNames(editingInstance) }}
+              </p>
+            </div>
+            <button 
+              @click="closeEditInstanceModal"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <form @submit.prevent="saveInstanceChanges">
+            <!-- Date de début -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Date de début *
+              </label>
+              <input 
+                v-model="editForm.started_at"
+                type="date"
+                required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <!-- Date d'expiration -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Date d'expiration
+              </label>
+              <input 
+                v-model="editForm.expires_at"
+                type="date"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <!-- Statut -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Statut *
+              </label>
+              <select 
+                v-model="editForm.status"
+                required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="active">Actif</option>
+                <option value="completed">Terminé</option>
+                <option value="expired">Expiré</option>
+                <option value="cancelled">Annulé</option>
+              </select>
+            </div>
+
+            <!-- Nombre de cours utilisés -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de cours utilisés
+              </label>
+              <input 
+                v-model.number="editForm.lessons_used"
+                type="number"
+                min="0"
+                :max="selectedSubscription?.template?.total_available_lessons || 999"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                Maximum: {{ selectedSubscription?.template?.total_available_lessons || 0 }} cours
+              </p>
+            </div>
+
+            <!-- Boutons -->
+            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                @click="closeEditInstanceModal"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                :disabled="savingInstance"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <span v-if="savingInstance">Enregistrement...</span>
+                <span v-else>Enregistrer les modifications</span>
+                <svg v-if="savingInstance" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -506,9 +659,21 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showAssignModal = ref(false)
 const showHistoryModal = ref(false)
+const showEditInstanceModal = ref(false)
 const selectedSubscription = ref(null)
 const subscriptionHistory = ref(null)
 const updatingEstLegacy = ref(null)
+const editingInstance = ref(null)
+const instanceHistory = ref([])
+const savingInstance = ref(false)
+
+// Formulaire d'édition d'instance
+const editForm = ref({
+  started_at: '',
+  expires_at: '',
+  status: 'active',
+  lessons_used: 0
+})
 
 // Formulaires
 const form = ref({
@@ -868,23 +1033,21 @@ const viewSubscriptionHistory = async (subscription) => {
     if (response.data.success) {
       selectedSubscription.value = response.data.data
       
-      // Debug: vérifier les données reçues
-      console.log('🔍 [viewSubscriptionHistory] Subscription data:', selectedSubscription.value)
+      // Charger l'historique pour chaque instance
       if (selectedSubscription.value.instances) {
-        selectedSubscription.value.instances.forEach((inst, idx) => {
-          console.log(`🔍 [viewSubscriptionHistory] Instance ${idx} (ID: ${inst.id}):`, inst)
-          if (inst.students) {
-            inst.students.forEach((student, sIdx) => {
-              console.log(`🔍 [viewSubscriptionHistory] Student ${sIdx} in instance ${idx}:`, {
-                id: student.id,
-                first_name: student.first_name,
-                last_name: student.last_name,
-                user: student.user,
-                allKeys: Object.keys(student)
-              })
-            })
+        for (const instance of selectedSubscription.value.instances) {
+          try {
+            const historyResponse = await $api.get(`/club/subscriptions/instances/${instance.id}/history`)
+            if (historyResponse.data.success) {
+              instance.history = historyResponse.data.data || []
+            } else {
+              instance.history = []
+            }
+          } catch (error) {
+            console.error(`Erreur lors du chargement de l'historique pour l'instance ${instance.id}:`, error)
+            instance.history = []
           }
-        })
+        }
       }
       
       showHistoryModal.value = true
@@ -901,6 +1064,96 @@ const closeHistoryModal = () => {
   selectedSubscription.value = null
   subscriptionHistory.value = null
   updatingEstLegacy.value = null
+  instanceHistory.value = []
+}
+
+// Ouvrir la modale d'édition d'une instance
+const openEditInstanceModal = async (instance) => {
+  editingInstance.value = instance
+  editForm.value = {
+    started_at: instance.started_at ? instance.started_at.split('T')[0] : '',
+    expires_at: instance.expires_at ? instance.expires_at.split('T')[0] : '',
+    status: instance.status || 'active',
+    lessons_used: instance.lessons_used || 0
+  }
+  showEditInstanceModal.value = true
+  
+  // Charger l'historique des actions pour cette instance
+  await loadInstanceHistory(instance.id)
+}
+
+// Fermer la modale d'édition
+const closeEditInstanceModal = () => {
+  showEditInstanceModal.value = false
+  editingInstance.value = null
+  instanceHistory.value = []
+  editForm.value = {
+    started_at: '',
+    expires_at: '',
+    status: 'active',
+    lessons_used: 0
+  }
+}
+
+// Charger l'historique des actions pour une instance
+const loadInstanceHistory = async (instanceId) => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/club/subscriptions/instances/${instanceId}/history`)
+    if (response.data.success) {
+      instanceHistory.value = response.data.data || []
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement de l\'historique:', error)
+    instanceHistory.value = []
+  }
+}
+
+// Sauvegarder les modifications d'une instance
+const saveInstanceChanges = async () => {
+  if (!editingInstance.value) return
+  
+  try {
+    savingInstance.value = true
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    
+    const response = await $api.put(`/club/subscriptions/instances/${editingInstance.value.id}`, {
+      started_at: editForm.value.started_at,
+      expires_at: editForm.value.expires_at || null,
+      status: editForm.value.status,
+      lessons_used: editForm.value.lessons_used
+    })
+    
+    if (response.data.success) {
+      showSuccess('Abonnement modifié avec succès')
+      
+      // Mettre à jour l'instance dans selectedSubscription
+      if (selectedSubscription.value && selectedSubscription.value.instances) {
+        const instanceIndex = selectedSubscription.value.instances.findIndex(i => i.id === editingInstance.value.id)
+        if (instanceIndex !== -1) {
+          selectedSubscription.value.instances[instanceIndex] = response.data.data
+        }
+      }
+      
+      // Recharger l'historique
+      await loadInstanceHistory(editingInstance.value.id)
+      
+      // Recharger les abonnements
+      await loadSubscriptions()
+      
+      // Fermer la modale
+      closeEditInstanceModal()
+    } else {
+      showError(response.data.message || 'Erreur lors de la modification')
+    }
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde:', error)
+    const { error: showError } = useToast()
+    showError(error.response?.data?.message || 'Erreur lors de la modification de l\'abonnement')
+  } finally {
+    savingInstance.value = false
+  }
 }
 
 // Mettre à jour le statut DCL/NDCL d'une instance d'abonnement

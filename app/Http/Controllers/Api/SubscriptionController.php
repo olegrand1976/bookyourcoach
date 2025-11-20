@@ -8,6 +8,7 @@ use App\Models\SubscriptionTemplate;
 use App\Models\SubscriptionInstance;
 use App\Models\SubscriptionStudent;
 use App\Models\Discipline;
+use App\Models\AuditLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -265,10 +266,13 @@ class SubscriptionController extends Controller
             // Créer l'instance d'abonnement
             $subscriptionInstance = SubscriptionInstance::create([
                 'subscription_id' => $subscription->id,
-                'lessons_used' => 0,
+                'lessons_used' => $validated['lessons_used'] ?? 0,
                 'started_at' => $startedAt,
                 'expires_at' => $validated['expires_at'] ? Carbon::parse($validated['expires_at']) : null,
-                'status' => 'active'
+                'status' => 'active',
+                'est_legacy' => $validated['est_legacy'] ?? false,
+                'date_paiement' => $validated['date_paiement'] ? Carbon::parse($validated['date_paiement']) : null,
+                'montant' => $validated['montant'] ?? null,
             ]);
 
             // Calculer expires_at si non fourni
@@ -279,6 +283,24 @@ class SubscriptionController extends Controller
 
             // Attacher les élèves
             $subscriptionInstance->students()->attach($validated['student_ids']);
+
+            // Enregistrer la création dans l'historique
+            AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'subscription_instance_created',
+                'model_type' => SubscriptionInstance::class,
+                'model_id' => $subscriptionInstance->id,
+                'data' => [
+                    'subscription_id' => $subscription->id,
+                    'started_at' => $subscriptionInstance->started_at,
+                    'expires_at' => $subscriptionInstance->expires_at,
+                    'status' => $subscriptionInstance->status,
+                    'est_legacy' => $subscriptionInstance->est_legacy,
+                    'student_ids' => $validated['student_ids'],
+                ],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
 
             DB::commit();
 
@@ -1023,6 +1045,27 @@ class SubscriptionController extends Controller
             // Propager le changement aux cours associés
             $updatedLessonsCount = $instance->propagateEstLegacyToLessons();
 
+            // Enregistrer dans l'historique si le statut a changé
+            if ($oldEstLegacy !== $instance->est_legacy) {
+                AuditLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'subscription_instance_est_legacy_updated',
+                    'model_type' => SubscriptionInstance::class,
+                    'model_id' => $instance->id,
+                    'data' => [
+                        'old_est_legacy' => $oldEstLegacy,
+                        'new_est_legacy' => $instance->est_legacy,
+                        'old_status' => $oldEstLegacy ? 'NDCL' : 'DCL',
+                        'new_status' => $instance->est_legacy ? 'NDCL' : 'DCL',
+                        'updated_lessons_count' => $updatedLessonsCount,
+                        'instance_id' => $instance->id,
+                        'subscription_id' => $instance->subscription_id,
+                    ],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            }
+
             Log::info("Statut DCL/NDCL mis à jour pour l'abonnement", [
                 'instance_id' => $instance->id,
                 'old_est_legacy' => $oldEstLegacy,
@@ -1068,6 +1111,303 @@ class SubscriptionController extends Controller
                 'message' => 'Erreur lors de la mise à jour du statut DCL/NDCL: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Mettre à jour une instance d'abonnement
+     */
+    public function updateInstance(Request $request, $instanceId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'started_at' => 'nullable|date',
+                'expires_at' => 'nullable|date',
+                'status' => 'required|in:active,completed,expired,cancelled',
+                'lessons_used' => 'nullable|integer|min:0',
+            ]);
+
+            // Récupérer l'instance d'abonnement
+            $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->with(['subscription.template', 'students.user'])
+                ->findOrFail($instanceId);
+
+            // Sauvegarder les anciennes valeurs pour l'historique
+            $oldValues = [
+                'started_at' => $instance->started_at,
+                'expires_at' => $instance->expires_at,
+                'status' => $instance->status,
+                'lessons_used' => $instance->lessons_used,
+            ];
+
+            // Mettre à jour les valeurs
+            if (isset($validated['started_at'])) {
+                $instance->started_at = $validated['started_at'];
+            }
+            if (isset($validated['expires_at'])) {
+                $instance->expires_at = $validated['expires_at'];
+            }
+            $instance->status = $validated['status'];
+            if (isset($validated['lessons_used'])) {
+                $instance->lessons_used = $validated['lessons_used'];
+            }
+            
+            $instance->save();
+
+            // Enregistrer dans l'historique
+            $changes = [];
+            foreach ($oldValues as $key => $oldValue) {
+                $newValue = $instance->getAttribute($key);
+                if ($oldValue != $newValue) {
+                    $changes[$key] = [
+                        'old' => $oldValue,
+                        'new' => $newValue
+                    ];
+                }
+            }
+
+            if (!empty($changes)) {
+                AuditLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'subscription_instance_updated',
+                    'model_type' => SubscriptionInstance::class,
+                    'model_id' => $instance->id,
+                    'data' => [
+                        'changes' => $changes,
+                        'instance_id' => $instance->id,
+                        'subscription_id' => $instance->subscription_id,
+                    ],
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            }
+
+            Log::info("Instance d'abonnement modifiée", [
+                'instance_id' => $instance->id,
+                'changes' => $changes,
+                'club_id' => $club->id,
+                'user_id' => $user->id
+            ]);
+
+            // Recharger les relations
+            $instance->load(['subscription.template.courseTypes', 'students.user']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Abonnement modifié avec succès',
+                'data' => $instance
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Instance d\'abonnement non trouvée'
+            ], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la modification de l\'instance d\'abonnement: ' . $e->getMessage(), [
+                'instance_id' => $instanceId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer l'historique des actions pour une instance d'abonnement
+     */
+    public function getInstanceHistory($instanceId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Vérifier que l'instance appartient au club
+            $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->findOrFail($instanceId);
+
+            // Récupérer l'historique depuis audit_logs
+            $logs = AuditLog::where('model_type', SubscriptionInstance::class)
+                ->where('model_id', $instanceId)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($log) {
+                    return [
+                        'id' => $log->id,
+                        'action' => $log->action,
+                        'description' => $this->getActionDescription($log),
+                        'icon' => $this->getActionIcon($log->action),
+                        'user' => $log->user ? [
+                            'id' => $log->user->id,
+                            'name' => $log->user->name,
+                            'email' => $log->user->email,
+                        ] : null,
+                        'data' => $log->data,
+                        'created_at' => $log->created_at->toISOString(),
+                    ];
+                });
+
+            // Ajouter aussi la création de l'instance comme première action
+            $creationLog = [
+                'id' => 'creation',
+                'action' => 'subscription_instance_created',
+                'description' => 'Abonnement créé',
+                'icon' => '➕',
+                'user' => null,
+                'data' => [
+                    'started_at' => $instance->started_at,
+                    'expires_at' => $instance->expires_at,
+                    'status' => $instance->status,
+                ],
+                'created_at' => $instance->created_at->toISOString(),
+            ];
+
+            $allLogs = collect([$creationLog])->merge($logs)->sortByDesc('created_at')->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $allLogs
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Instance d\'abonnement non trouvée'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération de l\'historique: ' . $e->getMessage(), [
+                'instance_id' => $instanceId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération de l\'historique: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtenir la description d'une action pour l'affichage
+     */
+    private function getActionDescription(AuditLog $log): string
+    {
+        $data = $log->data ?? [];
+        
+        switch ($log->action) {
+            case 'subscription_instance_updated':
+                $changes = $data['changes'] ?? [];
+                $descriptions = [];
+                
+                foreach ($changes as $field => $change) {
+                    $fieldLabels = [
+                        'started_at' => 'Date de début',
+                        'expires_at' => 'Date d\'expiration',
+                        'status' => 'Statut',
+                        'lessons_used' => 'Nombre de cours utilisés',
+                    ];
+                    
+                    $label = $fieldLabels[$field] ?? $field;
+                    $oldValue = $change['old'];
+                    $newValue = $change['new'];
+                    
+                    if ($field === 'status') {
+                        $statusLabels = [
+                            'active' => 'Actif',
+                            'completed' => 'Terminé',
+                            'expired' => 'Expiré',
+                            'cancelled' => 'Annulé',
+                        ];
+                        $oldValue = $statusLabels[$oldValue] ?? $oldValue;
+                        $newValue = $statusLabels[$newValue] ?? $newValue;
+                    } elseif (in_array($field, ['started_at', 'expires_at'])) {
+                        $oldValue = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : 'Non défini';
+                        $newValue = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : 'Non défini';
+                    }
+                    
+                    $descriptions[] = "{$label}: {$oldValue} → {$newValue}";
+                }
+                
+                return 'Modification: ' . implode(', ', $descriptions);
+                
+            case 'subscription_instance_created':
+                return 'Abonnement créé';
+                
+            default:
+                return ucfirst(str_replace('_', ' ', $log->action));
+        }
+    }
+
+    /**
+     * Obtenir l'icône d'une action
+     */
+    private function getActionIcon(string $action): string
+    {
+        $icons = [
+            'subscription_instance_created' => '➕',
+            'subscription_instance_updated' => '✏️',
+            'subscription_instance_est_legacy_updated' => '🏷️',
+            'subscription_instance_status_changed' => '🔄',
+            'subscription_instance_closed' => '✅',
+        ];
+        
+        return $icons[$action] ?? '📝';
     }
 
 }
