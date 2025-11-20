@@ -208,6 +208,8 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
     Route::post('/subscriptions/{instanceId}/close', [SubscriptionController::class, 'close']);
     Route::put('/subscriptions/{instanceId}/est-legacy', [SubscriptionController::class, 'updateEstLegacy']);
+    Route::put('/subscriptions/instances/{instanceId}', [SubscriptionController::class, 'updateInstance']);
+    Route::get('/subscriptions/instances/{instanceId}/history', [SubscriptionController::class, 'getInstanceHistory']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
     // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
