@@ -7,7 +7,7 @@
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200">
           <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-gray-900">Assigner un abonnement</h2>
+            <h2 class="text-xl font-bold text-gray-900">Créer un abonnement</h2>
             <button 
               @click="$emit('close')"
               class="text-gray-400 hover:text-gray-600"
@@ -96,7 +96,7 @@
             </p>
           </div>
 
-          <!-- Date de début (sera automatiquement attribuée au premier cours) -->
+          <!-- Date de début -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Date de début *
@@ -104,11 +104,11 @@
             <input 
               v-model="form.started_at"
               type="date"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-              readonly
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              :min="new Date().toISOString().split('T')[0]"
             />
             <p class="mt-1 text-xs text-gray-500">
-              Cette date sera automatiquement attribuée au premier cours affecté à l'élève.
+              Date de début de l'abonnement. Cette date sera utilisée pour calculer la date d'expiration.
             </p>
           </div>
 
@@ -562,9 +562,11 @@ const handleAdditionalBlur = () => {
 }
 
 // Watch pour recalculer la date d'expiration quand la date de début change
-watch(() => form.value.started_at, () => {
-  calculateExpirationDate()
-})
+watch(() => form.value.started_at, (newValue) => {
+  if (newValue) {
+    calculateExpirationDate()
+  }
+}, { immediate: false })
 
 // Assigner l'abonnement
 const assignSubscription = async () => {

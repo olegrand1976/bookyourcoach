@@ -532,6 +532,18 @@ class SubscriptionInstance extends Model
             // Forcer le rafraîchissement de la relation
             $this->load('lessons');
             
+            // 🔄 PROPAGATION DCL/NDCL : Propager le statut est_legacy de l'abonnement au cours
+            if ($this->est_legacy !== null) {
+                $lesson->est_legacy = $this->est_legacy;
+                $lesson->saveQuietly();
+                \Log::info("🔄 Statut DCL/NDCL propagé de l'abonnement au cours", [
+                    'lesson_id' => $lesson->id,
+                    'subscription_instance_id' => $this->id,
+                    'est_legacy' => $this->est_legacy,
+                    'status' => $this->est_legacy ? 'NDCL' : 'DCL'
+                ]);
+            }
+            
             // ⚠️ LOGIQUE CRITIQUE : Ne consommer l'abonnement que si le cours est passé
             // Si le cours est dans le futur, on l'attache mais on ne consomme pas encore
             $lessonStartTime = Carbon::parse($lesson->start_time);
@@ -565,7 +577,18 @@ class SubscriptionInstance extends Model
                 'note' => 'Incrémentation directe pour préserver la valeur manuelle'
             ]);
         } else {
-            // Cours déjà attaché : juste recalculer pour vérifier la cohérence
+            // Cours déjà attaché : mettre à jour le statut DCL/NDCL si nécessaire
+            if ($this->est_legacy !== null && $lesson->est_legacy !== $this->est_legacy) {
+                $lesson->est_legacy = $this->est_legacy;
+                $lesson->saveQuietly();
+                \Log::info("🔄 Statut DCL/NDCL mis à jour pour le cours déjà attaché", [
+                    'lesson_id' => $lesson->id,
+                    'subscription_instance_id' => $this->id,
+                    'est_legacy' => $this->est_legacy,
+                    'status' => $this->est_legacy ? 'NDCL' : 'DCL'
+                ]);
+            }
+            // Juste recalculer pour vérifier la cohérence
             \Log::info("ℹ️ Cours {$lesson->id} déjà attaché à l'abonnement {$this->id}, recalcul...");
             $this->recalculateLessonsUsed();
         }
@@ -586,6 +609,37 @@ class SubscriptionInstance extends Model
             'is_first_lesson' => $isFirstLesson,
             'started_at' => $this->started_at
         ]);
+    }
+
+    /**
+     * Propager le statut DCL/NDCL (est_legacy) aux cours associés
+     */
+    public function propagateEstLegacyToLessons()
+    {
+        if ($this->est_legacy === null) {
+            return;
+        }
+
+        $lessons = $this->lessons()->get();
+        $updatedCount = 0;
+
+        foreach ($lessons as $lesson) {
+            if ($lesson->est_legacy !== $this->est_legacy) {
+                $lesson->est_legacy = $this->est_legacy;
+                $lesson->saveQuietly();
+                $updatedCount++;
+            }
+        }
+
+        \Log::info("🔄 Statut DCL/NDCL propagé aux cours associés", [
+            'subscription_instance_id' => $this->id,
+            'est_legacy' => $this->est_legacy,
+            'status' => $this->est_legacy ? 'NDCL' : 'DCL',
+            'total_lessons' => $lessons->count(),
+            'updated_lessons' => $updatedCount
+        ]);
+
+        return $updatedCount;
     }
 
     /**

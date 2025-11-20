@@ -332,6 +332,51 @@
                 </div>
               </div>
 
+              <!-- Classification DCL/NDCL -->
+              <div class="mt-4 pt-4 border-t border-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                  Classification pour les commissions
+                </label>
+                <div class="flex items-center space-x-6">
+                  <div class="flex items-center">
+                    <input
+                      :id="`dcl_${instance.id}`"
+                      :checked="instance.est_legacy === false"
+                      @change="updateEstLegacy(instance.id, false)"
+                      type="radio"
+                      :disabled="updatingEstLegacy === instance.id"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <label :for="`dcl_${instance.id}`" class="ml-2 block text-sm text-gray-700">
+                      <span class="font-medium">DCL</span> (Déclaré) - Commission standard
+                    </label>
+                  </div>
+                  <div class="flex items-center">
+                    <input
+                      :id="`ndcl_${instance.id}`"
+                      :checked="instance.est_legacy === true"
+                      @change="updateEstLegacy(instance.id, true)"
+                      type="radio"
+                      :disabled="updatingEstLegacy === instance.id"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <label :for="`ndcl_${instance.id}`" class="ml-2 block text-sm text-gray-700">
+                      <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
+                    </label>
+                  </div>
+                  <div v-if="updatingEstLegacy === instance.id" class="ml-4">
+                    <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">
+                  ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie. 
+                  Les cours associés à cet abonnement hériteront de ce statut.
+                </p>
+              </div>
+
               <!-- Liste des cours -->
               <div v-if="instance.lessons && instance.lessons.length > 0" class="mt-4">
                 <h5 class="text-sm font-medium text-gray-700 mb-2">Cours consommés:</h5>
@@ -353,17 +398,24 @@
                         <p v-if="lesson.location" class="text-gray-500 text-xs mt-1">
                           📍 {{ lesson.location.name }}
                         </p>
+                        <p v-if="lesson.est_legacy !== null && lesson.est_legacy !== undefined" class="text-xs mt-1">
+                          <span :class="lesson.est_legacy ? 'text-orange-600' : 'text-blue-600'" class="font-medium">
+                            {{ lesson.est_legacy ? 'NDCL' : 'DCL' }}
+                          </span>
+                        </p>
                       </div>
-                      <span 
-                        :class="{
-                          'bg-green-100 text-green-800': lesson.status === 'completed',
-                          'bg-blue-100 text-blue-800': lesson.status === 'confirmed',
-                          'bg-gray-100 text-gray-800': lesson.status === 'cancelled'
-                        }"
-                        class="px-2 py-1 rounded text-xs font-medium"
-                      >
-                        {{ lesson.status === 'completed' ? 'Terminé' : lesson.status === 'confirmed' ? 'Confirmé' : 'Annulé' }}
-                      </span>
+                      <div class="flex flex-col items-end gap-1">
+                        <span 
+                          :class="{
+                            'bg-green-100 text-green-800': lesson.status === 'completed',
+                            'bg-blue-100 text-blue-800': lesson.status === 'confirmed',
+                            'bg-gray-100 text-gray-800': lesson.status === 'cancelled'
+                          }"
+                          class="px-2 py-1 rounded text-xs font-medium"
+                        >
+                          {{ lesson.status === 'completed' ? 'Terminé' : lesson.status === 'confirmed' ? 'Confirmé' : 'Annulé' }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -456,6 +508,7 @@ const showAssignModal = ref(false)
 const showHistoryModal = ref(false)
 const selectedSubscription = ref(null)
 const subscriptionHistory = ref(null)
+const updatingEstLegacy = ref(null)
 
 // Formulaires
 const form = ref({
@@ -847,6 +900,66 @@ const closeHistoryModal = () => {
   showHistoryModal.value = false
   selectedSubscription.value = null
   subscriptionHistory.value = null
+  updatingEstLegacy.value = null
+}
+
+// Mettre à jour le statut DCL/NDCL d'une instance d'abonnement
+const updateEstLegacy = async (instanceId, estLegacy) => {
+  try {
+    updatingEstLegacy.value = instanceId
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    
+    const response = await $api.put(`/club/subscriptions/${instanceId}/est-legacy`, {
+      est_legacy: estLegacy
+    })
+    
+    if (response.data.success) {
+      // Mettre à jour l'instance dans selectedSubscription
+      if (selectedSubscription.value && selectedSubscription.value.instances) {
+        const instance = selectedSubscription.value.instances.find(i => i.id === instanceId)
+        if (instance) {
+          instance.est_legacy = estLegacy
+          // Mettre à jour aussi les cours associés dans l'affichage
+          if (instance.lessons) {
+            instance.lessons.forEach(lesson => {
+              lesson.est_legacy = estLegacy
+            })
+          }
+        }
+      }
+      
+      showSuccess(response.data.message || 'Statut DCL/NDCL mis à jour avec succès')
+      
+      // Recharger les abonnements pour mettre à jour l'affichage
+      await loadSubscriptions()
+    } else {
+      showError(response.data.message || 'Erreur lors de la mise à jour du statut')
+    }
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut DCL/NDCL:', error)
+    const { error: showError } = useToast()
+    showError(error.response?.data?.message || 'Erreur lors de la mise à jour du statut DCL/NDCL')
+    
+    // Restaurer la valeur précédente en cas d'erreur
+    if (selectedSubscription.value && selectedSubscription.value.instances) {
+      const instance = selectedSubscription.value.instances.find(i => i.id === instanceId)
+      if (instance) {
+        // Recharger l'instance depuis l'API pour restaurer la valeur
+        try {
+          const { $api } = useNuxtApp()
+          const response = await $api.get(`/club/subscriptions/${selectedSubscription.value.id}`)
+          if (response.data.success) {
+            selectedSubscription.value = response.data.data
+          }
+        } catch (e) {
+          console.error('Erreur lors du rechargement:', e)
+        }
+      }
+    }
+  } finally {
+    updatingEstLegacy.value = null
+  }
 }
 
 // Formats de date (voir plus bas pour la fonction formatDate)
