@@ -52,27 +52,40 @@ class SubscriptionController extends Controller
 
             // Si pas d'abonnements, retourner un tableau vide directement
             // Utiliser scopeForClub qui gère automatiquement le cas où club_id n'existe pas
-            $subscriptionCount = Subscription::forClub($club->id)->count();
-            if ($subscriptionCount === 0) {
+            try {
+                $subscriptionCount = Subscription::forClub($club->id)->count();
+                if ($subscriptionCount === 0) {
+                    return response()->json([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                }
+
+                $subscriptions = Subscription::forClub($club->id)
+                    ->with([
+                        'template' => function ($query) {
+                            $query->with('courseTypes');
+                        },
+                        'instances' => function ($query) {
+                            $query->with(['students' => function ($q) {
+                                $q->with('user');
+                            }]);
+                        }
+                    ])
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            } catch (\Exception $e) {
+                Log::error('Erreur lors de la récupération des abonnements (query): ' . $e->getMessage(), [
+                    'club_id' => $club->id,
+                    'user_id' => Auth::id(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // Retourner un tableau vide en cas d'erreur
                 return response()->json([
                     'success' => true,
                     'data' => []
                 ]);
             }
-
-            $subscriptions = Subscription::forClub($club->id)
-                ->with([
-                    'template' => function ($query) {
-                        $query->with('courseTypes');
-                    },
-                    'instances' => function ($query) {
-                        $query->with(['students' => function ($q) {
-                            $q->with('user');
-                        }]);
-                    }
-                ])
-                ->orderBy('created_at', 'desc')
-                ->get();
             
             // 🔧 Lier automatiquement les cours non liés aux abonnements actifs
             // Utiliser l'ordre chronologique : les abonnements les plus anciens sont utilisés en premier
@@ -143,13 +156,48 @@ class SubscriptionController extends Controller
             
             // Ajouter l'alias subscriptionStudents pour compatibilité frontend
             foreach ($subscriptions as $subscription) {
-                $subscription->subscription_students = $subscription->instances ?? collect([]);
+                try {
+                    $subscription->subscription_students = $subscription->instances ?? collect([]);
+                } catch (\Exception $e) {
+                    Log::warning('Erreur lors de l\'ajout de subscription_students: ' . $e->getMessage());
+                    $subscription->subscription_students = collect([]);
+                }
             }
 
-            return response()->json([
-                'success' => true,
-                'data' => $subscriptions
-            ]);
+            // Sérialiser manuellement pour éviter les problèmes avec les accesseurs
+            try {
+                $serializedData = $subscriptions->map(function ($subscription) {
+                    try {
+                        return $subscription->toArray();
+                    } catch (\Exception $e) {
+                        Log::warning('Erreur lors de la sérialisation d\'un abonnement: ' . $e->getMessage(), [
+                            'subscription_id' => $subscription->id ?? null
+                        ]);
+                        // Retourner seulement les données de base en cas d'erreur
+                        return [
+                            'id' => $subscription->id ?? null,
+                            'subscription_number' => $subscription->subscription_number ?? null,
+                            'subscription_template_id' => $subscription->subscription_template_id ?? null,
+                            'created_at' => $subscription->created_at ?? null,
+                            'updated_at' => $subscription->updated_at ?? null,
+                        ];
+                    }
+                });
+                
+                return response()->json([
+                    'success' => true,
+                    'data' => $serializedData
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Erreur lors de la sérialisation des abonnements: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // Retourner un tableau vide en cas d'erreur de sérialisation
+                return response()->json([
+                    'success' => true,
+                    'data' => []
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération des abonnements: ' . $e->getMessage(), [
@@ -398,14 +446,24 @@ class SubscriptionController extends Controller
             // ✅ Plusieurs abonnements actifs sont maintenant autorisés pour un même élève
             // Les abonnements seront traités par ordre chronologique (les plus anciens en premier)
 
-            // Créer un nouvel abonnement depuis le template
-            // Utiliser createSafe pour gérer automatiquement club_id
-            $subscription = Subscription::createSafe([
-                'club_id' => $club->id,
-                'subscription_template_id' => $template->id,
-            ]);
-
             DB::beginTransaction();
+
+            try {
+                // Créer un nouvel abonnement depuis le template
+                // Utiliser createSafe pour gérer automatiquement club_id
+                $subscription = Subscription::createSafe([
+                    'club_id' => $club->id,
+                    'subscription_template_id' => $template->id,
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('Erreur lors de la création de l\'abonnement (createSafe): ' . $e->getMessage(), [
+                    'template_id' => $template->id,
+                    'club_id' => $club->id,
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
+            }
 
             // Date de début (aujourd'hui par défaut)
             $startedAt = $validated['started_at'] ? Carbon::parse($validated['started_at']) : Carbon::now();
@@ -914,6 +972,100 @@ class SubscriptionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la clôture de l\'abonnement: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Mettre à jour le statut DCL/NDCL d'une instance d'abonnement
+     */
+    public function updateEstLegacy(Request $request, $instanceId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'est_legacy' => 'required|boolean'
+            ]);
+
+            // Récupérer l'instance d'abonnement
+            $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->with(['subscription.template', 'students.user'])
+                ->findOrFail($instanceId);
+
+            $oldEstLegacy = $instance->est_legacy;
+            $instance->est_legacy = $validated['est_legacy'];
+            $instance->save();
+
+            // Propager le changement aux cours associés
+            $updatedLessonsCount = $instance->propagateEstLegacyToLessons();
+
+            Log::info("Statut DCL/NDCL mis à jour pour l'abonnement", [
+                'instance_id' => $instance->id,
+                'old_est_legacy' => $oldEstLegacy,
+                'new_est_legacy' => $instance->est_legacy,
+                'status' => $instance->est_legacy ? 'NDCL' : 'DCL',
+                'updated_lessons_count' => $updatedLessonsCount,
+                'club_id' => $club->id,
+                'user_id' => $user->id
+            ]);
+
+            // Recharger les relations
+            $instance->load([
+                'subscription.template.courseTypes',
+                'students' => function ($query) {
+                    $query->with('user');
+                },
+                'lessons' => function ($q) {
+                    $q->with(['teacher.user', 'courseType', 'location'])
+                      ->orderBy('start_time', 'desc');
+                }
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Statut DCL/NDCL mis à jour avec succès. ' . 
+                           ($updatedLessonsCount > 0 ? "{$updatedLessonsCount} cours mis à jour." : ''),
+                'data' => $instance
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Abonnement non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la mise à jour du statut DCL/NDCL: ' . $e->getMessage(), [
+                'instance_id' => $instanceId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour du statut DCL/NDCL: ' . $e->getMessage()
             ], 500);
         }
     }

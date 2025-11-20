@@ -11,27 +11,35 @@ class Subscription extends Model
 {
     use HasFactory;
 
+    // ⚠️ IMPORTANT : Définir explicitement les colonnes fillable
+    // Ne jamais inclure: name, total_lessons, free_lessons, price (ces colonnes n'existent plus)
     protected $fillable = [
         'club_id',
         'subscription_template_id',
         'subscription_number',
-        // Colonnes legacy pour compatibilité
-        'name',
-        'total_lessons',
-        'free_lessons',
-        'price',
-        'validity_months',
-        'description',
-        'is_active',
+        'validity_months', // Existe encore dans la table pour compatibilité
     ];
+    
+    /**
+     * Override save() pour s'assurer que 'name' n'est jamais inséré
+     */
+    public function save(array $options = [])
+    {
+        // Retirer 'name' et autres colonnes legacy avant toute sauvegarde
+        $legacyColumns = ['name', 'total_lessons', 'free_lessons', 'price', 'description', 'is_active'];
+        foreach ($legacyColumns as $col) {
+            if (isset($this->attributes[$col])) {
+                unset($this->attributes[$col]);
+            }
+        }
+        
+        return parent::save($options);
+    }
 
-    protected $casts = [
-        'is_active' => 'boolean',
-        'total_lessons' => 'integer',
-        'free_lessons' => 'integer',
-        'price' => 'decimal:2',
-        'validity_months' => 'integer',
-    ];
+    // Ne pas définir de casts statiques pour les colonnes qui pourraient ne pas exister
+    // Les casts seront gérés dans les accesseurs si nécessaire
+    // Ne pas surcharger getCasts() car cela peut causer des problèmes lors de la sérialisation
+    protected $casts = [];
 
     /**
      * Vérifier si la colonne club_id existe dans la table
@@ -42,68 +50,174 @@ class Subscription extends Model
     }
 
     /**
+     * Vérifier si une colonne existe dans la table
+     */
+    public static function hasColumn(string $columnName): bool
+    {
+        return \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), $columnName);
+    }
+
+    /**
      * Créer un abonnement en gérant automatiquement club_id et les champs depuis le template
      */
     public static function createSafe(array $attributes = [])
     {
+        // Obtenir la liste des colonnes qui existent réellement dans la table
+        $tableName = (new static)->getTable();
+        $existingColumns = \Illuminate\Support\Facades\Schema::getColumnListing($tableName);
+        
         // Retirer club_id si la colonne n'existe pas
-        if (!static::hasClubIdColumn() && isset($attributes['club_id'])) {
+        if (!in_array('club_id', $existingColumns) && isset($attributes['club_id'])) {
             unset($attributes['club_id']);
         }
         
-        // Si un template est fourni, remplir les champs manquants depuis le template
-        if (isset($attributes['subscription_template_id'])) {
-            $template = SubscriptionTemplate::find($attributes['subscription_template_id']);
-            if ($template) {
-                // Remplir name si manquant (utiliser le model_number du template)
-                if (!isset($attributes['name'])) {
-                    $attributes['name'] = "Abonnement {$template->model_number}";
-                }
-                
-                // Remplir total_lessons si manquant
-                if (!isset($attributes['total_lessons'])) {
-                    $attributes['total_lessons'] = $template->total_lessons;
-                }
-                
-                // Remplir free_lessons si manquant
-                if (!isset($attributes['free_lessons'])) {
-                    $attributes['free_lessons'] = $template->free_lessons ?? 0;
-                }
-                
-                // Remplir price si manquant
-                if (!isset($attributes['price'])) {
-                    $attributes['price'] = $template->price;
-                }
-                
-                // Remplir validity_months si manquant
-                if (!isset($attributes['validity_months'])) {
-                    $attributes['validity_months'] = $template->validity_months ?? 12;
-                }
+        // ⚠️ IMPORTANT : Ne JAMAIS remplir les colonnes legacy (name, total_lessons, free_lessons, price, validity_months)
+        // Ces colonnes n'existent plus dans la nouvelle structure de la table subscriptions
+        // Toutes ces informations sont maintenant dans subscription_templates
+        
+        // ⚠️ IMPORTANT : Retirer explicitement 'name' si présent (cette colonne n'existe pas)
+        if (isset($attributes['name'])) {
+            unset($attributes['name']);
+        }
+        
+        // Filtrer les attributs pour ne garder que ceux dont les colonnes existent
+        $filteredAttributes = [];
+        foreach ($attributes as $key => $value) {
+            // Ignorer 'name' explicitement
+            if ($key === 'name') {
+                continue;
+            }
+            if (in_array($key, $existingColumns)) {
+                $filteredAttributes[$key] = $value;
             }
         }
         
-        return static::create($attributes);
+        \Log::info("🔍 [createSafe] Colonnes existantes: " . implode(', ', $existingColumns), [
+            'attributes_originaux' => array_keys($attributes),
+            'attributes_filtres' => array_keys($filteredAttributes),
+            'colonnes_retirees' => array_diff(array_keys($attributes), array_keys($filteredAttributes))
+        ]);
+        
+        // Créer l'instance avec seulement les attributs valides
+        // Utiliser une approche directe avec DB pour éviter les problèmes avec $fillable
+        $instance = new static();
+        
+        // S'assurer que seules les colonnes existantes sont définies
+        // ET exclure explicitement 'name' qui n'existe pas
+        $finalAttributes = [];
+        foreach ($filteredAttributes as $key => $value) {
+            // Ignorer 'name' explicitement
+            if ($key === 'name') {
+                continue;
+            }
+            if (in_array($key, $existingColumns)) {
+                $finalAttributes[$key] = $value;
+            }
+        }
+        
+        // Générer le numéro d'abonnement si nécessaire et si la colonne existe
+        if (in_array('subscription_number', $existingColumns) && !isset($finalAttributes['subscription_number'])) {
+            $hasClubIdColumn = in_array('club_id', $existingColumns);
+            $clubId = $hasClubIdColumn ? ($finalAttributes['club_id'] ?? null) : null;
+            $finalAttributes['subscription_number'] = static::generateSubscriptionNumber($clubId);
+        }
+        
+        // Utiliser DB::table() directement pour l'insertion afin d'éviter complètement $fillable
+        try {
+            $now = \Carbon\Carbon::now();
+            if (in_array('created_at', $existingColumns)) {
+                $finalAttributes['created_at'] = $now;
+            }
+            if (in_array('updated_at', $existingColumns)) {
+                $finalAttributes['updated_at'] = $now;
+            }
+            
+            // Insérer directement dans la table
+            $id = DB::table($tableName)->insertGetId($finalAttributes);
+            
+            // Charger l'instance créée
+            $instance = static::find($id);
+            
+            \Log::info("✅ [createSafe] Abonnement créé avec succès", [
+                'id' => $id,
+                'attributes_insertes' => array_keys($finalAttributes),
+                'subscription_number' => $instance->subscription_number ?? null
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("❌ [createSafe] Erreur lors de l'insertion directe", [
+                'error' => $e->getMessage(),
+                'attributes' => $finalAttributes,
+                'existing_columns' => $existingColumns,
+                'sql' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+        
+        return $instance;
     }
 
     /**
-     * Boot method pour générer le numéro d'abonnement
+     * Boot method pour générer le numéro d'abonnement et nettoyer les colonnes inexistantes
      */
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($subscription) {
-            // Vérifier si la colonne club_id existe
-            $hasClubIdColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
+            // Obtenir la liste des colonnes qui existent réellement dans la table
+            $tableName = (new static)->getTable();
+            $existingColumns = \Illuminate\Support\Facades\Schema::getColumnListing($tableName);
             
-            // Si club_id est défini mais que la colonne n'existe pas, le retirer des attributs
-            if (!$hasClubIdColumn && isset($subscription->attributes['club_id'])) {
-                unset($subscription->attributes['club_id']);
+            // ⚠️ CRITIQUE : Retirer explicitement 'name' en PREMIER car cette colonne n'existe pas
+            // Faire cela AVANT toute autre opération
+            if (isset($subscription->attributes['name'])) {
+                unset($subscription->attributes['name']);
+                \Log::info("🧹 [boot] Colonne 'name' retirée explicitement avant insertion");
+            }
+            
+            // Nettoyer tous les attributs qui n'existent pas dans la table
+            // Cela évite les erreurs SQL lors de l'insertion
+            $attributesToRemove = [];
+            foreach ($subscription->attributes as $key => $value) {
+                // Ignorer 'name' explicitement
+                if ($key === 'name') {
+                    $attributesToRemove[] = $key;
+                    continue;
+                }
+                
+                // Garder les colonnes système (id, timestamps, etc.)
+                if (in_array($key, ['id', 'created_at', 'updated_at'])) {
+                    continue;
+                }
+                
+                // Retirer si la colonne n'existe pas dans la table
+                if (!in_array($key, $existingColumns)) {
+                    $attributesToRemove[] = $key;
+                }
+            }
+            
+            // Retirer les attributs invalides
+            foreach ($attributesToRemove as $key) {
+                unset($subscription->attributes[$key]);
+            }
+            
+            // Vérification finale : s'assurer que 'name' n'est vraiment pas là
+            if (isset($subscription->attributes['name'])) {
+                unset($subscription->attributes['name']);
+                \Log::warning("⚠️ [boot] Colonne 'name' encore présente après nettoyage, retirée en urgence");
+            }
+            
+            if (!empty($attributesToRemove)) {
+                \Log::info("🧹 Colonnes retirées avant insertion (n'existent pas dans la table): " . implode(', ', $attributesToRemove), [
+                    'subscription_id' => $subscription->id ?? null,
+                    'colonnes_existantes' => $existingColumns,
+                    'attributes_apres_nettoyage' => array_keys($subscription->getAttributes())
+                ]);
             }
             
             // Générer le numéro AAMM-incrément si non fourni et si la colonne existe
-            $hasSubscriptionNumberColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'subscription_number');
-            if ($hasSubscriptionNumberColumn && !$subscription->subscription_number) {
+            if (in_array('subscription_number', $existingColumns) && !$subscription->subscription_number) {
+                $hasClubIdColumn = in_array('club_id', $existingColumns);
                 $clubId = $hasClubIdColumn ? ($subscription->club_id ?? null) : null;
                 $subscription->subscription_number = static::generateSubscriptionNumber($clubId);
             }
@@ -241,7 +355,10 @@ class Subscription extends Model
         if ($this->template) {
             return $this->template->total_available_lessons;
         }
-        return ($this->total_lessons ?? 0) + ($this->free_lessons ?? 0);
+        // Si les colonnes legacy n'existent pas, retourner 0
+        $totalLessons = static::hasColumn('total_lessons') ? ($this->attributes['total_lessons'] ?? 0) : 0;
+        $freeLessons = static::hasColumn('free_lessons') ? ($this->attributes['free_lessons'] ?? 0) : 0;
+        return $totalLessons + $freeLessons;
     }
 
     /**
@@ -249,10 +366,19 @@ class Subscription extends Model
      */
     public function getPriceAttribute($value)
     {
-        if ($this->template) {
-            return $this->template->price;
+        try {
+            if ($this->template) {
+                return $this->template->price;
+            }
+            // Si la colonne n'existe pas, retourner null
+            if (!static::hasColumn('price')) {
+                return null;
+            }
+            return $value;
+        } catch (\Exception $e) {
+            \Log::warning('Erreur dans getPriceAttribute: ' . $e->getMessage());
+            return null;
         }
-        return $value;
     }
 
     /**
@@ -260,10 +386,19 @@ class Subscription extends Model
      */
     public function getTotalLessonsAttribute($value)
     {
-        if ($this->template) {
-            return $this->template->total_lessons;
+        try {
+            if ($this->template) {
+                return $this->template->total_lessons;
+            }
+            // Si la colonne n'existe pas, retourner null
+            if (!static::hasColumn('total_lessons')) {
+                return null;
+            }
+            return $value;
+        } catch (\Exception $e) {
+            \Log::warning('Erreur dans getTotalLessonsAttribute: ' . $e->getMessage());
+            return null;
         }
-        return $value;
     }
 
     /**
@@ -271,10 +406,19 @@ class Subscription extends Model
      */
     public function getFreeLessonsAttribute($value)
     {
-        if ($this->template) {
-            return $this->template->free_lessons;
+        try {
+            if ($this->template) {
+                return $this->template->free_lessons;
+            }
+            // Si la colonne n'existe pas, retourner 0
+            if (!static::hasColumn('free_lessons')) {
+                return 0;
+            }
+            return $value ?? 0;
+        } catch (\Exception $e) {
+            \Log::warning('Erreur dans getFreeLessonsAttribute: ' . $e->getMessage());
+            return 0;
         }
-        return $value ?? 0;
     }
 
     /**
@@ -282,9 +426,18 @@ class Subscription extends Model
      */
     public function getValidityMonthsAttribute($value)
     {
-        if ($this->template) {
-            return $this->template->validity_months;
+        try {
+            if ($this->template) {
+                return $this->template->validity_months;
+            }
+            // Si la colonne n'existe pas, retourner 12 par défaut
+            if (!static::hasColumn('validity_months')) {
+                return 12;
+            }
+            return $value ?? 12;
+        } catch (\Exception $e) {
+            \Log::warning('Erreur dans getValidityMonthsAttribute: ' . $e->getMessage());
+            return 12;
         }
-        return $value ?? 12;
     }
 }
