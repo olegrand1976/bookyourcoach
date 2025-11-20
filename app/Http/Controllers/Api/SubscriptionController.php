@@ -242,7 +242,7 @@ class SubscriptionController extends Controller
                 'subscription_template_id' => 'required|exists:subscription_templates,id',
                 'student_ids' => 'required|array|min:1',
                 'student_ids.*' => 'exists:students,id',
-                'started_at' => 'nullable|date|after_or_equal:today',
+                'started_at' => 'nullable|date',
                 'expires_at' => 'nullable|date'
             ]);
 
@@ -421,7 +421,7 @@ class SubscriptionController extends Controller
             'subscription_template_id' => 'required|exists:subscription_templates,id',
             'student_ids' => 'required|array|min:1',
             'student_ids.*' => 'exists:students,id',
-            'started_at' => 'nullable|date|after_or_equal:today',
+            'started_at' => 'nullable|date',
             'expires_at' => 'nullable|date',
             'lessons_used' => 'nullable|integer|min:0',
             // Champs pour les commissions
@@ -661,7 +661,7 @@ class SubscriptionController extends Controller
             }
 
             $validated = $request->validate([
-                'started_at' => 'nullable|date|after_or_equal:today',
+                'started_at' => 'nullable|date',
             ]);
 
             // Récupérer l'instance d'abonnement existante
