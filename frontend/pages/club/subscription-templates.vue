@@ -605,9 +605,11 @@ const loadCourseTypes = async () => {
     console.log('🔄 Chargement des types de cours...')
     // L'API /course-types retourne automatiquement les types de cours du club si l'utilisateur est un club
     // Ajouter un timestamp pour éviter le cache du navigateur
+    // Utiliser only_used_in_slots=true pour ne récupérer que les types de cours réellement utilisés dans les créneaux
     const response = await $api.get('/course-types', {
       params: {
-        _t: Date.now()
+        _t: Date.now(),
+        only_used_in_slots: true  // 🔒 Filtrer par les types de cours réellement assignés aux créneaux
       }
     })
     
