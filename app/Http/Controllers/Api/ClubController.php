@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Notification;
 use App\Models\User;
 use App\Models\Teacher;
 use App\Notifications\TeacherWelcomeNotification;
@@ -1022,7 +1023,10 @@ class ClubController extends Controller
                 // Utiliser sendNow() au lieu de notify() pour éviter les problèmes de queue dans les tests
                 if (app()->runningInConsole() || app()->environment('testing')) {
                     // En mode test ou console, envoyer immédiatement sans queue
-                    $newUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
+                    Notification::sendNow(
+                        $newUser,
+                        new TeacherWelcomeNotification($clubName, $resetToken)
+                    );
                 } else {
                     // En production, utiliser la queue normale
                     $newUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
