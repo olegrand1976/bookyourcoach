@@ -384,7 +384,7 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const editingTemplate = ref(null)
 const clubDisciplinesCount = ref(0)
-const clubDisciplineIds = ref<number[]>([])
+const clubDisciplineIds = ref([])
 const clubDefaults = ref({
   default_subscription_total_lessons: 10,
   default_subscription_free_lessons: 1,
