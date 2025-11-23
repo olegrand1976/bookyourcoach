@@ -839,13 +839,22 @@ const getInstanceStudentNames = (instance) => {
       return 'Élève'
     }
     
-    // Essayer d'abord le nom de l'utilisateur (si l'élève a un compte)
+    // Priorité 1: Nom complet de l'utilisateur (si l'élève a un compte)
     if (s.user && s.user.name) {
       return s.user.name
     }
     
-    // Utiliser first_name et last_name de l'élève
-    // Les données viennent directement de l'API avec ces clés exactes
+    // Priorité 2: first_name et last_name de l'utilisateur
+    if (s.user) {
+      const userFirstName = s.user.first_name || ''
+      const userLastName = s.user.last_name || ''
+      const userFullName = `${userFirstName} ${userLastName}`.trim()
+      if (userFullName) {
+        return userFullName
+      }
+    }
+    
+    // Priorité 3: first_name et last_name de l'élève (dans la table students)
     const firstName = s.first_name || ''
     const lastName = s.last_name || ''
     const fullName = `${firstName} ${lastName}`.trim()
@@ -854,9 +863,14 @@ const getInstanceStudentNames = (instance) => {
       return fullName
     }
     
-    // En dernier recours, utiliser le nom de l'utilisateur si disponible
+    // Priorité 4: Nom direct de l'élève (si disponible)
     if (s.name) {
       return s.name
+    }
+    
+    // Priorité 5: Email de l'utilisateur (si disponible)
+    if (s.user && s.user.email) {
+      return s.user.email
     }
     
     // Si vraiment rien n'est disponible, retourner "Élève"

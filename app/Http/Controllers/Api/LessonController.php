@@ -1336,21 +1336,36 @@ class LessonController extends Controller
                 $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
             }
 
-            // Vérifier si une récurrence existe déjà pour ce même créneau (même élève + enseignant)
-            $existingRecurring = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
-                ->where('student_id', $lesson->student_id)
-                ->where('teacher_id', $lesson->teacher_id)
+            // Vérifier si une récurrence existe déjà pour ce même créneau (même élève + même horaire)
+            // ⚠️ IMPORTANT : Un élève ne peut pas avoir plusieurs créneaux récurrents au même jour/heure
+            // même avec des enseignants différents, car cela créerait des conflits
+            $existingRecurring = SubscriptionRecurringSlot::where('student_id', $lesson->student_id)
                 ->where('day_of_week', $dayOfWeek)
                 ->where('start_time', $timeStart)
+                ->where('end_time', $timeEnd)
                 ->where('status', 'active')
+                ->where(function ($query) use ($recurringStartDate, $recurringEndDate) {
+                    // Vérifier que les périodes se chevauchent
+                    $query->where(function ($q) use ($recurringStartDate, $recurringEndDate) {
+                        // Le créneau existant commence avant la fin du nouveau ET se termine après le début du nouveau
+                        $q->where('start_date', '<=', $recurringEndDate)
+                          ->where('end_date', '>=', $recurringStartDate);
+                    });
+                })
                 ->first();
 
             if ($existingRecurring) {
-                Log::info("🔄 Récurrence déjà existante pour ce créneau", [
-                    'recurring_slot_id' => $existingRecurring->id,
+                Log::warning("⚠️ Récurrence déjà existante pour ce créneau - Doublon détecté", [
+                    'existing_recurring_slot_id' => $existingRecurring->id,
+                    'existing_teacher_id' => $existingRecurring->teacher_id,
+                    'new_teacher_id' => $lesson->teacher_id,
                     'student_id' => $lesson->student_id,
                     'day_of_week' => $dayOfWeek,
-                    'start_time' => $timeStart
+                    'start_time' => $timeStart,
+                    'end_time' => $timeEnd,
+                    'subscription_instance_id' => $activeSubscription->id,
+                    'existing_subscription_instance_id' => $existingRecurring->subscription_instance_id,
+                    'message' => 'Un créneau récurrent existe déjà pour cet élève à ce créneau horaire. Le nouveau créneau récurrent ne sera pas créé pour éviter les doublons.'
                 ]);
                 return;
             }
