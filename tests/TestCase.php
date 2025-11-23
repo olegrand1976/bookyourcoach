@@ -14,21 +14,27 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Configuration de la base de données pour les tests
-     * Force l'utilisation de SQLite en mémoire même si .env définit MySQL
+     * Utilise une base SQLite persistante pour permettre à RefreshDatabase de fonctionner correctement
+     * avec les transactions. La base est nettoyée automatiquement après chaque test.
      */
     protected function setUp(): void
     {
-        // Forcer SQLite AVANT d'appeler parent::setUp() pour que RefreshDatabase utilise SQLite
-        putenv('DB_CONNECTION=sqlite');
-        putenv('DB_DATABASE=:memory:');
-        
         parent::setUp();
         
-        // Forcer SQLite dans la configuration également
+        // Utiliser une base SQLite persistante au lieu de :memory: pour permettre
+        // à RefreshDatabase d'utiliser les transactions correctement
+        $databasePath = database_path('testing.sqlite');
+        
+        // Créer le fichier de base de données s'il n'existe pas
+        if (!file_exists($databasePath)) {
+            touch($databasePath);
+        }
+        
+        // S'assurer que SQLite est bien configuré
         config(['database.default' => 'sqlite']);
         config(['database.connections.sqlite' => [
             'driver' => 'sqlite',
-            'database' => ':memory:',
+            'database' => $databasePath,
             'prefix' => '',
             'foreign_key_constraints' => true,
         ]]);

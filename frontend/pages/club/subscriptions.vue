@@ -343,51 +343,6 @@
                 </div>
               </div>
 
-              <!-- Classification DCL/NDCL -->
-              <div class="mt-4 pt-4 border-t border-gray-200">
-                <label class="block text-sm font-medium text-gray-700 mb-3">
-                  Classification pour les commissions
-                </label>
-                <div class="flex items-center space-x-6">
-                  <div class="flex items-center">
-                    <input
-                      :id="`dcl_${instance.id}`"
-                      :checked="instance.est_legacy === false"
-                      @change="updateEstLegacy(instance.id, false)"
-                      type="radio"
-                      :disabled="updatingEstLegacy === instance.id"
-                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    />
-                    <label :for="`dcl_${instance.id}`" class="ml-2 block text-sm text-gray-700">
-                      <span class="font-medium">DCL</span> (Déclaré) - Commission standard
-                    </label>
-                  </div>
-                  <div class="flex items-center">
-                    <input
-                      :id="`ndcl_${instance.id}`"
-                      :checked="instance.est_legacy === true"
-                      @change="updateEstLegacy(instance.id, true)"
-                      type="radio"
-                      :disabled="updatingEstLegacy === instance.id"
-                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    />
-                    <label :for="`ndcl_${instance.id}`" class="ml-2 block text-sm text-gray-700">
-                      <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
-                    </label>
-                  </div>
-                  <div v-if="updatingEstLegacy === instance.id" class="ml-4">
-                    <svg class="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                </div>
-                <p class="mt-2 text-xs text-gray-500">
-                  ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie. 
-                  Les cours associés à cet abonnement hériteront de ce statut.
-                </p>
-              </div>
-
               <!-- Liste des cours -->
               <div v-if="instance.lessons && instance.lessons.length > 0" class="mt-4">
                 <h5 class="text-sm font-medium text-gray-700 mb-2">Cours consommés:</h5>
@@ -562,11 +517,15 @@
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">
                 Date d'expiration
+                <span class="text-xs text-gray-500 font-normal ml-2">
+                  (calculée automatiquement)
+                </span>
               </label>
               <input 
                 v-model="editForm.expires_at"
                 type="date"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed"
               />
             </div>
 
@@ -590,17 +549,71 @@
             <!-- Nombre de cours utilisés -->
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de cours utilisés
+                Valeur manuelle initiale (cours encodés à la création)
               </label>
+              <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">Valeur manuelle actuelle : </span>
+                  <span class="text-sm font-semibold text-gray-900">{{ getManualLessonsUsed(editingInstance) }} cours</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-600">Cours réellement consommés (passés) : </span>
+                  <span class="text-sm font-semibold text-gray-900">{{ getConsumedLessonsCount(editingInstance) }} cours</span>
+                </div>
+                <div class="flex justify-between pt-1 border-t border-gray-300">
+                  <span class="text-sm font-medium text-gray-700">Total réellement utilisé : </span>
+                  <span class="text-sm font-bold text-blue-600">{{ editingInstance?.lessons_used || 0 }} cours</span>
+                </div>
+              </div>
               <input 
-                v-model.number="editForm.lessons_used"
+                v-model.number="editForm.manual_lessons_used"
                 type="number"
                 min="0"
                 :max="selectedSubscription?.template?.total_available_lessons || 999"
+                placeholder="Nouvelle valeur manuelle initiale"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p class="mt-1 text-xs text-gray-500">
-                Maximum: {{ selectedSubscription?.template?.total_available_lessons || 0 }} cours
+                Modifiez la valeur manuelle initiale encodée à la création. Le total réellement utilisé sera recalculé automatiquement.
+              </p>
+              <p v-if="editForm.manual_lessons_used !== null && editForm.manual_lessons_used !== getManualLessonsUsed(editingInstance)" class="mt-2 text-sm font-medium text-blue-600">
+                Nouveau total réellement utilisé : {{ editForm.manual_lessons_used + getConsumedLessonsCount(editingInstance) }} cours
+              </p>
+            </div>
+
+            <!-- Classification DCL/NDCL -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-3">
+                Classification pour les commissions
+              </label>
+              <div class="flex items-center space-x-6">
+                <div class="flex items-center">
+                  <input
+                    id="edit_dcl"
+                    v-model="editForm.est_legacy"
+                    :value="false"
+                    type="radio"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label for="edit_dcl" class="ml-2 block text-sm text-gray-700">
+                    <span class="font-medium">DCL</span> (Déclaré) - Commission standard
+                  </label>
+                </div>
+                <div class="flex items-center">
+                  <input
+                    id="edit_ndcl"
+                    v-model="editForm.est_legacy"
+                    :value="true"
+                    type="radio"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label for="edit_ndcl" class="ml-2 block text-sm text-gray-700">
+                    <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
+                  </label>
+                </div>
+              </div>
+              <p class="mt-2 text-xs text-gray-500">
+                ⓘ Cette classification sera appliquée à tous les cours de l'abonnement sauf ceux déjà payés.
               </p>
             </div>
 
@@ -634,7 +647,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useNuxtApp } from '#app'
 import { useToast } from '~/composables/useToast'
 
@@ -672,8 +685,29 @@ const editForm = ref({
   started_at: '',
   expires_at: '',
   status: 'active',
-  lessons_used: 0
+  lessons_used: 0,
+  manual_lessons_used: 0, // Valeur manuelle initiale
+  est_legacy: false
 })
+
+// Calculer la valeur manuelle initiale (lessons_used - cours passés réellement consommés)
+const getManualLessonsUsed = (instance) => {
+  if (!instance) return 0
+  const consumedLessons = getConsumedLessonsCount(instance)
+  const totalUsed = instance.lessons_used || 0
+  return Math.max(0, totalUsed - consumedLessons)
+}
+
+// Compter les cours réellement consommés (passés)
+const getConsumedLessonsCount = (instance) => {
+  if (!instance || !instance.lessons || !Array.isArray(instance.lessons)) return 0
+  const now = new Date()
+  return instance.lessons.filter(lesson => {
+    if (!lesson.start_time) return false
+    const lessonDate = new Date(lesson.start_time)
+    return lessonDate <= now && lesson.status !== 'cancelled'
+  }).length
+}
 
 // Formulaires
 const form = ref({
@@ -1070,17 +1104,31 @@ const closeHistoryModal = () => {
 // Ouvrir la modale d'édition d'une instance
 const openEditInstanceModal = async (instance) => {
   editingInstance.value = instance
+  const manualLessonsUsed = getManualLessonsUsed(instance)
   editForm.value = {
     started_at: instance.started_at ? instance.started_at.split('T')[0] : '',
     expires_at: instance.expires_at ? instance.expires_at.split('T')[0] : '',
     status: instance.status || 'active',
-    lessons_used: instance.lessons_used || 0
+    lessons_used: 0,
+    manual_lessons_used: manualLessonsUsed, // Initialiser avec la valeur manuelle calculée
+    est_legacy: instance.est_legacy !== null ? instance.est_legacy : false
   }
   showEditInstanceModal.value = true
   
   // Charger l'historique des actions pour cette instance
   await loadInstanceHistory(instance.id)
 }
+
+// Watcher pour recalculer automatiquement la date d'expiration si la date de début change
+watch(() => editForm.value.started_at, (newStartedAt) => {
+  if (newStartedAt && selectedSubscription.value?.template?.validity_months) {
+    // Recalculer automatiquement la date d'expiration basée sur validity_months du template
+    const startDate = new Date(newStartedAt)
+    const expiresDate = new Date(startDate)
+    expiresDate.setMonth(expiresDate.getMonth() + selectedSubscription.value.template.validity_months)
+    editForm.value.expires_at = expiresDate.toISOString().split('T')[0]
+  }
+})
 
 // Fermer la modale d'édition
 const closeEditInstanceModal = () => {
@@ -1091,7 +1139,9 @@ const closeEditInstanceModal = () => {
     started_at: '',
     expires_at: '',
     status: 'active',
-    lessons_used: 0
+    lessons_used: 0,
+    manual_lessons_used: 0,
+    est_legacy: false
   }
 }
 
@@ -1118,11 +1168,19 @@ const saveInstanceChanges = async () => {
     const { $api } = useNuxtApp()
     const { success: showSuccess, error: showError } = useToast()
     
+    // La date d'expiration est toujours recalculée automatiquement côté backend
+    // On envoie null pour déclencher le recalcul basé sur la nouvelle date de début
+    // Pour lessons_used, on calcule le nouveau total = valeur manuelle + cours réellement consommés
+    const consumedLessons = getConsumedLessonsCount(editingInstance.value)
+    const newManualValue = editForm.value.manual_lessons_used || 0
+    const newTotalLessonsUsed = newManualValue + consumedLessons
+    
     const response = await $api.put(`/club/subscriptions/instances/${editingInstance.value.id}`, {
       started_at: editForm.value.started_at,
-      expires_at: editForm.value.expires_at || null,
+      expires_at: null, // Toujours null pour recalcul automatique
       status: editForm.value.status,
-      lessons_used: editForm.value.lessons_used
+      lessons_used: newTotalLessonsUsed, // Total = valeur manuelle + cours réellement consommés
+      est_legacy: editForm.value.est_legacy
     })
     
     if (response.data.success) {

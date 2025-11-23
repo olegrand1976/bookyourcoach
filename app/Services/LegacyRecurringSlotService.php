@@ -209,7 +209,8 @@ class LegacyRecurringSlotService
         $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $recurringSlot->start_time);
         $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $recurringSlot->end_time);
 
-        // Vérifier si une lesson existe déjà
+        // ⚠️ IMPORTANT : Vérifier si une lesson existe déjà pour cette date (passé ou futur)
+        // Cela évite de régénérer des cours qui existent déjà
         $existingLesson = Lesson::where('student_id', $recurringSlot->student_id)
             ->where('teacher_id', $recurringSlot->teacher_id)
             ->where('start_time', $startTime)
@@ -219,6 +220,9 @@ class LegacyRecurringSlotService
             Log::info("Lesson déjà existante pour créneau récurrent #{$recurringSlot->id}", [
                 'lesson_id' => $existingLesson->id,
                 'date' => $date->format('Y-m-d'),
+                'start_time' => $startTime->format('Y-m-d H:i:s'),
+                'is_past' => $startTime->isPast(),
+                'note' => 'Cours déjà existant, génération ignorée'
             ]);
             return null;
         }

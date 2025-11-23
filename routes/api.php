@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ClubDashboardController;
 use App\Http\Controllers\Api\ClubOpenSlotController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionTemplateController;
+use App\Http\Controllers\Api\AdminDashboardController;
 
 // Health check endpoint pour Docker healthcheck
 Route::get('/health', function () {
@@ -45,8 +46,13 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    // Routes AdminDashboardController (priorité sur AdminController pour certaines routes)
+    Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
+    Route::get('/users', [AdminDashboardController::class, 'users']); // Utilise AdminDashboardController::users au lieu de AdminController::getUsers
+    Route::put('/users/{id}/status', [AdminDashboardController::class, 'updateUserStatus']);
+    
+    // Routes AdminController (autres routes admin)
     Route::get('/stats', [AdminController::class, 'getStats']);
-    Route::get('/users', [AdminController::class, 'getUsers']);
     Route::get('/users/{id}', [AdminController::class, 'getUser']);
     Route::post('/users', [AdminController::class, 'createUser']);
     Route::put('/users/{id}', [AdminController::class, 'updateUser']);
@@ -55,6 +61,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/users/{id}/create-club', [AdminController::class, 'createClubForUser']);
     Route::get('/activities', [AdminController::class, 'getActivities']);
     Route::get('/settings', [AdminController::class, 'getAllSettings']);
+    Route::put('/settings', [AdminController::class, 'updateAllSettings']);
     Route::get('/settings/{type}', [AdminController::class, 'getSettings']);
     Route::put('/settings/{type}', [AdminController::class, 'updateSettings']);
     Route::get('/system-status', [AdminController::class, 'getSystemStatus']);
@@ -171,6 +178,12 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/students/{studentId}/resend-invitation', [StudentController::class, 'resendInvitation']);
     Route::put('/students/{studentId}', [StudentController::class, 'update']);
     Route::delete('/students/{studentId}', [ClubController::class, 'removeStudent']);
+    // Abonnements du club
+    Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+    Route::post('/subscriptions', [SubscriptionController::class, 'store']);
+    Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
+    Route::put('/subscriptions/{id}', [SubscriptionController::class, 'update']);
+    Route::delete('/subscriptions/{id}', [SubscriptionController::class, 'destroy']);
     // Créneaux ouverts
     Route::get('/open-slots', [ClubOpenSlotController::class, 'index']);
     Route::post('/open-slots', [ClubOpenSlotController::class, 'store']);

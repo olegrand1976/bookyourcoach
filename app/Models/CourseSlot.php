@@ -54,8 +54,8 @@ class CourseSlot extends Model
     ];
 
     protected $casts = [
-        'start_time' => 'datetime:H:i',
-        'end_time' => 'datetime:H:i',
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
         'start_date' => 'date',
         'end_date' => 'date',
         'price' => 'decimal:2',

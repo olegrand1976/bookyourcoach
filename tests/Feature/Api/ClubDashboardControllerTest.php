@@ -31,6 +31,15 @@ class ClubDashboardControllerTest extends TestCase
         $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
 
         $student = Student::factory()->create(['club_id' => $club->id]);
+        // Créer l'entrée dans club_students (table pivot)
+        DB::table('club_students')->insert([
+            'club_id' => $club->id,
+            'student_id' => $student->id,
+            'is_active' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
@@ -106,7 +115,8 @@ class ClubDashboardControllerTest extends TestCase
         // Assert
         $response->assertStatus(403)
                  ->assertJson([
-                     'message' => 'Access denied. Club role required.'
+                     'message' => 'Unauthorized',
+                     'error' => 'Accès non autorisé. Rôle club requis.'
                  ]);
     }
 

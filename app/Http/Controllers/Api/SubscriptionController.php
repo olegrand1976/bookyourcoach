@@ -27,6 +27,14 @@ class SubscriptionController extends Controller
         try {
             $user = Auth::user();
             
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
             if ($user->role !== 'club') {
                 return response()->json([
                     'success' => false,
@@ -149,14 +157,25 @@ class SubscriptionController extends Controller
                 }
             }
 
-            // ⚠️ IMPORTANT : Ne pas recalculer automatiquement lessons_used ici
-            // car cela écraserait les valeurs manuelles entrées lors de la création
-            // (ex: si un élève a déjà consommé 5 cours ailleurs, cette info serait perdue)
-            // Le recalcul doit être fait à la demande via l'endpoint /recalculate ou 
-            // automatiquement lors de l'ajout/suppression de cours (via observers)
-            
-            // Ajouter l'alias subscriptionStudents pour compatibilité frontend
+            // ⚠️ IMPORTANT : Recalculer lessons_used pour ne compter que les cours passés
+            // Cela garantit que seuls les cours réellement passés sont comptabilisés
+            // Les valeurs manuelles sont préservées si elles sont supérieures au nombre de cours passés
             foreach ($subscriptions as $subscription) {
+                if ($subscription->instances && $subscription->instances->count() > 0) {
+                    foreach ($subscription->instances as $instance) {
+                        try {
+                            // Recalculer lessons_used pour ne compter que les cours passés
+                            // Cela met à jour la valeur si nécessaire sans écraser les valeurs manuelles
+                            $instance->recalculateLessonsUsed();
+                        } catch (\Exception $e) {
+                            Log::warning('Erreur lors du recalcul de lessons_used pour l\'instance: ' . $e->getMessage(), [
+                                'instance_id' => $instance->id ?? null
+                            ]);
+                        }
+                    }
+                }
+                
+                // Ajouter l'alias subscriptionStudents pour compatibilité frontend
                 try {
                     $subscription->subscription_students = $subscription->instances ?? collect([]);
                 } catch (\Exception $e) {
@@ -218,11 +237,22 @@ class SubscriptionController extends Controller
 
     /**
      * Créer un nouvel abonnement depuis un modèle
+     * Supporte deux modes :
+     * 1. Création directe avec name, total_lessons, price (legacy)
+     * 2. Création depuis un template avec subscription_template_id (nouveau)
      */
     public function store(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([
@@ -239,6 +269,72 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
+            // Mode 1: Création directe (legacy) - si aucun template_id n'est fourni
+            if (!$request->has('subscription_template_id')) {
+                $validated = $request->validate([
+                    'name' => 'required|string|max:255',
+                    'total_lessons' => 'required|integer|min:1',
+                    'free_lessons' => 'nullable|integer|min:0',
+                    'price' => 'required|numeric|min:0',
+                    'description' => 'nullable|string',
+                    'is_active' => 'nullable|boolean',
+                    'course_type_ids' => 'required|array|min:1',
+                    'course_type_ids.*' => 'exists:course_types,id'
+                ]);
+
+                DB::beginTransaction();
+
+                // Vérifier quelles colonnes existent dans la table
+                $existingColumns = Schema::getColumnListing('subscriptions');
+                
+                // Créer l'abonnement directement avec les données fournies
+                $subscriptionData = [
+                    'club_id' => $club->id,
+                ];
+                
+                // Ajouter seulement les colonnes qui existent
+                foreach (['name', 'total_lessons', 'free_lessons', 'price', 'description', 'is_active'] as $col) {
+                    if (in_array($col, $existingColumns) && isset($validated[$col])) {
+                        $subscriptionData[$col] = $validated[$col];
+                    }
+                }
+                
+                // Utiliser DB::table pour insérer directement et éviter les problèmes avec $fillable
+                $subscriptionId = DB::table('subscriptions')->insertGetId(array_merge($subscriptionData, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
+                
+                $subscription = Subscription::find($subscriptionId);
+                
+                // Attacher les types de cours si fournis
+                if (!empty($validated['course_type_ids']) && Schema::hasTable('subscription_course_types')) {
+                    foreach ($validated['course_type_ids'] as $courseTypeId) {
+                        // Récupérer la discipline_id depuis le course_type
+                        $courseType = \App\Models\CourseType::find($courseTypeId);
+                        if ($courseType && $courseType->discipline_id) {
+                            DB::table('subscription_course_types')->insert([
+                                'subscription_id' => $subscriptionId,
+                                'discipline_id' => $courseType->discipline_id,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+                
+                DB::commit();
+                
+                $subscription->load('template');
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Abonnement créé avec succès',
+                    'data' => $subscription
+                ], 201);
+            }
+
+            // Mode 2: Création depuis un template (nouveau)
             $validated = $request->validate([
                 'subscription_template_id' => 'required|exists:subscription_templates,id',
                 'student_ids' => 'required|array|min:1',
@@ -336,12 +432,138 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Mettre à jour un abonnement
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Récupérer l'abonnement
+            $subscription = Subscription::forClub($club->id)->findOrFail($id);
+
+            // Validation
+            $validated = $request->validate([
+                'name' => 'nullable|string|max:255',
+                'total_lessons' => 'nullable|integer|min:1',
+                'free_lessons' => 'nullable|integer|min:0',
+                'price' => 'nullable|numeric|min:0',
+                'description' => 'nullable|string',
+                'is_active' => 'nullable|boolean',
+                'course_type_ids' => 'nullable|array',
+                'course_type_ids.*' => 'exists:course_types,id'
+            ]);
+
+            DB::beginTransaction();
+
+            // Vérifier quelles colonnes existent dans la table
+            $existingColumns = Schema::getColumnListing('subscriptions');
+            
+            // Préparer les données à mettre à jour
+            $updateData = [];
+            
+            // Ajouter seulement les colonnes qui existent et qui sont fournies
+            foreach (['name', 'total_lessons', 'free_lessons', 'price', 'description', 'is_active'] as $col) {
+                if (in_array($col, $existingColumns) && isset($validated[$col])) {
+                    $updateData[$col] = $validated[$col];
+                }
+            }
+            
+            // Mettre à jour avec DB::table pour éviter les problèmes avec $fillable
+            if (!empty($updateData)) {
+                $updateData['updated_at'] = now();
+                DB::table('subscriptions')
+                    ->where('id', $subscription->id)
+                    ->update($updateData);
+                
+                // Recharger le modèle
+                $subscription = Subscription::find($subscription->id);
+            }
+            
+            // Gérer les types de cours si fournis
+            if (isset($validated['course_type_ids']) && Schema::hasTable('subscription_course_types')) {
+                // Supprimer les anciennes associations
+                DB::table('subscription_course_types')
+                    ->where('subscription_id', $subscription->id)
+                    ->delete();
+                
+                // Ajouter les nouvelles associations
+                foreach ($validated['course_type_ids'] as $courseTypeId) {
+                    $courseType = \App\Models\CourseType::find($courseTypeId);
+                    if ($courseType && $courseType->discipline_id) {
+                        DB::table('subscription_course_types')->insert([
+                            'subscription_id' => $subscription->id,
+                            'discipline_id' => $courseType->discipline_id,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+            }
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Abonnement mis à jour avec succès',
+                'data' => $subscription
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de la mise à jour de l\'abonnement: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour de l\'abonnement'
+            ], 500);
+        }
+    }
+
+    /**
      * Afficher un abonnement spécifique
      */
     public function show($id): JsonResponse
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([
@@ -415,6 +637,70 @@ class SubscriptionController extends Controller
         }
     }
 
+    /**
+     * Supprimer un abonnement
+     */
+    public function destroy($id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Récupérer l'abonnement
+            $subscription = Subscription::forClub($club->id)->findOrFail($id);
+
+            DB::beginTransaction();
+
+            // Supprimer les associations avec les types de cours
+            if (Schema::hasTable('subscription_course_types')) {
+                DB::table('subscription_course_types')
+                    ->where('subscription_id', $subscription->id)
+                    ->delete();
+            }
+
+            // Supprimer l'abonnement
+            DB::table('subscriptions')
+                ->where('id', $subscription->id)
+                ->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Abonnement supprimé avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de la suppression de l\'abonnement: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de l\'abonnement'
+            ], 500);
+        }
+    }
 
     /**
      * Attribuer un abonnement à un ou plusieurs élèves
@@ -422,6 +708,14 @@ class SubscriptionController extends Controller
     public function assignToStudent(Request $request): JsonResponse
     {
         $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
+        }
         
         if ($user->role !== 'club') {
             return response()->json([
@@ -438,7 +732,73 @@ class SubscriptionController extends Controller
             ], 404);
         }
 
-        // Validation des données (Laravel gère automatiquement les erreurs 422)
+        // Support deux formats : legacy (subscription_id + student_id) ou nouveau (subscription_template_id + student_ids)
+        if ($request->has('subscription_id') && $request->has('student_id')) {
+            // Format legacy
+            $validated = $request->validate([
+                'subscription_id' => 'required|exists:subscriptions,id',
+                'student_id' => 'required|exists:students,id',
+                'start_date' => 'nullable|date',
+            ]);
+            
+            try {
+                $subscription = Subscription::forClub($club->id)->findOrFail($validated['subscription_id']);
+                
+                // Vérifier que l'élève appartient au club
+                if (!DB::table('club_students')
+                    ->where('club_id', $club->id)
+                    ->where('student_id', $validated['student_id'])
+                    ->exists()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cet élève n\'appartient pas à votre club'
+                    ], 404);
+                }
+                
+                DB::beginTransaction();
+                
+                // Créer une instance d'abonnement
+                $startedAt = isset($validated['start_date']) ? Carbon::parse($validated['start_date']) : Carbon::now();
+                
+                $subscriptionInstance = SubscriptionInstance::create([
+                    'subscription_id' => $subscription->id,
+                    'lessons_used' => 0,
+                    'started_at' => $startedAt,
+                    'status' => 'active',
+                ]);
+                
+                // Calculer expires_at si nécessaire
+                if (!$subscriptionInstance->expires_at && $subscription->validity_months) {
+                    $subscriptionInstance->expires_at = $startedAt->copy()->addMonths($subscription->validity_months);
+                    $subscriptionInstance->save();
+                }
+                
+                // Attacher l'élève
+                $subscriptionInstance->students()->attach($validated['student_id']);
+                
+                DB::commit();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Abonnement attribué avec succès',
+                    'data' => [
+                        'id' => $subscriptionInstance->id,
+                        'subscription_id' => $subscription->id,
+                        'student_id' => $validated['student_id'],
+                    ]
+                ]);
+                
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('Erreur lors de l\'attribution de l\'abonnement (legacy): ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de l\'attribution de l\'abonnement'
+                ], 500);
+            }
+        }
+        
+        // Format nouveau : subscription_template_id + student_ids
         $validated = $request->validate([
             'subscription_template_id' => 'required|exists:subscription_templates,id',
             'student_ids' => 'required|array|min:1',
@@ -583,6 +943,14 @@ class SubscriptionController extends Controller
         try {
             $user = Auth::user();
             
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
             if ($user->role !== 'club') {
                 return response()->json([
                     'success' => false,
@@ -666,6 +1034,14 @@ class SubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([
@@ -786,6 +1162,14 @@ class SubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([
@@ -916,6 +1300,14 @@ class SubscriptionController extends Controller
         try {
             $user = Auth::user();
             
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
             if ($user->role !== 'club') {
                 return response()->json([
                     'success' => false,
@@ -1005,6 +1397,14 @@ class SubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([
@@ -1121,6 +1521,14 @@ class SubscriptionController extends Controller
         try {
             $user = Auth::user();
             
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
             if ($user->role !== 'club') {
                 return response()->json([
                     'success' => false,
@@ -1141,9 +1549,10 @@ class SubscriptionController extends Controller
                 'expires_at' => 'nullable|date',
                 'status' => 'required|in:active,completed,expired,cancelled',
                 'lessons_used' => 'nullable|integer|min:0',
+                'est_legacy' => 'nullable|boolean',
             ]);
 
-            // Récupérer l'instance d'abonnement
+            // Récupérer l'instance d'abonnement avec les cours pour calculer la valeur manuelle
             $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
                     if (Subscription::hasClubIdColumn()) {
                         $query->where('club_id', $club->id);
@@ -1153,7 +1562,7 @@ class SubscriptionController extends Controller
                         });
                     }
                 })
-                ->with(['subscription.template', 'students.user'])
+                ->with(['subscription.template', 'students.user', 'lessons'])
                 ->findOrFail($instanceId);
 
             // Sauvegarder les anciennes valeurs pour l'historique
@@ -1162,21 +1571,102 @@ class SubscriptionController extends Controller
                 'expires_at' => $instance->expires_at,
                 'status' => $instance->status,
                 'lessons_used' => $instance->lessons_used,
+                'est_legacy' => $instance->est_legacy,
             ];
 
             // Mettre à jour les valeurs
+            $startedAtChanged = false;
             if (isset($validated['started_at'])) {
+                $oldStartedAt = $instance->started_at;
                 $instance->started_at = $validated['started_at'];
+                $startedAtChanged = ($oldStartedAt != $instance->started_at);
             }
-            if (isset($validated['expires_at'])) {
+            
+            // ⚠️ IMPORTANT : Si la date de début est modifiée, recalculer automatiquement la date d'expiration
+            // sauf si une date d'expiration est explicitement fournie dans la requête
+            // Si expires_at est null ou vide dans la requête, cela signifie qu'on doit recalculer
+            if ($startedAtChanged) {
+                if (!isset($validated['expires_at']) || $validated['expires_at'] === null || $validated['expires_at'] === '') {
+                    // Pas de date d'expiration fournie → recalculer automatiquement
+                    $instance->calculateExpiresAt();
+                    Log::info("🔄 Date d'expiration recalculée automatiquement suite à la modification de la date de début", [
+                        'instance_id' => $instance->id,
+                        'new_started_at' => $instance->started_at,
+                        'new_expires_at' => $instance->expires_at,
+                        'old_expires_at' => $oldValues['expires_at']
+                    ]);
+                } else {
+                    // Date d'expiration fournie → utiliser la valeur fournie (modification manuelle)
+                    $instance->expires_at = $validated['expires_at'];
+                    Log::info("📅 Date d'expiration modifiée manuellement", [
+                        'instance_id' => $instance->id,
+                        'new_started_at' => $instance->started_at,
+                        'new_expires_at' => $instance->expires_at,
+                        'old_expires_at' => $oldValues['expires_at']
+                    ]);
+                }
+            } elseif (isset($validated['expires_at']) && $validated['expires_at'] !== null && $validated['expires_at'] !== '') {
+                // Date d'expiration modifiée sans changement de date de début → utiliser la valeur fournie
                 $instance->expires_at = $validated['expires_at'];
             }
+            
             $instance->status = $validated['status'];
             if (isset($validated['lessons_used'])) {
                 $instance->lessons_used = $validated['lessons_used'];
             }
             
+            // ⚠️ IMPORTANT : Mettre à jour est_legacy si fourni
+            $estLegacyChanged = false;
+            if (isset($validated['est_legacy'])) {
+                $oldEstLegacy = $instance->est_legacy;
+                $instance->est_legacy = $validated['est_legacy'];
+                $estLegacyChanged = ($oldEstLegacy !== $instance->est_legacy);
+            }
+            
             $instance->save();
+            
+            // ⚠️ IMPORTANT : Si est_legacy a changé, propager aux cours sauf ceux déjà payés
+            if ($estLegacyChanged) {
+                $lessons = $instance->lessons()->get();
+                $updatedCount = 0;
+                $skippedCount = 0;
+                
+                foreach ($lessons as $lesson) {
+                    // Ne pas modifier les cours déjà payés
+                    if ($lesson->payment_status === 'paid') {
+                        $skippedCount++;
+                        Log::info("⏭️ Cours {$lesson->id} ignoré (déjà payé) lors de la propagation DCL/NDCL", [
+                            'lesson_id' => $lesson->id,
+                            'payment_status' => $lesson->payment_status,
+                            'instance_id' => $instance->id
+                        ]);
+                        continue;
+                    }
+                    
+                    // Mettre à jour le statut DCL/NDCL du cours
+                    if ($lesson->est_legacy !== $instance->est_legacy) {
+                        $lesson->est_legacy = $instance->est_legacy;
+                        $lesson->saveQuietly();
+                        $updatedCount++;
+                        
+                        Log::info("🔄 Statut DCL/NDCL propagé au cours {$lesson->id}", [
+                            'lesson_id' => $lesson->id,
+                            'subscription_instance_id' => $instance->id,
+                            'est_legacy' => $instance->est_legacy,
+                            'status' => $instance->est_legacy ? 'NDCL' : 'DCL',
+                            'payment_status' => $lesson->payment_status
+                        ]);
+                    }
+                }
+                
+                Log::info("✅ Propagation DCL/NDCL terminée pour l'instance {$instance->id}", [
+                    'instance_id' => $instance->id,
+                    'updated_lessons' => $updatedCount,
+                    'skipped_lessons' => $skippedCount,
+                    'total_lessons' => $lessons->count(),
+                    'new_est_legacy' => $instance->est_legacy
+                ]);
+            }
 
             // Enregistrer dans l'historique
             $changes = [];
@@ -1253,6 +1743,14 @@ class SubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
             
             if ($user->role !== 'club') {
                 return response()->json([

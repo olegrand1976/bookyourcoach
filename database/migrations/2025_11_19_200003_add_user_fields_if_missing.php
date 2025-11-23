@@ -8,6 +8,7 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Ajoute les colonnes manquantes à la table users si elles n'existent pas déjà
      */
     public function up(): void
     {
@@ -42,3 +43,4 @@ return new class extends Migration
         });
     }
 };
+

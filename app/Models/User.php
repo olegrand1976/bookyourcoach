@@ -15,6 +15,14 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, CanResetPassword;
 
     /**
+     * Role constants
+     */
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_TEACHER = 'teacher';
+    public const ROLE_STUDENT = 'student';
+    public const ROLE_CLUB = 'club';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -187,5 +195,61 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_ADMIN);
+    }
+
+    /**
+     * Check if user is teacher
+     */
+    public function isTeacher(): bool
+    {
+        return $this->hasRole(self::ROLE_TEACHER);
+    }
+
+    /**
+     * Check if user is student
+     */
+    public function isStudent(): bool
+    {
+        return $this->hasRole(self::ROLE_STUDENT);
+    }
+
+    /**
+     * Check if user is club
+     */
+    public function isClub(): bool
+    {
+        return $this->hasRole(self::ROLE_CLUB);
+    }
+
+    /**
+     * Check if user can act as teacher (has teacher role)
+     */
+    public function canActAsTeacher(): bool
+    {
+        return $this->isTeacher();
+    }
+
+    /**
+     * Check if user can act as student (has student role)
+     */
+    public function canActAsStudent(): bool
+    {
+        return $this->isStudent();
     }
 }

@@ -177,15 +177,15 @@ class StudentController extends Controller
                 ], 404);
             }
 
-            // Validation - tous les champs sont maintenant optionnels
+            // Validation - champs requis pour la création
             $validated = $request->validate([
-                'first_name' => 'nullable|string|max:255',
-                'last_name' => 'nullable|string|max:255',
-                'email' => 'nullable|email|unique:users,email',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
-                // 'level' supprimé - n'est plus utilisé
+                'level' => 'nullable|string|max:255',
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
                 'disciplines' => 'nullable|array',
@@ -346,7 +346,7 @@ class StudentController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Cet élève n\'appartient pas à votre club'
-                    ], 403);
+                    ], 404);
                 }
             }
 
@@ -356,6 +356,7 @@ class StudentController extends Controller
                 'last_name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
+                'level' => 'nullable|string|max:255',
                 'goals' => 'nullable|string',
                 'medical_info' => 'nullable|string',
                 'disciplines' => 'nullable|array',
@@ -437,6 +438,7 @@ class StudentController extends Controller
             if (isset($validated['first_name'])) $studentData['first_name'] = $validated['first_name'];
             if (isset($validated['last_name'])) $studentData['last_name'] = $validated['last_name'];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
+            if (isset($validated['level'])) $studentData['level'] = $validated['level'];
             if (isset($validated['goals'])) $studentData['goals'] = $validated['goals'];
             if (isset($validated['medical_info'])) $studentData['medical_info'] = $validated['medical_info'];
 

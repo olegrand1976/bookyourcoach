@@ -41,39 +41,52 @@ class AdminController extends BaseController
      */
     public function getStats()
     {
-        $stats = [
-            'users' => User::count(),
-            'teachers' => User::where('role', 'teacher')->count(),
-            'students' => User::where('role', 'student')->count(),
-            'clubs' => Club::count(),
-            'active_users' => User::where('is_active', true)->count(),
-            'lessons_today' => 0, // À implémenter avec le modèle Lesson
-            'revenue_month' => 0, // À implémenter avec le modèle Payment
-        ];
+        try {
+            // Statistiques générales avec les noms de clés attendus par les tests
+            $stats = [
+                'total_users' => User::count(),
+                'total_teachers' => User::where('role', 'teacher')->count(),
+                'total_students' => User::where('role', 'student')->count(),
+                'total_clubs' => Club::count(),
+                'total_lessons' => \App\Models\Lesson::count(),
+                'total_payments' => \App\Models\Payment::count(),
+                'revenue_this_month' => \App\Models\Payment::where('status', 'succeeded')
+                    ->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year)
+                    ->sum('amount') ?? 0,
+            ];
 
-        // Récupérer les utilisateurs récents
-        $recentUsers = User::orderBy('created_at', 'desc')->limit(5)->get();
+            // Récupérer les utilisateurs récents
+            $recentUsers = User::orderBy('created_at', 'desc')->limit(5)->get();
 
-        // Récupérer les activités récentes
-        $recentActivities = AuditLog::with('user')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($log) {
-                return [
-                    'id' => $log->id,
-                    'action' => $log->action,
-                    'message' => $this->formatActivityMessage($log),
-                    'created_at' => $log->created_at,
-                    'user' => $log->user ? $log->user->name : 'Système',
-                ];
-            });
+            // Récupérer les activités récentes
+            $recentActivities = AuditLog::with('user')
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+                ->map(function ($log) {
+                    return [
+                        'id' => $log->id,
+                        'action' => $log->action,
+                        'message' => $this->formatActivityMessage($log),
+                        'created_at' => $log->created_at,
+                        'user' => $log->user ? $log->user->name : 'Système',
+                    ];
+                });
 
-        return response()->json([
-            'stats' => $stats,
-            'recentUsers' => $recentUsers,
-            'recentActivities' => $recentActivities
-        ]);
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'recentUsers' => $recentUsers,
+                'recentActivities' => $recentActivities
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des statistiques',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -652,6 +665,102 @@ class AdminController extends BaseController
     }
 
     /**
+     * Update all settings from form data
+     * Accepts format: { "settings": [{"key": "general.platform_name", "value": "..."}, ...] }
+     */
+    public function updateAllSettings(Request $request)
+    {
+        try {
+            $request->validate([
+                'settings' => 'required|array',
+                'settings.*.key' => 'required|string',
+                'settings.*.value' => 'required',
+            ]);
+
+            $settings = $request->input('settings', []);
+            $errors = [];
+
+            // Traiter chaque paramètre
+            foreach ($settings as $setting) {
+                $key = $setting['key'];
+                $value = $setting['value'];
+
+                // Extraire le type et le nom du paramètre (ex: "general.platform_name" -> type: "general", name: "platform_name")
+                if (strpos($key, '.') === false) {
+                    $errors[] = "Clé invalide: {$key}";
+                    continue;
+                }
+
+                [$type, $name] = explode('.', $key, 2);
+
+                // Valider selon le type (seulement si des règles existent pour ce champ)
+                try {
+                    // Obtenir les règles de validation pour ce type
+                    $allRules = $this->getValidationRulesForType($type);
+                    
+                    // Si le champ a des règles de validation, valider
+                    if (isset($allRules[$name])) {
+                        $validator = \Validator::make(
+                            [$name => $value], 
+                            [$name => $allRules[$name]]
+                        );
+                        if ($validator->fails()) {
+                            foreach ($validator->errors()->all() as $error) {
+                                $errors[] = "{$key}: {$error}";
+                            }
+                            continue;
+                        }
+                    }
+                    // Si le champ n'a pas de règles, on l'accepte (champ optionnel ou nouveau)
+                } catch (\Exception $e) {
+                    // Si le type n'est pas reconnu, continuer quand même (peut être un nouveau type)
+                    // Mais loguer l'erreur pour debug
+                    \Log::warning("Erreur validation paramètre {$key}: " . $e->getMessage());
+                }
+
+                // Sauvegarder dans la base de données
+                AppSetting::updateOrCreate(
+                    [
+                        'key' => $key,
+                        'group' => $type
+                    ],
+                    [
+                        'value' => is_array($value) ? json_encode($value) : (string)$value,
+                        'type' => $this->getValueType($value)
+                    ]
+                );
+            }
+
+            if (!empty($errors)) {
+                \Log::error('AdminSettings validation errors', ['errors' => $errors]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Certains paramètres sont invalides',
+                    'errors' => $errors
+                ], 422);
+            }
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'settings_updated',
+                'model_type' => 'Settings',
+                'data' => ['settings' => $settings],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Paramètres sauvegardés avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la sauvegarde des paramètres: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Update system settings
      */
     public function updateSettings(Request $request, $type)
@@ -793,9 +902,9 @@ class AdminController extends BaseController
     }
 
     /**
-     * Validate settings based on type
+     * Get validation rules for a specific type
      */
-    private function validateSettings($settings, $type)
+    private function getValidationRulesForType($type)
     {
         $rules = [];
 
@@ -806,8 +915,63 @@ class AdminController extends BaseController
                     'contact_email' => 'required|email|max:255',
                     'contact_phone' => 'nullable|string|max:50',
                     'timezone' => 'required|string|max:50',
-                    'company_address' => 'nullable|string|max:1000'
+                    'company_address' => 'nullable|string|max:1000',
+                    'logo_url' => 'nullable|string|max:500', // Ajout pour logo_url
                 ];
+                break;
+
+            case 'booking':
+                $rules = [
+                    'min_booking_hours' => 'required|integer|min:1|max:48',
+                    'max_booking_days' => 'required|integer|min:1|max:365',
+                    'cancellation_hours' => 'required|integer|min:1|max:168',
+                    'default_lesson_duration' => 'required|integer|min:15|max:480',
+                    'auto_confirm_bookings' => 'required|boolean',
+                    'send_reminder_emails' => 'required|boolean',
+                    'allow_student_cancellation' => 'required|boolean'
+                ];
+                break;
+
+            case 'payment':
+                $rules = [
+                    'platform_commission' => 'required|numeric|min:0|max:50',
+                    'vat_rate' => 'required|numeric|min:0|max:100',
+                    'default_currency' => 'required|string|size:3',
+                    'payout_delay_days' => 'required|integer|min:1|max:30',
+                    'stripe_enabled' => 'required|boolean',
+                    'auto_payout' => 'required|boolean'
+                ];
+                break;
+
+            case 'notification':
+                $rules = [
+                    'email_new_booking' => 'required|boolean',
+                    'email_booking_cancelled' => 'required|boolean',
+                    'email_payment_received' => 'required|boolean',
+                    'email_lesson_reminder' => 'required|boolean',
+                    'sms_new_booking' => 'required|boolean',
+                    'sms_lesson_reminder' => 'required|boolean'
+                ];
+                break;
+
+            default:
+                $rules = [];
+                break;
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Validate settings based on type
+     */
+    private function validateSettings($settings, $type)
+    {
+        $rules = $this->getValidationRulesForType($type);
+
+        switch ($type) {
+            case 'general':
+                // Règles déjà définies dans getValidationRulesForType
                 break;
 
             case 'booking':

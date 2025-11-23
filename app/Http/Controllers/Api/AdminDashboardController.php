@@ -51,6 +51,14 @@ class AdminDashboardController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
+        }
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -196,6 +204,14 @@ class AdminDashboardController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
+        }
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -266,6 +282,14 @@ class AdminDashboardController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
+        }
+
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
                 'success' => false,
@@ -333,6 +357,14 @@ class AdminDashboardController extends Controller
     public function uploadLogo(Request $request): JsonResponse
     {
         $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated',
+                'error' => 'Missing token'
+            ], 401);
+        }
 
         if ($user->role !== User::ROLE_ADMIN) {
             return response()->json([
