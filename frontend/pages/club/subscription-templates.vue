@@ -418,21 +418,41 @@ const groupedCourseTypes = computed(() => {
   // S'assurer que availableCourseTypes.value est un tableau
   const courseTypes = Array.isArray(availableCourseTypes.value) ? availableCourseTypes.value : []
   
-  // 🔒 FILTRAGE ADDITIONNEL : S'assurer qu'on n'affiche que les types avec discipline_id correspondant au club
+  // 🔒 FILTRAGE STRICT : Les types de cours doivent déjà être filtrés par le backend (only_used_in_slots=true)
+  // Mais on applique un filtrage supplémentaire pour être absolument sûr
   const disciplineIds = clubDisciplineIds.value || []
   
-  // Filtrer à nouveau pour être sûr (double sécurité)
-  const filteredTypes = disciplineIds.length > 0
-    ? courseTypes.filter(ct => {
-        if (!ct.discipline_id && ct.discipline_id !== 0) return false
-        return disciplineIds.includes(parseInt(ct.discipline_id))
-      })
-    : courseTypes.filter(ct => !ct.discipline_id) // Si pas de disciplines, seulement génériques
+  // Filtrer strictement : seulement les types avec discipline_id correspondant au club
+  // ET qui sont dans availableCourseTypes (déjà filtrés par le backend pour les créneaux)
+  const filteredTypes = courseTypes.filter(ct => {
+    // Exclure les types sans discipline_id
+    if (!ct.discipline_id && ct.discipline_id !== 0) {
+      console.log(`❌ [GROUPEMENT] Type sans discipline exclu: ${ct.name}`)
+      return false
+    }
+    
+    // Vérifier que le discipline_id correspond aux disciplines du club
+    const typeDisciplineId = parseInt(ct.discipline_id)
+    if (disciplineIds.length > 0 && !disciplineIds.includes(typeDisciplineId)) {
+      console.log(`❌ [GROUPEMENT] Type exclu (discipline ${typeDisciplineId} non dans le club): ${ct.name}`)
+      return false
+    }
+    
+    // Vérifier que le type a bien une discipline chargée
+    if (!ct.discipline) {
+      console.warn(`⚠️ [GROUPEMENT] Type sans relation discipline chargée: ${ct.name} (discipline_id: ${ct.discipline_id})`)
+      return false
+    }
+    
+    return true
+  })
   
   console.log('🔄 [GROUPEMENT] Groupement des types de cours...', {
     totalTypesAvant: courseTypes.length,
     totalTypesApresFiltrage: filteredTypes.length,
     clubDisciplineIds: disciplineIds,
+    typesAvant: courseTypes.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id })),
+    typesApres: filteredTypes.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id })),
     sampleTypes: filteredTypes.slice(0, 5).map(ct => ({
       id: ct.id,
       name: ct.name,
