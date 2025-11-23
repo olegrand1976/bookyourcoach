@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
  * @OA\Tag(
@@ -219,7 +220,16 @@ class AdminController extends BaseController
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                // Vérifier l'unicité uniquement pour le rôle spécifié
+                Rule::unique('users')->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
             'password' => 'required|string|min:8|confirmed',
             'role' => 'required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
@@ -289,11 +299,24 @@ class AdminController extends BaseController
     public function updateUser(Request $request, $id)
     {
         $user = User::findOrFail($id);
+        
+        // Utiliser le rôle de la requête s'il est fourni, sinon celui de l'utilisateur existant
+        $role = $request->input('role', $user->role);
 
         $validator = Validator::make($request->all(), [
             'first_name' => 'sometimes|required|string|max:255',
             'last_name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $id,
+            'email' => [
+                'sometimes',
+                'required',
+                'string',
+                'email',
+                'max:255',
+                // Vérifier l'unicité uniquement pour le rôle spécifié
+                Rule::unique('users')->where(function ($query) use ($role) {
+                    return $query->where('role', $role);
+                })->ignore($id),
+            ],
             'role' => 'sometimes|required|in:admin,teacher,student,club',
             'phone' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',

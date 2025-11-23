@@ -960,6 +960,66 @@ async function loadClubDisciplines() {
   }
 }
 
+// Trouver le créneau le plus proche dans le temps
+function findNearestSlot(): OpenSlot | null {
+  if (openSlots.value.length === 0) {
+    return null
+  }
+  
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const currentTime = now.getHours() * 60 + now.getMinutes() // Minutes depuis minuit
+  
+  let nearestSlot: OpenSlot | null = null
+  let nearestTime: number | null = null
+  
+  // Parcourir tous les créneaux actifs
+  for (const slot of openSlots.value) {
+    if (!slot.is_active) continue
+    
+    // Calculer la prochaine occurrence de ce créneau
+    const slotDayOfWeek = slot.day_of_week
+    const todayDayOfWeek = today.getDay()
+    
+    // Extraire l'heure de début du créneau
+    const slotTimeParts = slot.start_time.split(':')
+    const slotHour = parseInt(slotTimeParts[0])
+    const slotMinute = parseInt(slotTimeParts[1] || '0')
+    const slotTime = slotHour * 60 + slotMinute // Minutes depuis minuit
+    
+    // Calculer combien de jours ajouter pour atteindre le jour du créneau
+    let daysToAdd = slotDayOfWeek - todayDayOfWeek
+    
+    // Si le jour est déjà passé cette semaine, aller à la semaine prochaine
+    if (daysToAdd < 0) {
+      daysToAdd += 7
+    }
+    
+    // Si c'est aujourd'hui mais l'heure est déjà passée, aller à la semaine prochaine
+    if (daysToAdd === 0 && slotTime <= currentTime) {
+      daysToAdd = 7
+    }
+    
+    // Calculer la date de la prochaine occurrence
+    const nextOccurrenceDate = new Date(today)
+    nextOccurrenceDate.setDate(today.getDate() + daysToAdd)
+    
+    // Calculer le timestamp complet (date + heure)
+    const nextOccurrence = new Date(nextOccurrenceDate)
+    nextOccurrence.setHours(slotHour, slotMinute, 0, 0)
+    
+    const timeUntilSlot = nextOccurrence.getTime() - now.getTime()
+    
+    // Garder le créneau le plus proche dans le futur
+    if (timeUntilSlot > 0 && (nearestTime === null || timeUntilSlot < nearestTime)) {
+      nearestSlot = slot
+      nearestTime = timeUntilSlot
+    }
+  }
+  
+  return nearestSlot
+}
+
 // Charger les créneaux horaires
 async function loadOpenSlots() {
   try {
@@ -982,6 +1042,20 @@ async function loadOpenSlots() {
       
       if (openSlots.value.length === 0) {
         console.warn('⚠️ Aucun créneau trouvé pour ce club')
+      } else {
+        // 🎯 Présélectionner automatiquement le créneau le plus proche
+        const nearestSlot = findNearestSlot()
+        if (nearestSlot) {
+          console.log('🎯 Créneau le plus proche trouvé:', {
+            id: nearestSlot.id,
+            day: getDayName(nearestSlot.day_of_week),
+            time: formatTime(nearestSlot.start_time),
+            discipline: nearestSlot.discipline?.name
+          })
+          handleSlotSelection(nearestSlot)
+        } else {
+          console.log('⚠️ Aucun créneau actif trouvé pour présélectionner')
+        }
       }
       
       // 🔍 DEBUG: Vérifier les course_types dans chaque slot
