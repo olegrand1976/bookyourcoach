@@ -91,12 +91,22 @@
                   </span>
                 </p>
               </div>
-              <button 
-                v-if="selectedSlot"
-                @click="resetSlotSelection"
-                class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                Voir tous les cours
-              </button>
+              <div class="flex gap-2">
+                <button 
+                  @click="showHistoryModal = true"
+                  class="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Historique complet
+                </button>
+                <button 
+                  v-if="selectedSlot"
+                  @click="resetSlotSelection"
+                  class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                  Voir tous les cours
+                </button>
+              </div>
             </div>
 
             <!-- Navigation par date (visible uniquement si un créneau est sélectionné) -->
@@ -467,6 +477,13 @@
         </div>
       </div>
       
+      <!-- Modale Historique complet -->
+      <LessonsHistoryModal
+        :show="showHistoryModal"
+        @close="showHistoryModal = false"
+        @view-lesson="handleViewLessonFromHistory"
+      />
+
       <!-- Modale Création de Cours -->
       <CreateLessonModal
         :show="showCreateLessonModal"
@@ -489,6 +506,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
+import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
@@ -591,6 +609,7 @@ const saving = ref(false)
 const showLessonModal = ref(false)
 const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
+const showHistoryModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
 const selectedDate = ref<Date | null>(null) // Date sélectionnée pour filtrage des cours
@@ -1680,6 +1699,19 @@ function openLessonModal(lesson: Lesson) {
 function closeLessonModal() {
   showLessonModal.value = false
   selectedLesson.value = null
+}
+
+function handleViewLessonFromHistory(lesson: any) {
+  // Trouver le cours dans la liste locale ou le charger
+  const existingLesson = lessons.value.find((l: any) => l.id === lesson.id)
+  if (existingLesson) {
+    selectedLesson.value = existingLesson
+    showLessonModal.value = true
+  } else {
+    // Si le cours n'est pas dans la liste locale, l'ajouter temporairement
+    selectedLesson.value = lesson
+    showLessonModal.value = true
+  }
 }
 
 async function updateLessonStatus(lessonId: number, newStatus: string) {

@@ -27,6 +27,7 @@ services:
       - ./app:/var/www/html/app:ro
       - ./routes:/var/www/html/routes:ro
       - ./config:/var/www/html/config:ro
+      - ./database/migrations:/var/www/html/database/migrations:ro
     depends_on:
       - neo4j
     networks:

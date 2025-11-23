@@ -523,14 +523,13 @@ class ClubTest extends TestCase
         $hasTable = \Illuminate\Support\Facades\Schema::hasTable('recurring_slots');
         
         if ($hasTable) {
+            $startDate = Carbon::now()->setTime(9, 0, 0);
             $recurringSlot = RecurringSlot::create([
                 'club_id' => $this->club->id,
                 'teacher_id' => $this->teacher->id,
                 'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-                'start_time' => '09:00:00',
-                'end_time' => '10:00:00',
-                'start_date' => Carbon::now(),
-                'end_date' => Carbon::now()->addMonths(3),
+                'reference_start_time' => $startDate, // Date/heure de la première occurrence
+                'duration_minutes' => 60, // Durée du cours en minutes
             ]);
 
             $recurringSlots = $this->club->recurringSlots;

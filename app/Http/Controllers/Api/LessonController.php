@@ -195,17 +195,38 @@ class LessonController extends Controller
             }
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
-            $limit = min($request->get('limit', 50), 200); // Par défaut 50 cours max, max 200
-            // ✅ Tri ASC (chronologique) pour afficher les cours à venir dans l'ordre
-            $lessons = $query->orderBy('start_time', 'asc')
+            $limit = min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
+            $offset = max($request->get('offset', 0), 0); // Support de la pagination
+            
+            // Compter le total avant pagination (pour l'historique complet)
+            $total = $query->count();
+            
+            // ✅ Tri DESC (du plus récent au plus ancien) pour l'historique, ASC pour les cours à venir
+            $orderDirection = $request->get('order', 'asc'); // 'asc' par défaut, 'desc' pour l'historique
+            $lessons = $query->orderBy('start_time', $orderDirection)
+                ->offset($offset)
                 ->limit($limit)
                 ->get()
                 ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']); // Désactiver les accessors coûteux
 
-            return response()->json([
+            $response = [
                 'success' => true,
                 'data' => $lessons
-            ]);
+            ];
+            
+            // Ajouter les informations de pagination si offset est utilisé
+            if ($request->has('offset') || $request->has('limit')) {
+                $response['pagination'] = [
+                    'total' => $total,
+                    'per_page' => $limit,
+                    'current_page' => floor($offset / $limit) + 1,
+                    'last_page' => ceil($total / $limit),
+                    'from' => $offset + 1,
+                    'to' => min($offset + $limit, $total)
+                ];
+            }
+            
+            return response()->json($response);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

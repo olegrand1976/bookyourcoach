@@ -127,7 +127,8 @@ export const useAuthStore = defineStore('auth', {
       
       console.log('🚀 [LOGOUT ULTRA SIMPLE] Store nettoyé')
       
-      await navigateTo('/')
+      // Rediriger vers la page de connexion après déconnexion
+      await navigateTo('/login')
     },
 
     async fetchUser() {
@@ -157,6 +158,27 @@ export const useAuthStore = defineStore('auth', {
       if (this.isInitialized) return
 
       console.log('🚀 [INIT ULTRA SIMPLE] Début - restauration depuis cookies')
+      
+      // Côté serveur, utiliser useCookie de Nuxt
+      if (process.server) {
+        try {
+          const authTokenCookie = useCookie('auth-token', { default: () => null })
+          const authUserCookie = useCookie('auth-user', { 
+            default: () => null,
+            serialize: JSON.stringify,
+            deserialize: JSON.parse
+          })
+          
+          if (authTokenCookie.value && authUserCookie.value) {
+            this.token = authTokenCookie.value
+            this.user = authUserCookie.value
+            this.isAuthenticated = true
+            console.log('🚀 [INIT] Token et user restaurés depuis cookies (serveur)')
+          }
+        } catch (error) {
+          console.error('🚀 [INIT] Erreur restauration côté serveur:', error)
+        }
+      }
       
       // Côté client, restaurer le token et l'utilisateur depuis les cookies
       if (process.client) {

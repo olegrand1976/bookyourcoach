@@ -62,6 +62,13 @@ class ClubControllerTest extends TestCase
             'website' => 'https://nouveau-club.fr',
             'description' => 'Nouvelle description',
             'company_number' => 'BE0123456789',
+            'legal_representative_name' => 'Jean Dupont',
+            'legal_representative_role' => 'Directeur',
+            'insurance_rc_company' => 'Assurance RC',
+            'insurance_rc_policy_number' => 'RC123456',
+            'insurance_additional_details' => 'Détails assurance',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => 'Détails remboursement',
         ];
 
         // Act
@@ -90,11 +97,15 @@ class ClubControllerTest extends TestCase
         $club = Club::find($user->club_id);
 
         $updateData = [
+            'name' => $club->name ?? 'Club Test',
+            'email' => $club->email ?? 'test@club.fr',
+            'company_number' => $club->company_number ?? 'BE0123456789',
             'legal_representative_name' => 'John Doe',
             'legal_representative_role' => 'Directeur',
             'insurance_rc_company' => 'Assureur XYZ',
             'insurance_rc_policy_number' => 'POL-123456',
-            'expense_reimbursement_type' => 'fixed',
+            'insurance_additional_details' => 'Détails assurance',
+            'expense_reimbursement_type' => 'forfait',
             'expense_reimbursement_details' => '15€ par jour',
         ];
 

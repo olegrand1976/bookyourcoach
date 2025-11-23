@@ -7,31 +7,39 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (to.path.startsWith('/teacher/') || to.path.startsWith('/student/') || to.path.startsWith('/admin') || to.path.startsWith('/club/')) {
     console.log('🛡️ Route protégée détectée:', to.path)
     
-    // Côté serveur, déléguer la validation complète au client pour éviter les redirections intempestives
+    const authStore = useAuthStore()
+    
+    // Côté serveur, vérifier au moins le token dans les cookies
     if (process.server) {
-      console.log('🔴 Plugin auth: côté serveur - validation déléguée au client')
-      return
+      console.log('🔴 Plugin auth: côté serveur - vérification basique')
+      // Initialiser l'authentification même côté serveur pour vérifier le token
+      await authStore.initializeAuth()
+      
+      if (!authStore.isAuthenticated || !authStore.token) {
+        console.log('❌ Non authentifié côté serveur, redirection vers /login')
+        return navigateTo('/login')
+      }
     }
     
     // Côté client, initialiser l'authentification complète
-    const authStore = useAuthStore()
-    
-    // Initialiser l'authentification
-    await authStore.initializeAuth()
-    
-    console.log('🔐 État auth store après initialisation:', {
-      isAuthenticated: authStore.isAuthenticated,
-      hasToken: !!authStore.token,
-      hasUser: !!authStore.user,
-      canActAsTeacher: authStore.canActAsTeacher,
-      canActAsStudent: authStore.canActAsStudent,
-      isAdmin: authStore.isAdmin,
-      isClub: authStore.user?.role === 'club'
-    })
-    
-    if (!authStore.isAuthenticated) {
-      console.log('❌ Non authentifié, redirection vers /login')
-      return navigateTo('/login')
+    if (process.client) {
+      // Initialiser l'authentification
+      await authStore.initializeAuth()
+      
+      console.log('🔐 État auth store après initialisation:', {
+        isAuthenticated: authStore.isAuthenticated,
+        hasToken: !!authStore.token,
+        hasUser: !!authStore.user,
+        canActAsTeacher: authStore.canActAsTeacher,
+        canActAsStudent: authStore.canActAsStudent,
+        isAdmin: authStore.isAdmin,
+        isClub: authStore.user?.role === 'club'
+      })
+      
+      if (!authStore.isAuthenticated) {
+        console.log('❌ Non authentifié côté client, redirection vers /login')
+        return navigateTo('/login')
+      }
     }
     
     // Vérifications spécifiques selon la route

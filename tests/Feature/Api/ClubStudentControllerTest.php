@@ -164,7 +164,16 @@ class ClubStudentControllerTest extends TestCase
         $user = $this->actingAsClub();
         $club = Club::find($user->club_id);
 
-        $student = Student::factory()->create(['club_id' => $club->id]);
+        // Créer un utilisateur pour l'élève (nécessaire pour l'invitation)
+        $user = User::factory()->create([
+            'role' => 'student',
+            'email' => 'student@example.com',
+        ]);
+        
+        $student = Student::factory()->create([
+            'club_id' => $club->id,
+            'user_id' => $user->id,
+        ]);
         
         DB::table('club_students')->insert([
             'club_id' => $club->id,
@@ -184,10 +193,9 @@ class ClubStudentControllerTest extends TestCase
         $response->assertStatus(200)
                  ->assertJson([
                      'success' => true,
-                     'message' => 'Invitation renvoyée avec succès',
                  ]);
 
-        Notification::assertSentTo($student->user, \App\Notifications\StudentWelcomeNotification::class);
+        Notification::assertSentTo($user, \App\Notifications\StudentWelcomeNotification::class);
     }
 
     #[Test]

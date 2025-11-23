@@ -21,21 +21,13 @@ class ClubDashboardController extends Controller
     public function dashboard(Request $request)
     {
         try {
-            // Authentification alternative pour éviter le problème Sanctum
-            $token = $request->header('Authorization');
+            // Utiliser Auth::user() au lieu de vérifier manuellement le token
+            // Le middleware 'auth:sanctum' s'occupe déjà de l'authentification
+            $user = Auth::user();
             
-            if (!$token || !str_starts_with($token, 'Bearer ')) {
-                return response()->json(['message' => 'Missing token'], 401);
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
             }
-            
-            $token = substr($token, 7); // Enlever "Bearer "
-            $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            
-            if (!$personalAccessToken) {
-                return response()->json(['message' => 'Invalid token'], 401);
-            }
-            
-            $user = $personalAccessToken->tokenable;
             
             // Vérifier que l'utilisateur a le rôle 'club'
             if ($user->role !== 'club') {

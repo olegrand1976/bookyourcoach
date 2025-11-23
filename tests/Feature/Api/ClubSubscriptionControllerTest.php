@@ -221,6 +221,7 @@ class ClubSubscriptionControllerTest extends TestCase
         ]);
 
         $assignData = [
+            'subscription_id' => $subscription->id,
             'student_id' => $student->id,
             'start_date' => now()->format('Y-m-d'),
         ];
@@ -240,10 +241,14 @@ class ClubSubscriptionControllerTest extends TestCase
                      ]
                  ]);
 
+        // Vérifier que l'instance existe et que l'élève y est attaché via la table pivot
         $this->assertDatabaseHas('subscription_instances', [
             'subscription_id' => $subscription->id,
-            'student_id' => $student->id,
         ]);
+        
+        $instance = \App\Models\SubscriptionInstance::where('subscription_id', $subscription->id)->first();
+        $this->assertNotNull($instance);
+        $this->assertTrue($instance->students->contains($student->id));
     }
 
     #[Test]
@@ -268,11 +273,15 @@ class ClubSubscriptionControllerTest extends TestCase
             'club_id' => $club->id,
         ]);
 
-        SubscriptionInstance::factory()->create([
+        $instance = SubscriptionInstance::create([
             'subscription_id' => $subscription->id,
-            'student_id' => $student->id,
+            'lessons_used' => 0,
+            'started_at' => now(),
             'status' => 'active',
         ]);
+        
+        // Attacher l'élève via la relation many-to-many
+        $instance->students()->attach($student->id);
 
         // Act
         $response = $this->getJson("/api/club/students/{$student->id}/subscriptions");
@@ -285,7 +294,6 @@ class ClubSubscriptionControllerTest extends TestCase
                          '*' => [
                              'id',
                              'subscription_id',
-                             'student_id',
                              'status',
                          ]
                      ]

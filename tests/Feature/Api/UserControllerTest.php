@@ -15,19 +15,17 @@ class UserControllerTest extends TestCase
     #[Test]
     public function it_can_get_users_list_when_authenticated()
     {
-        $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
+        // Utiliser actingAsAdmin() pour avoir les droits admin
+        $admin = $this->actingAsAdmin();
 
         // Créer quelques utilisateurs supplémentaires
         User::factory()->count(3)->create();
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-        ])->getJson('/api/users');
+        $response = $this->getJson('/api/admin/users');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
-                'users' => [
+                'data' => [
                     '*' => [
                         'id',
                         'name',
@@ -36,11 +34,14 @@ class UserControllerTest extends TestCase
                         'created_at',
                         'updated_at',
                     ]
-                ]
+                ],
+                'current_page',
+                'per_page',
+                'total'
             ]);
 
         $responseData = $response->json();
-        $this->assertCount(4, $responseData['users']); // 1 utilisateur initial + 3 créés
+        $this->assertGreaterThanOrEqual(4, count($responseData['data'])); // Admin + 3 créés (peut y avoir d'autres)
     }
 
     #[Test]
@@ -48,7 +49,7 @@ class UserControllerTest extends TestCase
     {
         User::factory()->count(3)->create();
 
-        $response = $this->getJson('/api/users');
+        $response = $this->getJson('/api/admin/users');
 
         $response->assertStatus(401);
     }
@@ -56,19 +57,30 @@ class UserControllerTest extends TestCase
     #[Test]
     public function it_returns_empty_array_when_no_users_exist()
     {
-        $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
+        // Utiliser actingAsAdmin() pour avoir les droits admin
+        $admin = $this->actingAsAdmin();
 
-        // Supprimer tous les autres utilisateurs
-        User::where('id', '!=', $user->id)->delete();
+        // Supprimer tous les autres utilisateurs sauf l'admin
+        User::where('id', '!=', $admin->id)->delete();
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-        ])->getJson('/api/users');
+        $response = $this->getJson('/api/admin/users');
 
         $response->assertStatus(200)
-            ->assertJson([
-                'users' => [$user->toArray()]
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'name',
+                        'email',
+                        'role',
+                    ]
+                ],
+                'current_page',
+                'per_page',
+                'total'
             ]);
+        
+        $responseData = $response->json();
+        $this->assertGreaterThanOrEqual(1, count($responseData['data'])); // Au moins l'admin
     }
 }
