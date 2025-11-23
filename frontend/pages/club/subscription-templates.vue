@@ -593,8 +593,46 @@ const loadCourseTypes = async () => {
     })
     
     if (response.data?.success && response.data?.data) {
-      availableCourseTypes.value = response.data.data
-      console.log(`✅ ${availableCourseTypes.value.length} types de cours chargés`)
+      // Stocker le nombre de disciplines du club AVANT filtrage
+      const clubDisciplines = response.data?.meta?.club_disciplines || []
+      clubDisciplinesCount.value = clubDisciplines.length
+      console.log('📊 Disciplines du club:', clubDisciplines)
+      
+      // 🔒 FILTRAGE STRICT : Ne garder que les types de cours correspondant aux disciplines du club
+      // Exclure les types génériques (sans discipline_id) si le club a des disciplines configurées
+      let filteredCourseTypes = response.data.data
+      
+      if (clubDisciplines.length > 0) {
+        // Convertir les IDs en nombres pour comparaison sûre
+        const clubDisciplineIds = clubDisciplines.map(id => parseInt(id))
+        
+        filteredCourseTypes = response.data.data.filter(courseType => {
+          // Si le type n'a pas de discipline_id, l'exclure (types génériques)
+          if (!courseType.discipline_id) {
+            console.debug(`❌ Type générique exclu: ${courseType.name}`)
+            return false
+          }
+          
+          // Vérifier que le discipline_id correspond à une discipline du club
+          const typeDisciplineId = parseInt(courseType.discipline_id)
+          const matchesClub = clubDisciplineIds.includes(typeDisciplineId)
+          
+          if (!matchesClub) {
+            console.debug(`❌ Type exclu (discipline ${typeDisciplineId} non dans le club): ${courseType.name}`)
+          }
+          
+          return matchesClub
+        })
+        
+        console.log(`🔍 Filtrage appliqué: ${response.data.data.length} → ${filteredCourseTypes.length} types de cours`)
+      } else {
+        // Si aucune discipline configurée, ne garder que les types génériques
+        filteredCourseTypes = response.data.data.filter(courseType => !courseType.discipline_id)
+        console.log(`🔍 Aucune discipline configurée: ${filteredCourseTypes.length} types génériques conservés`)
+      }
+      
+      availableCourseTypes.value = filteredCourseTypes
+      console.log(`✅ ${availableCourseTypes.value.length} types de cours chargés (après filtrage)`)
       
       // Log détaillé des types de cours avec leurs disciplines
       console.log('📋 Détail des types de cours chargés:', availableCourseTypes.value.map(ct => ({
@@ -603,11 +641,6 @@ const loadCourseTypes = async () => {
         discipline_id: ct.discipline_id,
         discipline: ct.discipline ? { id: ct.discipline.id, name: ct.discipline.name } : null
       })))
-      
-      // Stocker le nombre de disciplines du club
-      const clubDisciplines = response.data?.meta?.club_disciplines || []
-      clubDisciplinesCount.value = clubDisciplines.length
-      console.log('📊 Disciplines du club:', clubDisciplines)
       
       if (clubDisciplines.length > 3) {
         console.warn(`⚠️ Le club a ${clubDisciplines.length} disciplines configurées. Seuls les types de cours de ces disciplines sont affichés.`)
