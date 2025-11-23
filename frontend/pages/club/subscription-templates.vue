@@ -384,6 +384,7 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const editingTemplate = ref(null)
 const clubDisciplinesCount = ref(0)
+const clubDisciplineIds = ref<number[]>([])
 const clubDefaults = ref({
   default_subscription_total_lessons: 10,
   default_subscription_free_lessons: 1,
@@ -417,9 +418,22 @@ const groupedCourseTypes = computed(() => {
   // S'assurer que availableCourseTypes.value est un tableau
   const courseTypes = Array.isArray(availableCourseTypes.value) ? availableCourseTypes.value : []
   
-  console.log('🔄 Groupement des types de cours...', {
-    totalTypes: courseTypes.length,
-    sampleTypes: courseTypes.slice(0, 3).map(ct => ({
+  // 🔒 FILTRAGE ADDITIONNEL : S'assurer qu'on n'affiche que les types avec discipline_id correspondant au club
+  const disciplineIds = clubDisciplineIds.value || []
+  
+  // Filtrer à nouveau pour être sûr (double sécurité)
+  const filteredTypes = disciplineIds.length > 0
+    ? courseTypes.filter(ct => {
+        if (!ct.discipline_id && ct.discipline_id !== 0) return false
+        return disciplineIds.includes(parseInt(ct.discipline_id))
+      })
+    : courseTypes.filter(ct => !ct.discipline_id) // Si pas de disciplines, seulement génériques
+  
+  console.log('🔄 [GROUPEMENT] Groupement des types de cours...', {
+    totalTypesAvant: courseTypes.length,
+    totalTypesApresFiltrage: filteredTypes.length,
+    clubDisciplineIds: disciplineIds,
+    sampleTypes: filteredTypes.slice(0, 5).map(ct => ({
       id: ct.id,
       name: ct.name,
       discipline_id: ct.discipline_id,
@@ -431,16 +445,10 @@ const groupedCourseTypes = computed(() => {
   // Structure: { activityName: { disciplineName: [courseTypes] } }
   const structure = {}
   
-  courseTypes.forEach(courseType => {
-    if (!courseType.discipline) {
-      // Types génériques (ne devrait pas arriver avec le nouveau filtrage)
-      if (!structure['__GENERIC__']) {
-        structure['__GENERIC__'] = { '__GENERIC__': [] }
-      }
-      if (!structure['__GENERIC__']['__GENERIC__']) {
-        structure['__GENERIC__']['__GENERIC__'] = []
-      }
-      structure['__GENERIC__']['__GENERIC__'].push(courseType)
+  filteredTypes.forEach(courseType => {
+    // Ignorer les types sans discipline (ne devrait pas arriver avec le filtrage strict)
+    if (!courseType.discipline || !courseType.discipline_id) {
+      console.warn(`⚠️ [GROUPEMENT] Type sans discipline ignoré: ${courseType.name}`)
       return
     }
     
@@ -453,13 +461,32 @@ const groupedCourseTypes = computed(() => {
     if (!structure[activityName][disciplineName]) {
       structure[activityName][disciplineName] = []
     }
-    structure[activityName][disciplineName].push(courseType)
+    
+    // Vérifier qu'on n'ajoute pas de doublon
+    const alreadyExists = structure[activityName][disciplineName].some(ct => ct.id === courseType.id)
+    if (!alreadyExists) {
+      structure[activityName][disciplineName].push(courseType)
+    } else {
+      console.warn(`⚠️ [GROUPEMENT] Doublon détecté et ignoré: ${courseType.name} (ID: ${courseType.id})`)
+    }
   })
   
-  console.log('📦 Structure créée:', Object.keys(structure).map(activity => ({
+  // Nettoyer les groupes vides
+  Object.keys(structure).forEach(activityName => {
+    Object.keys(structure[activityName]).forEach(disciplineName => {
+      if (!Array.isArray(structure[activityName][disciplineName]) || structure[activityName][disciplineName].length === 0) {
+        delete structure[activityName][disciplineName]
+      }
+    })
+    if (Object.keys(structure[activityName]).length === 0) {
+      delete structure[activityName]
+    }
+  })
+  
+  console.log('📦 [GROUPEMENT] Structure créée:', Object.keys(structure).map(activity => ({
     activity,
     disciplines: Object.keys(structure[activity]),
-    totalTypes: Object.values(structure[activity]).flat().filter(Array.isArray).length
+    totalTypes: Object.values(structure[activity]).flat().filter(Array.isArray).reduce((sum, arr) => sum + arr.length, 0)
   })))
   
   return structure
@@ -596,7 +623,8 @@ const loadCourseTypes = async () => {
       // Stocker le nombre de disciplines du club AVANT filtrage
       const clubDisciplines = response.data?.meta?.club_disciplines || []
       clubDisciplinesCount.value = clubDisciplines.length
-      console.log('📊 Disciplines du club:', clubDisciplines)
+      clubDisciplineIds.value = clubDisciplines.map(id => parseInt(id))
+      console.log('📊 Disciplines du club:', clubDisciplines, 'IDs:', clubDisciplineIds.value)
       
       // 🔒 FILTRAGE STRICT : Ne garder que les types de cours correspondant aux disciplines du club
       // Exclure les types génériques (sans discipline_id) si le club a des disciplines configurées
@@ -606,10 +634,22 @@ const loadCourseTypes = async () => {
         // Convertir les IDs en nombres pour comparaison sûre
         const clubDisciplineIds = clubDisciplines.map(id => parseInt(id))
         
+        console.log('🔍 [FILTRAGE] Début du filtrage strict', {
+          clubDisciplinesCount: clubDisciplines.length,
+          clubDisciplineIds,
+          totalTypesAvant: response.data.data.length,
+          sampleTypesAvant: response.data.data.slice(0, 5).map(ct => ({
+            id: ct.id,
+            name: ct.name,
+            discipline_id: ct.discipline_id,
+            discipline_name: ct.discipline?.name
+          }))
+        })
+        
         filteredCourseTypes = response.data.data.filter(courseType => {
           // Si le type n'a pas de discipline_id, l'exclure (types génériques)
-          if (!courseType.discipline_id) {
-            console.debug(`❌ Type générique exclu: ${courseType.name}`)
+          if (!courseType.discipline_id && courseType.discipline_id !== 0) {
+            console.log(`❌ [FILTRAGE] Type générique exclu: ${courseType.name} (discipline_id: ${courseType.discipline_id})`)
             return false
           }
           
@@ -618,13 +658,21 @@ const loadCourseTypes = async () => {
           const matchesClub = clubDisciplineIds.includes(typeDisciplineId)
           
           if (!matchesClub) {
-            console.debug(`❌ Type exclu (discipline ${typeDisciplineId} non dans le club): ${courseType.name}`)
+            console.log(`❌ [FILTRAGE] Type exclu (discipline ${typeDisciplineId} non dans le club [${clubDisciplineIds.join(', ')}]): ${courseType.name}`)
+            return false
           }
           
-          return matchesClub
+          console.log(`✅ [FILTRAGE] Type conservé: ${courseType.name} (discipline_id: ${typeDisciplineId})`)
+          return true
         })
         
-        console.log(`🔍 Filtrage appliqué: ${response.data.data.length} → ${filteredCourseTypes.length} types de cours`)
+        console.log(`🔍 [FILTRAGE] Résultat: ${response.data.data.length} → ${filteredCourseTypes.length} types de cours`, {
+          typesConserves: filteredCourseTypes.map(ct => ({
+            id: ct.id,
+            name: ct.name,
+            discipline_id: ct.discipline_id
+          }))
+        })
       } else {
         // Si aucune discipline configurée, ne garder que les types génériques
         filteredCourseTypes = response.data.data.filter(courseType => !courseType.discipline_id)
