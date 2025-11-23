@@ -73,19 +73,55 @@ class VolunteerLetterController extends Controller
             }
             
             // Dispatcher le job pour l'envoi asynchrone
-            SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
-            
-            Log::info('Job d\'envoi de lettre ajouté à la queue', [
-                'club_id' => $club->id,
-                'teacher_id' => $teacher->id,
-                'teacher_name' => $teacher->user->name,
-                'email' => $teacher->user->email
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'La lettre à ' . $teacher->user->name . ' sera envoyée sous peu.'
-            ]);
+            // En mode synchrone (testing/console), le job s'exécute immédiatement
+            // Il faut capturer les exceptions pour éviter un 500
+            try {
+                SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
+                
+                Log::info('Job d\'envoi de lettre ajouté à la queue', [
+                    'club_id' => $club->id,
+                    'teacher_id' => $teacher->id,
+                    'teacher_name' => $teacher->user->name,
+                    'email' => $teacher->user->email
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'La lettre à ' . $teacher->user->name . ' sera envoyée sous peu.'
+                ]);
+            } catch (\Exception $jobException) {
+                // Si le job échoue immédiatement (mode synchrone), logger et retourner un message d'erreur
+                Log::error('Erreur lors de l\'exécution du job d\'envoi de lettre', [
+                    'club_id' => $club->id,
+                    'teacher_id' => $teacher->id,
+                    'error' => $jobException->getMessage(),
+                    'trace' => $jobException->getTraceAsString()
+                ]);
+                
+                // Vérifier si c'est une erreur de vue
+                if (str_contains($jobException->getMessage(), 'View') || str_contains($jobException->getMessage(), 'not found')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erreur lors de la génération du PDF. La vue de la lettre est introuvable. Veuillez contacter le support technique.',
+                        'error' => 'Vue PDF introuvable'
+                    ], 500);
+                }
+                
+                // Vérifier si c'est une erreur d'envoi d'email
+                if (str_contains($jobException->getMessage(), 'Connection') || str_contains($jobException->getMessage(), 'mailhog') || str_contains($jobException->getMessage(), 'SMTP')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erreur lors de l\'envoi de l\'email. Veuillez vérifier la configuration MailHog.',
+                        'error' => 'Erreur de connexion email'
+                    ], 500);
+                }
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de l\'envoi de la lettre: ' . $jobException->getMessage(),
+                    'error' => $jobException->getMessage()
+                ], 500);
+            }
             
         } catch (\Exception $e) {
             Log::error('Erreur envoi lettre individuelle: ' . $e->getMessage(), [

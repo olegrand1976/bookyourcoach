@@ -64,12 +64,52 @@ class SendVolunteerLetterJob implements ShouldQueue
             ]);
 
             // Générer le PDF
-            $pdfPath = $this->generatePDF($club, $teacher);
+            try {
+                $pdfPath = $this->generatePDF($club, $teacher);
+            } catch (\Exception $pdfException) {
+                Log::error('SendVolunteerLetterJob - Erreur génération PDF', [
+                    'teacher_id' => $this->teacherId,
+                    'error' => $pdfException->getMessage(),
+                    'trace' => $pdfException->getTraceAsString()
+                ]);
+                
+                if (isset($letterSend)) {
+                    $letterSend->update([
+                        'status' => 'failed',
+                        'error_message' => 'Erreur génération PDF: ' . $pdfException->getMessage(),
+                    ]);
+                }
+                
+                throw $pdfException;
+            }
 
             // Envoyer l'email
-            Mail::to($teacher->user->email)->send(
-                new VolunteerLetterMail($club, $teacher, $pdfPath)
-            );
+            try {
+                Mail::to($teacher->user->email)->send(
+                    new VolunteerLetterMail($club, $teacher, $pdfPath)
+                );
+            } catch (\Exception $mailException) {
+                Log::error('SendVolunteerLetterJob - Erreur envoi email', [
+                    'teacher_id' => $this->teacherId,
+                    'email' => $teacher->user->email,
+                    'error' => $mailException->getMessage(),
+                    'trace' => $mailException->getTraceAsString()
+                ]);
+                
+                // Supprimer le fichier temporaire
+                if (isset($pdfPath) && file_exists($pdfPath)) {
+                    unlink($pdfPath);
+                }
+                
+                if (isset($letterSend)) {
+                    $letterSend->update([
+                        'status' => 'failed',
+                        'error_message' => 'Erreur envoi email: ' . $mailException->getMessage(),
+                    ]);
+                }
+                
+                throw $mailException;
+            }
 
             // Marquer comme envoyé
             $letterSend->update([
@@ -115,6 +155,11 @@ class SendVolunteerLetterJob implements ShouldQueue
      */
     private function generatePDF(Club $club, Teacher $teacher): string
     {
+        // Vérifier que la vue existe
+        if (!view()->exists('pdf.volunteer-letter')) {
+            throw new \Exception('La vue PDF "pdf.volunteer-letter" est introuvable. Vérifiez que le fichier resources/views/pdf/volunteer-letter.blade.php existe.');
+        }
+        
         // Générer la vue HTML
         $html = view('pdf.volunteer-letter', [
             'club' => $club,
