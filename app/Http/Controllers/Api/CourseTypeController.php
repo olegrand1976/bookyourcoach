@@ -43,7 +43,7 @@ class CourseTypeController extends Controller
      *     )
      * )
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
