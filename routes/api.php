@@ -224,6 +224,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::put('/subscriptions/instances/{instanceId}', [SubscriptionController::class, 'updateInstance']);
     Route::get('/subscriptions/instances/{instanceId}/history', [SubscriptionController::class, 'getInstanceHistory']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
+    Route::delete('/subscriptions/{id}', [SubscriptionController::class, 'destroy']);
     // Route spécifique AVANT les routes génériques students/{id}
     Route::get('/students/{studentId}/subscriptions', [SubscriptionController::class, 'studentSubscriptions']);
     Route::post('/subscriptions/{instanceId}/renew', [SubscriptionController::class, 'renew']);

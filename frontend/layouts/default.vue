@@ -27,86 +27,86 @@
 
                 <div v-if="userMenuOpen"
                   class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-blue-500/20">
-                  <NuxtLink v-if="isAdmin" to="/admin"
+                  <NuxtLink v-if="isAdmin" to="/admin" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
                   </NuxtLink>
-                  <NuxtLink v-else-if="isClub" to="/club/dashboard"
+                  <NuxtLink v-else-if="isClub" to="/club/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
                   </NuxtLink>
-                  <NuxtLink v-else-if="canActAsTeacher" to="/teacher/dashboard"
+                  <NuxtLink v-else-if="canActAsTeacher" to="/teacher/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
                   </NuxtLink>
-                  <NuxtLink v-else-if="isStudent" to="/student/dashboard"
+                  <NuxtLink v-else-if="isStudent" to="/student/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>
                     <span>Tableau de bord</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher"
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>🏃</span>
                     <span>Espace Enseignant</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isStudent" to="/student/dashboard"
+                  <NuxtLink v-if="isStudent" to="/student/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👨‍🎓</span>
                     <span>Espace Étudiant</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/teachers"
+                  <NuxtLink v-if="isClub" to="/club/teachers" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👨‍🏫</span>
                     <span>Enseignants</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/students"
+                  <NuxtLink v-if="isClub" to="/club/students" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👨‍🎓</span>
                     <span>Élèves</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/planning"
+                  <NuxtLink v-if="isClub" to="/club/planning" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📅</span>
                     <span>Planning</span>
                   </NuxtLink>
 
-              <NuxtLink v-if="isClub" to="/club/subscriptions"
+              <NuxtLink v-if="isClub" to="/club/subscriptions" @click="userMenuOpen = false"
                 class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                 <span>📋</span>
                 <span>Abonnements</span>
               </NuxtLink>
-              <NuxtLink v-if="isClub" to="/club/subscription-templates"
+              <NuxtLink v-if="isClub" to="/club/subscription-templates" @click="userMenuOpen = false"
                 class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                 <span>📄</span>
                 <span>Modèles d'Abonnements</span>
               </NuxtLink>
-              <NuxtLink v-if="isClub" to="/club/payroll"
+              <NuxtLink v-if="isClub" to="/club/payroll" @click="userMenuOpen = false"
                 class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                 <span>💰</span>
                 <span>Rapports de Paie</span>
               </NuxtLink>
 
-                  <NuxtLink v-if="isClub" to="/club/volunteer-letter"
+                  <NuxtLink v-if="isClub" to="/club/volunteer-letter" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📄</span>
                     <span>Lettres de volontariat</span>
                   </NuxtLink>
 
-                  <NuxtLink :to="getProfileRoute()"
+                  <NuxtLink :to="getProfileRoute()" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👤</span>
                     <span>Profil</span>
                   </NuxtLink>
 
-                  <NuxtLink v-if="isAdmin" to="/admin"
+                  <NuxtLink v-if="isAdmin" to="/admin" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>⚙️</span>
                     <span>Administration</span>
@@ -114,7 +114,7 @@
 
                   <hr class="my-2 border-gray-200">
 
-                  <button @click="handleLogout"
+                  <button @click="userMenuOpen = false; handleLogout()"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 transition-colors">
                     <span>🚪 Déconnexion</span>
                   </button>

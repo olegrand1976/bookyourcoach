@@ -100,9 +100,22 @@
                   Modèle: {{ subscription.template.model_number }}
                 </p>
               </div>
-              <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                {{ subscription.instances?.length || 0 }} instance(s)
-              </span>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                  {{ subscription.instances?.length || 0 }} instance(s)
+                </span>
+                <!-- Bouton de suppression (uniquement si aucun élève assigné) -->
+                <button
+                  v-if="!hasAnyStudents(subscription)"
+                  @click.stop="confirmDeleteSubscription(subscription)"
+                  class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Supprimer cet abonnement"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Détails de l'abonnement -->
@@ -679,6 +692,7 @@ const updatingEstLegacy = ref(null)
 const editingInstance = ref(null)
 const instanceHistory = ref([])
 const savingInstance = ref(false)
+const deletingSubscription = ref(null)
 
 // Formulaire d'édition d'instance
 const editForm = ref({
@@ -1383,6 +1397,50 @@ const isExpiringSoon = (instance) => {
   const diffTime = expiresAt - now
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   return diffDays <= 30 && diffDays >= 0
+}
+
+// Vérifier si un abonnement a des élèves assignés
+const hasAnyStudents = (subscription) => {
+  if (!subscription.instances || subscription.instances.length === 0) {
+    return false
+  }
+  
+  // Vérifier si au moins une instance a des élèves
+  return subscription.instances.some(instance => {
+    return instance.students && instance.students.length > 0
+  })
+}
+
+// Confirmer la suppression d'un abonnement
+const confirmDeleteSubscription = (subscription) => {
+  if (confirm(`Êtes-vous sûr de vouloir supprimer l'abonnement ${subscription.subscription_number} ?`)) {
+    deleteSubscription(subscription.id)
+  }
+}
+
+// Supprimer un abonnement
+const deleteSubscription = async (subscriptionId) => {
+  try {
+    deletingSubscription.value = subscriptionId
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    
+    const response = await $api.delete(`/club/subscriptions/${subscriptionId}`)
+    
+    if (response.data.success) {
+      showSuccess('Abonnement supprimé avec succès')
+      // Recharger la liste des abonnements
+      await loadSubscriptions()
+    } else {
+      showError(response.data.message || 'Erreur lors de la suppression')
+    }
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'abonnement:', error)
+    const { error: showError } = useToast()
+    showError(error.response?.data?.message || 'Erreur lors de la suppression de l\'abonnement')
+  } finally {
+    deletingSubscription.value = null
+  }
 }
 
 // Formater l'affichage de la validité en fonction du modèle (semaines ou mois)
