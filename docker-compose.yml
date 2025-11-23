@@ -28,6 +28,7 @@ services:
       - ./routes:/var/www/html/routes:ro
       - ./config:/var/www/html/config:ro
       - ./database/migrations:/var/www/html/database/migrations:ro
+      - ./resources/views:/var/www/html/resources/views:ro
     depends_on:
       - neo4j
     networks:
