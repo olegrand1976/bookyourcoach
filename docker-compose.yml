@@ -32,6 +32,11 @@ services:
       - neo4j
     networks:
       - bookyourcoach-network
+    extra_hosts:
+      # Permettre au backend d'accéder à MailHog sur le host
+      # MailHog est accessible sur localhost:1025 depuis le host
+      # Note: Utilise fid-connect-mailhog-1 qui est déjà dans le réseau
+      - "mailhog:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
@@ -149,6 +154,26 @@ services:
       retries: 3
       start_period: 40s
 
+  # =============================================================================
+  # MailHog pour développement local (capture des emails)
+  # Note: Si un container MailHog existe déjà (ex: fid-connect-mailhog-1),
+  # connectez-le au réseau bookyourcoach-network au lieu de créer un nouveau service
+  # =============================================================================
+  # mailhog:
+  #   image: mailhog/mailhog:latest
+  #   container_name: activibe-mailhog-local
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1025:1025"  # Port SMTP pour l'envoi d'emails
+  #     - "8035:8025"  # Interface web MailHog
+  #   networks:
+  #     - bookyourcoach-network
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8025"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
 # =============================================================================
 # Volumes
 # =============================================================================
@@ -177,3 +202,4 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.0/16
+    external: false

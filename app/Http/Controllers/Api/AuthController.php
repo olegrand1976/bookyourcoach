@@ -22,7 +22,17 @@ class AuthController extends Controller
         $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                // Vérifier l'unicité uniquement pour le rôle spécifié
+                Rule::unique('users')->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'string', 'in:admin,teacher,student,club'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -121,7 +131,10 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::where('email', $request['email'])->firstOrFail();
+        // Utiliser Auth::user() au lieu de User::where() pour éviter l'ambiguïté
+        // si plusieurs utilisateurs ont le même email avec des rôles différents
+        // Auth::attempt() a déjà trouvé le bon utilisateur grâce au mot de passe
+        $user = Auth::user();
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

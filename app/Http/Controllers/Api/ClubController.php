@@ -724,9 +724,18 @@ class ClubController extends Controller
             }
             
             // Pagination
-            $perPage = $request->get('per_page', 20);
-            $page = $request->get('page', 1);
-            $status = $request->get('status', 'active'); // Par défaut, seulement les actifs
+            $perPage = $request->input('per_page', 20);
+            $page = $request->input('page', 1);
+            $status = $request->input('status', 'active'); // Par défaut, seulement les actifs
+            
+            \Log::info('ClubController::getStudents - Paramètres reçus', [
+                'status' => $status,
+                'page' => $page,
+                'per_page' => $perPage,
+                'club_id' => $clubUser->club_id,
+                'all_params' => $request->all(),
+                'query_params' => $request->query()
+            ]);
             
             // Utiliser leftJoin pour gérer les étudiants sans user_id
             $query = DB::table('club_students')
@@ -734,13 +743,19 @@ class ClubController extends Controller
                 ->leftJoin('users', 'students.user_id', '=', 'users.id')
                 ->where('club_students.club_id', $clubUser->club_id);
             
-            // Filtrer par statut
-            if ($status === 'active') {
+            // Filtrer par statut - Par défaut, seuls les élèves actifs sont retournés
+            if ($status === 'active' || empty($status) || $status === null) {
+                // Par défaut, ne retourner que les élèves actifs (non soft-deleted)
                 $query->where('club_students.is_active', true);
+                \Log::info('ClubController::getStudents - Filtre ACTIF appliqué');
             } elseif ($status === 'inactive') {
                 $query->where('club_students.is_active', false);
+                \Log::info('ClubController::getStudents - Filtre INACTIF appliqué');
+            } elseif ($status === 'all') {
+                // Pas de filtre, retourner tous les élèves
+                \Log::info('ClubController::getStudents - Aucun filtre (TOUS)');
             }
-            // Si 'all', pas de filtre
+            // Si 'all', pas de filtre (retourne tous les élèves, actifs et inactifs)
             
             $query->select(
                 'students.id',
@@ -905,11 +920,84 @@ class ClubController extends Controller
     public function createTeacher(Request $request)
     {
         try {
+            $user = $request->user();
+            
+            // Récupérer le club associé à cet utilisateur
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+            
+            if (!$clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur'
+                ], 404);
+            }
+
+            // Vérifier si l'email existe déjà avec le rôle teacher
+            $existingUser = User::where('email', $request->email)
+                ->where('role', 'teacher')
+                ->first();
+            
+            if ($existingUser) {
+                // Vérifier si c'est un enseignant
+                $existingTeacher = \App\Models\Teacher::where('user_id', $existingUser->id)->first();
+                
+                if ($existingTeacher) {
+                    // Vérifier si l'enseignant est déjà dans ce club
+                    $existingClubTeacher = DB::table('club_teachers')
+                        ->where('club_id', $clubUser->club_id)
+                        ->where('teacher_id', $existingTeacher->id)
+                        ->where('is_active', true)
+                        ->first();
+                    
+                    if ($existingClubTeacher) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Cet enseignant est déjà membre de votre club',
+                            'errors' => [
+                                'email' => ['Cet enseignant est déjà membre de votre club']
+                            ]
+                        ], 422);
+                    }
+                    
+                    // L'enseignant existe mais n'est pas dans ce club, on peut l'ajouter
+                    // Mais pour l'instant, on retourne une erreur pour éviter les problèmes
+                    // TODO: Implémenter l'ajout d'un enseignant existant au club
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cet email est déjà utilisé par un enseignant existant. Veuillez contacter le support pour l\'ajouter à votre club.',
+                        'errors' => [
+                            'email' => ['Cet email est déjà utilisé par un enseignant existant']
+                        ]
+                    ], 422);
+                }
+            }
+            
+            // Si l'email existe avec un autre rôle (student, club, admin), on permet la création
+            // car on peut avoir le même email avec des rôles différents
+
             // Validation des données
+            // Note: On permet le même email avec des rôles différents
+            // On vérifie uniquement l'unicité pour le rôle teacher
             $validator = Validator::make($request->all(), [
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
+                'email' => [
+                    'required',
+                    'email',
+                    function ($attribute, $value, $fail) {
+                        // Vérifier uniquement si l'email existe avec le rôle teacher
+                        $existingTeacher = User::where('email', $value)
+                            ->where('role', 'teacher')
+                            ->exists();
+                        
+                        if ($existingTeacher) {
+                            $fail('Cet email est déjà utilisé par un enseignant.');
+                        }
+                    },
+                ],
                 'phone' => 'nullable|string|max:20',
                 'niss' => 'nullable|string|max:15',
                 'street' => 'nullable|string|max:255',
@@ -925,26 +1013,34 @@ class ClubController extends Controller
             ]);
 
             if ($validator->fails()) {
+                // Traduire les messages d'erreur en français
+                $errors = $validator->errors();
+                $translatedErrors = [];
+                
+                foreach ($errors->messages() as $field => $messages) {
+                    $translatedMessages = [];
+                    foreach ($messages as $message) {
+                        // Traduire les messages d'erreur courants
+                        if (str_contains($message, 'has already been taken')) {
+                            $translatedMessages[] = 'Cet email est déjà utilisé';
+                        } elseif (str_contains($message, 'required')) {
+                            $translatedMessages[] = 'Ce champ est obligatoire';
+                        } elseif (str_contains($message, 'email')) {
+                            $translatedMessages[] = 'L\'adresse email n\'est pas valide';
+                        } elseif (str_contains($message, 'max:')) {
+                            $translatedMessages[] = str_replace('max:', 'maximum', $message);
+                        } else {
+                            $translatedMessages[] = $message;
+                        }
+                    }
+                    $translatedErrors[$field] = $translatedMessages;
+                }
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Erreur de validation',
-                    'errors' => $validator->errors()
+                    'errors' => $translatedErrors
                 ], 422);
-            }
-
-            $user = $request->user();
-            
-            // Récupérer le club associé à cet utilisateur
-            $clubUser = DB::table('club_user')
-                ->where('user_id', $user->id)
-                ->where('is_admin', true)
-                ->first();
-            
-            if (!$clubUser) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Aucun club associé à cet utilisateur'
-                ], 404);
             }
 
             // Commencer une transaction
@@ -1145,19 +1241,52 @@ class ClubController extends Controller
             $clubName = $club ? $club->name : 'votre club';
             
             // Envoyer la notification de bienvenue avec le lien de réinitialisation
-            $teacherUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
+            // Gérer les erreurs d'envoi d'email gracieusement
+            $emailSent = false;
+            try {
+                if (app()->runningInConsole() || app()->environment('testing')) {
+                    // En mode test ou console, envoyer immédiatement sans queue
+                    Notification::sendNow(
+                        $teacherUser,
+                        new TeacherWelcomeNotification($clubName, $resetToken)
+                    );
+                } else {
+                    // En production, utiliser la queue normale
+                    $teacherUser->notify(new TeacherWelcomeNotification($clubName, $resetToken));
+                }
+                $emailSent = true;
+                
+                \Log::info('Email d\'invitation renvoyé à l\'enseignant', [
+                    'teacher_id' => $teacherId,
+                    'user_id' => $teacherUser->id,
+                    'club_id' => $clubUser->club_id,
+                    'email' => $teacherUser->email
+                ]);
+            } catch (\Exception $mailException) {
+                \Log::warning('Impossible d\'envoyer l\'email d\'invitation', [
+                    'teacher_id' => $teacherId,
+                    'user_id' => $teacherUser->id,
+                    'email' => $teacherUser->email,
+                    'error' => $mailException->getMessage(),
+                    'note' => 'Le token a été généré mais l\'email n\'a pas pu être envoyé. Vérifiez la configuration MailHog.'
+                ]);
+                // Ne pas bloquer l'opération si l'email échoue
+            }
 
-            \Log::info('Email d\'invitation renvoyé à l\'enseignant', [
-                'teacher_id' => $teacherId,
-                'user_id' => $teacherUser->id,
-                'club_id' => $clubUser->club_id,
-                'email' => $teacherUser->email
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Email d\'invitation renvoyé avec succès à ' . $teacherUser->email
-            ]);
+            if ($emailSent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Email d\'invitation renvoyé avec succès à ' . $teacherUser->email
+                ]);
+            } else {
+                // Retourner un succès partiel avec un avertissement
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Token de réinitialisation généré avec succès, mais l\'email n\'a pas pu être envoyé. Veuillez vérifier la configuration MailHog.',
+                    'warning' => 'L\'email n\'a pas pu être envoyé automatiquement. Le token est valide et peut être utilisé manuellement.',
+                    'reset_token' => $resetToken, // Fournir le token pour utilisation manuelle si nécessaire
+                ]);
+            }
 
         } catch (\Exception $e) {
             \Log::error('Erreur lors du renvoi de l\'invitation', [
@@ -1215,7 +1344,14 @@ class ClubController extends Controller
             $validator = Validator::make($request->all(), [
                 'first_name' => 'sometimes|string|max:255',
                 'last_name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|unique:users,email,' . $teacher->user_id,
+                'email' => [
+                    'sometimes',
+                    'email',
+                    // Vérifier l'unicité uniquement pour le rôle teacher
+                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
+                        return $query->where('role', 'teacher');
+                    })->ignore($teacher->user_id),
+                ],
                 'phone' => 'nullable|string|max:20',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'experience_years' => 'nullable|integer|min:0',

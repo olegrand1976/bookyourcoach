@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rule;
 use App\Notifications\TeacherWelcomeNotification;
 use App\Notifications\StudentWelcomeNotification;
 
@@ -181,7 +182,14 @@ class StudentController extends Controller
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
+                'email' => [
+                    'required',
+                    'email',
+                    // Vérifier l'unicité uniquement pour le rôle student
+                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
+                        return $query->where('role', 'student');
+                    }),
+                ],
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
@@ -365,9 +373,23 @@ class StudentController extends Controller
             
             // Si l'élève n'a pas de user_id, l'email devient requis si fourni
             if (!$student->user_id) {
-                $validationRules['email'] = 'nullable|email|unique:users,email';
+                $validationRules['email'] = [
+                    'nullable',
+                    'email',
+                    // Vérifier l'unicité uniquement pour le rôle student
+                    Rule::unique('users')->where(function ($query) {
+                        return $query->where('role', 'student');
+                    }),
+                ];
             } else {
-                $validationRules['email'] = 'sometimes|email|unique:users,email,' . $student->user_id;
+                $validationRules['email'] = [
+                    'sometimes',
+                    'email',
+                    // Vérifier l'unicité uniquement pour le rôle student
+                    Rule::unique('users')->where(function ($query) {
+                        return $query->where('role', 'student');
+                    })->ignore($student->user_id),
+                ];
             }
             
             $validated = $request->validate($validationRules);
@@ -529,42 +551,85 @@ class StudentController extends Controller
                 ], 403);
             }
 
-            $studentUser = $student->user;
-            if (!$studentUser) {
+            DB::beginTransaction();
+
+            try {
+                $studentUser = $student->user;
+                
+                // Si l'élève n'a pas de compte utilisateur, on ne peut pas envoyer d'invitation
+                if (!$studentUser) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cet élève n\'a pas de compte utilisateur. Veuillez d\'abord mettre à jour l\'élève avec une adresse email valide pour créer son compte et envoyer l\'invitation.'
+                    ], 400);
+                }
+
+                // Vérifier que l'email est valide
+                if (!$studentUser->email || !filter_var($studentUser->email, FILTER_VALIDATE_EMAIL)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'L\'adresse email de cet élève est invalide (' . ($studentUser->email ?? 'non définie') . '). Veuillez la corriger avant d\'envoyer l\'invitation.'
+                    ], 400);
+                }
+
+                // Générer un token de réinitialisation de mot de passe
+                $resetToken = Password::broker()->createToken($studentUser);
+                
+                // Envoyer la notification
+                try {
+                    if (app()->runningInConsole() || app()->environment('testing')) {
+                        // En mode test ou console, envoyer immédiatement sans queue
+                        Notification::sendNow(
+                            $studentUser,
+                            new StudentWelcomeNotification($club->name, $resetToken)
+                        );
+                    } else {
+                        // En production, utiliser la queue normale
+                        $studentUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
+                    }
+                } catch (\Exception $mailException) {
+                    \Log::warning('Impossible d\'envoyer l\'email d\'invitation', [
+                        'student_id' => $studentId,
+                        'user_id' => $studentUser->id,
+                        'email' => $studentUser->email,
+                        'error' => $mailException->getMessage(),
+                        'note' => 'Le token a été généré mais l\'email n\'a pas pu être envoyé. Vérifiez la configuration MailHog.'
+                    ]);
+                    // Ne pas bloquer l'opération si l'email échoue
+                }
+
+                DB::commit();
+
+                \Log::info('Email d\'invitation renvoyé à l\'élève', [
+                    'student_id' => $studentId,
+                    'user_id' => $studentUser->id,
+                    'club_id' => $club->id,
+                    'email' => $studentUser->email
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Email d\'invitation renvoyé avec succès à ' . $studentUser->email
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Erreur lors du renvoi de l\'invitation', [
+                    'student_id' => $studentId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Utilisateur élève non trouvé'
-                ], 404);
+                    'message' => 'Erreur lors du renvoi de l\'invitation: ' . $e->getMessage()
+                ], 500);
             }
-
-            // Vérifier que l'email est valide
-            if (!$studentUser->email || !filter_var($studentUser->email, FILTER_VALIDATE_EMAIL)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'L\'adresse email de cet élève est invalide (' . $studentUser->email . '). Veuillez la corriger avant d\'envoyer l\'invitation.'
-                ], 400);
-            }
-
-            // Générer un token de réinitialisation de mot de passe
-            $resetToken = Password::broker()->createToken($studentUser);
-            
-            // Envoyer la notification
-            $studentUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
-
-            \Log::info('Email d\'invitation renvoyé à l\'élève', [
-                'student_id' => $studentId,
-                'user_id' => $studentUser->id,
-                'club_id' => $club->id,
-                'email' => $studentUser->email
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Email d\'invitation renvoyé avec succès à ' . $studentUser->email
-            ]);
-
         } catch (\Exception $e) {
             \Log::error('Erreur lors du renvoi de l\'invitation', [
+                'student_id' => $studentId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

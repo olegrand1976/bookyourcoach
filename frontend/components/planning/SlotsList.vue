@@ -14,11 +14,50 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
         <div>
-          <h2 class="text-lg md:text-xl font-semibold text-gray-900">Créneaux horaires</h2>
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900">
+            Créneaux horaires
+          </h2>
+          <div v-if="selectedSlotId && selectedSlot" class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p class="text-sm font-medium text-green-800 mb-1">Créneau sélectionné :</p>
+            <div class="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-gray-700">
+              <span class="inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span class="font-semibold">{{ getDayName(selectedSlot.day_of_week) }}</span>
+              </span>
+              <span class="inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ formatTime(selectedSlot.start_time) }} - {{ formatTime(selectedSlot.end_time) }}</span>
+              </span>
+              <span v-if="selectedSlot.discipline?.name" class="inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                <span>{{ selectedSlot.discipline.name }}</span>
+              </span>
+              <span v-if="selectedSlot.duration" class="inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ selectedSlot.duration }} min</span>
+              </span>
+              <span v-if="selectedSlot.price !== null && selectedSlot.price !== undefined" class="inline-flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ formatPrice(selectedSlot.price) }} €</span>
+              </span>
+            </div>
+          </div>
           <p class="text-xs md:text-sm text-gray-500 mt-1">
             <span v-if="slots.length > 0">
               {{ slots.length }} créneau{{ slots.length > 1 ? 'x' : '' }} configuré{{ slots.length > 1 ? 's' : '' }}
-              • Cliquez pour {{ isOpen ? 'masquer' : 'voir' }}
+              <span v-if="!selectedSlotId || !selectedSlot">
+                • Cliquez pour {{ isOpen ? 'masquer' : 'voir' }}
+              </span>
             </span>
             <span v-else class="text-amber-600 font-medium">
               ⚠️ Aucun créneau configuré • Cliquez pour voir les options
@@ -217,6 +256,12 @@ const emit = defineEmits<{
 
 const isOpen = ref(true) // Ouvert par défaut pour faciliter la visualisation
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+// Trouver le créneau sélectionné pour l'affichage dans le titre
+const selectedSlot = computed(() => {
+  if (!props.selectedSlotId) return null
+  return props.slots.find(slot => slot.id === props.selectedSlotId) || null
+})
 
 function getDayName(dayOfWeek: number): string {
   return dayNames[dayOfWeek] || 'Inconnu'

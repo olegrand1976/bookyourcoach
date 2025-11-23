@@ -20,15 +20,6 @@
               </svg>
               <span>Nouvel élève</span>
             </button>
-            <button 
-              @click="showAddExistingStudentModal = true"
-              class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center justify-center space-x-2 text-sm md:text-base"
-            >
-              <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-              <span>Élève existant</span>
-            </button>
           </div>
         </div>
       </div>
@@ -119,7 +110,8 @@
             >
               <option value="name">Nom (A-Z)</option>
               <option value="name_desc">Nom (Z-A)</option>
-              <option value="created">Date d'inscription</option>
+              <option value="joined_desc">Date d'inscription (plus récent)</option>
+              <option value="joined_asc">Date d'inscription (plus ancien)</option>
             </select>
           </div>
         </div>
@@ -198,6 +190,13 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                       </svg>
                       <span>{{ student.phone }}</span>
+                    </div>
+                    
+                    <div v-if="student.joined_at" class="flex items-center">
+                      <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                      </svg>
+                      <span>Inscrit le {{ formatDate(student.joined_at) }}</span>
                     </div>
                   </div>
                   
@@ -353,14 +352,6 @@
       @success="loadStudents" 
     />
 
-    <!-- Modal d'ajout d'élève existant -->
-    <AddStudentAdvancedModal 
-      v-if="showAddExistingStudentModal" 
-      :club-id="1"
-      @close="showAddExistingStudentModal = false" 
-      @success="loadStudents" 
-    />
-
     <!-- Modal de modification d'élève -->
     <EditStudentModal 
       v-if="showEditStudentModal && selectedStudent" 
@@ -400,7 +391,6 @@ const students = ref([])
 const stats = ref({ total: 0, active: 0, inactive: 0 })
 const availableDisciplines = ref([])
 const showAddStudentModal = ref(false)
-const showAddExistingStudentModal = ref(false)
 const showEditStudentModal = ref(false)
 const showSubscriptionsModal = ref(false)
 const showHistoryModal = ref(false)
@@ -445,6 +435,23 @@ const getStudentEmail = (student) => {
   return student.email || 'Pas d\'email'
 }
 
+// Formater une date en français
+const formatDate = (dateString) => {
+  if (!dateString) return 'Date inconnue'
+  
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return 'Date invalide'
+  
+  const options = { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'UTC'
+  }
+  
+  return date.toLocaleDateString('fr-FR', options)
+}
+
 // Filtrage et tri des élèves
 const filteredStudents = computed(() => {
   let filtered = students.value
@@ -470,8 +477,16 @@ const filteredStudents = computed(() => {
         const nameADesc = getStudentName(a)
         const nameBDesc = getStudentName(b)
         return nameBDesc.localeCompare(nameADesc)
-      case 'created':
-        return new Date(b.created_at) - new Date(a.created_at)
+      case 'joined_desc':
+        // Plus récent en premier
+        const dateA = a.joined_at ? new Date(a.joined_at) : new Date(0)
+        const dateB = b.joined_at ? new Date(b.joined_at) : new Date(0)
+        return dateB - dateA
+      case 'joined_asc':
+        // Plus ancien en premier
+        const dateAAsc = a.joined_at ? new Date(a.joined_at) : new Date(0)
+        const dateBAsc = b.joined_at ? new Date(b.joined_at) : new Date(0)
+        return dateAAsc - dateBAsc
       default:
         return 0
     }
@@ -506,7 +521,11 @@ const getActivityIcon = (activityTypeId) => {
 const loadStudents = async (page = 1) => {
   try {
     loading.value = true
-    console.log('🔄 Chargement des élèves...', { page, status: selectedStatus.value })
+    console.log('🔄 Chargement des élèves...', { 
+      page, 
+      status: selectedStatus.value,
+      selectedStatusType: typeof selectedStatus.value
+    })
     
     // Utiliser $api qui inclut automatiquement le token via l'intercepteur
     const { $api } = useNuxtApp()
@@ -514,11 +533,16 @@ const loadStudents = async (page = 1) => {
       params: {
         page: page,
         per_page: perPage,
-        status: selectedStatus.value
+        status: selectedStatus.value || 'active' // S'assurer qu'une valeur est toujours envoyée
       }
     })
     
-    console.log('✅ Élèves reçus:', response)
+    console.log('✅ Élèves reçus:', {
+      count: response.data.data?.length,
+      status: selectedStatus.value,
+      stats: response.data.stats,
+      pagination: response.data.pagination
+    })
     
     if (response.data.success && response.data.data) {
       students.value = response.data.data

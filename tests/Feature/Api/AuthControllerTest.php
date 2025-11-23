@@ -17,30 +17,29 @@ class AuthControllerTest extends TestCase
     public function it_can_register_a_new_user()
     {
         $userData = [
-            'name' => 'John Doe',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
             'email' => 'john@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'role' => 'student',
         ];
 
         $response = $this->postJson('/api/auth/register', $userData);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
-                'message',
                 'user' => [
                     'id',
-                    'name',
                     'email',
-                    'created_at',
-                    'updated_at',
                 ],
-                'token'
+                'access_token',
+                'token_type',
             ]);
 
         $this->assertDatabaseHas('users', [
-            'name' => $userData['name'],
             'email' => $userData['email'],
+            'role' => 'student',
         ]);
     }
 
@@ -50,25 +49,71 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/register', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'password']);
+            ->assertJsonValidationErrors(['first_name', 'last_name', 'email', 'password', 'role']);
     }
 
     #[Test]
     public function it_validates_unique_email_on_registration()
     {
-        User::factory()->create(['email' => 'john@example.com']);
+        // Créer un utilisateur avec le même email et le même rôle
+        User::factory()->create([
+            'email' => 'john@example.com',
+            'role' => 'student'
+        ]);
 
         $userData = [
-            'name' => 'John Doe',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
             'email' => 'john@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'role' => 'student', // Même rôle que l'utilisateur existant
         ];
 
         $response = $this->postJson('/api/auth/register', $userData);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
+    }
+
+    #[Test]
+    public function it_allows_same_email_with_different_roles()
+    {
+        // Créer un utilisateur student avec un email
+        User::factory()->create([
+            'email' => 'john@example.com',
+            'role' => 'student'
+        ]);
+
+        // Essayer de créer un utilisateur teacher avec le même email (devrait fonctionner)
+        $userData = [
+            'first_name' => 'John',
+            'last_name' => 'Teacher',
+            'email' => 'john@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => 'teacher', // Rôle différent
+        ];
+
+        $response = $this->postJson('/api/auth/register', $userData);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'user' => [
+                    'id',
+                    'email',
+                ],
+            ]);
+
+        // Vérifier que les deux utilisateurs existent avec le même email mais des rôles différents
+        $this->assertDatabaseHas('users', [
+            'email' => 'john@example.com',
+            'role' => 'student',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'john@example.com',
+            'role' => 'teacher',
+        ]);
     }
 
     #[Test]
@@ -130,7 +175,7 @@ class AuthControllerTest extends TestCase
         $response = $this->postJson('/api/auth/login', $loginData);
 
         $response->assertStatus(401)
-            ->assertJson(['message' => 'Invalid credentials']);
+            ->assertJson(['message' => 'Invalid login details']);
     }
 
     #[Test]
