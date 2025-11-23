@@ -35,7 +35,8 @@
       
       <button
         v-if="selectedItem && !disabled"
-        @click="clearSelection"
+        @click.stop="clearSelection"
+        @mousedown.prevent
         type="button"
         class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
       >
@@ -87,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 interface Props {
   modelValue: any
@@ -176,6 +177,7 @@ const filteredResults = computed(() => {
 
 // Gestion des événements
 function handleInput() {
+  // Toujours afficher les résultats lors de la saisie
   showResults.value = true
   highlightedIndex.value = -1
   
@@ -193,6 +195,14 @@ function handleBlur(event: FocusEvent) {
   // Ne pas fermer si on clique dans les résultats
   const relatedTarget = event.relatedTarget as HTMLElement
   if (relatedTarget && containerRef.value?.contains(relatedTarget)) {
+    return
+  }
+  
+  // Vérifier si le clic est sur le bouton de suppression (croix)
+  // Si c'est le cas, ne pas fermer les résultats car clearSelection() va gérer l'affichage
+  const activeElement = document.activeElement as HTMLElement
+  if (activeElement && activeElement.closest('button') && containerRef.value?.contains(activeElement)) {
+    // Le focus va être remis sur l'input par clearSelection(), ne pas fermer les résultats
     return
   }
   
@@ -243,8 +253,16 @@ function closeResults() {
 function clearSelection() {
   emit('update:modelValue', null)
   searchQuery.value = ''
-  showResults.value = false
-  inputRef.value?.focus()
+  showResults.value = true // Ouvrir les résultats pour permettre la recherche immédiate
+  highlightedIndex.value = -1
+  // Utiliser nextTick pour s'assurer que le focus est bien appliqué après la mise à jour du DOM
+  nextTick(() => {
+    inputRef.value?.focus()
+    // S'assurer que les résultats sont visibles après le focus
+    if (props.items.length > 0) {
+      showResults.value = true
+    }
+  })
 }
 
 // Fermer au clic en dehors

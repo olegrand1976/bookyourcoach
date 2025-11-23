@@ -1150,7 +1150,47 @@ class LessonController extends Controller
                 throw new \Exception("Ce créneau est complet ({$overlappingLessonsCount}/{$maxSlots} plages simultanées). Impossible d'ajouter un nouveau cours.");
             }
             
-            // 2. Vérifier max_capacity : Nombre maximum d'élèves pour cet enseignant à l'heure exacte du cours
+            // 2. Vérifier qu'un enseignant n'a pas déjà un cours qui se chevauche avec le nouveau cours
+            // ⚠️ IMPORTANT : Un enseignant ne peut pas avoir plusieurs cours qui se chevauchent dans le temps
+            // même s'il a la capacité pour plusieurs élèves dans un seul cours
+            $newLessonStart = Carbon::parse($startTime);
+            $newLessonEnd = $newLessonStart->copy()->addMinutes($duration);
+            
+            $overlappingTeacherLessons = Lesson::where('club_id', $clubId)
+                ->where('teacher_id', $teacherId)
+                ->where('status', '!=', 'cancelled')
+                ->whereDate('start_time', $date)
+                ->get()
+                ->filter(function ($lesson) use ($newLessonStart, $newLessonEnd) {
+                    // Calculer la fin du cours existant
+                    $lessonStart = Carbon::parse($lesson->start_time);
+                    $lessonEnd = $lessonStart->copy();
+                    
+                    // Si le cours a une durée stockée, l'utiliser, sinon utiliser la durée du type de cours
+                    if ($lesson->courseType && $lesson->courseType->duration_minutes) {
+                        $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
+                    } else {
+                        // Fallback : utiliser end_time si disponible, sinon 60 minutes par défaut
+                        if ($lesson->end_time) {
+                            $lessonEnd = Carbon::parse($lesson->end_time);
+                        } else {
+                            $lessonEnd->addMinutes(60);
+                        }
+                    }
+                    
+                    // Vérifier le chevauchement : les cours se chevauchent si :
+                    // - Le nouveau cours commence avant la fin du cours existant ET
+                    // - Le nouveau cours se termine après le début du cours existant
+                    return $newLessonStart->lt($lessonEnd) && $newLessonEnd->gt($lessonStart);
+                });
+            
+            if ($overlappingTeacherLessons->count() > 0) {
+                $existingLesson = $overlappingTeacherLessons->first();
+                $existingStart = Carbon::parse($existingLesson->start_time)->format('H:i');
+                throw new \Exception("Cet enseignant a déjà un cours programmé qui se chevauche avec cette heure (début à {$existingStart}). Un enseignant ne peut pas avoir plusieurs cours simultanés.");
+            }
+            
+            // 3. Vérifier max_capacity : Nombre maximum d'élèves pour cet enseignant à l'heure exacte du cours
             // ⚠️ IMPORTANT : Vérifier uniquement les cours qui commencent à la même heure (même start_time)
             // et non pas tous les cours dans la plage horaire du créneau ouvert
             // Utiliser une comparaison de datetime pour être compatible avec SQLite et MySQL
@@ -1161,6 +1201,7 @@ class LessonController extends Controller
                 ->where('teacher_id', $teacherId)
                 ->where('start_time', '>=', $startDateTime)
                 ->where('start_time', '<', $endDateTime)
+                ->where('status', '!=', 'cancelled')
                 ->get();
             
             // Compter le nombre total d'élèves (student_id + relation many-to-many students)
@@ -1185,8 +1226,11 @@ class LessonController extends Controller
             }
             
         } catch (\Exception $e) {
-            // Si c'est notre exception de capacité, la propager
-            if (str_contains($e->getMessage(), 'complet') || str_contains($e->getMessage(), 'capacité maximale')) {
+            // Si c'est notre exception de capacité ou de chevauchement, la propager
+            if (str_contains($e->getMessage(), 'complet') || 
+                str_contains($e->getMessage(), 'capacité maximale') ||
+                str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche') ||
+                str_contains($e->getMessage(), 'plusieurs cours simultanés')) {
                 throw $e;
             }
             // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
