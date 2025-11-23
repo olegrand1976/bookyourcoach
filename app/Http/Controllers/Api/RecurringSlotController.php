@@ -43,7 +43,7 @@ class RecurringSlotController extends Controller
                     });
                 })
                 ->with([
-                    'subscriptionInstance.subscription',
+                    'subscriptionInstance.subscription.template',
                     'subscriptionInstance.students.user',
                     'teacher.user',
                     'student.user',
@@ -236,7 +236,7 @@ class RecurringSlotController extends Controller
                     });
                 })
                 ->with([
-                    'subscriptionInstance.subscription',
+                    'subscriptionInstance.subscription.template',
                     'subscriptionInstance.students.user',
                     'teacher.user',
                     'student.user',

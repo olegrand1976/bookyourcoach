@@ -67,7 +67,7 @@
                 <div>
                   <label class="text-xs font-medium text-gray-500 uppercase">Élève</label>
                   <p class="text-sm font-semibold text-gray-900">
-                    {{ slot.student?.user?.name || 'Non défini' }}
+                    {{ getStudentName(slot) }}
                   </p>
                 </div>
                 <div>
@@ -79,7 +79,7 @@
                 <div>
                   <label class="text-xs font-medium text-gray-500 uppercase">Abonnement</label>
                   <p class="text-sm font-semibold text-gray-900">
-                    {{ slot.subscription_instance?.subscription?.name || 'N/A' }}
+                    {{ getSubscriptionName(slot) }}
                   </p>
                 </div>
                 <div>
@@ -267,6 +267,41 @@ function getStatusLabel(status) {
     'paused': 'En pause'
   }
   return labels[status] || status
+}
+
+function getStudentName(slot) {
+  // Priorité 1: student direct du slot
+  if (slot.student?.user?.name) {
+    return slot.student.user.name
+  }
+  // Priorité 2: premier élève de subscription_instance.students
+  if (slot.subscription_instance?.students && slot.subscription_instance.students.length > 0) {
+    const firstStudent = slot.subscription_instance.students[0]
+    if (firstStudent?.user?.name) {
+      return firstStudent.user.name
+    }
+  }
+  return 'Non défini'
+}
+
+function getSubscriptionName(slot) {
+  const subscription = slot.subscription_instance?.subscription
+  if (!subscription) {
+    return 'N/A'
+  }
+  // Priorité 1: subscription_number
+  if (subscription.subscription_number) {
+    return subscription.subscription_number
+  }
+  // Priorité 2: template.model_number
+  if (subscription.template?.model_number) {
+    return subscription.template.model_number
+  }
+  // Priorité 3: template.name (si existe)
+  if (subscription.template?.name) {
+    return subscription.template.name
+  }
+  return 'N/A'
 }
 </script>
 
