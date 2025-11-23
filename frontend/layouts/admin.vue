@@ -20,38 +20,38 @@
 
               <div v-if="userMenuOpen" class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-200">
                 <p class="px-4 py-2 text-xs text-gray-500">Menu Administration</p>
-                <NuxtLink to="/admin" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>📊</span>
                   <span>Dashboard</span>
                 </NuxtLink>
-                <NuxtLink to="/admin/users" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin/users" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>👥</span>
                   <span>Utilisateurs</span>
                 </NuxtLink>
-                <NuxtLink to="/admin/contracts" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin/contracts" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>📄</span>
                   <span>Contrats</span>
                 </NuxtLink>
-                <NuxtLink to="/admin/payroll" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin/payroll" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>💰</span>
                   <span>Rapports de Paie</span>
                 </NuxtLink>
-                <NuxtLink to="/admin/settings" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin/settings" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>⚙️</span>
                   <span>Paramètres</span>
                 </NuxtLink>
-                <NuxtLink to="/admin/graph-analysis" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/admin/graph-analysis" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>🔗</span>
                   <span>Analyse Graphique</span>
                 </NuxtLink>
                 
                 <hr class="my-2 border-gray-200">
 
-                <NuxtLink to="/" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
+                <NuxtLink to="/" @click="userMenuOpen = false" class="flex items-center space-x-3 w-full px-4 py-2 text-gray-700 hover:bg-gray-100">
                   <span>🌐</span>
                   <span>Retour au site</span>
                 </NuxtLink>
-                <button @click="logout" class="flex items-center space-x-3 w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+                <button @click="userMenuOpen = false; logout()" class="flex items-center space-x-3 w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
                   <span>🚪</span>
                   <span>Déconnexion</span>
                 </button>

@@ -668,8 +668,28 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
-            // Récupérer l'abonnement
-            $subscription = Subscription::forClub($club->id)->findOrFail($id);
+            // Récupérer l'abonnement avec ses instances et élèves
+            $subscription = Subscription::forClub($club->id)
+                ->with(['instances.students'])
+                ->findOrFail($id);
+
+            // Vérifier qu'il n'y a aucun élève assigné à cet abonnement
+            $hasStudents = false;
+            if ($subscription->instances && $subscription->instances->count() > 0) {
+                foreach ($subscription->instances as $instance) {
+                    if ($instance->students && $instance->students->count() > 0) {
+                        $hasStudents = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($hasStudents) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de supprimer cet abonnement car il a des élèves assignés'
+                ], 422);
+            }
 
             DB::beginTransaction();
 
@@ -680,7 +700,7 @@ class SubscriptionController extends Controller
                     ->delete();
             }
 
-            // Supprimer l'abonnement
+            // Supprimer l'abonnement (les instances seront supprimées en cascade si elles existent)
             DB::table('subscriptions')
                 ->where('id', $subscription->id)
                 ->delete();

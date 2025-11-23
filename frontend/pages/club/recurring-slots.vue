@@ -156,7 +156,7 @@ onMounted(async () => {
 async function loadRecurringSlots() {
   try {
     loading.value = true
-    const response = await $api.get('/recurring-slots')
+    const response = await $api.get('/club/recurring-slots')
     if (response.data.success) {
       recurringSlots.value = response.data.data || []
     } else {
@@ -177,7 +177,7 @@ async function releaseSlot(id) {
 
   try {
     processing.value = true
-    const response = await $api.post(`/recurring-slots/${id}/release`, {
+    const response = await $api.post(`/club/recurring-slots/${id}/release`, {
       reason: 'Libération manuelle depuis l\'interface'
     })
     
@@ -202,7 +202,7 @@ async function reactivateSlot(id) {
 
   try {
     processing.value = true
-    const response = await $api.post(`/recurring-slots/${id}/reactivate`, {
+    const response = await $api.post(`/club/recurring-slots/${id}/reactivate`, {
       reason: 'Réactivation manuelle depuis l\'interface'
     })
     
