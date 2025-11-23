@@ -114,15 +114,58 @@ class CourseTypeController extends Controller
                     ]);
                 }
                 
-                // Récupérer UNIQUEMENT les types de cours liés aux disciplines du club
-                // On exclut les types génériques si le club a des disciplines spécifiques
-                // pour éviter la confusion dans la sélection des types de cours
-                $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
-                    ->where('is_active', true)
-                    ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
-                    ->orderBy('discipline_id')
-                    ->orderBy('name')
-                    ->get();
+                // Vérifier si on doit filtrer par les types de cours réellement utilisés dans les créneaux
+                $onlyUsedInSlots = $request->has('only_used_in_slots') && $request->boolean('only_used_in_slots');
+                
+                if ($onlyUsedInSlots) {
+                    // Récupérer UNIQUEMENT les types de cours réellement assignés aux créneaux du club
+                    $courseTypeIdsInSlots = \DB::table('club_open_slot_course_types')
+                        ->join('club_open_slots', 'club_open_slot_course_types.club_open_slot_id', '=', 'club_open_slots.id')
+                        ->where('club_open_slots.club_id', $club->id)
+                        ->where('club_open_slots.is_active', true)
+                        ->distinct()
+                        ->pluck('club_open_slot_course_types.course_type_id')
+                        ->toArray();
+                    
+                    \Log::info('CourseTypeController - Filtrage par créneaux', [
+                        'club_id' => $club->id,
+                        'course_type_ids_in_slots' => $courseTypeIdsInSlots,
+                        'count' => count($courseTypeIdsInSlots)
+                    ]);
+                    
+                    if (empty($courseTypeIdsInSlots)) {
+                        // Aucun type de cours assigné aux créneaux
+                        return response()->json([
+                            'success' => true,
+                            'data' => [],
+                            'meta' => [
+                                'total' => 0,
+                                'club_id' => $club->id,
+                                'club_disciplines' => $validExistingDisciplineIds,
+                                'message' => 'Aucun type de cours assigné aux créneaux du club'
+                            ]
+                        ]);
+                    }
+                    
+                    // Filtrer par discipline ET par types de cours dans les créneaux
+                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
+                        ->whereIn('id', $courseTypeIdsInSlots)
+                        ->where('is_active', true)
+                        ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
+                        ->orderBy('discipline_id')
+                        ->orderBy('name')
+                        ->get();
+                } else {
+                    // Récupérer UNIQUEMENT les types de cours liés aux disciplines du club
+                    // On exclut les types génériques si le club a des disciplines spécifiques
+                    // pour éviter la confusion dans la sélection des types de cours
+                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
+                        ->where('is_active', true)
+                        ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
+                        ->orderBy('discipline_id')
+                        ->orderBy('name')
+                        ->get();
+                }
                 
                 // Si aucun type de cours n'existe pour ces disciplines, créer des types par défaut
                 if ($courseTypes->isEmpty()) {
