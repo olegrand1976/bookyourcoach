@@ -138,9 +138,15 @@ class TeacherController extends Controller
                         ->join('students', 'lesson_student.student_id', '=', 'students.id')
                         ->join('users', 'students.user_id', '=', 'users.id')
                         ->where('lesson_student.lesson_id', $lesson->id)
-                        ->select('students.id', 'users.name', 'users.email', 'students.age')
+                        ->select('students.id', 'users.name', 'users.email', 'students.date_of_birth')
                         ->get()
                         ->map(function ($s) {
+                            // Calculer l'âge à partir de date_of_birth
+                            $age = null;
+                            if ($s->date_of_birth) {
+                                $age = \Carbon\Carbon::parse($s->date_of_birth)->age;
+                            }
+                            
                             return (object) [
                                 'id' => $s->id,
                                 'user' => (object) [
@@ -148,7 +154,7 @@ class TeacherController extends Controller
                                     'name' => $s->name,
                                     'email' => $s->email
                                 ],
-                                'age' => $s->age
+                                'age' => $age
                             ];
                         });
                     
@@ -225,9 +231,15 @@ class TeacherController extends Controller
                             ->join('students', 'lesson_student.student_id', '=', 'students.id')
                             ->join('users', 'students.user_id', '=', 'users.id')
                             ->where('lesson_student.lesson_id', $lesson->id)
-                            ->select('students.id', 'users.name', 'users.email', 'students.age')
+                            ->select('students.id', 'users.name', 'users.email', 'students.date_of_birth')
                             ->get()
                             ->map(function ($s) {
+                                // Calculer l'âge à partir de date_of_birth
+                                $age = null;
+                                if ($s->date_of_birth) {
+                                    $age = \Carbon\Carbon::parse($s->date_of_birth)->age;
+                                }
+                                
                                 return (object) [
                                     'id' => $s->id,
                                     'user' => (object) [
@@ -235,7 +247,7 @@ class TeacherController extends Controller
                                         'name' => $s->name,
                                         'email' => $s->email
                                     ],
-                                    'age' => $s->age
+                                    'age' => $age
                                 ];
                             });
                         
