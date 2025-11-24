@@ -64,6 +64,42 @@
             </div>
           </div>
 
+          <!-- Classification DCL/NDCL pour les commissions -->
+          <div class="mb-6 border-t pt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              Classification pour les commissions
+            </label>
+            <div class="space-y-3">
+              <div class="flex items-center">
+                <input
+                  id="sub_dcl"
+                  v-model="form.est_legacy"
+                  :value="false"
+                  type="radio"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="sub_dcl" class="ml-2 block text-sm text-gray-700">
+                  <span class="font-medium">DCL</span> (Déclaré) - Commission standard
+                </label>
+              </div>
+              <div class="flex items-center">
+                <input
+                  id="sub_ndcl"
+                  v-model="form.est_legacy"
+                  :value="true"
+                  type="radio"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label for="sub_ndcl" class="ml-2 block text-sm text-gray-700">
+                  <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
+                </label>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie.
+            </p>
+          </div>
+
           <!-- Sélection du modèle d'abonnement -->
           <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -153,42 +189,6 @@
               <span v-else>
                 Sélectionnez d'abord un modèle d'abonnement.
               </span>
-            </p>
-          </div>
-
-          <!-- Classification DCL/NDCL pour les commissions -->
-          <div class="mb-6 border-t pt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Classification pour les commissions
-            </label>
-            <div class="space-y-3">
-              <div class="flex items-center">
-                <input
-                  id="sub_dcl"
-                  v-model="form.est_legacy"
-                  :value="false"
-                  type="radio"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="sub_dcl" class="ml-2 block text-sm text-gray-700">
-                  <span class="font-medium">DCL</span> (Déclaré) - Commission standard
-                </label>
-              </div>
-              <div class="flex items-center">
-                <input
-                  id="sub_ndcl"
-                  v-model="form.est_legacy"
-                  :value="true"
-                  type="radio"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="sub_ndcl" class="ml-2 block text-sm text-gray-700">
-                  <span class="font-medium">NDCL</span> (Non Déclaré) - Commission legacy
-                </label>
-              </div>
-            </div>
-            <p class="mt-2 text-xs text-gray-500">
-              ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie.
             </p>
           </div>
 
