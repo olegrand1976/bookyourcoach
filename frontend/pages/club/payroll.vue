@@ -108,16 +108,15 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     </button>
-                    <a
-                      :href="getExportUrl(report.year, report.month)"
-                      @click.stop
+                    <button
+                      @click.stop="exportCSV(report.year, report.month)"
                       class="text-green-600 hover:text-green-900"
                       title="Exporter en CSV"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                    </a>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -282,7 +281,7 @@
 
     <!-- Edit Payments Modal -->
     <EditPaymentsModal
-      v-if="selectedReport"
+      v-if="selectedReport && selectedTeacherId"
       :show="showEditModal"
       :year="selectedReport.year"
       :month="selectedReport.month"
@@ -337,6 +336,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast'
+import EditPaymentsModal from '@/components/payroll/EditPaymentsModal.vue'
 
 console.log('📊 [PAYROLL] Page chargée')
 
@@ -546,10 +546,57 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
-const getExportUrl = (year, month) => {
-  const config = useRuntimeConfig()
-  const apiBase = config.public.apiBase || '/api'
-  return `${apiBase}/club/payroll/export/${year}/${month}/csv`
+const exportCSV = async (year: number, month: number) => {
+  try {
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiBase || '/api'
+    const token = useCookie('token')
+    
+    // Créer une URL avec le token d'authentification
+    const url = `${apiBase}/club/payroll/export/${year}/${month}/csv`
+    
+    // Utiliser fetch pour télécharger le fichier avec authentification
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token.value}`,
+        'Accept': 'text/csv'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Erreur lors du téléchargement du CSV')
+    }
+    
+    // Récupérer le blob
+    const blob = await response.blob()
+    
+    // Créer un lien temporaire pour télécharger le fichier
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    
+    // Nom du fichier depuis les headers ou générer un nom par défaut
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let filename = `rapport_paie_${month}_${year}.csv`
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i)
+      if (filenameMatch) {
+        filename = filenameMatch[1]
+      }
+    }
+    
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(downloadUrl)
+    
+    showSuccess('Export CSV téléchargé avec succès', 'Succès')
+  } catch (err: any) {
+    console.error('❌ Erreur lors de l\'export CSV:', err)
+    showError(err.response?.data?.message || err.message || 'Erreur lors de l\'export CSV', 'Erreur')
+  }
 }
 
 // Computed properties pour vérifier la présence de valeurs NDCL
@@ -593,9 +640,25 @@ const hasNdclInReportDetails = computed(() => {
 })
 
 function openEditModal(teacherId: number, teacherName: string) {
+  console.log('🔵 [PAYROLL] openEditModal appelé:', { teacherId, teacherName, selectedReport: selectedReport.value })
+  
+  if (!selectedReport.value) {
+    console.error('❌ [PAYROLL] selectedReport n\'est pas défini')
+    showError('Veuillez d\'abord sélectionner un rapport', 'Erreur')
+    return
+  }
+  
   selectedTeacherId.value = teacherId
   selectedTeacherName.value = teacherName
   showEditModal.value = true
+  
+  console.log('✅ [PAYROLL] Modale ouverte:', {
+    showEditModal: showEditModal.value,
+    teacherId: selectedTeacherId.value,
+    teacherName: selectedTeacherName.value,
+    year: selectedReport.value.year,
+    month: selectedReport.value.month
+  })
 }
 
 async function handlePaymentsReload() {
