@@ -179,17 +179,9 @@ class StudentController extends Controller
             }
 
             // Validation - champs requis pour la création
-            $validated = $request->validate([
+            $rules = [
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => [
-                    'nullable', // Email optionnel - si fourni, doit être valide et unique
-                    'email',
-                    // Vérifier l'unicité uniquement pour le rôle student (si email fourni)
-                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    })->ignore(null), // Ignorer si null
-                ],
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
                 'date_of_birth' => 'nullable|date|before:today',
@@ -199,7 +191,22 @@ class StudentController extends Controller
                 'disciplines' => 'nullable|array',
                 'disciplines.*' => 'integer|exists:disciplines,id',
                 'medical_documents' => 'nullable|array', // Documents médicaux (pour futur usage)
-            ]);
+            ];
+            
+            // Email optionnel - si fourni, doit être valide et unique pour le rôle student
+            if ($request->has('email') && $request->email !== null) {
+                $rules['email'] = [
+                    'required',
+                    'email',
+                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
+                        return $query->where('role', 'student');
+                    }),
+                ];
+            } else {
+                $rules['email'] = 'nullable|email';
+            }
+            
+            $validated = $request->validate($rules);
             
             \Log::info('Données validées pour création élève', [
                 'validated' => $validated,
