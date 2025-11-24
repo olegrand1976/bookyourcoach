@@ -457,17 +457,10 @@ const loadStudentDisciplines = async () => {
     return
   }
   
-  // Sinon, essayer de charger depuis l'API
-  try {
-    const { $api } = useNuxtApp()
-    const response = await $api.get(`/club/students/${props.student.id}`)
-    if (response.data?.data?.disciplines || response.data?.student?.disciplines) {
-      const disciplines = response.data.data?.disciplines || response.data.student?.disciplines
-      selectedDisciplines.value = disciplines.map(d => typeof d === 'object' ? d.id : d)
-    }
-  } catch (error) {
-    console.warn('⚠️ [EditStudentModal] Impossible de charger les disciplines de l\'élève:', error)
-  }
+  // Les données de l'élève sont déjà chargées dans props.student depuis la liste
+  // Pas besoin d'appeler l'API GET qui n'existe pas pour cette route
+  // Si les disciplines ne sont pas dans props.student, elles seront vides
+  selectedDisciplines.value = []
 }
 
 // Charger les documents médicaux de l'élève
@@ -487,26 +480,10 @@ const loadStudentMedicalDocuments = async () => {
     return
   }
   
-  // Sinon, essayer de charger depuis l'API
-  try {
-    const { $api } = useNuxtApp()
-    const response = await $api.get(`/club/students/${props.student.id}`)
-    if (response.data?.data?.medical_documents || response.data?.student?.medical_documents) {
-      const docs = response.data.data?.medical_documents || response.data.student?.medical_documents
-      medicalDocuments.value = docs.map(doc => ({
-        id: doc.id,
-        document_type: doc.document_type || '',
-        file_name: doc.file_name || '',
-        file_path: doc.file_path || '',
-        expiry_date: doc.expiry_date || '',
-        renewal_frequency: doc.renewal_frequency || '',
-        notes: doc.notes || '',
-        file: null
-      }))
-    }
-  } catch (error) {
-    console.warn('⚠️ [EditStudentModal] Impossible de charger les documents médicaux:', error)
-  }
+  // Les données de l'élève sont déjà chargées dans props.student depuis la liste
+  // Pas besoin d'appeler l'API GET qui n'existe pas pour cette route
+  // Si les documents ne sont pas dans props.student, ils seront vides
+  medicalDocuments.value = []
 }
 
 // Obtenir l'icône de l'activité

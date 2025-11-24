@@ -518,11 +518,17 @@ const getActivityIcon = (activityTypeId) => {
 }
 
 // Charger les élèves avec pagination
-const loadStudents = async (page = 1) => {
+const loadStudents = async (pageOrData = null) => {
   try {
     loading.value = true
+    
+    // Si pageOrData est un objet (venant d'un emit('success', data)), utiliser la page actuelle
+    // Sinon, utiliser la valeur fournie ou la page actuelle par défaut
+    const page = typeof pageOrData === 'number' ? pageOrData : (currentPage.value || 1)
+    
     console.log('🔄 Chargement des élèves...', { 
       page, 
+      pageOrDataType: typeof pageOrData,
       status: selectedStatus.value,
       selectedStatusType: typeof selectedStatus.value
     })
