@@ -459,7 +459,7 @@ const loadStudents = async () => {
         params: {
           page: currentPage,
           per_page: 100, // Charger 100 élèves par page
-          status: 'all' // Charger tous les élèves (actifs et inactifs)
+          status: 'active' // Charger uniquement les élèves actifs (pas les supprimés)
         }
       })
       
