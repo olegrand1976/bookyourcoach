@@ -1158,16 +1158,48 @@ const filteredSubscriptions = computed(() => {
         }
         
         return instance.students.some(student => {
-          const user = student.user || {}
-          const firstName = (user.first_name || '').toLowerCase()
-          const lastName = (user.last_name || '').toLowerCase()
-          const name = (user.name || '').toLowerCase()
+          // Utiliser la même logique que getInstanceStudentNames pour extraire tous les noms possibles
+          const searchableNames = []
           
-          // Rechercher dans le nom complet, prénom ou nom
-          return firstName.includes(query) || 
-                 lastName.includes(query) || 
-                 name.includes(query) ||
-                 `${firstName} ${lastName}`.includes(query)
+          // Priorité 1: Nom complet de l'utilisateur (si l'élève a un compte)
+          if (student.user && student.user.name) {
+            searchableNames.push(student.user.name.toLowerCase())
+          }
+          
+          // Priorité 2: first_name et last_name de l'utilisateur
+          if (student.user) {
+            const userFirstName = (student.user.first_name || '').toLowerCase()
+            const userLastName = (student.user.last_name || '').toLowerCase()
+            const userFullName = `${userFirstName} ${userLastName}`.trim()
+            if (userFullName) {
+              searchableNames.push(userFullName)
+            }
+            if (userFirstName) searchableNames.push(userFirstName)
+            if (userLastName) searchableNames.push(userLastName)
+          }
+          
+          // Priorité 3: first_name et last_name de l'élève (dans la table students)
+          const firstName = (student.first_name || '').toLowerCase()
+          const lastName = (student.last_name || '').toLowerCase()
+          const fullName = `${firstName} ${lastName}`.trim()
+          if (fullName) {
+            searchableNames.push(fullName)
+          }
+          if (firstName) searchableNames.push(firstName)
+          if (lastName) searchableNames.push(lastName)
+          
+          // Priorité 4: Nom direct de l'élève (si disponible)
+          if (student.name) {
+            searchableNames.push(student.name.toLowerCase())
+          }
+          
+          // Priorité 5: Email de l'utilisateur (si disponible)
+          if (student.user && student.user.email) {
+            searchableNames.push(student.user.email.toLowerCase())
+          }
+          
+          // Rechercher dans tous les noms extraits
+          return searchableNames.some(name => name.includes(query))
         })
       })
     })
