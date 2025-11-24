@@ -183,12 +183,12 @@ class StudentController extends Controller
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'email' => [
-                    'required',
+                    'nullable', // Email optionnel - si fourni, doit être valide et unique
                     'email',
-                    // Vérifier l'unicité uniquement pour le rôle student
+                    // Vérifier l'unicité uniquement pour le rôle student (si email fourni)
                     \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
                         return $query->where('role', 'student');
-                    }),
+                    })->ignore(null), // Ignorer si null
                 ],
                 'password' => 'nullable|string|min:8',
                 'phone' => 'nullable|string|max:20',
