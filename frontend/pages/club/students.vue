@@ -82,6 +82,7 @@
               </div>
               <input 
                 v-model="searchQuery" 
+                @input="handleSearchInput"
                 type="text" 
                 placeholder="Nom, email..."
                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -452,21 +453,11 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('fr-FR', options)
 }
 
-// Filtrage et tri des élèves
+// Filtrage et tri des élèves (recherche maintenant côté serveur)
 const filteredStudents = computed(() => {
   let filtered = students.value
 
-  // Filtrage par recherche
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(student => {
-      const name = getStudentName(student).toLowerCase()
-      const email = getStudentEmail(student).toLowerCase()
-      return name.includes(query) || email.includes(query)
-    })
-  }
-
-  // Tri
+  // Tri côté client (le backend peut aussi trier, mais on garde le tri client pour réactivité)
   filtered.sort((a, b) => {
     switch (sortBy.value) {
       case 'name':
@@ -494,6 +485,22 @@ const filteredStudents = computed(() => {
 
   return filtered
 })
+
+// Gérer la recherche avec debounce
+let searchTimeout = null
+const handleSearchInput = () => {
+  // Annuler le timeout précédent
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  
+  // Attendre 500ms après la dernière frappe avant de rechercher
+  searchTimeout = setTimeout(() => {
+    // Recharger depuis la page 1 avec la recherche
+    currentPage.value = 1
+    loadStudents(1)
+  }, 500)
+}
 
 // Obtenir le label d'un niveau
 const getLevelLabel = (level) => {
@@ -535,13 +542,18 @@ const loadStudents = async (pageOrData = null) => {
     
     // Utiliser $api qui inclut automatiquement le token via l'intercepteur
     const { $api } = useNuxtApp()
-    const response = await $api.get('/club/students', {
-      params: {
-        page: page,
-        per_page: perPage,
-        status: selectedStatus.value || 'active' // S'assurer qu'une valeur est toujours envoyée
-      }
-    })
+    const params = {
+      page: page,
+      per_page: perPage,
+      status: selectedStatus.value || 'active' // S'assurer qu'une valeur est toujours envoyée
+    }
+    
+    // Ajouter la recherche si elle existe
+    if (searchQuery.value && searchQuery.value.trim()) {
+      params.search = searchQuery.value.trim()
+    }
+    
+    const response = await $api.get('/club/students', { params })
     
     console.log('✅ Élèves reçus:', {
       count: response.data.data?.length,

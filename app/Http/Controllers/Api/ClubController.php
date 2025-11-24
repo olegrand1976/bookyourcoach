@@ -727,11 +727,13 @@ class ClubController extends Controller
             $perPage = $request->input('per_page', 20);
             $page = $request->input('page', 1);
             $status = $request->input('status', 'active'); // Par défaut, seulement les actifs
+            $search = $request->input('search', ''); // Recherche par nom/email
             
             \Log::info('ClubController::getStudents - Paramètres reçus', [
                 'status' => $status,
                 'page' => $page,
                 'per_page' => $perPage,
+                'search' => $search,
                 'club_id' => $clubUser->club_id,
                 'all_params' => $request->all(),
                 'query_params' => $request->query()
@@ -742,6 +744,21 @@ class ClubController extends Controller
                 ->join('students', 'club_students.student_id', '=', 'students.id')
                 ->leftJoin('users', 'students.user_id', '=', 'users.id')
                 ->where('club_students.club_id', $clubUser->club_id);
+            
+            // Recherche par nom ou email
+            if (!empty($search)) {
+                $searchTerm = '%' . $search . '%';
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('users.name', 'like', $searchTerm)
+                      ->orWhere('users.first_name', 'like', $searchTerm)
+                      ->orWhere('users.last_name', 'like', $searchTerm)
+                      ->orWhere('users.email', 'like', $searchTerm)
+                      ->orWhere('students.first_name', 'like', $searchTerm)
+                      ->orWhere('students.last_name', 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(COALESCE(users.first_name, ''), ' ', COALESCE(users.last_name, ''))"), 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(COALESCE(students.first_name, ''), ' ', COALESCE(students.last_name, ''))"), 'like', $searchTerm);
+                });
+            }
             
             // Filtrer par statut - Par défaut, seuls les élèves actifs sont retournés
             if ($status === 'active' || empty($status) || $status === null) {
