@@ -214,6 +214,15 @@ jobs:
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
         fi
 
+        # Supprimer explicitement les conteneurs par nom pour éviter les conflits
+        log_info "🗑️  Suppression des conteneurs existants par nom..."
+        for container_name in activibe-backend activibe-frontend activibe-neo4j activibe-phpmyadmin; do
+            if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
+                log_info "  Suppression du conteneur: ${container_name}"
+                docker rm -f "${container_name}" 2>/dev/null || true
+            fi
+        done
+
         # Nettoyage des ressources orphelines
         log_info "🧹 Nettoyage des ressources orphelines..."
         docker container prune -f 2>/dev/null || true
@@ -437,6 +446,15 @@ jobs:
         if [[ -f "$COMPOSE_FILE" ]]; then
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
         fi
+
+        # Supprimer explicitement les conteneurs par nom pour éviter les conflits
+        log_info "🗑️  Suppression des conteneurs existants par nom..."
+        for container_name in activibe-backend activibe-frontend activibe-neo4j activibe-phpmyadmin; do
+            if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
+                log_info "  Suppression du conteneur: ${container_name}"
+                docker rm -f "${container_name}" 2>/dev/null || true
+            fi
+        done
 
         # Nettoyage des ressources orphelines
         log_info "🧹 Nettoyage des ressources orphelines..."
