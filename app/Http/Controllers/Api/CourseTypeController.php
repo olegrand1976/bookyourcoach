@@ -118,21 +118,23 @@ class CourseTypeController extends Controller
                 $onlyUsedInSlots = $request->has('only_used_in_slots') && $request->boolean('only_used_in_slots');
                 
                 if ($onlyUsedInSlots) {
-                    // Récupérer UNIQUEMENT les types de cours réellement assignés aux créneaux du club
-                    // Vérifier d'abord tous les créneaux actifs du club
-                    $activeSlots = \DB::table('club_open_slots')
+                    // 🔒 FILTRAGE STRICT : Récupérer UNIQUEMENT les types de cours réellement UTILISÉS dans les cours créés (lessons)
+                    // Pas seulement assignés aux créneaux, mais réellement utilisés dans les cours
+                    $courseTypeIdsUsedInLessons = \DB::table('lessons')
                         ->where('club_id', $club->id)
-                        ->where('is_active', true)
-                        ->pluck('id')
+                        ->whereNotNull('course_type_id')
+                        ->distinct()
+                        ->pluck('course_type_id')
                         ->toArray();
                     
-                    \Log::info('CourseTypeController - Créneaux actifs du club', [
+                    \Log::info('CourseTypeController - Filtrage par cours créés (lessons)', [
                         'club_id' => $club->id,
-                        'active_slots' => $activeSlots,
-                        'count' => count($activeSlots)
+                        'course_type_ids_used_in_lessons' => $courseTypeIdsUsedInLessons,
+                        'count' => count($courseTypeIdsUsedInLessons)
                     ]);
                     
-                    if (empty($activeSlots)) {
+                    if (empty($courseTypeIdsUsedInLessons)) {
+                        // Aucun type de cours utilisé dans les cours créés
                         return response()->json([
                             'success' => true,
                             'data' => [],
@@ -140,54 +142,31 @@ class CourseTypeController extends Controller
                                 'total' => 0,
                                 'club_id' => $club->id,
                                 'club_disciplines' => $validExistingDisciplineIds,
-                                'message' => 'Aucun créneau actif pour ce club'
+                                'message' => 'Aucun type de cours utilisé dans les cours créés du club'
                             ]
                         ]);
                     }
                     
-                    // Récupérer les IDs des types de cours assignés à ces créneaux
-                    $courseTypeIdsInSlots = \DB::table('club_open_slot_course_types')
-                        ->whereIn('club_open_slot_id', $activeSlots)
-                        ->distinct()
-                        ->pluck('course_type_id')
-                        ->toArray();
-                    
                     // Vérifier les détails pour debug
-                    $details = \DB::table('club_open_slot_course_types')
-                        ->whereIn('club_open_slot_id', $activeSlots)
-                        ->join('course_types', 'club_open_slot_course_types.course_type_id', '=', 'course_types.id')
-                        ->select('course_types.id', 'course_types.name', 'course_types.discipline_id')
+                    $details = \DB::table('course_types')
+                        ->whereIn('id', $courseTypeIdsUsedInLessons)
+                        ->select('id', 'name', 'discipline_id')
                         ->get();
                     
-                    \Log::info('CourseTypeController - Filtrage par créneaux', [
+                    \Log::info('CourseTypeController - Types de cours utilisés dans les cours', [
                         'club_id' => $club->id,
-                        'active_slots_count' => count($activeSlots),
-                        'course_type_ids_in_slots' => $courseTypeIdsInSlots,
+                        'course_type_ids' => $courseTypeIdsUsedInLessons,
                         'course_types_details' => $details->map(fn($d) => [
                             'id' => $d->id,
                             'name' => $d->name,
                             'discipline_id' => $d->discipline_id
                         ])->toArray(),
-                        'count' => count($courseTypeIdsInSlots)
+                        'count' => count($courseTypeIdsUsedInLessons)
                     ]);
                     
-                    if (empty($courseTypeIdsInSlots)) {
-                        // Aucun type de cours assigné aux créneaux
-                        return response()->json([
-                            'success' => true,
-                            'data' => [],
-                            'meta' => [
-                                'total' => 0,
-                                'club_id' => $club->id,
-                                'club_disciplines' => $validExistingDisciplineIds,
-                                'message' => 'Aucun type de cours assigné aux créneaux du club'
-                            ]
-                        ]);
-                    }
-                    
-                    // Filtrer par discipline ET par types de cours dans les créneaux
+                    // Filtrer par discipline ET par types de cours réellement utilisés dans les cours
                     $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
-                        ->whereIn('id', $courseTypeIdsInSlots)
+                        ->whereIn('id', $courseTypeIdsUsedInLessons)
                         ->where('is_active', true)
                         ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
                         ->orderBy('discipline_id')
