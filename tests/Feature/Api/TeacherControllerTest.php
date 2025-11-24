@@ -565,5 +565,245 @@ class TeacherControllerTest extends TestCase
         // Assert
         $response->assertStatus(403); // Forbidden car le middleware teacher vérifie le rôle
     }
+
+    #[Test]
+    public function it_can_get_student_details()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        
+        $club = Club::factory()->create();
+        $teacher->clubs()->attach($club->id, [
+            'is_active' => true,
+            'joined_at' => now()
+        ]);
+
+        $student = Student::factory()->create(['club_id' => $club->id]);
+
+        // Act
+        $response = $this->getJson("/api/teacher/students/{$student->id}");
+
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'student' => [
+                         'id',
+                         'name',
+                         'email',
+                         'phone',
+                         'level',
+                         'age',
+                         'club_id',
+                         'club' => [
+                             'id',
+                             'name',
+                         ]
+                     ]
+                 ]);
+
+        $this->assertEquals($student->id, $response->json('student.id'));
+        $this->assertEquals($club->id, $response->json('student.club.id'));
+    }
+
+    #[Test]
+    public function it_cannot_get_student_from_different_club()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        
+        $club1 = Club::factory()->create();
+        $teacher->clubs()->attach($club1->id, [
+            'is_active' => true,
+            'joined_at' => now()
+        ]);
+
+        $club2 = Club::factory()->create();
+        $student = Student::factory()->create(['club_id' => $club2->id]);
+
+        // Act
+        $response = $this->getJson("/api/teacher/students/{$student->id}");
+
+        // Assert
+        $response->assertStatus(404)
+                 ->assertJson([
+                     'success' => false,
+                     'message' => 'Élève non trouvé'
+                 ]);
+    }
+
+    #[Test]
+    public function it_can_get_earnings_for_week()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $student = Student::factory()->create();
+
+        // Créer des cours complétés cette semaine
+        $startOfWeek = Carbon::now()->startOfWeek();
+        Lesson::factory()->count(3)->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $startOfWeek->copy()->addDays(1)->setTime(10, 0),
+            'status' => 'completed',
+            'price' => 50.00,
+        ]);
+
+        // Créer un cours complété le mois dernier (ne doit pas apparaître)
+        Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->subMonth()->startOfMonth()->setTime(10, 0),
+            'status' => 'completed',
+            'price' => 50.00,
+        ]);
+
+        // Act
+        $response = $this->getJson('/api/teacher/earnings?period=week');
+
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'period',
+                     'date_from',
+                     'date_to',
+                     'earnings',
+                     'completed_lessons',
+                     'hours_worked',
+                     'lessons' => [
+                         '*' => [
+                             'id',
+                             'start_time',
+                             'end_time',
+                             'price',
+                             'duration',
+                             'student',
+                             'course_type',
+                             'club',
+                         ]
+                     ]
+                 ]);
+
+        $data = $response->json();
+        $this->assertEquals('week', $data['period']);
+        $this->assertEquals(150.00, $data['earnings']); // 3 cours × 50€
+        $this->assertEquals(3, $data['completed_lessons']);
+        $this->assertCount(3, $data['lessons']);
+    }
+
+    #[Test]
+    public function it_can_get_earnings_for_month()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $student = Student::factory()->create();
+
+        // Créer des cours complétés ce mois-ci
+        $startOfMonth = Carbon::now()->startOfMonth();
+        Lesson::factory()->count(5)->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $startOfMonth->copy()->addDays(5)->setTime(10, 0),
+            'status' => 'completed',
+            'price' => 60.00,
+        ]);
+
+        // Act
+        $response = $this->getJson('/api/teacher/earnings?period=month');
+
+        // Assert
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertEquals('month', $data['period']);
+        $this->assertEquals(300.00, $data['earnings']); // 5 cours × 60€
+        $this->assertEquals(5, $data['completed_lessons']);
+    }
+
+    #[Test]
+    public function it_can_get_earnings_for_year()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $student = Student::factory()->create();
+
+        // Créer des cours complétés cette année
+        $startOfYear = Carbon::now()->startOfYear();
+        Lesson::factory()->count(10)->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $startOfYear->copy()->addMonths(2)->setTime(10, 0),
+            'status' => 'completed',
+            'price' => 55.00,
+        ]);
+
+        // Act
+        $response = $this->getJson('/api/teacher/earnings?period=year');
+
+        // Assert
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertEquals('year', $data['period']);
+        $this->assertEquals(550.00, $data['earnings']); // 10 cours × 55€
+        $this->assertEquals(10, $data['completed_lessons']);
+    }
+
+    #[Test]
+    public function it_defaults_to_week_period_if_not_specified()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+
+        // Act
+        $response = $this->getJson('/api/teacher/earnings');
+
+        // Assert
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertEquals('week', $data['period']);
+    }
+
+    #[Test]
+    public function it_returns_zero_earnings_when_no_completed_lessons()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+
+        // Act
+        $response = $this->getJson('/api/teacher/earnings');
+
+        // Assert
+        $response->assertStatus(200);
+        $data = $response->json();
+        $this->assertEquals(0, $data['earnings']);
+        $this->assertEquals(0, $data['completed_lessons']);
+        $this->assertEquals(0, $data['hours_worked']);
+        $this->assertIsArray($data['lessons']);
+        $this->assertEmpty($data['lessons']);
+    }
 }
 
