@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class Subscription extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     // ⚠️ IMPORTANT : Définir explicitement les colonnes fillable
     // Ne jamais inclure: name, total_lessons, free_lessons, price (ces colonnes n'existent plus)
