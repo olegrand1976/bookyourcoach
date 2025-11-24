@@ -104,10 +104,9 @@
                 <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                   {{ subscription.instances?.length || 0 }} instance(s)
                 </span>
-                <!-- Bouton de suppression (uniquement si aucun élève assigné) -->
+                <!-- Bouton de suppression -->
                 <button
-                  v-if="!hasAnyStudents(subscription)"
-                  @click.stop="confirmDeleteSubscription(subscription)"
+                  @click.stop="openDeleteModal(subscription)"
                   class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
                   title="Supprimer cet abonnement"
                 >
@@ -485,6 +484,136 @@
       </div>
     </div>
 
+    <!-- Modal : Confirmation de suppression d'abonnement -->
+    <div 
+      v-if="showDeleteModal && subscriptionToDelete"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      @click.self="closeDeleteModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-900">
+                Confirmer la suppression
+              </h3>
+              <p class="text-sm text-gray-600 mt-1">
+                Cette action est irréversible
+              </p>
+            </div>
+            <button 
+              @click="closeDeleteModal"
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Informations de l'abonnement à supprimer -->
+          <div class="bg-red-50 border-2 border-red-200 rounded-lg p-6 mb-6">
+            <div class="space-y-4">
+              <div>
+                <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                  Abonnement {{ subscriptionToDelete.subscription_number }}
+                </h4>
+                <p v-if="subscriptionToDelete.template" class="text-sm text-gray-600">
+                  Modèle: {{ subscriptionToDelete.template.model_number }}
+                </p>
+              </div>
+
+              <!-- Détails du modèle -->
+              <div v-if="subscriptionToDelete.template" class="grid grid-cols-2 gap-4">
+                <div class="bg-white rounded-lg p-3 border border-gray-200">
+                  <p class="text-xs text-gray-500 mb-1">Nombre de cours</p>
+                  <p class="text-lg font-semibold text-gray-900">
+                    {{ subscriptionToDelete.template.total_lessons }}
+                    <span v-if="subscriptionToDelete.template.free_lessons > 0" class="text-green-600 text-sm">
+                      + {{ subscriptionToDelete.template.free_lessons }} gratuit{{ subscriptionToDelete.template.free_lessons > 1 ? 's' : '' }}
+                    </span>
+                  </p>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-200">
+                  <p class="text-xs text-gray-500 mb-1">Prix</p>
+                  <p class="text-lg font-semibold text-gray-900">
+                    {{ subscriptionToDelete.template.price }} €
+                  </p>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-200">
+                  <p class="text-xs text-gray-500 mb-1">Validité</p>
+                  <p class="text-sm font-medium text-gray-900">
+                    {{ formatValidity(subscriptionToDelete.template) }}
+                  </p>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-200">
+                  <p class="text-xs text-gray-500 mb-1">Instances</p>
+                  <p class="text-sm font-medium text-gray-900">
+                    {{ subscriptionToDelete.instances?.length || 0 }} instance(s)
+                  </p>
+                </div>
+              </div>
+
+              <!-- Types de cours inclus -->
+              <div v-if="subscriptionToDelete.template?.course_types?.length" class="bg-white rounded-lg p-3 border border-gray-200">
+                <p class="text-xs text-gray-500 mb-2">Types de cours inclus</p>
+                <div class="flex flex-wrap gap-2">
+                  <span 
+                    v-for="courseType in subscriptionToDelete.template.course_types" 
+                    :key="courseType.id"
+                    class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
+                  >
+                    {{ courseType.name }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Avertissement si des élèves sont assignés -->
+              <div v-if="hasAnyStudents(subscriptionToDelete)" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-start">
+                  <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <p class="text-sm font-medium text-yellow-800">
+                      Attention : Cet abonnement a des élèves assignés
+                    </p>
+                    <p class="text-xs text-yellow-700 mt-1">
+                      La suppression de cet abonnement supprimera également toutes les instances associées et leurs données.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boutons d'action -->
+          <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              @click="closeDeleteModal"
+              class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              @click="deleteSubscription(subscriptionToDelete.id)"
+              :disabled="deletingSubscription === subscriptionToDelete.id"
+              class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              <span v-if="deletingSubscription === subscriptionToDelete.id">Suppression...</span>
+              <span v-else>Confirmer la suppression</span>
+              <svg v-if="deletingSubscription === subscriptionToDelete.id" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal : Modifier une instance d'abonnement -->
     <div 
       v-if="showEditInstanceModal && editingInstance"
@@ -686,6 +815,7 @@ const showEditModal = ref(false)
 const showAssignModal = ref(false)
 const showHistoryModal = ref(false)
 const showEditInstanceModal = ref(false)
+const showDeleteModal = ref(false)
 const selectedSubscription = ref(null)
 const subscriptionHistory = ref(null)
 const updatingEstLegacy = ref(null)
@@ -693,6 +823,7 @@ const editingInstance = ref(null)
 const instanceHistory = ref([])
 const savingInstance = ref(false)
 const deletingSubscription = ref(null)
+const subscriptionToDelete = ref(null)
 
 // Formulaire d'édition d'instance
 const editForm = ref({
@@ -1425,11 +1556,33 @@ const hasAnyStudents = (subscription) => {
   })
 }
 
-// Confirmer la suppression d'un abonnement
-const confirmDeleteSubscription = (subscription) => {
-  if (confirm(`Êtes-vous sûr de vouloir supprimer l'abonnement ${subscription.subscription_number} ?`)) {
-    deleteSubscription(subscription.id)
+// Ouvrir la modale de confirmation de suppression
+const openDeleteModal = async (subscription) => {
+  try {
+    // Charger les détails complets de l'abonnement si nécessaire
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/club/subscriptions/${subscription.id}`)
+    
+    if (response.data.success) {
+      subscriptionToDelete.value = response.data.data
+      showDeleteModal.value = true
+    } else {
+      // Si l'API échoue, utiliser les données déjà chargées
+      subscriptionToDelete.value = subscription
+      showDeleteModal.value = true
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des détails:', error)
+    // En cas d'erreur, utiliser les données déjà chargées
+    subscriptionToDelete.value = subscription
+    showDeleteModal.value = true
   }
+}
+
+// Fermer la modale de suppression
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
+  subscriptionToDelete.value = null
 }
 
 // Supprimer un abonnement
@@ -1443,6 +1596,8 @@ const deleteSubscription = async (subscriptionId) => {
     
     if (response.data.success) {
       showSuccess('Abonnement supprimé avec succès')
+      // Fermer la modale
+      closeDeleteModal()
       // Recharger la liste des abonnements
       await loadSubscriptions()
     } else {
