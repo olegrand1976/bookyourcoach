@@ -740,6 +740,7 @@ class ClubController extends Controller
             ]);
             
             // Utiliser leftJoin pour gérer les étudiants sans user_id
+            // La contrainte unique sur (club_id, student_id) garantit qu'il n'y a qu'un seul enregistrement
             $query = DB::table('club_students')
                 ->join('students', 'club_students.student_id', '=', 'students.id')
                 ->leftJoin('users', 'students.user_id', '=', 'users.id')
