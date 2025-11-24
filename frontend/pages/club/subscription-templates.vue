@@ -712,6 +712,15 @@ const loadCourseTypes = async () => {
         discipline: ct.discipline ? { id: ct.discipline.id, name: ct.discipline.name } : null
       })))
       
+      // 🔒 AUTO-SÉLECTION : Si un seul type de cours est disponible, le pré-cocher automatiquement
+      if (availableCourseTypes.value.length === 1 && showCreateModal.value) {
+        const singleCourseType = availableCourseTypes.value[0]
+        if (!form.value.course_type_ids.includes(singleCourseType.id)) {
+          form.value.course_type_ids = [singleCourseType.id]
+          console.log(`✅ [AUTO-SÉLECTION] Type de cours unique pré-coché: ${singleCourseType.name} (ID: ${singleCourseType.id})`)
+        }
+      }
+      
       if (clubDisciplines.length > 3) {
         console.warn(`⚠️ Le club a ${clubDisciplines.length} disciplines configurées. Seuls les types de cours de ces disciplines sont affichés.`)
       }
@@ -870,6 +879,16 @@ const openCreateModal = () => {
   showEditModal.value = false
   resetForm()
   showCreateModal.value = true
+  
+  // 🔒 AUTO-SÉLECTION : Si un seul type de cours est disponible, le pré-cocher automatiquement
+  // Utiliser nextTick pour s'assurer que availableCourseTypes est à jour
+  nextTick(() => {
+    if (availableCourseTypes.value.length === 1) {
+      const singleCourseType = availableCourseTypes.value[0]
+      form.value.course_type_ids = [singleCourseType.id]
+      console.log(`✅ [AUTO-SÉLECTION] Type de cours unique pré-coché à l'ouverture: ${singleCourseType.name} (ID: ${singleCourseType.id})`)
+    }
+  })
 }
 
 const closeModals = () => {
