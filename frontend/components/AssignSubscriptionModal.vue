@@ -447,34 +447,109 @@ const loadStudents = async () => {
   try {
     loadingStudents.value = true
     const { $api } = useNuxtApp()
-    const response = await $api.get('/club/students')
     
-    if (response.data.success) {
-      allStudents.value = response.data.data || []
-      filteredStudents.value = allStudents.value
-      filteredAdditionalStudents.value = allStudents.value
-      
-      // Si un élève est fourni en prop, le présélectionner
-      if (props.student?.id) {
-        const found = allStudents.value.find(s => s.id === props.student.id)
-        if (found) {
-          selectStudent(found)
+    // Charger tous les élèves avec un per_page élevé pour éviter la pagination
+    // Ou charger toutes les pages si nécessaire
+    let allLoadedStudents = []
+    let currentPage = 1
+    let hasMore = true
+    
+    while (hasMore) {
+      const response = await $api.get('/club/students', {
+        params: {
+          page: currentPage,
+          per_page: 100, // Charger 100 élèves par page
+          status: 'all' // Charger tous les élèves (actifs et inactifs)
         }
+      })
+      
+      if (response.data.success && response.data.data) {
+        allLoadedStudents = [...allLoadedStudents, ...response.data.data]
+        
+        // Vérifier s'il y a d'autres pages
+        const pagination = response.data.pagination
+        if (pagination && currentPage < pagination.last_page) {
+          currentPage++
+        } else {
+          hasMore = false
+        }
+      } else {
+        hasMore = false
+      }
+    }
+    
+    allStudents.value = allLoadedStudents
+    filteredStudents.value = allStudents.value
+    filteredAdditionalStudents.value = allStudents.value
+    
+    // Si un élève est fourni en prop, le présélectionner
+    // Si l'élève n'est pas dans la liste chargée, l'ajouter
+    if (props.student?.id) {
+      let found = allStudents.value.find(s => s.id === props.student.id)
+      
+      // Si l'élève n'est pas trouvé dans la liste, l'ajouter depuis les props
+      if (!found && props.student) {
+        // Ajouter l'élève à la liste même s'il n'est pas dans les résultats de l'API
+        const studentToAdd = {
+          id: props.student.id,
+          name: props.student.name || getStudentNameFromProps(props.student),
+          email: props.student.email || props.student.user?.email || null,
+          first_name: props.student.first_name || props.student.user?.first_name || null,
+          last_name: props.student.last_name || props.student.user?.last_name || null,
+          ...props.student
+        }
+        allStudents.value.push(studentToAdd)
+        filteredStudents.value = allStudents.value
+        filteredAdditionalStudents.value = allStudents.value
+        found = studentToAdd
       }
       
-      // Initialiser la date de début avec aujourd'hui
-      form.value.started_at = new Date().toISOString().split('T')[0]
-      // Réinitialiser lessons_used
-      form.value.lessons_used = 0
+      if (found) {
+        selectStudent(found)
+      }
     }
+    
+    // Initialiser la date de début avec aujourd'hui
+    form.value.started_at = new Date().toISOString().split('T')[0]
+    // Réinitialiser lessons_used
+    form.value.lessons_used = 0
   } catch (error) {
     console.error('Erreur lors du chargement des élèves:', error)
     allStudents.value = []
     filteredStudents.value = []
     filteredAdditionalStudents.value = []
+    
+    // Même en cas d'erreur, essayer d'ajouter l'élève des props s'il existe
+    if (props.student?.id) {
+      const studentToAdd = {
+        id: props.student.id,
+        name: props.student.name || getStudentNameFromProps(props.student),
+        email: props.student.email || props.student.user?.email || null,
+        first_name: props.student.first_name || props.student.user?.first_name || null,
+        last_name: props.student.last_name || props.student.user?.last_name || null,
+        ...props.student
+      }
+      allStudents.value.push(studentToAdd)
+      filteredStudents.value = [studentToAdd]
+      filteredAdditionalStudents.value = [studentToAdd]
+      selectStudent(studentToAdd)
+    }
   } finally {
     loadingStudents.value = false
   }
+}
+
+// Helper pour obtenir le nom d'un élève depuis les props
+const getStudentNameFromProps = (student) => {
+  if (student.name) return student.name
+  if (student.user?.name) return student.user.name
+  if (student.first_name || student.last_name) {
+    return `${student.first_name || ''} ${student.last_name || ''}`.trim()
+  }
+  if (student.user?.first_name || student.user?.last_name) {
+    return `${student.user.first_name || ''} ${student.user.last_name || ''}`.trim()
+  }
+  return 'Élève'
 }
 
 // Filtrer les élèves pour l'autocomplete principal
