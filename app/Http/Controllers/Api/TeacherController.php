@@ -303,8 +303,8 @@ class TeacherController extends Controller
 
             $activeStudents = Lesson::where('teacher_id', $teacher->id)
                 ->whereIn('status', ['confirmed', 'completed'])
-                ->distinct('student_id')
                 ->whereNotNull('student_id')
+                ->distinct()
                 ->count('student_id');
 
             $weekEarnings = Lesson::where('teacher_id', $teacher->id)
@@ -437,6 +437,62 @@ class TeacherController extends Controller
     }
 
     /**
+     * Récupère les détails d'un élève spécifique
+     */
+    public function getStudent(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            $teacher = $user->teacher;
+
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil enseignant introuvable'
+                ], 404);
+            }
+
+            // Récupérer les clubs où l'enseignant travaille
+            $clubIds = $teacher->clubs()->pluck('clubs.id');
+
+            // Récupérer l'élève s'il appartient à un des clubs de l'enseignant
+            $student = \App\Models\Student::with(['user', 'club'])
+                ->whereIn('club_id', $clubIds)
+                ->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'student' => [
+                    'id' => $student->id,
+                    'name' => $student->user->name ?? 'Sans nom',
+                    'email' => $student->user->email ?? '',
+                    'phone' => $student->user->phone ?? '',
+                    'level' => $student->level ?? 'débutant',
+                    'age' => $student->age,
+                    'club_id' => $student->club_id,
+                    'club' => $student->club ? [
+                        'id' => $student->club->id,
+                        'name' => $student->club->name
+                    ] : null
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Élève non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération de l\'élève: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération de l\'élève',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Liste des clubs où l'enseignant travaille
      */
     public function getClubs(Request $request)
@@ -464,6 +520,117 @@ class TeacherController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des clubs'
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupère les revenus de l'enseignant pour une période donnée
+     */
+    public function getEarnings(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $teacher = $user->teacher;
+
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil enseignant introuvable'
+                ], 404);
+            }
+
+            $period = $request->get('period', 'week'); // week, month, year
+            $now = now();
+            
+            $dateFrom = null;
+            $dateTo = null;
+            
+            switch ($period) {
+                case 'week':
+                    $dateFrom = $now->copy()->startOfWeek();
+                    $dateTo = $now->copy()->endOfWeek();
+                    break;
+                case 'month':
+                    $dateFrom = $now->copy()->startOfMonth();
+                    $dateTo = $now->copy()->endOfMonth();
+                    break;
+                case 'year':
+                    $dateFrom = $now->copy()->startOfYear();
+                    $dateTo = $now->copy()->endOfYear();
+                    break;
+                default:
+                    $dateFrom = $now->copy()->startOfWeek();
+                    $dateTo = $now->copy()->endOfWeek();
+            }
+
+            // Calculer les revenus
+            $earnings = Lesson::where('teacher_id', $teacher->id)
+                ->whereBetween('start_time', [$dateFrom, $dateTo])
+                ->where('status', 'completed')
+                ->sum('price');
+
+            // Nombre de cours complétés
+            $completedLessons = Lesson::where('teacher_id', $teacher->id)
+                ->whereBetween('start_time', [$dateFrom, $dateTo])
+                ->where('status', 'completed')
+                ->count();
+
+            // Heures travaillées
+            $hoursWorked = Lesson::where('teacher_id', $teacher->id)
+                ->whereBetween('start_time', [$dateFrom, $dateTo])
+                ->where('status', 'completed')
+                ->get()
+                ->sum(function($lesson) {
+                    return $lesson->start_time->diffInMinutes($lesson->end_time) / 60;
+                });
+
+            // Détails par cours
+            $lessons = Lesson::where('teacher_id', $teacher->id)
+                ->whereBetween('start_time', [$dateFrom, $dateTo])
+                ->where('status', 'completed')
+                ->with(['student.user', 'courseType', 'club'])
+                ->orderBy('start_time', 'desc')
+                ->get()
+                ->map(function($lesson) {
+                    return [
+                        'id' => $lesson->id,
+                        'start_time' => $lesson->start_time->toDateTimeString(),
+                        'end_time' => $lesson->end_time->toDateTimeString(),
+                        'price' => $lesson->price,
+                        'duration' => $lesson->start_time->diffInMinutes($lesson->end_time) / 60,
+                        'student' => $lesson->student ? [
+                            'id' => $lesson->student->id,
+                            'name' => $lesson->student->user->name ?? 'Sans nom'
+                        ] : null,
+                        'course_type' => $lesson->courseType ? [
+                            'id' => $lesson->courseType->id,
+                            'name' => $lesson->courseType->name
+                        ] : null,
+                        'club' => $lesson->club ? [
+                            'id' => $lesson->club->id,
+                            'name' => $lesson->club->name
+                        ] : null
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'period' => $period,
+                'date_from' => $dateFrom->toDateString(),
+                'date_to' => $dateTo->toDateString(),
+                'earnings' => round($earnings, 2),
+                'completed_lessons' => $completedLessons,
+                'hours_worked' => round($hoursWorked, 2),
+                'lessons' => $lessons
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des revenus: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des revenus',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

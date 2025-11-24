@@ -124,7 +124,13 @@
             Voir le dashboard complet →
           </NuxtLink>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div v-if="loading" class="flex items-center justify-center py-8">
+          <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p class="text-gray-600 text-sm">Chargement des statistiques...</p>
+          </div>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 md:p-6 text-center">
             <div class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               {{ quickStats.todayLessons }}
@@ -168,6 +174,7 @@ if (!authStore.canActAsTeacher) {
 }
 
 // État réactif
+const loading = ref(true)
 const quickStats = ref({
   todayLessons: 0,
   totalStudents: 0,
@@ -176,9 +183,10 @@ const quickStats = ref({
 
 // Charger les statistiques rapides
 onMounted(async () => {
+  loading.value = true
   try {
     const response = await $api.get('/teacher/dashboard-simple')
-    if (response.data.stats) {
+    if (response.data?.success && response.data.stats) {
       quickStats.value = {
         todayLessons: response.data.stats.today_lessons || 0,
         totalStudents: response.data.stats.active_students || 0,
@@ -187,6 +195,10 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('Erreur lors du chargement des statistiques rapides:', error)
+    const { error: showError } = useToast()
+    showError('Impossible de charger les statistiques. Veuillez réessayer.')
+  } finally {
+    loading.value = false
   }
 })
 </script>
