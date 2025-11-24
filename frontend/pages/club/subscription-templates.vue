@@ -921,6 +921,18 @@ onMounted(async () => {
   })
 })
 
+// Watcher pour auto-sélection du type de cours unique quand la modale est ouverte
+watch([availableCourseTypes, showCreateModal], ([courseTypes, isModalOpen]) => {
+  // Si la modale est ouverte et qu'un seul type de cours est disponible, le pré-cocher
+  if (isModalOpen && Array.isArray(courseTypes) && courseTypes.length === 1) {
+    const singleCourseType = courseTypes[0]
+    if (!form.value.course_type_ids.includes(singleCourseType.id)) {
+      form.value.course_type_ids = [singleCourseType.id]
+      console.log(`✅ [AUTO-SÉLECTION] Type de cours unique pré-coché via watcher: ${singleCourseType.name} (ID: ${singleCourseType.id})`)
+    }
+  }
+}, { immediate: false })
+
 // Watcher pour debug du groupement
 watch(groupedCourseTypes, (newGroups) => {
   console.log('🔄 groupedCourseTypes mis à jour:', {
