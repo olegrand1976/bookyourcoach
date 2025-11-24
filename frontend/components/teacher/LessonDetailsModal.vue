@@ -38,18 +38,44 @@
             <p class="text-sm text-gray-500">{{ lesson.duration }} minutes - {{ lesson.price }}€</p>
           </div>
 
-          <!-- Élève -->
+          <!-- Élève(s) -->
           <div>
-            <p class="text-sm text-gray-600 font-medium">Élève</p>
-            <div class="flex items-center gap-2 mt-2">
+            <p class="text-sm text-gray-600 font-medium">Élève(s)</p>
+            <!-- Vérifier d'abord la relation many-to-many (students) -->
+            <div v-if="lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0" class="mt-2 space-y-2">
+              <div v-for="(student, index) in lesson.students" :key="student.id || index" class="flex items-center gap-2">
+                <div class="bg-emerald-100 p-2 rounded-full">
+                  <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-lg font-semibold">{{ student.user?.name || student.name || 'Sans nom' }}</p>
+                  <p v-if="student.age" class="text-sm text-gray-500">{{ student.age }} ans</p>
+                </div>
+              </div>
+            </div>
+            <!-- Sinon, vérifier la relation one-to-many (student) -->
+            <div v-else-if="lesson.student?.user?.name || lesson.student?.name" class="flex items-center gap-2 mt-2">
               <div class="bg-emerald-100 p-2 rounded-full">
                 <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               <div>
-                <p class="text-lg font-semibold">{{ lesson.student?.user?.name || 'Sans élève' }}</p>
+                <p class="text-lg font-semibold">{{ lesson.student?.user?.name || lesson.student?.name || 'Sans élève' }}</p>
                 <p v-if="lesson.student?.age" class="text-sm text-gray-500">{{ lesson.student.age }} ans</p>
+              </div>
+            </div>
+            <!-- Aucun élève -->
+            <div v-else class="flex items-center gap-2 mt-2">
+              <div class="bg-gray-100 p-2 rounded-full">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-lg font-semibold text-gray-500">Sans élève</p>
               </div>
             </div>
           </div>

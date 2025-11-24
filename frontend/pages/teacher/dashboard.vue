@@ -429,10 +429,10 @@
                   </td>
                   <td class="px-6 py-4">
                     <div class="text-sm font-medium text-gray-900">
-                      {{ lesson.student?.user?.name || 'Sans élève' }}
+                      {{ getLessonStudentNames(lesson) }}
                     </div>
-                    <div v-if="lesson.student?.age" class="text-xs text-gray-500">
-                      {{ lesson.student.age }} ans
+                    <div v-if="getLessonStudentAges(lesson)" class="text-xs text-gray-500">
+                      {{ getLessonStudentAges(lesson) }}
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
@@ -834,6 +834,52 @@ function modifyReplacementRequest(lesson: any, replacement: any) {
       }, 500)
     })
   }
+}
+
+// Fonction pour obtenir les noms des élèves d'un cours
+function getLessonStudentNames(lesson: any): string {
+  // Vérifier d'abord la relation many-to-many (students)
+  if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
+    const names = lesson.students
+      .map((s: any) => s.user?.name || s.name || 'Sans nom')
+      .filter((name: string) => name !== 'Sans nom')
+    if (names.length > 0) {
+      return names.join(', ')
+    }
+  }
+  
+  // Sinon, vérifier la relation one-to-many (student)
+  if (lesson.student?.user?.name) {
+    return lesson.student.user.name
+  }
+  
+  // Fallback: vérifier d'autres sources possibles
+  if (lesson.student?.name) {
+    return lesson.student.name
+  }
+  
+  return 'Sans élève'
+}
+
+// Fonction pour obtenir les âges des élèves d'un cours
+function getLessonStudentAges(lesson: any): string {
+  const ages: string[] = []
+  
+  // Vérifier d'abord la relation many-to-many (students)
+  if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
+    lesson.students.forEach((s: any) => {
+      if (s.age) {
+        ages.push(`${s.age} ans`)
+      }
+    })
+  }
+  
+  // Sinon, vérifier la relation one-to-many (student)
+  if (ages.length === 0 && lesson.student?.age) {
+    ages.push(`${lesson.student.age} ans`)
+  }
+  
+  return ages.length > 0 ? ages.join(', ') : ''
 }
 
 function formatDate(datetime: string): string {

@@ -133,6 +133,25 @@ class TeacherController extends Controller
                 ->limit(100)
                 ->get()
                 ->map(function ($lesson) {
+                    // Charger les élèves de la relation many-to-many
+                    $lessonStudents = \Illuminate\Support\Facades\DB::table('lesson_student')
+                        ->join('students', 'lesson_student.student_id', '=', 'students.id')
+                        ->join('users', 'students.user_id', '=', 'users.id')
+                        ->where('lesson_student.lesson_id', $lesson->id)
+                        ->select('students.id', 'users.name', 'users.email', 'students.age')
+                        ->get()
+                        ->map(function ($s) {
+                            return (object) [
+                                'id' => $s->id,
+                                'user' => (object) [
+                                    'id' => null,
+                                    'name' => $s->name,
+                                    'email' => $s->email
+                                ],
+                                'age' => $s->age
+                            ];
+                        });
+                    
                     return (object) [
                         'id' => $lesson->id,
                         'teacher_id' => $lesson->teacher_id,
@@ -149,6 +168,7 @@ class TeacherController extends Controller
                             'id' => $lesson->student_id,
                             'user' => (object) ['id' => null, 'name' => $lesson->student_name]
                         ] : null,
+                        'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
                         'course_type' => $lesson->course_type_id ? (object) [
                             'id' => $lesson->course_type_id,
                             'name' => $lesson->course_type_name
@@ -200,6 +220,25 @@ class TeacherController extends Controller
                     ->limit(20)
                     ->get()
                     ->map(function ($lesson) {
+                        // Charger les élèves de la relation many-to-many
+                        $lessonStudents = \Illuminate\Support\Facades\DB::table('lesson_student')
+                            ->join('students', 'lesson_student.student_id', '=', 'students.id')
+                            ->join('users', 'students.user_id', '=', 'users.id')
+                            ->where('lesson_student.lesson_id', $lesson->id)
+                            ->select('students.id', 'users.name', 'users.email', 'students.age')
+                            ->get()
+                            ->map(function ($s) {
+                                return (object) [
+                                    'id' => $s->id,
+                                    'user' => (object) [
+                                        'id' => null,
+                                        'name' => $s->name,
+                                        'email' => $s->email
+                                    ],
+                                    'age' => $s->age
+                                ];
+                            });
+                        
                         return (object) [
                             'id' => $lesson->id,
                             'teacher_id' => $lesson->teacher_id,
@@ -216,6 +255,7 @@ class TeacherController extends Controller
                                 'id' => $lesson->student_id,
                                 'user' => (object) ['id' => null, 'name' => $lesson->student_name]
                             ] : null,
+                            'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
                             'course_type' => $lesson->course_type_id ? (object) [
                                 'id' => $lesson->course_type_id,
                                 'name' => $lesson->course_type_name
