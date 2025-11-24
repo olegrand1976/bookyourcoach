@@ -341,15 +341,37 @@ function formatPrice(price: number | null | undefined): string {
 function getLessonStudents(lesson: Lesson): string {
   const students: string[] = []
   
-  if (lesson.student?.user?.name) {
-    students.push(lesson.student.user.name)
+  // Vérifier d'abord la relation many-to-many (students) - priorité pour les cours de groupe
+  if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
+    lesson.students.forEach((student: any) => {
+      const name = student.user?.name || student.name
+      if (name && !students.includes(name)) {
+        students.push(name)
+      }
+    })
   }
   
-  if (lesson.students && Array.isArray(lesson.students)) {
-    lesson.students.forEach((student: any) => {
-      if (student.user?.name && !students.includes(student.user.name)) {
-        students.push(student.user.name)
-      }
+  // Ensuite vérifier l'élève principal (student) - pour les cours individuels
+  if (lesson.student?.user?.name) {
+    const name = lesson.student.user.name
+    if (!students.includes(name)) {
+      students.push(name)
+    }
+  } else if (lesson.student?.name) {
+    // Fallback si user n'est pas chargé mais que student.name existe
+    const name = lesson.student.name
+    if (!students.includes(name)) {
+      students.push(name)
+    }
+  }
+  
+  // Debug si aucun élève trouvé mais qu'il y a un student_id
+  if (students.length === 0 && lesson.student_id) {
+    console.warn('⚠️ [LessonsHistoryModal] Aucun élève trouvé mais student_id existe:', {
+      lesson_id: lesson.id,
+      student_id: lesson.student_id,
+      student: lesson.student,
+      students: lesson.students
     })
   }
   
