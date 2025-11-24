@@ -700,10 +700,8 @@ class SubscriptionController extends Controller
                     ->delete();
             }
 
-            // Supprimer l'abonnement (les instances seront supprimées en cascade si elles existent)
-            DB::table('subscriptions')
-                ->where('id', $subscription->id)
-                ->delete();
+            // Soft-delete l'abonnement (les instances seront supprimées en cascade si elles existent)
+            $subscription->delete();
 
             DB::commit();
 
