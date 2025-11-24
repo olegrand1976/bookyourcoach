@@ -502,7 +502,7 @@ async function createLesson() {
     
     console.log('📤 Création du cours avec payload:', payload)
     
-    const response = await $api.post('/lessons', payload)
+    const response = await $api.post('/teacher/lessons', payload)
     
     if (response.data.success) {
       console.log('✅ Cours créé:', response.data.data)
@@ -541,7 +541,7 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
     saving.value = true
     const { $api } = useNuxtApp()
     
-    const response = await $api.put(`/lessons/${lessonId}`, {
+    const response = await $api.put(`/teacher/lessons/${lessonId}`, {
       status: newStatus
     })
     
@@ -566,7 +566,7 @@ async function deleteLesson(lessonId: number) {
     saving.value = true
     const { $api } = useNuxtApp()
     
-    const response = await $api.delete(`/lessons/${lessonId}`)
+    const response = await $api.delete(`/teacher/lessons/${lessonId}`)
     
     if (response.data.success) {
       await loadLessons()

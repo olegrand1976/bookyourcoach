@@ -91,6 +91,7 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
     Route::put('/profile', [TeacherController::class, 'updateProfile']); // Mise à jour du profil
     Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
     Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
+    Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     Route::get('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'index']);
     Route::post('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'store']);
@@ -98,7 +99,9 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
     Route::delete('/lesson-replacements/{id}', [App\Http\Controllers\Api\LessonReplacementController::class, 'cancel']);
     Route::get('/teachers', [App\Http\Controllers\Api\TeacherController::class, 'index']); // Liste des autres enseignants
     Route::get('/students', [App\Http\Controllers\Api\TeacherController::class, 'getStudents']); // Liste des élèves
+    Route::get('/students/{id}', [App\Http\Controllers\Api\TeacherController::class, 'getStudent']); // Détails d'un élève
     Route::get('/clubs', [App\Http\Controllers\Api\TeacherController::class, 'getClubs']); // Liste des clubs
+    Route::get('/earnings', [App\Http\Controllers\Api\TeacherController::class, 'getEarnings']); // Revenus de l'enseignant
     
     // Notifications
     Route::get('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'index']);
