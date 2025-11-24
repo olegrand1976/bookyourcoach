@@ -555,21 +555,32 @@ const exportCSV = async (year: number, month: number) => {
     // Créer une URL avec le token d'authentification
     const url = `${apiBase}/club/payroll/export/${year}/${month}/csv`
     
+    console.log('📥 [PAYROLL] Export CSV:', { url, year, month })
+    
     // Utiliser fetch pour télécharger le fichier avec authentification
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token.value}`,
-        'Accept': 'text/csv'
-      }
+        'Accept': 'text/csv',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'include'
     })
     
     if (!response.ok) {
-      throw new Error('Erreur lors du téléchargement du CSV')
+      const errorText = await response.text()
+      console.error('❌ [PAYROLL] Erreur réponse:', { status: response.status, errorText })
+      throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors du téléchargement du CSV'}`)
     }
     
     // Récupérer le blob
     const blob = await response.blob()
+    
+    // Vérifier que c'est bien un CSV
+    if (!blob.type.includes('csv') && !blob.type.includes('text')) {
+      console.warn('⚠️ [PAYROLL] Type de fichier inattendu:', blob.type)
+    }
     
     // Créer un lien temporaire pour télécharger le fichier
     const downloadUrl = window.URL.createObjectURL(blob)
@@ -580,9 +591,9 @@ const exportCSV = async (year: number, month: number) => {
     const contentDisposition = response.headers.get('Content-Disposition')
     let filename = `rapport_paie_${month}_${year}.csv`
     if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i)
-      if (filenameMatch) {
-        filename = filenameMatch[1]
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i)
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '')
       }
     }
     
@@ -592,10 +603,11 @@ const exportCSV = async (year: number, month: number) => {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(downloadUrl)
     
+    console.log('✅ [PAYROLL] CSV téléchargé:', filename)
     showSuccess('Export CSV téléchargé avec succès', 'Succès')
   } catch (err: any) {
-    console.error('❌ Erreur lors de l\'export CSV:', err)
-    showError(err.response?.data?.message || err.message || 'Erreur lors de l\'export CSV', 'Erreur')
+    console.error('❌ [PAYROLL] Erreur lors de l\'export CSV:', err)
+    showError(err.message || 'Erreur lors de l\'export CSV', 'Erreur')
   }
 }
 
