@@ -871,7 +871,9 @@ class ClubController extends Controller
     }
 
     /**
-     * Retirer un élève du club (soft delete)
+     * Retirer un élève du club
+     * - Si l'élève est actif : soft delete (is_active = false)
+     * - Si l'élève est inactif : suppression définitive de la relation et de l'élève s'il n'appartient à aucun autre club
      */
     public function removeStudent(Request $request, $studentId)
     {
@@ -904,33 +906,104 @@ class ClubController extends Controller
                 ], 404);
             }
             
-            // Soft delete : désactiver l'élève au lieu de le supprimer
-            DB::table('club_students')
-                ->where('club_id', $clubUser->club_id)
-                ->where('student_id', $studentId)
-                ->update([
-                    'is_active' => false,
-                    'updated_at' => now()
+            DB::beginTransaction();
+            
+            // Si l'élève est inactif, suppression définitive
+            if (!$clubStudent->is_active) {
+                // Supprimer définitivement la relation club_students
+                DB::table('club_students')
+                    ->where('club_id', $clubUser->club_id)
+                    ->where('student_id', $studentId)
+                    ->delete();
+                
+                // Vérifier si l'élève appartient à d'autres clubs
+                $otherClubs = DB::table('club_students')
+                    ->where('student_id', $studentId)
+                    ->where('club_id', '!=', $clubUser->club_id)
+                    ->count();
+                
+                // Si l'élève n'appartient à aucun autre club, le supprimer définitivement
+                if ($otherClubs == 0) {
+                    // Vérifier si l'élève a des abonnements, cours, etc. avant de supprimer
+                    $hasSubscriptions = DB::table('subscription_instances')
+                        ->join('subscription_instance_student', 'subscription_instances.id', '=', 'subscription_instance_student.subscription_instance_id')
+                        ->where('subscription_instance_student.student_id', $studentId)
+                        ->exists();
+                    
+                    $hasLessons = DB::table('lessons')
+                        ->where('student_id', $studentId)
+                        ->orWhereExists(function($query) use ($studentId) {
+                            $query->select(DB::raw(1))
+                                ->from('lesson_student')
+                                ->whereColumn('lesson_student.lesson_id', 'lessons.id')
+                                ->where('lesson_student.student_id', $studentId);
+                        })
+                        ->exists();
+                    
+                    if ($hasSubscriptions || $hasLessons) {
+                        // L'élève a des données liées, on ne supprime pas l'élève mais seulement la relation
+                        \Log::info('Élève supprimé définitivement du club (mais conservé car a des données liées)', [
+                            'club_id' => $clubUser->club_id,
+                            'student_id' => $studentId,
+                            'has_subscriptions' => $hasSubscriptions,
+                            'has_lessons' => $hasLessons
+                        ]);
+                    } else {
+                        // Supprimer définitivement l'élève
+                        DB::table('students')->where('id', $studentId)->delete();
+                        
+                        \Log::info('Élève supprimé définitivement du club et de la base de données', [
+                            'club_id' => $clubUser->club_id,
+                            'student_id' => $studentId,
+                            'user_id' => $user->id
+                        ]);
+                    }
+                } else {
+                    \Log::info('Élève supprimé définitivement du club (mais appartient à d\'autres clubs)', [
+                        'club_id' => $clubUser->club_id,
+                        'student_id' => $studentId,
+                        'other_clubs_count' => $otherClubs
+                    ]);
+                }
+                
+                DB::commit();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Élève supprimé définitivement du club'
                 ]);
-            
-            \Log::info('Élève retiré du club', [
-                'club_id' => $clubUser->club_id,
-                'student_id' => $studentId,
-                'user_id' => $user->id
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Élève retiré du club avec succès'
-            ]);
+            } else {
+                // Soft delete : désactiver l'élève au lieu de le supprimer
+                DB::table('club_students')
+                    ->where('club_id', $clubUser->club_id)
+                    ->where('student_id', $studentId)
+                    ->update([
+                        'is_active' => false,
+                        'updated_at' => now()
+                    ]);
+                
+                DB::commit();
+                
+                \Log::info('Élève retiré du club (soft delete)', [
+                    'club_id' => $clubUser->club_id,
+                    'student_id' => $studentId,
+                    'user_id' => $user->id
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Élève retiré du club avec succès'
+                ]);
+            }
             
         } catch (\Exception $e) {
+            DB::rollBack();
             \Log::error('Erreur lors de la suppression de l\'élève: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la suppression de l\'élève'
+                'message' => 'Erreur lors de la suppression de l\'élève: ' . $e->getMessage()
             ], 500);
         }
     }
