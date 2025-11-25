@@ -932,12 +932,8 @@ class ClubController extends Controller
                     
                     $hasLessons = DB::table('lessons')
                         ->where('student_id', $studentId)
-                        ->orWhereExists(function($query) use ($studentId) {
-                            $query->select(DB::raw(1))
-                                ->from('lesson_student')
-                                ->whereColumn('lesson_student.lesson_id', 'lessons.id')
-                                ->where('lesson_student.student_id', $studentId);
-                        })
+                        ->exists() || DB::table('lesson_student')
+                        ->where('student_id', $studentId)
                         ->exists();
                     
                     if ($hasSubscriptions || $hasLessons) {
