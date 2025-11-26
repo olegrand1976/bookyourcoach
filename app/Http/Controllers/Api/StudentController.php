@@ -267,6 +267,7 @@ class StudentController extends Controller
                 'first_name' => $validated['first_name'] ?? null,
                 'last_name' => $validated['last_name'] ?? null,
                 'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'phone' => $validated['phone'] ?? null,
                 // 'level' supprimé - n'est plus utilisé
                 'goals' => $validated['goals'] ?? null,
                 'medical_info' => $validated['medical_info'] ?? null,

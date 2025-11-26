@@ -34,6 +34,7 @@ class Student extends Model
         'first_name',
         'last_name',
         'date_of_birth',
+        'phone',
         'level',
         'goals',
         'medical_info',
