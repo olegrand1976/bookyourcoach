@@ -468,6 +468,7 @@ class StudentController extends Controller
             if (isset($validated['first_name'])) $studentData['first_name'] = $validated['first_name'];
             if (isset($validated['last_name'])) $studentData['last_name'] = $validated['last_name'];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
+            if (isset($validated['phone'])) $studentData['phone'] = $validated['phone'];
             if (isset($validated['level'])) $studentData['level'] = $validated['level'];
             if (isset($validated['goals'])) $studentData['goals'] = $validated['goals'];
             if (isset($validated['medical_info'])) $studentData['medical_info'] = $validated['medical_info'];
