@@ -1142,9 +1142,18 @@ const filteredSubscriptions = computed(() => {
     })
   }
   
+  // Fonction helper pour normaliser les chaînes (supprimer les accents)
+  const normalizeString = (str) => {
+    if (!str) return ''
+    return str
+      .toLowerCase()
+      .normalize('NFD') // Décompose les caractères accentués
+      .replace(/[\u0300-\u036f]/g, '') // Supprime les diacritiques (accents)
+  }
+  
   // 2. Filtrer par recherche de nom/prénom
   if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim()
+    const query = normalizeString(searchQuery.value.trim())
     
     filtered = filtered.filter(subscription => {
       // Vérifier dans toutes les instances et leurs élèves
@@ -1163,13 +1172,13 @@ const filteredSubscriptions = computed(() => {
           
           // Priorité 1: Nom complet de l'utilisateur (si l'élève a un compte)
           if (student.user && student.user.name) {
-            searchableNames.push(student.user.name.toLowerCase())
+            searchableNames.push(normalizeString(student.user.name))
           }
           
           // Priorité 2: first_name et last_name de l'utilisateur
           if (student.user) {
-            const userFirstName = (student.user.first_name || '').toLowerCase()
-            const userLastName = (student.user.last_name || '').toLowerCase()
+            const userFirstName = normalizeString(student.user.first_name || '')
+            const userLastName = normalizeString(student.user.last_name || '')
             const userFullName = `${userFirstName} ${userLastName}`.trim()
             if (userFullName) {
               searchableNames.push(userFullName)
@@ -1179,8 +1188,8 @@ const filteredSubscriptions = computed(() => {
           }
           
           // Priorité 3: first_name et last_name de l'élève (dans la table students)
-          const firstName = (student.first_name || '').toLowerCase()
-          const lastName = (student.last_name || '').toLowerCase()
+          const firstName = normalizeString(student.first_name || '')
+          const lastName = normalizeString(student.last_name || '')
           const fullName = `${firstName} ${lastName}`.trim()
           if (fullName) {
             searchableNames.push(fullName)
@@ -1190,15 +1199,15 @@ const filteredSubscriptions = computed(() => {
           
           // Priorité 4: Nom direct de l'élève (si disponible)
           if (student.name) {
-            searchableNames.push(student.name.toLowerCase())
+            searchableNames.push(normalizeString(student.name))
           }
           
           // Priorité 5: Email de l'utilisateur (si disponible)
           if (student.user && student.user.email) {
-            searchableNames.push(student.user.email.toLowerCase())
+            searchableNames.push(normalizeString(student.user.email))
           }
           
-          // Rechercher dans tous les noms extraits
+          // Rechercher dans tous les noms extraits (normalisés)
           return searchableNames.some(name => name.includes(query))
         })
       })
