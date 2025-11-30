@@ -30,9 +30,9 @@
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- 1. Classification pour les commissions (DCL/NDCL) -->
           <div class="border-b pb-4">
-<!--             <label class="block text-sm font-medium text-gray-700 mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
               Classification pour les commissions *
-            </label> -->
+            </label>
             <div class="flex gap-6">
               <div class="flex items-center">
                 <input
@@ -61,7 +61,6 @@
                 </label>
               </div>
             </div>
-
           </div>
 
           <!-- 2. Type de cours -->
@@ -254,7 +253,60 @@
             </Autocomplete>
           </div>
 
-          <!-- 7. Durée (affichage uniquement) -->
+          <!-- 7. Déduction d'abonnement -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              Déduction d'abonnement
+            </label>
+            <div class="space-y-2">
+              <div class="flex items-center">
+                <input
+                  id="deduct_subscription"
+                  v-model="form.deduct_from_subscription"
+                  :value="true"
+                  type="radio"
+                  :disabled="!form.student_id"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <label 
+                  for="deduct_subscription" 
+                  :class="[
+                    'ml-2 block text-sm font-medium',
+                    form.student_id ? 'text-gray-700' : 'text-gray-400'
+                  ]"
+                >
+                  Déduire d'un abonnement existant
+                </label>
+              </div>
+              <div class="flex items-center">
+                <input
+                  id="no_deduct_subscription"
+                  v-model="form.deduct_from_subscription"
+                  :value="false"
+                  type="radio"
+                  :disabled="!form.student_id"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <label 
+                  for="no_deduct_subscription"
+                  :class="[
+                    'ml-2 block text-sm font-medium',
+                    form.student_id ? 'text-gray-700' : 'text-gray-400'
+                  ]"
+                >
+                  Séance non incluse dans l'abonnement
+                </label>
+              </div>
+            </div>
+            <p v-if="form.student_id" class="text-xs text-gray-500 mt-2">
+              ⓘ Par défaut, le cours sera déduit d'un abonnement actif si disponible
+            </p>
+            <p v-else class="text-xs text-orange-600 mt-2">
+              ⚠️ Sélectionnez un élève pour activer cette option
+            </p>
+          </div>
+
+          <!-- 8. Durée (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Durée (minutes)
@@ -267,7 +319,7 @@
             </p>
           </div>
 
-          <!-- 8. Prix (affichage uniquement) -->
+          <!-- 9. Prix (affichage uniquement) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Prix (€)
@@ -280,7 +332,7 @@
             </p>
           </div>
 
-          <!-- 9. Notes -->
+          <!-- 10. Notes -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea v-model="form.notes" rows="3"
@@ -331,6 +383,8 @@ interface LessonForm {
   notes: string
   // Champs pour les commissions
   est_legacy: boolean | null
+  // Déduction d'abonnement (par défaut true)
+  deduct_from_subscription: boolean | null
 }
 
 interface Props {

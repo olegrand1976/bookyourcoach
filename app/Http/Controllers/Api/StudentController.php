@@ -95,7 +95,8 @@ class StudentController extends Controller
                     'courseType',
                     'location',
                     'club',
-                    'students.user'
+                    'students.user',
+                    'subscriptionInstances' // Inclure les abonnements liés
                 ])
                 ->orderBy('start_time', 'desc')
                 ->limit(100) // Limiter à 100 cours récents

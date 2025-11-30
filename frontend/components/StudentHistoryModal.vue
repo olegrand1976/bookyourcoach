@@ -153,6 +153,20 @@
                         <h4 class="font-semibold text-gray-900">
                           {{ lesson.course_type?.name || 'Cours' }}
                         </h4>
+                        <span 
+                          v-if="lesson.subscription_instances && lesson.subscription_instances.length > 0"
+                          class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full"
+                          title="Déduit d'un abonnement"
+                        >
+                          ✓ Abonnement
+                        </span>
+                        <span 
+                          v-else
+                          class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full"
+                          title="Séance non incluse dans l'abonnement"
+                        >
+                          Séance libre
+                        </span>
                       </div>
                       
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -174,6 +188,15 @@
                         </div>
                       </div>
                     </div>
+                    <div class="ml-4">
+                      <button
+                        @click="openEditLessonModal(lesson)"
+                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        title="Modifier la déduction d'abonnement"
+                      >
+                        Modifier
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -189,6 +212,83 @@
           >
             Fermer
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale de modification du cours -->
+    <div v-if="showEditLessonModal && selectedLesson" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-lg max-w-md w-full">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-900">
+              Modifier le cours
+            </h3>
+            <button @click="closeEditLessonModal" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <p class="text-sm text-gray-600 mb-2">
+                <strong>Cours:</strong> {{ selectedLesson.course_type?.name || 'Cours' }}<br>
+                <strong>Date:</strong> {{ formatDateTime(selectedLesson.start_time) }}
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-3">
+                Déduction d'abonnement
+              </label>
+              <div class="space-y-2">
+                <div class="flex items-center">
+                  <input
+                    id="edit_deduct_subscription"
+                    v-model="editLessonForm.deduct_from_subscription"
+                    :value="true"
+                    type="radio"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label for="edit_deduct_subscription" class="ml-2 block text-sm font-medium text-gray-700">
+                    Déduire d'un abonnement existant
+                  </label>
+                </div>
+                <div class="flex items-center">
+                  <input
+                    id="edit_no_deduct_subscription"
+                    v-model="editLessonForm.deduct_from_subscription"
+                    :value="false"
+                    type="radio"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label for="edit_no_deduct_subscription" class="ml-2 block text-sm font-medium text-gray-700">
+                    Séance non incluse dans l'abonnement
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t">
+              <button 
+                type="button" 
+                @click="closeEditLessonModal"
+                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button 
+                type="button"
+                @click="saveLessonChanges"
+                :disabled="savingLesson"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {{ savingLesson ? 'Enregistrement...' : 'Enregistrer' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -210,6 +310,12 @@ const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const error = ref(null)
 const historyData = ref(null)
+const showEditLessonModal = ref(false)
+const selectedLesson = ref(null)
+const savingLesson = ref(false)
+const editLessonForm = ref({
+  deduct_from_subscription: true
+})
 
 // Helper pour obtenir le nom de l'élève
 const getStudentName = (student) => {
@@ -276,6 +382,46 @@ const getStatusLabel = (status) => {
     cancelled: 'Annulé'
   }
   return labels[status] || status
+}
+
+const openEditLessonModal = (lesson) => {
+  selectedLesson.value = lesson
+  editLessonForm.value.deduct_from_subscription = lesson.subscription_instances && lesson.subscription_instances.length > 0
+  showEditLessonModal.value = true
+}
+
+const closeEditLessonModal = () => {
+  showEditLessonModal.value = false
+  selectedLesson.value = null
+  editLessonForm.value.deduct_from_subscription = true
+}
+
+const saveLessonChanges = async () => {
+  if (!selectedLesson.value) return
+  
+  try {
+    savingLesson.value = true
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    
+    const response = await $api.put(`/lessons/${selectedLesson.value.id}/subscription`, {
+      deduct_from_subscription: editLessonForm.value.deduct_from_subscription
+    })
+    
+    if (response.data.success) {
+      showSuccess('Cours modifié avec succès')
+      await loadHistory()
+      closeEditLessonModal()
+    } else {
+      showError(response.data.message || 'Erreur lors de la modification')
+    }
+  } catch (err) {
+    console.error('Erreur modification cours:', err)
+    const { error: showError } = useToast()
+    showError(err.response?.data?.message || 'Erreur lors de la modification')
+  } finally {
+    savingLesson.value = false
+  }
 }
 
 const getTotalLessons = (subscription) => {

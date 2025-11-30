@@ -264,6 +264,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
     Route::get('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'show']);
     Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
+    Route::put('/lessons/{id}/subscription', [App\Http\Controllers\Api\LessonController::class, 'updateSubscription']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
 });
 

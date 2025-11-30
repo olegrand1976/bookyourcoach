@@ -291,6 +291,8 @@ class LessonController extends Controller
                 'est_legacy' => 'nullable|boolean',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
                 'date_paiement' => 'nullable|date',      // Date de paiement (détermine le mois de commission)
                 'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer de price)
+                // Déduction d'abonnement (par défaut true)
+                'deduct_from_subscription' => 'nullable|boolean',
             ]);
 
             // 🔒 Validation : vérifier que la durée correspond au type de cours sélectionné
@@ -460,9 +462,13 @@ class LessonController extends Controller
             // - Création de créneaux récurrents
             // - Envoi des notifications
             // - Programmation des rappels
-            if (isset($validated['student_id'])) {
+            // Ne consommer l'abonnement que si deduct_from_subscription est true (par défaut true)
+            $deductFromSubscription = $request->input('deduct_from_subscription', true);
+            if (isset($validated['student_id']) && $deductFromSubscription) {
                 ProcessLessonPostCreationJob::dispatch($lesson);
-                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id}");
+                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id} (déduction d'abonnement: oui)");
+            } else {
+                Log::info("⚡ [LessonController] Cours {$lesson->id} créé sans déduction d'abonnement (deduct_from_subscription: " . ($deductFromSubscription ? 'true' : 'false') . ")");
             }
 
             // Charger les relations nécessaires pour la réponse
@@ -1626,5 +1632,115 @@ class LessonController extends Controller
         }
         
         return array_slice($alternatives, 0, 5); // Limiter à 5 suggestions
+    }
+
+    /**
+     * Modifier la relation cours-abonnement (lier ou délier un cours d'un abonnement)
+     */
+    public function updateSubscription(Request $request, string $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            // Seuls les clubs peuvent modifier cette relation
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $lesson = Lesson::findOrFail($id);
+            
+            $validated = $request->validate([
+                'deduct_from_subscription' => 'required|boolean'
+            ]);
+
+            $deductFromSubscription = $validated['deduct_from_subscription'];
+
+            if ($deductFromSubscription) {
+                // Lier le cours à un abonnement si possible
+                if ($lesson->student_id) {
+                    $studentIds = [$lesson->student_id];
+                    $lessonStudents = $lesson->students()->pluck('students.id')->toArray();
+                    $studentIds = array_unique(array_merge($studentIds, $lessonStudents));
+                    
+                    foreach ($studentIds as $studentId) {
+                        // Vérifier si le cours est déjà lié à un abonnement
+                        if ($lesson->subscriptionInstances()->count() > 0) {
+                            Log::info("⏭️ Cours {$lesson->id} déjà lié à un abonnement");
+                            break;
+                        }
+
+                        // Trouver le bon abonnement actif pour cet élève et ce type de cours
+                        $clubId = $lesson->club_id ?? null;
+                        $subscriptionInstance = \App\Models\SubscriptionInstance::findActiveSubscriptionForLesson(
+                            $studentId,
+                            $lesson->course_type_id,
+                            $clubId
+                        );
+
+                        if ($subscriptionInstance) {
+                            try {
+                                // Lier le cours à l'abonnement sans consommer (car le cours existe déjà)
+                                $lesson->subscriptionInstances()->syncWithoutDetaching([$subscriptionInstance->id]);
+                                
+                                // Consommer le cours de l'abonnement
+                                $subscriptionInstance->consumeLesson($lesson);
+                                
+                                Log::info("✅ Cours {$lesson->id} lié à l'abonnement {$subscriptionInstance->id}");
+                                break; // Un seul abonnement par cours
+                            } catch (\Exception $e) {
+                                Log::error("❌ Erreur lors de la liaison: " . $e->getMessage());
+                                continue;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Délier le cours de tous les abonnements
+                $subscriptionInstances = $lesson->subscriptionInstances;
+                
+                foreach ($subscriptionInstances as $subscriptionInstance) {
+                    // Retirer le cours de l'abonnement (décrémenter lessons_used)
+                    if ($subscriptionInstance->lessons_used > 0) {
+                        $subscriptionInstance->lessons_used = max(0, $subscriptionInstance->lessons_used - 1);
+                        $subscriptionInstance->save();
+                    }
+                }
+                
+                // Supprimer toutes les relations
+                $lesson->subscriptionInstances()->detach();
+                
+                Log::info("✅ Cours {$lesson->id} délié de tous les abonnements");
+            }
+
+            // Recharger les relations
+            $lesson->load([
+                'teacher.user',
+                'student.user',
+                'courseType',
+                'location',
+                'subscriptionInstances'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $lesson,
+                'message' => 'Relation cours-abonnement modifiée avec succès'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cours non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error("Erreur updateSubscription: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification de la relation',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
