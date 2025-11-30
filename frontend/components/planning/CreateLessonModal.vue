@@ -63,8 +63,8 @@
             </div>
           </div>
 
-          <!-- 2. Type de cours -->
-          <div>
+          <!-- 2. Type de cours (masqué en mode édition) -->
+          <div v-if="!editingLesson">
             <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours *</label>
             <select v-model.number="form.course_type_id" required
                     :disabled="courseTypes.length === 0"
@@ -91,12 +91,33 @@
             </p>
           </div>
 
+          <!-- 2.5. Créneau (en mode édition uniquement) -->
+          <div v-if="editingLesson">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Créneau *</label>
+            <select 
+              v-model="selectedSlotId"
+              required
+              @change="onSlotChange"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+              <option :value="null">Sélectionnez un créneau</option>
+              <option v-for="slot in (openSlots || [])" :key="slot.id" :value="slot.id">
+                {{ getDayName(slot.day_of_week) }} • {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                <template v-if="slot.discipline || (slot as any).discipline_name">
+                  • {{ slot.discipline?.name || (slot as any).discipline_name || 'Non définie' }}
+                </template>
+              </option>
+            </select>
+            <p v-if="selectedSlotId && currentSelectedSlot" class="text-xs text-green-600 mt-1">
+              ✓ Créneau sélectionné : {{ getDayName(currentSelectedSlot.day_of_week) }} de {{ formatTime(currentSelectedSlot.start_time) }} à {{ formatTime(currentSelectedSlot.end_time) }}
+            </p>
+          </div>
+
           <!-- 3. Date -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Date *
-              <span v-if="selectedSlot" class="text-xs text-blue-600 ml-2 font-medium">
-                (Uniquement les {{ getDayName(selectedSlot.day_of_week) }}s)
+              <span v-if="(editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-blue-600 ml-2 font-medium">
+                (Uniquement les {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}s)
               </span>
               <span v-else-if="availableDays.length > 0" class="text-xs text-gray-500 ml-2">
                 (Jours disponibles: {{ availableDays.map(d => getDayName(d)).join(', ') }})
@@ -148,13 +169,13 @@
               </button>
             </div>
             <p v-if="form.date && !isDateAvailable(form.date)" class="text-xs text-red-600 mt-1">
-              ⚠️ Cette date doit être un {{ getDayName(selectedSlot?.day_of_week || 0) }}
+              ⚠️ Cette date doit être un {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}
             </p>
-            <p v-else-if="form.date && selectedSlot" class="text-xs text-green-600 mt-1">
+            <p v-else-if="form.date && (editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-green-600 mt-1">
               ✓ Date valide pour ce créneau
             </p>
             <!-- Suggestions de dates -->
-            <div v-if="selectedSlot && suggestedDates.length > 0" class="mt-2">
+            <div v-if="(editingLesson ? currentSelectedSlot : selectedSlot) && suggestedDates.length > 0" class="mt-2">
               <p class="text-xs text-gray-600 mb-1">Suggestions :</p>
               <div class="flex flex-wrap gap-2">
                 <button
@@ -175,19 +196,24 @@
             <select 
               v-model="form.time" 
               required
-              :disabled="!availableTimes.length"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+              :disabled="!availableTimes.length && !editingLesson"
+              :class="[
+                'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                (!availableTimes.length && !editingLesson) 
+                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300' 
+                  : 'bg-white text-gray-900 border-gray-300'
+              ]">
               <option :value="''">
-                {{ availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure' }}
+                {{ editingLesson ? 'Sélectionnez une heure' : (availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure') }}
               </option>
               <option v-for="time in availableTimes" :key="time.value" :value="time.value">
                 {{ time.label }}
               </option>
             </select>
-            <p v-if="selectedSlot && form.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
+            <p v-if="!editingLesson && selectedSlot && form.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
               ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
             </p>
-            <p v-else-if="selectedSlot && form.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
+            <p v-else-if="!editingLesson && selectedSlot && form.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
               ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
             </p>
             <p v-if="loadingLessons" class="text-xs text-gray-500 mt-1">
@@ -200,7 +226,7 @@
             <Autocomplete
               v-model="form.teacher_id"
               :items="teachers"
-              label="Enseignant"
+              label="Enseignant *"
               placeholder="Rechercher un enseignant..."
               :required="true"
               :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
@@ -221,8 +247,8 @@
             </Autocomplete>
           </div>
 
-          <!-- 6. Élève (optionnel) -->
-          <div>
+          <!-- 6. Élève (optionnel) (masqué en mode édition) -->
+          <div v-if="!editingLesson">
             <Autocomplete
               v-model="form.student_id"
               :items="students"
@@ -265,14 +291,14 @@
                   v-model="form.deduct_from_subscription"
                   :value="true"
                   type="radio"
-                  :disabled="!form.student_id"
+                  :disabled="editingLesson ? false : !form.student_id"
                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <label 
                   for="deduct_subscription" 
                   :class="[
                     'ml-2 block text-sm font-medium',
-                    form.student_id ? 'text-gray-700' : 'text-gray-400'
+                    (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
                   ]"
                 >
                   Déduire d'un abonnement existant
@@ -284,30 +310,30 @@
                   v-model="form.deduct_from_subscription"
                   :value="false"
                   type="radio"
-                  :disabled="!form.student_id"
+                  :disabled="editingLesson ? false : !form.student_id"
                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <label 
                   for="no_deduct_subscription"
                   :class="[
                     'ml-2 block text-sm font-medium',
-                    form.student_id ? 'text-gray-700' : 'text-gray-400'
+                    (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
                   ]"
                 >
                   Séance non incluse dans l'abonnement
                 </label>
               </div>
             </div>
-            <p v-if="form.student_id" class="text-xs text-gray-500 mt-2">
+            <p v-if="editingLesson || form.student_id" class="text-xs text-gray-500 mt-2">
               ⓘ Par défaut, le cours sera déduit d'un abonnement actif si disponible
             </p>
-            <p v-else class="text-xs text-orange-600 mt-2">
+            <p v-else-if="!editingLesson" class="text-xs text-orange-600 mt-2">
               ⚠️ Sélectionnez un élève pour activer cette option
             </p>
           </div>
 
-          <!-- 8. Durée (affichage uniquement) -->
-          <div>
+          <!-- 8. Durée (affichage uniquement) (masqué en mode édition) -->
+          <div v-if="!editingLesson">
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Durée (minutes)
             </label>
@@ -319,8 +345,8 @@
             </p>
           </div>
 
-          <!-- 9. Prix (affichage uniquement) -->
-          <div>
+          <!-- 9. Prix (affichage uniquement) (masqué en mode édition) -->
+          <div v-if="!editingLesson">
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Prix (€)
             </label>
@@ -332,8 +358,8 @@
             </p>
           </div>
 
-          <!-- 10. Notes -->
-          <div>
+          <!-- 10. Notes (masqué en mode édition) -->
+          <div v-if="!editingLesson">
             <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea v-model="form.notes" rows="3"
                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
@@ -397,6 +423,7 @@ interface Props {
   availableDays: number[]
   saving: boolean
   editingLesson?: any | null
+  openSlots?: OpenSlot[] // Créneaux disponibles pour trouver le créneau correspondant à une date
 }
 
 const props = defineProps<Props>()
@@ -407,6 +434,47 @@ const emit = defineEmits<{
 }>()
 
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+// Référence pour le créneau sélectionné en mode édition
+const selectedSlotId = ref<number | null>(null)
+
+// Fonction pour formater l'heure (HH:mm)
+function formatTime(time: string | undefined): string {
+  if (!time) return ''
+  return time.substring(0, 5) // Retourne HH:mm
+}
+
+// Fonction appelée quand le créneau change
+function onSlotChange() {
+  if (!selectedSlotId.value || !props.openSlots) return
+  
+  const slot = props.openSlots.find(s => s.id === selectedSlotId.value)
+  if (slot) {
+    currentSelectedSlot.value = slot
+    console.log('🎯 [CreateLessonModal] Créneau sélectionné manuellement:', {
+      slot_id: slot.id,
+      day_of_week: slot.day_of_week,
+      start_time: slot.start_time,
+      end_time: slot.end_time
+    })
+    
+    // Si une date est déjà sélectionnée, vérifier qu'elle correspond au jour du créneau
+    if (props.form.date) {
+      const date = new Date(props.form.date + 'T00:00:00')
+      const dayOfWeek = date.getDay()
+      if (dayOfWeek !== slot.day_of_week) {
+        // Trouver la prochaine date correspondant au jour du créneau
+        const today = new Date()
+        let daysToAdd = slot.day_of_week - today.getDay()
+        if (daysToAdd < 0) daysToAdd += 7
+        const nextDate = new Date(today)
+        nextDate.setDate(today.getDate() + daysToAdd)
+        props.form.date = nextDate.toISOString().split('T')[0]
+        console.log('📅 [CreateLessonModal] Date ajustée au jour du créneau:', props.form.date)
+      }
+    }
+  }
+}
 
 function getDayName(dayOfWeek: number): string {
   return dayNames[dayOfWeek] || 'Inconnu'
@@ -420,11 +488,12 @@ const minDate = computed(() => {
 
 // Génère les 4 prochaines dates valides pour le créneau sélectionné
 const suggestedDates = computed(() => {
-  if (!props.selectedSlot) return []
+  const slotToUse = props.editingLesson ? currentSelectedSlot.value : props.selectedSlot
+  if (!slotToUse) return []
   
   const dates: string[] = []
   const today = new Date()
-  const targetDay = props.selectedSlot.day_of_week
+  const targetDay = slotToUse.day_of_week
   
   for (let i = 0; i < 28; i++) { // 4 semaines
     const checkDate = new Date(today)
@@ -463,6 +532,13 @@ function isDateAvailable(dateStr: string): boolean {
   const date = new Date(dateStr + 'T00:00:00')
   const dayOfWeek = date.getDay()
   
+  // En mode édition, permettre toutes les dates qui ont un créneau correspondant
+  if (props.editingLesson) {
+    // Vérifier si un créneau existe pour ce jour de la semaine
+    // Les créneaux sont passés via props, mais on peut aussi vérifier availableDays
+    return props.availableDays.includes(dayOfWeek)
+  }
+  
   // Si un créneau est sélectionné, vérifier uniquement ce jour
   if (props.selectedSlot) {
     return dayOfWeek === props.selectedSlot.day_of_week
@@ -493,12 +569,13 @@ function validateDate(event: Event) {
 
 // Navigue vers la date précédente ou suivante du même jour de la semaine
 function navigateDate(direction: number) {
-  if (!props.form.date || !props.selectedSlot) return
+  const slotToUse = props.editingLesson ? currentSelectedSlot.value : props.selectedSlot
+  if (!props.form.date || !slotToUse) return
   
   // Parser la date en local (pas UTC) pour éviter les problèmes de timezone
   const [year, month, day] = props.form.date.split('-').map(Number)
   const currentDate = new Date(year, month - 1, day, 12, 0, 0) // Utiliser midi pour éviter les problèmes de timezone
-  const targetDayOfWeek = props.selectedSlot.day_of_week
+  const targetDayOfWeek = slotToUse.day_of_week
   const currentDayOfWeek = currentDate.getDay()
   
   let daysToAdd = 0
@@ -712,13 +789,107 @@ function minutesToTime(minutes: number): string {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }
 
+// Générer toutes les heures possibles pour le mode édition (00:00 à 23:30)
+const allPossibleTimes = computed(() => {
+  const times: { value: string; label: string }[] = []
+  for (let hour = 0; hour < 24; hour++) {
+    times.push({
+      value: `${String(hour).padStart(2, '0')}:00`,
+      label: `${String(hour).padStart(2, '0')}:00`
+    })
+    times.push({
+      value: `${String(hour).padStart(2, '0')}:30`,
+      label: `${String(hour).padStart(2, '0')}:30`
+    })
+  }
+  return times
+})
+
 // Calculer les heures disponibles pour le créneau sélectionné
 const availableTimes = computed(() => {
-  if (!props.selectedSlot || !props.form.date || !props.form.duration) {
+  // En mode édition, utiliser le créneau trouvé ou toutes les heures possibles
+  if (props.editingLesson) {
+    // Si un créneau est trouvé pour la date, utiliser les heures du créneau
+    const slotToUse = currentSelectedSlot.value || props.selectedSlot
+    if (slotToUse && props.form.date && props.form.duration) {
+      const slot = slotToUse
+      const duration = props.form.duration || 60
+      const date = props.form.date
+      
+      // Extraire les heures de début et fin du créneau
+      const slotStart = slot.start_time?.substring(0, 5) || '09:00'
+      const slotEnd = slot.end_time?.substring(0, 5) || '18:00'
+      
+      const slotStartMinutes = timeToMinutes(slotStart)
+      const slotEndMinutes = timeToMinutes(slotEnd)
+      
+      // Calculer le pas de temps (utiliser la durée du cours comme pas)
+      const timeStep = duration
+      
+      // Générer toutes les heures possibles dans le créneau
+      const allTimes: { value: string; label: string; minutes: number }[] = []
+      
+      for (let minutes = slotStartMinutes; minutes + duration <= slotEndMinutes; minutes += timeStep) {
+        const timeStr = minutesToTime(minutes)
+        allTimes.push({
+          value: timeStr,
+          label: timeStr,
+          minutes
+        })
+      }
+      
+      // Filtrer les heures qui sont déjà complètes (max_slots atteint)
+      const maxSlots = slot.max_slots || 1
+      
+      const available = allTimes.filter(time => {
+        // Vérifier combien de cours se chevauchent avec cette heure
+        const timeStart = new Date(`${date}T${time.value}:00`)
+        const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+        
+        let overlappingCount = 0
+        
+        for (const lesson of existingLessons.value) {
+          // Exclure le cours en cours d'édition
+          if (props.editingLesson && lesson.id === props.editingLesson.id) {
+            continue
+          }
+          
+          if (lesson.status === 'cancelled') continue
+          
+          const lessonStart = new Date(lesson.start_time)
+          let lessonEnd: Date
+          
+          // Calculer la fin du cours existant
+          if (lesson.end_time) {
+            lessonEnd = new Date(lesson.end_time)
+          } else if (lesson.course_type?.duration_minutes) {
+            lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
+          } else {
+            lessonEnd = new Date(lessonStart.getTime() + 60 * 60000) // 60 min par défaut
+          }
+          
+          // Vérifier le chevauchement
+          if (timeStart < lessonEnd && timeEnd > lessonStart) {
+            overlappingCount++
+          }
+        }
+        
+        // L'heure est disponible si le nombre de cours qui se chevauchent est strictement inférieur à max_slots
+        return overlappingCount < maxSlots
+      })
+      
+      return available
+    }
+    // Sinon, retourner toutes les heures possibles
+    return allPossibleTimes.value
+  }
+  
+  const slotToUse = currentSelectedSlot.value || props.selectedSlot
+  if (!slotToUse || !props.form.date || !props.form.duration) {
     return []
   }
   
-  const slot = props.selectedSlot
+  const slot = slotToUse
   const duration = props.form.duration || 60
   const date = props.form.date
   
@@ -794,29 +965,121 @@ const availableTimes = computed(() => {
   return available
 })
 
+// Watcher pour mettre à jour le créneau quand la date change en mode édition
+const currentSelectedSlot = ref<OpenSlot | null>(props.selectedSlot)
+
+watch(() => props.selectedSlot, (newSlot) => {
+  currentSelectedSlot.value = newSlot
+  if (newSlot && props.editingLesson) {
+    selectedSlotId.value = newSlot.id
+  }
+})
+
+// Initialiser selectedSlotId quand editingLesson change
+watch(() => props.editingLesson, (newEditingLesson) => {
+  if (newEditingLesson && currentSelectedSlot.value) {
+    selectedSlotId.value = currentSelectedSlot.value.id
+  } else if (!newEditingLesson) {
+    selectedSlotId.value = null
+  }
+}, { immediate: true })
+
+watch(() => props.form.date, async (newDate, oldDate) => {
+  // En mode édition, trouver le créneau correspondant au nouveau jour de la semaine
+  // Mais seulement si aucun créneau n'a été sélectionné manuellement
+  if (props.editingLesson && newDate && props.openSlots && props.openSlots.length > 0) {
+    const date = new Date(newDate + 'T00:00:00')
+    const dayOfWeek = date.getDay() // 0 = dimanche, 1 = lundi, etc.
+    
+    // Si un créneau est déjà sélectionné manuellement, vérifier qu'il correspond au jour
+    if (selectedSlotId.value) {
+      const selectedSlot = props.openSlots.find(s => s.id === selectedSlotId.value)
+      if (selectedSlot && selectedSlot.day_of_week === dayOfWeek) {
+        // Le créneau sélectionné correspond au jour, tout est OK
+        currentSelectedSlot.value = selectedSlot
+        return
+      } else if (selectedSlot && selectedSlot.day_of_week !== dayOfWeek) {
+        // Le créneau sélectionné ne correspond pas au jour, trouver un créneau correspondant
+        const matchingSlot = props.openSlots.find(slot => slot.day_of_week === dayOfWeek)
+        if (matchingSlot) {
+          selectedSlotId.value = matchingSlot.id
+          currentSelectedSlot.value = matchingSlot
+          console.log('🎯 [CreateLessonModal] Créneau ajusté pour correspondre à la date:', {
+            date: newDate,
+            day_of_week: dayOfWeek,
+            slot_id: matchingSlot.id
+          })
+        } else {
+          currentSelectedSlot.value = null
+          selectedSlotId.value = null
+          console.warn('⚠️ [CreateLessonModal] Aucun créneau trouvé pour le jour:', dayOfWeek)
+        }
+        return
+      }
+    }
+    
+    // Aucun créneau sélectionné manuellement, trouver automatiquement
+    const matchingSlot = props.openSlots.find(slot => slot.day_of_week === dayOfWeek)
+    if (matchingSlot) {
+      currentSelectedSlot.value = matchingSlot
+      selectedSlotId.value = matchingSlot.id
+      console.log('🎯 [CreateLessonModal] Créneau mis à jour pour la nouvelle date:', {
+        date: newDate,
+        day_of_week: dayOfWeek,
+        slot_id: matchingSlot.id,
+        slot_start: matchingSlot.start_time,
+        slot_end: matchingSlot.end_time
+      })
+    } else {
+      currentSelectedSlot.value = null
+      selectedSlotId.value = null
+      console.warn('⚠️ [CreateLessonModal] Aucun créneau trouvé pour le jour:', dayOfWeek)
+    }
+  }
+}, { immediate: true })
+
 // Watcher pour charger les cours existants quand la date change
-watch(() => props.form.date, async (newDate) => {
-  if (newDate && props.selectedSlot) {
+watch(() => props.form.date, async (newDate, oldDate) => {
+  if (newDate && (currentSelectedSlot.value || props.editingLesson)) {
     await loadExistingLessons(newDate)
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
-    // Auto-sélectionner la première heure disponible (toujours, même si une heure était déjà sélectionnée)
-    // car la date a changé, donc l'heure précédente pourrait ne plus être valide
-    if (availableTimes.value.length > 0 && props.form.course_type_id) {
-      props.form.time = availableTimes.value[0].value
-      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de date:', availableTimes.value[0].value)
-    } else if (availableTimes.value.length === 0) {
-      props.form.time = ''
-      console.log('⚠️ [CreateLessonModal] Aucune heure disponible pour cette date')
+    // En mode édition, ne pas changer l'heure si elle est déjà définie et disponible
+    if (props.editingLesson && props.form.time) {
+      const isCurrentTimeAvailable = availableTimes.value.some(t => t.value === props.form.time)
+      if (!isCurrentTimeAvailable && availableTimes.value.length > 0) {
+        // L'heure actuelle n'est plus disponible, sélectionner la première disponible
+        props.form.time = availableTimes.value[0].value
+        console.log('⚠️ [CreateLessonModal] Heure actuelle non disponible, première heure disponible sélectionnée:', availableTimes.value[0].value)
+      } else if (isCurrentTimeAvailable) {
+        console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible:', props.form.time)
+      }
+    } else if (!props.editingLesson && currentSelectedSlot.value) {
+      // Auto-sélectionner la première heure disponible (toujours, même si une heure était déjà sélectionnée)
+      // car la date a changé, donc l'heure précédente pourrait ne plus être valide
+      if (availableTimes.value.length > 0 && props.form.course_type_id) {
+        props.form.time = availableTimes.value[0].value
+        console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de date:', availableTimes.value[0].value)
+      } else if (availableTimes.value.length === 0) {
+        props.form.time = ''
+        console.log('⚠️ [CreateLessonModal] Aucune heure disponible pour cette date')
+      }
     }
   } else {
     existingLessons.value = []
-    props.form.time = ''
+    if (!props.editingLesson) {
+      props.form.time = ''
+    }
   }
 }, { immediate: true })
 
 // Watcher pour auto-sélectionner la première heure disponible quand availableTimes change
 watch(() => availableTimes.value, (newTimes, oldTimes) => {
+  // En mode édition, ne pas changer l'heure automatiquement
+  if (props.editingLesson) {
+    return
+  }
+  
   // Auto-sélectionner la première heure disponible si :
   // - Il y a des heures disponibles
   // - La date et le type de cours sont définis
@@ -837,20 +1100,23 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
   }
 }, { immediate: true })
 
-// Watcher pour recharger les cours quand le créneau change
-watch(() => props.selectedSlot, async (newSlot) => {
-  if (newSlot && props.form.date) {
+// Watcher pour recharger les cours quand le créneau change (via selectedSlot ou currentSelectedSlot)
+watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value], async ([newSlot, newCurrentSlot, newSlotId]) => {
+  const slotToUse = props.editingLesson ? newCurrentSlot : newSlot
+  if (slotToUse && props.form.date) {
     await loadExistingLessons(props.form.date)
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
-    // Auto-sélectionner la première heure disponible si le type de cours est défini
-    if (availableTimes.value.length > 0 && props.form.course_type_id) {
+    // Auto-sélectionner la première heure disponible si le type de cours est défini (seulement en mode création)
+    if (availableTimes.value.length > 0 && props.form.course_type_id && !props.editingLesson) {
       props.form.time = availableTimes.value[0].value
       console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de créneau:', availableTimes.value[0].value)
     }
   } else {
     existingLessons.value = []
-    props.form.time = ''
+    if (!props.editingLesson) {
+      props.form.time = ''
+    }
   }
 })
 
