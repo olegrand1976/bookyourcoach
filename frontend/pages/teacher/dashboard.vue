@@ -267,15 +267,42 @@
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-2 bg-yellow-100 rounded-lg">
-              <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">Revenus du mois</p>
-              <p class="text-2xl font-bold text-gray-900">{{ monthlyEarnings }}€</p>
+          <div class="flex items-start justify-between">
+            <div class="flex items-center flex-1">
+              <div class="p-2 bg-yellow-100 rounded-lg">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div class="ml-4 flex-1">
+                <p class="text-sm font-medium text-gray-600 mb-2">Revenus du mois</p>
+                <div class="space-y-2">
+                  <!-- Mois précédent -->
+                  <div class="border-l-2 border-gray-200 pl-3">
+                    <p class="text-xs text-gray-500 mb-1">Mois précédent</p>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm font-medium text-green-600">
+                        Payé: {{ formatCurrency(revenues?.previous_month?.paid || 0) }}
+                      </span>
+                      <span class="text-sm font-medium text-orange-600">
+                        Non payé: {{ formatCurrency(revenues?.previous_month?.unpaid || 0) }}
+                      </span>
+                    </div>
+                  </div>
+                  <!-- Mois en cours -->
+                  <div class="border-l-2 border-blue-500 pl-3">
+                    <p class="text-xs text-gray-500 mb-1">Mois en cours</p>
+                    <div class="flex items-center gap-3">
+                      <span class="text-sm font-medium text-green-600">
+                        Payé: {{ formatCurrency(revenues?.current_month?.paid || 0) }}
+                      </span>
+                      <span class="text-sm font-medium text-orange-600">
+                        Non payé: {{ formatCurrency(revenues?.current_month?.unpaid || 0) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -575,6 +602,7 @@ const selectedClubId = ref<number | null>(null)
 const monthlyEarnings = ref(0)
 const dashboardStats = ref<any>(null)
 const selectedPeriod = ref<string>('7days') // Par défaut: 7 jours à venir
+const revenues = ref<any>(null)
 
 // Computed
 const todayLessons = computed(() => {
@@ -640,6 +668,7 @@ async function loadData() {
         const data = dashboardResponse.data.data
         dashboardStats.value = data.stats
         monthlyEarnings.value = data.stats?.monthly_earnings || 0
+        revenues.value = data.stats?.revenues || null
         clubs.value = data.clubs || []
         
         // Si un seul club, le sélectionner automatiquement
@@ -977,5 +1006,13 @@ function getReplacementStatusClass(status: string): string {
     'cancelled': 'bg-gray-100 text-gray-800'
   }
   return classes[status] || 'bg-gray-100 text-gray-800'
+}
+
+function formatCurrency(amount: number): string {
+  if (!amount && amount !== 0) return '0,00 €'
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(amount)
 }
 </script>

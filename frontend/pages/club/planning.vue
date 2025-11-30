@@ -628,7 +628,9 @@ const lessonForm = ref({
   price: 0,
   notes: '',
   // Champs pour les commissions
-  est_legacy: false as boolean | null // Par défaut DCL (false)
+  est_legacy: false as boolean | null, // Par défaut DCL (false)
+  // Déduction d'abonnement (par défaut true)
+  deduct_from_subscription: true as boolean | null
 })
 const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
 
@@ -1579,7 +1581,9 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       price: initialPrice,
       notes: '',
       // Champs pour les commissions (par défaut DCL)
-      est_legacy: false
+      est_legacy: false,
+      // Déduction d'abonnement (par défaut true)
+      deduct_from_subscription: true
     }
   } else {
     // Réinitialiser le formulaire
@@ -1594,7 +1598,9 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       price: 0,
       notes: '',
       // Champs pour les commissions (par défaut DCL)
-      est_legacy: false
+      est_legacy: false,
+      // Déduction d'abonnement (par défaut true)
+      deduct_from_subscription: true
     }
   }
 }
@@ -1716,7 +1722,9 @@ async function createLesson() {
       // Champs pour les commissions
       // DCL = false, NDCL = true
       // Convertir explicitement en boolean pour garantir la bonne valeur
-      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true')
+      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
+      // Déduction d'abonnement (par défaut true)
+      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
     }
     
     console.log('📤 Création du cours avec payload:', payload)

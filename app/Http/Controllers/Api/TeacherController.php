@@ -31,6 +31,10 @@ class TeacherController extends Controller
             $endOfWeek = $now->copy()->endOfWeek();
             $startOfMonth = $now->copy()->startOfMonth();
             $endOfMonth = $now->copy()->endOfMonth();
+            
+            // Mois précédent
+            $startOfPreviousMonth = $now->copy()->subMonth()->startOfMonth();
+            $endOfPreviousMonth = $now->copy()->subMonth()->endOfMonth();
 
             // Optimiser les statistiques avec des requêtes DB raw plus rapides
             // Utiliser DB::table() au lieu d'Eloquent pour de meilleures performances
@@ -40,6 +44,8 @@ class TeacherController extends Controller
             $endOfWeekStr = $endOfWeek->toDateTimeString();
             $startOfMonthStr = $startOfMonth->toDateTimeString();
             $endOfMonthStr = $endOfMonth->toDateTimeString();
+            $startOfPreviousMonthStr = $startOfPreviousMonth->toDateTimeString();
+            $endOfPreviousMonthStr = $endOfPreviousMonth->toDateTimeString();
             
             // Utiliser une seule requête avec des sous-requêtes pour toutes les statistiques
             // Cela réduit le nombre de round-trips vers la DB (de 7 requêtes à 1)
@@ -52,13 +58,23 @@ class TeacherController extends Controller
                     COUNT(CASE WHEN start_time BETWEEN ? AND ? AND status IN (\'confirmed\', \'completed\') THEN 1 END) as weekly_lessons,
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as weekly_earnings,
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as monthly_earnings,
-                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN TIMESTAMPDIFF(MINUTE, start_time, end_time) END) / 60.0, 0) as weekly_hours
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN TIMESTAMPDIFF(MINUTE, start_time, end_time) END) / 60.0, 0) as weekly_hours,
+                    -- Revenus payés/non payés mois précédent
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status = \'paid\' THEN COALESCE(montant, price) END), 0) as previous_month_paid,
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status != \'paid\' THEN COALESCE(montant, price) END), 0) as previous_month_unpaid,
+                    -- Revenus payés/non payés mois en cours
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status = \'paid\' THEN COALESCE(montant, price) END), 0) as current_month_paid,
+                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status != \'paid\' THEN COALESCE(montant, price) END), 0) as current_month_unpaid
                 ', [
                     $todayDate,
                     $startOfWeekStr, $endOfWeekStr,
                     $startOfWeekStr, $endOfWeekStr,
                     $startOfMonthStr, $endOfMonthStr,
-                    $startOfWeekStr, $endOfWeekStr
+                    $startOfWeekStr, $endOfWeekStr,
+                    $startOfPreviousMonthStr, $endOfPreviousMonthStr,
+                    $startOfPreviousMonthStr, $endOfPreviousMonthStr,
+                    $startOfMonthStr, $endOfMonthStr,
+                    $startOfMonthStr, $endOfMonthStr
                 ])
                 ->first();
             
@@ -69,6 +85,12 @@ class TeacherController extends Controller
             $weeklyEarnings = round($stats->weekly_earnings ?? 0, 2);
             $monthlyEarnings = round($stats->monthly_earnings ?? 0, 2);
             $weeklyHours = round($stats->weekly_hours ?? 0, 1);
+            
+            // Revenus payés/non payés
+            $previousMonthPaid = round($stats->previous_month_paid ?? 0, 2);
+            $previousMonthUnpaid = round($stats->previous_month_unpaid ?? 0, 2);
+            $currentMonthPaid = round($stats->current_month_paid ?? 0, 2);
+            $currentMonthUnpaid = round($stats->current_month_unpaid ?? 0, 2);
 
             // Gérer le filtre de période (par défaut: 7 jours à venir)
             $period = $request->get('period', '7days'); // 7days, 15days, previous_month, current_month, next_month
@@ -309,6 +331,19 @@ class TeacherController extends Controller
                         'week_hours' => round($weeklyHours, 1),
                         'monthly_earnings' => round($monthlyEarnings, 2),
                         'pending_replacements' => $pendingReplacements,
+                        // Revenus détaillés par mois
+                        'revenues' => [
+                            'previous_month' => [
+                                'paid' => $previousMonthPaid,
+                                'unpaid' => $previousMonthUnpaid,
+                                'total' => round($previousMonthPaid + $previousMonthUnpaid, 2)
+                            ],
+                            'current_month' => [
+                                'paid' => $currentMonthPaid,
+                                'unpaid' => $currentMonthUnpaid,
+                                'total' => round($currentMonthPaid + $currentMonthUnpaid, 2)
+                            ]
+                        ]
                     ],
                     'upcoming_lessons' => $upcomingLessons,
                     'recent_lessons' => $recentLessons,

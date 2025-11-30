@@ -54,6 +54,24 @@
                     <span>Espace Enseignant</span>
                   </NuxtLink>
 
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher/schedule" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>📅</span>
+                    <span>Mon Planning</span>
+                  </NuxtLink>
+
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher/students" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>👨‍🎓</span>
+                    <span>Mes Élèves</span>
+                  </NuxtLink>
+
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/teacher/earnings" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>💰</span>
+                    <span>Mes Revenus</span>
+                  </NuxtLink>
+
                   <NuxtLink v-if="isStudent" to="/student/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👨‍🎓</span>
