@@ -234,11 +234,36 @@
           <div class="space-y-4">
             <div>
               <p class="text-sm text-gray-600 mb-2">
-                <strong>Cours:</strong> {{ selectedLesson.course_type?.name || 'Cours' }}<br>
-                <strong>Date:</strong> {{ formatDateTime(selectedLesson.start_time) }}
+                <strong>Cours:</strong> {{ selectedLesson.course_type?.name || 'Cours' }}
               </p>
             </div>
 
+            <!-- Date et heure -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Date et heure *
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <input
+                    v-model="editLessonForm.date"
+                    type="date"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <input
+                    v-model="editLessonForm.time"
+                    type="time"
+                    required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Déduction d'abonnement -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-3">
                 Déduction d'abonnement
@@ -314,6 +339,8 @@ const showEditLessonModal = ref(false)
 const selectedLesson = ref(null)
 const savingLesson = ref(false)
 const editLessonForm = ref({
+  date: '',
+  time: '',
   deduct_from_subscription: true
 })
 
@@ -386,6 +413,19 @@ const getStatusLabel = (status) => {
 
 const openEditLessonModal = (lesson) => {
   selectedLesson.value = lesson
+  
+  // Extraire la date et l'heure depuis start_time
+  if (lesson.start_time) {
+    const dateTime = new Date(lesson.start_time)
+    editLessonForm.value.date = dateTime.toISOString().split('T')[0]
+    const hours = String(dateTime.getHours()).padStart(2, '0')
+    const minutes = String(dateTime.getMinutes()).padStart(2, '0')
+    editLessonForm.value.time = `${hours}:${minutes}`
+  } else {
+    editLessonForm.value.date = ''
+    editLessonForm.value.time = ''
+  }
+  
   editLessonForm.value.deduct_from_subscription = lesson.subscription_instances && lesson.subscription_instances.length > 0
   showEditLessonModal.value = true
 }
@@ -393,27 +433,63 @@ const openEditLessonModal = (lesson) => {
 const closeEditLessonModal = () => {
   showEditLessonModal.value = false
   selectedLesson.value = null
-  editLessonForm.value.deduct_from_subscription = true
+  editLessonForm.value = {
+    date: '',
+    time: '',
+    deduct_from_subscription: true
+  }
 }
 
 const saveLessonChanges = async () => {
   if (!selectedLesson.value) return
+  
+  // Validation
+  if (!editLessonForm.value.date || !editLessonForm.value.time) {
+    const { error: showError } = useToast()
+    showError('Veuillez remplir la date et l\'heure')
+    return
+  }
   
   try {
     savingLesson.value = true
     const { $api } = useNuxtApp()
     const { success: showSuccess, error: showError } = useToast()
     
-    const response = await $api.put(`/lessons/${selectedLesson.value.id}/subscription`, {
+    // Construire start_time depuis date et time
+    const startTime = `${editLessonForm.value.date}T${editLessonForm.value.time}:00`
+    
+    // Calculer end_time (utiliser la durée du cours existant)
+    const lessonStart = new Date(selectedLesson.value.start_time)
+    const lessonEnd = selectedLesson.value.end_time ? new Date(selectedLesson.value.end_time) : null
+    const duration = lessonEnd ? Math.round((lessonEnd - lessonStart) / (1000 * 60)) : 60 // Durée en minutes
+    const newStartTime = new Date(startTime)
+    const newEndTime = new Date(newStartTime.getTime() + duration * 60000)
+    
+    // Mettre à jour le cours avec la nouvelle date/heure et la déduction d'abonnement
+    const updatePayload = {
+      start_time: startTime,
+      end_time: newEndTime.toISOString().slice(0, 19).replace('T', ' ')
+    }
+    
+    // Mettre à jour la date/heure
+    const updateResponse = await $api.put(`/lessons/${selectedLesson.value.id}`, updatePayload)
+    
+    if (!updateResponse.data.success) {
+      showError(updateResponse.data.message || 'Erreur lors de la modification de la date')
+      return
+    }
+    
+    // Mettre à jour la relation abonnement
+    const subscriptionResponse = await $api.put(`/lessons/${selectedLesson.value.id}/subscription`, {
       deduct_from_subscription: editLessonForm.value.deduct_from_subscription
     })
     
-    if (response.data.success) {
+    if (subscriptionResponse.data.success) {
       showSuccess('Cours modifié avec succès')
       await loadHistory()
       closeEditLessonModal()
     } else {
-      showError(response.data.message || 'Erreur lors de la modification')
+      showError(subscriptionResponse.data.message || 'Erreur lors de la modification')
     }
   } catch (err) {
     console.error('Erreur modification cours:', err)

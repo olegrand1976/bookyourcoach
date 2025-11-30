@@ -166,11 +166,12 @@
             <div 
               v-for="lesson in filteredLessons" 
               :key="lesson.id"
-              @click="openLessonModal(lesson)"
-              class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+              class="border-2 rounded-lg p-4 transition-all hover:shadow-md"
               :class="getLessonBorderClass(lesson)">
               <div class="flex items-start justify-between">
-                <div class="flex-1">
+                <div 
+                  class="flex-1 cursor-pointer"
+                  @click="openLessonModal(lesson)">
                   <!-- Type et horaire -->
                   <div class="flex items-center gap-3 mb-2">
                     <h3 class="font-semibold text-gray-900">
@@ -203,6 +204,17 @@
                     <span>🎓 {{ lesson.teacher?.user?.name || 'Coach' }}</span>
                     <span v-if="lesson.price">💰 {{ formatPrice(lesson.price) }} €</span>
                   </div>
+                </div>
+                <div class="ml-4 flex gap-2">
+                  <button
+                    @click.stop="openEditLessonModal(lesson)"
+                    class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    title="Modifier le cours">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Modifier
+                  </button>
                 </div>
               </div>
             </div>
@@ -494,6 +506,7 @@
         :course-types="filteredCourseTypes"
         :available-days="availableDaysOfWeek"
         :saving="saving"
+        :editing-lesson="editingLesson"
         @close="closeCreateLessonModal"
         @submit="createLesson"
       />
@@ -617,6 +630,7 @@ const selectedDateInput = ref<string>('') // Input date (format YYYY-MM-DD)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
+const editingLesson = ref<Lesson | null>(null) // Cours en cours d'édition
 const lessonForm = ref({
   teacher_id: null as number | null,
   student_id: null as number | null,
@@ -1608,12 +1622,93 @@ async function openCreateLessonModal(slot?: OpenSlot) {
 function closeCreateLessonModal() {
   console.log('🚪 [closeCreateLessonModal] Fermeture modale')
   showCreateLessonModal.value = false
+  
+  // Si on était en mode édition, utiliser closeEditLessonModal
+  if (editingLesson.value) {
+    closeEditLessonModal()
+    return
+  }
+  
+  // Réinitialiser le formulaire
+  lessonForm.value = {
+    teacher_id: null,
+    student_id: null,
+    course_type_id: null,
+    date: '',
+    time: '',
+    start_time: '',
+    duration: 60,
+    price: 0,
+    notes: '',
+    est_legacy: false,
+    deduct_from_subscription: true
+  }
+  
   // Ne pas réinitialiser selectedSlotForLesson immédiatement pour éviter
   // que le computed retourne tous les types pendant la fermeture
   setTimeout(() => {
     selectedSlotForLesson.value = null
     console.log('🧹 [closeCreateLessonModal] selectedSlotForLesson réinitialisé après délai')
   }, 100)
+}
+
+// Ouvrir la modale d'édition d'un cours
+function openEditLessonModal(lesson: Lesson) {
+  editingLesson.value = lesson
+  
+  // Extraire la date et l'heure depuis start_time
+  if (lesson.start_time) {
+    const dateTime = new Date(lesson.start_time)
+    lessonForm.value.date = dateTime.toISOString().split('T')[0]
+    const hours = String(dateTime.getHours()).padStart(2, '0')
+    const minutes = String(dateTime.getMinutes()).padStart(2, '0')
+    lessonForm.value.time = `${hours}:${minutes}`
+  }
+  
+  // Remplir les autres champs
+  lessonForm.value.teacher_id = lesson.teacher?.id || null
+  lessonForm.value.student_id = lesson.student?.id || (lesson.students && lesson.students.length > 0 ? lesson.students[0].id : null)
+  lessonForm.value.course_type_id = lesson.course_type?.id || null
+  
+  // Calculer la durée en minutes
+  if (lesson.start_time && lesson.end_time) {
+    const start = new Date(lesson.start_time)
+    const end = new Date(lesson.end_time)
+    lessonForm.value.duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  }
+  
+  lessonForm.value.price = lesson.price || 0
+  lessonForm.value.notes = lesson.notes || ''
+  lessonForm.value.est_legacy = (lesson as any).est_legacy !== undefined ? (lesson as any).est_legacy : false
+  
+  // Déduction d'abonnement : vérifier si le cours a des abonnements liés
+  lessonForm.value.deduct_from_subscription = (lesson as any).subscription_instances && (lesson as any).subscription_instances.length > 0
+  
+  // Ne pas utiliser de créneau pour l'édition
+  selectedSlotForLesson.value = null
+  
+  showCreateLessonModal.value = true
+}
+
+// Fermer la modale d'édition
+function closeEditLessonModal() {
+  editingLesson.value = null
+  selectedSlotForLesson.value = null
+  showCreateLessonModal.value = false
+  // Réinitialiser le formulaire
+  lessonForm.value = {
+    teacher_id: null,
+    student_id: null,
+    course_type_id: null,
+    date: '',
+    time: '',
+    start_time: '',
+    duration: 60,
+    price: 0,
+    notes: '',
+    est_legacy: false,
+    deduct_from_subscription: true
+  }
 }
 
 // Gestion de la sélection de créneau
@@ -1630,6 +1725,11 @@ function handleSlotSelection(slot: OpenSlot) {
 }
 
 async function createLesson() {
+  // Si on est en mode édition, utiliser updateLesson
+  if (editingLesson.value) {
+    return updateLesson()
+  }
+  
   try {
     saving.value = true
     const { $api } = useNuxtApp()
@@ -1767,6 +1867,116 @@ async function createLesson() {
     }
     
     showError(errorMessage, 'Erreur de création')
+  } finally {
+    saving.value = false
+  }
+}
+
+// Mettre à jour un cours existant
+async function updateLesson() {
+  if (!editingLesson.value || saving.value) return
+  
+  try {
+    saving.value = true
+    const { $api } = useNuxtApp()
+    
+    // Validation
+    const validationErrors: string[] = []
+    
+    if (!lessonForm.value.teacher_id) {
+      validationErrors.push('Veuillez sélectionner un enseignant')
+    }
+    if (!lessonForm.value.course_type_id) {
+      validationErrors.push('Veuillez sélectionner un type de cours')
+    }
+    if (!lessonForm.value.date) {
+      validationErrors.push('Veuillez sélectionner une date')
+    }
+    if (!lessonForm.value.time) {
+      validationErrors.push('Veuillez sélectionner une heure')
+    }
+    
+    // Afficher les erreurs s'il y en a
+    if (validationErrors.length > 0) {
+      warning(validationErrors.join('\n'), 'Erreurs de validation')
+      return
+    }
+    
+    // Formater start_time et end_time
+    let startTime = ''
+    if (lessonForm.value.date && lessonForm.value.time) {
+      const timeStr = lessonForm.value.time.includes(':') && lessonForm.value.time.split(':').length === 2
+        ? `${lessonForm.value.time}:00`
+        : lessonForm.value.time
+      startTime = `${lessonForm.value.date}T${timeStr}`
+    }
+    
+    // Calculer end_time depuis start_time et duration
+    const start = new Date(startTime)
+    const end = new Date(start.getTime() + lessonForm.value.duration * 60000)
+    const endTime = end.toISOString().slice(0, 19).replace('T', ' ')
+    
+    const payload = {
+      teacher_id: lessonForm.value.teacher_id,
+      student_id: lessonForm.value.student_id,
+      course_type_id: lessonForm.value.course_type_id,
+      start_time: startTime,
+      end_time: endTime,
+      duration: lessonForm.value.duration,
+      price: lessonForm.value.price,
+      notes: lessonForm.value.notes,
+      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true')
+    }
+    
+    console.log('📤 Mise à jour du cours avec payload:', payload)
+    
+    const response = await $api.put(`/lessons/${editingLesson.value.id}`, payload)
+    
+    if (response.data.success) {
+      console.log('✅ Cours mis à jour:', response.data.data)
+      success('Cours modifié avec succès', 'Succès')
+      
+      // Mettre à jour la relation abonnement si nécessaire
+      if (editingLesson.value.id) {
+        try {
+          await $api.put(`/lessons/${editingLesson.value.id}/subscription`, {
+            deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
+          })
+        } catch (subErr) {
+          console.warn('Erreur lors de la mise à jour de la relation abonnement:', subErr)
+        }
+      }
+      
+      await loadLessons()
+      closeEditLessonModal()
+    } else {
+      showError(response.data.message || 'Erreur lors de la modification du cours', 'Erreur')
+    }
+  } catch (err: any) {
+    console.error('Erreur modification cours:', err)
+    
+    let errorMessage = 'Erreur lors de la modification du cours'
+    
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message
+    } else if (err.response?.data?.errors) {
+      const errors = err.response.data.errors
+      if (typeof errors === 'object') {
+        const formattedErrors = Object.entries(errors)
+          .map(([field, msgs]) => {
+            const messages = Array.isArray(msgs) ? msgs : [msgs]
+            return messages.join(', ')
+          })
+          .join('\n')
+        errorMessage = formattedErrors
+      } else {
+        errorMessage = errors
+      }
+    } else if (err.message) {
+      errorMessage = err.message
+    }
+    
+    showError(errorMessage, 'Erreur de modification')
   } finally {
     saving.value = false
   }

@@ -4,7 +4,7 @@
       <div class="p-6">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-2xl font-bold text-gray-900">
-            Créer un nouveau cours
+            {{ editingLesson ? 'Modifier le cours' : 'Créer un nouveau cours' }}
           </h3>
           <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,7 +348,7 @@
             </button>
             <button type="submit" :disabled="saving"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-              {{ saving ? 'Création...' : 'Créer le cours' }}
+              {{ saving ? (editingLesson ? 'Modification...' : 'Création...') : (editingLesson ? 'Modifier le cours' : 'Créer le cours') }}
             </button>
           </div>
         </form>
@@ -396,6 +396,7 @@ interface Props {
   courseTypes: any[]
   availableDays: number[]
   saving: boolean
+  editingLesson?: any | null
 }
 
 const props = defineProps<Props>()

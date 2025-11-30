@@ -60,18 +60,14 @@ class StudentController extends Controller
 
             $student = Student::with(['user', 'disciplines'])->findOrFail($studentId);
 
-            // Récupérer les abonnements de l'élève
+            // Récupérer les abonnements de l'élève pour ce club
+            // Utiliser la table pivot subscription_instance_students pour trouver les abonnements
             $subscriptionInstances = \App\Models\SubscriptionInstance::whereHas('students', function ($query) use ($studentId) {
                     $query->where('students.id', $studentId);
                 })
-                ->whereHas('subscription', function ($query) use ($club) {
-                    if (\App\Models\Subscription::hasClubIdColumn()) {
-                        $query->where('club_id', $club->id);
-                    } else {
-                        $query->whereHas('template', function ($q) use ($club) {
-                            $q->where('club_id', $club->id);
-                        });
-                    }
+                ->whereHas('subscription', function ($q) use ($club) {
+                    // Filtrer par club_id directement sur subscription (colonne existe)
+                    $q->where('club_id', $club->id);
                 })
                 ->with([
                     'subscription.template.courseTypes',
@@ -82,6 +78,15 @@ class StudentController extends Controller
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get();
+            
+            // Log pour debug
+            \Log::info('Abonnements trouvés pour élève', [
+                'student_id' => $studentId,
+                'club_id' => $club->id,
+                'count' => $subscriptionInstances->count(),
+                'subscription_ids' => $subscriptionInstances->pluck('id')->toArray(),
+                'subscription_numbers' => $subscriptionInstances->pluck('subscription.subscription_number')->toArray()
+            ]);
 
             // Récupérer les cours de l'élève (via relation many-to-many ou student_id)
             $lessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
