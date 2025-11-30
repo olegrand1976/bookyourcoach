@@ -50,6 +50,7 @@ class Lesson extends Model
         'est_legacy',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
         'date_paiement',   // Date de paiement (détermine le mois de commission)
         'montant',         // Montant réellement payé (peut différer de price)
+        'deduct_from_subscription', // true = déduire d'un abonnement, false = séance libre
     ];
 
     protected $casts = [
@@ -60,6 +61,7 @@ class Lesson extends Model
         'est_legacy' => 'boolean',
         'date_paiement' => 'date',
         'montant' => 'decimal:2',
+        'deduct_from_subscription' => 'boolean',
     ];
 
     // Accessors désactivés par défaut pour améliorer les performances
