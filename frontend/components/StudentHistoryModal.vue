@@ -238,29 +238,177 @@
               </p>
             </div>
 
-            <!-- Date et heure -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Date et heure *
+            <!-- Classification DCL/NDCL -->
+            <div class="border-b pb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-3">
+                Classification pour les commissions *
               </label>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
+              <div class="flex gap-6">
+                <div class="flex items-center">
                   <input
-                    v-model="editLessonForm.date"
-                    type="date"
+                    id="edit_dcl"
+                    v-model="editLessonForm.est_legacy"
+                    :value="false"
+                    type="radio"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
+                  <label for="edit_dcl" class="ml-2 block text-sm font-medium text-gray-700">
+                    DCL
+                  </label>
                 </div>
-                <div>
+                <div class="flex items-center">
                   <input
-                    v-model="editLessonForm.time"
-                    type="time"
+                    id="edit_ndcl"
+                    v-model="editLessonForm.est_legacy"
+                    :value="true"
+                    type="radio"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
+                  <label for="edit_ndcl" class="ml-2 block text-sm font-medium text-gray-700">
+                    NDCL
+                  </label>
                 </div>
               </div>
+            </div>
+
+            <!-- Créneau -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Créneau *</label>
+              <select 
+                v-model="editLessonForm.slot_id"
+                required
+                @change="onSlotChange"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+                <option :value="null">Sélectionnez un créneau</option>
+                <option v-for="slot in (openSlots || [])" :key="slot.id" :value="slot.id">
+                  {{ getDayName(slot.day_of_week) }} • {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                  <template v-if="slot.discipline || slot.discipline_name">
+                    • {{ slot.discipline?.name || slot.discipline_name || 'Non définie' }}
+                  </template>
+                </option>
+              </select>
+              <p v-if="editLessonForm.slot_id && currentSelectedSlot" class="text-xs text-green-600 mt-1">
+                ✓ Créneau sélectionné : {{ getDayName(currentSelectedSlot.day_of_week) }} de {{ formatTime(currentSelectedSlot.start_time) }} à {{ formatTime(currentSelectedSlot.end_time) }}
+              </p>
+            </div>
+
+            <!-- Date -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Date *
+                <span v-if="currentSelectedSlot" class="text-xs text-blue-600 ml-2 font-medium">
+                  (Uniquement les {{ getDayName(currentSelectedSlot?.day_of_week || 0) }}s)
+                </span>
+              </label>
+              <!-- Conteneur avec flèches de navigation -->
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  @click="navigateDate(-1)"
+                  :disabled="!canNavigateDate(-1)"
+                  :class="[
+                    'px-3 py-2 border rounded-md transition-colors',
+                    canNavigateDate(-1)
+                      ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  ]"
+                  title="Date précédente"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <input 
+                  v-model="editLessonForm.date" 
+                  type="date" 
+                  required
+                  :min="minDate || undefined"
+                  @input="validateDate"
+                  :class="[
+                    'flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                    editLessonForm.date && !isDateAvailable(editLessonForm.date) ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white text-gray-900'
+                  ]" />
+                <button
+                  type="button"
+                  @click="navigateDate(1)"
+                  :disabled="!canNavigateDate(1)"
+                  :class="[
+                    'px-3 py-2 border rounded-md transition-colors',
+                    canNavigateDate(1)
+                      ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                      : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  ]"
+                  title="Date suivante"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+              <p v-if="editLessonForm.date && !isDateAvailable(editLessonForm.date)" class="text-xs text-red-600 mt-1">
+                ⚠️ Cette date doit être un {{ getDayName(currentSelectedSlot?.day_of_week || 0) }}
+              </p>
+              <p v-else-if="editLessonForm.date && currentSelectedSlot" class="text-xs text-green-600 mt-1">
+                ✓ Date valide pour ce créneau
+              </p>
+              <!-- Suggestions de dates -->
+              <div v-if="currentSelectedSlot && suggestedDates.length > 0" class="mt-2">
+                <p class="text-xs text-gray-600 mb-1">Suggestions :</p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="(suggestedDate, index) in suggestedDates.slice(0, 4)"
+                    :key="index"
+                    type="button"
+                    @click="editLessonForm.date = suggestedDate"
+                    class="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
+                    {{ formatSuggestedDate(suggestedDate) }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Heure -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
+              <select 
+                v-model="editLessonForm.time" 
+                required
+                :class="[
+                  'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                  !availableTimes.length 
+                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300' 
+                    : 'bg-white text-gray-900 border-gray-300'
+                ]">
+                <option :value="''">Sélectionnez une heure</option>
+                <option v-for="time in availableTimes" :key="time.value" :value="time.value">
+                  {{ time.label }}
+                </option>
+              </select>
+              <p v-if="currentSelectedSlot && editLessonForm.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
+                ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
+              </p>
+              <p v-else-if="currentSelectedSlot && editLessonForm.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
+                ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
+              </p>
+              <p v-if="loadingLessons" class="text-xs text-gray-500 mt-1">
+                🔄 Chargement des cours existants...
+              </p>
+            </div>
+
+            <!-- Enseignant -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Enseignant *</label>
+              <select 
+                v-model="editLessonForm.teacher_id"
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+                <option :value="null">Sélectionnez un enseignant</option>
+                <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
+                  {{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}
+                </option>
+              </select>
             </div>
 
             <!-- Déduction d'abonnement -->
@@ -321,7 +469,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 
 const props = defineProps({
   student: {
@@ -338,10 +486,19 @@ const historyData = ref(null)
 const showEditLessonModal = ref(false)
 const selectedLesson = ref(null)
 const savingLesson = ref(false)
+const openSlots = ref([])
+const currentSelectedSlot = ref(null)
+const availableTimes = ref([])
+const teachers = ref([])
+const existingLessons = ref([])
+const loadingLessons = ref(false)
 const editLessonForm = ref({
   date: '',
   time: '',
-  deduct_from_subscription: true
+  deduct_from_subscription: true,
+  est_legacy: false,
+  slot_id: null,
+  teacher_id: null
 })
 
 // Helper pour obtenir le nom de l'élève
@@ -411,8 +568,317 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
-const openEditLessonModal = (lesson) => {
+// Charger les créneaux disponibles
+const loadOpenSlots = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/open-slots')
+    if (response.data.success) {
+      openSlots.value = response.data.data || []
+    }
+  } catch (err) {
+    console.error('Erreur chargement créneaux:', err)
+  }
+}
+
+// Helper pour obtenir le nom du jour
+const getDayName = (dayOfWeek) => {
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+  return days[dayOfWeek] || ''
+}
+
+// Helper pour formater l'heure
+const formatTime = (time) => {
+  if (!time) return ''
+  return time.substring(0, 5) // Retourne HH:mm
+}
+
+// Fonction appelée quand le créneau change
+const onSlotChange = () => {
+  if (!editLessonForm.value.slot_id || !openSlots.value) return
+  
+  const slot = openSlots.value.find(s => s.id === editLessonForm.value.slot_id)
+  if (slot) {
+    currentSelectedSlot.value = slot
+    updateAvailableTimes()
+    
+    // Si une date est déjà sélectionnée, vérifier qu'elle correspond au jour du créneau
+    if (editLessonForm.value.date) {
+      const date = new Date(editLessonForm.value.date + 'T00:00:00')
+      const dayOfWeek = date.getDay()
+      if (dayOfWeek !== slot.day_of_week) {
+        // Trouver la prochaine date correspondant au jour du créneau
+        const today = new Date()
+        let daysToAdd = slot.day_of_week - today.getDay()
+        if (daysToAdd < 0) daysToAdd += 7
+        const nextDate = new Date(today)
+        nextDate.setDate(today.getDate() + daysToAdd)
+        editLessonForm.value.date = nextDate.toISOString().split('T')[0]
+      }
+    }
+  }
+}
+
+// Mettre à jour les heures disponibles
+const updateAvailableTimes = async () => {
+  if (!currentSelectedSlot.value || !editLessonForm.value.date) {
+    availableTimes.value = []
+    return
+  }
+  
+  // Charger les cours existants pour cette date
+  await loadExistingLessons(editLessonForm.value.date)
+  
+  const slot = currentSelectedSlot.value
+  const slotStart = slot.start_time?.substring(0, 5) || '09:00'
+  const slotEnd = slot.end_time?.substring(0, 5) || '18:00'
+  
+  const slotStartMinutes = timeToMinutes(slotStart)
+  const slotEndMinutes = timeToMinutes(slotEnd)
+  
+  // Utiliser la durée du cours existant si disponible, sinon 60 minutes par défaut
+  const duration = selectedLesson.value?.course_type?.duration_minutes || 
+                   (selectedLesson.value?.end_time && selectedLesson.value?.start_time 
+                     ? Math.round((new Date(selectedLesson.value.end_time) - new Date(selectedLesson.value.start_time)) / (1000 * 60))
+                     : 60)
+  
+  // Générer toutes les heures possibles dans le créneau
+  const allTimes = []
+  for (let minutes = slotStartMinutes; minutes + duration <= slotEndMinutes; minutes += duration) {
+    allTimes.push({
+      value: minutesToTime(minutes),
+      label: minutesToTime(minutes),
+      minutes
+    })
+  }
+  
+  // Filtrer les heures qui sont déjà complètes (max_slots atteint)
+  const maxSlots = slot.max_slots || 1
+  
+  const available = allTimes.filter(time => {
+    // Vérifier combien de cours se chevauchent avec cette heure
+    const timeStart = new Date(`${editLessonForm.value.date}T${time.value}:00`)
+    const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+    
+    let overlappingCount = 0
+    
+    for (const lesson of existingLessons.value) {
+      // Exclure le cours en cours d'édition
+      if (selectedLesson.value && lesson.id === selectedLesson.value.id) {
+        continue
+      }
+      
+      if (lesson.status === 'cancelled') continue
+      
+      const lessonStart = new Date(lesson.start_time)
+      let lessonEnd
+      
+      // Calculer la fin du cours existant
+      if (lesson.end_time) {
+        lessonEnd = new Date(lesson.end_time)
+      } else if (lesson.course_type?.duration_minutes) {
+        lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
+      } else {
+        lessonEnd = new Date(lessonStart.getTime() + 60 * 60000) // 60 min par défaut
+      }
+      
+      // Vérifier le chevauchement
+      if (timeStart < lessonEnd && timeEnd > lessonStart) {
+        overlappingCount++
+      }
+    }
+    
+    // L'heure est disponible si le nombre de cours qui se chevauchent est strictement inférieur à max_slots
+    return overlappingCount < maxSlots
+  })
+  
+  availableTimes.value = available
+}
+
+// Charger les enseignants
+const loadTeachers = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/teachers')
+    if (response.data.success) {
+      teachers.value = response.data.teachers || []
+    }
+  } catch (err) {
+    console.error('Erreur chargement enseignants:', err)
+  }
+}
+
+// Fonction pour charger les cours existants pour une date donnée
+async function loadExistingLessons(date) {
+  const slotToUse = currentSelectedSlot.value
+  if (!date || !slotToUse) {
+    existingLessons.value = []
+    return
+  }
+  
+  try {
+    loadingLessons.value = true
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/lessons', {
+      params: {
+        date_from: date,
+        date_to: date
+      }
+    })
+    
+    if (response.data.success) {
+      existingLessons.value = response.data.data || []
+    } else {
+      existingLessons.value = []
+    }
+  } catch (err) {
+    console.error('Erreur chargement cours existants:', err)
+    existingLessons.value = []
+  } finally {
+    loadingLessons.value = false
+  }
+}
+
+// Convertir une heure (HH:MM) en minutes depuis minuit
+function timeToMinutes(time) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+// Convertir des minutes depuis minuit en heure (HH:MM)
+function minutesToTime(minutes) {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+// Date minimale (aujourd'hui)
+const minDate = computed(() => {
+  const today = new Date()
+  return today.toISOString().split('T')[0]
+})
+
+// Vérifier si une date est disponible pour le créneau sélectionné
+function isDateAvailable(date) {
+  if (!date || !currentSelectedSlot.value) return true
+  
+  const selectedDate = new Date(date + 'T00:00:00')
+  const dayOfWeek = selectedDate.getDay()
+  
+  return dayOfWeek === currentSelectedSlot.value.day_of_week
+}
+
+// Valider la date
+function validateDate() {
+  if (editLessonForm.value.date && currentSelectedSlot.value) {
+    if (!isDateAvailable(editLessonForm.value.date)) {
+      // Trouver la prochaine date valide
+      const today = new Date()
+      const targetDayOfWeek = currentSelectedSlot.value.day_of_week
+      let daysToAdd = targetDayOfWeek - today.getDay()
+      if (daysToAdd < 0) daysToAdd += 7
+      const nextDate = new Date(today)
+      nextDate.setDate(today.getDate() + daysToAdd)
+      editLessonForm.value.date = nextDate.toISOString().split('T')[0]
+    }
+  }
+}
+
+// Navigation de date
+function canNavigateDate(direction) {
+  if (!currentSelectedSlot.value) return false
+  
+  const today = new Date()
+  const targetDayOfWeek = currentSelectedSlot.value.day_of_week
+  
+  if (direction === -1) {
+    // Date précédente : trouver le dernier jour correspondant avant aujourd'hui
+    let daysToSubtract = today.getDay() - targetDayOfWeek
+    if (daysToSubtract <= 0) daysToSubtract += 7
+    const prevDate = new Date(today)
+    prevDate.setDate(today.getDate() - daysToSubtract)
+    return prevDate >= new Date(minDate.value)
+  } else {
+    // Date suivante : toujours possible
+    return true
+  }
+}
+
+function navigateDate(direction) {
+  if (!currentSelectedSlot.value) return
+  
+  const today = new Date()
+  const targetDayOfWeek = currentSelectedSlot.value.day_of_week
+  let currentDate = editLessonForm.value.date ? new Date(editLessonForm.value.date + 'T00:00:00') : today
+  
+  if (direction === -1) {
+    // Date précédente
+    let daysToSubtract = currentDate.getDay() - targetDayOfWeek
+    if (daysToSubtract <= 0) daysToSubtract += 7
+    const prevDate = new Date(currentDate)
+    prevDate.setDate(currentDate.getDate() - daysToSubtract)
+    if (prevDate >= new Date(minDate.value)) {
+      editLessonForm.value.date = prevDate.toISOString().split('T')[0]
+    }
+  } else {
+    // Date suivante
+    let daysToAdd = targetDayOfWeek - currentDate.getDay()
+    if (daysToAdd <= 0) daysToAdd += 7
+    const nextDate = new Date(currentDate)
+    nextDate.setDate(currentDate.getDate() + daysToAdd)
+    editLessonForm.value.date = nextDate.toISOString().split('T')[0]
+  }
+}
+
+// Générer des suggestions de dates
+const suggestedDates = computed(() => {
+  if (!currentSelectedSlot.value) return []
+  
+  const today = new Date()
+  const targetDayOfWeek = currentSelectedSlot.value.day_of_week
+  const suggestions = []
+  
+  // Prochaine date correspondant au jour
+  let daysToAdd = targetDayOfWeek - today.getDay()
+  if (daysToAdd < 0) daysToAdd += 7
+  if (daysToAdd === 0) daysToAdd = 7 // Si c'est aujourd'hui, prendre la semaine prochaine
+  
+  for (let i = 0; i < 4; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() + daysToAdd + (i * 7))
+    if (date >= new Date(minDate.value)) {
+      suggestions.push(date.toISOString().split('T')[0])
+    }
+  }
+  
+  return suggestions
+})
+
+// Formater une date suggérée
+function formatSuggestedDate(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  const diffTime = date - today
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return "Demain"
+  if (diffDays === 7) return "Dans 1 semaine"
+  if (diffDays === 14) return "Dans 2 semaines"
+  
+  return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+const openEditLessonModal = async (lesson) => {
   selectedLesson.value = lesson
+  
+  // Charger les créneaux et enseignants si pas encore chargés
+  if (openSlots.value.length === 0) {
+    await loadOpenSlots()
+  }
+  if (teachers.value.length === 0) {
+    await loadTeachers()
+  }
   
   // Extraire la date et l'heure depuis start_time
   if (lesson.start_time) {
@@ -421,22 +887,64 @@ const openEditLessonModal = (lesson) => {
     const hours = String(dateTime.getHours()).padStart(2, '0')
     const minutes = String(dateTime.getMinutes()).padStart(2, '0')
     editLessonForm.value.time = `${hours}:${minutes}`
+    
+    // Trouver le créneau correspondant au jour de la semaine
+    const dayOfWeek = dateTime.getDay()
+    const matchingSlot = openSlots.value.find(slot => slot.day_of_week === dayOfWeek)
+    if (matchingSlot) {
+      editLessonForm.value.slot_id = matchingSlot.id
+      currentSelectedSlot.value = matchingSlot
+      await loadExistingLessons(editLessonForm.value.date)
+      updateAvailableTimes()
+    }
   } else {
     editLessonForm.value.date = ''
     editLessonForm.value.time = ''
+    editLessonForm.value.slot_id = null
   }
   
+  // Enseignant
+  editLessonForm.value.teacher_id = lesson.teacher?.id || null
+  
+  // DCL/NDCL
+  editLessonForm.value.est_legacy = lesson.est_legacy !== undefined ? Boolean(lesson.est_legacy) : false
+  
+  // Déduction d'abonnement
   editLessonForm.value.deduct_from_subscription = lesson.subscription_instances && lesson.subscription_instances.length > 0
+  
   showEditLessonModal.value = true
 }
+
+// Watcher pour mettre à jour les heures disponibles quand la date change
+watch(() => editLessonForm.value.date, async () => {
+  await updateAvailableTimes()
+})
+
+// Watcher pour mettre à jour le créneau quand la date change
+watch(() => editLessonForm.value.date, async (newDate) => {
+  if (newDate && openSlots.value.length > 0) {
+    const date = new Date(newDate + 'T00:00:00')
+    const dayOfWeek = date.getDay()
+    const matchingSlot = openSlots.value.find(slot => slot.day_of_week === dayOfWeek)
+    if (matchingSlot && (!editLessonForm.value.slot_id || editLessonForm.value.slot_id !== matchingSlot.id)) {
+      editLessonForm.value.slot_id = matchingSlot.id
+      currentSelectedSlot.value = matchingSlot
+      await updateAvailableTimes()
+    }
+  }
+})
 
 const closeEditLessonModal = () => {
   showEditLessonModal.value = false
   selectedLesson.value = null
+  currentSelectedSlot.value = null
+  availableTimes.value = []
   editLessonForm.value = {
     date: '',
     time: '',
-    deduct_from_subscription: true
+    deduct_from_subscription: true,
+    est_legacy: false,
+    slot_id: null
   }
 }
 
@@ -455,42 +963,49 @@ const saveLessonChanges = async () => {
     const { $api } = useNuxtApp()
     const { success: showSuccess, error: showError } = useToast()
     
-    // Construire start_time depuis date et time
-    const startTime = `${editLessonForm.value.date}T${editLessonForm.value.time}:00`
+    // Construire start_time depuis date et time (format local pour éviter les problèmes de timezone)
+    const dateStr = editLessonForm.value.date
+    const timeStr = editLessonForm.value.time
+    const startTime = `${dateStr}T${timeStr}:00`
     
     // Calculer end_time (utiliser la durée du cours existant)
     const lessonStart = new Date(selectedLesson.value.start_time)
     const lessonEnd = selectedLesson.value.end_time ? new Date(selectedLesson.value.end_time) : null
-    const duration = lessonEnd ? Math.round((lessonEnd - lessonStart) / (1000 * 60)) : 60 // Durée en minutes
+    const duration = lessonEnd ? Math.round((lessonEnd.getTime() - lessonStart.getTime()) / (1000 * 60)) : 60 // Durée en minutes
+    
+    // Créer les dates en utilisant le format local pour éviter les problèmes de timezone
     const newStartTime = new Date(startTime)
     const newEndTime = new Date(newStartTime.getTime() + duration * 60000)
     
-    // Mettre à jour le cours avec la nouvelle date/heure et la déduction d'abonnement
+    // Formater end_time manuellement au format YYYY-MM-DD HH:mm:ss (avec espace)
+    const endYear = newEndTime.getFullYear()
+    const endMonth = String(newEndTime.getMonth() + 1).padStart(2, '0')
+    const endDay = String(newEndTime.getDate()).padStart(2, '0')
+    const endHours = String(newEndTime.getHours()).padStart(2, '0')
+    const endMinutes = String(newEndTime.getMinutes()).padStart(2, '0')
+    const endSeconds = String(newEndTime.getSeconds()).padStart(2, '0')
+    const endTimeFormatted = `${endYear}-${endMonth}-${endDay} ${endHours}:${endMinutes}:${endSeconds}`
+    
+    // Mettre à jour le cours avec toutes les modifications
     const updatePayload = {
       start_time: startTime,
-      end_time: newEndTime.toISOString().slice(0, 19).replace('T', ' ')
+      end_time: endTimeFormatted,
+      est_legacy: editLessonForm.value.est_legacy,
+      deduct_from_subscription: editLessonForm.value.deduct_from_subscription,
+      teacher_id: editLessonForm.value.teacher_id
     }
     
-    // Mettre à jour la date/heure
+    // Mettre à jour le cours
     const updateResponse = await $api.put(`/lessons/${selectedLesson.value.id}`, updatePayload)
     
     if (!updateResponse.data.success) {
-      showError(updateResponse.data.message || 'Erreur lors de la modification de la date')
+      showError(updateResponse.data.message || 'Erreur lors de la modification')
       return
     }
     
-    // Mettre à jour la relation abonnement
-    const subscriptionResponse = await $api.put(`/lessons/${selectedLesson.value.id}/subscription`, {
-      deduct_from_subscription: editLessonForm.value.deduct_from_subscription
-    })
-    
-    if (subscriptionResponse.data.success) {
-      showSuccess('Cours modifié avec succès')
-      await loadHistory()
-      closeEditLessonModal()
-    } else {
-      showError(subscriptionResponse.data.message || 'Erreur lors de la modification')
-    }
+    showSuccess('Cours modifié avec succès')
+    await loadHistory()
+    closeEditLessonModal()
   } catch (err) {
     console.error('Erreur modification cours:', err)
     const { error: showError } = useToast()
@@ -508,9 +1023,11 @@ const getTotalLessons = (subscription) => {
   return subscription.subscription?.total_lessons || 0
 }
 
-// Charger l'historique quand le composant est monté
+// Charger l'historique, les créneaux et les enseignants quand le composant est monté
 onMounted(() => {
   loadHistory()
+  loadOpenSlots()
+  loadTeachers()
 })
 
 // Recharger si le student change

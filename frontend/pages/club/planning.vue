@@ -507,6 +507,7 @@
         :available-days="availableDaysOfWeek"
         :saving="saving"
         :editing-lesson="editingLesson"
+        :open-slots="openSlots"
         @close="closeCreateLessonModal"
         @submit="createLesson"
       />
@@ -1653,8 +1654,17 @@ function closeCreateLessonModal() {
 }
 
 // Ouvrir la modale d'édition d'un cours
-function openEditLessonModal(lesson: Lesson) {
+async function openEditLessonModal(lesson: Lesson) {
   editingLesson.value = lesson
+  
+  console.log('📝 [openEditLessonModal] Chargement des données du cours:', {
+    id: lesson.id,
+    start_time: lesson.start_time,
+    course_type: lesson.course_type,
+    est_legacy: (lesson as any).est_legacy,
+    subscription_instances: (lesson as any).subscription_instances,
+    teacher: lesson.teacher
+  })
   
   // Extraire la date et l'heure depuis start_time
   if (lesson.start_time) {
@@ -1663,6 +1673,27 @@ function openEditLessonModal(lesson: Lesson) {
     const hours = String(dateTime.getHours()).padStart(2, '0')
     const minutes = String(dateTime.getMinutes()).padStart(2, '0')
     lessonForm.value.time = `${hours}:${minutes}`
+    console.log('📅 [openEditLessonModal] Date et heure extraites:', {
+      date: lessonForm.value.date,
+      time: lessonForm.value.time,
+      start_time: lesson.start_time
+    })
+    
+    // Trouver le créneau correspondant au jour de la semaine pour charger les heures disponibles
+    const dayOfWeek = dateTime.getDay() // 0 = dimanche, 1 = lundi, etc.
+    const matchingSlot = openSlots.value.find(slot => slot.day_of_week === dayOfWeek)
+    if (matchingSlot) {
+      selectedSlotForLesson.value = matchingSlot
+      console.log('🎯 [openEditLessonModal] Créneau trouvé pour le jour:', {
+        day_of_week: dayOfWeek,
+        slot_id: matchingSlot.id,
+        slot_start: matchingSlot.start_time,
+        slot_end: matchingSlot.end_time
+      })
+    } else {
+      selectedSlotForLesson.value = null
+      console.warn('⚠️ [openEditLessonModal] Aucun créneau trouvé pour le jour:', dayOfWeek)
+    }
   }
   
   // Remplir les autres champs
@@ -1679,15 +1710,36 @@ function openEditLessonModal(lesson: Lesson) {
   
   lessonForm.value.price = lesson.price || 0
   lessonForm.value.notes = lesson.notes || ''
-  lessonForm.value.est_legacy = (lesson as any).est_legacy !== undefined ? (lesson as any).est_legacy : false
   
-  // Déduction d'abonnement : vérifier si le cours a des abonnements liés
-  lessonForm.value.deduct_from_subscription = (lesson as any).subscription_instances && (lesson as any).subscription_instances.length > 0
+  // DCL/NDCL : est_legacy = false pour DCL, true pour NDCL
+  lessonForm.value.est_legacy = (lesson as any).est_legacy !== undefined ? Boolean((lesson as any).est_legacy) : false
+  console.log('🏷️ [openEditLessonModal] Classification chargée:', {
+    est_legacy: lessonForm.value.est_legacy,
+    label: lessonForm.value.est_legacy ? 'NDCL' : 'DCL',
+    raw_value: (lesson as any).est_legacy
+  })
   
-  // Ne pas utiliser de créneau pour l'édition
-  selectedSlotForLesson.value = null
+  // Déduction d'abonnement : utiliser directement le champ du cours, sinon vérifier les abonnements liés
+  if ((lesson as any).deduct_from_subscription !== undefined) {
+    lessonForm.value.deduct_from_subscription = Boolean((lesson as any).deduct_from_subscription)
+  } else {
+    // Fallback : vérifier si le cours a des abonnements liés
+    const hasSubscriptionInstances = (lesson as any).subscription_instances && Array.isArray((lesson as any).subscription_instances) && (lesson as any).subscription_instances.length > 0
+    lessonForm.value.deduct_from_subscription = hasSubscriptionInstances
+  }
+  console.log('💳 [openEditLessonModal] Déduction d\'abonnement chargée:', {
+    deduct_from_subscription: lessonForm.value.deduct_from_subscription,
+    raw_value: (lesson as any).deduct_from_subscription,
+    has_subscription_instances: (lesson as any).subscription_instances?.length > 0
+  })
   
   showCreateLessonModal.value = true
+  
+  // Attendre un tick pour que le composant soit monté et charger les cours existants pour la date
+  await nextTick()
+  if (lessonForm.value.date && selectedSlotForLesson.value) {
+    // Le watcher dans CreateLessonModal chargera automatiquement les cours existants
+  }
 }
 
 // Fermer la modale d'édition
@@ -1904,28 +1956,59 @@ async function updateLesson() {
     
     // Formater start_time et end_time
     let startTime = ''
+    let endTime = ''
     if (lessonForm.value.date && lessonForm.value.time) {
       const timeStr = lessonForm.value.time.includes(':') && lessonForm.value.time.split(':').length === 2
         ? `${lessonForm.value.time}:00`
         : lessonForm.value.time
       startTime = `${lessonForm.value.date}T${timeStr}`
+      
+      // Calculer end_time depuis start_time et duration
+      // Utiliser la même approche que pour start_time pour éviter les problèmes de timezone
+      const [hours, minutes] = lessonForm.value.time.split(':').map(Number)
+      const [year, month, day] = lessonForm.value.date.split('-').map(Number)
+      
+      // Créer une date locale (pas UTC) pour éviter les décalages de timezone
+      const startDate = new Date(year, month - 1, day, hours, minutes, 0)
+      const endDate = new Date(startDate.getTime() + lessonForm.value.duration * 60000)
+      
+      // Formater end_time au format attendu par le backend (YYYY-MM-DD HH:mm:ss avec espace)
+      const endYear = endDate.getFullYear()
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0')
+      const endDay = String(endDate.getDate()).padStart(2, '0')
+      const endHours = String(endDate.getHours()).padStart(2, '0')
+      const endMinutes = String(endDate.getMinutes()).padStart(2, '0')
+      const endSeconds = String(endDate.getSeconds()).padStart(2, '0')
+      
+      endTime = `${endYear}-${endMonth}-${endDay} ${endHours}:${endMinutes}:${endSeconds}`
     }
     
-    // Calculer end_time depuis start_time et duration
-    const start = new Date(startTime)
-    const end = new Date(start.getTime() + lessonForm.value.duration * 60000)
-    const endTime = end.toISOString().slice(0, 19).replace('T', ' ')
-    
-    const payload = {
+    const payload: any = {
       teacher_id: lessonForm.value.teacher_id,
       student_id: lessonForm.value.student_id,
       course_type_id: lessonForm.value.course_type_id,
       start_time: startTime,
-      end_time: endTime,
       duration: lessonForm.value.duration,
-      price: lessonForm.value.price,
+      price: typeof lessonForm.value.price === 'string' ? parseFloat(lessonForm.value.price) : lessonForm.value.price,
       notes: lessonForm.value.notes,
-      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true')
+      est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
+      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
+    }
+    
+    // Ajouter end_time seulement s'il est défini et valide (après start_time)
+    if (endTime) {
+      // Vérifier que end_time est après start_time en comparant les dates
+      const startDateObj = new Date(startTime)
+      const endDateObj = new Date(endTime.replace(' ', 'T')) // Convertir pour la comparaison
+      if (endDateObj > startDateObj) {
+        payload.end_time = endTime
+      } else {
+        console.warn('⚠️ [updateLesson] end_time calculé incorrectement, omis du payload:', {
+          start_time: startTime,
+          end_time: endTime,
+          duration: lessonForm.value.duration
+        })
+      }
     }
     
     console.log('📤 Mise à jour du cours avec payload:', payload)
