@@ -777,15 +777,28 @@ class LessonController extends Controller
                         ->where('start_time', '>', $currentLessonDate)
                         ->where('status', '!=', 'cancelled')
                         ->where('id', '!=', $lesson->id)
+                        ->with('courseType') // Charger la relation courseType
                         ->orderBy('start_time', 'asc')
                         ->get();
                     
                     // Calculer le décalage horaire entre l'ancien et le nouveau cours
                     $newStartTime = Carbon::parse($lesson->start_time);
-                    $timeOffset = $newStartTime->diffInMinutes($oldStartTime);
                     
-                    // Calculer le décalage de date
-                    $dateOffset = $newStartTime->diffInDays($oldStartTime);
+                    // Calculer le décalage en minutes (peut être négatif)
+                    $timeOffset = $newStartTime->diffInMinutes($oldStartTime, false);
+                    
+                    // Calculer le décalage de date en jours (peut être négatif)
+                    // Utiliser diffInRealDays pour avoir le signe correct
+                    $dateOffset = $oldStartTime->diffInRealDays($newStartTime, false);
+                    
+                    Log::info("🔄 Mise à jour des cours futurs", [
+                        'lesson_id' => $lesson->id,
+                        'old_start_time' => $oldStartTime->toDateTimeString(),
+                        'new_start_time' => $newStartTime->toDateTimeString(),
+                        'time_offset_minutes' => $timeOffset,
+                        'date_offset_days' => $dateOffset,
+                        'future_lessons_count' => $futureLessons->count()
+                    ]);
                 
                 // Mettre à jour chaque cours futur
                 foreach ($futureLessons as $futureLesson) {
@@ -875,10 +888,18 @@ class LessonController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            Log::error('Erreur lors de la mise à jour du cours', [
+                'lesson_id' => $id,
+                'user_id' => Auth::id(),
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la mise à jour du cours',
-                'error' => $e->getMessage()
+                'message' => 'Erreur lors de la mise à jour du cours: ' . $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : 'Une erreur est survenue lors de la mise à jour'
             ], 500);
         }
     }
