@@ -705,10 +705,12 @@ class LessonController extends Controller
                 'status' => 'sometimes|in:pending,confirmed,completed,cancelled',
                 'notes' => 'nullable|string|max:1000',
                 'est_legacy' => 'nullable|boolean',
-                'deduct_from_subscription' => 'nullable|boolean'
+                'deduct_from_subscription' => 'nullable|boolean',
+                'update_scope' => 'sometimes|in:single,all_future'
             ];
 
             $validated = $request->validate($validationRules);
+            $updateScope = $validated['update_scope'] ?? 'single';
 
             // Vérifier la disponibilité si la date/heure ou l'enseignant change
             if (isset($validated['start_time']) || isset($validated['teacher_id'])) {
@@ -755,7 +757,93 @@ class LessonController extends Controller
                 $this->consumeLessonFromSubscription($lesson);
             }
 
+            // Stocker l'ancienne valeur de start_time avant la mise à jour
+            $oldStartTime = $lesson->start_time ? Carbon::parse($lesson->start_time) : null;
+            
             $lesson->update($validated);
+            
+            // Si update_scope est 'all_future' et que le cours fait partie d'un abonnement, mettre à jour tous les cours futurs
+            $updatedFutureLessonsCount = 0;
+            if ($updateScope === 'all_future' && $oldStartTime && isset($validated['start_time'])) {
+                // Recharger les relations pour avoir les subscription_instances
+                $lesson->load('subscriptionInstances');
+                
+                if ($lesson->subscriptionInstances()->count() > 0) {
+                    $subscriptionInstance = $lesson->subscriptionInstances()->first();
+                    $currentLessonDate = Carbon::parse($lesson->start_time);
+                    
+                    // Récupérer les cours futurs de cette instance d'abonnement
+                    $futureLessons = $subscriptionInstance->lessons()
+                        ->where('start_time', '>', $currentLessonDate)
+                        ->where('status', '!=', 'cancelled')
+                        ->where('id', '!=', $lesson->id)
+                        ->orderBy('start_time', 'asc')
+                        ->get();
+                    
+                    // Calculer le décalage horaire entre l'ancien et le nouveau cours
+                    $newStartTime = Carbon::parse($lesson->start_time);
+                    $timeOffset = $newStartTime->diffInMinutes($oldStartTime);
+                    
+                    // Calculer le décalage de date
+                    $dateOffset = $newStartTime->diffInDays($oldStartTime);
+                
+                // Mettre à jour chaque cours futur
+                foreach ($futureLessons as $futureLesson) {
+                    try {
+                        $futureStartTime = Carbon::parse($futureLesson->start_time);
+                        $newFutureStartTime = $futureStartTime->copy()->addDays($dateOffset)->addMinutes($timeOffset);
+                        
+                        // Vérifier la disponibilité avant de mettre à jour
+                        $clubId = $futureLesson->club_id;
+                        $teacherId = $validated['teacher_id'] ?? $futureLesson->teacher_id;
+                        
+                        // Compter les élèves du cours
+                        $studentCount = 0;
+                        if ($futureLesson->student_id) {
+                            $studentCount++;
+                        }
+                        $studentCount += $futureLesson->students()->count();
+                        
+                        // Calculer la durée
+                        $duration = $validated['duration'] ?? ($futureLesson->courseType ? $futureLesson->courseType->duration_minutes : 60);
+                        
+                        // Vérifier la disponibilité
+                        try {
+                            $this->checkSlotCapacityForUpdate(
+                                $newFutureStartTime->toDateTimeString(),
+                                $clubId,
+                                $teacherId,
+                                $studentCount,
+                                $futureLesson->id,
+                                $duration
+                            );
+                            
+                            // Calculer la nouvelle heure de fin
+                            $newFutureEndTime = $newFutureStartTime->copy()->addMinutes($duration);
+                            
+                            // Mettre à jour le cours futur
+                            $futureLesson->update([
+                                'start_time' => $newFutureStartTime->toDateTimeString(),
+                                'end_time' => $newFutureEndTime->toDateTimeString(),
+                                'teacher_id' => $teacherId
+                            ]);
+                            
+                            $updatedFutureLessonsCount++;
+                        } catch (\Exception $e) {
+                            // Si la mise à jour échoue pour un cours, continuer avec les autres
+                            Log::warning("Impossible de mettre à jour le cours futur {$futureLesson->id}: " . $e->getMessage());
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning("Erreur lors de la mise à jour du cours futur {$futureLesson->id}: " . $e->getMessage());
+                    }
+                }
+                }
+            }
+
+            $message = 'Cours mis à jour avec succès';
+            if ($updateScope === 'all_future' && $updatedFutureLessonsCount > 0) {
+                $message .= ". {$updatedFutureLessonsCount} cours futur(s) ont également été mis à jour.";
+            }
 
             return response()->json([
                 'success' => true,
@@ -772,7 +860,8 @@ class LessonController extends Controller
                     'courseType',
                     'location'
                 ]),
-                'message' => 'Cours mis à jour avec succès'
+                'message' => $message,
+                'updated_future_lessons_count' => $updatedFutureLessonsCount
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([

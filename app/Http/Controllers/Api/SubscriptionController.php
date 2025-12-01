@@ -1860,6 +1860,102 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Récupérer le nombre de cours futurs d'une instance d'abonnement
+     */
+    public function getFutureLessons($instanceId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+            
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            // Vérifier que l'instance appartient au club
+            $instance = SubscriptionInstance::whereHas('subscription', function ($query) use ($club) {
+                    if (Subscription::hasClubIdColumn()) {
+                        $query->where('club_id', $club->id);
+                    } else {
+                        $query->whereHas('template', function ($q) use ($club) {
+                            $q->where('club_id', $club->id);
+                        });
+                    }
+                })
+                ->findOrFail($instanceId);
+
+            // Récupérer la date de référence depuis la requête
+            $afterDate = request()->query('after_date');
+            if (!$afterDate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le paramètre after_date est requis'
+                ], 400);
+            }
+
+            $referenceDate = Carbon::parse($afterDate)->startOfDay();
+
+            // Récupérer les cours futurs de cette instance d'abonnement
+            $futureLessons = $instance->lessons()
+                ->where('start_time', '>', $referenceDate)
+                ->where('status', '!=', 'cancelled')
+                ->orderBy('start_time', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'count' => $futureLessons->count(),
+                    'lessons' => $futureLessons->map(function ($lesson) {
+                        return [
+                            'id' => $lesson->id,
+                            'start_time' => $lesson->start_time->toISOString(),
+                            'end_time' => $lesson->end_time ? $lesson->end_time->toISOString() : null,
+                            'status' => $lesson->status,
+                            'teacher_id' => $lesson->teacher_id,
+                            'course_type_id' => $lesson->course_type_id
+                        ];
+                    })
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Instance d\'abonnement non trouvée'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des cours futurs: ' . $e->getMessage(), [
+                'instance_id' => $instanceId,
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des cours futurs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Obtenir la description d'une action pour l'affichage
      */
     private function getActionDescription(AuditLog $log): string

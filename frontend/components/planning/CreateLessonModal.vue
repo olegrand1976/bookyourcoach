@@ -268,8 +268,8 @@
             <h4 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">📋 Détails du cours</h4>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Classification pour les commissions (DCL/NDCL) - uniquement pour séances de base -->
-              <div v-if="isBaseSession" class="md:col-span-2">
+              <!-- Classification pour les commissions (DCL/NDCL) - uniquement pour séances de base avec déduction d'abonnement -->
+              <div v-if="shouldShowDclNdcl" class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-3">
                   Classification pour les commissions *
                 </label>
@@ -280,7 +280,7 @@
                       v-model="form.est_legacy"
                       :value="false"
                       type="radio"
-                      :required="isBaseSession"
+                      :required="shouldShowDclNdcl"
                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                     />
                     <label for="dcl" class="ml-2 block text-sm font-medium text-gray-700">
@@ -293,7 +293,7 @@
                       v-model="form.est_legacy"
                       :value="true"
                       type="radio"
-                      :required="isBaseSession"
+                      :required="shouldShowDclNdcl"
                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                     />
                     <label for="ndcl" class="ml-2 block text-sm font-medium text-gray-700">
@@ -301,6 +301,9 @@
                     </label>
                   </div>
                 </div>
+                <p class="text-xs text-gray-500 mt-2">
+                  ⓘ Cette classification s'applique uniquement lorsque la séance est déduite d'un abonnement existant
+                </p>
               </div>
 
               <!-- Déduction d'abonnement -->
@@ -484,6 +487,17 @@ const isBaseSession = computed(() => {
   
   // Une séance de base est un cours individuel
   return selectedCourseType.is_individual === true
+})
+
+// Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
+// Les boutons DCL/NDCL ne s'affichent que si :
+// - C'est une séance de base (isBaseSession)
+// - Un élève est sélectionné
+// - "Déduire d'un abonnement existant" est sélectionné
+const shouldShowDclNdcl = computed(() => {
+  return isBaseSession.value && 
+         props.form.student_id !== null && 
+         props.form.deduct_from_subscription === true
 })
 
 // Fonction pour formater l'heure (HH:mm)
@@ -1191,6 +1205,19 @@ watch(() => props.form.duration, async () => {
 watch(() => props.form.time, () => {
   // La disponibilité est recalculée automatiquement via les fonctions isTeacherAvailable et isStudentAvailable
   // Pas besoin de recharger les cours, ils sont déjà chargés pour la date
+})
+
+// Watcher pour réinitialiser est_legacy quand la déduction d'abonnement est désactivée
+// Si on ne déduit pas d'un abonnement, le backend définira automatiquement est_legacy
+// en fonction du statut de l'abonnement choisi à sa création
+watch(() => [props.form.deduct_from_subscription, props.form.student_id], ([newDeduct, newStudentId], [oldDeduct, oldStudentId]) => {
+  // Si la déduction d'abonnement est désactivée ou si l'élève est désélectionné
+  // et que les boutons DCL/NDCL ne doivent plus être affichés, réinitialiser est_legacy
+  if (!shouldShowDclNdcl.value && props.form.est_legacy !== null) {
+    // Réinitialiser à null pour que le backend puisse le définir automatiquement
+    props.form.est_legacy = null
+    console.log('🔄 [CreateLessonModal] est_legacy réinitialisé car déduction d\'abonnement désactivée ou élève désélectionné')
+  }
 })
 
 // Vérifier si un enseignant est disponible pour la plage horaire sélectionnée
