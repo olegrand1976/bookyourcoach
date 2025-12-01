@@ -1,7 +1,7 @@
 <template>
   <div v-if="show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div class="p-6">
+    <div class="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+      <div class="p-8">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-2xl font-bold text-gray-900">
             {{ editingLesson ? 'Modifier le cours' : 'Créer un nouveau cours' }}
@@ -27,343 +27,369 @@
         </div>
 
         <!-- Formulaire -->
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- 1. Classification pour les commissions (DCL/NDCL) -->
-          <div class="border-b pb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Classification pour les commissions *
-            </label>
-            <div class="flex gap-6">
-              <div class="flex items-center">
-                <input
-                  id="dcl"
-                  v-model="form.est_legacy"
-                  :value="false"
-                  type="radio"
+        <form @submit.prevent="handleSubmit" class="space-y-6">
+          <!-- Section 1: Informations du créneau et horaire -->
+          <div class="bg-gray-50 rounded-lg p-6 space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">📅 Créneau et horaire</h4>
+            
+            <!-- 2.5. Créneau (en mode édition uniquement) -->
+            <div v-if="editingLesson" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Créneau *</label>
+                <select 
+                  v-model="selectedSlotId"
                   required
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="dcl" class="ml-2 block text-sm font-medium text-gray-700">
-                  DCL
+                  @change="onSlotChange"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
+                  <option :value="null">Sélectionnez un créneau</option>
+                  <option v-for="slot in (openSlots || [])" :key="slot.id" :value="slot.id">
+                    {{ getDayName(slot.day_of_week) }} • {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                    <template v-if="slot.discipline || (slot as any).discipline_name">
+                      • {{ slot.discipline?.name || (slot as any).discipline_name || 'Non définie' }}
+                    </template>
+                  </option>
+                </select>
+                <p v-if="selectedSlotId && currentSelectedSlot" class="text-xs text-green-600 mt-1">
+                  ✓ Créneau sélectionné : {{ getDayName(currentSelectedSlot.day_of_week) }} de {{ formatTime(currentSelectedSlot.start_time) }} à {{ formatTime(currentSelectedSlot.end_time) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- 2. Type de cours (masqué en mode édition) -->
+            <div v-if="!editingLesson" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours *</label>
+                <select v-model.number="form.course_type_id" required
+                        :disabled="courseTypes.length === 0"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                  <option :value="null">
+                    {{ courseTypes.length === 0 ? 'Aucun type de cours pour cette discipline' : 'Sélectionnez un type de cours' }}
+                  </option>
+                  <option v-for="courseType in courseTypes" :key="courseType.id" :value="courseType.id">
+                    {{ courseType.name }} 
+                    ({{ courseType.duration_minutes || courseType.duration }}min - {{ courseType.price }}€)
+                  </option>
+                </select>
+                <p v-if="selectedSlot && courseTypes.length === 0" class="text-xs text-red-600 mt-1">
+                  ⚠️ Aucun type de cours disponible pour ce créneau
+                  <br>
+                  <span class="text-xs">
+                    Vérifiez que :
+                    <br>• Des types de cours sont associés à ce créneau
+                    <br>• Ces types correspondent aux disciplines activées pour votre club
+                  </span>
+                </p>
+                <p v-else-if="selectedSlot && courseTypes.length > 0" class="text-xs text-green-600 mt-1">
+                  ✓ {{ courseTypes.length }} type(s) de cours disponible(s) pour ce créneau
+                </p>
+              </div>
+            </div>
+
+            <!-- 3. Date et Heure -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Date -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Date *
+                  <span v-if="(editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-blue-600 ml-2 font-medium">
+                    (Uniquement les {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}s)
+                  </span>
+                  <span v-else-if="availableDays.length > 0" class="text-xs text-gray-500 ml-2">
+                    (Jours disponibles: {{ availableDays.map(d => getDayName(d)).join(', ') }})
+                  </span>
                 </label>
-              </div>
-              <div class="flex items-center">
-                <input
-                  id="ndcl"
-                  v-model="form.est_legacy"
-                  :value="true"
-                  type="radio"
-                  required
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                />
-                <label for="ndcl" class="ml-2 block text-sm font-medium text-gray-700">
-                  NDCL
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. Type de cours (masqué en mode édition) -->
-          <div v-if="!editingLesson">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Type de cours *</label>
-            <select v-model.number="form.course_type_id" required
-                    :disabled="courseTypes.length === 0"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
-              <option :value="null">
-                {{ courseTypes.length === 0 ? 'Aucun type de cours pour cette discipline' : 'Sélectionnez un type de cours' }}
-              </option>
-              <option v-for="courseType in courseTypes" :key="courseType.id" :value="courseType.id">
-                {{ courseType.name }} 
-                ({{ courseType.duration_minutes || courseType.duration }}min - {{ courseType.price }}€)
-              </option>
-            </select>
-            <p v-if="selectedSlot && courseTypes.length === 0" class="text-xs text-red-600 mt-1">
-              ⚠️ Aucun type de cours disponible pour ce créneau
-              <br>
-              <span class="text-xs">
-                Vérifiez que :
-                <br>• Des types de cours sont associés à ce créneau
-                <br>• Ces types correspondent aux disciplines activées pour votre club
-              </span>
-            </p>
-            <p v-else-if="selectedSlot && courseTypes.length > 0" class="text-xs text-green-600 mt-1">
-              ✓ {{ courseTypes.length }} type(s) de cours disponible(s) pour ce créneau
-            </p>
-          </div>
-
-          <!-- 2.5. Créneau (en mode édition uniquement) -->
-          <div v-if="editingLesson">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Créneau *</label>
-            <select 
-              v-model="selectedSlotId"
-              required
-              @change="onSlotChange"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900">
-              <option :value="null">Sélectionnez un créneau</option>
-              <option v-for="slot in (openSlots || [])" :key="slot.id" :value="slot.id">
-                {{ getDayName(slot.day_of_week) }} • {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-                <template v-if="slot.discipline || (slot as any).discipline_name">
-                  • {{ slot.discipline?.name || (slot as any).discipline_name || 'Non définie' }}
-                </template>
-              </option>
-            </select>
-            <p v-if="selectedSlotId && currentSelectedSlot" class="text-xs text-green-600 mt-1">
-              ✓ Créneau sélectionné : {{ getDayName(currentSelectedSlot.day_of_week) }} de {{ formatTime(currentSelectedSlot.start_time) }} à {{ formatTime(currentSelectedSlot.end_time) }}
-            </p>
-          </div>
-
-          <!-- 3. Date -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Date *
-              <span v-if="(editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-blue-600 ml-2 font-medium">
-                (Uniquement les {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}s)
-              </span>
-              <span v-else-if="availableDays.length > 0" class="text-xs text-gray-500 ml-2">
-                (Jours disponibles: {{ availableDays.map(d => getDayName(d)).join(', ') }})
-              </span>
-            </label>
-            <!-- Conteneur avec flèches de navigation -->
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                @click="navigateDate(-1)"
-                :disabled="!canNavigateDate(-1)"
-                :class="[
-                  'px-3 py-2 border rounded-md transition-colors',
-                  canNavigateDate(-1)
-                    ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
-                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                ]"
-                title="Date précédente"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <input 
-                v-model="form.date" 
-                type="date" 
-                required
-                :min="minDate || undefined"
-                @input="validateDate"
-                :class="[
-                  'flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
-                  form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                ]" />
-              <button
-                type="button"
-                @click="navigateDate(1)"
-                :disabled="!canNavigateDate(1)"
-                :class="[
-                  'px-3 py-2 border rounded-md transition-colors',
-                  canNavigateDate(1)
-                    ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
-                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                ]"
-                title="Date suivante"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-            <p v-if="form.date && !isDateAvailable(form.date)" class="text-xs text-red-600 mt-1">
-              ⚠️ Cette date doit être un {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}
-            </p>
-            <p v-else-if="form.date && (editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-green-600 mt-1">
-              ✓ Date valide pour ce créneau
-            </p>
-            <!-- Suggestions de dates -->
-            <div v-if="(editingLesson ? currentSelectedSlot : selectedSlot) && suggestedDates.length > 0" class="mt-2">
-              <p class="text-xs text-gray-600 mb-1">Suggestions :</p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="(suggestedDate, index) in suggestedDates.slice(0, 4)"
-                  :key="index"
-                  type="button"
-                  @click="form.date = suggestedDate"
-                  class="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
-                  {{ formatSuggestedDate(suggestedDate) }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Heure -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
-            <select 
-              v-model="form.time" 
-              required
-              :disabled="!availableTimes.length && !editingLesson"
-              :class="[
-                'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
-                (!availableTimes.length && !editingLesson) 
-                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300' 
-                  : 'bg-white text-gray-900 border-gray-300'
-              ]">
-              <option :value="''">
-                {{ editingLesson ? 'Sélectionnez une heure' : (availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure') }}
-              </option>
-              <option v-for="time in availableTimes" :key="time.value" :value="time.value">
-                {{ time.label }}
-              </option>
-            </select>
-            <p v-if="!editingLesson && selectedSlot && form.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
-              ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
-            </p>
-            <p v-else-if="!editingLesson && selectedSlot && form.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
-              ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
-            </p>
-            <p v-if="loadingLessons" class="text-xs text-gray-500 mt-1">
-              🔄 Chargement des cours existants...
-            </p>
-          </div>
-
-          <!-- 5. Enseignant -->
-          <div>
-            <Autocomplete
-              v-model="form.teacher_id"
-              :items="teachers"
-              label="Enseignant *"
-              placeholder="Rechercher un enseignant..."
-              :required="true"
-              :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
-              :get-item-id="(teacher) => teacher.id"
-              :is-item-unavailable="(teacher) => !isTeacherAvailable(teacher.id)"
-            >
-              <template #item="{ item: teacher, isUnavailable }">
-                <div :class="isUnavailable ? 'bg-red-50' : ''">
-                  <div class="font-medium flex items-center gap-2">
-                    {{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}
-                    <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
-                  </div>
-                  <div v-if="teacher.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
-                    {{ teacher.user.email }}
+                <!-- Conteneur avec flèches de navigation -->
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="navigateDate(-1)"
+                    :disabled="!canNavigateDate(-1)"
+                    :class="[
+                      'px-3 py-2 border rounded-md transition-colors',
+                      canNavigateDate(-1)
+                        ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                        : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                    ]"
+                    title="Date précédente"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <input 
+                    v-model="form.date" 
+                    type="date" 
+                    required
+                    :min="minDate || undefined"
+                    @input="validateDate"
+                    :class="[
+                      'flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                      form.date && !isDateAvailable(form.date) ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    ]" />
+                  <button
+                    type="button"
+                    @click="navigateDate(1)"
+                    :disabled="!canNavigateDate(1)"
+                    :class="[
+                      'px-3 py-2 border rounded-md transition-colors',
+                      canNavigateDate(1)
+                        ? 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                        : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                    ]"
+                    title="Date suivante"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+                <p v-if="form.date && !isDateAvailable(form.date)" class="text-xs text-red-600 mt-1">
+                  ⚠️ Cette date doit être un {{ getDayName((editingLesson ? currentSelectedSlot : selectedSlot)?.day_of_week || 0) }}
+                </p>
+                <p v-else-if="form.date && (editingLesson ? currentSelectedSlot : selectedSlot)" class="text-xs text-green-600 mt-1">
+                  ✓ Date valide pour ce créneau
+                </p>
+                <!-- Suggestions de dates -->
+                <div v-if="(editingLesson ? currentSelectedSlot : selectedSlot) && suggestedDates.length > 0" class="mt-2">
+                  <p class="text-xs text-gray-600 mb-1">Suggestions :</p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="(suggestedDate, index) in suggestedDates.slice(0, 4)"
+                      :key="index"
+                      type="button"
+                      @click="form.date = suggestedDate"
+                      class="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200">
+                      {{ formatSuggestedDate(suggestedDate) }}
+                    </button>
                   </div>
                 </div>
-              </template>
-            </Autocomplete>
+              </div>
+
+              <!-- Heure -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
+                <select 
+                  v-model="form.time" 
+                  required
+                  :disabled="!availableTimes.length && !editingLesson"
+                  :class="[
+                    'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500',
+                    (!availableTimes.length && !editingLesson) 
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300' 
+                      : 'bg-white text-gray-900 border-gray-300'
+                  ]">
+                  <option :value="''">
+                    {{ editingLesson ? 'Sélectionnez une heure' : (availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure') }}
+                  </option>
+                  <option v-for="time in availableTimes" :key="time.value" :value="time.value">
+                    {{ time.label }}
+                  </option>
+                </select>
+                <p v-if="!editingLesson && selectedSlot && form.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
+                  ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
+                </p>
+                <p v-else-if="!editingLesson && selectedSlot && form.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
+                  ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
+                </p>
+                <p v-if="loadingLessons" class="text-xs text-gray-500 mt-1">
+                  🔄 Chargement des cours existants...
+                </p>
+              </div>
+            </div>
           </div>
 
-          <!-- 6. Élève (optionnel) (masqué en mode édition) -->
-          <div v-if="!editingLesson">
-            <Autocomplete
-              v-model="form.student_id"
-              :items="students"
-              label="Élève (optionnel)"
-              placeholder="Rechercher un élève..."
-              :get-item-label="(student) => {
-                const name = student.user?.name || student.name || 'Élève sans nom'
-                const age = student.age ? ` (${student.age} ans)` : ''
-                return name + age
-              }"
-              :get-item-id="(student) => student.id"
-              :is-item-unavailable="(student) => !isStudentAvailable(student.id)"
-            >
-              <template #item="{ item: student, isUnavailable }">
-                <div :class="isUnavailable ? 'bg-red-50' : ''">
-                  <div class="font-medium flex items-center gap-2">
-                    {{ student.user?.name || student.name || 'Élève sans nom' }}
-                    <span v-if="student.age" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
-                      ({{ student.age }} ans)
-                    </span>
-                    <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
+          <!-- Section 2: Participants -->
+          <div class="bg-blue-50 rounded-lg p-6 space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">👥 Participants</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Enseignant -->
+              <div>
+                <Autocomplete
+                  v-model="form.teacher_id"
+                  :items="teachers"
+                  label="Enseignant *"
+                  placeholder="Rechercher un enseignant..."
+                  :required="true"
+                  :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
+                  :get-item-id="(teacher) => teacher.id"
+                  :is-item-unavailable="(teacher) => !isTeacherAvailable(teacher.id)"
+                >
+                  <template #item="{ item: teacher, isUnavailable }">
+                    <div :class="isUnavailable ? 'bg-red-50' : ''">
+                      <div class="font-medium flex items-center gap-2">
+                        {{ teacher.user?.name || teacher.name || 'Enseignant sans nom' }}
+                        <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
+                      </div>
+                      <div v-if="teacher.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                        {{ teacher.user.email }}
+                      </div>
+                    </div>
+                  </template>
+                </Autocomplete>
+              </div>
+
+              <!-- Élève (optionnel) (masqué en mode édition) -->
+              <div v-if="!editingLesson">
+                <Autocomplete
+                  v-model="form.student_id"
+                  :items="students"
+                  label="Élève (optionnel)"
+                  placeholder="Rechercher un élève..."
+                  :get-item-label="(student) => {
+                    const name = student.user?.name || student.name || 'Élève sans nom'
+                    const age = student.age ? ` (${student.age} ans)` : ''
+                    return name + age
+                  }"
+                  :get-item-id="(student) => student.id"
+                  :is-item-unavailable="(student) => !isStudentAvailable(student.id)"
+                >
+                  <template #item="{ item: student, isUnavailable }">
+                    <div :class="isUnavailable ? 'bg-red-50' : ''">
+                      <div class="font-medium flex items-center gap-2">
+                        {{ student.user?.name || student.name || 'Élève sans nom' }}
+                        <span v-if="student.age" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                          ({{ student.age }} ans)
+                        </span>
+                        <span v-if="isUnavailable" class="text-xs text-red-600 font-normal">(Non disponible)</span>
+                      </div>
+                      <div v-if="student.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
+                        {{ student.user.email }}
+                      </div>
+                    </div>
+                  </template>
+                </Autocomplete>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Détails du cours -->
+          <div class="bg-green-50 rounded-lg p-6 space-y-4">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">📋 Détails du cours</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Classification pour les commissions (DCL/NDCL) - uniquement pour séances de base -->
+              <div v-if="isBaseSession" class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                  Classification pour les commissions *
+                </label>
+                <div class="flex gap-6">
+                  <div class="flex items-center">
+                    <input
+                      id="dcl"
+                      v-model="form.est_legacy"
+                      :value="false"
+                      type="radio"
+                      :required="isBaseSession"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <label for="dcl" class="ml-2 block text-sm font-medium text-gray-700">
+                      DCL
+                    </label>
                   </div>
-                  <div v-if="student.user?.email" class="text-xs" :class="isUnavailable ? 'text-red-400' : 'text-gray-500'">
-                    {{ student.user.email }}
+                  <div class="flex items-center">
+                    <input
+                      id="ndcl"
+                      v-model="form.est_legacy"
+                      :value="true"
+                      type="radio"
+                      :required="isBaseSession"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <label for="ndcl" class="ml-2 block text-sm font-medium text-gray-700">
+                      NDCL
+                    </label>
                   </div>
                 </div>
-              </template>
-            </Autocomplete>
-          </div>
-
-          <!-- 7. Déduction d'abonnement -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Déduction d'abonnement
-            </label>
-            <div class="space-y-2">
-              <div class="flex items-center">
-                <input
-                  id="deduct_subscription"
-                  v-model="form.deduct_from_subscription"
-                  :value="true"
-                  type="radio"
-                  :disabled="editingLesson ? false : !form.student_id"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <label 
-                  for="deduct_subscription" 
-                  :class="[
-                    'ml-2 block text-sm font-medium',
-                    (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
-                  ]"
-                >
-                  Déduire d'un abonnement existant
-                </label>
               </div>
-              <div class="flex items-center">
-                <input
-                  id="no_deduct_subscription"
-                  v-model="form.deduct_from_subscription"
-                  :value="false"
-                  type="radio"
-                  :disabled="editingLesson ? false : !form.student_id"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <label 
-                  for="no_deduct_subscription"
-                  :class="[
-                    'ml-2 block text-sm font-medium',
-                    (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
-                  ]"
-                >
-                  Séance non incluse dans l'abonnement
+
+              <!-- Déduction d'abonnement -->
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                  Déduction d'abonnement
                 </label>
+                <div class="space-y-2">
+                  <div class="flex items-center">
+                    <input
+                      id="deduct_subscription"
+                      v-model="form.deduct_from_subscription"
+                      :value="true"
+                      type="radio"
+                      :disabled="editingLesson ? false : !form.student_id"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <label 
+                      for="deduct_subscription" 
+                      :class="[
+                        'ml-2 block text-sm font-medium',
+                        (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
+                      ]"
+                    >
+                      Déduire d'un abonnement existant
+                    </label>
+                  </div>
+                  <div class="flex items-center">
+                    <input
+                      id="no_deduct_subscription"
+                      v-model="form.deduct_from_subscription"
+                      :value="false"
+                      type="radio"
+                      :disabled="editingLesson ? false : !form.student_id"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <label 
+                      for="no_deduct_subscription"
+                      :class="[
+                        'ml-2 block text-sm font-medium',
+                        (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
+                      ]"
+                    >
+                      Séance non incluse dans l'abonnement
+                    </label>
+                  </div>
+                </div>
+                <p v-if="editingLesson || form.student_id" class="text-xs text-gray-500 mt-2">
+                  ⓘ Par défaut, le cours sera déduit d'un abonnement actif si disponible
+                </p>
+                <p v-else-if="!editingLesson" class="text-xs text-orange-600 mt-2">
+                  ⚠️ Sélectionnez un élève pour activer cette option
+                </p>
+              </div>
+
+              <!-- Durée (affichage uniquement) (masqué en mode édition) -->
+              <div v-if="!editingLesson">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Durée (minutes)
+                </label>
+                <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  {{ form.duration || 0 }} minutes
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  ⓘ Définie automatiquement selon le type de cours sélectionné
+                </p>
+              </div>
+
+              <!-- Prix (affichage uniquement) (masqué en mode édition) -->
+              <div v-if="!editingLesson">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Prix (€)
+                </label>
+                <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  {{ formatPrice(form.price || 0) }} €
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                  ⓘ Défini automatiquement selon le type de cours sélectionné
+                </p>
+              </div>
+
+              <!-- Notes (masqué en mode édition) -->
+              <div v-if="!editingLesson" class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea v-model="form.notes" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                          placeholder="Notes sur le cours..."></textarea>
               </div>
             </div>
-            <p v-if="editingLesson || form.student_id" class="text-xs text-gray-500 mt-2">
-              ⓘ Par défaut, le cours sera déduit d'un abonnement actif si disponible
-            </p>
-            <p v-else-if="!editingLesson" class="text-xs text-orange-600 mt-2">
-              ⚠️ Sélectionnez un élève pour activer cette option
-            </p>
-          </div>
-
-          <!-- 8. Durée (affichage uniquement) (masqué en mode édition) -->
-          <div v-if="!editingLesson">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Durée (minutes)
-            </label>
-            <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-              {{ form.duration || 0 }} minutes
-            </div>
-            <p class="text-xs text-gray-500 mt-1">
-              ⓘ Définie automatiquement selon le type de cours sélectionné
-            </p>
-          </div>
-
-          <!-- 9. Prix (affichage uniquement) (masqué en mode édition) -->
-          <div v-if="!editingLesson">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Prix (€)
-            </label>
-            <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-              {{ formatPrice(form.price || 0) }} €
-            </div>
-            <p class="text-xs text-gray-500 mt-1">
-              ⓘ Défini automatiquement selon le type de cours sélectionné
-            </p>
-          </div>
-
-          <!-- 10. Notes (masqué en mode édition) -->
-          <div v-if="!editingLesson">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-            <textarea v-model="form.notes" rows="3"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      placeholder="Notes sur le cours..."></textarea>
           </div>
 
           <!-- Boutons -->
@@ -437,6 +463,28 @@ const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi',
 
 // Référence pour le créneau sélectionné en mode édition
 const selectedSlotId = ref<number | null>(null)
+
+// Computed property pour déterminer si le type de cours sélectionné est une "séance de base"
+// Une séance de base est un cours individuel (is_individual === true)
+const isBaseSession = computed(() => {
+  // En mode édition, vérifier le type de cours de la leçon en cours d'édition
+  if (props.editingLesson && props.editingLesson.course_type) {
+    return props.editingLesson.course_type.is_individual === true
+  }
+  
+  // En mode création, vérifier le type de cours sélectionné
+  if (!props.form.course_type_id || props.courseTypes.length === 0) {
+    return false
+  }
+  
+  const selectedCourseType = props.courseTypes.find(ct => ct.id === props.form.course_type_id)
+  if (!selectedCourseType) {
+    return false
+  }
+  
+  // Une séance de base est un cours individuel
+  return selectedCourseType.is_individual === true
+})
 
 // Fonction pour formater l'heure (HH:mm)
 function formatTime(time: string | undefined): string {
