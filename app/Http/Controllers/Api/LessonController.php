@@ -774,11 +774,11 @@ class LessonController extends Controller
                     
                     // Récupérer les cours futurs de cette instance d'abonnement
                     $futureLessons = $subscriptionInstance->lessons()
-                        ->where('start_time', '>', $currentLessonDate)
-                        ->where('status', '!=', 'cancelled')
-                        ->where('id', '!=', $lesson->id)
+                        ->where('lessons.start_time', '>', $currentLessonDate)
+                        ->where('lessons.status', '!=', 'cancelled')
+                        ->where('lessons.id', '!=', $lesson->id)
                         ->with('courseType') // Charger la relation courseType
-                        ->orderBy('start_time', 'asc')
+                        ->orderBy('lessons.start_time', 'asc')
                         ->get();
                     
                     // Calculer le décalage horaire entre l'ancien et le nouveau cours
