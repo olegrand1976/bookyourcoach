@@ -465,6 +465,67 @@
         </div>
       </div>
     </div>
+
+    <!-- Modale de confirmation pour les cours d'abonnement -->
+    <div v-if="showUpdateScopeModal" class="fixed inset-0 z-[60] overflow-y-auto">
+      <div class="flex items-center justify-center min-h-screen px-4 py-12">
+        <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" @click="showUpdateScopeModal = false"></div>
+        
+        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Modifier le cours</h3>
+            <p class="text-sm text-gray-500 mt-1">Ce cours fait partie d'un abonnement</p>
+          </div>
+          
+          <div class="px-6 py-4">
+            <p class="text-gray-700 mb-4">
+              Souhaitez-vous appliquer ce changement d'horaire uniquement à ce cours ou à tous les cours suivants de cet abonnement ?
+            </p>
+            
+            <div v-if="futureLessonsCount > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-blue-800">
+                <strong>{{ futureLessonsCount }}</strong> cours futur(s) seront affectés si vous choisissez "Tous les cours suivants".
+              </p>
+            </div>
+            
+            <div class="space-y-3">
+              <button
+                @click="confirmUpdateSingleLesson"
+                class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-left"
+              >
+                <div class="font-semibold">Ce cours uniquement</div>
+                <div class="text-sm text-blue-100 mt-1">Modifier uniquement ce cours</div>
+              </button>
+              
+              <button
+                @click="confirmUpdateAllFutureLessons"
+                :disabled="futureLessonsCount === 0"
+                :class="[
+                  'w-full px-4 py-3 rounded-lg transition-colors text-left',
+                  futureLessonsCount > 0
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ]"
+              >
+                <div class="font-semibold">Tous les cours suivants</div>
+                <div class="text-sm mt-1" :class="futureLessonsCount > 0 ? 'text-green-100' : 'text-gray-400'">
+                  {{ futureLessonsCount > 0 ? `Modifier ce cours et ${futureLessonsCount} cours futur(s)` : 'Aucun cours futur à modifier' }}
+                </div>
+              </button>
+            </div>
+          </div>
+          
+          <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+            <button
+              @click="showUpdateScopeModal = false"
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -500,6 +561,12 @@ const editLessonForm = ref({
   slot_id: null,
   teacher_id: null
 })
+
+// Variables pour la modale de confirmation de mise à jour
+const showUpdateScopeModal = ref(false)
+const futureLessonsCount = ref(0)
+const pendingUpdatePayload = ref(null)
+const updateScope = ref(null) // 'single' ou 'all_future'
 
 // Helper pour obtenir le nom de l'élève
 const getStudentName = (student) => {
@@ -948,6 +1015,49 @@ const closeEditLessonModal = () => {
   }
 }
 
+// Vérifier si l'horaire a changé
+const hasTimeChanged = () => {
+  if (!selectedLesson.value) return false
+  
+  const originalDate = new Date(selectedLesson.value.start_time)
+  const originalDateStr = originalDate.toISOString().split('T')[0]
+  const originalHours = String(originalDate.getHours()).padStart(2, '0')
+  const originalMinutes = String(originalDate.getMinutes()).padStart(2, '0')
+  const originalTimeStr = `${originalHours}:${originalMinutes}`
+  
+  return editLessonForm.value.date !== originalDateStr || editLessonForm.value.time !== originalTimeStr
+}
+
+// Charger le nombre de cours futurs de l'abonnement
+const loadFutureLessonsCount = async () => {
+  if (!selectedLesson.value || !selectedLesson.value.subscription_instances || selectedLesson.value.subscription_instances.length === 0) {
+    futureLessonsCount.value = 0
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const subscriptionInstanceId = selectedLesson.value.subscription_instances[0].id
+    const currentLessonDate = new Date(selectedLesson.value.start_time)
+    
+    // Récupérer les cours futurs de cet abonnement
+    const response = await $api.get(`/subscription-instances/${subscriptionInstanceId}/future-lessons`, {
+      params: {
+        after_date: currentLessonDate.toISOString().split('T')[0]
+      }
+    })
+    
+    if (response.data.success) {
+      futureLessonsCount.value = response.data.data?.count || 0
+    } else {
+      futureLessonsCount.value = 0
+    }
+  } catch (err) {
+    console.error('Erreur chargement cours futurs:', err)
+    futureLessonsCount.value = 0
+  }
+}
+
 const saveLessonChanges = async () => {
   if (!selectedLesson.value) return
   
@@ -958,54 +1068,106 @@ const saveLessonChanges = async () => {
     return
   }
   
+  // Construire start_time depuis date et time (format local pour éviter les problèmes de timezone)
+  const dateStr = editLessonForm.value.date
+  const timeStr = editLessonForm.value.time
+  const startTime = `${dateStr}T${timeStr}:00`
+  
+  // Calculer end_time (utiliser la durée du cours existant)
+  const lessonStart = new Date(selectedLesson.value.start_time)
+  const lessonEnd = selectedLesson.value.end_time ? new Date(selectedLesson.value.end_time) : null
+  const duration = lessonEnd ? Math.round((lessonEnd.getTime() - lessonStart.getTime()) / (1000 * 60)) : 60 // Durée en minutes
+  
+  // Créer les dates en utilisant le format local pour éviter les problèmes de timezone
+  const newStartTime = new Date(startTime)
+  const newEndTime = new Date(newStartTime.getTime() + duration * 60000)
+  
+  // Formater end_time manuellement au format YYYY-MM-DD HH:mm:ss (avec espace)
+  const endYear = newEndTime.getFullYear()
+  const endMonth = String(newEndTime.getMonth() + 1).padStart(2, '0')
+  const endDay = String(newEndTime.getDate()).padStart(2, '0')
+  const endHours = String(newEndTime.getHours()).padStart(2, '0')
+  const endMinutes = String(newEndTime.getMinutes()).padStart(2, '0')
+  const endSeconds = String(newEndTime.getSeconds()).padStart(2, '0')
+  const endTimeFormatted = `${endYear}-${endMonth}-${endDay} ${endHours}:${endMinutes}:${endSeconds}`
+  
+  // Mettre à jour le cours avec toutes les modifications
+  const updatePayload = {
+    start_time: startTime,
+    end_time: endTimeFormatted,
+    est_legacy: editLessonForm.value.est_legacy,
+    deduct_from_subscription: editLessonForm.value.deduct_from_subscription,
+    teacher_id: editLessonForm.value.teacher_id
+  }
+  
+  // Vérifier si le cours fait partie d'un abonnement et si l'horaire a changé
+  const isPartOfSubscription = selectedLesson.value.subscription_instances && 
+                               selectedLesson.value.subscription_instances.length > 0
+  const timeChanged = hasTimeChanged()
+  
+  // Si le cours fait partie d'un abonnement et que l'horaire a changé, demander confirmation
+  if (isPartOfSubscription && timeChanged) {
+    pendingUpdatePayload.value = updatePayload
+    await loadFutureLessonsCount()
+    showUpdateScopeModal.value = true
+    return
+  }
+  
+  // Sinon, mettre à jour directement
+  await performUpdate(updatePayload, 'single')
+}
+
+// Confirmer la mise à jour pour ce cours uniquement
+const confirmUpdateSingleLesson = async () => {
+  showUpdateScopeModal.value = false
+  updateScope.value = 'single'
+  await performUpdate(pendingUpdatePayload.value, 'single')
+}
+
+// Confirmer la mise à jour pour tous les cours futurs
+const confirmUpdateAllFutureLessons = async () => {
+  if (futureLessonsCount.value === 0) return
+  
+  showUpdateScopeModal.value = false
+  updateScope.value = 'all_future'
+  await performUpdate(pendingUpdatePayload.value, 'all_future')
+}
+
+// Effectuer la mise à jour
+const performUpdate = async (updatePayload, scope) => {
+  if (!selectedLesson.value) return
+  
   try {
     savingLesson.value = true
     const { $api } = useNuxtApp()
     const { success: showSuccess, error: showError } = useToast()
     
-    // Construire start_time depuis date et time (format local pour éviter les problèmes de timezone)
-    const dateStr = editLessonForm.value.date
-    const timeStr = editLessonForm.value.time
-    const startTime = `${dateStr}T${timeStr}:00`
-    
-    // Calculer end_time (utiliser la durée du cours existant)
-    const lessonStart = new Date(selectedLesson.value.start_time)
-    const lessonEnd = selectedLesson.value.end_time ? new Date(selectedLesson.value.end_time) : null
-    const duration = lessonEnd ? Math.round((lessonEnd.getTime() - lessonStart.getTime()) / (1000 * 60)) : 60 // Durée en minutes
-    
-    // Créer les dates en utilisant le format local pour éviter les problèmes de timezone
-    const newStartTime = new Date(startTime)
-    const newEndTime = new Date(newStartTime.getTime() + duration * 60000)
-    
-    // Formater end_time manuellement au format YYYY-MM-DD HH:mm:ss (avec espace)
-    const endYear = newEndTime.getFullYear()
-    const endMonth = String(newEndTime.getMonth() + 1).padStart(2, '0')
-    const endDay = String(newEndTime.getDate()).padStart(2, '0')
-    const endHours = String(newEndTime.getHours()).padStart(2, '0')
-    const endMinutes = String(newEndTime.getMinutes()).padStart(2, '0')
-    const endSeconds = String(newEndTime.getSeconds()).padStart(2, '0')
-    const endTimeFormatted = `${endYear}-${endMonth}-${endDay} ${endHours}:${endMinutes}:${endSeconds}`
-    
-    // Mettre à jour le cours avec toutes les modifications
-    const updatePayload = {
-      start_time: startTime,
-      end_time: endTimeFormatted,
-      est_legacy: editLessonForm.value.est_legacy,
-      deduct_from_subscription: editLessonForm.value.deduct_from_subscription,
-      teacher_id: editLessonForm.value.teacher_id
+    // Ajouter le scope à la payload
+    const payloadWithScope = {
+      ...updatePayload,
+      update_scope: scope // 'single' ou 'all_future'
     }
     
     // Mettre à jour le cours
-    const updateResponse = await $api.put(`/lessons/${selectedLesson.value.id}`, updatePayload)
+    const updateResponse = await $api.put(`/lessons/${selectedLesson.value.id}`, payloadWithScope)
     
     if (!updateResponse.data.success) {
       showError(updateResponse.data.message || 'Erreur lors de la modification')
       return
     }
     
-    showSuccess('Cours modifié avec succès')
+    const message = scope === 'all_future' 
+      ? `Cours modifié avec succès. ${futureLessonsCount.value} cours futur(s) ont également été mis à jour.`
+      : 'Cours modifié avec succès'
+    
+    showSuccess(message)
     await loadHistory()
     closeEditLessonModal()
+    
+    // Réinitialiser les variables
+    pendingUpdatePayload.value = null
+    updateScope.value = null
+    futureLessonsCount.value = 0
   } catch (err) {
     console.error('Erreur modification cours:', err)
     const { error: showError } = useToast()
