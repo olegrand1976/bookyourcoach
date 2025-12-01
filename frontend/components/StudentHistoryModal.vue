@@ -487,6 +487,11 @@
                 <strong>{{ futureLessonsCount }}</strong> cours futur(s) seront affectés si vous choisissez "Tous les cours suivants".
               </p>
             </div>
+            <div v-else-if="futureLessonsCount === 0 && showUpdateScopeModal" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-yellow-800">
+                ⓘ Aucun cours futur trouvé pour cet abonnement. Seul ce cours sera modifié.
+              </p>
+            </div>
             
             <div class="space-y-3">
               <button
@@ -1030,7 +1035,15 @@ const hasTimeChanged = () => {
 
 // Charger le nombre de cours futurs de l'abonnement
 const loadFutureLessonsCount = async () => {
+  console.log('🔍 [loadFutureLessonsCount] Début du chargement', {
+    hasLesson: !!selectedLesson.value,
+    hasSubscriptionInstances: !!(selectedLesson.value?.subscription_instances),
+    subscriptionInstancesCount: selectedLesson.value?.subscription_instances?.length || 0,
+    subscriptionInstances: selectedLesson.value?.subscription_instances
+  })
+  
   if (!selectedLesson.value || !selectedLesson.value.subscription_instances || selectedLesson.value.subscription_instances.length === 0) {
+    console.log('⚠️ [loadFutureLessonsCount] Aucune instance d\'abonnement trouvée')
     futureLessonsCount.value = 0
     return
   }
@@ -1040,20 +1053,39 @@ const loadFutureLessonsCount = async () => {
     const subscriptionInstanceId = selectedLesson.value.subscription_instances[0].id
     const currentLessonDate = new Date(selectedLesson.value.start_time)
     
-    // Récupérer les cours futurs de cet abonnement
-    const response = await $api.get(`/subscription-instances/${subscriptionInstanceId}/future-lessons`, {
+    console.log('📅 [loadFutureLessonsCount] Paramètres', {
+      subscriptionInstanceId,
+      currentLessonDate: currentLessonDate.toISOString().split('T')[0],
+      startTime: selectedLesson.value.start_time
+    })
+    
+    // Récupérer les cours futurs de cet abonnement (avec le préfixe /club)
+    const response = await $api.get(`/club/subscription-instances/${subscriptionInstanceId}/future-lessons`, {
       params: {
         after_date: currentLessonDate.toISOString().split('T')[0]
       }
     })
     
+    console.log('✅ [loadFutureLessonsCount] Réponse API', {
+      success: response.data.success,
+      count: response.data.data?.count,
+      data: response.data.data
+    })
+    
     if (response.data.success) {
       futureLessonsCount.value = response.data.data?.count || 0
+      console.log('✅ [loadFutureLessonsCount] Nombre de cours futurs:', futureLessonsCount.value)
     } else {
+      console.warn('⚠️ [loadFutureLessonsCount] Réponse non réussie:', response.data)
       futureLessonsCount.value = 0
     }
   } catch (err) {
-    console.error('Erreur chargement cours futurs:', err)
+    console.error('❌ [loadFutureLessonsCount] Erreur chargement cours futurs:', err)
+    console.error('❌ [loadFutureLessonsCount] Détails erreur:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    })
     futureLessonsCount.value = 0
   }
 }
