@@ -716,7 +716,12 @@ class LessonController extends Controller
             if (isset($validated['start_time']) || isset($validated['teacher_id'])) {
                 $newStartTime = $validated['start_time'] ?? $lesson->start_time;
                 $newTeacherId = $validated['teacher_id'] ?? $lesson->teacher_id;
-                $newDuration = $validated['duration'] ?? ($lesson->courseType ? $lesson->courseType->duration_minutes : 60);
+                // Calculer la durée : utiliser la durée fournie, ou celle du type de cours, ou 60 par défaut
+                $newDuration = $validated['duration'] ?? null;
+                if (!$newDuration && $lesson->courseType) {
+                    $newDuration = $lesson->courseType->duration_minutes ?? $lesson->courseType->duration ?? 60;
+                }
+                $newDuration = $newDuration ?? 60;
                 
                 // Récupérer le club
                 $clubId = $lesson->club_id;
@@ -759,6 +764,17 @@ class LessonController extends Controller
 
             // Stocker l'ancienne valeur de start_time avant la mise à jour
             $oldStartTime = $lesson->start_time ? Carbon::parse($lesson->start_time) : null;
+            
+            // Si start_time ou duration change, recalculer end_time
+            if (isset($validated['start_time']) || isset($validated['duration'])) {
+                $newStartTime = Carbon::parse($validated['start_time'] ?? $lesson->start_time);
+                $duration = $validated['duration'] ?? null;
+                if (!$duration && $lesson->courseType) {
+                    $duration = $lesson->courseType->duration_minutes ?? $lesson->courseType->duration ?? 60;
+                }
+                $duration = $duration ?? 60;
+                $validated['end_time'] = $newStartTime->copy()->addMinutes($duration)->format('Y-m-d H:i:s');
+            }
             
             $lesson->update($validated);
             
@@ -865,8 +881,12 @@ class LessonController extends Controller
                         }
                         $studentCount += $futureLesson->students()->count();
                         
-                        // Calculer la durée
-                        $duration = $validated['duration'] ?? ($futureLesson->courseType ? $futureLesson->courseType->duration_minutes : 60);
+                        // Calculer la durée : utiliser la durée fournie, ou celle du type de cours, ou 60 par défaut
+                        $duration = $validated['duration'] ?? null;
+                        if (!$duration && $futureLesson->courseType) {
+                            $duration = $futureLesson->courseType->duration_minutes ?? $futureLesson->courseType->duration ?? 60;
+                        }
+                        $duration = $duration ?? 60;
                         
                         // Vérifier la disponibilité
                         try {
