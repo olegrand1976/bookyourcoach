@@ -816,27 +816,23 @@ class LessonController extends Controller
                     // Calculer le décalage horaire entre l'ancien et le nouveau cours
                     $newStartTime = Carbon::parse($lesson->start_time);
                     
-                    // Calculer le décalage total en secondes (positif si nouvelle date est après, négatif si avant)
-                    $totalOffsetSeconds = $newStartTime->timestamp - $oldStartTime->timestamp;
+                    // Extraire l'heure et les minutes de la nouvelle date/heure
+                    // On va appliquer cette nouvelle heure à tous les cours futurs en gardant leurs dates respectives
+                    $newHour = $newStartTime->hour;
+                    $newMinute = $newStartTime->minute;
+                    $newSecond = $newStartTime->second;
                     
-                    // Convertir en jours complets et minutes restantes
-                    $totalOffsetMinutes = intval($totalOffsetSeconds / 60);
-                    
-                    // Pour le décalage de jours, on compare les dates sans l'heure
+                    // Calculer le décalage de jours (pour déplacer les dates si nécessaire)
                     $oldDate = $oldStartTime->copy()->startOfDay();
                     $newDate = $newStartTime->copy()->startOfDay();
                     $dateOffset = intval(($newDate->timestamp - $oldDate->timestamp) / 86400); // 86400 secondes par jour
-                    
-                    // Pour le décalage horaire, on calcule la différence d'heure dans la journée
-                    $oldTimeInMinutes = $oldStartTime->hour * 60 + $oldStartTime->minute;
-                    $newTimeInMinutes = $newStartTime->hour * 60 + $newStartTime->minute;
-                    $timeOffset = $newTimeInMinutes - $oldTimeInMinutes;
                     
                     Log::info("🔄 Mise à jour des cours futurs", [
                         'lesson_id' => $lesson->id,
                         'old_start_time' => $oldStartTime->toDateTimeString(),
                         'new_start_time' => $newStartTime->toDateTimeString(),
-                        'time_offset_minutes' => $timeOffset,
+                        'new_hour' => $newHour,
+                        'new_minute' => $newMinute,
                         'date_offset_days' => $dateOffset,
                         'future_lessons_count' => $futureLessons->count(),
                         'subscription_instance_id' => $subscriptionInstance->id
@@ -847,7 +843,7 @@ class LessonController extends Controller
                     try {
                         $futureStartTime = Carbon::parse($futureLesson->start_time);
                         
-                        // Appliquer le décalage de jours
+                        // Appliquer le décalage de jours si nécessaire
                         $newFutureStartTime = $futureStartTime->copy();
                         if ($dateOffset > 0) {
                             $newFutureStartTime->addDays($dateOffset);
@@ -855,19 +851,17 @@ class LessonController extends Controller
                             $newFutureStartTime->subDays(abs($dateOffset));
                         }
                         
-                        // Appliquer le décalage d'heures/minutes
-                        if ($timeOffset > 0) {
-                            $newFutureStartTime->addMinutes($timeOffset);
-                        } elseif ($timeOffset < 0) {
-                            $newFutureStartTime->subMinutes(abs($timeOffset));
-                        }
+                        // Remplacer l'heure par la nouvelle heure (en gardant la date du cours futur)
+                        // Cela garantit que tous les cours futurs auront la même heure que le cours modifié
+                        $newFutureStartTime->setTime($newHour, $newMinute, $newSecond);
                         
                         Log::info("📝 Mise à jour cours futur", [
                             'future_lesson_id' => $futureLesson->id,
                             'old_start_time' => $futureStartTime->toDateTimeString(),
                             'new_start_time' => $newFutureStartTime->toDateTimeString(),
                             'date_offset_applied' => $dateOffset,
-                            'time_offset_applied' => $timeOffset
+                            'new_hour_applied' => $newHour,
+                            'new_minute_applied' => $newMinute
                         ]);
                         
                         // Vérifier la disponibilité avant de mettre à jour
