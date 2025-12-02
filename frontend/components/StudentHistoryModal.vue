@@ -238,7 +238,7 @@
               </p>
             </div>
 
-            <!-- Classification DCL/NDCL - uniquement pour séances de base avec déduction d'abonnement -->
+            <!-- Classification DCL/NDCL - uniquement si "Déduire d'un abonnement existant" est sélectionné -->
             <div v-if="shouldShowDclNdcl" class="border-b pb-4">
               <label class="block text-sm font-medium text-gray-700 mb-3">
                 Classification pour les commissions *
@@ -576,21 +576,11 @@ const futureLessonsCount = ref(0)
 const pendingUpdatePayload = ref(null)
 const updateScope = ref(null) // 'single' ou 'all_future'
 
-// Computed property pour déterminer si le cours sélectionné est une "séance de base"
-// Une séance de base est un cours individuel (is_individual === true)
-const isBaseSession = computed(() => {
-  if (!selectedLesson.value || !selectedLesson.value.course_type) {
-    return false
-  }
-  return selectedLesson.value.course_type.is_individual === true
-})
-
 // Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
 // Les boutons DCL/NDCL ne s'affichent que si :
-// - C'est une séance de base (isBaseSession)
 // - "Déduire d'un abonnement existant" est sélectionné
 const shouldShowDclNdcl = computed(() => {
-  return isBaseSession.value && editLessonForm.value.deduct_from_subscription === true
+  return editLessonForm.value.deduct_from_subscription === true
 })
 
 // Helper pour obtenir le nom de l'élève
@@ -998,11 +988,26 @@ const openEditLessonModal = async (lesson) => {
   // Enseignant
   editLessonForm.value.teacher_id = lesson.teacher?.id || null
   
-  // DCL/NDCL
-  editLessonForm.value.est_legacy = lesson.est_legacy !== undefined ? Boolean(lesson.est_legacy) : false
-  
   // Déduction d'abonnement
   editLessonForm.value.deduct_from_subscription = lesson.subscription_instances && lesson.subscription_instances.length > 0
+  
+  // DCL/NDCL : initialiser selon le choix de déduction
+  if (editLessonForm.value.deduct_from_subscription) {
+    // Si déduction activée, utiliser la valeur du cours (sera modifiable via les boutons DCL/NDCL)
+    editLessonForm.value.est_legacy = lesson.est_legacy !== undefined ? Boolean(lesson.est_legacy) : false
+  } else {
+    // Si pas de déduction, utiliser la valeur de l'abonnement si disponible
+    if (lesson.subscription_instances && lesson.subscription_instances.length > 0) {
+      const subscriptionInstance = lesson.subscription_instances[0]
+      if (subscriptionInstance.est_legacy !== undefined && subscriptionInstance.est_legacy !== null) {
+        editLessonForm.value.est_legacy = Boolean(subscriptionInstance.est_legacy)
+      } else {
+        editLessonForm.value.est_legacy = null
+      }
+    } else {
+      editLessonForm.value.est_legacy = null
+    }
+  }
   
   showEditLessonModal.value = true
 }
@@ -1249,12 +1254,30 @@ watch(() => props.student, () => {
   loadHistory()
 }, { immediate: true })
 
-// Réinitialiser est_legacy si DCL/NDCL ne doit plus être affiché
+// Gérer est_legacy selon le choix de déduction d'abonnement
 watch(() => editLessonForm.value.deduct_from_subscription, (newValue) => {
-  if (!shouldShowDclNdcl.value && editLessonForm.value.est_legacy !== null) {
-    // Réinitialiser à null pour que le backend puisse le définir automatiquement
-    editLessonForm.value.est_legacy = null
-    console.log('🔄 [StudentHistoryModal] est_legacy réinitialisé car déduction d\'abonnement désactivée')
+  if (newValue === true) {
+    // Si "Déduire d'un abonnement existant" est sélectionné, on garde la valeur actuelle (ou on la laisse modifier)
+    // La valeur sera modifiable via les boutons DCL/NDCL
+    console.log('🔄 [StudentHistoryModal] Déduction d\'abonnement activée - DCL/NDCL modifiable')
+  } else {
+    // Si "Séance non incluse dans l'abonnement" est sélectionné, utiliser la valeur de l'abonnement
+    if (selectedLesson.value && selectedLesson.value.subscription_instances && selectedLesson.value.subscription_instances.length > 0) {
+      const subscriptionInstance = selectedLesson.value.subscription_instances[0]
+      // Utiliser la valeur est_legacy de l'abonnement si disponible
+      if (subscriptionInstance.est_legacy !== undefined && subscriptionInstance.est_legacy !== null) {
+        editLessonForm.value.est_legacy = Boolean(subscriptionInstance.est_legacy)
+        console.log('🔄 [StudentHistoryModal] est_legacy récupéré depuis l\'abonnement:', editLessonForm.value.est_legacy)
+      } else {
+        // Si l'abonnement n'a pas de valeur définie, mettre à null pour que le backend le définisse
+        editLessonForm.value.est_legacy = null
+        console.log('🔄 [StudentHistoryModal] est_legacy mis à null (sera défini par le backend)')
+      }
+    } else {
+      // Pas d'abonnement associé, mettre à null
+      editLessonForm.value.est_legacy = null
+      console.log('🔄 [StudentHistoryModal] est_legacy mis à null (pas d\'abonnement associé)')
+    }
   }
 })
 </script>
