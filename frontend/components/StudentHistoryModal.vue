@@ -238,7 +238,7 @@
               </p>
             </div>
 
-            <!-- Classification DCL/NDCL - uniquement si "Déduire d'un abonnement existant" est sélectionné -->
+            <!-- Classification DCL/NDCL - uniquement si "Séance non incluse dans l'abonnement" est sélectionné -->
             <div v-if="shouldShowDclNdcl" class="border-b pb-4">
               <label class="block text-sm font-medium text-gray-700 mb-3">
                 Classification pour les commissions *
@@ -272,7 +272,7 @@
                 </div>
               </div>
               <p class="text-xs text-gray-500 mt-2">
-                ⓘ Cette classification s'applique uniquement lorsque la séance est déduite d'un abonnement existant
+                ⓘ Cette classification s'applique uniquement lorsque la séance n'est pas incluse dans l'abonnement
               </p>
             </div>
 
@@ -578,9 +578,9 @@ const updateScope = ref(null) // 'single' ou 'all_future'
 
 // Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
 // Les boutons DCL/NDCL ne s'affichent que si :
-// - "Déduire d'un abonnement existant" est sélectionné
+// - "Séance non incluse dans l'abonnement" est sélectionné
 const shouldShowDclNdcl = computed(() => {
-  return editLessonForm.value.deduct_from_subscription === true
+  return editLessonForm.value.deduct_from_subscription === false
 })
 
 // Helper pour obtenir le nom de l'élève
@@ -993,10 +993,7 @@ const openEditLessonModal = async (lesson) => {
   
   // DCL/NDCL : initialiser selon le choix de déduction
   if (editLessonForm.value.deduct_from_subscription) {
-    // Si déduction activée, utiliser la valeur du cours (sera modifiable via les boutons DCL/NDCL)
-    editLessonForm.value.est_legacy = lesson.est_legacy !== undefined ? Boolean(lesson.est_legacy) : false
-  } else {
-    // Si pas de déduction, utiliser la valeur de l'abonnement si disponible
+    // Si "Déduire d'un abonnement existant" est sélectionné, utiliser la valeur de l'abonnement
     if (lesson.subscription_instances && lesson.subscription_instances.length > 0) {
       const subscriptionInstance = lesson.subscription_instances[0]
       if (subscriptionInstance.est_legacy !== undefined && subscriptionInstance.est_legacy !== null) {
@@ -1007,6 +1004,9 @@ const openEditLessonModal = async (lesson) => {
     } else {
       editLessonForm.value.est_legacy = null
     }
+  } else {
+    // Si "Séance non incluse dans l'abonnement" est sélectionné, utiliser la valeur du cours (sera modifiable via les boutons DCL/NDCL)
+    editLessonForm.value.est_legacy = lesson.est_legacy !== undefined ? Boolean(lesson.est_legacy) : false
   }
   
   showEditLessonModal.value = true
@@ -1257,11 +1257,7 @@ watch(() => props.student, () => {
 // Gérer est_legacy selon le choix de déduction d'abonnement
 watch(() => editLessonForm.value.deduct_from_subscription, (newValue) => {
   if (newValue === true) {
-    // Si "Déduire d'un abonnement existant" est sélectionné, on garde la valeur actuelle (ou on la laisse modifier)
-    // La valeur sera modifiable via les boutons DCL/NDCL
-    console.log('🔄 [StudentHistoryModal] Déduction d\'abonnement activée - DCL/NDCL modifiable')
-  } else {
-    // Si "Séance non incluse dans l'abonnement" est sélectionné, utiliser la valeur de l'abonnement
+    // Si "Déduire d'un abonnement existant" est sélectionné, utiliser la valeur de l'abonnement
     if (selectedLesson.value && selectedLesson.value.subscription_instances && selectedLesson.value.subscription_instances.length > 0) {
       const subscriptionInstance = selectedLesson.value.subscription_instances[0]
       // Utiliser la valeur est_legacy de l'abonnement si disponible
@@ -1278,6 +1274,10 @@ watch(() => editLessonForm.value.deduct_from_subscription, (newValue) => {
       editLessonForm.value.est_legacy = null
       console.log('🔄 [StudentHistoryModal] est_legacy mis à null (pas d\'abonnement associé)')
     }
+  } else {
+    // Si "Séance non incluse dans l'abonnement" est sélectionné, on garde la valeur actuelle (ou on la laisse modifier)
+    // La valeur sera modifiable via les boutons DCL/NDCL
+    console.log('🔄 [StudentHistoryModal] Séance non incluse dans l\'abonnement - DCL/NDCL modifiable')
   }
 })
 </script>
