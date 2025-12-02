@@ -800,12 +800,21 @@ class LessonController extends Controller
                     // Calculer le décalage horaire entre l'ancien et le nouveau cours
                     $newStartTime = Carbon::parse($lesson->start_time);
                     
-                    // Calculer le décalage en minutes (peut être négatif)
-                    $timeOffset = $newStartTime->diffInMinutes($oldStartTime, false);
+                    // Calculer le décalage total en secondes (positif si nouvelle date est après, négatif si avant)
+                    $totalOffsetSeconds = $newStartTime->timestamp - $oldStartTime->timestamp;
                     
-                    // Calculer le décalage de date en jours (peut être négatif)
-                    // Utiliser diffInRealDays pour avoir le signe correct
-                    $dateOffset = $oldStartTime->diffInRealDays($newStartTime, false);
+                    // Convertir en jours complets et minutes restantes
+                    $totalOffsetMinutes = intval($totalOffsetSeconds / 60);
+                    
+                    // Pour le décalage de jours, on compare les dates sans l'heure
+                    $oldDate = $oldStartTime->copy()->startOfDay();
+                    $newDate = $newStartTime->copy()->startOfDay();
+                    $dateOffset = intval(($newDate->timestamp - $oldDate->timestamp) / 86400); // 86400 secondes par jour
+                    
+                    // Pour le décalage horaire, on calcule la différence d'heure dans la journée
+                    $oldTimeInMinutes = $oldStartTime->hour * 60 + $oldStartTime->minute;
+                    $newTimeInMinutes = $newStartTime->hour * 60 + $newStartTime->minute;
+                    $timeOffset = $newTimeInMinutes - $oldTimeInMinutes;
                     
                     Log::info("🔄 Mise à jour des cours futurs", [
                         'lesson_id' => $lesson->id,
@@ -821,7 +830,21 @@ class LessonController extends Controller
                 foreach ($futureLessons as $futureLesson) {
                     try {
                         $futureStartTime = Carbon::parse($futureLesson->start_time);
-                        $newFutureStartTime = $futureStartTime->copy()->addDays($dateOffset)->addMinutes($timeOffset);
+                        
+                        // Appliquer le décalage de jours
+                        $newFutureStartTime = $futureStartTime->copy();
+                        if ($dateOffset > 0) {
+                            $newFutureStartTime->addDays($dateOffset);
+                        } elseif ($dateOffset < 0) {
+                            $newFutureStartTime->subDays(abs($dateOffset));
+                        }
+                        
+                        // Appliquer le décalage d'heures/minutes
+                        if ($timeOffset > 0) {
+                            $newFutureStartTime->addMinutes($timeOffset);
+                        } elseif ($timeOffset < 0) {
+                            $newFutureStartTime->subMinutes(abs($timeOffset));
+                        }
                         
                         Log::info("📝 Mise à jour cours futur", [
                             'future_lesson_id' => $futureLesson->id,
