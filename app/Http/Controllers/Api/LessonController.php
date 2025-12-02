@@ -764,17 +764,33 @@ class LessonController extends Controller
             
             // Si update_scope est 'all_future' et que le cours fait partie d'un abonnement, mettre à jour tous les cours futurs
             $updatedFutureLessonsCount = 0;
+            
+            Log::info("🔍 Vérification mise à jour cours futurs", [
+                'update_scope' => $updateScope,
+                'old_start_time' => $oldStartTime ? $oldStartTime->toDateTimeString() : null,
+                'has_start_time_in_validated' => isset($validated['start_time']),
+                'start_time_in_validated' => $validated['start_time'] ?? null
+            ]);
+            
             if ($updateScope === 'all_future' && $oldStartTime && isset($validated['start_time'])) {
                 // Recharger les relations pour avoir les subscription_instances
                 $lesson->load('subscriptionInstances');
                 
+                Log::info("✅ Conditions remplies pour mise à jour cours futurs", [
+                    'subscription_instances_count' => $lesson->subscriptionInstances()->count()
+                ]);
+                
                 if ($lesson->subscriptionInstances()->count() > 0) {
                     $subscriptionInstance = $lesson->subscriptionInstances()->first();
-                    $currentLessonDate = Carbon::parse($lesson->start_time);
+                    
+                    // Utiliser l'ancienne date pour trouver les cours futurs (ceux qui étaient après l'ancien cours)
+                    // Cela permet de trouver tous les cours qui doivent être décalés, même si le cours actuel a été déplacé vers une date antérieure
+                    $oldLessonDate = $oldStartTime;
                     
                     // Récupérer les cours futurs de cette instance d'abonnement
+                    // On cherche les cours qui étaient après l'ancienne date du cours modifié
                     $futureLessons = $subscriptionInstance->lessons()
-                        ->where('lessons.start_time', '>', $currentLessonDate)
+                        ->where('lessons.start_time', '>', $oldLessonDate->toDateTimeString())
                         ->where('lessons.status', '!=', 'cancelled')
                         ->where('lessons.id', '!=', $lesson->id)
                         ->with('courseType') // Charger la relation courseType
@@ -797,7 +813,8 @@ class LessonController extends Controller
                         'new_start_time' => $newStartTime->toDateTimeString(),
                         'time_offset_minutes' => $timeOffset,
                         'date_offset_days' => $dateOffset,
-                        'future_lessons_count' => $futureLessons->count()
+                        'future_lessons_count' => $futureLessons->count(),
+                        'subscription_instance_id' => $subscriptionInstance->id
                     ]);
                 
                 // Mettre à jour chaque cours futur
@@ -805,6 +822,14 @@ class LessonController extends Controller
                     try {
                         $futureStartTime = Carbon::parse($futureLesson->start_time);
                         $newFutureStartTime = $futureStartTime->copy()->addDays($dateOffset)->addMinutes($timeOffset);
+                        
+                        Log::info("📝 Mise à jour cours futur", [
+                            'future_lesson_id' => $futureLesson->id,
+                            'old_start_time' => $futureStartTime->toDateTimeString(),
+                            'new_start_time' => $newFutureStartTime->toDateTimeString(),
+                            'date_offset_applied' => $dateOffset,
+                            'time_offset_applied' => $timeOffset
+                        ]);
                         
                         // Vérifier la disponibilité avant de mettre à jour
                         $clubId = $futureLesson->club_id;
@@ -835,19 +860,32 @@ class LessonController extends Controller
                             $newFutureEndTime = $newFutureStartTime->copy()->addMinutes($duration);
                             
                             // Mettre à jour le cours futur
-                            $futureLesson->update([
+                            $updateResult = $futureLesson->update([
                                 'start_time' => $newFutureStartTime->toDateTimeString(),
                                 'end_time' => $newFutureEndTime->toDateTimeString(),
                                 'teacher_id' => $teacherId
                             ]);
                             
+                            Log::info("✅ Cours futur mis à jour", [
+                                'future_lesson_id' => $futureLesson->id,
+                                'update_result' => $updateResult,
+                                'new_start_time' => $newFutureStartTime->toDateTimeString(),
+                                'new_end_time' => $newFutureEndTime->toDateTimeString()
+                            ]);
+                            
                             $updatedFutureLessonsCount++;
                         } catch (\Exception $e) {
                             // Si la mise à jour échoue pour un cours, continuer avec les autres
-                            Log::warning("Impossible de mettre à jour le cours futur {$futureLesson->id}: " . $e->getMessage());
+                            Log::warning("❌ Impossible de mettre à jour le cours futur {$futureLesson->id}", [
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
                         }
                     } catch (\Exception $e) {
-                        Log::warning("Erreur lors de la mise à jour du cours futur {$futureLesson->id}: " . $e->getMessage());
+                        Log::warning("❌ Erreur lors de la mise à jour du cours futur {$futureLesson->id}", [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
                     }
                 }
                 }
