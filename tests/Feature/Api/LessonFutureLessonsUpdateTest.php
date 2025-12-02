@@ -297,6 +297,66 @@ class LessonFutureLessonsUpdateTest extends TestCase
         $this->assertTrue($lesson2EndTime->gt($lesson2StartTime), 'end_time should be after start_time for lesson2');
     }
 
+    /** @test */
+    public function it_updates_future_lessons_with_exact_time_replacement()
+    {
+        // Créer plusieurs cours liés à l'abonnement (tous les samedis à 10:20)
+        $baseDate = Carbon::parse('2025-11-01 10:20:00'); // Samedi
+        
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek()); // 08/11/2025 10:20
+        $lesson3 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(2)); // 15/11/2025 10:20
+        $lesson4 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(3)); // 22/11/2025 10:20
+        
+        // Mettre à jour le premier cours : changer l'heure de 10:20 à 10:40 (même jour)
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => '2025-11-01 10:40:00', // Même jour, heure changée
+            'update_scope' => 'all_future'
+        ]);
+        
+        $response->assertStatus(200);
+        
+        // Vérifier que tous les cours futurs ont maintenant l'heure 10:40 (dates préservées)
+        $lesson1->refresh();
+        $lesson2->refresh();
+        $lesson3->refresh();
+        $lesson4->refresh();
+        
+        $this->assertEquals('2025-11-01 10:40:00', $lesson1->start_time);
+        $this->assertEquals('2025-11-08 10:40:00', $lesson2->start_time); // Date préservée, heure changée
+        $this->assertEquals('2025-11-15 10:40:00', $lesson3->start_time); // Date préservée, heure changée
+        $this->assertEquals('2025-11-22 10:40:00', $lesson4->start_time); // Date préservée, heure changée
+    }
+
+    /** @test */
+    public function it_updates_future_lessons_with_date_and_time_change()
+    {
+        // Créer plusieurs cours liés à l'abonnement (tous les samedis à 10:20)
+        $baseDate = Carbon::parse('2025-11-01 10:20:00'); // Samedi
+        
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek()); // 08/11/2025 10:20
+        $lesson3 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(2)); // 15/11/2025 10:20
+        
+        // Mettre à jour le premier cours : changer le jour ET l'heure (samedi 10:20 -> dimanche 14:30)
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => '2025-11-02 14:30:00', // Dimanche suivant, nouvelle heure
+            'update_scope' => 'all_future'
+        ]);
+        
+        $response->assertStatus(200);
+        
+        // Vérifier que tous les cours futurs ont maintenant l'heure 14:30
+        // Les dates doivent être décalées d'un jour (samedi -> dimanche)
+        $lesson1->refresh();
+        $lesson2->refresh();
+        $lesson3->refresh();
+        
+        $this->assertEquals('2025-11-02 14:30:00', $lesson1->start_time);
+        $this->assertEquals('2025-11-09 14:30:00', $lesson2->start_time); // Date décalée d'un jour, heure changée
+        $this->assertEquals('2025-11-16 14:30:00', $lesson3->start_time); // Date décalée d'un jour, heure changée
+    }
+
     /**
      * Helper pour créer un cours lié à l'abonnement
      */
