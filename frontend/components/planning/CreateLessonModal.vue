@@ -268,7 +268,7 @@
             <h4 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">📋 Détails du cours</h4>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Classification pour les commissions (DCL/NDCL) - uniquement pour séances de base avec déduction d'abonnement -->
+              <!-- Classification pour les commissions (DCL/NDCL) - uniquement si "Séance non incluse dans l'abonnement" est sélectionné -->
               <div v-if="shouldShowDclNdcl" class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-3">
                   Classification pour les commissions *
@@ -302,7 +302,7 @@
                   </div>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">
-                  ⓘ Cette classification s'applique uniquement lorsque la séance est déduite d'un abonnement existant
+                  ⓘ Cette classification s'applique uniquement lorsque la séance n'est pas incluse dans l'abonnement
                 </p>
               </div>
 
@@ -467,37 +467,11 @@ const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi',
 // Référence pour le créneau sélectionné en mode édition
 const selectedSlotId = ref<number | null>(null)
 
-// Computed property pour déterminer si le type de cours sélectionné est une "séance de base"
-// Une séance de base est un cours individuel (is_individual === true)
-const isBaseSession = computed(() => {
-  // En mode édition, vérifier le type de cours de la leçon en cours d'édition
-  if (props.editingLesson && props.editingLesson.course_type) {
-    return props.editingLesson.course_type.is_individual === true
-  }
-  
-  // En mode création, vérifier le type de cours sélectionné
-  if (!props.form.course_type_id || props.courseTypes.length === 0) {
-    return false
-  }
-  
-  const selectedCourseType = props.courseTypes.find(ct => ct.id === props.form.course_type_id)
-  if (!selectedCourseType) {
-    return false
-  }
-  
-  // Une séance de base est un cours individuel
-  return selectedCourseType.is_individual === true
-})
-
 // Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
 // Les boutons DCL/NDCL ne s'affichent que si :
-// - C'est une séance de base (isBaseSession)
-// - Un élève est sélectionné
-// - "Déduire d'un abonnement existant" est sélectionné
+// - "Séance non incluse dans l'abonnement" est sélectionné
 const shouldShowDclNdcl = computed(() => {
-  return isBaseSession.value && 
-         props.form.student_id !== null && 
-         props.form.deduct_from_subscription === true
+  return props.form.deduct_from_subscription === false
 })
 
 // Fonction pour formater l'heure (HH:mm)
@@ -1207,16 +1181,17 @@ watch(() => props.form.time, () => {
   // Pas besoin de recharger les cours, ils sont déjà chargés pour la date
 })
 
-// Watcher pour réinitialiser est_legacy quand la déduction d'abonnement est désactivée
-// Si on ne déduit pas d'un abonnement, le backend définira automatiquement est_legacy
-// en fonction du statut de l'abonnement choisi à sa création
-watch(() => [props.form.deduct_from_subscription, props.form.student_id], ([newDeduct, newStudentId], [oldDeduct, oldStudentId]) => {
-  // Si la déduction d'abonnement est désactivée ou si l'élève est désélectionné
-  // et que les boutons DCL/NDCL ne doivent plus être affichés, réinitialiser est_legacy
-  if (!shouldShowDclNdcl.value && props.form.est_legacy !== null) {
-    // Réinitialiser à null pour que le backend puisse le définir automatiquement
+// Gérer est_legacy selon le choix de déduction d'abonnement
+watch(() => props.form.deduct_from_subscription, (newValue) => {
+  if (newValue === true) {
+    // Si "Déduire d'un abonnement existant" est sélectionné, utiliser la valeur de l'abonnement
+    // Le backend récupérera automatiquement la valeur de l'abonnement actif de l'élève
     props.form.est_legacy = null
-    console.log('🔄 [CreateLessonModal] est_legacy réinitialisé car déduction d\'abonnement désactivée ou élève désélectionné')
+    console.log('🔄 [CreateLessonModal] Déduction d\'abonnement activée - est_legacy mis à null (sera défini par le backend depuis l\'abonnement)')
+  } else {
+    // Si "Séance non incluse dans l'abonnement" est sélectionné, on garde la valeur actuelle (ou on la laisse modifier)
+    // La valeur sera modifiable via les boutons DCL/NDCL
+    console.log('🔄 [CreateLessonModal] Séance non incluse dans l\'abonnement - DCL/NDCL modifiable')
   }
 })
 
