@@ -238,8 +238,8 @@
               </p>
             </div>
 
-            <!-- Classification DCL/NDCL -->
-            <div class="border-b pb-4">
+            <!-- Classification DCL/NDCL - uniquement pour séances de base avec déduction d'abonnement -->
+            <div v-if="shouldShowDclNdcl" class="border-b pb-4">
               <label class="block text-sm font-medium text-gray-700 mb-3">
                 Classification pour les commissions *
               </label>
@@ -250,7 +250,7 @@
                     v-model="editLessonForm.est_legacy"
                     :value="false"
                     type="radio"
-                    required
+                    :required="shouldShowDclNdcl"
                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
                   <label for="edit_dcl" class="ml-2 block text-sm font-medium text-gray-700">
@@ -263,7 +263,7 @@
                     v-model="editLessonForm.est_legacy"
                     :value="true"
                     type="radio"
-                    required
+                    :required="shouldShowDclNdcl"
                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
                   <label for="edit_ndcl" class="ml-2 block text-sm font-medium text-gray-700">
@@ -271,6 +271,9 @@
                   </label>
                 </div>
               </div>
+              <p class="text-xs text-gray-500 mt-2">
+                ⓘ Cette classification s'applique uniquement lorsque la séance est déduite d'un abonnement existant
+              </p>
             </div>
 
             <!-- Créneau -->
@@ -572,6 +575,23 @@ const showUpdateScopeModal = ref(false)
 const futureLessonsCount = ref(0)
 const pendingUpdatePayload = ref(null)
 const updateScope = ref(null) // 'single' ou 'all_future'
+
+// Computed property pour déterminer si le cours sélectionné est une "séance de base"
+// Une séance de base est un cours individuel (is_individual === true)
+const isBaseSession = computed(() => {
+  if (!selectedLesson.value || !selectedLesson.value.course_type) {
+    return false
+  }
+  return selectedLesson.value.course_type.is_individual === true
+})
+
+// Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
+// Les boutons DCL/NDCL ne s'affichent que si :
+// - C'est une séance de base (isBaseSession)
+// - "Déduire d'un abonnement existant" est sélectionné
+const shouldShowDclNdcl = computed(() => {
+  return isBaseSession.value && editLessonForm.value.deduct_from_subscription === true
+})
 
 // Helper pour obtenir le nom de l'élève
 const getStudentName = (student) => {
@@ -1228,5 +1248,14 @@ onMounted(() => {
 watch(() => props.student, () => {
   loadHistory()
 }, { immediate: true })
+
+// Réinitialiser est_legacy si DCL/NDCL ne doit plus être affiché
+watch(() => editLessonForm.value.deduct_from_subscription, (newValue) => {
+  if (!shouldShowDclNdcl.value && editLessonForm.value.est_legacy !== null) {
+    // Réinitialiser à null pour que le backend puisse le définir automatiquement
+    editLessonForm.value.est_legacy = null
+    console.log('🔄 [StudentHistoryModal] est_legacy réinitialisé car déduction d\'abonnement désactivée')
+  }
+})
 </script>
 
