@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use App\Notifications\TeacherWelcomeNotification;
 use App\Notifications\StudentWelcomeNotification;
+use Carbon\Carbon;
 
 class StudentController extends Controller
 {
@@ -101,13 +102,87 @@ class StudentController extends Controller
                     'location',
                     'club',
                     'students.user',
-                    'subscriptionInstances' // Inclure les abonnements liés
+                    'subscriptionInstances.subscription.template.courseTypes' // Inclure les abonnements liés avec leurs types de cours
                 ])
                 ->orderBy('start_time', 'desc')
                 ->limit(100) // Limiter à 100 cours récents
                 ->get()
                 ->unique('id') // Éviter les doublons si l'élève est à la fois dans students et student_id
                 ->values();
+
+            // Calculer la couverture d'abonnement pour les cours futurs
+            $now = Carbon::now();
+            $uncoveredLessonsCount = 0;
+            
+            // Pré-charger les abonnements actifs avec leurs types de cours pour optimiser
+            $activeSubscriptions = $subscriptionInstances->where('status', 'active');
+            
+            $lessons = $lessons->map(function ($lesson) use ($activeSubscriptions, $now, &$uncoveredLessonsCount) {
+                $lessonDate = Carbon::parse($lesson->start_time);
+                $isFuture = $lessonDate->isAfter($now);
+                $courseTypeId = $lesson->course_type_id;
+                
+                // Par défaut, considérer comme couvert (pour les cours passés ou déjà liés à un abonnement)
+                $lesson->subscription_coverage = [
+                    'is_future' => $isFuture,
+                    'is_covered' => true,
+                    'coverage_end_date' => null,
+                    'covering_subscription_id' => null,
+                    'warning' => null
+                ];
+                
+                // Si le cours est dans le futur, vérifier la couverture
+                if ($isFuture && $lesson->status !== 'cancelled') {
+                    // Vérifier si le cours est déjà attaché à un abonnement
+                    $isAttachedToSubscription = $lesson->subscriptionInstances && $lesson->subscriptionInstances->count() > 0;
+                    
+                    // Trouver un abonnement actif qui couvre ce type de cours et cette date
+                    $coveringSubscription = null;
+                    $latestExpiresAt = null;
+                    
+                    foreach ($activeSubscriptions as $subscription) {
+                        // Vérifier si l'abonnement expire après la date du cours
+                        if ($subscription->expires_at && Carbon::parse($subscription->expires_at)->isBefore($lessonDate)) {
+                            continue; // Abonnement expiré avant la date du cours
+                        }
+                        
+                        // Vérifier si l'abonnement couvre le type de cours
+                        $template = $subscription->subscription?->template;
+                        if ($template && $template->courseTypes) {
+                            $coveredCourseTypeIds = $template->courseTypes->pluck('id')->toArray();
+                            if (in_array($courseTypeId, $coveredCourseTypeIds)) {
+                                // Cet abonnement couvre ce type de cours
+                                if (!$latestExpiresAt || ($subscription->expires_at && Carbon::parse($subscription->expires_at)->isAfter($latestExpiresAt))) {
+                                    $latestExpiresAt = $subscription->expires_at ? Carbon::parse($subscription->expires_at) : null;
+                                    $coveringSubscription = $subscription;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if ($coveringSubscription) {
+                        $lesson->subscription_coverage = [
+                            'is_future' => true,
+                            'is_covered' => true,
+                            'coverage_end_date' => $latestExpiresAt ? $latestExpiresAt->toDateString() : null,
+                            'covering_subscription_id' => $coveringSubscription->id,
+                            'warning' => null
+                        ];
+                    } else {
+                        // Aucun abonnement actif ne couvre ce cours
+                        $uncoveredLessonsCount++;
+                        $lesson->subscription_coverage = [
+                            'is_future' => true,
+                            'is_covered' => false,
+                            'coverage_end_date' => null,
+                            'covering_subscription_id' => null,
+                            'warning' => 'Ce cours n\'est pas couvert par un abonnement actif'
+                        ];
+                    }
+                }
+                
+                return $lesson;
+            });
 
             // Statistiques
             $stats = [
@@ -116,6 +191,7 @@ class StudentController extends Controller
                 'total_lessons' => $lessons->count(),
                 'completed_lessons' => $lessons->where('status', 'completed')->count(),
                 'total_spent' => $lessons->where('status', 'completed')->sum('price'),
+                'uncovered_future_lessons' => $uncoveredLessonsCount, // Nouveau: cours futurs non couverts
             ];
 
             return response()->json([

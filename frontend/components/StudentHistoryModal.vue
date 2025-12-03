@@ -39,7 +39,7 @@
           <!-- Data -->
           <div v-else class="p-6 space-y-6">
             <!-- Statistiques -->
-            <div v-if="historyData?.stats" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div v-if="historyData?.stats" class="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div class="bg-blue-50 rounded-lg p-4">
                 <div class="text-sm text-blue-600 font-medium">Abonnements</div>
                 <div class="text-2xl font-bold text-blue-900 mt-1">{{ historyData.stats.total_subscriptions }}</div>
@@ -59,6 +59,32 @@
               <div class="bg-amber-50 rounded-lg p-4">
                 <div class="text-sm text-amber-600 font-medium">Dépensé</div>
                 <div class="text-2xl font-bold text-amber-900 mt-1">{{ formatPrice(historyData.stats.total_spent) }} €</div>
+              </div>
+              <!-- Statistique des cours non couverts -->
+              <div 
+                :class="[
+                  'rounded-lg p-4',
+                  historyData.stats.uncovered_future_lessons > 0 
+                    ? 'bg-red-50 ring-2 ring-red-300' 
+                    : 'bg-gray-50'
+                ]"
+              >
+                <div 
+                  :class="[
+                    'text-sm font-medium',
+                    historyData.stats.uncovered_future_lessons > 0 ? 'text-red-600' : 'text-gray-600'
+                  ]"
+                >
+                  Non couverts
+                </div>
+                <div 
+                  :class="[
+                    'text-2xl font-bold mt-1',
+                    historyData.stats.uncovered_future_lessons > 0 ? 'text-red-900' : 'text-gray-900'
+                  ]"
+                >
+                  {{ historyData.stats.uncovered_future_lessons || 0 }}
+                </div>
               </div>
             </div>
 
@@ -141,18 +167,45 @@
                 <p class="text-gray-500">Aucun cours pour cet élève</p>
               </div>
               
-              <div v-else class="space-y-3">
+              <template v-else>
+                <!-- Alerte si des cours futurs ne sont pas couverts -->
+                <div 
+                  v-if="historyData?.stats?.uncovered_future_lessons > 0" 
+                  class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+                >
+                  <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p class="text-red-800 font-semibold">
+                        ⚠️ {{ historyData.stats.uncovered_future_lessons }} cours futur(s) non couvert(s) par un abonnement
+                      </p>
+                      <p class="text-red-600 text-sm mt-1">
+                        Ces cours sont planifiés après la fin des abonnements actifs ou ne correspondent pas aux types de cours couverts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-3">
                 <div 
                   v-for="lesson in historyData.lessons" 
                   :key="lesson.id"
-                  class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:bg-gray-100 transition-colors"
+                  :class="[
+                    'rounded-lg p-4 border transition-colors',
+                    isLessonUncovered(lesson) 
+                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
+                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  ]"
                 >
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
-                      <div class="flex items-center space-x-3 mb-2">
+                      <div class="flex items-center flex-wrap gap-2 mb-2">
                         <h4 class="font-semibold text-gray-900">
                           {{ lesson.course_type?.name || 'Cours' }}
                         </h4>
+                        <!-- Badge d'abonnement -->
                         <span 
                           v-if="lesson.subscription_instances && lesson.subscription_instances.length > 0"
                           class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full"
@@ -167,6 +220,35 @@
                         >
                           Séance libre
                         </span>
+                        <!-- Badge NON COUVERT pour les cours futurs -->
+                        <span 
+                          v-if="isLessonUncovered(lesson)"
+                          class="px-2 py-1 text-xs font-bold bg-red-500 text-white rounded-full animate-pulse"
+                          :title="lesson.subscription_coverage?.warning || 'Cours non couvert par un abonnement'"
+                        >
+                          ⚠️ NON COUVERT
+                        </span>
+                        <!-- Badge cours futur couvert -->
+                        <span 
+                          v-else-if="lesson.subscription_coverage?.is_future && lesson.subscription_coverage?.is_covered"
+                          class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
+                          :title="'Couvert jusqu\'au ' + formatDate(lesson.subscription_coverage.coverage_end_date)"
+                        >
+                          ✓ Couvert
+                        </span>
+                      </div>
+                      
+                      <!-- Avertissement détaillé pour les cours non couverts -->
+                      <div 
+                        v-if="isLessonUncovered(lesson)" 
+                        class="bg-red-100 border border-red-200 rounded-lg p-3 mb-3"
+                      >
+                        <p class="text-red-800 text-sm font-medium">
+                          {{ lesson.subscription_coverage?.warning || 'Ce cours futur n\'est pas couvert par un abonnement actif.' }}
+                        </p>
+                        <p class="text-red-600 text-xs mt-1">
+                          Vérifiez que l'élève dispose d'un abonnement actif couvrant ce type de cours ({{ lesson.course_type?.name || 'cours' }}) jusqu'au {{ formatDateTime(lesson.start_time) }}.
+                        </p>
                       </div>
                       
                       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -200,6 +282,7 @@
                   </div>
                 </div>
               </div>
+              </template>
             </div>
           </div>
         </div>
@@ -591,6 +674,13 @@ const getStudentName = (student) => {
     return name || 'Élève sans nom'
   }
   return 'Élève sans nom'
+}
+
+// Helper pour vérifier si un cours futur n'est pas couvert par un abonnement
+const isLessonUncovered = (lesson) => {
+  // Un cours est "non couvert" s'il est futur ET pas couvert par un abonnement actif
+  return lesson?.subscription_coverage?.is_future === true && 
+         lesson?.subscription_coverage?.is_covered === false
 }
 
 // Charger l'historique
