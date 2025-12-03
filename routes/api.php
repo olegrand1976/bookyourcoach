@@ -267,6 +267,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
     Route::put('/lessons/{id}/subscription', [App\Http\Controllers\Api\LessonController::class, 'updateSubscription']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
+    
+    // Gestion des conflits de créneaux
+    Route::get('/lessons/slot-occupants', [App\Http\Controllers\Api\LessonController::class, 'getSlotOccupants']);
+    Route::post('/lessons/{id}/cancel-with-future', [App\Http\Controllers\Api\LessonController::class, 'cancelWithFuture']);
 });
 
 // Routes de debug (accessibles à tous les utilisateurs authentifiés)

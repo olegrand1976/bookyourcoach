@@ -472,9 +472,24 @@
                   {{ time.label }}
                 </option>
               </select>
-              <p v-if="currentSelectedSlot && editLessonForm.date && availableTimes.length === 0" class="text-xs text-red-600 mt-1">
-                ⚠️ Aucune plage horaire disponible pour cette date. Le créneau est complet (toutes les plages sont occupées).
-              </p>
+              <div v-if="currentSelectedSlot && editLessonForm.date && availableTimes.length === 0" class="mt-2">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p class="text-sm text-red-700 font-medium mb-2">
+                    ⚠️ Créneau complet - Toutes les plages sont occupées
+                  </p>
+                  <button 
+                    type="button"
+                    @click="openSlotConflictModal"
+                    class="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Voir les cours et libérer un créneau
+                  </button>
+                </div>
+              </div>
               <p v-else-if="currentSelectedSlot && editLessonForm.date && availableTimes.length > 0" class="text-xs text-green-600 mt-1">
                 ✓ {{ availableTimes.length }} plage(s) horaire(s) disponible(s) (les plages complètes sont automatiquement masquées)
               </p>
@@ -618,10 +633,22 @@
       </div>
     </div>
   </div>
+
+  <!-- Modale de gestion des conflits de créneaux -->
+  <SlotConflictModal
+    :is-open="showSlotConflictModal"
+    :date="editLessonForm.date"
+    :time="conflictTime"
+    :duration="selectedLesson?.courseType?.duration_minutes || 60"
+    :teacher-id="editLessonForm.teacher_id"
+    @close="closeSlotConflictModal"
+    @lesson-cancelled="onLessonCancelled"
+  />
 </template>
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import SlotConflictModal from '~/components/planning/SlotConflictModal.vue'
 
 const props = defineProps({
   student: {
@@ -658,6 +685,35 @@ const showUpdateScopeModal = ref(false)
 const futureLessonsCount = ref(0)
 const pendingUpdatePayload = ref(null)
 const updateScope = ref(null) // 'single' ou 'all_future'
+
+// Variables pour la modale de conflit de créneaux
+const showSlotConflictModal = ref(false)
+const conflictTime = ref('')
+
+// Ouvrir la modale de conflit
+const openSlotConflictModal = () => {
+  // Utiliser l'heure de début du créneau sélectionné si aucune heure n'est sélectionnée
+  conflictTime.value = editLessonForm.value.time || currentSelectedSlot.value?.start_time?.substring(0, 5) || '09:00'
+  showSlotConflictModal.value = true
+}
+
+// Fermer la modale de conflit
+const closeSlotConflictModal = () => {
+  showSlotConflictModal.value = false
+}
+
+// Quand un cours est annulé depuis la modale de conflit, recharger les cours existants
+const onLessonCancelled = async (lessonIds) => {
+  console.log('🗑️ Cours annulé(s):', lessonIds)
+  // Recharger les cours existants pour mettre à jour les heures disponibles
+  if (editLessonForm.value.date) {
+    await loadExistingLessons()
+  }
+  // Fermer la modale de conflit
+  closeSlotConflictModal()
+  // Recharger l'historique complet aussi
+  await loadHistory()
+}
 
 // Computed property pour déterminer si on doit afficher les boutons DCL/NDCL
 // Les boutons DCL/NDCL ne s'affichent que si :
