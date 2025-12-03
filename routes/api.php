@@ -261,15 +261,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 // Routes pour les cours (lessons) - accessibles aux clubs, enseignants et étudiants
 Route::middleware(['auth:sanctum'])->group(function () {
+    // IMPORTANT: Les routes spécifiques AVANT les routes avec paramètres dynamiques {id}
+    Route::get('/lessons/slot-occupants', [App\Http\Controllers\Api\LessonController::class, 'getSlotOccupants']);
+    
     Route::get('/lessons', [App\Http\Controllers\Api\LessonController::class, 'index']);
     Route::post('/lessons', [App\Http\Controllers\Api\LessonController::class, 'store']);
     Route::get('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'show']);
     Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
     Route::put('/lessons/{id}/subscription', [App\Http\Controllers\Api\LessonController::class, 'updateSubscription']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
-    
-    // Gestion des conflits de créneaux
-    Route::get('/lessons/slot-occupants', [App\Http\Controllers\Api\LessonController::class, 'getSlotOccupants']);
     Route::post('/lessons/{id}/cancel-with-future', [App\Http\Controllers\Api\LessonController::class, 'cancelWithFuture']);
 });
 

@@ -24,6 +24,10 @@ class ClubOpenSlot extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'max_slots' => 'integer',
+        'max_capacity' => 'integer',
+        'duration' => 'integer',
+        'day_of_week' => 'integer',
     ];
 
     /**

@@ -14,32 +14,32 @@ class CourseTypeFactory extends Factory
         $courseTypes = [
             'Dressage' => [
                 'description' => 'Cours de dressage pour améliorer la technique et la précision',
-                'duration' => 60,
+                'duration_minutes' => 60,
                 'price' => 45.00
             ],
             'Obstacle' => [
                 'description' => 'Cours de saut d\'obstacles pour développer la technique de saut',
-                'duration' => 60,
+                'duration_minutes' => 60,
                 'price' => 50.00
             ],
             'Cross' => [
                 'description' => 'Cours de cross-country en terrain varié',
-                'duration' => 75,
+                'duration_minutes' => 75,
                 'price' => 55.00
             ],
             'Préparation Compétition' => [
                 'description' => 'Préparation spécialisée pour les compétitions équestres',
-                'duration' => 90,
+                'duration_minutes' => 90,
                 'price' => 70.00
             ],
             'Cours Débutant' => [
                 'description' => 'Cours d\'initiation pour les cavaliers débutants',
-                'duration' => 45,
+                'duration_minutes' => 45,
                 'price' => 35.00
             ],
             'Perfectionnement' => [
                 'description' => 'Cours de perfectionnement pour cavaliers confirmés',
-                'duration' => 60,
+                'duration_minutes' => 60,
                 'price' => 60.00
             ],
         ];
@@ -50,7 +50,7 @@ class CourseTypeFactory extends Factory
         return [
             'name' => $courseType,
             'description' => $details['description'],
-            'duration' => $details['duration'],
+            'duration_minutes' => $details['duration_minutes'],
             'price' => $details['price'],
         ];
     }
@@ -74,7 +74,7 @@ class CourseTypeFactory extends Factory
     {
         return $this->state(function (array $attributes) use ($duration) {
             return [
-                'duration' => $duration,
+                'duration_minutes' => $duration,
             ];
         });
     }
@@ -88,7 +88,7 @@ class CourseTypeFactory extends Factory
             return [
                 'name' => 'Cours Spécialisé',
                 'description' => 'Cours spécialisé avec accompagnement personnalisé',
-                'duration' => 120,
+                'duration_minutes' => 120,
                 'price' => 100.00,
             ];
         });
@@ -103,7 +103,7 @@ class CourseTypeFactory extends Factory
             return [
                 'name' => 'Cours Débutant',
                 'description' => 'Cours d\'initiation pour les nouveaux cavaliers',
-                'duration' => 30,
+                'duration_minutes' => 30,
                 'price' => 25.00,
             ];
         });
