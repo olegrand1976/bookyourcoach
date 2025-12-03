@@ -2114,4 +2114,293 @@ class LessonController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Récupérer les cours occupant un créneau donné
+     * Utilisé pour afficher les conflits quand un créneau est plein
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getSlotOccupants(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'date' => 'required|date',
+                'time' => 'required|date_format:H:i',
+                'duration' => 'nullable|integer|min:15|max:480',
+                'teacher_id' => 'nullable|integer|exists:teachers,id',
+            ]);
+
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $date = Carbon::parse($validated['date']);
+            $time = $validated['time'];
+            $duration = $validated['duration'] ?? 60;
+            $teacherId = $validated['teacher_id'] ?? null;
+            
+            $startDateTime = Carbon::parse($validated['date'] . ' ' . $time);
+            $endDateTime = $startDateTime->copy()->addMinutes($duration);
+            $dayOfWeek = $startDateTime->dayOfWeek;
+
+            // Récupérer le créneau ouvert correspondant
+            $openSlot = ClubOpenSlot::where('club_id', $club->id)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('start_time', '<=', $time)
+                ->where('end_time', '>', $time)
+                ->first();
+
+            $maxSlots = $openSlot ? ($openSlot->max_slots ?? 1) : 1;
+            $maxCapacity = $openSlot ? ($openSlot->max_capacity ?? null) : null;
+
+            // Récupérer les cours qui chevauchent ce créneau
+            $query = Lesson::where('club_id', $club->id)
+                ->whereDate('start_time', $date->format('Y-m-d'))
+                ->where('status', '!=', 'cancelled')
+                ->with([
+                    'teacher.user',
+                    'student.user',
+                    'students.user',
+                    'courseType',
+                    'subscriptionInstances.subscription.template'
+                ]);
+
+            // Si un enseignant est spécifié, filtrer par enseignant
+            if ($teacherId) {
+                $query->where('teacher_id', $teacherId);
+            }
+
+            $allLessonsOfDay = $query->get();
+
+            // Filtrer pour ne garder que les cours qui chevauchent vraiment
+            $overlappingLessons = $allLessonsOfDay->filter(function ($lesson) use ($startDateTime, $endDateTime) {
+                $lessonStart = Carbon::parse($lesson->start_time);
+                $lessonDuration = $lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60;
+                $lessonEnd = $lessonStart->copy()->addMinutes($lessonDuration);
+
+                // Chevauchement : le nouveau cours chevauche si :
+                // - Il commence avant la fin du cours existant ET
+                // - Il se termine après le début du cours existant
+                return $startDateTime < $lessonEnd && $endDateTime > $lessonStart;
+            });
+
+            // Enrichir les données des cours
+            $lessonsData = $overlappingLessons->map(function ($lesson) {
+                $studentName = null;
+                
+                // Récupérer le nom de l'élève (relation directe ou many-to-many)
+                if ($lesson->student && $lesson->student->user) {
+                    $studentName = $lesson->student->user->name;
+                } elseif ($lesson->student) {
+                    $studentName = trim(($lesson->student->first_name ?? '') . ' ' . ($lesson->student->last_name ?? ''));
+                } elseif ($lesson->students->count() > 0) {
+                    $studentName = $lesson->students->map(function ($s) {
+                        return $s->user?->name ?? trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? ''));
+                    })->filter()->join(', ');
+                }
+
+                // Vérifier si le cours fait partie d'un abonnement
+                $subscriptionInstance = $lesson->subscriptionInstances->first();
+                $hasSubscription = $subscriptionInstance !== null;
+                $subscriptionName = $hasSubscription 
+                    ? ($subscriptionInstance->subscription?->template?->name ?? 'Abonnement')
+                    : null;
+
+                return [
+                    'id' => $lesson->id,
+                    'start_time' => $lesson->start_time,
+                    'end_time' => Carbon::parse($lesson->start_time)
+                        ->addMinutes($lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60)
+                        ->toDateTimeString(),
+                    'duration' => $lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60,
+                    'status' => $lesson->status,
+                    'teacher_name' => $lesson->teacher?->user?->name ?? 'Non assigné',
+                    'teacher_id' => $lesson->teacher_id,
+                    'student_name' => $studentName ?: 'Élève non défini',
+                    'student_id' => $lesson->student_id,
+                    'course_type_name' => $lesson->courseType?->name ?? 'Cours',
+                    'course_type_id' => $lesson->course_type_id,
+                    'has_subscription' => $hasSubscription,
+                    'subscription_name' => $subscriptionName,
+                    'subscription_instance_id' => $subscriptionInstance?->id,
+                    'price' => $lesson->price,
+                ];
+            })->values();
+
+            // Calculer si le créneau est plein
+            $isSlotFull = $overlappingLessons->count() >= $maxSlots;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'lessons' => $lessonsData,
+                    'slot_info' => [
+                        'date' => $date->format('Y-m-d'),
+                        'time' => $time,
+                        'day_of_week' => $dayOfWeek,
+                        'max_slots' => $maxSlots,
+                        'max_capacity' => $maxCapacity,
+                        'current_count' => $overlappingLessons->count(),
+                        'is_full' => $isSlotFull,
+                        'available_slots' => max(0, $maxSlots - $overlappingLessons->count()),
+                    ]
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error("Erreur getSlotOccupants: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des cours du créneau',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Annuler un cours avec option pour les cours futurs
+     * 
+     * @param Request $request
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function cancelWithFuture(Request $request, string $id): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'cancel_scope' => 'required|in:single,all_future',
+                'reason' => 'nullable|string|max:500',
+            ]);
+
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $lesson = Lesson::where('club_id', $club->id)->findOrFail($id);
+            $cancelScope = $validated['cancel_scope'];
+            $reason = $validated['reason'] ?? 'Annulé pour libérer le créneau';
+
+            $cancelledCount = 0;
+            $cancelledLessons = [];
+
+            if ($cancelScope === 'single') {
+                // Annuler uniquement ce cours
+                $lesson->status = 'cancelled';
+                $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
+                $lesson->save();
+                
+                // Libérer l'abonnement si lié
+                $this->releaseSubscriptionLesson($lesson);
+                
+                $cancelledCount = 1;
+                $cancelledLessons[] = $lesson->id;
+                
+            } else {
+                // Annuler ce cours et tous les cours futurs de la même série (abonnement)
+                $lesson->load('subscriptionInstances');
+                
+                // Annuler le cours actuel
+                $lesson->status = 'cancelled';
+                $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
+                $lesson->save();
+                $this->releaseSubscriptionLesson($lesson);
+                $cancelledCount = 1;
+                $cancelledLessons[] = $lesson->id;
+                
+                // Si le cours est lié à un abonnement, annuler les cours futurs
+                if ($lesson->subscriptionInstances->count() > 0) {
+                    $subscriptionInstance = $lesson->subscriptionInstances->first();
+                    
+                    $futureLessons = $subscriptionInstance->lessons()
+                        ->where('lessons.start_time', '>', Carbon::parse($lesson->start_time))
+                        ->where('lessons.status', '!=', 'cancelled')
+                        ->where('lessons.id', '!=', $lesson->id)
+                        ->get();
+                    
+                    foreach ($futureLessons as $futureLesson) {
+                        $futureLesson->status = 'cancelled';
+                        $futureLesson->notes = ($futureLesson->notes ? $futureLesson->notes . "\n" : '') . "[Annulé en cascade] " . $reason;
+                        $futureLesson->save();
+                        
+                        $this->releaseSubscriptionLesson($futureLesson);
+                        
+                        $cancelledCount++;
+                        $cancelledLessons[] = $futureLesson->id;
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $cancelledCount === 1 
+                    ? 'Cours annulé avec succès' 
+                    : "{$cancelledCount} cours annulés avec succès",
+                'data' => [
+                    'cancelled_count' => $cancelledCount,
+                    'cancelled_lesson_ids' => $cancelledLessons
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cours non trouvé'
+            ], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error("Erreur cancelWithFuture: " . $e->getMessage(), [
+                'lesson_id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'annulation du cours',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Libérer un cours d'un abonnement (décrémente lessons_used)
+     */
+    private function releaseSubscriptionLesson(Lesson $lesson): void
+    {
+        try {
+            $subscriptionInstances = $lesson->subscriptionInstances;
+            
+            foreach ($subscriptionInstances as $instance) {
+                // Recalculer les cours utilisés (exclut les annulés)
+                $instance->recalculateLessonsUsed();
+            }
+        } catch (\Exception $e) {
+            Log::warning("Erreur lors de la libération de l'abonnement: " . $e->getMessage());
+        }
+    }
 }
