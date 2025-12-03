@@ -2144,7 +2144,7 @@ class LessonController extends Controller
 
             $date = Carbon::parse($validated['date']);
             $time = $validated['time'];
-            $duration = $validated['duration'] ?? 60;
+            $duration = (int) ($validated['duration'] ?? 60);
             $teacherId = $validated['teacher_id'] ?? null;
             
             $startDateTime = Carbon::parse($validated['date'] . ' ' . $time);
@@ -2183,7 +2183,7 @@ class LessonController extends Controller
             // Filtrer pour ne garder que les cours qui chevauchent vraiment
             $overlappingLessons = $allLessonsOfDay->filter(function ($lesson) use ($startDateTime, $endDateTime) {
                 $lessonStart = Carbon::parse($lesson->start_time);
-                $lessonDuration = $lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60;
+                $lessonDuration = (int) ($lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60);
                 $lessonEnd = $lessonStart->copy()->addMinutes($lessonDuration);
 
                 // Chevauchement : le nouveau cours chevauche si :
@@ -2214,13 +2214,15 @@ class LessonController extends Controller
                     ? ($subscriptionInstance->subscription?->template?->name ?? 'Abonnement')
                     : null;
 
+                $duration = (int) ($lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60);
+                
                 return [
                     'id' => $lesson->id,
                     'start_time' => $lesson->start_time,
                     'end_time' => Carbon::parse($lesson->start_time)
-                        ->addMinutes($lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60)
+                        ->addMinutes($duration)
                         ->toDateTimeString(),
-                    'duration' => $lesson->courseType?->duration_minutes ?? $lesson->duration ?? 60,
+                    'duration' => $duration,
                     'status' => $lesson->status,
                     'teacher_name' => $lesson->teacher?->user?->name ?? 'Non assigné',
                     'teacher_id' => $lesson->teacher_id,
