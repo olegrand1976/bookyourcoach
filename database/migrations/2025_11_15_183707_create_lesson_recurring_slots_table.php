@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('lesson_recurring_slots')) {
+            return; // Table already exists, skip migration
+        }
+        
         Schema::create('lesson_recurring_slots', function (Blueprint $table) {
             $table->id();
             
