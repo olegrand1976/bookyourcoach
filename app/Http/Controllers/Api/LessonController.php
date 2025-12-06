@@ -94,7 +94,7 @@ class LessonController extends Controller
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
                                    'lessons.est_legacy', 'lessons.deduct_from_subscription')
                 ->with([
-                    'teacher:id,user_id',
+                    'teacher:id,user_id,color',
                     'teacher.user:id,name,email',
                     'student:id,user_id',
                     'student.user:id,name,email',

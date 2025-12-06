@@ -10,6 +10,19 @@ class Teacher extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        // Assigner automatiquement une couleur lors de la création si aucune n'est définie
+        static::created(function (Teacher $teacher) {
+            if (!$teacher->color) {
+                $teacher->assignColorFromPalette();
+            }
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'club_id',
@@ -24,6 +37,7 @@ class Teacher extends Model
         'stripe_account_id',
         'rating',
         'total_lessons',
+        'color',
     ];
 
     protected $casts = [
@@ -239,5 +253,87 @@ class Teacher extends Model
         }
 
         return 0;
+    }
+
+    /**
+     * Generate a pastel color based on teacher ID
+     * Utilisé pour générer une couleur si aucune n'est définie
+     */
+    public function generateColor(): string
+    {
+        // Générer une couleur pastel unique basée sur l'ID de l'enseignant
+        // Utiliser un hash de l'ID pour garantir la cohérence
+        $hash = crc32($this->id . 'teacher_color');
+        
+        // Générer des valeurs RGB pastel (150-255 pour avoir des couleurs claires)
+        $r = 150 + (abs($hash) % 105); // 150-255
+        $g = 150 + (abs($hash >> 8) % 105); // 150-255
+        $b = 150 + (abs($hash >> 16) % 105); // 150-255
+        
+        // Convertir en hexadécimal
+        return sprintf('#%02X%02X%02X', $r, $g, $b);
+    }
+
+    /**
+     * Get a pastel color palette (20 couleurs pastel prédéfinies)
+     * Utilisé pour assigner des couleurs aux enseignants
+     */
+    public static function getPastelColorPalette(): array
+    {
+        return [
+            '#FFB6C1', // Light Pink
+            '#FFD700', // Gold
+            '#98FB98', // Pale Green
+            '#87CEEB', // Sky Blue
+            '#DDA0DD', // Plum
+            '#F0E68C', // Khaki
+            '#FFA07A', // Light Salmon
+            '#20B2AA', // Light Sea Green
+            '#FFB347', // Pastel Orange
+            '#B0E0E6', // Powder Blue
+            '#FFCCCB', // Light Red
+            '#E6E6FA', // Lavender
+            '#F5DEB3', // Wheat
+            '#AFEEEE', // Pale Turquoise
+            '#FFDAB9', // Peach Puff
+            '#D8BFD8', // Thistle
+            '#F0F8FF', // Alice Blue
+            '#FFF8DC', // Cornsilk
+            '#E0FFFF', // Light Cyan
+            '#FFE4E1', // Misty Rose
+        ];
+    }
+
+    /**
+     * Assign a color from the palette if not already set
+     */
+    public function assignColorFromPalette(): void
+    {
+        if ($this->color && !$this->isDirty('color')) {
+            return; // Déjà assignée
+        }
+
+        $palette = self::getPastelColorPalette();
+        
+        // Si l'enseignant a un club_id, chercher les couleurs utilisées dans ce club
+        // Sinon, chercher globalement
+        $usedColorsQuery = self::whereNotNull('color');
+        if ($this->club_id) {
+            $usedColorsQuery->where('club_id', $this->club_id);
+        }
+        $usedColors = $usedColorsQuery->pluck('color')->toArray();
+
+        // Trouver la première couleur disponible dans la palette
+        foreach ($palette as $color) {
+            if (!in_array($color, $usedColors)) {
+                $this->color = $color;
+                $this->save();
+                return;
+            }
+        }
+
+        // Si toutes les couleurs sont utilisées, générer une couleur unique basée sur l'ID
+        $this->color = $this->generateColor();
+        $this->save();
     }
 }
