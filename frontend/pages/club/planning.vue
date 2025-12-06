@@ -161,60 +161,88 @@
             </div>
           </div>
 
-          <!-- Liste des cours (filtrés) -->
-          <div v-if="filteredLessons.length > 0" class="space-y-3">
+          <!-- Grille des cours (groupés par plage horaire) -->
+          <div v-if="filteredLessons.length > 0" class="space-y-4">
+            <!-- Pour chaque plage horaire -->
             <div 
-              v-for="lesson in filteredLessons" 
-              :key="lesson.id"
-              class="border-2 rounded-lg p-4 transition-all hover:shadow-md"
-              :class="getLessonBorderClass(lesson)">
-              <div class="flex items-start justify-between">
-                <div 
-                  class="flex-1 cursor-pointer"
-                  @click="openLessonModal(lesson)">
-                  <!-- Type et horaire -->
-                  <div class="flex items-center gap-3 mb-2">
-                    <h3 class="font-semibold text-gray-900">
-                      {{ lesson.course_type?.name || 'Cours' }}
-                    </h3>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                          :class="getStatusBadgeClass(lesson.status)">
-                      {{ getStatusLabel(lesson.status) }}
-                    </span>
-                  </div>
-                  
-                  <!-- Date et heure -->
-                  <div class="text-sm text-gray-600 mb-2">
-                    📅 {{ formatLessonDate(lesson.start_time) }} • 
-                    🕐 {{ formatLessonTime(lesson.start_time) }} - {{ formatLessonTime(lesson.end_time) }}
-                  </div>
-                  
-                  <!-- Participants -->
-                  <div class="flex items-center gap-4 text-sm text-gray-600">
-                    <span>
-                      👤 {{ getLessonStudents(lesson) }}
+              v-for="timeSlot in lessonsGroupedByTimeSlot" 
+              :key="timeSlot.time"
+              class="border border-gray-200 rounded-lg overflow-hidden">
+              
+              <!-- En-tête de la plage horaire -->
+              <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex items-center gap-3">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-white font-semibold text-lg">{{ timeSlot.time }}</span>
+                <span class="text-blue-200 text-sm">({{ timeSlot.lessons.length }} cours)</span>
+              </div>
+              
+              <!-- Grille des cours pour cette plage horaire -->
+              <div class="p-3 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <div 
+                    v-for="lesson in timeSlot.lessons" 
+                    :key="lesson.id"
+                    class="border-2 rounded-lg p-3 transition-all hover:shadow-lg hover:scale-[1.02] cursor-pointer bg-white"
+                    :class="getLessonBorderClass(lesson)"
+                    @click="openLessonModal(lesson)">
+                    
+                    <!-- Type de cours et statut -->
+                    <div class="flex items-start justify-between mb-2">
+                      <h4 class="font-semibold text-gray-900 text-sm leading-tight">
+                        {{ lesson.course_type?.name || 'Cours' }}
+                      </h4>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ml-2"
+                            :class="getStatusBadgeClass(lesson.status)">
+                        {{ getStatusLabel(lesson.status) }}
+                      </span>
+                    </div>
+                    
+                    <!-- Horaire -->
+                    <div class="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {{ formatLessonTime(lesson.start_time) }} - {{ formatLessonTime(lesson.end_time) }}
+                    </div>
+                    
+                    <!-- Élève -->
+                    <div class="flex items-center gap-1 text-sm text-gray-700 mb-1">
+                      <span class="text-base">👤</span>
+                      <span class="font-medium truncate">{{ getLessonStudents(lesson) }}</span>
                       <span 
                         v-if="hasActiveSubscription(lesson)"
-                        class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
-                        title="Avec abonnement actif"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 flex-shrink-0"
+                        title="Abonnement actif"
                       >
-                        📋 Abonnement
+                        📋
                       </span>
-                    </span>
-                    <span>🎓 {{ lesson.teacher?.user?.name || 'Coach' }}</span>
-                    <span v-if="lesson.price">💰 {{ formatPrice(lesson.price) }} €</span>
+                    </div>
+                    
+                    <!-- Coach -->
+                    <div class="flex items-center gap-1 text-xs text-gray-500 mb-2">
+                      <span>🎓</span>
+                      <span class="truncate">{{ lesson.teacher?.user?.name || 'Coach' }}</span>
+                    </div>
+                    
+                    <!-- Prix et bouton modifier -->
+                    <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                      <span v-if="lesson.price" class="text-sm font-semibold text-gray-700">
+                        {{ formatPrice(lesson.price) }} €
+                      </span>
+                      <span v-else class="text-xs text-gray-400">-</span>
+                      <button
+                        @click.stop="openEditLessonModal(lesson)"
+                        class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+                        title="Modifier">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Modifier
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div class="ml-4 flex gap-2">
-                  <button
-                    @click.stop="openEditLessonModal(lesson)"
-                    class="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    title="Modifier le cours">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Modifier
-                  </button>
                 </div>
               </div>
             </div>
@@ -730,6 +758,32 @@ const filteredLessons = computed(() => {
     
     return dayMatch && timeMatch && dateMatch
   })
+})
+
+// Cours groupés par plage horaire pour affichage en grille
+const lessonsGroupedByTimeSlot = computed(() => {
+  // Grouper les cours par heure de début
+  const groups: Record<string, any[]> = {}
+  
+  filteredLessons.value.forEach(lesson => {
+    const date = new Date(lesson.start_time)
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const timeKey = `${hours}:${minutes}`
+    
+    if (!groups[timeKey]) {
+      groups[timeKey] = []
+    }
+    groups[timeKey].push(lesson)
+  })
+  
+  // Trier par heure et convertir en tableau
+  return Object.keys(groups)
+    .sort()
+    .map(time => ({
+      time,
+      lessons: groups[time]
+    }))
 })
 
 // Types de cours filtrés - Utilise les courseTypes du créneau sélectionné
