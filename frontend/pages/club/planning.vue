@@ -186,6 +186,7 @@
                     :key="lesson.id"
                     class="border-2 rounded-lg p-3 transition-all hover:shadow-lg hover:scale-[1.02] cursor-pointer bg-white"
                     :class="getLessonBorderClass(lesson)"
+                    :style="getLessonCardStyle(lesson)"
                     @click="openLessonModal(lesson)">
                     
                     <!-- Type de cours et statut -->
@@ -782,7 +783,21 @@ const lessonsGroupedByTimeSlot = computed(() => {
     .sort()
     .map(time => ({
       time,
-      lessons: groups[time]
+      lessons: groups[time].sort((a, b) => {
+        // Trier par nom/prénom de l'enseignant (ordre alphabétique)
+        const teacherA = a.teacher?.user?.name || ''
+        const teacherB = b.teacher?.user?.name || ''
+        
+        // Normaliser les noms pour un tri correct (enlever les accents, mettre en majuscules)
+        const normalizeName = (name: string) => {
+          return name
+            .toUpperCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Enlever les accents
+        }
+        
+        return normalizeName(teacherA).localeCompare(normalizeName(teacherB), 'fr')
+      })
     }))
 })
 
@@ -2268,6 +2283,53 @@ function getLessonBorderClass(lesson: Lesson): string {
     'completed': 'border-gray-300 bg-gray-50'
   }
   return classes[lesson.status] || 'border-blue-300 bg-blue-50'
+}
+
+function getLessonCardStyle(lesson: Lesson): Record<string, string> {
+  // Récupérer la couleur de l'enseignant si disponible
+  let teacherColor = lesson.teacher?.color || null
+  
+  // Si aucune couleur n'est définie, générer une couleur temporaire basée sur l'ID
+  if (!teacherColor && lesson.teacher?.id) {
+    teacherColor = generateColorFromId(lesson.teacher.id)
+  }
+  
+  if (!teacherColor) {
+    return {}
+  }
+  
+  // Convertir la couleur hex en RGB pour calculer la luminosité
+  const hex = teacherColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+  
+  // Calculer la luminosité relative (0-1)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  
+  // Si la couleur est trop claire, utiliser une bordure plus foncée
+  // Sinon, utiliser la couleur pastel comme bordure gauche
+  const borderColor = luminance > 0.8 
+    ? `rgba(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)}, 0.6)`
+    : teacherColor
+  
+  return {
+    'border-left': `4px solid ${borderColor}`,
+    'background-color': `${teacherColor}15` // Ajouter de la transparence (15 = ~8% d'opacité)
+  }
+}
+
+// Générer une couleur pastel basée sur un ID (pour affichage temporaire)
+function generateColorFromId(id: number): string {
+  // Simple hash basé sur l'ID
+  const hash = (id * 2654435761) >>> 0 // Hash simple
+  
+  // Générer des valeurs RGB pastel (150-255 pour avoir des couleurs claires)
+  const r = 150 + (hash % 105)
+  const g = 150 + ((hash >> 8) % 105)
+  const b = 150 + ((hash >> 16) % 105)
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
 }
 
 // ═══════════════════════════════════════════════════════════════════
