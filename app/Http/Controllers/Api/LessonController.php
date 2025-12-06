@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 /**
@@ -89,12 +90,17 @@ class LessonController extends Controller
             $user = Auth::user();
             // Optimiser les relations chargées - sélectionner uniquement les colonnes nécessaires
             // Désactiver les accessors coûteux pour améliorer les performances
+            
+            // Vérifier si la colonne color existe dans la table teachers
+            $hasColorColumn = \Illuminate\Support\Facades\Schema::hasColumn('teachers', 'color');
+            $teacherColumns = $hasColorColumn ? 'id,user_id,color' : 'id,user_id';
+            
             $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 
                                    'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time', 
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
                                    'lessons.est_legacy', 'lessons.deduct_from_subscription')
                 ->with([
-                    'teacher:id,user_id,color',
+                    "teacher:{$teacherColumns}",
                     'teacher.user:id,name,email',
                     'student:id,user_id',
                     'student.user:id,name,email',
