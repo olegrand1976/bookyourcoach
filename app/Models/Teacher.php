@@ -261,6 +261,7 @@ class Teacher extends Model
     /**
      * Generate a pastel color based on teacher ID
      * Utilisé pour générer une couleur si aucune n'est définie
+     * Utilise une distribution améliorée pour maximiser les différences
      */
     public function generateColor(): string
     {
@@ -268,10 +269,31 @@ class Teacher extends Model
         // Utiliser un hash de l'ID pour garantir la cohérence
         $hash = crc32($this->id . 'teacher_color');
         
+        // Utiliser différentes parties du hash pour chaque composante RGB
+        // Cela garantit une meilleure distribution dans l'espace des couleurs
+        $rHash = abs($hash);
+        $gHash = abs($hash >> 10);
+        $bHash = abs($hash >> 20);
+        
         // Générer des valeurs RGB pastel (150-255 pour avoir des couleurs claires)
-        $r = 150 + (abs($hash) % 105); // 150-255
-        $g = 150 + (abs($hash >> 8) % 105); // 150-255
-        $b = 150 + (abs($hash >> 16) % 105); // 150-255
+        // Utiliser des modulos différents pour éviter les corrélations
+        $r = 150 + ($rHash % 105); // 150-255
+        $g = 150 + ($gHash % 105); // 150-255
+        $b = 150 + ($bHash % 105); // 150-255
+        
+        // S'assurer qu'au moins une composante soit proche du maximum pour éviter les gris
+        // Cela garantit des couleurs plus vives et différenciées
+        $maxComponent = max($r, $g, $b);
+        if ($maxComponent < 200) {
+            // Augmenter la composante la plus élevée
+            if ($r == $maxComponent) {
+                $r = min(255, $r + 30);
+            } elseif ($g == $maxComponent) {
+                $g = min(255, $g + 30);
+            } else {
+                $b = min(255, $b + 30);
+            }
+        }
         
         // Convertir en hexadécimal
         return sprintf('#%02X%02X%02X', $r, $g, $b);
@@ -308,7 +330,36 @@ class Teacher extends Model
     }
 
     /**
+     * Convert hex color to RGB array
+     */
+    private function hexToRgb(string $hex): array
+    {
+        $hex = ltrim($hex, '#');
+        return [
+            hexdec(substr($hex, 0, 2)),
+            hexdec(substr($hex, 2, 2)),
+            hexdec(substr($hex, 4, 2))
+        ];
+    }
+
+    /**
+     * Calculate color distance (Euclidean distance in RGB space)
+     */
+    private function colorDistance(string $color1, string $color2): float
+    {
+        $rgb1 = $this->hexToRgb($color1);
+        $rgb2 = $this->hexToRgb($color2);
+        
+        return sqrt(
+            pow($rgb1[0] - $rgb2[0], 2) +
+            pow($rgb1[1] - $rgb2[1], 2) +
+            pow($rgb1[2] - $rgb2[2], 2)
+        );
+    }
+
+    /**
      * Assign a color from the palette if not already set
+     * Maximise la différence avec les couleurs déjà assignées
      */
     public function assignColorFromPalette(): void
     {
@@ -331,17 +382,55 @@ class Teacher extends Model
         }
         $usedColors = $usedColorsQuery->pluck('color')->toArray();
 
-        // Trouver la première couleur disponible dans la palette
-        foreach ($palette as $color) {
-            if (!in_array($color, $usedColors)) {
-                $this->color = $color;
-                $this->save();
-                return;
+        // Filtrer les couleurs disponibles (non utilisées)
+        $availableColors = array_filter($palette, function($color) use ($usedColors) {
+            return !in_array($color, $usedColors);
+        });
+
+        // Si aucune couleur disponible dans la palette, générer une couleur unique
+        if (empty($availableColors)) {
+            $this->color = $this->generateColor();
+            $this->save();
+            return;
+        }
+
+        // Si aucune couleur n'est encore utilisée, prendre la première de la palette
+        if (empty($usedColors)) {
+            $this->color = reset($availableColors);
+            $this->save();
+            return;
+        }
+
+        // Trouver la couleur qui maximise la distance minimale avec les couleurs utilisées
+        // Cela garantit que la nouvelle couleur sera aussi différente que possible
+        $bestColor = null;
+        $maxMinDistance = -1;
+        $maxAvgDistance = -1;
+
+        foreach ($availableColors as $candidateColor) {
+            // Calculer les distances avec toutes les couleurs utilisées
+            $distances = [];
+            foreach ($usedColors as $usedColor) {
+                $distances[] = $this->colorDistance($candidateColor, $usedColor);
+            }
+
+            // Distance minimale (la plus proche couleur utilisée)
+            $minDistance = min($distances);
+            
+            // Distance moyenne
+            $avgDistance = array_sum($distances) / count($distances);
+
+            // Choisir la couleur qui maximise la distance minimale
+            // En cas d'égalité, choisir celle qui maximise la distance moyenne
+            if ($minDistance > $maxMinDistance || 
+                ($minDistance == $maxMinDistance && $avgDistance > $maxAvgDistance)) {
+                $maxMinDistance = $minDistance;
+                $maxAvgDistance = $avgDistance;
+                $bestColor = $candidateColor;
             }
         }
 
-        // Si toutes les couleurs sont utilisées, générer une couleur unique basée sur l'ID
-        $this->color = $this->generateColor();
+        $this->color = $bestColor ?? reset($availableColors);
         $this->save();
     }
 }
