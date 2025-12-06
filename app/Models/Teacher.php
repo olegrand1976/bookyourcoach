@@ -17,8 +17,11 @@ class Teacher extends Model
     {
         // Assigner automatiquement une couleur lors de la création si aucune n'est définie
         static::created(function (Teacher $teacher) {
-            if (!$teacher->color) {
-                $teacher->assignColorFromPalette();
+            // Vérifier si la colonne color existe avant d'essayer de l'utiliser
+            if (\Illuminate\Support\Facades\Schema::hasColumn('teachers', 'color')) {
+                if (!$teacher->color) {
+                    $teacher->assignColorFromPalette();
+                }
             }
         });
     }
@@ -309,6 +312,11 @@ class Teacher extends Model
      */
     public function assignColorFromPalette(): void
     {
+        // Vérifier si la colonne color existe
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('teachers', 'color')) {
+            return; // Colonne n'existe pas encore, ne rien faire
+        }
+        
         if ($this->color && !$this->isDirty('color')) {
             return; // Déjà assignée
         }

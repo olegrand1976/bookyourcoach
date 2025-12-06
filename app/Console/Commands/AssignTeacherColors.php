@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Teacher;
+use Illuminate\Support\Facades\Schema;
 
 class AssignTeacherColors extends Command
 {
@@ -27,6 +28,13 @@ class AssignTeacherColors extends Command
     public function handle()
     {
         $this->info('🎨 Attribution des couleurs aux enseignants...');
+        
+        // Vérifier si la colonne color existe
+        if (!Schema::hasColumn('teachers', 'color')) {
+            $this->error('❌ La colonne "color" n\'existe pas encore dans la table "teachers".');
+            $this->info('💡 Exécutez d\'abord la migration : php artisan migrate');
+            return 1;
+        }
         
         $query = Teacher::query();
         
