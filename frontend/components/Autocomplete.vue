@@ -103,6 +103,7 @@ interface Props {
   filterFunction?: (item: any, query: string) => boolean
   isLoading?: boolean
   isItemUnavailable?: (item: any) => boolean
+  maxResults?: number // Nombre maximum de résultats à afficher (par défaut: 50)
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -114,7 +115,8 @@ const props = withDefaults(defineProps<Props>(), {
   getItemLabel: undefined,
   getItemId: undefined,
   filterFunction: undefined,
-  isItemUnavailable: undefined
+  isItemUnavailable: undefined,
+  maxResults: 50 // Par défaut, afficher jusqu'à 50 résultats
 })
 
 // Fonctions par défaut (ne peuvent pas référencer props dans les valeurs par défaut)
@@ -167,12 +169,14 @@ watch(selectedItem, (item) => {
 // Résultats filtrés
 const filteredResults = computed(() => {
   if (!searchQuery.value || searchQuery.value.length < 2) {
-    return props.items.slice(0, 10) // Limiter à 10 résultats par défaut
+    // Si pas de recherche, afficher les premiers résultats jusqu'à maxResults
+    return props.items.slice(0, props.maxResults)
   }
   
+  // Avec recherche, filtrer et limiter à maxResults
   return props.items
     .filter(item => filterFunctionFn.value(item, searchQuery.value))
-    .slice(0, 10)
+    .slice(0, props.maxResults)
 })
 
 // Gestion des événements

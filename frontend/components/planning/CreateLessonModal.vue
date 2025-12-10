@@ -251,6 +251,7 @@
                   :items="students"
                   label="Élève (optionnel)"
                   placeholder="Rechercher un élève..."
+                  :max-results="500"
                   :get-item-label="(student) => {
                     const name = student.user?.name || student.name || 'Élève sans nom'
                     const age = student.age ? ` (${student.age} ans)` : ''
