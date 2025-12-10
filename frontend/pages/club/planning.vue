@@ -1635,14 +1635,24 @@ async function openCreateLessonModal(slot?: OpenSlot) {
   await nextTick()
   
   if (slot) {
-    // Calculer la prochaine date correspondant au jour du créneau
-    const today = new Date()
-    const targetDay = slot.day_of_week
-    const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
-    const nextDate = new Date(today)
-    nextDate.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
+    // Utiliser la date sélectionnée dans "Cours programmés" si elle existe et correspond au jour du créneau
+    // Sinon, calculer la prochaine date correspondant au jour du créneau
+    let dateToUse: Date
+    if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
+      // Utiliser la date sélectionnée dans "Cours programmés"
+      dateToUse = new Date(selectedDate.value)
+      console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', dateToUse.toISOString().split('T')[0])
+    } else {
+      // Calculer la prochaine date correspondant au jour du créneau
+      const today = new Date()
+      const targetDay = slot.day_of_week
+      const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
+      dateToUse = new Date(today)
+      dateToUse.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
+      console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', dateToUse.toISOString().split('T')[0])
+    }
     
-    const dateStr = nextDate.toISOString().split('T')[0]
+    const dateStr = dateToUse.toISOString().split('T')[0]
     const timeStr = slot.start_time.substring(0, 5)
     
     // ✅ CORRECTION : Utiliser les types de cours du créneau (slot.course_types) au lieu de tous les types
@@ -1993,7 +2003,27 @@ async function createLesson() {
     if (response.data.success) {
       console.log('✅ Cours créé:', response.data.data)
       success('Cours créé avec succès', 'Succès')
+      
+      // Recharger les cours pour inclure le nouveau cours
       await loadLessons()
+      
+      // Conserver la date sélectionnée dans "Cours programmés" si elle existe
+      // et correspond au jour du créneau sélectionné
+      if (selectedDate.value && selectedSlot.value && 
+          selectedDate.value.getDay() === selectedSlot.value.day_of_week) {
+        // La date est déjà correcte, pas besoin de la modifier
+        console.log('📅 [createLesson] Conservation de la date sélectionnée:', selectedDate.value.toISOString().split('T')[0])
+      } else if (selectedSlot.value && lessonForm.value.date) {
+        // Si une date a été sélectionnée dans le formulaire et qu'un créneau est sélectionné,
+        // mettre à jour selectedDate pour rester sur cette date
+        const createdDate = new Date(lessonForm.value.date + 'T00:00:00')
+        if (createdDate.getDay() === selectedSlot.value.day_of_week) {
+          selectedDate.value = createdDate
+          selectedDateInput.value = formatDateForInput(createdDate)
+          console.log('📅 [createLesson] Mise à jour de selectedDate avec la date du cours créé:', selectedDate.value.toISOString().split('T')[0])
+        }
+      }
+      
       closeCreateLessonModal()
     } else {
       showError(response.data.message || 'Erreur lors de la création du cours', 'Erreur')
