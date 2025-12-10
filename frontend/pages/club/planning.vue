@@ -170,12 +170,24 @@
               class="border border-gray-200 rounded-lg overflow-hidden">
               
               <!-- En-tête de la plage horaire -->
-              <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex items-center gap-3">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span class="text-white font-semibold text-lg">{{ timeSlot.time }}</span>
-                <span class="text-blue-200 text-sm">({{ timeSlot.lessons.length }} cours)</span>
+              <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span class="text-white font-semibold text-lg">{{ timeSlot.time }}</span>
+                  <span class="text-blue-200 text-sm">({{ timeSlot.lessons.length }} cours)</span>
+                </div>
+                <button
+                  v-if="selectedSlot && selectedDate"
+                  @click.stop="openCreateLessonModalForTimeSlot(timeSlot.time)"
+                  class="px-3 py-1.5 text-sm bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium shadow-sm"
+                  title="Créer un cours à cette heure">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Créer un cours
+                </button>
               </div>
               
               <!-- Grille des cours pour cette plage horaire -->
@@ -2278,6 +2290,43 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
   } finally {
     saving.value = false
   }
+}
+
+// Ouvrir la modale de création pour une plage horaire spécifique
+async function openCreateLessonModalForTimeSlot(timeSlot: string) {
+  if (!selectedSlot.value || !selectedDate.value) {
+    warning('Veuillez sélectionner un créneau et une date', 'Information')
+    return
+  }
+  
+  // Vérifier que l'heure de la plage horaire correspond au créneau
+  const slotStartTime = formatTime(selectedSlot.value.start_time)
+  const slotEndTime = formatTime(selectedSlot.value.end_time)
+  
+  if (timeSlot < slotStartTime || timeSlot >= slotEndTime) {
+    warning(`L'heure ${timeSlot} ne correspond pas au créneau sélectionné (${slotStartTime} - ${slotEndTime})`, 'Information')
+    return
+  }
+  
+  // Utiliser le créneau sélectionné et la date sélectionnée
+  await openCreateLessonModal(selectedSlot.value)
+  
+  // Pré-remplir la date et l'heure après l'ouverture de la modale
+  await nextTick()
+  
+  // Formater la date au format YYYY-MM-DD
+  const dateStr = formatDateForInput(selectedDate.value)
+  
+  // L'heure est déjà au format "HH:mm"
+  lessonForm.value.date = dateStr
+  lessonForm.value.time = timeSlot
+  
+  console.log('📅 [openCreateLessonModalForTimeSlot] Modale ouverte avec:', {
+    date: dateStr,
+    time: timeSlot,
+    slot: selectedSlot.value.id,
+    slotTimeRange: `${slotStartTime} - ${slotEndTime}`
+  })
 }
 
 // Fonction pour confirmer et supprimer un cours depuis les cartes
