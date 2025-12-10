@@ -229,6 +229,7 @@
                   :get-item-label="(teacher) => teacher.user?.name || teacher.name || 'Enseignant sans nom'"
                   :get-item-id="(teacher) => teacher.id"
                   :is-item-unavailable="(teacher) => !isTeacherAvailable(teacher.id)"
+                  :filter-function="filterTeacher"
                 >
                   <template #item="{ item: teacher, isUnavailable }">
                     <div :class="isUnavailable ? 'bg-red-50' : ''">
@@ -259,6 +260,7 @@
                   }"
                   :get-item-id="(student) => student.id"
                   :is-item-unavailable="(student) => !isStudentAvailable(student.id)"
+                  :filter-function="filterStudent"
                 >
                   <template #item="{ item: student, isUnavailable }">
                     <div :class="isUnavailable ? 'bg-red-50' : ''">
@@ -523,6 +525,101 @@ const emit = defineEmits<{
 }>()
 
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+// Fonction pour normaliser les chaînes (supprimer les accents) pour la recherche
+function normalizeString(str: string): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .normalize('NFD') // Décompose les caractères accentués
+    .replace(/[\u0300-\u036f]/g, '') // Supprime les diacritiques (accents)
+}
+
+// Fonction de filtrage pour les enseignants avec normalisation des accents
+function filterTeacher(teacher: any, query: string): boolean {
+  const normalizedQuery = normalizeString(query)
+  
+  // Rechercher dans le nom de l'utilisateur
+  if (teacher.user?.name) {
+    if (normalizeString(teacher.user.name).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  // Rechercher dans l'email
+  if (teacher.user?.email) {
+    if (normalizeString(teacher.user.email).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  // Rechercher dans le nom direct (fallback)
+  if (teacher.name) {
+    if (normalizeString(teacher.name).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  return false
+}
+
+// Fonction de filtrage pour les élèves avec normalisation des accents
+function filterStudent(student: any, query: string): boolean {
+  const normalizedQuery = normalizeString(query)
+  
+  // Rechercher dans le nom de l'utilisateur
+  if (student.user?.name) {
+    if (normalizeString(student.user.name).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  // Rechercher dans first_name et last_name de l'utilisateur
+  if (student.user) {
+    const userFirstName = normalizeString(student.user.first_name || '')
+    const userLastName = normalizeString(student.user.last_name || '')
+    const userFullName = `${userFirstName} ${userLastName}`.trim()
+    if (userFullName && userFullName.includes(normalizedQuery)) {
+      return true
+    }
+    if (userFirstName && userFirstName.includes(normalizedQuery)) {
+      return true
+    }
+    if (userLastName && userLastName.includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  // Rechercher dans first_name et last_name de l'élève
+  const firstName = normalizeString(student.first_name || '')
+  const lastName = normalizeString(student.last_name || '')
+  const fullName = `${firstName} ${lastName}`.trim()
+  if (fullName && fullName.includes(normalizedQuery)) {
+    return true
+  }
+  if (firstName && firstName.includes(normalizedQuery)) {
+    return true
+  }
+  if (lastName && lastName.includes(normalizedQuery)) {
+    return true
+  }
+  
+  // Rechercher dans le nom direct (fallback)
+  if (student.name) {
+    if (normalizeString(student.name).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  // Rechercher dans l'email
+  if (student.user?.email) {
+    if (normalizeString(student.user.email).includes(normalizedQuery)) {
+      return true
+    }
+  }
+  
+  return false
+}
 
 // Référence pour le créneau sélectionné en mode édition
 const selectedSlotId = ref<number | null>(null)
