@@ -1641,7 +1641,7 @@ async function openCreateLessonModal(slot?: OpenSlot) {
     if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
       // Utiliser la date sélectionnée dans "Cours programmés"
       dateToUse = new Date(selectedDate.value)
-      console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', dateToUse.toISOString().split('T')[0])
+      console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
     } else {
       // Calculer la prochaine date correspondant au jour du créneau
       const today = new Date()
@@ -1649,10 +1649,11 @@ async function openCreateLessonModal(slot?: OpenSlot) {
       const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
       dateToUse = new Date(today)
       dateToUse.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
-      console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', dateToUse.toISOString().split('T')[0])
+      console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', formatDateForInput(dateToUse))
     }
     
-    const dateStr = dateToUse.toISOString().split('T')[0]
+    // Utiliser formatDateForInput pour éviter les problèmes de timezone (toISOString convertit en UTC)
+    const dateStr = formatDateForInput(dateToUse)
     const timeStr = slot.start_time.substring(0, 5)
     
     // ✅ CORRECTION : Utiliser les types de cours du créneau (slot.course_types) au lieu de tous les types
