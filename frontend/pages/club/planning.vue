@@ -1628,7 +1628,7 @@ async function deleteSlot(id: number) {
   }
 }
 
-async function openCreateLessonModal(slot?: OpenSlot) {
+async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
   console.log('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
     hasSlot: !!slot,
     slotId: slot?.id,
@@ -1676,7 +1676,8 @@ async function openCreateLessonModal(slot?: OpenSlot) {
     
     // Utiliser formatDateForInput pour éviter les problèmes de timezone (toISOString convertit en UTC)
     const dateStr = formatDateForInput(dateToUse)
-    const timeStr = slot.start_time.substring(0, 5)
+    // Utiliser l'heure personnalisée si fournie, sinon utiliser l'heure de début du créneau
+    const timeStr = customTime || slot.start_time.substring(0, 5)
     
     // ✅ CORRECTION : Utiliser les types de cours du créneau (slot.course_types) au lieu de tous les types
     // Les types de cours du créneau sont déjà filtrés par le backend selon la discipline
@@ -2308,21 +2309,11 @@ async function openCreateLessonModalForTimeSlot(timeSlot: string) {
     return
   }
   
-  // Utiliser le créneau sélectionné et la date sélectionnée
-  await openCreateLessonModal(selectedSlot.value)
-  
-  // Pré-remplir la date et l'heure après l'ouverture de la modale
-  await nextTick()
-  
-  // Formater la date au format YYYY-MM-DD
-  const dateStr = formatDateForInput(selectedDate.value)
-  
-  // L'heure est déjà au format "HH:mm"
-  lessonForm.value.date = dateStr
-  lessonForm.value.time = timeSlot
+  // Utiliser le créneau sélectionné et la date sélectionnée avec l'heure de la plage horaire
+  await openCreateLessonModal(selectedSlot.value, timeSlot)
   
   console.log('📅 [openCreateLessonModalForTimeSlot] Modale ouverte avec:', {
-    date: dateStr,
+    date: formatDateForInput(selectedDate.value),
     time: timeSlot,
     slot: selectedSlot.value.id,
     slotTimeRange: `${slotStartTime} - ${slotEndTime}`
