@@ -57,7 +57,7 @@ class Student extends Model
         'notifications_enabled' => 'boolean',
     ];
 
-    protected $appends = ['age'];
+    protected $appends = ['age', 'name'];
 
     /**
      * Get the user that owns the student profile.
@@ -198,5 +198,21 @@ class Student extends Model
         }
         
         return \Carbon\Carbon::parse($this->date_of_birth)->age;
+    }
+
+    /**
+     * Get the full name of the student.
+     * Combine first_name and last_name, or use user.name if available.
+     */
+    public function getNameAttribute(): ?string
+    {
+        // Si l'étudiant a un user avec un nom, utiliser celui-ci
+        if ($this->relationLoaded('user') && $this->user && $this->user->name) {
+            return $this->user->name;
+        }
+        
+        // Sinon, combiner first_name et last_name
+        $parts = array_filter([$this->first_name, $this->last_name]);
+        return !empty($parts) ? implode(' ', $parts) : null;
     }
 }

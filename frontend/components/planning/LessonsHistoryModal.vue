@@ -193,8 +193,23 @@ interface Lesson {
   end_time: string
   course_type?: { name: string }
   teacher?: { user?: { name: string } }
-  student?: { user?: { name: string } }
-  students?: Array<{ user?: { name: string } }>
+  student?: { 
+    id?: number
+    user_id?: number | null
+    name?: string
+    first_name?: string
+    last_name?: string
+    user?: { name: string } 
+  }
+  students?: Array<{ 
+    id?: number
+    user_id?: number | null
+    name?: string
+    first_name?: string
+    last_name?: string
+    user?: { name: string } 
+  }>
+  student_id?: number | null
   price: number
   status: string
   [key: string]: any
@@ -344,7 +359,10 @@ function getLessonStudents(lesson: Lesson): string {
   // Vérifier d'abord la relation many-to-many (students) - priorité pour les cours de groupe
   if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
     lesson.students.forEach((student: any) => {
-      const name = student.user?.name || student.name
+      // Utiliser student.name (qui combine first_name + last_name) ou user.name en fallback
+      const name = student.name || student.user?.name || 
+                   (student.first_name && student.last_name ? `${student.first_name} ${student.last_name}`.trim() : null) ||
+                   student.first_name || student.last_name
       if (name && !students.includes(name)) {
         students.push(name)
       }
@@ -352,15 +370,14 @@ function getLessonStudents(lesson: Lesson): string {
   }
   
   // Ensuite vérifier l'élève principal (student) - pour les cours individuels
-  if (lesson.student?.user?.name) {
-    const name = lesson.student.user.name
-    if (!students.includes(name)) {
-      students.push(name)
-    }
-  } else if (lesson.student?.name) {
-    // Fallback si user n'est pas chargé mais que student.name existe
-    const name = lesson.student.name
-    if (!students.includes(name)) {
+  if (lesson.student) {
+    // Utiliser student.name (qui combine first_name + last_name) ou user.name en fallback
+    const name = lesson.student.name || 
+                 lesson.student.user?.name ||
+                 (lesson.student.first_name && lesson.student.last_name ? `${lesson.student.first_name} ${lesson.student.last_name}`.trim() : null) ||
+                 lesson.student.first_name || 
+                 lesson.student.last_name
+    if (name && !students.includes(name)) {
       students.push(name)
     }
   }
