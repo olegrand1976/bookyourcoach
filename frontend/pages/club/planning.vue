@@ -1316,11 +1316,43 @@ async function loadTeachers() {
 async function loadStudents() {
   try {
     const { $api } = useNuxtApp()
-    const response = await $api.get('/club/students')
+    // Charger tous les élèves actifs pour la modale de création de cours
+    // Utiliser un per_page élevé pour obtenir tous les élèves en une seule requête
+    const response = await $api.get('/club/students', {
+      params: {
+        per_page: 1000, // Nombre élevé pour obtenir tous les élèves
+        page: 1,
+        status: 'active' // Seulement les élèves actifs
+      }
+    })
     console.log('🔍 [Planning] Réponse élèves:', response.data)
     if (response.data.success) {
       students.value = response.data.data || []
       console.log('✅ Élèves chargés:', students.value.length)
+      
+      // Si on a reçu exactement le nombre de per_page, il pourrait y avoir plus d'élèves
+      // Dans ce cas, charger les pages suivantes
+      if (response.data.pagination && response.data.pagination.last_page > 1) {
+        const allStudents = [...students.value]
+        for (let page = 2; page <= response.data.pagination.last_page; page++) {
+          try {
+            const nextPageResponse = await $api.get('/club/students', {
+              params: {
+                per_page: 1000,
+                page: page,
+                status: 'active'
+              }
+            })
+            if (nextPageResponse.data.success && nextPageResponse.data.data) {
+              allStudents.push(...nextPageResponse.data.data)
+            }
+          } catch (pageErr) {
+            console.warn(`Erreur chargement page ${page} des élèves:`, pageErr)
+          }
+        }
+        students.value = allStudents
+        console.log('✅ Tous les élèves chargés:', students.value.length)
+      }
     }
   } catch (err: any) {
     console.error('Erreur chargement élèves:', err)
