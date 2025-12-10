@@ -102,14 +102,14 @@ class LessonController extends Controller
                 ->with([
                     "teacher:{$teacherColumns}",
                     'teacher.user:id,name,email',
-                    'student:id,user_id',
+                    'student:id,user_id,first_name,last_name',
                     'student.user:id,name,email',
                     'student.subscriptionInstances' => function ($query) {
                         $query->where('status', 'active')
                               ->where('expires_at', '>=', now())
                               ->with(['subscription.template']);
                     },
-                    'students:id,user_id',
+                    'students:id,user_id,first_name,last_name',
                     'students.user:id,name,email',
                     'courseType:id,name',
                     'location:id,name',
