@@ -1808,14 +1808,18 @@ async function openEditLessonModal(lesson: Lesson) {
   // Extraire la date et l'heure depuis start_time
   if (lesson.start_time) {
     const dateTime = new Date(lesson.start_time)
-    lessonForm.value.date = dateTime.toISOString().split('T')[0]
-    const hours = String(dateTime.getHours()).padStart(2, '0')
-    const minutes = String(dateTime.getMinutes()).padStart(2, '0')
-    lessonForm.value.time = `${hours}:${minutes}`
+    // Utiliser formatDateForInput pour éviter les problèmes de timezone (toISOString convertit en UTC)
+    lessonForm.value.date = formatDateForInput(dateTime)
+    // Extraire l'heure en utilisant formatLessonTime pour garantir la cohérence avec l'affichage
+    // formatLessonTime retourne "HH:MM" depuis une chaîne datetime ISO
+    const timeString = formatLessonTime(lesson.start_time)
+    lessonForm.value.time = timeString
     console.log('📅 [openEditLessonModal] Date et heure extraites:', {
       date: lessonForm.value.date,
       time: lessonForm.value.time,
-      start_time: lesson.start_time
+      start_time: lesson.start_time,
+      dateTimeLocal: dateTime.toLocaleString('fr-FR'),
+      timeString: timeString
     })
     
     // Trouver le créneau correspondant au jour de la semaine pour charger les heures disponibles
@@ -1833,6 +1837,13 @@ async function openEditLessonModal(lesson: Lesson) {
       selectedSlotForLesson.value = null
       console.warn('⚠️ [openEditLessonModal] Aucun créneau trouvé pour le jour:', dayOfWeek)
     }
+    
+    // Charger les cours existants pour cette date AVANT d'ouvrir la modale
+    // pour que les heures disponibles soient calculées correctement et que les watchers
+    // ne remplacent pas l'heure qui vient d'être définie
+    await loadExistingLessons(lessonForm.value.date)
+    await nextTick()
+    console.log('✅ [openEditLessonModal] Cours existants chargés, heure préservée:', lessonForm.value.time)
   }
   
   // Remplir les autres champs

@@ -1304,8 +1304,19 @@ watch(() => props.form.date, async (newDate, oldDate) => {
 
 // Watcher pour auto-sélectionner la première heure disponible quand availableTimes change
 watch(() => availableTimes.value, (newTimes, oldTimes) => {
-  // En mode édition, ne pas changer l'heure automatiquement
+  // En mode édition, ne pas changer l'heure automatiquement SAUF si elle n'est plus disponible
   if (props.editingLesson) {
+    // Vérifier si l'heure actuelle est toujours disponible
+    if (props.form.time) {
+      const isCurrentTimeAvailable = newTimes.some(t => t.value === props.form.time)
+      if (!isCurrentTimeAvailable && newTimes.length > 0) {
+        // L'heure actuelle n'est plus disponible, sélectionner la première disponible
+        props.form.time = newTimes[0].value
+        console.log('⚠️ [CreateLessonModal] Heure actuelle non disponible en mode édition, première heure disponible sélectionnée:', newTimes[0].value)
+      } else if (isCurrentTimeAvailable) {
+        console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible en mode édition:', props.form.time)
+      }
+    }
     return
   }
   
@@ -1336,17 +1347,30 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
     await loadExistingLessons(props.form.date)
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
-    // Auto-sélectionner la première heure disponible si le type de cours est défini (seulement en mode création)
-    // Mais seulement si aucune heure n'est déjà sélectionnée ou si l'heure actuelle n'est plus disponible
-    if (availableTimes.value.length > 0 && props.form.course_type_id && !props.editingLesson) {
-      const currentTime = props.form.time
-      const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime)
-      
-      if (isCurrentTimeAvailable) {
-        console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau, conservée:', currentTime)
-      } else if (!currentTime || !isCurrentTimeAvailable) {
+    
+    // En mode édition, vérifier si l'heure actuelle est toujours disponible
+    if (props.editingLesson && props.form.time) {
+      const isCurrentTimeAvailable = availableTimes.value.some(t => t.value === props.form.time)
+      if (!isCurrentTimeAvailable && availableTimes.value.length > 0) {
+        // L'heure actuelle n'est plus disponible, sélectionner la première disponible
         props.form.time = availableTimes.value[0].value
-        console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de créneau:', availableTimes.value[0].value)
+        console.log('⚠️ [CreateLessonModal] Heure actuelle non disponible après changement de créneau en mode édition, première heure disponible sélectionnée:', availableTimes.value[0].value)
+      } else if (isCurrentTimeAvailable) {
+        console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau en mode édition:', props.form.time)
+      }
+    } else if (!props.editingLesson) {
+      // Auto-sélectionner la première heure disponible si le type de cours est défini (seulement en mode création)
+      // Mais seulement si aucune heure n'est déjà sélectionnée ou si l'heure actuelle n'est plus disponible
+      if (availableTimes.value.length > 0 && props.form.course_type_id) {
+        const currentTime = props.form.time
+        const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime)
+        
+        if (isCurrentTimeAvailable) {
+          console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau, conservée:', currentTime)
+        } else if (!currentTime || !isCurrentTimeAvailable) {
+          props.form.time = availableTimes.value[0].value
+          console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de créneau:', availableTimes.value[0].value)
+        }
       }
     }
   } else {
