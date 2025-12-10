@@ -1201,11 +1201,11 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     const today = new Date()
     const startDate = customStartDate || new Date(today)
     if (!customStartDate) {
-      startDate.setDate(today.getDate() - 7) // 1 semaine en arrière
+      startDate.setMonth(today.getMonth() - 3) // 3 mois en arrière
     }
     const endDate = customEndDate || new Date(today)
     if (!customEndDate) {
-      endDate.setDate(today.getDate() + 180) // 6 mois en avant pour couvrir toutes les récurrences
+      endDate.setMonth(today.getMonth() + 3) // 3 mois en avant
     }
     
     const response = await $api.get('/lessons', {
@@ -2454,9 +2454,9 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     // Si aucune plage n'est chargée, charger autour de la date cible
     console.log('🔄 Aucune plage chargée, chargement autour de la date:', targetDate.toISOString().split('T')[0])
     const startDate = new Date(targetDate)
-    startDate.setDate(targetDate.getDate() - 7) // 1 semaine avant
+    startDate.setMonth(targetDate.getMonth() - 3) // 3 mois avant
     const endDate = new Date(targetDate)
-    endDate.setDate(targetDate.getDate() + 180) // 6 mois après
+    endDate.setMonth(targetDate.getMonth() + 3) // 3 mois après
     await loadLessons(startDate, endDate)
     return
   }
@@ -2476,13 +2476,13 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     // Si la date est avant la plage chargée, étendre vers le passé
     if (targetDate < loadedStart) {
       newStartDate = new Date(targetDate)
-      newStartDate.setDate(targetDate.getDate() - 7) // 1 semaine avant
+      newStartDate.setMonth(targetDate.getMonth() - 3) // 3 mois avant
     }
     
     // Si la date est après la plage chargée, étendre vers le futur
     if (targetDate > loadedEnd) {
       newEndDate = new Date(targetDate)
-      newEndDate.setDate(targetDate.getDate() + 180) // 6 mois après
+      newEndDate.setMonth(targetDate.getMonth() + 3) // 3 mois après
     }
     
     // Charger seulement la partie manquante
@@ -2615,10 +2615,10 @@ function formatDateFull(date: Date | null): string {
   return date.toLocaleDateString('fr-FR', options)
 }
 
-// Obtenir la date minimum (par exemple, 2 semaines avant aujourd'hui)
+// Obtenir la date minimum (3 mois avant aujourd'hui)
 function getMinDate(): string {
   const minDate = new Date()
-  minDate.setDate(minDate.getDate() - 14) // 2 semaines avant
+  minDate.setMonth(minDate.getMonth() - 3) // 3 mois avant
   return formatDateForInput(minDate)
 }
 
@@ -2633,7 +2633,7 @@ function getMaxDate(): string {
 const canNavigatePrevious = computed(() => {
   if (!selectedDate.value) return false
   const minDate = new Date()
-  minDate.setDate(minDate.getDate() - 14)
+  minDate.setMonth(minDate.getMonth() - 3) // 3 mois avant
   return selectedDate.value > minDate
 })
 
