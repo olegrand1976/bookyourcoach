@@ -408,6 +408,36 @@
                           placeholder="Notes sur le cours..."></textarea>
               </div>
             </div>
+
+            <!-- Portée de la mise à jour (uniquement en mode édition) -->
+            <div v-if="editingLesson" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Portée de la modification
+              </label>
+              <div class="space-y-2">
+                <label class="flex items-center">
+                  <input 
+                    type="radio" 
+                    :value="'single'"
+                    v-model="form.update_scope"
+                    class="mr-2 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span class="text-sm text-gray-700">Modifier uniquement ce cours</span>
+                </label>
+                <label class="flex items-center">
+                  <input 
+                    type="radio" 
+                    :value="'all_future'"
+                    v-model="form.update_scope"
+                    class="mr-2 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span class="text-sm text-gray-700">Modifier ce cours et tous les cours futurs de l'abonnement</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-2">
+                  ⓘ Si vous modifiez la date, l'heure ou l'enseignant, cette modification sera appliquée à tous les cours futurs liés au même abonnement.
+                </p>
+              </div>
+            </div>
           </div>
 
           <!-- Boutons -->
@@ -467,6 +497,8 @@ interface LessonForm {
   est_legacy: boolean | null
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: boolean | null
+  // Portée de la mise à jour (pour les récurrences)
+  update_scope?: 'single' | 'all_future'
 }
 
 interface Props {

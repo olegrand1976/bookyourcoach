@@ -523,6 +523,7 @@
         :show="showHistoryModal"
         @close="showHistoryModal = false"
         @view-lesson="handleViewLessonFromHistory"
+        @edit-lesson="handleEditLessonFromHistory"
       />
 
       <!-- Modale Création de Cours -->
@@ -674,7 +675,9 @@ const lessonForm = ref({
   // Champs pour les commissions
   est_legacy: false as boolean | null, // Par défaut DCL (false)
   // Déduction d'abonnement (par défaut true)
-  deduct_from_subscription: true as boolean | null
+  deduct_from_subscription: true as boolean | null,
+  // Portée de la mise à jour (pour les récurrences)
+  update_scope: 'single' as 'single' | 'all_future'
 })
 const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
 
@@ -1711,7 +1714,8 @@ function closeCreateLessonModal() {
     price: 0,
     notes: '',
     est_legacy: false,
-    deduct_from_subscription: true
+    deduct_from_subscription: true,
+    update_scope: 'single'
   }
   
   // Ne pas réinitialiser selectedSlotForLesson immédiatement pour éviter
@@ -1769,6 +1773,7 @@ async function openEditLessonModal(lesson: Lesson) {
   lessonForm.value.teacher_id = lesson.teacher?.id || null
   lessonForm.value.student_id = lesson.student?.id || (lesson.students && lesson.students.length > 0 ? lesson.students[0].id : null)
   lessonForm.value.course_type_id = lesson.course_type?.id || null
+  lessonForm.value.update_scope = 'single' // Par défaut, modifier uniquement ce cours
   
   // Calculer la durée en minutes
   if (lesson.start_time && lesson.end_time) {
@@ -1828,7 +1833,8 @@ function closeEditLessonModal() {
     price: 0,
     notes: '',
     est_legacy: false,
-    deduct_from_subscription: true
+    deduct_from_subscription: true,
+    update_scope: 'single'
   }
 }
 
@@ -2061,7 +2067,8 @@ async function updateLesson() {
       price: typeof lessonForm.value.price === 'string' ? parseFloat(lessonForm.value.price) : lessonForm.value.price,
       notes: lessonForm.value.notes,
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
-      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
+      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
+      update_scope: lessonForm.value.update_scope || 'single' // Portée de la mise à jour pour les récurrences
     }
     
     // Ajouter end_time seulement s'il est défini et valide (après start_time)
@@ -2086,7 +2093,11 @@ async function updateLesson() {
     
     if (response.data.success) {
       console.log('✅ Cours mis à jour:', response.data.data)
-      success('Cours modifié avec succès', 'Succès')
+      let successMessage = response.data.message || 'Cours modifié avec succès'
+      if (response.data.updated_future_lessons_count > 0) {
+        successMessage = `Cours modifié avec succès. ${response.data.updated_future_lessons_count} cours futur(s) ont également été mis à jour.`
+      }
+      success(successMessage, 'Succès')
       
       // Mettre à jour la relation abonnement si nécessaire
       if (editingLesson.value.id) {
@@ -2156,6 +2167,11 @@ function handleViewLessonFromHistory(lesson: any) {
     selectedLesson.value = lesson
     showLessonModal.value = true
   }
+}
+
+function handleEditLessonFromHistory(lesson: any) {
+  // Ouvrir la modale d'édition avec le cours sélectionné
+  openEditLessonModal(lesson)
 }
 
 async function updateLessonStatus(lessonId: number, newStatus: string) {
