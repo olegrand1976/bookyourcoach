@@ -18,6 +18,7 @@ class SubscriptionRecurringSlot extends Model
         'day_of_week',
         'start_time',
         'end_time',
+        'recurring_interval',  // Intervalle de récurrence en semaines
         'start_date',  // Utilise start_date au lieu de started_at
         'end_date',    // Utilise end_date au lieu de expires_at
         'status',
@@ -26,6 +27,7 @@ class SubscriptionRecurringSlot extends Model
 
     protected $casts = [
         'day_of_week' => 'integer',
+        'recurring_interval' => 'integer',
         'start_date' => 'date',
         'end_date' => 'date',
     ];

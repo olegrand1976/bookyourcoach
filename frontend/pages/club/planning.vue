@@ -698,6 +698,8 @@ const lessonForm = ref({
   est_legacy: false as boolean | null, // Par défaut DCL (false)
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: true as boolean | null,
+  // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+  recurring_interval: 1,
   // Portée de la mise à jour (pour les récurrences)
   update_scope: 'single' as 'single' | 'all_future'
 })
@@ -1736,7 +1738,11 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       // Champs pour les commissions (par défaut DCL)
       est_legacy: false,
       // Déduction d'abonnement (par défaut true)
-      deduct_from_subscription: true
+      deduct_from_subscription: true,
+      // Intervalle de récurrence (par défaut 1 = chaque semaine)
+      recurring_interval: 1,
+      // Portée de la mise à jour
+      update_scope: 'single'
     }
   } else {
     // Réinitialiser le formulaire
@@ -1753,7 +1759,11 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       // Champs pour les commissions (par défaut DCL)
       est_legacy: false,
       // Déduction d'abonnement (par défaut true)
-      deduct_from_subscription: true
+      deduct_from_subscription: true,
+      // Intervalle de récurrence (par défaut 1 = chaque semaine)
+      recurring_interval: 1,
+      // Portée de la mise à jour
+      update_scope: 'single'
     }
   }
 }
@@ -1781,6 +1791,7 @@ function closeCreateLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
+    recurring_interval: 1,
     update_scope: 'single'
   }
   
@@ -1911,6 +1922,7 @@ function closeEditLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
+    recurring_interval: 1,
     update_scope: 'single'
   }
 }
@@ -2028,7 +2040,9 @@ async function createLesson() {
       // Convertir explicitement en boolean pour garantir la bonne valeur
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
       // Déduction d'abonnement (par défaut true)
-      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
+      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
+      // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+      recurring_interval: lessonForm.value.recurring_interval || 1
     }
     
     console.log('📤 Création du cours avec payload:', payload)

@@ -26,13 +26,15 @@ class ProcessLessonPostCreationJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected Lesson $lesson;
+    protected int $recurringInterval;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Lesson $lesson)
+    public function __construct(Lesson $lesson, int $recurringInterval = 1)
     {
         $this->lesson = $lesson;
+        $this->recurringInterval = $recurringInterval;
     }
 
     /**
@@ -225,6 +227,7 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'day_of_week' => $dayOfWeek,
                 'start_time' => $timeStart,
                 'end_time' => $timeEnd,
+                'recurring_interval' => $this->recurringInterval, // Intervalle de récurrence
                 'start_date' => $recurringStartDate,
                 'end_date' => $recurringEndDate,
             ]);
@@ -234,7 +237,8 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 'lesson_id' => $this->lesson->id,
                 'student_id' => $this->lesson->student_id,
                 'teacher_id' => $this->lesson->teacher_id,
-                'day_of_week' => $dayOfWeek
+                'day_of_week' => $dayOfWeek,
+                'recurring_interval' => $this->recurringInterval
             ]);
 
             // Générer automatiquement les cours pour toute la période de validité de la récurrence

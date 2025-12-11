@@ -150,6 +150,7 @@ class LegacyRecurringSlotService
     /**
      * Génère les dates pour un créneau récurrent legacy
      * Ne filtre plus par la validité de l'abonnement, seulement par la période de la récurrence
+     * Gère l'intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
      */
     private function generateDatesForRecurringSlot(
         SubscriptionRecurringSlot $recurringSlot,
@@ -159,6 +160,9 @@ class LegacyRecurringSlotService
         ?Carbon $subscriptionExpiresAt = null
     ): array {
         $dates = [];
+        
+        // Récupérer l'intervalle de récurrence (par défaut 1 = chaque semaine)
+        $recurringInterval = $recurringSlot->recurring_interval ?? 1;
         
         // Trouver le premier jour correspondant au day_of_week à partir de startDate
         $currentDate = $startDate->copy();
@@ -180,15 +184,16 @@ class LegacyRecurringSlotService
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
 
         // Générer les dates jusqu'à endDate (limité par la fin de la récurrence)
+        // En utilisant l'intervalle de récurrence (ex: toutes les 2 semaines)
         while ($currentDate->lte($endDate) && $currentDate->lte($recurringEndDate)) {
             // Vérifier que la date est dans la période de validité du créneau récurrent
             if ($currentDate->isBefore($recurringStartDate)) {
-                $currentDate->addWeek();
+                $currentDate->addWeeks($recurringInterval);
                 continue;
             }
 
             $dates[] = $currentDate->copy();
-            $currentDate->addWeek();
+            $currentDate->addWeeks($recurringInterval); // Utiliser l'intervalle au lieu de addWeek()
         }
 
         return $dates;
