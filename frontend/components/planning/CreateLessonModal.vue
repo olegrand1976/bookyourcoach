@@ -378,10 +378,11 @@
               </div>
 
               <!-- Intervalle de récurrence (uniquement si un élève est sélectionné et déduction d'abonnement activée) -->
-              <div v-if="!editingLesson && form.student_id && form.deduct_from_subscription === true" class="md:col-span-2">
+              <!-- En mode création OU en mode édition avec portée 'all_future' -->
+              <div v-if="((!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future'))" class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-3">
                   Fréquence de récurrence
-                  <span class="text-xs font-normal text-gray-500 ml-2">(pour les cours réguliers)</span>
+                  <span class="text-xs font-normal text-gray-500 ml-2">{{ editingLesson ? '(pour tous les cours futurs)' : '(pour les cours réguliers)' }}</span>
                 </label>
                 <select 
                   v-model.number="form.recurring_interval"
@@ -397,9 +398,12 @@
                     <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>
+                    <span v-if="!editingLesson">
                       <strong>Exemple :</strong> Si vous créez un cours le {{ formatExampleDate() }} avec "{{ getRecurringIntervalLabel() }}", 
                       les prochains cours seront automatiquement créés {{ getNextDatesExample() }}.
+                    </span>
+                    <span v-else>
+                      <strong>Attention :</strong> Tous les cours futurs planifiés seront supprimés et recréés avec le nouvel intervalle de récurrence "{{ getRecurringIntervalLabel() }}".
                     </span>
                   </p>
                 </div>

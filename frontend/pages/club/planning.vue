@@ -2182,6 +2182,11 @@ async function updateLesson() {
       update_scope: lessonForm.value.update_scope || 'single' // Portée de la mise à jour pour les récurrences
     }
     
+    // Inclure recurring_interval si la portée est 'all_future'
+    if (lessonForm.value.update_scope === 'all_future' && lessonForm.value.recurring_interval) {
+      payload.recurring_interval = lessonForm.value.recurring_interval
+    }
+    
     // Ajouter end_time seulement s'il est défini et valide (après start_time)
     if (endTime) {
       // Vérifier que end_time est après start_time en comparant les dates
