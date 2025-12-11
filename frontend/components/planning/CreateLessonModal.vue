@@ -377,6 +377,34 @@
                 </p>
               </div>
 
+              <!-- Intervalle de récurrence (uniquement si un élève est sélectionné et déduction d'abonnement activée) -->
+              <div v-if="!editingLesson && form.student_id && form.deduct_from_subscription === true" class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                  Fréquence de récurrence
+                  <span class="text-xs font-normal text-gray-500 ml-2">(pour les cours réguliers)</span>
+                </label>
+                <select 
+                  v-model.number="form.recurring_interval"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                >
+                  <option :value="1">Chaque semaine</option>
+                  <option :value="2">Toutes les 2 semaines</option>
+                  <option :value="3">Toutes les 3 semaines</option>
+                  <option :value="4">Toutes les 4 semaines</option>
+                </select>
+                <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p class="text-xs text-blue-800 flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>
+                      <strong>Exemple :</strong> Si vous créez un cours le {{ formatExampleDate() }} avec "{{ getRecurringIntervalLabel() }}", 
+                      les prochains cours seront automatiquement créés {{ getNextDatesExample() }}.
+                    </span>
+                  </p>
+                </div>
+              </div>
+
               <!-- Durée (affichage uniquement) (masqué en mode édition) -->
               <div v-if="!editingLesson">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -500,6 +528,8 @@ interface LessonForm {
   est_legacy: boolean | null
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: boolean | null
+  // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+  recurring_interval: number
   // Portée de la mise à jour (pour les récurrences)
   update_scope?: 'single' | 'all_future'
 }
@@ -1514,5 +1544,44 @@ function isStudentAvailable(studentId: number): boolean {
   
   return true // L'élève est disponible
 }
+
+// Fonction pour formater la date de l'exemple
+function formatExampleDate(): string {
+  if (!props.form.date) return '13 novembre 2025'
+  const date = new Date(props.form.date + 'T00:00:00')
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+// Fonction pour obtenir le label de l'intervalle de récurrence
+function getRecurringIntervalLabel(): string {
+  const interval = props.form.recurring_interval || 1
+  switch (interval) {
+    case 1: return 'Chaque semaine'
+    case 2: return 'Toutes les 2 semaines'
+    case 3: return 'Toutes les 3 semaines'
+    case 4: return 'Toutes les 4 semaines'
+    default: return `Toutes les ${interval} semaines`
+  }
+}
+
+// Fonction pour obtenir l'exemple des prochaines dates
+function getNextDatesExample(): string {
+  if (!props.form.date) return 'aux dates correspondantes'
+  
+  const interval = props.form.recurring_interval || 1
+  const startDate = new Date(props.form.date + 'T00:00:00')
+  
+  // Générer les 2 prochaines dates
+  const date1 = new Date(startDate)
+  date1.setDate(startDate.getDate() + (7 * interval))
+  
+  const date2 = new Date(startDate)
+  date2.setDate(startDate.getDate() + (7 * interval * 2))
+  
+  const formatShort = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  
+  return `le ${formatShort(date1)}, le ${formatShort(date2)}, etc.`
+}
+
 </script>
 

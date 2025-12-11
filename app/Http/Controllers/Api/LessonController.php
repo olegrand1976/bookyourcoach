@@ -303,6 +303,8 @@ class LessonController extends Controller
                 'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer de price)
                 // Déduction d'abonnement (par défaut true)
                 'deduct_from_subscription' => 'nullable|boolean',
+                // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+                'recurring_interval' => 'nullable|integer|min:1|max:52',
             ]);
 
             // 🔒 Validation : vérifier que la durée correspond au type de cours sélectionné
@@ -474,9 +476,10 @@ class LessonController extends Controller
             // - Programmation des rappels
             // Ne consommer l'abonnement que si deduct_from_subscription est true (par défaut true)
             $deductFromSubscription = $request->input('deduct_from_subscription', true);
+            $recurringInterval = $request->input('recurring_interval', 1); // Par défaut 1 (chaque semaine)
             if (isset($validated['student_id']) && $deductFromSubscription) {
-                ProcessLessonPostCreationJob::dispatch($lesson);
-                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id} (déduction d'abonnement: oui)");
+                ProcessLessonPostCreationJob::dispatch($lesson, $recurringInterval);
+                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id} (déduction d'abonnement: oui, intervalle: {$recurringInterval})");
             } else {
                 Log::info("⚡ [LessonController] Cours {$lesson->id} créé sans déduction d'abonnement (deduct_from_subscription: " . ($deductFromSubscription ? 'true' : 'false') . ")");
             }
