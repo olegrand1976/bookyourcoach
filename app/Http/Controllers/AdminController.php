@@ -45,6 +45,8 @@ class AdminController extends BaseController
         try {
             // Statistiques générales avec les noms de clés attendus par les tests
             $stats = [
+                'users' => User::count(), // Nom attendu par les tests
+                'clubs' => Club::count(), // Nom attendu par les tests
                 'total_users' => User::count(),
                 'total_teachers' => User::where('role', 'teacher')->count(),
                 'total_students' => User::where('role', 'student')->count(),
@@ -129,6 +131,7 @@ class AdminController extends BaseController
         $perPage = $request->get('per_page', 10);
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
+        // S'assurer que la pagination est correctement sérialisée avec toutes les clés
         return response()->json($users);
     }
 

@@ -97,6 +97,12 @@ class NotificationController extends Controller
                 'message' => 'Notification marquée comme lue'
             ]);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Notification non trouvée ou n'appartient pas à l'utilisateur
+            return response()->json([
+                'success' => false,
+                'message' => 'Notification non trouvée'
+            ], 404);
         } catch (\Exception $e) {
             Log::error('❌ Erreur marquage notification: ' . $e->getMessage());
             return response()->json([
