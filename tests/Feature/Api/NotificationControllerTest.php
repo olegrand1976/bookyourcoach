@@ -23,11 +23,12 @@ class NotificationControllerTest extends TestCase
         
         Notification::factory()->count(5)->create([
             'user_id' => $user->id,
-            'read_at' => null,
+            'read' => false,
         ]);
 
         Notification::factory()->count(3)->create([
             'user_id' => $user->id,
+            'read' => true,
             'read_at' => now(),
         ]);
 
@@ -114,7 +115,7 @@ class NotificationControllerTest extends TestCase
         
         Notification::factory()->count(3)->create([
             'user_id' => $user->id,
-            'read_at' => null,
+            'read' => false,
         ]);
 
         // Act
@@ -133,7 +134,7 @@ class NotificationControllerTest extends TestCase
         
         $notification = Notification::factory()->create([
             'user_id' => $user->id,
-            'read_at' => null,
+            'read' => false,
         ]);
 
         // Act
@@ -163,7 +164,7 @@ class NotificationControllerTest extends TestCase
         
         $notification = Notification::factory()->create([
             'user_id' => $otherUser->id,
-            'read_at' => null,
+            'read' => false,
         ]);
 
         // Act
@@ -181,11 +182,12 @@ class NotificationControllerTest extends TestCase
         
         Notification::factory()->count(5)->create([
             'user_id' => $user->id,
-            'read_at' => null,
+            'read' => false,
         ]);
 
         Notification::factory()->count(2)->create([
             'user_id' => $user->id,
+            'read' => true,
             'read_at' => now(), // Déjà lues
         ]);
 
