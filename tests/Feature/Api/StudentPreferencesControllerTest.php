@@ -9,6 +9,7 @@ use App\Models\CourseType;
 use App\Models\StudentPreference;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Test;
 
 class StudentPreferencesControllerTest extends TestCase
@@ -87,10 +88,11 @@ class StudentPreferencesControllerTest extends TestCase
             'course_type_id' => $courseType2->id,
         ]);
 
+        $courseType3 = CourseType::factory()->create(['discipline_id' => $discipline2->id]);
         StudentPreference::factory()->create([
             'student_id' => $student->id,
             'discipline_id' => $discipline2->id,
-            'course_type_id' => null,
+            'course_type_id' => $courseType3->id,
         ]);
 
         // Act

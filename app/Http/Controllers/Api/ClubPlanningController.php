@@ -9,6 +9,7 @@ use App\Models\Lesson;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
@@ -25,8 +26,9 @@ class ClubPlanningController extends Controller
      * @param int $clubId
      * @return JsonResponse
      */
-    public function suggestOptimalSlot(Request $request, $clubId): JsonResponse
+    public function suggestOptimalSlot(Request $request): JsonResponse
     {
+        $clubId = Auth::user()->club_id;
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
             'duration' => 'nullable|integer|min:5|max:240',
@@ -265,9 +267,9 @@ class ClubPlanningController extends Controller
      * @param int $clubId
      * @return JsonResponse
      */
-    public function getStatistics(Request $request, $clubId): JsonResponse
+    public function getStatistics(Request $request): JsonResponse
     {
-        $club = Club::findOrFail($clubId);
+        $club = Club::findOrFail(Auth::user()->club_id);
         $startDate = $request->get('start_date', Carbon::now()->startOfWeek()->format('Y-m-d'));
         $endDate = $request->get('end_date', Carbon::now()->endOfWeek()->format('Y-m-d'));
 
