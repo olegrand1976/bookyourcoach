@@ -77,6 +77,7 @@ class LessonRecurringIntervalTest extends TestCase
             'subscription_id' => $subscription->id,
             'student_id' => $this->student->id,
             'status' => 'active',
+            'started_at' => Carbon::now()->subDays(30),
             'starts_at' => Carbon::now()->subDays(30),
             'expires_at' => Carbon::now()->addDays(335),
             'lessons_remaining' => 20,
