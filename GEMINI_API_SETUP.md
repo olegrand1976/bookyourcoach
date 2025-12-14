@@ -1,8 +1,8 @@
 # Configuration API Gemini
 
 ## Clé API
-La clé API Gemini a été configurée dans le projet :
-- Clé : `AIzaSyAHo6kb9eAWEABFrBWCujRvF60JU7_XfEc`
+La clé API Gemini doit être configurée dans le projet :
+- Clé : `YOUR_GEMINI_API_KEY_HERE`
 - Modèle : `gemini-2.5-flash`
 
 ## Fichiers modifiés
@@ -15,7 +15,7 @@ La clé API Gemini a été configurée dans le projet :
 
 ```bash
 # Google Gemini AI Configuration
-GEMINI_API_KEY=AIzaSyAHo6kb9eAWEABFrBWCujRvF60JU7_XfEc
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
