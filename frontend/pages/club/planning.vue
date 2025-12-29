@@ -1311,7 +1311,7 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
       params: {
         date_from: startDate.toISOString().split('T')[0],
         date_to: endDate.toISOString().split('T')[0],
-        limit: 200 // Augmenter la limite pour inclure tous les cours générés
+        limit: 500 // Limite maximale pour afficher 3 mois de cours
       }
     })
     

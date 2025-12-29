@@ -58,7 +58,6 @@ class TeacherController extends Controller
                     COUNT(CASE WHEN start_time BETWEEN ? AND ? AND status IN (\'confirmed\', \'completed\') THEN 1 END) as weekly_lessons,
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as weekly_earnings,
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN price END), 0) as monthly_earnings,
-                    COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' THEN TIMESTAMPDIFF(MINUTE, start_time, end_time) END) / 60.0, 0) as weekly_hours,
                     -- Revenus payés/non payés mois précédent
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status = \'paid\' THEN COALESCE(montant, price) END), 0) as previous_month_paid,
                     COALESCE(SUM(CASE WHEN start_time BETWEEN ? AND ? AND status = \'completed\' AND payment_status != \'paid\' THEN COALESCE(montant, price) END), 0) as previous_month_unpaid,
@@ -70,7 +69,6 @@ class TeacherController extends Controller
                     $startOfWeekStr, $endOfWeekStr,
                     $startOfWeekStr, $endOfWeekStr,
                     $startOfMonthStr, $endOfMonthStr,
-                    $startOfWeekStr, $endOfWeekStr,
                     $startOfPreviousMonthStr, $endOfPreviousMonthStr,
                     $startOfPreviousMonthStr, $endOfPreviousMonthStr,
                     $startOfMonthStr, $endOfMonthStr,
@@ -78,13 +76,24 @@ class TeacherController extends Controller
                 ])
                 ->first();
             
+            // Calculer les heures hebdomadaires séparément avec Carbon pour compatibilité SQLite/MySQL
+            $weeklyHours = Lesson::where('teacher_id', $teacherId)
+                ->whereBetween('start_time', [$startOfWeek, $endOfWeek])
+                ->where('status', 'completed')
+                ->whereNotNull('end_time')
+                ->get()
+                ->sum(function($lesson) {
+                    return $lesson->start_time->diffInMinutes($lesson->end_time) / 60.0;
+                });
+            
             $todayLessons = $stats->today_lessons ?? 0;
             $totalLessons = $stats->total_lessons ?? 0;
             $activeStudents = $stats->active_students ?? 0;
             $weeklyLessons = $stats->weekly_lessons ?? 0;
-            $weeklyEarnings = round($stats->weekly_earnings ?? 0, 2);
-            $monthlyEarnings = round($stats->monthly_earnings ?? 0, 2);
-            $weeklyHours = round($stats->weekly_hours ?? 0, 1);
+            // S'assurer que weekly_earnings est toujours un float même si la valeur est entière
+            $weeklyEarnings = (float) round($stats->weekly_earnings ?? 0, 2);
+            $monthlyEarnings = (float) round($stats->monthly_earnings ?? 0, 2);
+            $weeklyHours = round($weeklyHours, 1);
             
             // Revenus payés/non payés
             $previousMonthPaid = round($stats->previous_month_paid ?? 0, 2);
@@ -309,7 +318,12 @@ class TeacherController extends Controller
             }
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
-            $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country', 'clubs.legal_representative_name', 'clubs.legal_representative_role')->get();
+            try {
+                $clubs = $teacher->clubs()->select('clubs.id', 'clubs.name', 'clubs.email', 'clubs.phone', 'clubs.address', 'clubs.postal_code', 'clubs.city', 'clubs.country', 'clubs.legal_representative_name', 'clubs.legal_representative_role')->get();
+            } catch (\Exception $e) {
+                Log::warning('Erreur lors de la récupération des clubs de l\'enseignant: ' . $e->getMessage());
+                $clubs = collect([]);
+            }
 
             // Demandes de remplacement en attente
             $pendingReplacements = \App\Models\LessonReplacement::where(function($query) use ($teacher) {
@@ -327,7 +341,7 @@ class TeacherController extends Controller
                         'total_lessons' => $totalLessons,
                         'active_students' => $activeStudents,
                         'weekly_lessons' => $weeklyLessons,
-                        'week_earnings' => round($weeklyEarnings, 2),
+                        'week_earnings' => $weeklyEarnings > 0 && $weeklyEarnings == (int)$weeklyEarnings ? (float)($weeklyEarnings . '.0') : (float)$weeklyEarnings,
                         'week_hours' => round($weeklyHours, 1),
                         'monthly_earnings' => round($monthlyEarnings, 2),
                         'pending_replacements' => $pendingReplacements,
@@ -353,11 +367,13 @@ class TeacherController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Erreur dashboard enseignant: ' . $e->getMessage());
+            Log::error('Erreur dashboard enseignant: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors du chargement du dashboard',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
             ], 500);
         }
     }
@@ -399,12 +415,16 @@ class TeacherController extends Controller
                 ->where('status', 'completed')
                 ->sum('price');
 
+            // S'assurer que week_earnings est toujours un float même si la valeur est entière
+            // Utiliser number_format puis (float) pour garantir le type float
+            $weekEarningsFloat = (float) number_format(round($weekEarnings ?? 0, 2), 2, '.', '');
+
             return response()->json([
                 'success' => true,
                 'stats' => [
                     'today_lessons' => $todayLessons,
                     'active_students' => $activeStudents,
-                    'week_earnings' => round($weekEarnings, 2),
+                    'week_earnings' => $weekEarningsFloat,
                 ]
             ]);
 
@@ -492,7 +512,15 @@ class TeacherController extends Controller
             }
 
             // Récupérer les clubs où l'enseignant travaille
-            $clubIds = $teacher->clubs()->pluck('clubs.id');
+            $clubIds = $teacher->clubs()->pluck('clubs.id')->toArray();
+
+            // Si l'enseignant n'a pas de clubs, retourner une liste vide
+            if (empty($clubIds)) {
+                return response()->json([
+                    'success' => true,
+                    'students' => []
+                ]);
+            }
 
             // Récupérer les élèves de ces clubs
             $students = \App\Models\Student::with('user')
@@ -540,26 +568,54 @@ class TeacherController extends Controller
             }
 
             // Récupérer les clubs où l'enseignant travaille
-            $clubIds = $teacher->clubs()->pluck('clubs.id');
+            $clubIds = $teacher->clubs()->pluck('clubs.id')->toArray();
+
+            // Si l'enseignant n'a pas de clubs, retourner une erreur
+            if (empty($clubIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet enseignant'
+                ], 403);
+            }
 
             // Récupérer l'élève s'il appartient à un des clubs de l'enseignant
-            $student = \App\Models\Student::with(['user', 'club'])
+            $student = \App\Models\Student::with('user')
                 ->whereIn('club_id', $clubIds)
                 ->findOrFail($id);
+            
+            // Charger le club séparément pour éviter les erreurs si la relation n'existe pas
+            $club = null;
+            if ($student->club_id) {
+                try {
+                    $club = \App\Models\Club::find($student->club_id);
+                } catch (\Exception $e) {
+                    Log::warning('Erreur chargement club élève: ' . $e->getMessage());
+                }
+            }
+
+            // Calculer l'âge si date_of_birth existe
+            $age = null;
+            if ($student->date_of_birth) {
+                try {
+                    $age = \Carbon\Carbon::parse($student->date_of_birth)->age;
+                } catch (\Exception $e) {
+                    Log::warning('Erreur calcul âge élève: ' . $e->getMessage());
+                }
+            }
 
             return response()->json([
                 'success' => true,
                 'student' => [
                     'id' => $student->id,
-                    'name' => $student->user->name ?? 'Sans nom',
+                    'name' => $student->user->name ?? ($student->first_name && $student->last_name ? $student->first_name . ' ' . $student->last_name : 'Sans nom'),
                     'email' => $student->user->email ?? '',
                     'phone' => $student->user->phone ?? '',
                     'level' => $student->level ?? 'débutant',
-                    'age' => $student->age,
+                    'age' => $age,
                     'club_id' => $student->club_id,
-                    'club' => $student->club ? [
-                        'id' => $student->club->id,
-                        'name' => $student->club->name
+                    'club' => $club ? [
+                        'id' => $club->id,
+                        'name' => $club->name
                     ] : null
                 ]
             ]);
@@ -845,7 +901,9 @@ class TeacherController extends Controller
                 'bio' => 'nullable|string',
                 'specialties' => 'nullable|array',
                 'certifications' => 'nullable|array',
-                // experience_years et hourly_rate sont exclus - ils ne peuvent pas être modifiés par l'enseignant
+                // experience_years et hourly_rate ne peuvent pas être modifiés par l'enseignant
+                'experience_years' => 'prohibited',
+                'hourly_rate' => 'prohibited',
             ]);
             
             Log::info('✅ [TeacherController::updateProfile] Après validation:', [
