@@ -205,7 +205,12 @@ class LessonController extends Controller
             }
 
             // Limiter le nombre de résultats pour éviter les chargements trop longs
-            $limit = min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
+            // Si date_from ET date_to sont fournis, ne pas limiter (on filtre par période)
+            // Sinon, appliquer une limite par défaut
+            $hasDateRange = $request->has('date_from') && $request->has('date_to');
+            $limit = $hasDateRange 
+                ? null // Pas de limite si on a une plage de dates complète
+                : min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
             $offset = max($request->get('offset', 0), 0); // Support de la pagination
             
             // Compter le total avant pagination (pour l'historique complet)
@@ -213,10 +218,15 @@ class LessonController extends Controller
             
             // ✅ Tri DESC (du plus récent au plus ancien) pour l'historique, ASC pour les cours à venir
             $orderDirection = $request->get('order', 'asc'); // 'asc' par défaut, 'desc' pour l'historique
-            $lessons = $query->orderBy('start_time', $orderDirection)
-                ->offset($offset)
-                ->limit($limit)
-                ->get()
+            $lessonsQuery = $query->orderBy('start_time', $orderDirection)
+                ->offset($offset);
+            
+            // Appliquer la limite seulement si elle est définie
+            if ($limit !== null) {
+                $lessonsQuery->limit($limit);
+            }
+            
+            $lessons = $lessonsQuery->get()
                 ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']); // Désactiver les accessors coûteux
 
             $response = [
