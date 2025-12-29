@@ -184,6 +184,38 @@
               </div>
             </div>
 
+            <div v-if="selectedProfile === 'student'" class="space-y-4">
+              <div>
+                <label for="club_ids" class="block text-sm font-medium text-gray-700 mb-2">
+                  Clubs d'affiliation (optionnel)
+                </label>
+                <p class="text-xs text-gray-500 mb-3">
+                  Sélectionnez les clubs auxquels vous souhaitez vous affilier. Vous pourrez modifier cette liste plus tard dans votre profil.
+                </p>
+                <div v-if="loadingClubs" class="text-sm text-gray-500">
+                  Chargement des clubs...
+                </div>
+                <div v-else-if="availableClubs.length === 0" class="text-sm text-gray-500">
+                  Aucun club disponible pour le moment.
+                </div>
+                <div v-else class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                  <label v-for="club in availableClubs" :key="club.id" class="flex items-center hover:bg-gray-50 p-2 rounded cursor-pointer">
+                    <input
+                      v-model="form.club_ids"
+                      :value="club.id"
+                      type="checkbox"
+                      class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <div class="ml-3 flex-1">
+                      <span class="text-sm font-medium text-gray-900">{{ club.name }}</span>
+                      <span v-if="club.city" class="ml-2 text-xs text-gray-500">{{ club.city }}</span>
+                      <span v-if="club.postal_code" class="text-xs text-gray-500">({{ club.postal_code }})</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div v-if="selectedProfile === 'teacher'" class="space-y-4">
               <div>
                 <label for="specialties" class="block text-sm font-medium text-gray-700">
@@ -406,6 +438,8 @@ const authStore = useAuthStore()
 const selectedProfile = ref(null)
 const loading = ref(false)
 const errors = ref([])
+const loadingClubs = ref(false)
+const availableClubs = ref([])
 
 // Spécialités pour les enseignants
 const specialties = ref([
@@ -440,7 +474,8 @@ const form = reactive({
   club_name: '',
   club_description: '',
   specialties: [],
-  experience_years: ''
+  experience_years: '',
+  club_ids: []
 })
 
 // Fonctions utilitaires
@@ -453,9 +488,36 @@ const getProfileLabel = (profile) => {
   return labels[profile] || ''
 }
 
-const selectProfile = (profile) => {
+const selectProfile = async (profile) => {
   selectedProfile.value = profile
   form.role = profile
+  
+  // Charger les clubs disponibles si c'est un élève
+  if (profile === 'student') {
+    await loadAvailableClubs()
+  }
+}
+
+// Charger la liste des clubs disponibles
+const loadAvailableClubs = async () => {
+  try {
+    loadingClubs.value = true
+    const config = useRuntimeConfig()
+    const response = await $fetch('/clubs/public', {
+      baseURL: config.public.apiBase
+    })
+    
+    if (response.success && response.data) {
+      availableClubs.value = response.data
+    } else {
+      availableClubs.value = []
+    }
+  } catch (err) {
+    console.error('Erreur lors du chargement des clubs:', err)
+    availableClubs.value = []
+  } finally {
+    loadingClubs.value = false
+  }
 }
 
 // Fonction toast simple
@@ -493,6 +555,9 @@ const handleRegister = async () => {
       ...(selectedProfile.value === 'teacher' && {
         specialties: form.specialties,
         experience_years: form.experience_years
+      }),
+      ...(selectedProfile.value === 'student' && {
+        club_ids: form.club_ids && form.club_ids.length > 0 ? form.club_ids : null
       })
     }
 

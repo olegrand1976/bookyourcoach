@@ -12,6 +12,8 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Models\Club;
+use App\Models\Student;
+use App\Notifications\StudentWelcomeNotification;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
@@ -47,6 +49,9 @@ class AuthController extends Controller
             // Champs spécifiques pour les enseignants
             'specialties' => ['nullable', 'array'],
             'experience_years' => ['nullable', 'integer', 'min:0'],
+            // Champs spécifiques pour les élèves
+            'club_ids' => ['nullable', 'array'],
+            'club_ids.*' => ['integer', 'exists:clubs,id'],
         ]);
 
         // Construire le nom complet
@@ -95,6 +100,59 @@ class AuthController extends Controller
                     'is_admin' => true,
                     'joined_at' => now(),
                 ]);
+            }
+
+            // Si c'est un élève, créer le profil Student et lier aux clubs
+            if ($request->role === 'student') {
+                $student = Student::create([
+                    'user_id' => $user->id,
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'date_of_birth' => $request->birth_date,
+                    'phone' => $request->phone,
+                ]);
+
+                // Lier l'élève aux clubs sélectionnés
+                if ($request->has('club_ids') && is_array($request->club_ids) && !empty($request->club_ids)) {
+                    foreach ($request->club_ids as $clubId) {
+                        DB::table('club_students')->insert([
+                            'club_id' => $clubId,
+                            'student_id' => $student->id,
+                            'is_active' => true,
+                            'joined_at' => now(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+
+                // Envoyer l'email de confirmation
+                try {
+                    $resetToken = Password::broker()->createToken($user);
+                    
+                    // Si l'élève est affilié à des clubs, utiliser le premier club pour le message
+                    $clubName = 'activibe';
+                    if ($request->has('club_ids') && is_array($request->club_ids) && !empty($request->club_ids)) {
+                        $firstClub = Club::find($request->club_ids[0]);
+                        if ($firstClub) {
+                            $clubName = $firstClub->name;
+                        }
+                    }
+                    
+                    $user->notify(new StudentWelcomeNotification($clubName, $resetToken));
+                    
+                    \Log::info('Email de confirmation envoyé à l\'élève lors de l\'inscription', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'club_ids' => $request->club_ids ?? []
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Erreur lors de l\'envoi de l\'email de confirmation à l\'élève', [
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    // Ne pas bloquer l'inscription si l'email échoue
+                }
             }
 
             DB::commit();
@@ -229,5 +287,51 @@ class AuthController extends Controller
             'message' => __($status),
             'success' => false
         ], 400);
+    }
+
+    /**
+     * Mettre à jour le profil utilisateur
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'first_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'email' => [
+                'nullable',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($request->user()->id),
+            ],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'birth_date' => ['nullable', 'date'],
+        ]);
+
+        try {
+            $user = $request->user();
+            
+            $user->update(array_filter([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'name' => trim(($request->first_name ?? $user->first_name) . ' ' . ($request->last_name ?? $user->last_name)),
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'birth_date' => $request->birth_date,
+            ]));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profil mis à jour avec succès',
+                'user' => $user->fresh()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour du profil',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
