@@ -560,15 +560,29 @@ const updateStudent = async () => {
     const { $api } = useNuxtApp()
     
     // Préparer les données de l'étudiant
-    const studentData = {
-      first_name: form.value.first_name || null,
-      last_name: form.value.last_name || null,
-      email: form.value.email || null,
-      phone: form.value.phone || null,
+    const studentData: any = {
+      first_name: form.value.first_name?.trim() || null,
+      last_name: form.value.last_name?.trim() || null,
       date_of_birth: form.value.date_of_birth || null,
-      goals: form.value.goals || null,
-      medical_info: form.value.medical_info || null,
+      goals: form.value.goals?.trim() || null,
+      medical_info: form.value.medical_info?.trim() || null,
       disciplines: selectedDisciplines.value.length > 0 ? selectedDisciplines.value : null
+    }
+    
+    // Email : envoyer seulement si défini (pour permettre la mise à jour ou l'effacement)
+    // Envoyer une chaîne vide pour effacer, ou la valeur si non vide
+    if (form.value.email !== undefined && form.value.email !== null) {
+      const emailTrimmed = form.value.email.trim()
+      // Envoyer la chaîne vide pour permettre l'effacement dans le backend
+      studentData.email = emailTrimmed
+    }
+    
+    // Téléphone : toujours envoyer si défini (pour permettre la mise à jour ou l'effacement)
+    // Envoyer une chaîne vide pour effacer, ou la valeur si non vide
+    if (form.value.phone !== undefined && form.value.phone !== null) {
+      const phoneTrimmed = form.value.phone.trim()
+      // Envoyer la chaîne vide pour permettre l'effacement dans le backend
+      studentData.phone = phoneTrimmed
     }
     
     // Mettre à jour l'étudiant

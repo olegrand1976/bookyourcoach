@@ -1851,12 +1851,10 @@ async function openEditLessonModal(lesson: Lesson) {
       console.warn('⚠️ [openEditLessonModal] Aucun créneau trouvé pour le jour:', dayOfWeek)
     }
     
-    // Charger les cours existants pour cette date AVANT d'ouvrir la modale
-    // pour que les heures disponibles soient calculées correctement et que les watchers
-    // ne remplacent pas l'heure qui vient d'être définie
-    await loadExistingLessons(lessonForm.value.date)
+    // La modale CreateLessonModal chargera automatiquement les cours existants
+    // via ses watchers quand elle sera montée, donc pas besoin de charger ici
     await nextTick()
-    console.log('✅ [openEditLessonModal] Cours existants chargés, heure préservée:', lessonForm.value.time)
+    console.log('✅ [openEditLessonModal] Modale ouverte, cours existants seront chargés par la modale')
   }
   
   // Remplir les autres champs
