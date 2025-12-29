@@ -737,6 +737,18 @@ async function loadData() {
           lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
         }
         
+        // Log pour déboguer les données des élèves
+        if (lessons.value.length > 0) {
+          console.log('🔍 [DEBUG] Premier cours chargé:', {
+            lesson_id: lessons.value[0].id,
+            has_student: !!lessons.value[0].student,
+            student_data: lessons.value[0].student,
+            has_students: !!lessons.value[0].students,
+            students_data: lessons.value[0].students,
+            student_names: getLessonStudentNames(lessons.value[0])
+          })
+        }
+        
         console.log('✅ Dashboard data loaded:', data.stats)
       }
     } catch (dashboardError) {
