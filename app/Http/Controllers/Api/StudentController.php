@@ -481,8 +481,9 @@ class StudentController extends Controller
             } else {
                 $validationRules['email'] = [
                     'sometimes',
+                    'nullable',
                     'email',
-                    // Vérifier l'unicité uniquement pour le rôle student
+                    // Vérifier l'unicité uniquement pour le rôle student (ignorer si email est vide)
                     Rule::unique('users')->where(function ($query) {
                         return $query->where('role', 'student');
                     })->ignore($student->user_id),
@@ -543,12 +544,18 @@ class StudentController extends Controller
                     ]);
                 }
                 
-                if (isset($validated['email'])) {
-                    $studentUser->update(['email' => $validated['email']]);
+                // Gérer l'email : accepter les chaînes vides pour permettre l'effacement
+                if (array_key_exists('email', $validated)) {
+                    $emailValue = $validated['email'];
+                    // Convertir les chaînes vides en null pour la base de données
+                    $studentUser->update(['email' => $emailValue === '' ? null : $emailValue]);
                 }
                 
-                if (isset($validated['phone'])) {
-                    $studentUser->update(['phone' => $validated['phone']]);
+                // Gérer le téléphone : accepter les chaînes vides pour permettre l'effacement
+                if (array_key_exists('phone', $validated)) {
+                    $phoneValue = $validated['phone'];
+                    // Convertir les chaînes vides en null pour la base de données
+                    $studentUser->update(['phone' => $phoneValue === '' ? null : $phoneValue]);
                 }
             }
 
@@ -557,7 +564,12 @@ class StudentController extends Controller
             if (isset($validated['first_name'])) $studentData['first_name'] = $validated['first_name'];
             if (isset($validated['last_name'])) $studentData['last_name'] = $validated['last_name'];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
-            if (isset($validated['phone'])) $studentData['phone'] = $validated['phone'];
+            // Gérer le téléphone : accepter les chaînes vides pour permettre l'effacement
+            if (array_key_exists('phone', $validated)) {
+                $phoneValue = $validated['phone'];
+                // Convertir les chaînes vides en null pour la base de données
+                $studentData['phone'] = $phoneValue === '' ? null : $phoneValue;
+            }
             if (isset($validated['level'])) $studentData['level'] = $validated['level'];
             if (isset($validated['goals'])) $studentData['goals'] = $validated['goals'];
             if (isset($validated['medical_info'])) $studentData['medical_info'] = $validated['medical_info'];
