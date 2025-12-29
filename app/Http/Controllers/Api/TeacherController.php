@@ -143,9 +143,9 @@ class TeacherController extends Controller
                 ->with([
                     "teacher:{$teacherColumns}",
                     'teacher.user:id,name,email',
-                    'student:id,user_id,first_name,last_name',
+                    'student:id,user_id,first_name,last_name,date_of_birth',
                     'student.user:id,name,email',
-                    'students:id,user_id,first_name,last_name',
+                    'students:id,user_id,first_name,last_name,date_of_birth',
                     'students.user:id,name,email',
                     'courseType:id,name',
                     'location:id,name',
@@ -160,11 +160,36 @@ class TeacherController extends Controller
             $upcomingLessonsRaw = $upcomingLessonsQuery->get();
             
             $upcomingLessonsRaw = $upcomingLessonsRaw->map(function ($lesson) {
+                    // Fonction helper pour obtenir le nom d'un élève
+                    $getStudentName = function($student) {
+                        // Essayer users.name d'abord
+                        if ($student->user && $student->user->name) {
+                            return $student->user->name;
+                        }
+                        // Sinon, construire depuis first_name et last_name
+                        if ($student->first_name || $student->last_name) {
+                            $name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+                            if (!empty($name)) {
+                                return $name;
+                            }
+                        }
+                        // Fallback
+                        Log::warning('⚠️ [Dashboard] Student name not found', [
+                            'student_id' => $student->id,
+                            'user_id' => $student->user_id,
+                            'has_user' => isset($student->user),
+                            'user_name' => $student->user->name ?? null,
+                            'first_name' => $student->first_name ?? null,
+                            'last_name' => $student->last_name ?? null
+                        ]);
+                        return 'Sans nom';
+                    };
+                    
                     // Utiliser les relations Eloquent déjà chargées
                     // Construire le tableau students depuis la relation many-to-many
                     $lessonStudents = [];
                     if ($lesson->students && $lesson->students->isNotEmpty()) {
-                        $lessonStudents = $lesson->students->map(function ($student) {
+                        $lessonStudents = $lesson->students->map(function ($student) use ($getStudentName) {
                             $age = null;
                             if ($student->date_of_birth) {
                                 $age = \Carbon\Carbon::parse($student->date_of_birth)->age;
@@ -174,7 +199,7 @@ class TeacherController extends Controller
                                 'id' => $student->id,
                                 'user' => [
                                     'id' => $student->user_id ?? null,
-                                    'name' => $student->user->name ?? 'Sans nom',
+                                    'name' => $getStudentName($student),
                                     'email' => $student->user->email ?? ''
                                 ],
                                 'age' => $age
@@ -189,7 +214,7 @@ class TeacherController extends Controller
                             'id' => $lesson->student->id,
                             'user' => [
                                 'id' => $lesson->student->user_id ?? null,
-                                'name' => $lesson->student->user->name ?? 'Sans nom',
+                                'name' => $getStudentName($lesson->student),
                                 'email' => $lesson->student->user->email ?? ''
                             ]
                         ];
@@ -205,7 +230,7 @@ class TeacherController extends Controller
                                 'id' => $lesson->student->id,
                                 'user' => [
                                     'id' => $lesson->student->user_id ?? null,
-                                    'name' => $lesson->student->user->name ?? 'Sans nom',
+                                    'name' => $getStudentName($lesson->student),
                                     'email' => $lesson->student->user->email ?? ''
                                 ],
                                 'age' => $age
@@ -255,9 +280,9 @@ class TeacherController extends Controller
                     ->with([
                         "teacher:{$teacherColumns}",
                         'teacher.user:id,name,email',
-                        'student:id,user_id,first_name,last_name',
+                        'student:id,user_id,first_name,last_name,date_of_birth',
                         'student.user:id,name,email',
-                        'students:id,user_id,first_name,last_name',
+                        'students:id,user_id,first_name,last_name,date_of_birth',
                         'students.user:id,name,email',
                         'courseType:id,name',
                         'location:id,name',
@@ -272,11 +297,28 @@ class TeacherController extends Controller
                 $recentLessonsRaw = $recentLessonsQuery->get();
                 
                 $recentLessonsRaw = $recentLessonsRaw->map(function ($lesson) {
+                        // Fonction helper pour obtenir le nom d'un élève
+                        $getStudentName = function($student) {
+                            // Essayer users.name d'abord
+                            if ($student->user && $student->user->name) {
+                                return $student->user->name;
+                            }
+                            // Sinon, construire depuis first_name et last_name
+                            if ($student->first_name || $student->last_name) {
+                                $name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+                                if (!empty($name)) {
+                                    return $name;
+                                }
+                            }
+                            // Fallback
+                            return 'Sans nom';
+                        };
+                        
                         // Utiliser les relations Eloquent déjà chargées
                         // Construire le tableau students depuis la relation many-to-many
                         $lessonStudents = [];
                         if ($lesson->students && $lesson->students->isNotEmpty()) {
-                            $lessonStudents = $lesson->students->map(function ($student) {
+                            $lessonStudents = $lesson->students->map(function ($student) use ($getStudentName) {
                                 $age = null;
                                 if ($student->date_of_birth) {
                                     $age = \Carbon\Carbon::parse($student->date_of_birth)->age;
@@ -286,7 +328,7 @@ class TeacherController extends Controller
                                     'id' => $student->id,
                                     'user' => [
                                         'id' => $student->user_id ?? null,
-                                        'name' => $student->user->name ?? 'Sans nom',
+                                        'name' => $getStudentName($student),
                                         'email' => $student->user->email ?? ''
                                     ],
                                     'age' => $age
@@ -301,7 +343,7 @@ class TeacherController extends Controller
                                 'id' => $lesson->student->id,
                                 'user' => [
                                     'id' => $lesson->student->user_id ?? null,
-                                    'name' => $lesson->student->user->name ?? 'Sans nom',
+                                    'name' => $getStudentName($lesson->student),
                                     'email' => $lesson->student->user->email ?? ''
                                 ]
                             ];
@@ -317,7 +359,7 @@ class TeacherController extends Controller
                                     'id' => $lesson->student->id,
                                     'user' => [
                                         'id' => $lesson->student->user_id ?? null,
-                                        'name' => $lesson->student->user->name ?? 'Sans nom',
+                                        'name' => $getStudentName($lesson->student),
                                         'email' => $lesson->student->user->email ?? ''
                                     ],
                                     'age' => $age
@@ -332,8 +374,8 @@ class TeacherController extends Controller
                             'course_type_id' => $lesson->course_type_id,
                             'location_id' => $lesson->location_id,
                             'club_id' => $lesson->club_id,
-                            'start_time' => $lesson->start_time->toIso8601String(),
-                            'end_time' => $lesson->end_time->toIso8601String(),
+                            'start_time' => $lesson->start_time->toDateTimeString(),
+                            'end_time' => $lesson->end_time->toDateTimeString(),
                             'status' => $lesson->status,
                             'price' => $lesson->price,
                             'notes' => $lesson->notes,
