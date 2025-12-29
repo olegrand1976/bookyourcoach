@@ -2684,7 +2684,8 @@ function getLessonCardStyle(lesson: Lesson): Record<string, string> {
   // Récupérer la couleur de l'enseignant si disponible
   let teacherColor = lesson.teacher?.color || null
   
-  // Si aucune couleur n'est définie, générer une couleur temporaire basée sur l'ID
+  // Si aucune couleur n'est définie, générer une couleur basée sur l'ID
+  // Cela garantit qu'un professeur aura toujours la même couleur (même sur différentes journées)
   if (!teacherColor && lesson.teacher?.id) {
     teacherColor = generateColorFromId(lesson.teacher.id)
   }
@@ -2699,32 +2700,76 @@ function getLessonCardStyle(lesson: Lesson): Record<string, string> {
   const g = parseInt(hex.substr(2, 2), 16)
   const b = parseInt(hex.substr(4, 2), 16)
   
-  // Calculer la luminosité relative (0-1)
+  // Calculer la luminosité relative (0-1) selon la formule WCAG
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   
-  // Si la couleur est trop claire, utiliser une bordure plus foncée
-  // Sinon, utiliser la couleur pastel comme bordure gauche
-  const borderColor = luminance > 0.8 
-    ? `rgba(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)}, 0.6)`
-    : teacherColor
+  // Calculer une couleur de bordure avec un meilleur contraste
+  // Assombrir la couleur pour la bordure si elle est trop claire
+  let borderR = r
+  let borderG = g
+  let borderB = b
+  
+  if (luminance > 0.7) {
+    // Si la couleur est trop claire, assombrir pour la bordure
+    borderR = Math.max(0, r - 60)
+    borderG = Math.max(0, g - 60)
+    borderB = Math.max(0, b - 60)
+  } else if (luminance < 0.4) {
+    // Si la couleur est trop foncée, éclaircir légèrement pour la bordure
+    borderR = Math.min(255, r + 30)
+    borderG = Math.min(255, g + 30)
+    borderB = Math.min(255, b + 30)
+  }
+  
+  const borderColor = `rgb(${borderR}, ${borderG}, ${borderB})`
+  
+  // Utiliser une opacité plus élevée pour le fond (20 = ~12% d'opacité) pour un meilleur contraste
+  // Convertir RGB en hex pour l'opacité
+  const hexR = r.toString(16).padStart(2, '0')
+  const hexG = g.toString(16).padStart(2, '0')
+  const hexB = b.toString(16).padStart(2, '0')
   
   return {
     'border-left': `4px solid ${borderColor}`,
-    'background-color': `${teacherColor}15` // Ajouter de la transparence (15 = ~8% d'opacité)
+    'background-color': `#${hexR}${hexG}${hexB}20` // Opacité de 20 (~12%) pour un meilleur contraste
   }
 }
 
-// Générer une couleur pastel basée sur un ID (pour affichage temporaire)
+// Palette de couleurs bien différenciées pour les professeurs
+// Couleurs choisies pour maximiser la différenciation visuelle et le contraste
+const TEACHER_COLOR_PALETTE = [
+  '#FF6B6B', // Rouge corail
+  '#4ECDC4', // Turquoise
+  '#45B7D1', // Bleu ciel
+  '#FFA07A', // Saumon
+  '#98D8C8', // Vert menthe
+  '#F7DC6F', // Jaune doré
+  '#BB8FCE', // Violet lavande
+  '#85C1E2', // Bleu clair
+  '#F8B739', // Orange
+  '#52BE80', // Vert émeraude
+  '#E74C3C', // Rouge vif
+  '#3498DB', // Bleu royal
+  '#9B59B6', // Violet
+  '#1ABC9C', // Turquoise foncé
+  '#F39C12', // Orange foncé
+  '#E67E22', // Orange-rouge
+  '#2ECC71', // Vert
+  '#16A085', // Vert océan
+  '#27AE60', // Vert forêt
+  '#2980B9', // Bleu
+  '#8E44AD', // Violet foncé
+  '#C0392B', // Rouge brique
+  '#D35400', // Orange brûlé
+  '#7F8C8D', // Gris bleuté
+]
+
+// Générer une couleur basée sur un ID (garantit la cohérence pour un même professeur)
 function generateColorFromId(id: number): string {
-  // Simple hash basé sur l'ID
-  const hash = (id * 2654435761) >>> 0 // Hash simple
-  
-  // Générer des valeurs RGB pastel (150-255 pour avoir des couleurs claires)
-  const r = 150 + (hash % 105)
-  const g = 150 + ((hash >> 8) % 105)
-  const b = 150 + ((hash >> 16) % 105)
-  
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+  // Utiliser l'ID pour sélectionner une couleur de la palette de manière déterministe
+  // Cela garantit qu'un professeur aura toujours la même couleur
+  const index = id % TEACHER_COLOR_PALETTE.length
+  return TEACHER_COLOR_PALETTE[index]
 }
 
 // ═══════════════════════════════════════════════════════════════════
