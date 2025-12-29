@@ -909,4 +909,210 @@ class StudentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Récupérer les clubs de l'élève connecté
+     */
+    public function getMyClubs(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $student = $user->student;
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil élève non trouvé'
+                ], 404);
+            }
+
+            // Récupérer les clubs actifs de l'élève
+            $clubs = $student->clubs()
+                ->wherePivot('is_active', true)
+                ->select('clubs.id', 'clubs.name', 'clubs.city', 'clubs.postal_code')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $clubs
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération des clubs de l\'élève: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des clubs'
+            ], 500);
+        }
+    }
+
+    /**
+     * Ajouter des clubs à l'élève connecté
+     */
+    public function addClubs(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $request->validate([
+                'club_ids' => ['required', 'array', 'min:1'],
+                'club_ids.*' => ['integer', 'exists:clubs,id'],
+            ]);
+
+            $student = $user->student;
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil élève non trouvé'
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            $addedClubs = [];
+            foreach ($request->club_ids as $clubId) {
+                // Vérifier si l'élève n'est pas déjà affilié à ce club
+                $existing = DB::table('club_students')
+                    ->where('club_id', $clubId)
+                    ->where('student_id', $student->id)
+                    ->first();
+
+                if (!$existing) {
+                    // Créer une nouvelle affiliation
+                    DB::table('club_students')->insert([
+                        'club_id' => $clubId,
+                        'student_id' => $student->id,
+                        'is_active' => true,
+                        'joined_at' => now(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $addedClubs[] = $clubId;
+                } elseif (!$existing->is_active) {
+                    // Réactiver l'affiliation existante
+                    DB::table('club_students')
+                        ->where('club_id', $clubId)
+                        ->where('student_id', $student->id)
+                        ->update([
+                            'is_active' => true,
+                            'joined_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    $addedClubs[] = $clubId;
+                }
+            }
+
+            DB::commit();
+
+            \Log::info('Clubs ajoutés à l\'élève', [
+                'student_id' => $student->id,
+                'club_ids' => $addedClubs
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => count($addedClubs) . ' club(s) ajouté(s) avec succès',
+                'data' => [
+                    'added_clubs' => $addedClubs
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Erreur lors de l\'ajout des clubs à l\'élève: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'ajout des clubs'
+            ], 500);
+        }
+    }
+
+    /**
+     * Retirer un club de l'élève connecté
+     */
+    public function removeClub(Request $request, $clubId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $student = $user->student;
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil élève non trouvé'
+                ], 404);
+            }
+
+            // Vérifier que l'élève est affilié à ce club
+            $clubStudent = DB::table('club_students')
+                ->where('club_id', $clubId)
+                ->where('student_id', $student->id)
+                ->first();
+
+            if (!$clubStudent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous n\'êtes pas affilié à ce club'
+                ], 404);
+            }
+
+            DB::beginTransaction();
+
+            // Soft delete : désactiver l'affiliation
+            DB::table('club_students')
+                ->where('club_id', $clubId)
+                ->where('student_id', $student->id)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+
+            \Log::info('Club retiré de l\'élève', [
+                'student_id' => $student->id,
+                'club_id' => $clubId
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Club retiré avec succès'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Erreur lors de la suppression du club de l\'élève: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression du club'
+            ], 500);
+        }
+    }
 }

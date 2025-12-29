@@ -42,6 +42,7 @@ Route::prefix('auth')->group(function () {
                 'isAuthenticated' => Auth::check(),
             ]);
         });
+        Route::put('/profile', [AuthController::class, 'updateProfile']);
     });
 });
 
@@ -162,6 +163,19 @@ Route::get('/activity-types', function() {
 Route::get('/disciplines', [App\Http\Controllers\Api\DisciplineController::class, 'index']);
 Route::get('/disciplines/{id}', [App\Http\Controllers\Api\DisciplineController::class, 'show']);
 Route::get('/disciplines/by-activity/{activityTypeId}', [App\Http\Controllers\Api\DisciplineController::class, 'byActivityType']);
+
+// Clubs - Route publique pour l'inscription (liste des clubs actifs)
+Route::get('/clubs/public', function() {
+    $clubs = \App\Models\Club::where('is_active', true)
+        ->select('id', 'name', 'city', 'postal_code')
+        ->orderBy('name')
+        ->get();
+    
+    return response()->json([
+        'success' => true,
+        'data' => $clubs
+    ]);
+});
 
 Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/dashboard', [ClubDashboardController::class, 'dashboard']);
