@@ -174,14 +174,6 @@ class TeacherController extends Controller
                             }
                         }
                         // Fallback
-                        Log::warning('⚠️ [Dashboard] Student name not found', [
-                            'student_id' => $student->id,
-                            'user_id' => $student->user_id,
-                            'has_user' => isset($student->user),
-                            'user_name' => $student->user->name ?? null,
-                            'first_name' => $student->first_name ?? null,
-                            'last_name' => $student->last_name ?? null
-                        ]);
                         return 'Sans nom';
                     };
                     
@@ -443,21 +435,6 @@ class TeacherController extends Controller
                 return $lessonArray;
             })->values()->toArray();
             
-            // Log pour vérifier la structure des données
-            if (count($upcomingLessonsArray) > 0) {
-                $firstLesson = $upcomingLessonsArray[0];
-                Log::info('📊 [Dashboard] First lesson structure', [
-                    'lesson_id' => $firstLesson['id'] ?? 'N/A',
-                    'student_id' => $firstLesson['student_id'] ?? null,
-                    'has_student' => isset($firstLesson['student']) && !empty($firstLesson['student']),
-                    'student_data' => $firstLesson['student'] ?? null,
-                    'has_students' => isset($firstLesson['students']),
-                    'students_is_array' => is_array($firstLesson['students'] ?? null),
-                    'students_count' => is_array($firstLesson['students'] ?? null) ? count($firstLesson['students']) : 0,
-                    'students_data' => $firstLesson['students'] ?? [],
-                    'students_json' => json_encode($firstLesson['students'] ?? [])
-                ]);
-            }
 
             return response()->json([
                 'success' => true,
