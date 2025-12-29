@@ -737,30 +737,9 @@ async function loadData() {
           lessons.value = lessonsResponse.data.data || lessonsResponse.data || []
         }
         
-        // Log pour déboguer les données des élèves
-        if (lessons.value.length > 0) {
-          const firstLesson = lessons.value[0]
-          console.log('🔍 [DEBUG] Premier cours chargé:', {
-            lesson_id: firstLesson.id,
-            student_id: firstLesson.student_id,
-            has_student: !!firstLesson.student,
-            student_data: firstLesson.student,
-            student_data_type: typeof firstLesson.student,
-            has_students: !!firstLesson.students,
-            students_is_array: Array.isArray(firstLesson.students),
-            students_type: typeof firstLesson.students,
-            students_length: firstLesson.students?.length,
-            students_data: firstLesson.students,
-            students_json: JSON.stringify(firstLesson.students),
-            student_names: getLessonStudentNames(firstLesson),
-            full_lesson: firstLesson
-          })
-        }
         
-        console.log('✅ Dashboard data loaded:', data.stats)
       }
     } catch (dashboardError) {
-      console.warn('⚠️ Dashboard endpoint not available, falling back to individual endpoints')
       // Charger les cours avec limite pour optimiser les performances
       const lessonsResponse = await $api.get('/teacher/lessons', {
         params: {
@@ -789,7 +768,7 @@ async function loadData() {
     allReplacements.value = replacementsResponse.data.data || []
     availableTeachers.value = teachersResponse.data.data || []
 
-    console.log('✅ Données chargées:', {
+    // Données chargées
       lessons: lessons.value.length,
       clubs: clubs.value.length,
       replacements: allReplacements.value.length,
@@ -864,7 +843,6 @@ async function respondToReplacement(replacementId: number, action: 'accept' | 'r
       action
     })
 
-    console.log(`✅ Remplacement ${action === 'accept' ? 'accepté' : 'refusé'}`)
     
     // Recharger les données
     await loadData()
@@ -875,7 +853,6 @@ async function respondToReplacement(replacementId: number, action: 'accept' | 'r
 }
 
 async function handleReplacementSuccess() {
-  console.log('✅ Demande de remplacement envoyée avec succès')
   await loadData()
 }
 
@@ -889,7 +866,6 @@ async function cancelReplacementRequest(replacementId: number) {
     const response = await $api.delete(`/teacher/lesson-replacements/${replacementId}`)
     
     if (response.data.success) {
-      console.log('✅ Demande de remplacement annulée')
       const toast = useToast()
       toast.success('Demande de remplacement annulée avec succès')
       await loadData()
@@ -928,31 +904,16 @@ function modifyReplacementRequest(lesson: any, replacement: any) {
 
 // Fonction pour obtenir les noms des élèves d'un cours
 function getLessonStudentNames(lesson: any): string {
-  // Log pour déboguer
-  console.log('🔍 [getLessonStudentNames] Lesson data:', {
-    lesson_id: lesson.id,
-    has_students: !!lesson.students,
-    students_type: typeof lesson.students,
-    students_is_array: Array.isArray(lesson.students),
-    students_length: lesson.students?.length,
-    students_data: lesson.students,
-    has_student: !!lesson.student,
-    student_data: lesson.student,
-    student_id: lesson.student_id
-  })
-  
   // Vérifier d'abord la relation many-to-many (students)
   if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
     const names = lesson.students
       .map((s: any) => {
         // Essayer plusieurs chemins pour obtenir le nom
-        const name = s.user?.name || s.name || (s.user && typeof s.user === 'string' ? s.user : null) || 'Sans nom'
-        return name
+        return s.user?.name || s.name || (s.user && typeof s.user === 'string' ? s.user : null) || null
       })
-      .filter((name: string) => name !== 'Sans nom' && name !== null && name !== undefined)
+      .filter((name: string) => name !== null && name !== undefined && name !== '' && name !== 'Sans nom')
     
     if (names.length > 0) {
-      console.log('✅ [getLessonStudentNames] Found names from students array:', names)
       return names.join(', ')
     }
   }
@@ -960,18 +921,11 @@ function getLessonStudentNames(lesson: any): string {
   // Sinon, vérifier la relation one-to-many (student)
   if (lesson.student) {
     const studentName = lesson.student.user?.name || lesson.student.name || null
-    if (studentName) {
-      console.log('✅ [getLessonStudentNames] Found name from student object:', studentName)
+    if (studentName && studentName !== '' && studentName !== 'Sans nom') {
       return studentName
     }
   }
   
-  // Fallback: vérifier student_id et essayer de récupérer le nom depuis d'autres sources
-  if (lesson.student_id && !lesson.student && (!lesson.students || lesson.students.length === 0)) {
-    console.warn('⚠️ [getLessonStudentNames] Lesson has student_id but no student/students data:', lesson.student_id)
-  }
-  
-  console.warn('❌ [getLessonStudentNames] No student name found for lesson:', lesson.id)
   return 'Sans élève'
 }
 
