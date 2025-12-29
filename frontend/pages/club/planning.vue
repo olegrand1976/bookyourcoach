@@ -1310,8 +1310,8 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     const response = await $api.get('/lessons', {
       params: {
         date_from: startDate.toISOString().split('T')[0],
-        date_to: endDate.toISOString().split('T')[0],
-        limit: 500 // Limite maximale pour afficher 3 mois de cours
+        date_to: endDate.toISOString().split('T')[0]
+        // Pas de limite : on filtre uniquement par période (3 mois)
       }
     })
     
