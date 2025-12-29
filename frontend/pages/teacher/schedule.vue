@@ -246,27 +246,22 @@
                 </div>
               </div>
 
-              <!-- Participants -->
-              <div class="grid grid-cols-2 gap-4">
-                <div v-if="selectedLesson.student?.user?.name" class="bg-gray-50 rounded-lg p-4">
-                  <label class="block text-sm font-medium text-gray-500 mb-1">Étudiant</label>
-                  <p class="text-base font-semibold text-gray-900">
-                    {{ selectedLesson.student.user.name }}
-                  </p>
-                </div>
-                <div v-if="selectedLesson.club?.name" class="bg-gray-50 rounded-lg p-4">
-                  <label class="block text-sm font-medium text-gray-500 mb-1">Club</label>
-                  <p class="text-base font-semibold text-gray-900">
-                    {{ selectedLesson.club.name }}
-                  </p>
-                </div>
+              <!-- Élève -->
+              <div class="bg-gray-50 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-500 mb-1">Élève</label>
+                <p v-if="getLessonStudentNames(selectedLesson) && getLessonStudentNames(selectedLesson) !== 'Sans élève'" class="text-base font-semibold text-gray-900">
+                  {{ getLessonStudentNames(selectedLesson) }}
+                </p>
+                <p v-else class="text-base font-semibold text-gray-400 italic">
+                  Sans élève
+                </p>
               </div>
 
-              <!-- Prix -->
-              <div v-if="selectedLesson.price" class="bg-gray-50 rounded-lg p-4">
-                <label class="block text-sm font-medium text-gray-500 mb-1">Prix</label>
-                <p class="text-lg font-semibold text-gray-900">
-                  {{ formatPrice(selectedLesson.price) }} €
+              <!-- Club -->
+              <div v-if="selectedLesson.club?.name" class="bg-gray-50 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-500 mb-1">Club</label>
+                <p class="text-base font-semibold text-gray-900">
+                  {{ selectedLesson.club.name }}
                 </p>
               </div>
 
@@ -377,6 +372,13 @@ interface Lesson {
       name: string
     }
   }
+  students?: Array<{
+    id: number
+    user?: {
+      name: string
+    }
+    name?: string
+  }>
   course_type?: {
     id: number
     name: string

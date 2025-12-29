@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Teacher;
 use App\Models\Lesson;
+use App\Models\Club;
 use Illuminate\Support\Facades\Log;
 
 class TeacherController extends Controller
@@ -645,18 +646,52 @@ class TeacherController extends Controller
             }
 
             // Récupérer les élèves avec leurs informations
-            $students = \App\Models\Student::with(['user', 'club'])
+            $students = \App\Models\Student::with(['user'])
                 ->whereIn('id', $allStudentIds)
                 ->get()
                 ->map(function($student) {
+                    // Calculer l'âge si date_of_birth existe
+                    $age = null;
+                    if ($student->date_of_birth) {
+                        try {
+                            $age = \Carbon\Carbon::parse($student->date_of_birth)->age;
+                        } catch (\Exception $e) {
+                            Log::warning('Erreur calcul âge élève: ' . $e->getMessage());
+                        }
+                    }
+                    
+                    // Obtenir le nom de l'élève
+                    $name = null;
+                    if ($student->user && $student->user->name) {
+                        $name = $student->user->name;
+                    } elseif ($student->first_name || $student->last_name) {
+                        $name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
+                        if (empty($name)) {
+                            $name = 'Sans nom';
+                        }
+                    } else {
+                        $name = 'Sans nom';
+                    }
+                    
+                    // Obtenir le nom du club si club_id existe
+                    $clubName = null;
+                    if ($student->club_id) {
+                        try {
+                            $club = Club::find($student->club_id);
+                            $clubName = $club ? $club->name : null;
+                        } catch (\Exception $e) {
+                            Log::warning('Erreur chargement club élève: ' . $e->getMessage());
+                        }
+                    }
+                    
                     return [
                         'id' => $student->id,
-                        'name' => $student->user->name ?? 'Sans nom',
+                        'name' => $name,
                         'email' => $student->user->email ?? '',
                         'level' => $student->level ?? 'débutant',
-                        'age' => $student->age,
+                        'age' => $age,
                         'club_id' => $student->club_id,
-                        'club_name' => $student->club ? $student->club->name : null
+                        'club_name' => $clubName
                     ];
                 });
 
