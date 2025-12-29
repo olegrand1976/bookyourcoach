@@ -311,13 +311,16 @@ class StudentController extends Controller
                     $fullName = 'Élève ' . ($club->students()->count() + 1);
                 }
                 
+                // Récupérer le téléphone même s'il n'est pas dans validated
+                $userPhone = $validated['phone'] ?? ($request->input('phone') ?: null);
+                
                 $newUser = User::create([
                     'name' => $fullName,
                     'first_name' => $validated['first_name'] ?? null,
                     'last_name' => $validated['last_name'] ?? null,
                     'email' => $validated['email'],
                     'password' => isset($validated['password']) ? Hash::make($validated['password']) : Hash::make(bin2hex(random_bytes(16))),
-                    'phone' => $validated['phone'] ?? null,
+                    'phone' => $userPhone,
                     'role' => 'student'
                 ]);
 
@@ -343,13 +346,17 @@ class StudentController extends Controller
             }
 
             // Créer le profil étudiant (même sans utilisateur si pas d'email)
+            // S'assurer que phone et email sont bien récupérés même s'ils ne sont pas dans validated
+            $phone = $validated['phone'] ?? ($request->input('phone') ?: null);
+            $email = $validated['email'] ?? ($request->input('email') ?: null);
+            
             $student = Student::create([
                 'user_id' => $newUser?->id, // Peut être null si pas d'email
                 'club_id' => $club->id,
                 'first_name' => $validated['first_name'] ?? null,
                 'last_name' => $validated['last_name'] ?? null,
                 'date_of_birth' => $validated['date_of_birth'] ?? null,
-                'phone' => $validated['phone'] ?? null,
+                'phone' => $phone,
                 // 'level' supprimé - n'est plus utilisé
                 'goals' => $validated['goals'] ?? null,
                 'medical_info' => $validated['medical_info'] ?? null,

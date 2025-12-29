@@ -513,17 +513,24 @@ const addStudent = async () => {
     const { $api } = useNuxtApp()
     
     // Préparer les données de l'étudiant
+    // Important : envoyer les valeurs même si elles sont vides pour que Laravel puisse les traiter
     const studentData = {
-      first_name: form.value.first_name || null,
-      last_name: form.value.last_name || null,
-      email: form.value.email || null,
-      phone: form.value.phone || null,
+      first_name: form.value.first_name?.trim() || null,
+      last_name: form.value.last_name?.trim() || null,
       date_of_birth: form.value.date_of_birth || null,
-      goals: form.value.goals || null,
-      medical_info: form.value.medical_info || null,
+      goals: form.value.goals?.trim() || null,
+      medical_info: form.value.medical_info?.trim() || null,
       disciplines: selectedDisciplines.value.length > 0 ? selectedDisciplines.value : null,
       medical_documents: medicalDocuments.value.filter(doc => doc.document_type && doc.file)
     }
+    
+    // Email : envoyer seulement si non vide (pour éviter les erreurs de validation)
+    if (form.value.email && form.value.email.trim() !== '') {
+      studentData.email = form.value.email.trim()
+    }
+    
+    // Téléphone : toujours envoyer, même si vide (pour que Laravel puisse le sauvegarder)
+    studentData.phone = form.value.phone?.trim() || null
     
     console.log('🔄 [AddStudentModal] Création de l\'élève:', studentData)
     console.log('🔑 [AddStudentModal] Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
