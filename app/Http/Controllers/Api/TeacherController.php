@@ -496,7 +496,7 @@ class TeacherController extends Controller
     }
 
     /**
-     * Liste des élèves des clubs où l'enseignant travaille
+     * Liste des élèves à qui l'enseignant donne cours
      */
     public function getStudents(Request $request)
     {
@@ -511,20 +511,39 @@ class TeacherController extends Controller
                 ], 404);
             }
 
-            // Récupérer les clubs où l'enseignant travaille
-            $clubIds = $teacher->clubs()->pluck('clubs.id')->toArray();
+            // Récupérer uniquement les élèves qui ont des cours avec cet enseignant
+            // Via la relation many-to-many lesson_student
+            $studentIds = \App\Models\Lesson::where('teacher_id', $teacher->id)
+                ->whereHas('students')
+                ->with('students')
+                ->get()
+                ->flatMap(function($lesson) {
+                    return $lesson->students->pluck('id');
+                })
+                ->unique()
+                ->toArray();
 
-            // Si l'enseignant n'a pas de clubs, retourner une liste vide
-            if (empty($clubIds)) {
+            // Également inclure les élèves via la relation one-to-many (student_id)
+            $studentIdsFromDirect = \App\Models\Lesson::where('teacher_id', $teacher->id)
+                ->whereNotNull('student_id')
+                ->pluck('student_id')
+                ->unique()
+                ->toArray();
+
+            // Fusionner les deux listes
+            $allStudentIds = array_unique(array_merge($studentIds, $studentIdsFromDirect));
+
+            // Si aucun élève n'a de cours avec cet enseignant, retourner une liste vide
+            if (empty($allStudentIds)) {
                 return response()->json([
                     'success' => true,
                     'students' => []
                 ]);
             }
 
-            // Récupérer les élèves de ces clubs
-            $students = \App\Models\Student::with('user')
-                ->whereIn('club_id', $clubIds)
+            // Récupérer les élèves avec leurs informations
+            $students = \App\Models\Student::with(['user', 'club'])
+                ->whereIn('id', $allStudentIds)
                 ->get()
                 ->map(function($student) {
                     return [
@@ -533,7 +552,8 @@ class TeacherController extends Controller
                         'email' => $student->user->email ?? '',
                         'level' => $student->level ?? 'débutant',
                         'age' => $student->age,
-                        'club_id' => $student->club_id
+                        'club_id' => $student->club_id,
+                        'club_name' => $student->club ? $student->club->name : null
                     ];
                 });
 
@@ -901,6 +921,7 @@ class TeacherController extends Controller
                 'bio' => 'nullable|string',
                 'specialties' => 'nullable|array',
                 'certifications' => 'nullable|array',
+                'experience_start_date' => 'nullable|date',
                 // experience_years et hourly_rate ne peuvent pas être modifiés par l'enseignant
                 'experience_years' => 'prohibited',
                 'hourly_rate' => 'prohibited',
@@ -953,12 +974,25 @@ class TeacherController extends Controller
                 Log::warning('⚠️ [TeacherController::updateProfile] birth_date n\'est pas dans validated, pas de mise à jour');
             }
             
+            // Gérer experience_start_date
+            if (array_key_exists('experience_start_date', $validated)) {
+                $newExperienceStartDate = $validated['experience_start_date'] ?: null;
+                
+                // Si c'est une chaîne de date, s'assurer qu'elle est au format Y-m-d
+                if ($newExperienceStartDate && is_string($newExperienceStartDate)) {
+                    $newExperienceStartDate = substr($newExperienceStartDate, 0, 10);
+                }
+                
+                $user->experience_start_date = $newExperienceStartDate;
+            }
+            
             Log::info('📝 [TeacherController::updateProfile] État AVANT save():', [
                 'user_id' => $user->id,
                 'name' => $user->name,
                 'phone' => $user->phone,
                 'birth_date' => $user->birth_date,
                 'birth_date_original' => $originalBirthDate,
+                'experience_start_date' => $user->experience_start_date,
                 'birth_date_is_dirty' => $user->isDirty('birth_date'),
                 'user_is_dirty' => $user->isDirty(),
                 'validated_birth_date' => $validated['birth_date'] ?? 'non défini',

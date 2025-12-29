@@ -110,17 +110,19 @@
               <p class="mt-1 text-xs text-gray-500">Séparez les spécialités par des virgules</p>
             </div>
             <div>
-              <label for="experience_years" class="block text-sm font-medium text-gray-700 mb-1">Années d'expérience</label>
+              <label for="experience_start_date" class="block text-sm font-medium text-gray-700 mb-1">Date de début d'activité</label>
               <input
-                id="experience_years"
-                v-model.number="form.experience_years"
-                type="number"
-                min="0"
-                disabled
-                readonly
-                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+                id="experience_start_date"
+                v-model="form.experience_start_date"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.experience_start_date }"
               />
-              <p class="mt-1 text-xs text-gray-500">Calculé automatiquement à partir de la date de début d'expérience</p>
+              <p v-if="errors.experience_start_date" class="mt-1 text-sm text-red-600">{{ errors.experience_start_date }}</p>
+              <p v-if="form.experience_start_date && calculatedExperienceYears !== null" class="mt-1 text-xs text-gray-600">
+                Expérience : {{ calculatedExperienceYears }} année{{ calculatedExperienceYears > 1 ? 's' : '' }}
+              </p>
+              <p v-else class="mt-1 text-xs text-gray-500">Les années d'expérience seront calculées automatiquement à partir de cette date</p>
             </div>
             <div>
               <label for="certifications" class="block text-sm font-medium text-gray-700 mb-1">Certifications</label>
@@ -213,6 +215,7 @@ const initializeForm = () => {
     phone: user?.phone || '',
     birth_date: user?.birth_date || '',
     specialties: '',
+    experience_start_date: user?.experience_start_date || '',
     experience_years: null,
     certifications: '',
     hourly_rate: null,
@@ -301,6 +304,28 @@ const loadProfileData = async () => {
           })
         } else {
           form.value.birth_date = ''
+        }
+        
+        // Gérer experience_start_date depuis le profil utilisateur
+        if (profile?.experience_start_date) {
+          let experienceStartDateStr = profile.experience_start_date
+          
+          // Si c'est une string ISO avec timestamp, extraire juste la date
+          if (typeof experienceStartDateStr === 'string' && experienceStartDateStr.includes('T')) {
+            experienceStartDateStr = experienceStartDateStr.substring(0, 10)
+          }
+          
+          // Si c'est un objet Date, le formater
+          if (experienceStartDateStr instanceof Date) {
+            const year = experienceStartDateStr.getFullYear()
+            const month = String(experienceStartDateStr.getMonth() + 1).padStart(2, '0')
+            const day = String(experienceStartDateStr.getDate()).padStart(2, '0')
+            experienceStartDateStr = `${year}-${month}-${day}`
+          }
+          
+          form.value.experience_start_date = experienceStartDateStr
+        } else {
+          form.value.experience_start_date = ''
         }
       }
       
@@ -471,6 +496,31 @@ const calculateAge = (birthDate) => {
     return ''
   }
 }
+
+// Calculer les années d'expérience à partir de la date de début
+const calculatedExperienceYears = computed(() => {
+  if (!form.value.experience_start_date || form.value.experience_start_date.length !== 10) {
+    return null
+  }
+  
+  try {
+    const startDate = new Date(form.value.experience_start_date)
+    const today = new Date()
+    
+    let years = today.getFullYear() - startDate.getFullYear()
+    const monthDiff = today.getMonth() - startDate.getMonth()
+    
+    // Si l'anniversaire n'est pas encore passé cette année, on soustrait 1 an
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < startDate.getDate())) {
+      years--
+    }
+    
+    return Math.max(0, years)
+  } catch (error) {
+    console.error('Erreur calcul années d\'expérience:', error)
+    return null
+  }
+})
 
 // Fonction appelée lors de la modification de la date de naissance
 const onBirthDateChange = (event) => {
