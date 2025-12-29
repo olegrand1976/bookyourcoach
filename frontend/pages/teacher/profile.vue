@@ -406,11 +406,25 @@ const handleSubmit = async () => {
       processedBirthDate = null
     }
     
+    // Traitement spécifique pour experience_start_date
+    let processedExperienceStartDate = null
+    if (form.value.experience_start_date) {
+      const trimmed = form.value.experience_start_date.trim()
+      if (trimmed && trimmed.length > 0) {
+        processedExperienceStartDate = trimmed
+      } else {
+        processedExperienceStartDate = null
+      }
+    } else {
+      processedExperienceStartDate = null
+    }
+    
     const updateData = {
       name: form.value.name,
       phone: form.value.phone && form.value.phone.trim() ? form.value.phone.trim() : null,
       // Gérer la date de naissance : convertir chaîne vide en null
       birth_date: processedBirthDate,
+      experience_start_date: processedExperienceStartDate,
       bio: form.value.bio && form.value.bio.trim() ? form.value.bio.trim() : null,
       // Convertir specialties et certifications en arrays si ce sont des strings séparées par des virgules
       specialties: form.value.specialties && form.value.specialties.trim()

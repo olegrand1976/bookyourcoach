@@ -47,23 +47,6 @@
           <p class="text-sm md:text-base text-gray-700">Gérez vos cours et disponibilités avec Google Calendar</p>
         </NuxtLink>
 
-        <!-- Élèves - Vert/Teal (Élèves) -->
-        <NuxtLink to="/teacher/students" 
-          class="group bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-transparent hover:border-emerald-300 rounded-xl shadow-lg p-4 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-          <div class="flex items-center mb-3 md:mb-4">
-            <div class="p-2 md:p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg shadow-md flex-shrink-0">
-              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <div class="ml-3 md:ml-4">
-              <h3 class="text-base md:text-lg font-semibold text-gray-900">Mes Élèves</h3>
-              <p class="text-xs md:text-sm text-gray-600">Suivi</p>
-            </div>
-          </div>
-          <p class="text-sm md:text-base text-gray-700">Gérez vos élèves et suivez leur progression</p>
-        </NuxtLink>
-
         <!-- Revenus - Violet/Rose (Premium/Analyse) -->
         <NuxtLink to="/teacher/earnings" 
           class="group bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-transparent hover:border-purple-300 rounded-xl shadow-lg p-4 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">

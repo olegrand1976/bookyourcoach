@@ -1153,14 +1153,14 @@ class TeacherController extends Controller
             // Mettre à jour les informations de l'enseignant
             // Note: hourly_rate et experience_years ne peuvent pas être modifiés par l'enseignant
             $teacherData = [];
-            if (isset($validated['bio'])) {
+            if (array_key_exists('bio', $validated)) {
                 $teacherData['bio'] = $validated['bio'];
             }
-            if (isset($validated['specialties'])) {
+            if (array_key_exists('specialties', $validated)) {
                 // Le casting du modèle s'occupera de la conversion en JSON
                 $teacherData['specialties'] = $validated['specialties'];
             }
-            if (isset($validated['certifications'])) {
+            if (array_key_exists('certifications', $validated)) {
                 // Le casting du modèle s'occupera de la conversion en JSON
                 $teacherData['certifications'] = $validated['certifications'];
             }
