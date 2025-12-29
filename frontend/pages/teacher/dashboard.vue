@@ -427,125 +427,135 @@
           </div>
 
           <div v-else-if="filteredLessons.length > 0" class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Heure</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remplacement</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="lesson in filteredLessons" :key="lesson.id" class="hover:bg-gray-50">
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">
-                      {{ lesson.club?.name || 'N/A' }}
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">{{ formatDate(lesson.start_time) }}</div>
-                    <div class="text-xs text-gray-500">{{ formatTime(lesson.start_time) }} - {{ formatTime(lesson.end_time) }}</div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="text-sm text-gray-900">{{ lesson.course_type?.name || 'N/A' }}</div>
-                    <div class="text-xs text-gray-500">{{ calculateDuration(lesson.start_time, lesson.end_time) }}min - {{ lesson.price }}€</div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="text-sm font-medium text-gray-900">
-                      {{ getLessonStudentNames(lesson) }}
-                    </div>
-                    <div v-if="getLessonStudentAges(lesson)" class="text-xs text-gray-500">
-                      {{ getLessonStudentAges(lesson) }}
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span :class="getStatusClass(lesson.status)" class="px-2 py-1 text-xs font-semibold rounded-full">
-                      {{ getStatusLabel(lesson.status) }}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div v-if="getReplacementForLesson(lesson.id)">
-                      <div class="mb-1">
-                        <!-- Cas 1: On a demandé un remplacement (on est l'enseignant d'origine) -->
-                        <div v-if="isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id))" 
-                             class="text-xs">
-                          <div class="flex items-center gap-1 text-orange-700 font-medium">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>Vous avez demandé un remplacement</span>
-                          </div>
-                          <div class="text-gray-600 mt-0.5">
-                            Demandé à: {{ getReplacementForLesson(lesson.id).replacement_teacher?.user?.name || 'N/A' }}
-                          </div>
-                          <!-- Boutons d'action pour l'enseignant d'origine -->
-                          <div v-if="getReplacementForLesson(lesson.id).status === 'pending'" class="mt-2 flex gap-2">
-                            <button
-                              @click="cancelReplacementRequest(getReplacementForLesson(lesson.id).id)"
-                              class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                            >
-                              ✗ Annuler
-                            </button>
-                            <button
-                              @click="modifyReplacementRequest(lesson, getReplacementForLesson(lesson.id))"
-                              class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                            >
-                              ✏️ Modifier
-                            </button>
-                          </div>
-                        </div>
-                        <!-- Cas 2: Un remplacement nous est demandé (on est le remplaçant) -->
-                        <div v-else 
-                             class="text-xs">
-                          <div class="flex items-center gap-1 text-blue-700 font-medium">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            <span>Remplacement demandé</span>
-                          </div>
-                          <div class="text-gray-600 mt-0.5">
-                            Demandé par: {{ getReplacementForLesson(lesson.id).original_teacher?.user?.name || 'N/A' }}
-                          </div>
-                        </div>
+            <!-- Groupement par jour/date -->
+            <div v-for="(dayLessons, dateKey) in groupedLessonsByDate" :key="dateKey" class="mb-6">
+              <!-- En-tête du jour -->
+              <div class="bg-gray-100 px-4 py-2 mb-2 rounded-t-lg">
+                <h4 class="text-sm font-semibold text-gray-700">
+                  {{ formatDayHeader(dateKey) }}
+                </h4>
+              </div>
+              
+              <!-- Tableau des cours pour ce jour -->
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remplacement</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-for="lesson in dayLessons" :key="lesson.id" class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ lesson.club?.name || 'N/A' }}
                       </div>
-                      <span :class="getReplacementStatusClass(getReplacementForLesson(lesson.id).status)" 
-                            class="px-2 py-1 text-xs font-semibold rounded-full mt-1 inline-block">
-                        {{ getReplacementStatusLabel(getReplacementForLesson(lesson.id).status) }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">{{ formatTime(lesson.start_time) }} - {{ formatTime(lesson.end_time) }}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <div class="text-sm text-gray-900">{{ lesson.course_type?.name || 'N/A' }}</div>
+                      <div class="text-xs text-gray-500">{{ calculateDuration(lesson.start_time, lesson.end_time) }}min - {{ lesson.price }}€</div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ getLessonStudentNames(lesson) }}
+                      </div>
+                      <div v-if="getLessonStudentAges(lesson)" class="text-xs text-gray-500">
+                        {{ getLessonStudentAges(lesson) }}
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span :class="getStatusClass(lesson.status)" class="px-2 py-1 text-xs font-semibold rounded-full">
+                        {{ getStatusLabel(lesson.status) }}
                       </span>
-                    </div>
-                    <div v-else class="text-xs text-gray-400">
-                      Aucun
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      @click="openLessonDetails(lesson)"
-                      class="text-blue-600 hover:text-blue-900"
-                    >
-                      👁️ Voir
-                    </button>
-                    <button
-                      v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
-                      @click="openReplacementRequest(lesson)"
-                      class="text-orange-600 hover:text-orange-900"
-                    >
-                      🔄 Remplacer
-                    </button>
-                    <button
-                      v-if="hasPendingReplacementReceived(lesson.id)"
-                      @click="acceptReplacementForLesson(lesson.id)"
-                      class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-xs font-medium"
-                    >
-                      ✓ Accepter
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div v-if="getReplacementForLesson(lesson.id)">
+                        <div class="mb-1">
+                          <!-- Cas 1: On a demandé un remplacement (on est l'enseignant d'origine) -->
+                          <div v-if="isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id))" 
+                               class="text-xs">
+                            <div class="flex items-center gap-1 text-orange-700 font-medium">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>Vous avez demandé un remplacement</span>
+                            </div>
+                            <div class="text-gray-600 mt-0.5">
+                              Demandé à: {{ getReplacementForLesson(lesson.id).replacement_teacher?.user?.name || 'N/A' }}
+                            </div>
+                            <!-- Boutons d'action pour l'enseignant d'origine -->
+                            <div v-if="getReplacementForLesson(lesson.id).status === 'pending'" class="mt-2 flex gap-2">
+                              <button
+                                @click="cancelReplacementRequest(getReplacementForLesson(lesson.id).id)"
+                                class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                              >
+                                ✗ Annuler
+                              </button>
+                              <button
+                                @click="modifyReplacementRequest(lesson, getReplacementForLesson(lesson.id))"
+                                class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                              >
+                                ✏️ Modifier
+                              </button>
+                            </div>
+                          </div>
+                          <!-- Cas 2: Un remplacement nous est demandé (on est le remplaçant) -->
+                          <div v-else 
+                               class="text-xs">
+                            <div class="flex items-center gap-1 text-blue-700 font-medium">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                              </svg>
+                              <span>Remplacement demandé</span>
+                            </div>
+                            <div class="text-gray-600 mt-0.5">
+                              Demandé par: {{ getReplacementForLesson(lesson.id).original_teacher?.user?.name || 'N/A' }}
+                            </div>
+                          </div>
+                        </div>
+                        <span :class="getReplacementStatusClass(getReplacementForLesson(lesson.id).status)" 
+                              class="px-2 py-1 text-xs font-semibold rounded-full mt-1 inline-block">
+                          {{ getReplacementStatusLabel(getReplacementForLesson(lesson.id).status) }}
+                        </span>
+                      </div>
+                      <div v-else class="text-xs text-gray-400">
+                        Aucun
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        @click="openLessonDetails(lesson)"
+                        class="text-blue-600 hover:text-blue-900"
+                      >
+                        👁️ Voir
+                      </button>
+                      <button
+                        v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
+                        @click="openReplacementRequest(lesson)"
+                        class="text-orange-600 hover:text-orange-900"
+                      >
+                        🔄 Remplacer
+                      </button>
+                      <button
+                        v-if="hasPendingReplacementReceived(lesson.id)"
+                        @click="acceptReplacementForLesson(lesson.id)"
+                        class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-xs font-medium"
+                      >
+                        ✓ Accepter
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div v-else class="text-center py-8">
@@ -614,10 +624,41 @@ const todayLessons = computed(() => {
 })
 
 const filteredLessons = computed(() => {
-  if (selectedClubId.value === null) {
-    return lessons.value
+  let filtered = lessons.value
+  if (selectedClubId.value !== null) {
+    filtered = filtered.filter(lesson => lesson.club_id === selectedClubId.value)
   }
-  return lessons.value.filter(lesson => lesson.club_id === selectedClubId.value)
+  // Trier par date et heure
+  return filtered.sort((a, b) => {
+    const dateA = new Date(a.start_time).getTime()
+    const dateB = new Date(b.start_time).getTime()
+    return dateA - dateB
+  })
+})
+
+// Grouper les cours par jour/date
+const groupedLessonsByDate = computed(() => {
+  const groups: Record<string, any[]> = {}
+  
+  filteredLessons.value.forEach(lesson => {
+    const date = new Date(lesson.start_time)
+    // Utiliser la date au format YYYY-MM-DD comme clé
+    const dateKey = date.toISOString().split('T')[0]
+    
+    if (!groups[dateKey]) {
+      groups[dateKey] = []
+    }
+    groups[dateKey].push(lesson)
+  })
+  
+  // Trier les groupes par date (du plus ancien au plus récent)
+  const sortedKeys = Object.keys(groups).sort()
+  const sortedGroups: Record<string, any[]> = {}
+  sortedKeys.forEach(key => {
+    sortedGroups[key] = groups[key]
+  })
+  
+  return sortedGroups
 })
 
 const selectedClubName = computed(() => {
@@ -917,6 +958,18 @@ function formatDate(datetime: string): string {
   return date.toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'short',
+    year: 'numeric'
+  })
+}
+
+// Formater l'en-tête du jour (ex: "Lundi 15 janvier 2024")
+function formatDayHeader(dateKey: string): string {
+  if (!dateKey) return ''
+  const date = new Date(dateKey + 'T00:00:00')
+  return date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
     year: 'numeric'
   })
 }

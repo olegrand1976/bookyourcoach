@@ -31,19 +31,89 @@
 
       <!-- Content -->
       <div v-else class="space-y-6">
-        <!-- Sélecteur de calendrier -->
+        <!-- Sélecteur de calendrier - Boutons -->
         <div class="bg-white rounded-lg shadow p-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Calendrier</label>
-          <select v-model="selectedCalendar" @change="loadLessons" 
-            class="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="personal">Mon Calendrier Personnel</option>
-            <option v-for="club in teacherClubs" :key="club.id" :value="club.id">
+          <label class="block text-sm font-medium text-gray-700 mb-3">Calendrier</label>
+          <div class="flex flex-wrap gap-2">
+            <!-- Boutons pour les clubs (en premier) -->
+            <button
+              v-for="club in teacherClubs"
+              :key="club.id"
+              @click="selectCalendar(String(club.id))"
+              :class="[
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                selectedCalendar === String(club.id)
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ]"
+            >
               {{ club.name }}
-            </option>
-          </select>
-          <p v-if="selectedCalendar !== 'personal'" class="mt-2 text-sm text-gray-500">
+            </button>
+            <!-- Bouton calendrier personnel (en dernier) -->
+            <button
+              @click="selectCalendar('personal')"
+              :class="[
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                selectedCalendar === 'personal'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ]"
+            >
+              Mon Calendrier Personnel
+            </button>
+          </div>
+          <p v-if="selectedCalendar !== 'personal'" class="mt-3 text-sm text-gray-500">
             ℹ️ Vous pouvez uniquement consulter les cours du club. L'ajout de cours est réservé au calendrier personnel.
           </p>
+        </div>
+
+        <!-- Calendrier avec cours -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Calendrier mensuel</h3>
+          <div class="calendar-month-view">
+            <!-- En-tête des jours de la semaine -->
+            <div class="grid grid-cols-7 gap-1 mb-2">
+              <div v-for="day in weekDays" :key="day" 
+                class="p-2 text-center text-xs font-medium text-gray-500 bg-gray-50">
+                {{ day }}
+              </div>
+            </div>
+            <!-- Grille du calendrier -->
+            <div class="grid grid-cols-7 gap-1">
+              <div v-for="day in calendarDays" :key="day.date" 
+                :class="[
+                  'min-h-[100px] p-2 border border-gray-200 rounded',
+                  day.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
+                  day.isToday ? 'bg-blue-50 border-blue-300' : ''
+                ]">
+                <div class="flex items-center justify-between mb-1">
+                  <span :class="[
+                    'text-sm font-medium',
+                    day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
+                    day.isToday ? 'text-blue-600 font-bold' : ''
+                  ]">
+                    {{ day.day }}
+                  </span>
+                </div>
+                <!-- Cours du jour -->
+                <div class="space-y-1">
+                  <div 
+                    v-for="lesson in getLessonsForDay(day.date)" 
+                    :key="lesson.id"
+                    @click="openLessonModal(lesson)"
+                    class="p-1 rounded text-xs cursor-pointer transition-colors hover:shadow-sm"
+                    :class="getLessonBorderClass(lesson)"
+                  >
+                    <div class="font-medium truncate">{{ formatLessonTime(lesson.start_time) }}</div>
+                    <div class="truncate text-gray-600">{{ lesson.course_type?.name || 'Cours' }}</div>
+                    <div v-if="lesson.student?.user?.name" class="truncate text-gray-500">
+                      {{ lesson.student.user.name }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Bloc : Cours programmés -->
@@ -361,6 +431,59 @@ const getClubName = (clubId: string | number) => {
   if (clubId === 'personal') return 'Calendrier Personnel'
   const club = teacherClubs.value.find(c => c.id === Number(clubId))
   return club?.name || 'Club'
+}
+
+// Fonction pour sélectionner un calendrier
+function selectCalendar(calendarId: string) {
+  selectedCalendar.value = calendarId
+  loadLessons()
+}
+
+// Jours de la semaine
+const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+// Calculer les jours du calendrier mensuel
+const calendarDays = computed(() => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const startDate = new Date(firstDay)
+  // Ajuster pour commencer le lundi (day 1)
+  startDate.setDate(firstDay.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1))
+  
+  const days = []
+  const todayStr = today.toISOString().split('T')[0]
+  
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+    
+    const dateStr = date.toISOString().split('T')[0]
+    
+    days.push({
+      date: dateStr,
+      day: date.getDate(),
+      isCurrentMonth: date.getMonth() === month,
+      isToday: dateStr === todayStr
+    })
+  }
+  
+  return days
+})
+
+// Obtenir les cours pour un jour donné
+function getLessonsForDay(dateStr: string): Lesson[] {
+  return lessons.value.filter(lesson => {
+    const lessonDate = new Date(lesson.start_time).toISOString().split('T')[0]
+    return lessonDate === dateStr
+  }).sort((a, b) => {
+    const timeA = new Date(a.start_time).getTime()
+    const timeB = new Date(b.start_time).getTime()
+    return timeA - timeB
+  })
 }
 
 // Fonctions

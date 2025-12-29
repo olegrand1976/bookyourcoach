@@ -2703,35 +2703,46 @@ function getLessonCardStyle(lesson: Lesson): Record<string, string> {
   // Calculer la luminosité relative (0-1) selon la formule WCAG
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   
-  // Calculer une couleur de bordure avec un meilleur contraste
+  // Calculer une couleur de bordure avec un contraste encore plus marqué
   // Assombrir la couleur pour la bordure si elle est trop claire
   let borderR = r
   let borderG = g
   let borderB = b
   
-  if (luminance > 0.7) {
-    // Si la couleur est trop claire, assombrir pour la bordure
-    borderR = Math.max(0, r - 60)
-    borderG = Math.max(0, g - 60)
-    borderB = Math.max(0, b - 60)
-  } else if (luminance < 0.4) {
-    // Si la couleur est trop foncée, éclaircir légèrement pour la bordure
-    borderR = Math.min(255, r + 30)
-    borderG = Math.min(255, g + 30)
-    borderB = Math.min(255, b + 30)
+  if (luminance > 0.65) {
+    // Si la couleur est claire, assombrir significativement pour la bordure (augmenté de 60 à 80)
+    borderR = Math.max(0, r - 80)
+    borderG = Math.max(0, g - 80)
+    borderB = Math.max(0, b - 80)
+  } else if (luminance < 0.45) {
+    // Si la couleur est foncée, éclaircir plus pour la bordure (augmenté de 30 à 50)
+    borderR = Math.min(255, r + 50)
+    borderG = Math.min(255, g + 50)
+    borderB = Math.min(255, b + 50)
+  } else {
+    // Pour les couleurs moyennes, ajuster modérément pour plus de contraste
+    if (luminance > 0.55) {
+      borderR = Math.max(0, r - 50)
+      borderG = Math.max(0, g - 50)
+      borderB = Math.max(0, b - 50)
+    } else {
+      borderR = Math.min(255, r + 40)
+      borderG = Math.min(255, g + 40)
+      borderB = Math.min(255, b + 40)
+    }
   }
   
   const borderColor = `rgb(${borderR}, ${borderG}, ${borderB})`
   
-  // Utiliser une opacité plus élevée pour le fond (20 = ~12% d'opacité) pour un meilleur contraste
+  // Utiliser une opacité encore plus élevée pour le fond (35 = ~21% d'opacité) pour un contraste maximal
   // Convertir RGB en hex pour l'opacité
   const hexR = r.toString(16).padStart(2, '0')
   const hexG = g.toString(16).padStart(2, '0')
   const hexB = b.toString(16).padStart(2, '0')
   
   return {
-    'border-left': `4px solid ${borderColor}`,
-    'background-color': `#${hexR}${hexG}${hexB}20` // Opacité de 20 (~12%) pour un meilleur contraste
+    'border-left': `5px solid ${borderColor}`, // Bordure plus épaisse (4px -> 5px) pour plus de visibilité
+    'background-color': `#${hexR}${hexG}${hexB}35` // Opacité de 35 (~21%) pour un contraste maximal
   }
 }
 
