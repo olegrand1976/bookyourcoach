@@ -560,7 +560,7 @@ const updateStudent = async () => {
     const { $api } = useNuxtApp()
     
     // Préparer les données de l'étudiant
-    const studentData: any = {
+    const studentData = {
       first_name: form.value.first_name?.trim() || null,
       last_name: form.value.last_name?.trim() || null,
       date_of_birth: form.value.date_of_birth || null,
