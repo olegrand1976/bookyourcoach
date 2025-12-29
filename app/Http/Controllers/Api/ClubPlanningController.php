@@ -50,7 +50,7 @@ class ClubPlanningController extends Controller
         $dayOfWeek = Carbon::parse($date)->dayOfWeek;
 
         // Récupérer les créneaux ouverts pour ce jour
-        $openSlots = $club->openSlots()
+        $openSlots = ClubOpenSlot::where('club_id', $clubId)
             ->with(['courseTypes', 'discipline'])
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
@@ -163,8 +163,9 @@ class ClubPlanningController extends Controller
      * @param int $clubId
      * @return JsonResponse
      */
-    public function checkAvailability(Request $request, $clubId): JsonResponse
+    public function checkAvailability(Request $request): JsonResponse
     {
+        $clubId = Auth::user()->club_id;
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
             'time' => 'required|date_format:H:i',
@@ -198,9 +199,11 @@ class ClubPlanningController extends Controller
             
             if ($slot) {
                 // Vérifier la capacité (utiliser max_slots = nombre de plages simultanées)
+                // Utiliser une comparaison compatible avec SQLite et MySQL
+                $timeStart = Carbon::parse("$date $time")->format('Y-m-d H:i:s');
                 $lessonsAtThisTime = Lesson::where('club_id', $clubId)
                     ->whereDate('start_time', $date)
-                    ->whereTime('start_time', $time)
+                    ->whereRaw("TIME(start_time) = TIME(?)", [$timeStart])
                     ->count();
 
                 $maxSlots = $slot->max_slots ?? 1;
@@ -220,14 +223,19 @@ class ClubPlanningController extends Controller
 
         // Vérifier la disponibilité de l'enseignant
         if ($request->teacher_id) {
-            $teacherConflict = Lesson::where('teacher_id', $request->teacher_id)
-                ->where(function($query) use ($startDateTime, $endDateTime) {
-                    $query->where(function($q) use ($startDateTime, $endDateTime) {
-                        $q->where('start_time', '<', $endDateTime)
-                          ->whereRaw('DATE_ADD(start_time, INTERVAL duration MINUTE) > ?', [$startDateTime]);
-                    });
-                })
-                ->exists();
+            // Récupérer les cours qui pourraient entrer en conflit
+            $teacherLessons = Lesson::where('teacher_id', $request->teacher_id)
+                ->where('start_time', '<', $endDateTime)
+                ->get();
+            
+            $teacherConflict = false;
+            foreach ($teacherLessons as $lesson) {
+                $lessonEndTime = Carbon::parse($lesson->start_time)->addMinutes($lesson->duration ?? 60);
+                if ($lessonEndTime > $startDateTime) {
+                    $teacherConflict = true;
+                    break;
+                }
+            }
 
             if ($teacherConflict) {
                 $conflicts[] = "L'enseignant a déjà un cours à cette heure";
@@ -236,14 +244,19 @@ class ClubPlanningController extends Controller
 
         // Vérifier la disponibilité de l'élève
         if ($request->student_id) {
-            $studentConflict = Lesson::where('student_id', $request->student_id)
-                ->where(function($query) use ($startDateTime, $endDateTime) {
-                    $query->where(function($q) use ($startDateTime, $endDateTime) {
-                        $q->where('start_time', '<', $endDateTime)
-                          ->whereRaw('DATE_ADD(start_time, INTERVAL duration MINUTE) > ?', [$startDateTime]);
-                    });
-                })
-                ->exists();
+            // Récupérer les cours qui pourraient entrer en conflit
+            $studentLessons = Lesson::where('student_id', $request->student_id)
+                ->where('start_time', '<', $endDateTime)
+                ->get();
+            
+            $studentConflict = false;
+            foreach ($studentLessons as $lesson) {
+                $lessonEndTime = Carbon::parse($lesson->start_time)->addMinutes($lesson->duration ?? 60);
+                if ($lessonEndTime > $startDateTime) {
+                    $studentConflict = true;
+                    break;
+                }
+            }
 
             if ($studentConflict) {
                 $conflicts[] = "L'élève a déjà un cours à cette heure";
@@ -270,11 +283,15 @@ class ClubPlanningController extends Controller
     public function getStatistics(Request $request): JsonResponse
     {
         $club = Club::findOrFail(Auth::user()->club_id);
+        $clubId = $club->id;
         $startDate = $request->get('start_date', Carbon::now()->startOfWeek()->format('Y-m-d'));
         $endDate = $request->get('end_date', Carbon::now()->endOfWeek()->format('Y-m-d'));
 
         // Récupérer les créneaux ouverts
-        $openSlots = $club->openSlots()->with('courseTypes')->where('is_active', true)->get();
+        $openSlots = ClubOpenSlot::where('club_id', $clubId)
+            ->with('courseTypes')
+            ->where('is_active', true)
+            ->get();
 
         // Récupérer les cours de la période
         $lessons = Lesson::where('club_id', $clubId)
