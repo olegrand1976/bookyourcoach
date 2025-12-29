@@ -100,12 +100,6 @@
                   </svg>
                   Historique complet
                 </button>
-                <button 
-                  v-if="selectedSlot"
-                  @click="resetSlotSelection"
-                  class="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                  Voir tous les cours
-                </button>
               </div>
             </div>
 
@@ -2641,13 +2635,6 @@ async function onDateChange() {
   
   // Recharger les cours si nécessaire pour couvrir la nouvelle date
   await checkAndReloadLessonsIfNeeded(newDate)
-}
-
-// Réinitialiser la sélection de créneau et de date
-function resetSlotSelection() {
-  selectedSlot.value = null
-  selectedDate.value = null
-  selectedDateInput.value = ''
 }
 
 // Formater une date pour l'input (YYYY-MM-DD)
