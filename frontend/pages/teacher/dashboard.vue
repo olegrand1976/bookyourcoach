@@ -920,26 +920,50 @@ function modifyReplacementRequest(lesson: any, replacement: any) {
 
 // Fonction pour obtenir les noms des élèves d'un cours
 function getLessonStudentNames(lesson: any): string {
+  // Log pour déboguer
+  console.log('🔍 [getLessonStudentNames] Lesson data:', {
+    lesson_id: lesson.id,
+    has_students: !!lesson.students,
+    students_type: typeof lesson.students,
+    students_is_array: Array.isArray(lesson.students),
+    students_length: lesson.students?.length,
+    students_data: lesson.students,
+    has_student: !!lesson.student,
+    student_data: lesson.student,
+    student_id: lesson.student_id
+  })
+  
   // Vérifier d'abord la relation many-to-many (students)
   if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
     const names = lesson.students
-      .map((s: any) => s.user?.name || s.name || 'Sans nom')
-      .filter((name: string) => name !== 'Sans nom')
+      .map((s: any) => {
+        // Essayer plusieurs chemins pour obtenir le nom
+        const name = s.user?.name || s.name || (s.user && typeof s.user === 'string' ? s.user : null) || 'Sans nom'
+        return name
+      })
+      .filter((name: string) => name !== 'Sans nom' && name !== null && name !== undefined)
+    
     if (names.length > 0) {
+      console.log('✅ [getLessonStudentNames] Found names from students array:', names)
       return names.join(', ')
     }
   }
   
   // Sinon, vérifier la relation one-to-many (student)
-  if (lesson.student?.user?.name) {
-    return lesson.student.user.name
+  if (lesson.student) {
+    const studentName = lesson.student.user?.name || lesson.student.name || null
+    if (studentName) {
+      console.log('✅ [getLessonStudentNames] Found name from student object:', studentName)
+      return studentName
+    }
   }
   
-  // Fallback: vérifier d'autres sources possibles
-  if (lesson.student?.name) {
-    return lesson.student.name
+  // Fallback: vérifier student_id et essayer de récupérer le nom depuis d'autres sources
+  if (lesson.student_id && !lesson.student && (!lesson.students || lesson.students.length === 0)) {
+    console.warn('⚠️ [getLessonStudentNames] Lesson has student_id but no student/students data:', lesson.student_id)
   }
   
+  console.warn('❌ [getLessonStudentNames] No student name found for lesson:', lesson.id)
   return 'Sans élève'
 }
 

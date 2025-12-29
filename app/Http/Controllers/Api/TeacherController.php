@@ -182,12 +182,14 @@ class TeacherController extends Controller
                                 'id' => $s->id,
                                 'user' => [
                                     'id' => null,
-                                    'name' => $s->name,
-                                    'email' => $s->email
+                                    'name' => $s->name ?? 'Sans nom',
+                                    'email' => $s->email ?? ''
                                 ],
                                 'age' => $age
                             ];
-                        });
+                        })
+                        ->values() // Réindexer le tableau pour s'assurer que c'est un tableau JSON valide
+                        ->toArray();
                     
                     // Construire l'objet student si student_id existe et student_name n'est pas vide
                     $studentObj = null;
@@ -201,7 +203,19 @@ class TeacherController extends Controller
                         ];
                     }
                     
-                    return [
+                    // Si aucun élève dans la relation many-to-many mais qu'on a un student_id, l'ajouter aussi
+                    if (empty($lessonStudents) && $lesson->student_id && $lesson->student_name) {
+                        $lessonStudents[] = [
+                            'id' => $lesson->student_id,
+                            'user' => [
+                                'id' => null,
+                                'name' => $lesson->student_name
+                            ],
+                            'age' => null
+                        ];
+                    }
+                    
+                    $result = [
                         'id' => $lesson->id,
                         'teacher_id' => $lesson->teacher_id,
                         'student_id' => $lesson->student_id,
@@ -214,7 +228,7 @@ class TeacherController extends Controller
                         'price' => $lesson->price,
                         'notes' => $lesson->notes,
                         'student' => $studentObj,
-                        'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
+                        'students' => $lessonStudents, // Tableau d'élèves de la relation many-to-many
                         'course_type' => $lesson->course_type_id ? [
                             'id' => $lesson->course_type_id,
                             'name' => $lesson->course_type_name
@@ -228,9 +242,22 @@ class TeacherController extends Controller
                             'name' => $lesson->club_name
                         ] : null
                     ];
+                    
+                    // Log pour déboguer
+                    Log::debug('Lesson data structure', [
+                        'lesson_id' => $lesson->id,
+                        'student_id' => $lesson->student_id,
+                        'student_name' => $lesson->student_name,
+                        'students_count' => count($lessonStudents),
+                        'students_data' => $lessonStudents,
+                        'student_obj' => $studentObj
+                    ]);
+                    
+                    return $result;
                 });
             
-            $upcomingLessons = $upcomingLessonsRaw;
+            // Convertir en collection puis en tableau pour une meilleure sérialisation
+            $upcomingLessons = collect($upcomingLessonsRaw);
 
             // Cours récents uniquement si la période inclut le passé
             // Utiliser la même approche optimisée avec JOINs
@@ -284,12 +311,14 @@ class TeacherController extends Controller
                                     'id' => $s->id,
                                     'user' => [
                                         'id' => null,
-                                        'name' => $s->name,
-                                        'email' => $s->email
+                                        'name' => $s->name ?? 'Sans nom',
+                                        'email' => $s->email ?? ''
                                     ],
                                     'age' => $age
                                 ];
-                            });
+                            })
+                            ->values() // Réindexer le tableau pour s'assurer que c'est un tableau JSON valide
+                            ->toArray();
                         
                         // Construire l'objet student si student_id existe et student_name n'est pas vide
                         $studentObj = null;
@@ -300,6 +329,18 @@ class TeacherController extends Controller
                                     'id' => null,
                                     'name' => $lesson->student_name
                                 ]
+                            ];
+                        }
+                        
+                        // Si aucun élève dans la relation many-to-many mais qu'on a un student_id, l'ajouter aussi
+                        if (empty($lessonStudents) && $lesson->student_id && $lesson->student_name) {
+                            $lessonStudents[] = [
+                                'id' => $lesson->student_id,
+                                'user' => [
+                                    'id' => null,
+                                    'name' => $lesson->student_name
+                                ],
+                                'age' => null
                             ];
                         }
                         
@@ -316,7 +357,7 @@ class TeacherController extends Controller
                             'price' => $lesson->price,
                             'notes' => $lesson->notes,
                             'student' => $studentObj,
-                            'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
+                            'students' => $lessonStudents, // Tableau d'élèves de la relation many-to-many
                             'course_type' => $lesson->course_type_id ? [
                                 'id' => $lesson->course_type_id,
                                 'name' => $lesson->course_type_name
@@ -332,7 +373,8 @@ class TeacherController extends Controller
                         ];
                     });
                 
-                $recentLessons = $recentLessonsRaw;
+                // Convertir en collection puis en tableau pour une meilleure sérialisation
+                $recentLessons = collect($recentLessonsRaw);
             }
 
             // Clubs de l'enseignant avec seulement les colonnes nécessaires pour optimiser
@@ -350,6 +392,27 @@ class TeacherController extends Controller
             })
             ->where('status', 'pending')
             ->count();
+
+            // Convertir les collections en tableaux pour une sérialisation JSON correcte
+            $upcomingLessonsArray = $upcomingLessons->map(function($lesson) {
+                return is_array($lesson) ? $lesson : (array) $lesson;
+            })->values()->toArray();
+            
+            $recentLessonsArray = $recentLessons->map(function($lesson) {
+                return is_array($lesson) ? $lesson : (array) $lesson;
+            })->values()->toArray();
+            
+            // Log pour vérifier la structure des données
+            if (count($upcomingLessonsArray) > 0) {
+                Log::info('📊 [Dashboard] First lesson structure', [
+                    'lesson_id' => $upcomingLessonsArray[0]['id'] ?? 'N/A',
+                    'has_student' => isset($upcomingLessonsArray[0]['student']),
+                    'has_students' => isset($upcomingLessonsArray[0]['students']),
+                    'students_count' => count($upcomingLessonsArray[0]['students'] ?? []),
+                    'students_data' => $upcomingLessonsArray[0]['students'] ?? [],
+                    'student_obj' => $upcomingLessonsArray[0]['student'] ?? null
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -377,9 +440,9 @@ class TeacherController extends Controller
                             ]
                         ]
                     ],
-                    'upcoming_lessons' => $upcomingLessons,
-                    'recent_lessons' => $recentLessons,
-                    'clubs' => $clubs,
+                    'upcoming_lessons' => $upcomingLessonsArray,
+                    'recent_lessons' => $recentLessonsArray,
+                    'clubs' => $clubs->toArray(),
                     'teacher' => $teacher->load('user')
                 ]
             ]);
