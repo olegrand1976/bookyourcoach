@@ -178,9 +178,9 @@ class TeacherController extends Controller
                                 $age = \Carbon\Carbon::parse($s->date_of_birth)->age;
                             }
                             
-                            return (object) [
+                            return [
                                 'id' => $s->id,
-                                'user' => (object) [
+                                'user' => [
                                     'id' => null,
                                     'name' => $s->name,
                                     'email' => $s->email
@@ -189,7 +189,19 @@ class TeacherController extends Controller
                             ];
                         });
                     
-                    return (object) [
+                    // Construire l'objet student si student_id existe et student_name n'est pas vide
+                    $studentObj = null;
+                    if ($lesson->student_id && $lesson->student_name) {
+                        $studentObj = [
+                            'id' => $lesson->student_id,
+                            'user' => [
+                                'id' => null,
+                                'name' => $lesson->student_name
+                            ]
+                        ];
+                    }
+                    
+                    return [
                         'id' => $lesson->id,
                         'teacher_id' => $lesson->teacher_id,
                         'student_id' => $lesson->student_id,
@@ -201,20 +213,17 @@ class TeacherController extends Controller
                         'status' => $lesson->status,
                         'price' => $lesson->price,
                         'notes' => $lesson->notes,
-                        'student' => $lesson->student_id ? (object) [
-                            'id' => $lesson->student_id,
-                            'user' => (object) ['id' => null, 'name' => $lesson->student_name]
-                        ] : null,
+                        'student' => $studentObj,
                         'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
-                        'course_type' => $lesson->course_type_id ? (object) [
+                        'course_type' => $lesson->course_type_id ? [
                             'id' => $lesson->course_type_id,
                             'name' => $lesson->course_type_name
                         ] : null,
-                        'location' => $lesson->location_id ? (object) [
+                        'location' => $lesson->location_id ? [
                             'id' => $lesson->location_id,
                             'name' => $lesson->location_name
                         ] : null,
-                        'club' => $lesson->club_id ? (object) [
+                        'club' => $lesson->club_id ? [
                             'id' => $lesson->club_id,
                             'name' => $lesson->club_name
                         ] : null
@@ -271,9 +280,9 @@ class TeacherController extends Controller
                                     $age = \Carbon\Carbon::parse($s->date_of_birth)->age;
                                 }
                                 
-                                return (object) [
+                                return [
                                     'id' => $s->id,
-                                    'user' => (object) [
+                                    'user' => [
                                         'id' => null,
                                         'name' => $s->name,
                                         'email' => $s->email
@@ -282,7 +291,19 @@ class TeacherController extends Controller
                                 ];
                             });
                         
-                        return (object) [
+                        // Construire l'objet student si student_id existe et student_name n'est pas vide
+                        $studentObj = null;
+                        if ($lesson->student_id && $lesson->student_name) {
+                            $studentObj = [
+                                'id' => $lesson->student_id,
+                                'user' => [
+                                    'id' => null,
+                                    'name' => $lesson->student_name
+                                ]
+                            ];
+                        }
+                        
+                        return [
                             'id' => $lesson->id,
                             'teacher_id' => $lesson->teacher_id,
                             'student_id' => $lesson->student_id,
@@ -294,20 +315,17 @@ class TeacherController extends Controller
                             'status' => $lesson->status,
                             'price' => $lesson->price,
                             'notes' => $lesson->notes,
-                            'student' => $lesson->student_id ? (object) [
-                                'id' => $lesson->student_id,
-                                'user' => (object) ['id' => null, 'name' => $lesson->student_name]
-                            ] : null,
+                            'student' => $studentObj,
                             'students' => $lessonStudents->toArray(), // Ajouter les élèves de la relation many-to-many
-                            'course_type' => $lesson->course_type_id ? (object) [
+                            'course_type' => $lesson->course_type_id ? [
                                 'id' => $lesson->course_type_id,
                                 'name' => $lesson->course_type_name
                             ] : null,
-                            'location' => $lesson->location_id ? (object) [
+                            'location' => $lesson->location_id ? [
                                 'id' => $lesson->location_id,
                                 'name' => $lesson->location_name
                             ] : null,
-                            'club' => $lesson->club_id ? (object) [
+                            'club' => $lesson->club_id ? [
                                 'id' => $lesson->club_id,
                                 'name' => $lesson->club_name
                             ] : null
