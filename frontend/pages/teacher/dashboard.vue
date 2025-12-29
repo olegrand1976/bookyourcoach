@@ -739,13 +739,21 @@ async function loadData() {
         
         // Log pour déboguer les données des élèves
         if (lessons.value.length > 0) {
+          const firstLesson = lessons.value[0]
           console.log('🔍 [DEBUG] Premier cours chargé:', {
-            lesson_id: lessons.value[0].id,
-            has_student: !!lessons.value[0].student,
-            student_data: lessons.value[0].student,
-            has_students: !!lessons.value[0].students,
-            students_data: lessons.value[0].students,
-            student_names: getLessonStudentNames(lessons.value[0])
+            lesson_id: firstLesson.id,
+            student_id: firstLesson.student_id,
+            has_student: !!firstLesson.student,
+            student_data: firstLesson.student,
+            student_data_type: typeof firstLesson.student,
+            has_students: !!firstLesson.students,
+            students_is_array: Array.isArray(firstLesson.students),
+            students_type: typeof firstLesson.students,
+            students_length: firstLesson.students?.length,
+            students_data: firstLesson.students,
+            students_json: JSON.stringify(firstLesson.students),
+            student_names: getLessonStudentNames(firstLesson),
+            full_lesson: firstLesson
           })
         }
         
