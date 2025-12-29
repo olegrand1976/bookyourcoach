@@ -679,7 +679,7 @@ const closeSlotConflictModal = () => {
 const onLessonCancelled = async (lessonIds: number[]) => {
   console.log('🗑️ Cours annulé(s):', lessonIds)
   // Recharger les cours existants pour mettre à jour les heures disponibles
-  if (props.form.date) {
+  if (props.form.date && typeof loadExistingLessons === 'function') {
     await loadExistingLessons(props.form.date)
   }
   // Fermer la modale de conflit
@@ -1003,7 +1003,9 @@ const loadingLessons = ref(false)
 
 // Fonction pour charger les cours existants pour une date donnée
 async function loadExistingLessons(date: string) {
-  if (!date || !props.selectedSlot) {
+  // En mode édition, on peut charger les cours même sans selectedSlot (on utilise currentSelectedSlot)
+  const hasSlot = props.selectedSlot || (props.editingLesson && currentSelectedSlot.value)
+  if (!date || !hasSlot) {
     existingLessons.value = []
     return
   }
@@ -1295,8 +1297,12 @@ watch(() => props.form.date, async (newDate, oldDate) => {
 
 // Watcher pour charger les cours existants quand la date change
 watch(() => props.form.date, async (newDate, oldDate) => {
-  if (newDate && (currentSelectedSlot.value || props.editingLesson)) {
-    await loadExistingLessons(newDate)
+  if (newDate && (currentSelectedSlot.value || props.editingLesson || props.selectedSlot)) {
+    if (typeof loadExistingLessons === 'function') {
+      await loadExistingLessons(newDate)
+    } else {
+      console.error('❌ [CreateLessonModal] loadExistingLessons n\'est pas définie')
+    }
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
     // En mode édition, ne pas changer l'heure si elle est déjà définie et disponible
@@ -1378,7 +1384,11 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
 watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value], async ([newSlot, newCurrentSlot, newSlotId]) => {
   const slotToUse = props.editingLesson ? newCurrentSlot : newSlot
   if (slotToUse && props.form.date) {
-    await loadExistingLessons(props.form.date)
+    if (typeof loadExistingLessons === 'function') {
+      await loadExistingLessons(props.form.date)
+    } else {
+      console.error('❌ [CreateLessonModal] loadExistingLessons n\'est pas définie')
+    }
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
     
@@ -1417,10 +1427,14 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
 
 // Watcher pour recharger les cours quand la durée change (pour recalculer les heures disponibles)
 watch(() => props.form.duration, async () => {
-  if (props.form.date && props.selectedSlot && props.form.course_type_id) {
+  if (props.form.date && (props.selectedSlot || (props.editingLesson && currentSelectedSlot.value)) && props.form.course_type_id) {
     // Les heures disponibles sont recalculées automatiquement via le computed
     // Mais on peut recharger les cours si nécessaire
-    await loadExistingLessons(props.form.date)
+    if (typeof loadExistingLessons === 'function') {
+      await loadExistingLessons(props.form.date)
+    } else {
+      console.error('❌ [CreateLessonModal] loadExistingLessons n\'est pas définie')
+    }
     // Attendre que le computed availableTimes soit recalculé
     await nextTick()
     // Auto-sélectionner la première heure disponible (toujours, car la durée a changé)

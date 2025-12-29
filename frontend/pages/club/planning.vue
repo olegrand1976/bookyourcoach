@@ -1853,8 +1853,6 @@ async function openEditLessonModal(lesson: Lesson) {
     
     // La modale CreateLessonModal chargera automatiquement les cours existants
     // via ses watchers quand elle sera montée, donc pas besoin de charger ici
-    await nextTick()
-    console.log('✅ [openEditLessonModal] Modale ouverte, cours existants seront chargés par la modale')
   }
   
   // Remplir les autres champs
