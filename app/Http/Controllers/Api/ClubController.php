@@ -780,9 +780,10 @@ class ClubController extends Controller
                 'students.user_id',
                 'students.first_name as student_first_name',
                 'students.last_name as student_last_name',
+                'students.phone as student_phone',
                 'users.name',
                 'users.email',
-                'users.phone',
+                'users.phone as user_phone',
                 'users.first_name',
                 'users.last_name',
                 'students.date_of_birth',
@@ -839,6 +840,11 @@ class ClubController extends Controller
                     } else {
                         $student->name = null;
                     }
+                    
+                    // Gérer le téléphone : utiliser user_phone si disponible, sinon student_phone
+                    // Renommer pour retourner simplement 'phone'
+                    $student->phone = $student->user_phone ?? $student->student_phone ?? null;
+                    unset($student->user_phone, $student->student_phone);
                     
                     return $student;
                 });
