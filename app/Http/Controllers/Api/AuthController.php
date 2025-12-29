@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
+use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Models\Club;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -28,10 +29,8 @@ class AuthController extends Controller
                 'lowercase',
                 'email',
                 'max:255',
-                // Vérifier l'unicité uniquement pour le rôle spécifié
-                Rule::unique('users')->where(function ($query) use ($request) {
-                    return $query->where('role', $request->role);
-                }),
+                // Vérifier l'unicité globale de l'email dans toute la table users
+                Rule::unique('users', 'email'),
             ],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'string', 'in:admin,teacher,student,club'],
