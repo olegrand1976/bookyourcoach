@@ -564,7 +564,8 @@ class StudentController extends Controller
             if (isset($validated['first_name'])) $studentData['first_name'] = $validated['first_name'];
             if (isset($validated['last_name'])) $studentData['last_name'] = $validated['last_name'];
             if (isset($validated['date_of_birth'])) $studentData['date_of_birth'] = $validated['date_of_birth'];
-            // Gérer le téléphone : accepter les chaînes vides pour permettre l'effacement
+            // Gérer le téléphone : synchroniser avec users.phone pour éviter les incohérences
+            // Toujours mettre à jour students.phone si phone est fourni dans la requête
             if (array_key_exists('phone', $validated)) {
                 $phoneValue = $validated['phone'];
                 // Convertir les chaînes vides en null pour la base de données
