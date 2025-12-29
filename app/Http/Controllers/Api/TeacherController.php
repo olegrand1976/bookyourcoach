@@ -162,8 +162,22 @@ class TeacherController extends Controller
                 )
                 ->orderBy('lessons.start_time', 'asc')
                 ->limit(100)
-                ->get()
-                ->map(function ($lesson) {
+                ->get();
+            
+            // Récupérer tous les student_ids uniques pour charger les données en une seule requête
+            $studentIds = $upcomingLessonsRaw->pluck('student_id')->filter()->unique()->values()->toArray();
+            $studentsData = [];
+            if (!empty($studentIds)) {
+                $studentsData = \Illuminate\Support\Facades\DB::table('students')
+                    ->join('users', 'students.user_id', '=', 'users.id')
+                    ->whereIn('students.id', $studentIds)
+                    ->select('students.id', 'users.name', 'users.email', 'students.date_of_birth')
+                    ->get()
+                    ->keyBy('id')
+                    ->toArray();
+            }
+            
+            $upcomingLessonsRaw = $upcomingLessonsRaw->map(function ($lesson) use ($studentsData) {
                     // Charger les élèves de la relation many-to-many
                     $lessonStudents = \Illuminate\Support\Facades\DB::table('lesson_student')
                         ->join('students', 'lesson_student.student_id', '=', 'students.id')
@@ -191,27 +205,54 @@ class TeacherController extends Controller
                         ->values() // Réindexer le tableau pour s'assurer que c'est un tableau JSON valide
                         ->toArray();
                     
-                    // Construire l'objet student si student_id existe et student_name n'est pas vide
+                    // Construire l'objet student si student_id existe
                     $studentObj = null;
-                    if ($lesson->student_id && $lesson->student_name) {
-                        $studentObj = [
-                            'id' => $lesson->student_id,
-                            'user' => [
-                                'id' => null,
-                                'name' => $lesson->student_name
-                            ]
-                        ];
+                    $studentName = null;
+                    $studentDataForAge = null;
+                    
+                    if ($lesson->student_id) {
+                        // Si student_name est disponible depuis le JOIN, l'utiliser
+                        if ($lesson->student_name) {
+                            $studentName = $lesson->student_name;
+                            // Essayer de récupérer les données pour l'âge depuis les données pré-chargées
+                            if (isset($studentsData[$lesson->student_id])) {
+                                $studentDataForAge = $studentsData[$lesson->student_id];
+                            }
+                        } else {
+                            // Sinon, utiliser les données pré-chargées
+                            if (isset($studentsData[$lesson->student_id])) {
+                                $studentDataForAge = $studentsData[$lesson->student_id];
+                                $studentName = $studentDataForAge->name ?? null;
+                            }
+                        }
+                        
+                        // Construire l'objet student si on a un nom
+                        if ($studentName) {
+                            $studentObj = [
+                                'id' => $lesson->student_id,
+                                'user' => [
+                                    'id' => null,
+                                    'name' => $studentName
+                                ]
+                            ];
+                        }
                     }
                     
-                    // Si aucun élève dans la relation many-to-many mais qu'on a un student_id, l'ajouter aussi
-                    if (empty($lessonStudents) && $lesson->student_id && $lesson->student_name) {
+                    // Si aucun élève dans la relation many-to-many mais qu'on a un student_id avec un nom, l'ajouter aussi
+                    if (empty($lessonStudents) && $lesson->student_id && $studentName) {
+                        // Calculer l'âge si possible
+                        $age = null;
+                        if ($studentDataForAge && isset($studentDataForAge->date_of_birth) && $studentDataForAge->date_of_birth) {
+                            $age = \Carbon\Carbon::parse($studentDataForAge->date_of_birth)->age;
+                        }
+                        
                         $lessonStudents[] = [
                             'id' => $lesson->student_id,
                             'user' => [
                                 'id' => null,
-                                'name' => $lesson->student_name
+                                'name' => $studentName
                             ],
-                            'age' => null
+                            'age' => $age
                         ];
                     }
                     
@@ -291,8 +332,22 @@ class TeacherController extends Controller
                     )
                     ->orderBy('lessons.start_time', 'desc')
                     ->limit(20)
-                    ->get()
-                    ->map(function ($lesson) {
+                    ->get();
+                
+                // Récupérer tous les student_ids uniques pour charger les données en une seule requête
+                $recentStudentIds = $recentLessonsRaw->pluck('student_id')->filter()->unique()->values()->toArray();
+                $recentStudentsData = [];
+                if (!empty($recentStudentIds)) {
+                    $recentStudentsData = \Illuminate\Support\Facades\DB::table('students')
+                        ->join('users', 'students.user_id', '=', 'users.id')
+                        ->whereIn('students.id', $recentStudentIds)
+                        ->select('students.id', 'users.name', 'users.email', 'students.date_of_birth')
+                        ->get()
+                        ->keyBy('id')
+                        ->toArray();
+                }
+                
+                $recentLessonsRaw = $recentLessonsRaw->map(function ($lesson) use ($recentStudentsData) {
                         // Charger les élèves de la relation many-to-many
                         $lessonStudents = \Illuminate\Support\Facades\DB::table('lesson_student')
                             ->join('students', 'lesson_student.student_id', '=', 'students.id')
@@ -320,27 +375,54 @@ class TeacherController extends Controller
                             ->values() // Réindexer le tableau pour s'assurer que c'est un tableau JSON valide
                             ->toArray();
                         
-                        // Construire l'objet student si student_id existe et student_name n'est pas vide
+                        // Construire l'objet student si student_id existe
                         $studentObj = null;
-                        if ($lesson->student_id && $lesson->student_name) {
-                            $studentObj = [
-                                'id' => $lesson->student_id,
-                                'user' => [
-                                    'id' => null,
-                                    'name' => $lesson->student_name
-                                ]
-                            ];
+                        $studentName = null;
+                        $studentDataForAge = null;
+                        
+                        if ($lesson->student_id) {
+                            // Si student_name est disponible depuis le JOIN, l'utiliser
+                            if ($lesson->student_name) {
+                                $studentName = $lesson->student_name;
+                                // Essayer de récupérer les données pour l'âge depuis les données pré-chargées
+                                if (isset($recentStudentsData[$lesson->student_id])) {
+                                    $studentDataForAge = $recentStudentsData[$lesson->student_id];
+                                }
+                            } else {
+                                // Sinon, utiliser les données pré-chargées
+                                if (isset($recentStudentsData[$lesson->student_id])) {
+                                    $studentDataForAge = $recentStudentsData[$lesson->student_id];
+                                    $studentName = $studentDataForAge->name ?? null;
+                                }
+                            }
+                            
+                            // Construire l'objet student si on a un nom
+                            if ($studentName) {
+                                $studentObj = [
+                                    'id' => $lesson->student_id,
+                                    'user' => [
+                                        'id' => null,
+                                        'name' => $studentName
+                                    ]
+                                ];
+                            }
                         }
                         
-                        // Si aucun élève dans la relation many-to-many mais qu'on a un student_id, l'ajouter aussi
-                        if (empty($lessonStudents) && $lesson->student_id && $lesson->student_name) {
+                        // Si aucun élève dans la relation many-to-many mais qu'on a un student_id avec un nom, l'ajouter aussi
+                        if (empty($lessonStudents) && $lesson->student_id && $studentName) {
+                            // Calculer l'âge si possible
+                            $age = null;
+                            if ($studentDataForAge && isset($studentDataForAge->date_of_birth) && $studentDataForAge->date_of_birth) {
+                                $age = \Carbon\Carbon::parse($studentDataForAge->date_of_birth)->age;
+                            }
+                            
                             $lessonStudents[] = [
                                 'id' => $lesson->student_id,
                                 'user' => [
                                     'id' => null,
-                                    'name' => $lesson->student_name
+                                    'name' => $studentName
                                 ],
-                                'age' => null
+                                'age' => $age
                             ];
                         }
                         
