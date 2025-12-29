@@ -208,9 +208,6 @@ class LessonController extends Controller
             // Si date_from ET date_to sont fournis, ne pas limiter (on filtre par période)
             // Sinon, appliquer une limite par défaut
             $hasDateRange = $request->has('date_from') && $request->has('date_to');
-            $limit = $hasDateRange 
-                ? null // Pas de limite si on a une plage de dates complète
-                : min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
             $offset = max($request->get('offset', 0), 0); // Support de la pagination
             
             // Compter le total avant pagination (pour l'historique complet)
@@ -218,12 +215,21 @@ class LessonController extends Controller
             
             // ✅ Tri DESC (du plus récent au plus ancien) pour l'historique, ASC pour les cours à venir
             $orderDirection = $request->get('order', 'asc'); // 'asc' par défaut, 'desc' pour l'historique
-            $lessonsQuery = $query->orderBy('start_time', $orderDirection)
-                ->offset($offset);
+            $lessonsQuery = $query->orderBy('start_time', $orderDirection);
             
-            // Appliquer la limite seulement si elle est définie
-            if ($limit !== null) {
-                $lessonsQuery->limit($limit);
+            // Appliquer offset et limit seulement si nécessaire
+            if ($hasDateRange) {
+                // Pas de limite si on a une plage de dates complète (filtrage par période uniquement)
+                // Si offset est demandé, on l'applique quand même (pour la pagination)
+                if ($offset > 0) {
+                    // Pour éviter les problèmes avec offset sans limit, on applique une limite très élevée
+                    $lessonsQuery->offset($offset)->limit(10000);
+                }
+                // Sinon, pas de limite ni d'offset, on récupère tout
+            } else {
+                // Limite par défaut si pas de plage de dates
+                $limit = min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
+                $lessonsQuery->offset($offset)->limit($limit);
             }
             
             $lessons = $lessonsQuery->get()
