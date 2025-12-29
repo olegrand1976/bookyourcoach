@@ -767,13 +767,6 @@ async function loadData() {
     
     allReplacements.value = replacementsResponse.data.data || []
     availableTeachers.value = teachersResponse.data.data || []
-
-    // Données chargées
-      lessons: lessons.value.length,
-      clubs: clubs.value.length,
-      replacements: allReplacements.value.length,
-      teachers: availableTeachers.value.length
-    })
   } catch (error) {
     console.error('❌ Erreur lors du chargement des données:', error)
   } finally {
