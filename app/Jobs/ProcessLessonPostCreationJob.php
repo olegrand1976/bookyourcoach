@@ -245,21 +245,25 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             try {
                 $legacyService = new \App\Services\LegacyRecurringSlotService();
                 // ⚠️ IMPORTANT : Utiliser la date du cours créé comme point de départ
-                // Si le cours est dans le passé, générer à partir de la semaine suivante
-                // Si le cours est dans le futur, générer à partir de la semaine suivante du cours
+                // Si le cours est dans le passé, générer à partir de la période suivante selon l'intervalle
+                // Si le cours est dans le futur, générer à partir de la période suivante du cours selon l'intervalle
                 $lessonDate = Carbon::parse($this->lesson->start_time);
+                // Utiliser l'intervalle de récurrence pour calculer la prochaine date
+                $intervalWeeks = $this->recurringInterval ?? 1;
                 if ($lessonDate->isPast()) {
-                    // Cours passé : générer à partir de la semaine suivante
-                    $startDate = $lessonDate->copy()->addWeek();
+                    // Cours passé : générer à partir de la période suivante selon l'intervalle
+                    $startDate = $lessonDate->copy()->addWeeks($intervalWeeks);
                 } else {
-                    // Cours futur : générer à partir de la semaine suivante du cours
-                    $startDate = $lessonDate->copy()->addWeek();
+                    // Cours futur : générer à partir de la période suivante du cours selon l'intervalle
+                    $startDate = $lessonDate->copy()->addWeeks($intervalWeeks);
                 }
                 // endDate sera automatiquement limité à la fin de la récurrence dans le service
                 $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
                 
                 Log::info("✅ Cours générés automatiquement depuis créneau récurrent", [
                     'recurring_slot_id' => $recurringSlot->id,
+                    'recurring_interval' => $this->recurringInterval,
+                    'start_date' => $startDate->format('Y-m-d'),
                     'generated' => $stats['generated'],
                     'skipped' => $stats['skipped'],
                     'errors' => $stats['errors']

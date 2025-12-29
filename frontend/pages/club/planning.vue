@@ -559,6 +559,79 @@
         @close="closeCreateLessonModal"
         @submit="createLesson"
       />
+
+      <!-- Modale de confirmation pour la portée de la modification -->
+      <div v-if="showUpdateScopeModal" class="fixed inset-0 z-[60] overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 py-12">
+          <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" @click="showUpdateScopeModal = false"></div>
+          
+          <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+              Souhaitez-vous appliquer ce changement d'horaire uniquement à ce cours ou à tous les cours suivants de cet abonnement ?
+            </h3>
+            
+            <div v-if="futureLessonsCount > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-blue-800">
+                <strong>{{ futureLessonsCount }}</strong> cours futur(s) seront affectés si vous choisissez "Tous les cours suivants".
+              </p>
+            </div>
+            
+            <div v-else-if="futureLessonsCount === 0 && showUpdateScopeModal" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-yellow-800">
+                Aucun cours futur trouvé pour cet abonnement.
+              </p>
+            </div>
+            
+            <div class="flex flex-col gap-3 mb-6">
+              <button
+                @click="confirmUpdateSingleLesson"
+                class="flex items-center justify-between p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+              >
+                <div class="font-semibold">Ce cours uniquement</div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </button>
+              
+              <button
+                @click="confirmUpdateAllFutureLessons"
+                :disabled="futureLessonsCount === 0"
+                :class="[
+                  'flex items-center justify-between p-4 border-2 rounded-lg transition-colors',
+                  futureLessonsCount > 0
+                    ? 'border-green-300 hover:border-green-500 hover:bg-green-50'
+                    : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                ]"
+              >
+                <div>
+                  <div class="font-semibold">Tous les cours suivants</div>
+                  <div class="text-sm mt-1" :class="futureLessonsCount > 0 ? 'text-green-700' : 'text-gray-400'">
+                    {{ futureLessonsCount > 0 ? `Modifier ce cours et ${futureLessonsCount} cours futur(s)` : 'Aucun cours futur à modifier' }}
+                  </div>
+                </div>
+                <svg 
+                  v-if="futureLessonsCount > 0"
+                  class="w-5 h-5 text-green-500" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="flex justify-end">
+              <button
+                @click="showUpdateScopeModal = false"
+                class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -700,6 +773,12 @@ const lessonForm = ref({
   update_scope: 'single' as 'single' | 'all_future'
 })
 const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
+
+// Variables pour la modale de confirmation de modification
+const showUpdateScopeModal = ref(false)
+const futureLessonsCount = ref(0)
+const pendingUpdatePayload = ref<any>(null)
+const originalLessonTime = ref<{ date: string; time: string } | null>(null)
 
 const slotForm = ref({
   day_of_week: 1,
@@ -1821,12 +1900,20 @@ async function openEditLessonModal(lesson: Lesson) {
     // formatLessonTime retourne "HH:MM" depuis une chaîne datetime ISO
     const timeString = formatLessonTime(lesson.start_time)
     lessonForm.value.time = timeString
+    
+    // Sauvegarder l'horaire original pour détecter les changements
+    originalLessonTime.value = {
+      date: lessonForm.value.date,
+      time: lessonForm.value.time
+    }
+    
     console.log('📅 [openEditLessonModal] Date et heure extraites:', {
       date: lessonForm.value.date,
       time: lessonForm.value.time,
       start_time: lesson.start_time,
       dateTimeLocal: dateTime.toLocaleString('fr-FR'),
-      timeString: timeString
+      timeString: timeString,
+      originalTime: originalLessonTime.value
     })
     
     // Trouver le créneau correspondant au jour de la semaine pour charger les heures disponibles
@@ -1901,6 +1988,11 @@ function closeEditLessonModal() {
   editingLesson.value = null
   selectedSlotForLesson.value = null
   showCreateLessonModal.value = false
+  // Réinitialiser les variables de confirmation
+  showUpdateScopeModal.value = false
+  pendingUpdatePayload.value = null
+  futureLessonsCount.value = 0
+  originalLessonTime.value = null
   // Réinitialiser le formulaire
   lessonForm.value = {
     teacher_id: null,
@@ -2102,6 +2194,157 @@ async function createLesson() {
   }
 }
 
+// Vérifier si l'horaire a changé
+function hasTimeChanged(): boolean {
+  if (!editingLesson.value || !originalLessonTime.value) return false
+  
+  return lessonForm.value.date !== originalLessonTime.value.date || 
+         lessonForm.value.time !== originalLessonTime.value.time
+}
+
+// Charger le nombre de cours futurs de l'abonnement
+async function loadFutureLessonsCount() {
+  if (!editingLesson.value) {
+    futureLessonsCount.value = 0
+    return
+  }
+  
+  const lesson = editingLesson.value as any
+  const subscriptionInstances = lesson.subscription_instances || 
+                                lesson.student?.subscription_instances ||
+                                (lesson.students && lesson.students.length > 0 ? lesson.students[0].subscription_instances : null)
+  
+  console.log('🔍 [loadFutureLessonsCount] Début du chargement', {
+    hasLesson: !!editingLesson.value,
+    hasSubscriptionInstances: !!subscriptionInstances,
+    subscriptionInstancesCount: subscriptionInstances?.length || 0
+  })
+  
+  if (!subscriptionInstances || subscriptionInstances.length === 0) {
+    console.log('⚠️ [loadFutureLessonsCount] Aucune instance d\'abonnement trouvée')
+    futureLessonsCount.value = 0
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const subscriptionInstanceId = subscriptionInstances[0].id
+    const currentLessonDate = new Date(editingLesson.value.start_time)
+    
+    console.log('📅 [loadFutureLessonsCount] Paramètres', {
+      subscriptionInstanceId,
+      currentLessonDate: currentLessonDate.toISOString().split('T')[0],
+      startTime: editingLesson.value.start_time
+    })
+    
+    // Récupérer les cours futurs de cet abonnement
+    const response = await $api.get(`/club/subscription-instances/${subscriptionInstanceId}/future-lessons`, {
+      params: {
+        after_date: currentLessonDate.toISOString().split('T')[0]
+      }
+    })
+    
+    console.log('✅ [loadFutureLessonsCount] Réponse API', {
+      success: response.data.success,
+      count: response.data.data?.count,
+      data: response.data.data
+    })
+    
+    if (response.data.success) {
+      futureLessonsCount.value = response.data.data?.count || 0
+      console.log('✅ [loadFutureLessonsCount] Nombre de cours futurs:', futureLessonsCount.value)
+    } else {
+      console.warn('⚠️ [loadFutureLessonsCount] Réponse non réussie:', response.data)
+      futureLessonsCount.value = 0
+    }
+  } catch (err: any) {
+    console.error('❌ [loadFutureLessonsCount] Erreur chargement cours futurs:', err)
+    console.error('❌ [loadFutureLessonsCount] Détails erreur:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    })
+    futureLessonsCount.value = 0
+  }
+}
+
+// Confirmer la mise à jour pour ce cours uniquement
+async function confirmUpdateSingleLesson() {
+  showUpdateScopeModal.value = false
+  lessonForm.value.update_scope = 'single'
+  await performUpdate(pendingUpdatePayload.value, 'single')
+}
+
+// Confirmer la mise à jour pour tous les cours futurs
+async function confirmUpdateAllFutureLessons() {
+  if (futureLessonsCount.value === 0) return
+  
+  showUpdateScopeModal.value = false
+  lessonForm.value.update_scope = 'all_future'
+  await performUpdate(pendingUpdatePayload.value, 'all_future')
+}
+
+// Effectuer la mise à jour
+async function performUpdate(updatePayload: any, scope: 'single' | 'all_future') {
+  if (!editingLesson.value) return
+  
+  try {
+    saving.value = true
+    const { $api } = useNuxtApp()
+    
+    // Ajouter le scope à la payload
+    const payloadWithScope = {
+      ...updatePayload,
+      update_scope: scope // 'single' ou 'all_future'
+    }
+    
+    // Inclure recurring_interval si la portée est 'all_future'
+    if (scope === 'all_future' && lessonForm.value.recurring_interval) {
+      payloadWithScope.recurring_interval = lessonForm.value.recurring_interval
+    }
+    
+    console.log('📤 Mise à jour du cours avec payload:', payloadWithScope)
+    
+    // Mettre à jour le cours
+    const response = await $api.put(`/lessons/${editingLesson.value.id}`, payloadWithScope)
+    
+    if (!response.data.success) {
+      showError(response.data.message || 'Erreur lors de la modification', 'Erreur')
+      return
+    }
+    
+    const message = scope === 'all_future' 
+      ? `Cours modifié avec succès. ${futureLessonsCount.value} cours futur(s) ont également été mis à jour.`
+      : 'Cours modifié avec succès'
+    
+    success(message, 'Succès')
+    
+    // Mettre à jour la relation abonnement si nécessaire
+    if (editingLesson.value.id) {
+      try {
+        await $api.put(`/lessons/${editingLesson.value.id}/subscription`, {
+          deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
+        })
+      } catch (subErr) {
+        console.warn('Erreur lors de la mise à jour de la relation abonnement:', subErr)
+      }
+    }
+    
+    await loadLessons()
+    closeEditLessonModal()
+    
+    // Réinitialiser les variables
+    pendingUpdatePayload.value = null
+    futureLessonsCount.value = 0
+    originalLessonTime.value = null
+  } catch (err: any) {
+    console.error('Erreur modification cours:', err)
+    showError(err.response?.data?.message || 'Erreur lors de la modification', 'Erreur')
+  } finally {
+    saving.value = false
+  }
+}
+
 // Mettre à jour un cours existant
 async function updateLesson() {
   if (!editingLesson.value || saving.value) return
@@ -2129,6 +2372,7 @@ async function updateLesson() {
     // Afficher les erreurs s'il y en a
     if (validationErrors.length > 0) {
       warning(validationErrors.join('\n'), 'Erreurs de validation')
+      saving.value = false
       return
     }
     
@@ -2170,13 +2414,7 @@ async function updateLesson() {
       price: typeof lessonForm.value.price === 'string' ? parseFloat(lessonForm.value.price) : lessonForm.value.price,
       notes: lessonForm.value.notes,
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
-      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
-      update_scope: lessonForm.value.update_scope || 'single' // Portée de la mise à jour pour les récurrences
-    }
-    
-    // Inclure recurring_interval si la portée est 'all_future'
-    if (lessonForm.value.update_scope === 'all_future' && lessonForm.value.recurring_interval) {
-      payload.recurring_interval = lessonForm.value.recurring_interval
+      deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
     }
     
     // Ajouter end_time seulement s'il est défini et valide (après start_time)
@@ -2195,34 +2433,24 @@ async function updateLesson() {
       }
     }
     
-    console.log('📤 Mise à jour du cours avec payload:', payload)
+    // Vérifier si le cours fait partie d'un abonnement et si l'horaire a changé
+    const lesson = editingLesson.value as any
+    const isPartOfSubscription = (lesson.subscription_instances && lesson.subscription_instances.length > 0) ||
+                                  (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) ||
+                                  (lesson.students && lesson.students.length > 0 && lesson.students[0].subscription_instances && lesson.students[0].subscription_instances.length > 0)
+    const timeChanged = hasTimeChanged()
     
-    const response = await $api.put(`/lessons/${editingLesson.value.id}`, payload)
-    
-    if (response.data.success) {
-      console.log('✅ Cours mis à jour:', response.data.data)
-      let successMessage = response.data.message || 'Cours modifié avec succès'
-      if (response.data.updated_future_lessons_count > 0) {
-        successMessage = `Cours modifié avec succès. ${response.data.updated_future_lessons_count} cours futur(s) ont également été mis à jour.`
-      }
-      success(successMessage, 'Succès')
-      
-      // Mettre à jour la relation abonnement si nécessaire
-      if (editingLesson.value.id) {
-        try {
-          await $api.put(`/lessons/${editingLesson.value.id}/subscription`, {
-            deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false
-          })
-        } catch (subErr) {
-          console.warn('Erreur lors de la mise à jour de la relation abonnement:', subErr)
-        }
-      }
-      
-      await loadLessons()
-      closeEditLessonModal()
-    } else {
-      showError(response.data.message || 'Erreur lors de la modification du cours', 'Erreur')
+    // Si le cours fait partie d'un abonnement et que l'horaire a changé, demander confirmation
+    if (isPartOfSubscription && timeChanged) {
+      pendingUpdatePayload.value = payload
+      await loadFutureLessonsCount()
+      showUpdateScopeModal.value = true
+      saving.value = false
+      return
     }
+    
+    // Sinon, mettre à jour directement
+    await performUpdate(payload, lessonForm.value.update_scope || 'single')
   } catch (err: any) {
     console.error('Erreur modification cours:', err)
     
@@ -2248,7 +2476,6 @@ async function updateLesson() {
     }
     
     showError(errorMessage, 'Erreur de modification')
-  } finally {
     saving.value = false
   }
 }

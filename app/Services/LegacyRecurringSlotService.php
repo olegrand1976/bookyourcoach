@@ -37,12 +37,14 @@ class LegacyRecurringSlotService
             ->first();
         
         if ($lastLesson) {
-            // Commencer à partir de la semaine suivant le dernier cours créé
-            $defaultStartDate = Carbon::parse($lastLesson->start_time)->addWeek();
+            // Commencer à partir de la période suivante selon l'intervalle de récurrence
+            $recurringInterval = $recurringSlot->recurring_interval ?? 1;
+            $defaultStartDate = Carbon::parse($lastLesson->start_time)->addWeeks($recurringInterval);
             Log::info("📅 Utilisation du dernier cours pour déterminer la date de début", [
                 'last_lesson_date' => $lastLesson->start_time,
                 'calculated_start_date' => $defaultStartDate->format('Y-m-d'),
-                'recurring_slot_id' => $recurringSlot->id
+                'recurring_slot_id' => $recurringSlot->id,
+                'recurring_interval' => $recurringInterval
             ]);
         } else {
             // Si aucun cours n'existe encore, utiliser la date de début de la récurrence
@@ -118,6 +120,7 @@ class LegacyRecurringSlotService
             'subscription_instance_id' => $subscriptionInstance->id,
             'day_of_week' => $recurringSlot->day_of_week,
             'start_time' => $recurringSlot->start_time,
+            'recurring_interval' => $recurringSlot->recurring_interval ?? 1,
         ]);
 
         // Générer les lessons pour chaque date valide
