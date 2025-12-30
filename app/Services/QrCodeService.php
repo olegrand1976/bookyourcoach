@@ -102,6 +102,19 @@ class QrCodeService
     }
 
     /**
+     * Regenerate QR code for a club (force new generation)
+     */
+    public function regenerateForClub(Club $club): string
+    {
+        // Force regeneration by clearing existing QR code
+        $club->qr_code = null;
+        $club->qr_code_generated_at = null;
+        $club->save();
+        
+        return $this->generateForClub($club);
+    }
+
+    /**
      * Create QR code data for club
      */
     public function createClubQrData(Club $club): array

@@ -140,6 +140,9 @@ definePageMeta({
 
 const { showToast } = useToast()
 
+// Récupérer l'instance $api injectée par le plugin
+const { $api } = useNuxtApp()
+
 // State
 const club = ref({})
 const qrCodeData = ref(null)
@@ -148,11 +151,10 @@ const isRegenerating = ref(false)
 // Methods
 const loadClubData = async () => {
   try {
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/club/dashboard`)
+    const response = await $api.get('/club/dashboard')
     
-    if (response.success && response.data && response.data.club) {
-      club.value = response.data.club
+    if (response.data.success && response.data.data && response.data.data.club) {
+      club.value = response.data.data.club
       await loadQRCode()
     }
   } catch (error) {
@@ -163,11 +165,10 @@ const loadClubData = async () => {
 
 const loadQRCode = async () => {
   try {
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/qr-code/club/${club.value.id}`)
+    const response = await $api.get(`/qr-code/club/${club.value.id}`)
     
-    if (response.success) {
-      qrCodeData.value = response.data
+    if (response.data.success) {
+      qrCodeData.value = response.data.data
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement du QR code:', error)
@@ -179,17 +180,16 @@ const regenerateQRCode = async () => {
   isRegenerating.value = true
   
   try {
-    // Force regeneration by clearing existing QR code
-    const config = useRuntimeConfig()
-    const response = await $fetch(`${config.public.apiBase}/qr-code/club/${club.value.id}`)
+    // Force regeneration via POST endpoint
+    const response = await $api.post(`/qr-code/club/${club.value.id}/regenerate`)
     
-    if (response.success) {
-      qrCodeData.value = response.data
-      showToast('QR code régénéré avec succès', 'success')
+    if (response.data.success) {
+      qrCodeData.value = response.data.data
+      showToast(response.data.message || 'QR code régénéré avec succès', 'success')
     }
   } catch (error) {
     console.error('❌ Erreur lors de la régénération du QR code:', error)
-    showToast('Erreur lors de la régénération du QR code', 'error')
+    showToast(error.response?.data?.message || 'Erreur lors de la régénération du QR code', 'error')
   } finally {
     isRegenerating.value = false
   }
