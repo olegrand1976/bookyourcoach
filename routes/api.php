@@ -179,6 +179,14 @@ Route::get('/clubs/public', function() {
 
 Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/dashboard', [ClubDashboardController::class, 'dashboard']);
+    Route::get('/qr-code', function(Request $request) {
+        $user = $request->user();
+        $club = $user->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+        }
+        return app(\App\Http\Controllers\Api\QrCodeController::class)->getClubQrCode($club->id);
+    });
     Route::get('/diagnose-columns', [ClubController::class, 'diagnoseColumns']); // Diagnostic
     Route::get('/profile', [ClubController::class, 'getProfile']);
     Route::put('/profile', [ClubController::class, 'updateProfile']);
@@ -271,6 +279,14 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
 // Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/course-types', [App\Http\Controllers\Api\CourseTypeController::class, 'index']);
+});
+
+// Routes QR Code - accessibles aux utilisateurs authentifiés
+Route::middleware(['auth:sanctum'])->prefix('qr-code')->group(function () {
+    Route::get('/user/{userId}', [App\Http\Controllers\Api\QrCodeController::class, 'getUserQrCode']);
+    Route::get('/club/{clubId}', [App\Http\Controllers\Api\QrCodeController::class, 'getClubQrCode']);
+    Route::post('/club/{clubId}/regenerate', [App\Http\Controllers\Api\QrCodeController::class, 'regenerateClubQrCode']);
+    Route::post('/scan', [App\Http\Controllers\Api\QrCodeController::class, 'scanQrCode']);
 });
 
 // Routes pour les cours (lessons) - accessibles aux clubs, enseignants et étudiants
