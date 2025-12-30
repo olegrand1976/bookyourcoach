@@ -14,6 +14,10 @@ BookYourCoach est une application web complète permettant aux clubs sportifs de
 
 ## 📖 Documentation par catégorie
 
+### 📚 Documentation Principale (Nouveau)
+- **[Documentation Fonctionnelle](DOCUMENTATION_FONCTIONNELLE.md)** ⭐ - Guide complet de toutes les fonctionnalités
+- **[Documentation Technique](DOCUMENTATION_TECHNIQUE.md)** ⭐ - Architecture, API, services, déploiement
+
 ### 🚀 Démarrage rapide
 - **[README principal](../README.md)** - Guide de démarrage rapide
 - **[Scripts](../scripts/README.md)** - Scripts utilitaires et tests
@@ -39,7 +43,9 @@ BookYourCoach est une application web complète permettant aux clubs sportifs de
 - **[Fonctionnalités enseignant](../mobile/FONCTIONNALITES-ENSEIGNANT.md)** - Fonctionnalités disponibles pour les enseignants
 
 ### 🏗️ Architecture technique
-- **[Documentation technique](TECHNICAL_DOCUMENTATION.md)** - Architecture détaillée du système
+- **[Documentation Technique Complète](DOCUMENTATION_TECHNIQUE.md)** - Architecture détaillée, API, services, déploiement
+- **[Documentation Fonctionnelle Complète](DOCUMENTATION_FONCTIONNELLE.md)** - Guide complet de toutes les fonctionnalités par rôle
+- **[Documentation technique](TECHNICAL_DOCUMENTATION.md)** - Architecture détaillée du système (ancienne version)
 
 ## 🛠️ Outils de développement
 
