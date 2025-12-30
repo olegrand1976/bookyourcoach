@@ -16,6 +16,8 @@ RUN apk add --no-cache \
     libzip-dev \
     icu-dev \
     oniguruma-dev \
+    imagemagick-dev \
+    imagemagick \
     autoconf \
     gcc \
     g++ \
@@ -33,9 +35,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         intl \
         bcmath
 
-# Installer l'extension phpredis
-RUN pecl install redis \
-    && docker-php-ext-enable redis
+# Installer les extensions PECL
+RUN pecl install redis imagick \
+    && docker-php-ext-enable redis imagick
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
