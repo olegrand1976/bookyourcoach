@@ -16,12 +16,16 @@ RUN apk add --no-cache \
     libzip-dev \
     icu-dev \
     oniguruma-dev \
-    imagemagick-dev \
     imagemagick \
     autoconf \
     gcc \
     g++ \
     make
+
+# Installer les dépendances de build pour imagick
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    imagemagick-dev
 
 # Installer les extensions PHP
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -37,7 +41,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 
 # Installer les extensions PECL
 RUN pecl install redis imagick \
-    && docker-php-ext-enable redis imagick
+    && docker-php-ext-enable redis imagick \
+    && apk del .build-deps \
+    && rm -rf /tmp/pear
 
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
