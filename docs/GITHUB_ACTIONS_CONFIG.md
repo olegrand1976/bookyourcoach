@@ -6,11 +6,6 @@ Pour que le pipeline CI/CD fonctionne correctement, vous devez configurer les se
 
 ### Secrets de Déploiement
 
-#### Staging
-- `STAGING_HOST` - Adresse IP ou hostname du serveur staging
-- `STAGING_USERNAME` - Nom d'utilisateur SSH pour le serveur staging
-- `STAGING_SSH_KEY` - Clé privée SSH pour accéder au serveur staging
-
 #### Production
 - `PRODUCTION_HOST` - Adresse IP ou hostname du serveur production
 - `PRODUCTION_USERNAME` - Nom d'utilisateur SSH pour le serveur production
@@ -32,11 +27,6 @@ Le pipeline utilise automatiquement les variables GitHub suivantes :
 - `GITHUB_REF_NAME` - Nom de la branche
 
 ## Configuration des Environnements
-
-### Environnement Staging
-- **Branche:** `develop`
-- **Déclenchement:** Push sur `develop`
-- **Docker Compose:** `docker-compose.yml`
 
 ### Environnement Production
 - **Branche:** `main`

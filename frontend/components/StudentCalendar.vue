@@ -24,20 +24,9 @@
       </div>
       
       <div class="flex items-center space-x-3">
-        <!-- Sélecteur de calendrier -->
-        <select v-model="selectedCalendar" @change="loadCalendarEvents" 
-          class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="personal">Mon Calendrier Personnel</option>
-          <option v-for="club in studentClubs" :key="club.id" :value="club.id">
-            {{ club.name }}
-          </option>
-        </select>
-        
-        <!-- Bouton de synchronisation Google -->
-        <button @click="syncWithGoogle" :disabled="isSyncing"
-          class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50">
-          <span class="mr-2">🔄</span>
-          {{ isSyncing ? 'Synchronisation...' : 'Sync Google' }}
+        <button @click="goToToday" 
+          class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 transition-colors">
+          Aujourd'hui
         </button>
       </div>
     </div>
@@ -61,11 +50,6 @@
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
-        </button>
-        
-        <button @click="goToToday" 
-          class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 transition-colors">
-          Aujourd'hui
         </button>
       </div>
       
@@ -99,9 +83,10 @@
             <div class="space-y-1">
               <div v-for="event in day.events" :key="event.id" 
                 @click="selectEvent(event)"
-                :class="['text-xs p-1 rounded cursor-pointer truncate', 
-                  event.type === 'lesson' ? 'bg-blue-100 text-blue-800' : 
-                  event.type === 'booking' ? 'bg-green-100 text-green-800' :
+                :class="['text-xs p-1 rounded cursor-pointer truncate hover:opacity-80 transition-opacity', 
+                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
+                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                   'bg-gray-100 text-gray-800']">
                 {{ event.title }}
               </div>
@@ -122,12 +107,26 @@
           </div>
         </div>
         <div class="grid grid-cols-8 gap-1">
-          <div class="p-2 text-xs text-gray-500 bg-gray-50">
-            {{ formatTime(8) }}
-          </div>
-          <div v-for="day in weekDays" :key="day" 
-            class="min-h-[60px] p-2 border border-gray-200 bg-white">
-            <!-- Événements pour cette heure et ce jour -->
+          <div v-for="hour in dayHours" :key="hour" class="relative">
+            <div class="p-2 text-xs text-gray-500 bg-gray-50 border-r border-gray-200">
+              {{ formatTime(hour) }}
+            </div>
+            <div v-for="day in weekDays" :key="day" 
+              class="min-h-[60px] p-2 border border-gray-200 bg-white relative">
+              <div 
+                v-for="event in getEventsForHourAndDay(hour, day)" 
+                :key="event.id"
+                @click="selectEvent(event)"
+                :class="['absolute left-1 right-1 p-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity',
+                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
+                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800']"
+                :style="{ top: `${getEventPosition(event, hour)}px`, height: `${getEventHeight(event)}px` }"
+              >
+                {{ event.title }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -136,12 +135,24 @@
       <div v-else-if="currentView === 'day'" class="calendar-day">
         <div class="space-y-4">
           <div v-for="hour in dayHours" :key="hour" 
-            class="flex items-center space-x-4 p-3 border border-gray-200 rounded-lg">
-            <div class="w-16 text-sm text-gray-500">
+            class="flex items-start space-x-4 p-3 border border-gray-200 rounded-lg">
+            <div class="w-16 text-sm text-gray-500 pt-1">
               {{ formatTime(hour) }}
             </div>
-            <div class="flex-1">
-              <!-- Événements pour cette heure -->
+            <div class="flex-1 space-y-2">
+              <div 
+                v-for="event in getEventsForHour(hour)" 
+                :key="event.id"
+                @click="selectEvent(event)"
+                :class="['p-3 rounded-lg cursor-pointer hover:opacity-80 transition-opacity',
+                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
+                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                  event.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
+                  'bg-gray-100 text-gray-800 border border-gray-200']"
+              >
+                <p class="font-medium">{{ event.title }}</p>
+                <p class="text-xs mt-1">{{ formatTime(event.start) }} - {{ formatTime(event.end) }}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -149,12 +160,11 @@
     </div>
 
     <!-- Modal de détails d'événement -->
-    <div v-if="selectedEvent" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div v-if="selectedEvent" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="closeModal">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900">{{ selectedEvent.title }}</h3>
-          <button @click="selectedEvent = null" 
-            class="text-gray-400 hover:text-gray-600">
+          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -174,26 +184,40 @@
           </div>
           <div v-if="selectedEvent.teacher">
             <span class="text-sm font-medium text-gray-500">Enseignant:</span>
-            <span class="ml-2 text-sm text-gray-900">{{ selectedEvent.teacher.name }}</span>
+            <span class="ml-2 text-sm text-gray-900">{{ selectedEvent.teacher?.user?.name || selectedEvent.teacher?.name || 'N/A' }}</span>
           </div>
           <div v-if="selectedEvent.location">
             <span class="text-sm font-medium text-gray-500">Lieu:</span>
-            <span class="ml-2 text-sm text-gray-900">{{ selectedEvent.location }}</span>
+            <span class="ml-2 text-sm text-gray-900">{{ selectedEvent.location?.name || selectedEvent.location || 'N/A' }}</span>
           </div>
-          <div v-if="selectedEvent.description">
+          <div v-if="selectedEvent.price">
+            <span class="text-sm font-medium text-gray-500">Prix:</span>
+            <span class="ml-2 text-sm text-gray-900">{{ formatPrice(selectedEvent.price) }}</span>
+          </div>
+          <div v-if="selectedEvent.status">
+            <span class="text-sm font-medium text-gray-500">Statut:</span>
+            <span 
+              :class="{
+                'bg-green-100 text-green-800': selectedEvent.status === 'confirmed',
+                'bg-yellow-100 text-yellow-800': selectedEvent.status === 'pending',
+                'bg-gray-100 text-gray-800': selectedEvent.status === 'completed',
+                'bg-red-100 text-red-800': selectedEvent.status === 'cancelled'
+              }"
+              class="ml-2 inline-block px-2 py-1 text-xs font-medium rounded-full"
+            >
+              {{ getStatusLabel(selectedEvent.status) }}
+            </span>
+          </div>
+          <div v-if="selectedEvent.description || selectedEvent.notes">
             <span class="text-sm font-medium text-gray-500">Description:</span>
-            <p class="mt-1 text-sm text-gray-900">{{ selectedEvent.description }}</p>
+            <p class="mt-1 text-sm text-gray-900">{{ selectedEvent.description || selectedEvent.notes || 'N/A' }}</p>
           </div>
         </div>
         
-        <div class="mt-6 flex justify-end space-x-3">
-          <button @click="selectedEvent = null" 
+        <div class="mt-6 flex justify-end">
+          <button @click="closeModal" 
             class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
             Fermer
-          </button>
-          <button v-if="selectedEvent.type === 'lesson'" @click="bookLesson(selectedEvent)"
-            class="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
-            Réserver
           </button>
         </div>
       </div>
@@ -210,22 +234,19 @@ const props = defineProps({
 })
 
 const { $api } = useNuxtApp()
-const authStore = useAuthStore()
 
 // État du calendrier
 const currentView = ref('month')
 const currentDate = ref(new Date())
-const selectedCalendar = ref('personal')
 const events = ref([])
-const studentClubs = ref([])
 const selectedEvent = ref(null)
-const isSyncing = ref(false)
+const isLoading = ref(false)
 
 // Jours de la semaine
 const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 // Heures de la journée
-const dayHours = Array.from({ length: 12 }, (_, i) => i + 8)
+const dayHours = Array.from({ length: 14 }, (_, i) => i + 8)
 
 // Titre de la période actuelle
 const currentPeriodTitle = computed(() => {
@@ -281,6 +302,7 @@ const calendarDays = computed(() => {
 // Fonctions de navigation
 const toggleView = (view) => {
   currentView.value = view
+  loadCalendarEvents()
 }
 
 const previousPeriod = () => {
@@ -334,68 +356,108 @@ const formatTime = (date) => {
   })
 }
 
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(price)
+}
+
+const getStatusLabel = (status) => {
+  const labels = {
+    'confirmed': 'Confirmé',
+    'pending': 'En attente',
+    'completed': 'Terminé',
+    'cancelled': 'Annulé',
+    'available': 'Disponible'
+  }
+  return labels[status] || status
+}
+
 // Fonctions de gestion des événements
 const selectEvent = (event) => {
   selectedEvent.value = event
 }
 
-const bookLesson = async (lesson) => {
-  try {
-    await $api.post('/student/bookings', {
-      lesson_id: lesson.id,
-      student_id: props.studentId
-    })
-    
-    // Recharger les événements
-    await loadCalendarEvents()
-    
-    // Fermer le modal
-    selectedEvent.value = null
-    
-    // Afficher un message de succès
-    // Vous pouvez utiliser une notification toast ici
-    console.log('Leçon réservée avec succès')
-  } catch (error) {
-    console.error('Erreur lors de la réservation:', error)
-  }
+const closeModal = () => {
+  selectedEvent.value = null
 }
 
-const syncWithGoogle = async () => {
-  isSyncing.value = true
-  try {
-    await $api.post('/student/calendar/sync-google', {
-      calendar_id: selectedCalendar.value
-    })
-    await loadCalendarEvents()
-  } catch (error) {
-    console.error('Erreur lors de la synchronisation:', error)
-  } finally {
-    isSyncing.value = false
-  }
+// Fonctions pour la vue semaine
+const getEventsForHourAndDay = (hour, dayName) => {
+  const dayIndex = weekDays.indexOf(dayName)
+  const weekStart = new Date(currentDate.value)
+  weekStart.setDate(currentDate.value.getDate() - currentDate.value.getDay() + 1)
+  const targetDate = new Date(weekStart)
+  targetDate.setDate(weekStart.getDate() + dayIndex)
+  
+  return events.value.filter(event => {
+    const eventDate = new Date(event.start)
+    const eventHour = eventDate.getHours()
+    return eventDate.toDateString() === targetDate.toDateString() && eventHour === hour
+  })
+}
+
+const getEventsForHour = (hour) => {
+  const targetDate = new Date(currentDate.value)
+  return events.value.filter(event => {
+    const eventDate = new Date(event.start)
+    const eventHour = eventDate.getHours()
+    return eventDate.toDateString() === targetDate.toDateString() && eventHour === hour
+  })
+}
+
+const getEventPosition = (event, hour) => {
+  const eventDate = new Date(event.start)
+  const minutes = eventDate.getMinutes()
+  return (minutes / 60) * 60 // Position en pixels dans la case d'heure
+}
+
+const getEventHeight = (event) => {
+  const start = new Date(event.start)
+  const end = new Date(event.end)
+  const durationMinutes = (end - start) / (1000 * 60)
+  return Math.max((durationMinutes / 60) * 60, 20) // Hauteur minimale de 20px
 }
 
 // Chargement des données
 const loadCalendarEvents = async () => {
   try {
-    const response = await $api.get(`/student/calendar?calendar_id=${selectedCalendar.value}`)
-    events.value = response.data.events || []
+    isLoading.value = true
+    // Charger tous les cours de l'étudiant depuis l'API bookings (incluant les annulés et passés)
+    const response = await $api.get('/student/bookings')
+    if (response.data.success) {
+      const lessons = response.data.data || []
+      
+      // Transformer les cours en événements pour le calendrier (inclure tous les statuts y compris cancelled)
+      events.value = lessons
+        .filter(lesson => lesson.start_time) // Filtrer seulement ceux qui ont une date
+        .map(lesson => ({
+          id: lesson.id,
+          title: lesson.course_type?.name || lesson.courseType?.name || 'Cours',
+          start: lesson.start_time,
+          end: lesson.end_time,
+          teacher: lesson.teacher,
+          location: lesson.location,
+          price: lesson.price,
+          status: lesson.status,
+          description: lesson.notes,
+          notes: lesson.notes,
+          course_type: lesson.course_type || lesson.courseType,
+          type: 'lesson'
+        }))
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    }
   } catch (error) {
     console.error('Erreur lors du chargement des événements:', error)
-  }
-}
-
-const loadStudentClubs = async () => {
-  try {
-    const response = await $api.get('/student/clubs')
-    studentClubs.value = response.data.clubs || []
-  } catch (error) {
-    console.error('Erreur lors du chargement des clubs:', error)
+    events.value = []
+  } finally {
+    isLoading.value = false
   }
 }
 
 // Initialisation
 onMounted(() => {
   loadCalendarEvents()
-  loadStudentClubs()
 })
 </script>

@@ -30,6 +30,7 @@ services:
       - app_bootstrap_cache_dev:/var/www/bootstrap/cache
     depends_on:
       - neo4j-dev
+      - mysql-dev
     networks:
       - app-network-dev
     environment:
@@ -56,8 +57,8 @@ services:
       - NODE_ENV=development
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
-      - NUXT_PUBLIC_API_BASE=http://localhost:8001/api
-      - NUXT_API_BASE=http://localhost:8001/api
+      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      - NUXT_API_BASE=http://localhost:8080/api
     networks:
       - app-network-dev
     command: npm run dev
@@ -126,4 +127,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.25.0.0/16

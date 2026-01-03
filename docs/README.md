@@ -68,7 +68,6 @@ docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ### CI/CD Automatique
-- **Staging** : Push sur `develop`
 - **Production** : Push sur `main`
 
 ## 📊 Fonctionnalités Principales

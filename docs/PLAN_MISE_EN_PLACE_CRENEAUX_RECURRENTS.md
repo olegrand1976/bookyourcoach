@@ -307,7 +307,7 @@ CREATE TABLE lesson_recurring_slots (
 
 | Risque | Probabilité | Impact | Mitigation |
 |--------|-------------|--------|------------|
-| Migration de données échoue | Moyenne | Élevé | Scripts de rollback, tests en staging |
+| Migration de données échoue | Moyenne | Élevé | Scripts de rollback, tests locaux |
 | Performance (génération automatique) | Faible | Moyen | Jobs asynchrones, indexation DB |
 | Complexité RRULE | Moyenne | Moyen | Bibliothèque standard, tests unitaires |
 | Conflits de créneaux | Moyenne | Élevé | Validation stricte, vérifications avant création |
@@ -366,7 +366,7 @@ CREATE TABLE lesson_recurring_slots (
 
 **Actions :**
 - [ ] Script de migration des `SubscriptionRecurringSlot`
-- [ ] Tests de migration en staging
+- [ ] Tests de migration en local
 - [ ] Validation des données migrées
 - [ ] Plan de rollback
 
@@ -395,7 +395,7 @@ CREATE TABLE lesson_recurring_slots (
 ### 6.6 Étape 6 : Déploiement
 
 **Actions :**
-- [ ] Déploiement en staging
+- [ ] Déploiement en production
 - [ ] Tests utilisateurs (bêta)
 - [ ] Corrections éventuelles
 - [ ] Déploiement en production

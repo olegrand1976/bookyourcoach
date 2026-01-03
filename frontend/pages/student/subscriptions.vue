@@ -8,15 +8,15 @@
             <h1 class="text-2xl font-bold text-gray-900">Mes Abonnements</h1>
             <p class="text-gray-600 mt-1">Visualisez et gérez vos abonnements de cours</p>
           </div>
-          <NuxtLink 
-            to="/student/subscriptions/subscribe"
+          <button 
+            @click="showSubscribeModal = true"
             class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
             </svg>
             <span>Souscrire à un abonnement</span>
-          </NuxtLink>
+          </button>
         </div>
       </div>
 
@@ -42,10 +42,14 @@
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                  {{ subscription.subscription?.name || 'Abonnement' }}
+                  {{ subscription.subscription?.template?.model_number || 'Abonnement' }}
                 </h3>
                 <p v-if="subscription.subscription?.club" class="text-sm text-gray-600">
                   Club: {{ subscription.subscription.club.name }}
+                </p>
+                <!-- Référence de l'abonnement -->
+                <p v-if="subscription.subscription?.subscription_number" class="text-xs text-gray-500 mt-1">
+                  Référence: {{ subscription.subscription.subscription_number }}
                 </p>
               </div>
               <span 
@@ -66,28 +70,35 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600">Cours utilisés</span>
                 <span class="text-sm font-semibold text-gray-900">
-                  {{ subscription.lessons_used }} / {{ subscription.subscription?.total_lessons + (subscription.subscription?.free_lessons || 0) }}
+                  {{ subscription.lessons_used || 0 }} / {{ getTotalLessons(subscription) }}
                 </span>
               </div>
               <div class="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   :class="{
-                    'bg-green-600': subscription.remaining_lessons > subscription.subscription?.total_lessons * 0.5,
-                    'bg-yellow-600': subscription.remaining_lessons > subscription.subscription?.total_lessons * 0.2 && subscription.remaining_lessons <= subscription.subscription?.total_lessons * 0.5,
-                    'bg-red-600': subscription.remaining_lessons <= subscription.subscription?.total_lessons * 0.2
+                    'bg-green-600': getRemainingLessons(subscription) > getTotalLessons(subscription) * 0.5,
+                    'bg-yellow-600': getRemainingLessons(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingLessons(subscription) <= getTotalLessons(subscription) * 0.5,
+                    'bg-red-600': getRemainingLessons(subscription) <= getTotalLessons(subscription) * 0.2
                   }"
                   class="h-2 rounded-full transition-all"
-                  :style="{ width: `${subscription.usage_percentage || 0}%` }"
+                  :style="{ width: `${getUsagePercentage(subscription)}%` }"
                 ></div>
               </div>
               <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-600">Cours restants</span>
                 <span class="font-semibold" :class="{
-                  'text-green-600': subscription.remaining_lessons > subscription.subscription?.total_lessons * 0.5,
-                  'text-yellow-600': subscription.remaining_lessons > subscription.subscription?.total_lessons * 0.2 && subscription.remaining_lessons <= subscription.subscription?.total_lessons * 0.5,
-                  'text-red-600': subscription.remaining_lessons <= subscription.subscription?.total_lessons * 0.2
+                  'text-green-600': getRemainingLessons(subscription) > getTotalLessons(subscription) * 0.5,
+                  'text-yellow-600': getRemainingLessons(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingLessons(subscription) <= getTotalLessons(subscription) * 0.5,
+                  'text-red-600': getRemainingLessons(subscription) <= getTotalLessons(subscription) * 0.2
                 }">
-                  {{ subscription.remaining_lessons }}
+                  {{ getRemainingLessons(subscription) }}
+                </span>
+              </div>
+              <!-- Total de cours utilisés -->
+              <div class="flex items-center justify-between text-sm pt-2 border-t border-gray-200">
+                <span class="text-gray-600 font-medium">Total cours utilisés</span>
+                <span class="font-semibold text-gray-900">
+                  {{ subscription.lessons_used || 0 }}
                 </span>
               </div>
             </div>
@@ -113,20 +124,20 @@
                 {{ subscription.expires_at ? formatDate(subscription.expires_at) : 'Non définie' }}
               </span>
             </div>
-            <div v-if="subscription.subscription?.validity_months" class="flex items-center justify-between text-sm">
+            <div v-if="subscription.subscription?.template?.validity_months" class="flex items-center justify-between text-sm">
               <span class="text-gray-600">Validité</span>
               <span class="font-medium text-gray-900">
-                {{ subscription.subscription.validity_months }} mois
+                {{ subscription.subscription.template.validity_months }} mois
               </span>
             </div>
           </div>
 
           <!-- Types de cours inclus -->
-          <div v-if="subscription.subscription?.course_types?.length" class="p-4 border-t border-gray-200">
+          <div v-if="subscription.subscription?.template?.course_types?.length" class="p-4 border-t border-gray-200">
             <div class="text-xs font-medium text-gray-500 uppercase mb-2">Types de cours inclus</div>
             <div class="flex flex-wrap gap-1">
               <span 
-                v-for="courseType in subscription.subscription.course_types" 
+                v-for="courseType in subscription.subscription.template.course_types" 
                 :key="courseType.id"
                 class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
               >
@@ -159,7 +170,7 @@
               Renouveler
             </button>
             <button
-              v-else-if="subscription.status === 'expired' && subscription.subscription?.is_active"
+              v-else-if="subscription.status === 'expired' && subscription.subscription?.template?.is_active"
               @click="renewSubscription(subscription.id)"
               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >
@@ -179,15 +190,22 @@
           Vous n'avez pas encore souscrit à un abonnement.
         </p>
         <div class="mt-6">
-          <NuxtLink 
-            to="/student/subscriptions/subscribe"
+          <button 
+            @click="showSubscribeModal = true"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Souscrire à un abonnement
-          </NuxtLink>
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Modale de souscription Stripe -->
+    <StripeSubscribeModal 
+      v-if="showSubscribeModal"
+      @close="showSubscribeModal = false"
+      @success="handleSubscriptionSuccess"
+    />
   </div>
 </template>
 
@@ -201,6 +219,7 @@ const { $api } = useNuxtApp()
 const subscriptions = ref([])
 const loading = ref(true)
 const error = ref(null)
+const showSubscribeModal = ref(false)
 
 // Charger les abonnements
 const loadSubscriptions = async () => {
@@ -242,6 +261,12 @@ const renewSubscription = async (instanceId) => {
   }
 }
 
+// Gérer le succès de la souscription
+const handleSubscriptionSuccess = () => {
+  showSubscribeModal.value = false
+  loadSubscriptions()
+}
+
 // Helpers
 const getStatusLabel = (status) => {
   const labels = {
@@ -271,22 +296,53 @@ const isExpiringSoon = (expiresAt) => {
 }
 
 const canRenew = (subscription) => {
-  // Peut renouveler si :
-  // - Abonnement actif et proche de l'expiration
-  // - Ou cours presque terminés
   const isNearingExpiry = subscription.expires_at && isExpiringSoon(subscription.expires_at)
-  const isAlmostUsed = subscription.remaining_lessons <= subscription.subscription?.total_lessons * 0.2
+  const totalLessons = getTotalLessons(subscription)
+  const remainingLessons = getRemainingLessons(subscription)
+  const isAlmostUsed = remainingLessons <= totalLessons * 0.2
   
   return isNearingExpiry || isAlmostUsed
+}
+
+const getTotalLessons = (subscription) => {
+  const template = subscription.subscription?.template
+  if (!template) return 0
+  return (template.total_lessons || 0) + (template.free_lessons || 0)
+}
+
+const getRemainingLessons = (subscription) => {
+  const total = getTotalLessons(subscription)
+  const used = subscription.lessons_used || 0
+  return Math.max(0, total - used)
+}
+
+const getUsagePercentage = (subscription) => {
+  const total = getTotalLessons(subscription)
+  if (total === 0) return 0
+  const used = subscription.lessons_used || 0
+  return Math.round((used / total) * 100)
+}
+
+// Vérifier si on revient d'un paiement Stripe réussi
+const checkStripeReturn = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const sessionId = urlParams.get('session_id')
+  
+  if (sessionId) {
+    // Recharger les abonnements pour voir le nouveau
+    loadSubscriptions()
+    // Nettoyer l'URL
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
 }
 
 // Charger au montage
 onMounted(() => {
   loadSubscriptions()
+  checkStripeReturn()
 })
 
 useHead({
   title: 'Mes Abonnements | BookYourCoach'
 })
 </script>
-

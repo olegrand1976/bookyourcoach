@@ -5,6 +5,7 @@ namespace App\Services;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Stripe\Customer;
+use Stripe\Checkout\Session;
 use Stripe\Exception\ApiErrorException;
 use App\Models\User;
 use App\Models\Payment;
@@ -154,6 +155,9 @@ class StripeService
                 case 'payment_intent.canceled':
                     $this->handlePaymentCanceled($event['data']['object']);
                     break;
+                case 'checkout.session.completed':
+                    $this->handleCheckoutSessionCompleted($event['data']['object']);
+                    break;
                 default:
                     Log::info('Événement Stripe non géré', ['type' => $event['type']]);
             }
@@ -165,6 +169,91 @@ class StripeService
                 'error' => $e->getMessage()
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Gérer une session Checkout complétée (paiement réussi)
+     */
+    private function handleCheckoutSessionCompleted(array $session): void
+    {
+        try {
+            $metadata = $session['metadata'] ?? [];
+            
+            // Vérifier que c'est bien un paiement d'abonnement
+            if (($metadata['type'] ?? '') !== 'subscription') {
+                Log::info('Session Checkout non liée à un abonnement', [
+                    'session_id' => $session['id']
+                ]);
+                return;
+            }
+
+            $userId = $metadata['user_id'] ?? null;
+            $templateId = $metadata['subscription_template_id'] ?? null;
+            $studentId = $metadata['student_id'] ?? null;
+
+            if (!$userId || !$templateId || !$studentId) {
+                Log::error('Métadonnées manquantes dans la session Checkout', [
+                    'session_id' => $session['id'],
+                    'metadata' => $metadata
+                ]);
+                return;
+            }
+
+            $user = User::find($userId);
+            $student = \App\Models\Student::find($studentId);
+            $template = \App\Models\SubscriptionTemplate::find($templateId);
+
+            if (!$user || !$student || !$template) {
+                Log::error('Ressources non trouvées pour créer l\'abonnement', [
+                    'user_id' => $userId,
+                    'student_id' => $studentId,
+                    'template_id' => $templateId
+                ]);
+                return;
+            }
+
+            // Créer l'abonnement
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Créer l'abonnement depuis le template
+            $subscription = \App\Models\Subscription::createSafe([
+                'club_id' => $template->club_id,
+                'subscription_template_id' => $template->id,
+            ]);
+
+            // Créer l'instance d'abonnement
+            $subscriptionInstance = \App\Models\SubscriptionInstance::create([
+                'subscription_id' => $subscription->id,
+                'lessons_used' => 0,
+                'started_at' => \Carbon\Carbon::now(),
+                'expires_at' => null, // Sera calculé automatiquement
+                'status' => 'active'
+            ]);
+
+            // Calculer la date d'expiration
+            $subscriptionInstance->calculateExpiresAt();
+            $subscriptionInstance->save();
+
+            // Attacher l'élève
+            $subscriptionInstance->students()->attach($student->id);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            Log::info('Abonnement créé automatiquement après paiement Stripe', [
+                'session_id' => $session['id'],
+                'subscription_id' => $subscription->id,
+                'subscription_instance_id' => $subscriptionInstance->id,
+                'student_id' => $studentId
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error('Erreur lors de la création de l\'abonnement après paiement Stripe', [
+                'session_id' => $session['id'] ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
     }
 
@@ -283,6 +372,76 @@ class StripeService
                 'error' => $e->getMessage()
             ]);
             return false;
+        }
+    }
+
+    /**
+     * Créer une session Stripe Checkout pour un abonnement
+     */
+    public function createCheckoutSession(
+        User $user,
+        \App\Models\SubscriptionTemplate $template,
+        string $successUrl,
+        string $cancelUrl,
+        array $metadata = []
+    ): ?Session {
+        try {
+            // Créer ou récupérer le customer Stripe
+            $customerId = $this->createCustomer($user);
+            
+            if (!$customerId) {
+                Log::error('Impossible de créer le customer Stripe', [
+                    'user_id' => $user->id
+                ]);
+                return null;
+            }
+
+            $sessionData = [
+                'customer' => $customerId,
+                'payment_method_types' => ['card'],
+                'mode' => 'payment',
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => 'eur',
+                        'product_data' => [
+                            'name' => $template->model_number ?? 'Abonnement',
+                            'description' => sprintf(
+                                '%d cours%s%s - Validité: %d mois',
+                                $template->total_lessons,
+                                $template->free_lessons > 0 ? sprintf(' + %d gratuit%s', $template->free_lessons, $template->free_lessons > 1 ? 's' : '') : '',
+                                $template->validity_months ? sprintf(' - Validité: %d mois', $template->validity_months) : ''
+                            ),
+                        ],
+                        'unit_amount' => (int) ($template->price * 100), // Stripe utilise les centimes
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url' => $successUrl,
+                'cancel_url' => $cancelUrl,
+                'metadata' => array_merge([
+                    'user_id' => $user->id,
+                    'subscription_template_id' => $template->id,
+                    'club_id' => $template->club_id,
+                    'type' => 'subscription'
+                ], $metadata),
+            ];
+
+            $session = Session::create($sessionData);
+
+            Log::info('Session Stripe Checkout créée', [
+                'session_id' => $session->id,
+                'user_id' => $user->id,
+                'template_id' => $template->id
+            ]);
+
+            return $session;
+        } catch (ApiErrorException $e) {
+            Log::error('Erreur création session Stripe Checkout', [
+                'user_id' => $user->id,
+                'template_id' => $template->id,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
     }
 }

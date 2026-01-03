@@ -42,13 +42,10 @@
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                  {{ subscription.name }}
+                  {{ subscription.model_number || 'Abonnement' }}
                 </h3>
                 <p v-if="subscription.club" class="text-sm text-gray-600">
                   Club: {{ subscription.club.name }}
-                </p>
-                <p v-if="subscription.description" class="text-sm text-gray-600 mt-2">
-                  {{ subscription.description }}
                 </p>
               </div>
             </div>
@@ -68,14 +65,14 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600">Prix</span>
                 <span class="text-lg font-bold text-green-600">
-                  {{ subscription.price }} €
+                  {{ formatPrice(subscription.price) }}
                 </span>
               </div>
               
               <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-600">Prix par cours</span>
                 <span class="text-sm font-medium text-gray-700">
-                  {{ (subscription.price / subscription.total_lessons).toFixed(2) }} €
+                  {{ formatPricePerLesson(subscription.price, subscription.total_lessons) }}
                 </span>
               </div>
 
@@ -107,15 +104,15 @@
             <button
               @click="subscribeToSubscription(subscription.id)"
               :disabled="subscribing"
-              class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center space-x-2"
             >
-              <span v-if="!subscribing">Souscrire</span>
+              <span v-if="!subscribing">💳 Payer avec Stripe</span>
               <span v-else class="flex items-center justify-center">
                 <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Souscription en cours...
+                Redirection vers Stripe...
               </span>
             </button>
           </div>
@@ -177,41 +174,59 @@ const loadAvailableSubscriptions = async () => {
   }
 }
 
-// Souscrire à un abonnement
-const subscribeToSubscription = async (subscriptionId) => {
-  if (!confirm('Voulez-vous vraiment souscrire à cet abonnement ?')) {
-    return
-  }
-
+// Souscrire à un abonnement via Stripe Checkout
+const subscribeToSubscription = async (subscriptionTemplateId) => {
   try {
     subscribing.value = true
     
-    const response = await $api.post('/student/subscriptions', {
-      subscription_id: subscriptionId,
-      started_at: new Date().toISOString().split('T')[0] // Aujourd'hui par défaut
+    // Créer la session Stripe Checkout
+    const response = await $api.post('/student/subscriptions/create-checkout-session', {
+      subscription_template_id: subscriptionTemplateId
     })
     
-    if (response.data.success) {
-      alert('Abonnement souscrit avec succès !')
-      router.push('/student/subscriptions')
+    if (response.data.success && response.data.checkout_url) {
+      // Rediriger vers Stripe Checkout
+      window.location.href = response.data.checkout_url
     } else {
-      alert(response.data.message || 'Erreur lors de la souscription')
+      alert(response.data.message || 'Erreur lors de la création de la session de paiement')
     }
   } catch (err) {
     console.error('Erreur lors de la souscription:', err)
-    alert(err.response?.data?.message || 'Erreur lors de la souscription à l\'abonnement')
+    alert(err.response?.data?.message || 'Erreur lors de la création de la session de paiement')
   } finally {
     subscribing.value = false
   }
 }
 
-// Charger au montage
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(price)
+}
+
+const formatPricePerLesson = (price, totalLessons) => {
+  if (!totalLessons || totalLessons === 0) return formatPrice(0)
+  return formatPrice(price / totalLessons)
+}
+
+// Vérifier si on revient d'un paiement réussi
 onMounted(() => {
   loadAvailableSubscriptions()
+  
+  // Vérifier si on revient d'un paiement Stripe réussi
+  const urlParams = new URLSearchParams(window.location.search)
+  const sessionId = urlParams.get('session_id')
+  
+  if (sessionId) {
+    // Recharger les abonnements pour voir le nouveau
+    setTimeout(() => {
+      router.push('/student/subscriptions')
+    }, 2000)
+  }
 })
 
 useHead({
   title: 'Souscrire à un abonnement | BookYourCoach'
 })
 </script>
-
