@@ -218,7 +218,7 @@ import { useToast } from '~/composables/useToast'
 
 definePageMeta({
   middleware: ['auth', 'student'],
-  layout: 'default'
+  layout: 'student'
 })
 
 const toast = useToast()

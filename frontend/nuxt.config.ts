@@ -51,7 +51,7 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            // Configuration pour le navigateur (utilise le reverse proxy externe pour éviter Mixed Block)
+            // Configuration pour le navigateur (utilise le port 8080 pour l'API en dev)
             apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api',
             appName: 'Acti\'Vibe'
         },

@@ -231,7 +231,7 @@ Le projet utilise GitHub Actions pour l'intégration continue et le déploiement
 1. **Tests:** Exécution des tests unitaires avec PHP 8.3 et MySQL 8.0
 2. **Security:** Audit de sécurité avec Composer
 3. **Build:** Construction de l'image Docker multi-architecture
-4. **Deploy:** Déploiement automatique staging/production
+4. **Deploy:** Déploiement automatique production
 5. **Notify:** Notifications GitHub et Slack
 
 #### Configuration des Tests en CI
@@ -262,12 +262,10 @@ Le projet utilise GitHub Actions pour l'intégration continue et le déploiement
 
 #### Environnements de Déploiement
 
-- **Staging:** Branche `develop` → `docker-compose.yml`
 - **Production:** Branche `main` → `docker-compose.prod.yml`
 
 #### Secrets GitHub Requis
 
-- `STAGING_HOST`, `STAGING_USERNAME`, `STAGING_SSH_KEY`
 - `PRODUCTION_HOST`, `PRODUCTION_USERNAME`, `PRODUCTION_SSH_KEY`
 - `SLACK_WEBHOOK` (optionnel)
 

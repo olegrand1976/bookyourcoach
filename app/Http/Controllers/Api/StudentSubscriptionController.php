@@ -7,6 +7,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionInstance;
 use App\Models\Student;
 use App\Models\CourseType;
+use App\Services\StripeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,12 @@ use Illuminate\Support\Facades\Log;
 
 class StudentSubscriptionController extends Controller
 {
+    private StripeService $stripeService;
+
+    public function __construct(StripeService $stripeService)
+    {
+        $this->stripeService = $stripeService;
+    }
     /**
      * Liste tous les abonnements disponibles pour l'élève (proposés par les clubs où il est inscrit)
      */
@@ -121,7 +128,103 @@ class StudentSubscriptionController extends Controller
     }
 
     /**
+     * Créer une session Stripe Checkout pour souscrire à un abonnement
+     */
+    public function createCheckoutSession(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $student = $user->student;
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil élève non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'subscription_template_id' => 'required|exists:subscription_templates,id',
+            ]);
+
+            // Récupérer le modèle d'abonnement
+            $template = \App\Models\SubscriptionTemplate::with('club')->findOrFail($validated['subscription_template_id']);
+
+            // Vérifier que l'élève est inscrit dans le club qui propose ce modèle
+            $isMember = $student->clubs()
+                ->wherePivot('is_active', true)
+                ->where('clubs.id', $template->club_id)
+                ->exists();
+
+            if (!$isMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous devez être inscrit dans ce club pour souscrire à cet abonnement'
+                ], 403);
+            }
+
+            // Vérifier que le modèle est actif
+            if (!$template->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce modèle d\'abonnement n\'est plus disponible'
+                ], 422);
+            }
+
+            // URLs de redirection
+            $baseUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+            $successUrl = $baseUrl . '/student/subscriptions?session_id={CHECKOUT_SESSION_ID}';
+            $cancelUrl = $baseUrl . '/student/subscriptions/subscribe';
+
+            // Créer la session Stripe Checkout
+            $session = $this->stripeService->createCheckoutSession(
+                $user,
+                $template,
+                $successUrl,
+                $cancelUrl,
+                [
+                    'student_id' => $student->id,
+                ]
+            );
+
+            if (!$session) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de la création de la session de paiement'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'checkout_url' => $session->url,
+                'session_id' => $session->id
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la création de la session Checkout: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de la session de paiement'
+            ], 500);
+        }
+    }
+
+    /**
      * Souscrire à un abonnement (uniquement personnel, pas familial)
+     * Cette méthode est maintenant utilisée uniquement pour créer l'abonnement après paiement Stripe
      */
     public function subscribe(Request $request): JsonResponse
     {

@@ -11,7 +11,11 @@ use App\Models\Teacher;
 use App\Models\Student;
 use App\Models\CourseType;
 use App\Models\Location;
+use App\Models\Club;
+use App\Notifications\LessonCancelledByStudentNotification;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class DashboardController extends Controller
 {
@@ -177,22 +181,102 @@ class DashboardController extends Controller
     }
 
     /**
-     * Annule une réservation.
+     * Annule une réservation avec envoi d'emails au responsable du club et à l'enseignant.
      */
     public function cancelBooking(Request $request, string $id)
     {
+        $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
         $user = $request->user();
         $studentId = $user->student->id;
 
         $lesson = Lesson::where('id', $id)
             ->where('student_id', $studentId)
+            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user'])
             ->firstOrFail();
 
-        $lesson->update(['status' => 'cancelled']);
+        // Vérifier que le cours n'est pas déjà annulé ou terminé
+        if ($lesson->status === 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce cours est déjà annulé.'
+            ], 400);
+        }
+
+        if ($lesson->status === 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible d\'annuler un cours déjà terminé.'
+            ], 400);
+        }
+
+        // Vérifier que le cours est dans le futur
+        if (Carbon::parse($lesson->start_time)->isPast()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible d\'annuler un cours qui a déjà commencé.'
+            ], 400);
+        }
+
+        $reason = $request->input('reason');
+
+        // Mettre à jour le statut du cours
+        $lesson->update([
+            'status' => 'cancelled',
+            'notes' => ($lesson->notes ? $lesson->notes . "\n\n" : '') . "[Annulé par l'élève] " . $reason
+        ]);
+
+        // Libérer l'abonnement si lié
+        try {
+            $subscriptionInstances = $lesson->subscriptionInstances;
+            foreach ($subscriptionInstances as $instance) {
+                $instance->recalculateLessonsUsed();
+            }
+        } catch (\Exception $e) {
+            Log::warning("Erreur lors de la libération de l'abonnement: " . $e->getMessage());
+        }
+
+        // Envoyer les notifications
+        try {
+            // Envoyer à l'enseignant
+            if ($lesson->teacher && $lesson->teacher->user) {
+                $lesson->teacher->user->notify(
+                    new LessonCancelledByStudentNotification($lesson, $reason, $user->student)
+                );
+            }
+
+            // Envoyer aux responsables du club
+            if ($lesson->club) {
+                // Récupérer les responsables du club (owners, managers, admins)
+                $clubManagers = \Illuminate\Support\Facades\DB::table('club_user')
+                    ->where('club_id', $lesson->club->id)
+                    ->where(function ($query) {
+                        $query->whereIn('role', ['owner', 'manager', 'admin'])
+                              ->orWhere('is_admin', true);
+                    })
+                    ->pluck('user_id');
+
+                $managers = User::whereIn('id', $clubManagers)->get();
+
+                foreach ($managers as $manager) {
+                    $manager->notify(
+                        new LessonCancelledByStudentNotification($lesson, $reason, $user->student)
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de l'envoi des notifications d'annulation: " . $e->getMessage(), [
+                'lesson_id' => $lesson->id,
+                'student_id' => $studentId
+            ]);
+            // Ne pas faire échouer la requête si l'envoi d'email échoue
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Réservation annulée avec succès'
+            'message' => 'Réservation annulée avec succès. Les responsables du club et l\'enseignant ont été notifiés.'
         ]);
     }
 

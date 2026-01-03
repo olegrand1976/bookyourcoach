@@ -114,6 +114,10 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
 Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(function () {
     Route::get('/dashboard', [StudentController::class, 'dashboard']);
     
+    // Profil
+    Route::get('/profile', [StudentController::class, 'getProfile']);
+    Route::put('/profile', [StudentController::class, 'updateProfile']);
+    
     // Statistiques du dashboard
     Route::get('/dashboard/stats', [App\Http\Controllers\Api\Student\DashboardController::class, 'getStats']);
     
@@ -138,9 +142,13 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     // Abonnements
     Route::get('/subscriptions/available', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'availableSubscriptions']);
     Route::get('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'mySubscriptions']);
+    Route::post('/subscriptions/create-checkout-session', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'createCheckoutSession']);
     Route::post('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'subscribe']);
     Route::post('/subscriptions/{instanceId}/renew', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'renew']);
 });
+
+// Webhook Stripe (route publique, sans authentification)
+Route::post('/stripe/webhook', [App\Http\Controllers\Api\StripeWebhookController::class, 'handleWebhook']);
 
 // Routes publiques
 Route::get('/activity-types', function() {

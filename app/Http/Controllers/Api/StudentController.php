@@ -1115,4 +1115,259 @@ class StudentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Récupérer le profil de l'étudiant connecté
+     */
+    public function getProfile(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            
+            \Log::info('StudentController::getProfile - User:', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'role' => $user->role
+            ]);
+            
+            // Récupérer le profil étudiant
+            $student = $user->student;
+
+            if (!$student) {
+                \Log::warning('StudentController::getProfile - Aucun profil étudiant trouvé', [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil étudiant introuvable'
+                ], 404);
+            }
+
+            // Charger les relations nécessaires
+            $student->load(['user', 'club', 'clubs', 'disciplines']);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'email' => $user->email,
+                        'phone' => $user->phone,
+                        'role' => $user->role,
+                        'status' => $user->status,
+                        'email_verified_at' => $user->email_verified_at,
+                        'created_at' => $user->created_at,
+                        'updated_at' => $user->updated_at,
+                    ],
+                    'student' => [
+                        'id' => $student->id,
+                        'user_id' => $student->user_id,
+                        'club_id' => $student->club_id,
+                        'first_name' => $student->first_name,
+                        'last_name' => $student->last_name,
+                        'date_of_birth' => $student->date_of_birth,
+                        'phone' => $student->phone,
+                        'level' => $student->level,
+                        'goals' => $student->goals,
+                        'medical_info' => $student->medical_info,
+                        'emergency_contacts' => $student->emergency_contacts,
+                        'preferred_disciplines' => $student->preferred_disciplines,
+                        'preferred_levels' => $student->preferred_levels,
+                        'preferred_formats' => $student->preferred_formats,
+                        'location' => $student->location,
+                        'max_price' => $student->max_price,
+                        'max_distance' => $student->max_distance,
+                        'notifications_enabled' => $student->notifications_enabled,
+                        'club' => $student->club ? [
+                            'id' => $student->club->id,
+                            'name' => $student->club->name,
+                            'city' => $student->club->city,
+                            'postal_code' => $student->club->postal_code,
+                        ] : null,
+                        'clubs' => $student->clubs->map(function ($club) {
+                            return [
+                                'id' => $club->id,
+                                'name' => $club->name,
+                                'city' => $club->city,
+                                'postal_code' => $club->postal_code,
+                                'is_active' => $club->pivot->is_active ?? false,
+                                'joined_at' => $club->pivot->joined_at ?? null,
+                            ];
+                        }),
+                        'disciplines' => $student->disciplines->map(function ($discipline) {
+                            return [
+                                'id' => $discipline->id,
+                                'name' => $discipline->name,
+                            ];
+                        }),
+                        'created_at' => $student->created_at,
+                        'updated_at' => $student->updated_at,
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération du profil étudiant: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération du profil',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Met à jour le profil de l'étudiant connecté
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $student = $user->student;
+            if (!$student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil étudiant non trouvé'
+                ], 404);
+            }
+
+            // Validation des champs modifiables par l'étudiant
+            $validated = $request->validate([
+                'first_name' => 'sometimes|string|max:255',
+                'last_name' => 'sometimes|string|max:255',
+                'phone' => 'sometimes|nullable|string|max:20',
+                'date_of_birth' => 'sometimes|nullable|date|before:today',
+                'goals' => 'sometimes|nullable|string',
+                'medical_info' => 'sometimes|nullable|string',
+                'emergency_contacts' => 'sometimes|nullable|array',
+                'preferred_disciplines' => 'sometimes|nullable|array',
+                'preferred_levels' => 'sometimes|nullable|array',
+                'preferred_formats' => 'sometimes|nullable|array',
+                'location' => 'sometimes|nullable|string|max:255',
+                'max_price' => 'sometimes|nullable|numeric|min:0',
+                'max_distance' => 'sometimes|nullable|numeric|min:0',
+                'notifications_enabled' => 'sometimes|boolean',
+                // Champs utilisateur modifiables
+                'email' => [
+                    'sometimes',
+                    'email',
+                    Rule::unique('users')->ignore($user->id),
+                ],
+            ]);
+
+            DB::beginTransaction();
+
+            // Mettre à jour les informations utilisateur
+            $userData = [];
+            if (isset($validated['first_name'])) {
+                $userData['first_name'] = $validated['first_name'];
+            }
+            if (isset($validated['last_name'])) {
+                $userData['last_name'] = $validated['last_name'];
+            }
+            if (isset($validated['phone'])) {
+                $userData['phone'] = $validated['phone'] === '' ? null : $validated['phone'];
+            }
+            if (isset($validated['email'])) {
+                $userData['email'] = $validated['email'] === '' ? null : $validated['email'];
+            }
+
+            if (!empty($userData)) {
+                // Mettre à jour le nom complet si first_name ou last_name changent
+                if (isset($userData['first_name']) || isset($userData['last_name'])) {
+                    $firstName = $userData['first_name'] ?? $user->first_name;
+                    $lastName = $userData['last_name'] ?? $user->last_name;
+                    $userData['name'] = trim($firstName . ' ' . $lastName);
+                }
+                $user->update($userData);
+            }
+
+            // Mettre à jour le profil étudiant
+            $studentData = [];
+            $allowedFields = [
+                'first_name', 'last_name', 'phone', 'date_of_birth', 'goals',
+                'medical_info', 'emergency_contacts', 'preferred_disciplines',
+                'preferred_levels', 'preferred_formats', 'location',
+                'max_price', 'max_distance', 'notifications_enabled'
+            ];
+
+            foreach ($allowedFields as $field) {
+                if (array_key_exists($field, $validated)) {
+                    $value = $validated[$field];
+                    // Convertir les chaînes vides en null pour les champs nullable
+                    if (in_array($field, ['phone', 'goals', 'medical_info', 'location']) && $value === '') {
+                        $studentData[$field] = null;
+                    } else {
+                        $studentData[$field] = $value;
+                    }
+                }
+            }
+
+            if (!empty($studentData)) {
+                $student->update($studentData);
+            }
+
+            DB::commit();
+
+            // Recharger les relations
+            $student->refresh();
+            $student->load(['user', 'club', 'clubs', 'disciplines']);
+
+            \Log::info('Profil étudiant mis à jour', [
+                'student_id' => $student->id,
+                'user_id' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profil mis à jour avec succès',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'email' => $user->email,
+                        'phone' => $user->phone,
+                    ],
+                    'student' => $student
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Erreur lors de la mise à jour du profil étudiant: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour du profil',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

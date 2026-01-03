@@ -6,7 +6,7 @@
         <div class="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">
-              Mes Préférences
+              Préférences
             </h1>
             <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">
               Sélectionnez vos disciplines et types de cours préférés
@@ -193,7 +193,7 @@ import { useToast } from '~/composables/useToast'
 
 definePageMeta({
   middleware: ['auth', 'student'],
-  layout: 'default'
+  layout: 'student'
 })
 
 const toast = useToast()
