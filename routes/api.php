@@ -118,6 +118,9 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     Route::get('/profile', [StudentController::class, 'getProfile']);
     Route::put('/profile', [StudentController::class, 'updateProfile']);
     
+    // Clubs de l'élève
+    Route::get('/clubs', [StudentController::class, 'getClubs']);
+    
     // Statistiques du dashboard
     Route::get('/dashboard/stats', [App\Http\Controllers\Api\Student\DashboardController::class, 'getStats']);
     

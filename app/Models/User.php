@@ -206,6 +206,28 @@ class User extends Authenticatable
     }
 
     /**
+     * Get or create student profile for this user
+     * Returns the student profile, creating it if it doesn't exist
+     */
+    public function getOrCreateStudent()
+    {
+        if ($this->role !== 'student') {
+            return null;
+        }
+
+        if (!$this->student) {
+            $this->student = \App\Models\Student::create([
+                'user_id' => $this->id,
+                'first_name' => $this->first_name,
+                'last_name' => $this->last_name,
+                'phone' => $this->phone,
+            ]);
+        }
+
+        return $this->student;
+    }
+
+    /**
      * Check if user is admin
      */
     public function isAdmin(): bool
