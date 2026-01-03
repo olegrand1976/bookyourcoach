@@ -1133,6 +1133,21 @@ class StudentController extends Controller
             // Récupérer le profil étudiant
             $student = $user->student;
 
+            // Si l'utilisateur a le rôle student mais pas de profil, créer le profil automatiquement
+            if (!$student && $user->role === 'student') {
+                \Log::info('StudentController::getProfile - Création automatique du profil étudiant', [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+                
+                $student = Student::create([
+                    'user_id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'phone' => $user->phone,
+                ]);
+            }
+
             if (!$student) {
                 \Log::warning('StudentController::getProfile - Aucun profil étudiant trouvé', [
                     'user_id' => $user->id,

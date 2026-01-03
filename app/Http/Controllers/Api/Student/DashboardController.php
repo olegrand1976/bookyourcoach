@@ -128,6 +128,14 @@ class DashboardController extends Controller
     public function getBookings(Request $request)
     {
         $user = $request->user();
+        
+        if (!$user->student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
         $studentId = $user->student->id;
 
         $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
@@ -156,6 +164,14 @@ class DashboardController extends Controller
         ]);
 
         $user = $request->user();
+        
+        if (!$user->student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
         $studentId = $user->student->id;
 
         $lesson = Lesson::findOrFail($request->lesson_id);
@@ -190,6 +206,14 @@ class DashboardController extends Controller
         ]);
 
         $user = $request->user();
+        
+        if (!$user->student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
         $studentId = $user->student->id;
 
         $lesson = Lesson::where('id', $id)
@@ -362,6 +386,14 @@ class DashboardController extends Controller
     public function getLessonHistory(Request $request)
     {
         $user = $request->user();
+        
+        if (!$user->student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
         $studentId = $user->student->id;
 
         $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
@@ -387,6 +419,14 @@ class DashboardController extends Controller
         ]);
 
         $user = $request->user();
+        
+        if (!$user->student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
         $studentId = $user->student->id;
 
         $lesson = Lesson::where('id', $id)
@@ -446,6 +486,13 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $student = $user->student;
+        
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
 
         return response()->json([
             'preferred_disciplines' => $student->preferred_disciplines ?? [],
@@ -475,6 +522,13 @@ class DashboardController extends Controller
 
         $user = $request->user();
         $student = $user->student;
+        
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
 
         $student->update($request->only([
             'preferred_disciplines',
