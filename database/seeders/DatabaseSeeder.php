@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
 
         // 2. Disciplines et types de cours
         $this->command->info('📚 Création des disciplines et types de cours...');
+        $this->call(ActivityTypeSeeder::class);
         $this->call(DisciplineSeeder::class);
 
         // 3. Types de cours (legacy)
@@ -32,6 +33,7 @@ class DatabaseSeeder extends Seeder
 
         // 5. Utilisateurs (admin, enseignants, élèves)
         $this->command->info('👥 Création des utilisateurs...');
+        $this->call(ClubSeeder::class);
         $this->call(UserSeeder::class);
 
         // 6. Données de démonstration (leçons, disponibilités, paiements)

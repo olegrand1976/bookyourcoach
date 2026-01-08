@@ -403,12 +403,9 @@ class ClubTestDataSeeder extends Seeder
                     $courseTypeId = $courseTypes[array_rand($courseTypes)];
                     $title = $lessonTitles[array_rand($lessonTitles)];
                     
-                    // Déterminer le club (ou cours personnel)
-                    $clubId = null;
-                    if (rand(1, 4) !== 1) { // 3/4 de chance d'être un cours de club
-                        $club = $clubs->random();
-                        $clubId = $club->id;
-                    }
+                    // Déterminer le club (toujours un cours de club pour éviter l'erreur d'intégrité)
+                    $club = $clubs->random();
+                    $clubId = $club->id;
                     
                     // Créer le cours
                     $lessonData = [

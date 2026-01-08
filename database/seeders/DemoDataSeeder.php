@@ -120,6 +120,7 @@ class DemoDataSeeder extends Seeder
                     }
 
                     $lesson = Lesson::create([
+                        'club_id' => $teacher->club_id ?? \App\Models\Club::inRandomOrder()->first()?->id ?? 1,
                         'teacher_id' => $teacher->id,
                         'student_id' => $student->id,
                         'course_type_id' => $courseType->id,

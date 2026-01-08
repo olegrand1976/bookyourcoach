@@ -53,7 +53,8 @@ export default defineNuxtConfig({
         public: {
             // Configuration pour le navigateur (utilise le port 8080 pour l'API en dev)
             apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api',
-            appName: 'Acti\'Vibe'
+            appName: 'Acti\'Vibe',
+            stripeKey: process.env.NUXT_PUBLIC_STRIPE_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx'
         },
         // Configuration côté serveur pour Docker (communication interne)
         apiBase: process.env.NUXT_API_BASE || (process.env.NODE_ENV === 'production' ? 'http://activibe-backend:80/api' : 'http://localhost:8080/api')

@@ -24,7 +24,6 @@ class ClubSeeder extends Seeder
                 'description' => 'Club équestre moderne avec installations de qualité',
                 'website' => 'https://club-bruxelles.be',
                 'facilities' => json_encode(['manège couvert', 'carrière extérieure', 'écuries', 'club house']),
-                'services' => json_encode(['cours particuliers', 'cours collectifs', 'stages', 'compétitions']),
                 'is_active' => true,
             ],
             [
@@ -38,7 +37,6 @@ class ClubSeeder extends Seeder
                 'description' => 'Centre équestre familial avec école d\'équitation',
                 'website' => 'https://centre-anvers.be',
                 'facilities' => json_encode(['manège', 'carrière', 'écuries', 'paddocks']),
-                'services' => json_encode(['cours débutants', 'cours avancés', 'balades', 'pension']),
                 'is_active' => true,
             ],
             [
@@ -52,13 +50,15 @@ class ClubSeeder extends Seeder
                 'description' => 'Écuries spécialisées dans le dressage et le saut d\'obstacles',
                 'website' => 'https://ecuries-gand.be',
                 'facilities' => json_encode(['manège olympique', 'carrière de dressage', 'parcours d\'obstacles', 'écuries de luxe']),
-                'services' => json_encode(['dressage', 'saut d\'obstacles', 'compétitions', 'formation']),
                 'is_active' => true,
             ],
         ];
 
         foreach ($clubs as $club) {
-            \App\Models\Club::create($club);
+            \App\Models\Club::updateOrInsert(
+                ['email' => $club['email']],
+                $club
+            );
         }
     }
 }

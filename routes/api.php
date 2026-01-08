@@ -148,6 +148,9 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     Route::post('/subscriptions/create-checkout-session', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'createCheckoutSession']);
     Route::post('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'subscribe']);
     Route::post('/subscriptions/{instanceId}/renew', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'renew']);
+    
+    // Paiement à la séance
+    Route::post('/payments/create-intent', [App\Http\Controllers\Api\StripeWebhookController::class, 'createPaymentIntent']);
 });
 
 // Webhook Stripe (route publique, sans authentification)

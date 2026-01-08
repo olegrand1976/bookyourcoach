@@ -149,6 +149,14 @@
             <!-- Actions -->
             <div class="flex flex-wrap gap-2">
               <button 
+                v-if="canPay(booking)"
+                @click="openPaymentModal(booking)"
+                class="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
+              >
+                Payer
+              </button>
+
+              <button 
                 v-if="canCancel(booking)"
                 @click="handleCancelBooking(booking.id)"
                 class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
@@ -197,6 +205,13 @@
         </div>
       </div>
     </div>
+    
+    <SinglePaymentModal
+      v-if="showPaymentModal"
+      :lesson="selectedLesson"
+      @close="showPaymentModal = false"
+      @success="handlePaymentSuccess"
+    />
   </div>
 </template>
 
@@ -204,6 +219,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useStudentFormatters } from '~/composables/useStudentFormatters'
+
+import SinglePaymentModal from '~/components/SinglePaymentModal.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],
@@ -217,6 +234,8 @@ const { formatDate, formatTime, formatPrice, getStatusClass, getStatusText } = u
 // State
 const bookings = ref<any[]>([])
 const selectedStatus = ref('all')
+const showPaymentModal = ref(false)
+const selectedLesson = ref(null)
 
 const statusOptions = [
   { value: 'all', label: 'Toutes' },
@@ -268,11 +287,31 @@ const viewBookingDetails = (bookingId: number) => {
 
 const canCancel = (booking: any) => {
   return ['pending', 'confirmed'].includes(booking.status) && 
-         new Date(booking.lesson?.start_time) > new Date()
+         new Date(booking.start_time) > new Date()
 }
 
 const canRate = (booking: any) => {
   return booking.status === 'completed' && !booking.rating
+}
+
+const canPay = (booking: any) => {
+  // On peut payer si le statut n'est pas payé/annulé et qu'il y a un prix
+  return booking.payment_status !== 'paid' && 
+         booking.status !== 'cancelled' && 
+         booking.price > 0
+}
+
+const openPaymentModal = (booking: any) => {
+  selectedLesson.value = booking
+  showPaymentModal.value = true
+}
+
+const handlePaymentSuccess = () => {
+  showPaymentModal.value = false
+  selectedLesson.value = null
+  // Recharger les réservations pour mettre à jour le statut
+  loadBookings()
+  alert('Paiement effectué avec succès !')
 }
 
 // Lifecycle
