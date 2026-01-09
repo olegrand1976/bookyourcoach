@@ -320,6 +320,17 @@ class StripeService
             'status' => ($lesson->status === 'pending') ? 'confirmed' : $lesson->status
         ]);
 
+        // Marquer le trial comme utilisé si applicable
+        if (($metadata['is_trial'] ?? false) === 'true' || ($metadata['type'] ?? '') === 'trial_session') {
+            $studentId = $metadata['student_id'] ?? $lesson->student_id;
+            if ($studentId) {
+                $student = \App\Models\Student::find($studentId);
+                if ($student && !$student->trial_used_at) {
+                    $student->update(['trial_used_at' => now()]);
+                }
+            }
+        }
+
         Log::info('Paiement leçon validé via Checkout Session', ['lesson_id' => $lesson->id]);
     }
 
@@ -330,13 +341,15 @@ class StripeService
         User $user,
         \App\Models\Lesson $lesson,
         string $successUrl,
-        string $cancelUrl
+        string $cancelUrl,
+        ?float $priceOverride = null,
+        bool $isTrial = false
     ): ?Session {
         try {
             $customerId = $this->createCustomer($user);
             if (!$customerId) return null;
 
-            $price = $lesson->price > 0 ? $lesson->price : 0;
+            $price = $priceOverride ?? ($lesson->price > 0 ? $lesson->price : 0);
             if ($price <= 0) return null; // Pas de paiement pour gratuit
 
             $session = Session::create([
@@ -361,7 +374,8 @@ class StripeService
                     'lesson_id' => $lesson->id,
                     'student_id' => $lesson->student_id,
                     'club_id' => $lesson->club_id,
-                    'type' => 'lesson_payment' // Marqueur important
+                    'type' => $isTrial ? 'trial_session' : 'lesson_payment',
+                    'is_trial' => $isTrial ? 'true' : 'false'
                 ],
             ]);
 

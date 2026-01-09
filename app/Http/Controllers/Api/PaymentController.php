@@ -55,8 +55,22 @@ class PaymentController extends Controller
             $user = $request->user();
             
             $validated = $request->validate([
-                'lesson_id' => 'required|exists:lessons,id'
+                'lesson_id' => 'required|exists:lessons,id',
+                'is_trial' => 'sometimes|boolean'
             ]);
+
+            $isTrial = $request->boolean('is_trial');
+            $priceOverride = null;
+
+            if ($isTrial) {
+                if ($user->role !== 'student' || !$user->student || $user->student->trial_used_at) {
+                    return response()->json([
+                        'success' => false, 
+                        'message' => 'Vous n\'êtes plus éligible à la séance d\'essai ou n\'avez pas de profil étudiant.'
+                    ], 400);
+                }
+                $priceOverride = 18.00;
+            }
 
             // Vérifier que la leçon existe
             $lesson = Lesson::with('courseType')->findOrFail($validated['lesson_id']);
@@ -80,7 +94,9 @@ class PaymentController extends Controller
                 $user,
                 $lesson,
                 $successUrl,
-                $cancelUrl
+                $cancelUrl,
+                $priceOverride,
+                $isTrial
             );
 
             if (!$session) {

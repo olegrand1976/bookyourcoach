@@ -31,101 +31,126 @@
       </div>
 
       <!-- Liste des abonnements disponibles -->
-      <div v-else-if="availableSubscriptions.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div v-else-if="availableSubscriptions.length > 0 || isEligibleForTrial" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Trial Session Card (Special UI) -->
         <div 
-          v-for="subscription in availableSubscriptions" 
-          :key="subscription.id"
-          class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+          v-if="isEligibleForTrial"
+          class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
         >
-          <!-- Header -->
-          <div class="p-6 border-b border-gray-200">
+          <div class="p-6 border-b border-blue-100">
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
-                <h3 class="text-lg font-semibold text-gray-900 mb-1">
-                  {{ subscription.model_number || 'Abonnement' }}
-                </h3>
-                <div class="flex flex-col gap-1">
-                  <p v-if="subscription.club" class="text-sm text-gray-600">
-                    Club: {{ subscription.club.name }}
-                  </p>
-                  <span v-if="subscription.is_recurring" class="self-start bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
-                    Abonnement Récurrent
+                <h3 class="text-xl font-bold text-blue-900 mb-1">Séance d'essai</h3>
+                <span class="bg-blue-600 text-white text-[10px] uppercase px-2 py-0.5 rounded font-bold">Offre de bienvenue</span>
+              </div>
+            </div>
+            
+            <div class="space-y-3">
+              <p class="text-sm text-gray-600">Idéal pour découvrir nos cours avant de vous engager.</p>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-600">Prix unique</span>
+                <span class="text-2xl font-black text-blue-600">{{ formatPrice(18) }}</span>
+              </div>
+              <p class="text-[10px] text-gray-400 italic">* Limité à une seule séance par compte utilisateur.</p>
+            </div>
+          </div>
+          <div class="p-4">
+            <button
+              @click="handleTrialSession"
+              class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-sm flex items-center justify-center space-x-2 shadow-sm"
+            >
+              <span>Réserver ma séance d'essai</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter out the 18€ template from the list to avoid duplication if trial card is shown -->
+        <template v-for="subscription in availableSubscriptions" :key="subscription.id">
+          <div 
+            v-if="!(isEligibleForTrial && subscription.price == 18)"
+            class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full"
+            :class="{'border-2 border-emerald-500 ring-2 ring-emerald-100': subscription.price === 180}"
+          >
+            <!-- Header -->
+            <div class="p-6 border-b border-gray-200 flex-grow">
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-lg font-bold text-gray-900">
+                      {{ subscription.price === 180 ? 'Pack 10 cours' : (subscription.model_number || 'Abonnement') }}
+                    </h3>
+                    <span v-if="subscription.price === 180" class="bg-emerald-100 text-emerald-700 text-[10px] uppercase px-2 py-0.5 rounded font-bold">Le plus populaire</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <p v-if="subscription.club" class="text-sm text-gray-600">
+                      {{ subscription.club.name }}
+                    </p>
+                    <span v-if="subscription.is_recurring" class="self-start bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
+                      Abonnement Récurrent
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Détails -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600">Nombre de séances</span>
+                  <span class="text-sm font-semibold text-gray-900">
+                    {{ subscription.total_lessons }} 
+                    {{ subscription.total_lessons > 1 ? 'cours' : 'cours' }}
+                    <span v-if="subscription.free_lessons > 0" class="text-green-600">
+                      + {{ subscription.free_lessons }} offert{{ subscription.free_lessons > 1 ? 's' : '' }}
+                    </span>
+                  </span>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600">Prix total</span>
+                  <span class="text-xl font-black text-gray-900" :class="{'text-emerald-600': subscription.price === 180}">
+                    {{ formatPrice(subscription.price) }}
+                  </span>
+                </div>
+                
+                <div v-if="subscription.total_lessons > 1" class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600">Soit par cours</span>
+                  <span class="text-sm font-medium text-gray-700">
+                    {{ formatPricePerLesson(subscription.price, subscription.total_lessons) }}
+                  </span>
+                </div>
+
+                <div v-if="subscription.validity_months <= 12" class="flex items-center justify-between">
+                  <span class="text-sm text-gray-600">Durée de validité</span>
+                  <span class="text-sm font-medium text-gray-700">
+                    {{ subscription.validity_months }} mois
                   </span>
                 </div>
               </div>
             </div>
 
-            <!-- Détails -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Nombre de cours</span>
-                <span class="text-sm font-semibold text-gray-900">
-                  {{ subscription.total_lessons }}
-                  <span v-if="subscription.free_lessons > 0" class="text-green-600">
-                    + {{ subscription.free_lessons }} gratuit{{ subscription.free_lessons > 1 ? 's' : '' }}
-                  </span>
-                  <span v-if="subscription.is_recurring" class="text-gray-500 text-xs font-normal"> / période</span>
-                </span>
-              </div>
-              
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Prix</span>
-                <span class="text-lg font-bold text-green-600">
-                  {{ formatPrice(subscription.price) }}
-                  <span v-if="subscription.is_recurring" class="text-sm font-normal text-gray-500">
-                    / {{ subscription.validity_months === 1 ? 'mois' : subscription.validity_months + ' mois' }}
-                  </span>
-                </span>
-              </div>
-              
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Prix par cours</span>
-                <span class="text-sm font-medium text-gray-700">
-                  {{ formatPricePerLesson(subscription.price, subscription.total_lessons) }}
-                </span>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Validité</span>
-                <span class="text-sm font-medium text-gray-700">
-                  {{ subscription.validity_months || 12 }} mois
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Types de cours inclus -->
-          <div v-if="subscription.course_types?.length" class="p-4 bg-gray-50">
-            <div class="text-xs font-medium text-gray-500 uppercase mb-2">Types de cours inclus</div>
-            <div class="flex flex-wrap gap-1">
-              <span 
-                v-for="courseType in subscription.course_types" 
-                :key="courseType.id"
-                class="bg-white text-gray-700 px-2 py-1 rounded text-xs border border-gray-200"
+            <!-- Action -->
+            <div class="p-4 bg-gray-50 border-t border-gray-100 mt-auto">
+              <button
+                @click="subscribeToSubscription(subscription.id)"
+                :disabled="subscribing"
+                class="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold flex items-center justify-center space-x-2"
+                :class="{'bg-emerald-600 hover:bg-emerald-700': subscription.price === 180}"
               >
-                {{ courseType.name }}
-              </span>
+                <span v-if="!subscribing">💳 Choisir cette offre</span>
+                <span v-else class="flex items-center justify-center">
+                  <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Redirection...
+                </span>
+              </button>
             </div>
           </div>
-
-          <!-- Action -->
-          <div class="p-4 bg-blue-50 border-t border-blue-100">
-            <button
-              @click="subscribeToSubscription(subscription.id)"
-              :disabled="subscribing"
-              class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center space-x-2"
-            >
-              <span v-if="!subscribing">💳 Payer avec Stripe</span>
-              <span v-else class="flex items-center justify-center">
-                <svg class="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Redirection vers Stripe...
-              </span>
-            </button>
-          </div>
-        </div>
+        </template>
       </div>
 
       <!-- Aucun abonnement disponible -->
@@ -151,6 +176,8 @@
 </template>
 
 <script setup>
+import { useStudentData } from '~/composables/useStudentData'
+
 definePageMeta({
   middleware: ['auth', 'student'],
   layout: 'student'
@@ -158,8 +185,11 @@ definePageMeta({
 
 const { $api } = useNuxtApp()
 const router = useRouter()
+const { loadStats } = useStudentData()
 const availableSubscriptions = ref([])
 const loading = ref(true)
+const eligibilityLoading = ref(true)
+const isEligibleForTrial = ref(false)
 const error = ref(null)
 const subscribing = ref(false)
 
@@ -180,6 +210,18 @@ const loadAvailableSubscriptions = async () => {
     error.value = err.response?.data?.message || 'Erreur lors du chargement des abonnements'
   } finally {
     loading.value = false
+  }
+}
+
+const checkTrialEligibility = async () => {
+  try {
+    eligibilityLoading.value = true
+    const stats = await loadStats()
+    isEligibleForTrial.value = stats.student?.is_eligible_for_trial ?? false
+  } catch (err) {
+    console.error('Error checking trial eligibility:', err)
+  } finally {
+    eligibilityLoading.value = false
   }
 }
 
@@ -207,6 +249,21 @@ const subscribeToSubscription = async (subscriptionTemplateId) => {
   }
 }
 
+const handleTrialSession = async () => {
+  try {
+    subscribing.value = true
+    // Pour la séance d'essai dans la page d'abonnement, on a besoin d'une leçon?
+    // En fait non, le user veut peut-être juste "acheter" une séance d'essai d'avance?
+    // Mais normalement la séance d'essai est liée à une réservation.
+    // Si on est ici, on redirige plutôt vers le planning pour choisir une séance.
+    router.push('/student/lessons')
+  } catch (err) {
+    console.error('Erreur séance d\'essai:', err)
+  } finally {
+    subscribing.value = false
+  }
+}
+
 const formatPrice = (price) => {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -222,6 +279,7 @@ const formatPricePerLesson = (price, totalLessons) => {
 // Vérifier si on revient d'un paiement réussi
 onMounted(() => {
   loadAvailableSubscriptions()
+  checkTrialEligibility()
   
   // Vérifier si on revient d'un paiement Stripe réussi
   const urlParams = new URLSearchParams(window.location.search)

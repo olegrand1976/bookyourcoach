@@ -229,10 +229,19 @@ class UserSeeder extends Seeder
                 ]
             ));
 
-            Student::create(array_merge(
+            $student_profile = Student::create(array_merge(
                 ['user_id' => $user->id],
                 $studentData['student']
             ));
+
+            // Lier l'élève à un club pour qu'il puisse voir les abonnements disponibles
+            $club = \App\Models\Club::first();
+            if ($club && $student_profile) {
+                $student_profile->clubs()->attach($club->id, [
+                    'is_active' => true,
+                    'joined_at' => now()
+                ]);
+            }
         }
     }
 }

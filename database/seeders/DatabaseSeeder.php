@@ -44,6 +44,10 @@ class DatabaseSeeder extends Seeder
         $this->command->info('🏇 Création des données de test pour les clubs...');
         $this->call(ClubTestDataSeeder::class);
 
+        // 8. Modèles d'abonnements
+        $this->command->info('💳 Création des modèles d\'abonnements...');
+        $this->call(SubscriptionPricingSeeder::class);
+
         $this->command->info('✅ Seeding terminé avec succès !');
         $this->command->line('');
         $this->command->info('🔑 Comptes de test créés :');

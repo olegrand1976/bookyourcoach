@@ -69,7 +69,8 @@ class DashboardController extends Controller
                 'favoriteTeachers' => Teacher::whereHas('lessons', function ($q) use ($studentId) {
                     $q->where('student_id', $studentId)
                       ->where('status', 'completed');
-                })->distinct()->count()
+                })->distinct()->count(),
+                'student' => $user->student
             ]
         ]);
     }

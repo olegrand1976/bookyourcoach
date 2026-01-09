@@ -46,6 +46,7 @@ class Student extends Model
         'max_price',
         'max_distance',
         'notifications_enabled',
+        'trial_used_at',
     ];
 
     protected $casts = [
@@ -55,9 +56,10 @@ class Student extends Model
         'preferred_levels' => 'array',
         'preferred_formats' => 'array',
         'notifications_enabled' => 'boolean',
+        'trial_used_at' => 'datetime',
     ];
 
-    protected $appends = ['age', 'name'];
+    protected $appends = ['age', 'name', 'is_eligible_for_trial'];
 
     /**
      * Get the user that owns the student profile.
@@ -214,5 +216,13 @@ class Student extends Model
         // Sinon, combiner first_name et last_name
         $parts = array_filter([$this->first_name, $this->last_name]);
         return !empty($parts) ? implode(' ', $parts) : null;
+    }
+
+    /**
+     * Check if the student is eligible for a trial session.
+     */
+    public function getIsEligibleForTrialAttribute(): bool
+    {
+        return $this->trial_used_at === null;
     }
 }

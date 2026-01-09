@@ -1,0 +1,54 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\SubscriptionTemplate;
+use App\Models\Club;
+use App\Models\CourseType;
+
+class SubscriptionPricingSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $clubs = Club::all();
+        
+        foreach ($clubs as $club) {
+            // 1. Abonnement Standard 180 € - Pack de 10 cours
+            $standard = SubscriptionTemplate::updateOrCreate(
+                [
+                    'club_id' => $club->id,
+                    'price' => 180.00
+                ],
+                [
+                    'model_number' => 'PACK-10-180',
+                    'total_lessons' => 10,
+                    'validity_months' => 24, // 2 ans pour que l'échéance soit gérée par le nombre de séances
+                    'is_active' => true,
+                    'is_recurring' => false, // Pack de 10 cours pour 180€
+                ]
+            );
+
+            // Associer tous les types de cours du club (ou par défaut)
+            $courseTypes = CourseType::all()->pluck('id');
+            $standard->courseTypes()->sync($courseTypes);
+
+            // Note: Le trial à 18€ est géré dynamiquement dans le frontend 
+            // car c'est une séance unique et non un "pack".
+            // Mais si on veut qu'il apparaisse comme un "Template" pour simplifier le backend :
+            SubscriptionTemplate::updateOrCreate(
+                [
+                    'club_id' => $club->id,
+                    'price' => 18.00
+                ],
+                [
+                    'model_number' => 'TRIAL-18',
+                    'total_lessons' => 1,
+                    'validity_months' => 1,
+                    'is_active' => true,
+                    'is_recurring' => false,
+                ]
+            )->courseTypes()->sync($courseTypes);
+        }
+    }
+}
