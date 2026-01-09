@@ -151,6 +151,7 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     
     // Paiement à la séance
     Route::post('/payments/create-intent', [App\Http\Controllers\Api\StripeWebhookController::class, 'createPaymentIntent']);
+    Route::post('/payments/create-lesson-checkout', [App\Http\Controllers\Api\PaymentController::class, 'createLessonCheckoutSession']);
 });
 
 // Webhook Stripe (route publique, sans authentification)

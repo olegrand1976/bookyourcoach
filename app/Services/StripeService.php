@@ -175,15 +175,24 @@ class StripeService
     /**
      * Gérer une session Checkout complétée (paiement réussi)
      */
-    private function handleCheckoutSessionCompleted(array $session): void
+    public function handleCheckoutSessionCompleted(array $session): void
     {
+        $metadata = $session['metadata'] ?? [];
+
         try {
-            $metadata = $session['metadata'] ?? [];
-            
-            // Vérifier que c'est bien un paiement d'abonnement
-            if (($metadata['type'] ?? '') !== 'subscription') {
-                Log::info('Session Checkout non liée à un abonnement', [
-                    'session_id' => $session['id']
+            // Vérifier le type de paiement
+            $type = $metadata['type'] ?? '';
+
+            if ($type === 'lesson_payment') {
+                $this->handleLessonPaymentSession($session);
+                return;
+            }
+
+            // Pour compatibilité, 'subscription' est traité comme 'pack_purchase' ou 'recurring_subscription'
+            if (!in_array($type, ['subscription', 'recurring_subscription', 'pack_purchase'])) {
+                Log::info('Session Checkout ignorée (type non géré)', [
+                    'session_id' => $session['id'],
+                    'type' => $type
                 ]);
                 return;
             }
@@ -233,6 +242,13 @@ class StripeService
 
             // Calculer la date d'expiration
             $subscriptionInstance->calculateExpiresAt();
+            
+            // Si c'est un abonnement récurrent, enregistrer le subscription ID Stripe
+            if ($session['subscription'] ?? false) {
+                $subscriptionInstance->stripe_subscription_id = $session['subscription'];
+                $subscriptionInstance->auto_renew = true;
+            }
+            
             $subscriptionInstance->save();
 
             // Attacher l'élève
@@ -240,11 +256,10 @@ class StripeService
 
             \Illuminate\Support\Facades\DB::commit();
 
-            Log::info('Abonnement créé automatiquement après paiement Stripe', [
+            Log::info('Abonnement/Pack créé avec succès via Stripe', [
                 'session_id' => $session['id'],
                 'subscription_id' => $subscription->id,
-                'subscription_instance_id' => $subscriptionInstance->id,
-                'student_id' => $studentId
+                'type' => $type
             ]);
 
         } catch (\Exception $e) {
@@ -254,6 +269,106 @@ class StripeService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+        }
+    }
+
+    /**
+     * Gérer le paiement d'une leçon via Checkout
+     */
+    private function handleLessonPaymentSession(array $session): void
+    {
+        $metadata = $session['metadata'] ?? [];
+        $lessonId = $metadata['lesson_id'] ?? null;
+
+        if (!$lessonId) {
+            Log::error('Lesson ID manquant dans session lesson_payment', ['session_id' => $session['id']]);
+            return;
+        }
+
+        $lesson = \App\Models\Lesson::find($lessonId);
+        if (!$lesson) {
+            Log::error('Leçon non trouvée pour paiement session', ['lesson_id' => $lessonId]);
+            return;
+        }
+
+        // Créer ou mettre à jour le paiement
+        $payment = Payment::firstOrCreate(
+            ['stripe_payment_intent_id' => $session['payment_intent'] ?? $session['id']], // Fallback ID si payment_intent null (mode setup)
+            [
+                'lesson_id' => $lesson->id,
+                'student_id' => $metadata['student_id'] ?? null,
+                'amount' => $session['amount_total'] / 100,
+                'currency' => $session['currency'],
+                'status' => Payment::STATUS_SUCCEEDED,
+                'payment_method' => 'card',
+                'processed_at' => now()
+            ]
+        );
+        
+        // Si le paiement existait déjà (ex: créé via intent), le mettre à jour
+        if (!$payment->wasRecentlyCreated) {
+            $payment->update([
+                'status' => Payment::STATUS_SUCCEEDED,
+                'processed_at' => now()
+            ]);
+        }
+
+        // Mettre à jour la leçon
+        $lesson->update([
+            'payment_status' => 'paid',
+            // Si la leçon était pending (nouvelle réservation), la confirmer automatiquement
+            'status' => ($lesson->status === 'pending') ? 'confirmed' : $lesson->status
+        ]);
+
+        Log::info('Paiement leçon validé via Checkout Session', ['lesson_id' => $lesson->id]);
+    }
+
+    /**
+     * Créer une session Checkout pour une leçon unique
+     */
+    public function createCheckoutSessionForLesson(
+        User $user,
+        \App\Models\Lesson $lesson,
+        string $successUrl,
+        string $cancelUrl
+    ): ?Session {
+        try {
+            $customerId = $this->createCustomer($user);
+            if (!$customerId) return null;
+
+            $price = $lesson->price > 0 ? $lesson->price : 0;
+            if ($price <= 0) return null; // Pas de paiement pour gratuit
+
+            $session = Session::create([
+                'customer' => $customerId,
+                'payment_method_types' => ['card'],
+                'mode' => 'payment',
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => 'eur',
+                        'product_data' => [
+                            'name' => 'Cours de ' . ($lesson->courseType->name ?? 'Sport'),
+                            'description' => 'Le ' . \Carbon\Carbon::parse($lesson->start_time)->format('d/m/Y H:i'),
+                        ],
+                        'unit_amount' => (int) ($price * 100),
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url' => $successUrl,
+                'cancel_url' => $cancelUrl,
+                'metadata' => [
+                    'user_id' => $user->id,
+                    'lesson_id' => $lesson->id,
+                    'student_id' => $lesson->student_id,
+                    'club_id' => $lesson->club_id,
+                    'type' => 'lesson_payment' // Marqueur important
+                ],
+            ]);
+
+            return $session;
+        } catch (ApiErrorException $e) {
+            Log::error('Erreur createCheckoutSessionForLesson', ['error' => $e->getMessage()]);
+            return null;
         }
     }
 
@@ -396,33 +511,59 @@ class StripeService
                 return null;
             }
 
+            // Déterminer le mode (payment ou subscription)
+            $mode = $template->is_recurring ? 'subscription' : 'payment';
+            
+            $priceData = [
+                'currency' => 'eur',
+                'product_data' => [
+                    'name' => $template->model_number ?? 'Abonnement',
+                    'description' => sprintf(
+                        '%d cours%s%s - Validité: %d mois%s',
+                        $template->total_lessons,
+                        $template->free_lessons > 0 ? sprintf(' + %d gratuit%s', $template->free_lessons, $template->free_lessons > 1 ? 's' : '') : '',
+                        $template->validity_months ? sprintf(' - Validité: %d mois', $template->validity_months) : '',
+                        $template->is_recurring ? ' (Récurrent)' : ''
+                    ),
+                ],
+                'unit_amount' => (int) ($template->price * 100), // Stripe utilise les centimes
+            ];
+
+            // Si le template a un ID de prix Stripe, l'utiliser directement (pour les abonnements récurrents c'est mieux)
+            if ($template->stripe_price_id) {
+                // Si on a un stripe_price_id, on ne met pas price_data mais directement price
+                $lineItem = [
+                    'price' => $template->stripe_price_id,
+                    'quantity' => 1,
+                ];
+            } else {
+                // Sinon on utilise price_data
+                if ($mode === 'subscription') {
+                    // Pour les abonnements, il faut définir une récurrence si on crée le prix à la volée
+                    $priceData['recurring'] = [
+                        'interval' => 'month', // Par défaut mensuel si pas spécifié
+                        'interval_count' => 1,
+                    ];
+                }
+                
+                $lineItem = [
+                    'price_data' => $priceData,
+                    'quantity' => 1,
+                ];
+            }
+
             $sessionData = [
                 'customer' => $customerId,
                 'payment_method_types' => ['card'],
-                'mode' => 'payment',
-                'line_items' => [[
-                    'price_data' => [
-                        'currency' => 'eur',
-                        'product_data' => [
-                            'name' => $template->model_number ?? 'Abonnement',
-                            'description' => sprintf(
-                                '%d cours%s%s - Validité: %d mois',
-                                $template->total_lessons,
-                                $template->free_lessons > 0 ? sprintf(' + %d gratuit%s', $template->free_lessons, $template->free_lessons > 1 ? 's' : '') : '',
-                                $template->validity_months ? sprintf(' - Validité: %d mois', $template->validity_months) : ''
-                            ),
-                        ],
-                        'unit_amount' => (int) ($template->price * 100), // Stripe utilise les centimes
-                    ],
-                    'quantity' => 1,
-                ]],
+                'mode' => $mode,
+                'line_items' => [$lineItem],
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'metadata' => array_merge([
                     'user_id' => $user->id,
                     'subscription_template_id' => $template->id,
                     'club_id' => $template->club_id,
-                    'type' => 'subscription'
+                    'type' => $template->is_recurring ? 'recurring_subscription' : 'pack_purchase'
                 ], $metadata),
             ];
 

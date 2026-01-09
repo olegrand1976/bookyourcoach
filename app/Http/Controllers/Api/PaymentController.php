@@ -16,6 +16,95 @@ use Illuminate\Http\JsonResponse;
  */
 class PaymentController extends Controller
 {
+    private \App\Services\StripeService $stripeService;
+
+    public function __construct(\App\Services\StripeService $stripeService)
+    {
+        $this->stripeService = $stripeService;
+    }
+
+    /**
+     * Créer une session Checkout pour payer une leçon
+     * @OA\Post(
+     *     path="/api/payments/create-lesson-checkout",
+     *     summary="Créer une session de paiement pour une leçon",
+     *     description="Crée une session Stripe Checkout pour payer une leçon spécifique",
+     *     tags={"Payments"},
+     *     security={{"bearerAuth":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"lesson_id"},
+     *             @OA\Property(property="lesson_id", type="integer", description="ID de la leçon")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Session créée avec succès",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="checkout_url", type="string"),
+     *             @OA\Property(property="session_id", type="string")
+     *         )
+     *     )
+     * )
+     */
+    public function createLessonCheckoutSession(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            
+            $validated = $request->validate([
+                'lesson_id' => 'required|exists:lessons,id'
+            ]);
+
+            // Vérifier que la leçon existe
+            $lesson = Lesson::with('courseType')->findOrFail($validated['lesson_id']);
+
+            // Vérifications de base
+            if ($user->role === 'student' && $lesson->student_id !== $user->student->id) {
+                return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
+            }
+
+            if ($lesson->payment_status === 'paid') {
+                return response()->json(['success' => false, 'message' => 'Cette leçon est déjà payée'], 422);
+            }
+
+            // URLs de redirection
+            $baseUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
+            // Idéalement rediriger vers la page de détails de la leçon ou le planning
+            $successUrl = $baseUrl . '/student/dashboard?payment=success&lesson_id=' . $lesson->id;
+            $cancelUrl = $baseUrl . '/student/dashboard?payment=cancelled&lesson_id=' . $lesson->id;
+
+            $session = $this->stripeService->createCheckoutSessionForLesson(
+                $user,
+                $lesson,
+                $successUrl,
+                $cancelUrl
+            );
+
+            if (!$session) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de la création de la session de paiement'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'checkout_url' => $session->url,
+                'session_id' => $session->id
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Erreur createLessonCheckoutSession: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur serveur',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
     /**
      * @OA\Get(
      *     path="/api/payments",

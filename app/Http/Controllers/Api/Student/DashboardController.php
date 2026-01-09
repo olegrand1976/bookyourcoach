@@ -16,6 +16,8 @@ use App\Notifications\LessonCancelledByStudentNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use App\Models\SubscriptionInstance;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -183,11 +185,45 @@ class DashboardController extends Controller
             ], 400);
         }
 
-        $lesson->update([
-            'student_id' => $studentId,
-            'status' => 'confirmed',
-            'notes' => $request->notes,
-        ]);
+        // Vérifier si l'étudiant a un abonnement actif avec des crédits
+        $subscriptionInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
+            $studentId,
+            $lesson->course_type_id,
+            $lesson->club_id
+        );
+
+        if ($subscriptionInstance) {
+            // L'étudiant a un crédit, on procède à la réservation
+            try {
+                DB::beginTransaction();
+
+                $lesson->update([
+                    'student_id' => $studentId,
+                    'status' => 'confirmed',
+                    'notes' => $request->notes,
+                ]);
+
+                // Déduire le crédit
+                $subscriptionInstance->consumeLesson($lesson);
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error("Erreur lors de la réservation (consommation crédit): " . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de la réservation: ' . $e->getMessage()
+                ], 500);
+            }
+        } else {
+            // Pas de crédit disponible -> Proposer le paiement
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun crédit disponible pour ce cours. Veuillez payer la séance ou souscrire à un abonnement.',
+                'code' => 'PAYMENT_REQUIRED',
+                'lesson' => $lesson
+            ], 402);
+        }
 
         return response()->json([
             'success' => true,

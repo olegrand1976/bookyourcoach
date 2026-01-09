@@ -44,9 +44,14 @@
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">
                   {{ subscription.model_number || 'Abonnement' }}
                 </h3>
-                <p v-if="subscription.club" class="text-sm text-gray-600">
-                  Club: {{ subscription.club.name }}
-                </p>
+                <div class="flex flex-col gap-1">
+                  <p v-if="subscription.club" class="text-sm text-gray-600">
+                    Club: {{ subscription.club.name }}
+                  </p>
+                  <span v-if="subscription.is_recurring" class="self-start bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
+                    Abonnement Récurrent
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -59,6 +64,7 @@
                   <span v-if="subscription.free_lessons > 0" class="text-green-600">
                     + {{ subscription.free_lessons }} gratuit{{ subscription.free_lessons > 1 ? 's' : '' }}
                   </span>
+                  <span v-if="subscription.is_recurring" class="text-gray-500 text-xs font-normal"> / période</span>
                 </span>
               </div>
               
@@ -66,6 +72,9 @@
                 <span class="text-sm text-gray-600">Prix</span>
                 <span class="text-lg font-bold text-green-600">
                   {{ formatPrice(subscription.price) }}
+                  <span v-if="subscription.is_recurring" class="text-sm font-normal text-gray-500">
+                    / {{ subscription.validity_months === 1 ? 'mois' : subscription.validity_months + ' mois' }}
+                  </span>
                 </span>
               </div>
               

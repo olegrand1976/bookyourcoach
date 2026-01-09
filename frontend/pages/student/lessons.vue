@@ -200,6 +200,12 @@
         <p class="mt-1 text-sm md:text-base text-gray-500">Essayez de modifier vos filtres de recherche.</p>
       </div>
     </div>
+    <!-- Payment Modal -->
+    <BookingPaymentModal
+      :is-open="showPaymentModal"
+      :lesson="selectedLessonForPayment"
+      @close="showPaymentModal = false"
+    />
   </div>
 </template>
 
@@ -207,6 +213,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useStudentFormatters } from '~/composables/useStudentFormatters'
+import BookingPaymentModal from '~/components/BookingPaymentModal.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],
@@ -221,6 +228,8 @@ const { formatDateTime, formatPrice, getStatusClass, getStatusText } = useStuden
 const lessons = ref<any[]>([])
 const disciplines = ref<any[]>([])
 const error = ref<string | null>(null)
+const showPaymentModal = ref(false)
+const selectedLessonForPayment = ref<any>(null)
 
 const filters = ref({
   discipline: '',
@@ -301,8 +310,17 @@ const handleBookLesson = async (lessonId: number) => {
   try {
     await bookLesson(lessonId)
     await loadLessons() // Recharger pour mettre à jour les statuts
-  } catch (err) {
-    console.error('Error booking lesson:', err)
+  } catch (err: any) {
+    // Check for 402 Payment Required
+    if (err.response?.status === 402 || (err.message && err.message.includes('PAYMENT_REQUIRED'))) {
+      const lesson = lessons.value.find(l => l.id === lessonId)
+      if (lesson) {
+        selectedLessonForPayment.value = lesson
+        showPaymentModal.value = true
+      }
+    } else {
+      console.error('Error booking lesson:', err)
+    }
   }
 }
 

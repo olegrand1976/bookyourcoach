@@ -18,7 +18,11 @@ class SubscriptionTemplate extends Model
         'validity_months',
         'validity_value',
         'validity_unit',
+        'validity_unit',
         'is_active',
+        'is_recurring',
+        'stripe_product_id',
+        'stripe_price_id',
     ];
 
     protected $casts = [
@@ -27,13 +31,18 @@ class SubscriptionTemplate extends Model
         'free_lessons' => 'integer',
         'price' => 'decimal:2',
         'validity_months' => 'integer',
+        'price' => 'decimal:2',
+        'validity_months' => 'integer',
         'validity_value' => 'integer',
+        'is_recurring' => 'boolean',
     ];
 
     protected $attributes = [
         'free_lessons' => 0,
         'validity_months' => 12,
+        'validity_months' => 12,
         'is_active' => true,
+        'is_recurring' => false,
     ];
 
     /**

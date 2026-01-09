@@ -407,6 +407,40 @@ class StudentDashboardControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_returns_402_and_payment_required_if_no_subscription_credit()
+    {
+        // Arrange
+        $user = $this->actingAsStudent();
+        
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $lesson = Lesson::factory()->create([
+            'status' => 'available',
+            'start_time' => Carbon::now()->addDays(1),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'price' => 50.00,
+        ]);
+
+        // Act
+        $response = $this->postJson('/api/student/bookings', [
+            'lesson_id' => $lesson->id,
+            'notes' => 'Tentative sans crédit',
+        ]);
+
+        // Assert
+        $response->assertStatus(402)
+                 ->assertJson([
+                     'success' => false,
+                     'message' => 'Aucun crédit disponible pour ce cours. Veuillez payer la séance ou souscrire à un abonnement.',
+                     'code' => 'PAYMENT_REQUIRED',
+                 ]);
+    }
+
+    #[Test]
     public function it_validates_lesson_id_on_booking()
     {
         // Arrange
