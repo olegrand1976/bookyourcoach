@@ -204,6 +204,9 @@
                             :class="getStatusBadgeClass(lesson.status)">
                         {{ getStatusLabel(lesson.status) }}
                       </span>
+                      <span v-if="lesson.status === 'cancelled'" class="text-xs text-orange-600 font-semibold ml-1">
+                        ⚠️
+                      </span>
                     </div>
                     
                     <!-- Horaire -->
@@ -252,8 +255,9 @@
                         </button>
                         <button
                           @click.stop.prevent="confirmAndDeleteLesson(lesson)"
-                          class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center gap-1 relative z-30 cursor-pointer"
-                          title="Supprimer"
+                          class="px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 relative z-30 cursor-pointer"
+                          :class="lesson.status === 'cancelled' ? 'bg-red-800 text-white hover:bg-red-900' : 'bg-red-600 text-white hover:bg-red-700'"
+                          :title="lesson.status === 'cancelled' ? 'Supprimer définitivement ce cours annulé' : 'Supprimer'"
                           type="button">
                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -518,7 +522,7 @@
             <!-- Boutons d'action -->
             <div class="flex justify-between gap-3 mt-6 pt-4 border-t">
               <button 
-                @click="deleteLesson(selectedLesson.id)"
+                @click="confirmAndDeleteLesson(selectedLesson)"
                 :disabled="saving"
                 class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
                 <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -536,6 +540,158 @@
         </div>
       </div>
       
+      <!-- Modale de confirmation de suppression -->
+      <div 
+        v-if="showDeleteScopeModal" 
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        @click.self="showDeleteScopeModal = false"
+      >
+        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+          <h3 class="text-xl font-bold text-gray-900 mb-4">
+            Confirmer la suppression
+          </h3>
+          
+          <div v-if="lessonToDelete" class="mb-4">
+            <p class="text-sm text-gray-600 mb-2">
+              <strong>Élève:</strong> {{ getLessonStudents(lessonToDelete) }}
+            </p>
+            <p class="text-sm text-gray-600 mb-2">
+              <strong>Date:</strong> {{ formatDateFull(new Date(lessonToDelete.start_time)) }}
+            </p>
+            <p class="text-sm text-gray-600 mb-2">
+              <strong>Heure:</strong> {{ formatLessonTime(lessonToDelete.start_time) }}
+            </p>
+            <p class="text-sm text-gray-600 mb-2">
+              <strong>Type:</strong> {{ lessonToDelete.course_type?.name || 'Non défini' }}
+            </p>
+            <p v-if="lessonToDelete.status === 'cancelled'" class="text-sm text-red-600 mb-2 font-semibold">
+              <strong>Statut:</strong> ⚠️ Ce cours est déjà annulé
+            </p>
+          </div>
+          
+          <div v-if="futureLessonsCountForDelete > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p class="text-sm text-blue-800">
+              <strong>{{ futureLessonsCountForDelete }}</strong> cours futur(s) seront également supprimés si vous choisissez "Toutes les séances futures".
+            </p>
+          </div>
+          
+          <div v-else-if="futureLessonsCountForDelete === 0 && lessonToDelete?.subscription_instances && lessonToDelete.subscription_instances.length > 0 && lessonToDelete.status !== 'cancelled'" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <p class="text-sm text-yellow-800">
+              Aucun cours futur trouvé pour cet abonnement.
+            </p>
+          </div>
+          
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Raison de la suppression (optionnel)
+            </label>
+            <textarea
+              v-model="deleteReason"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ex: Créneau libéré, changement d'horaire..."
+            ></textarea>
+          </div>
+          
+          <div class="mb-4">
+            <div class="text-sm font-medium text-gray-700 mb-3">Action à effectuer :</div>
+            
+            <!-- Option 1: Cette séance uniquement -->
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div class="font-semibold text-gray-900 mb-2">Cette séance uniquement</div>
+              <div class="flex gap-2">
+                <button
+                  @click="confirmDeleteSingleLesson('cancel')"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors"
+                >
+                  <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-orange-700">Annuler</span>
+                </button>
+                <button
+                  @click="confirmDeleteSingleLesson('delete')"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-red-700">Supprimer définitivement</span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Option 2: Toutes les séances futures (si le cours est lié à un abonnement) -->
+            <div v-if="lessonToDelete?.subscription_instances && lessonToDelete.subscription_instances.length > 0" class="p-3 rounded-lg border mb-4" 
+                 :class="lessonToDelete?.status === 'cancelled' ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'">
+              <div class="font-semibold text-gray-900 mb-2">
+                Toutes les séances futures 
+                <span v-if="futureLessonsCountForDelete > 0">({{ futureLessonsCountForDelete }} séance(s))</span>
+                <span v-else class="text-gray-500 text-sm font-normal">(aucune détectée)</span>
+              </div>
+              <div class="text-xs mb-2" 
+                   :class="lessonToDelete?.status === 'cancelled' ? 'text-orange-700' : 'text-gray-600'">
+                <template v-if="futureLessonsCountForDelete > 0">
+                  <template v-if="lessonToDelete?.status === 'cancelled'">
+                    Cette séance annulée et {{ futureLessonsCountForDelete }} séance(s) future(s) également annulée(s) liée(s) au même créneau et abonnement
+                  </template>
+                  <template v-else>
+                    Cette séance et {{ futureLessonsCountForDelete }} séance(s) future(s) liée(s) au même créneau et abonnement
+                  </template>
+                </template>
+                <template v-else>
+                  <template v-if="lessonToDelete?.status === 'cancelled'">
+                    Cette séance annulée et toutes les séances futures (s'il y en a) liées au même créneau et abonnement seront supprimées définitivement
+                  </template>
+                  <template v-else>
+                    Cette séance et toutes les séances futures (s'il y en a) liées au même créneau et abonnement seront supprimées définitivement
+                  </template>
+                </template>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="confirmDeleteAllFutureLessons('cancel')"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors"
+                >
+                  <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-orange-700">Annuler</span>
+                </button>
+                <button
+                  @click="confirmDeleteAllFutureLessons('delete')"
+                  class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                  <span class="text-sm font-medium text-red-700">Supprimer définitivement</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Message pour les cours déjà annulés -->
+          <div v-if="lessonToDelete?.status === 'cancelled'" class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p class="text-sm text-yellow-800 mb-2">
+              <strong>⚠️ Ce cours est déjà annulé.</strong>
+            </p>
+            <p class="text-xs text-yellow-700">
+              Vous pouvez le supprimer définitivement du planning pour le retirer complètement, ou choisir "Annuler" pour maintenir son statut annulé.
+            </p>
+          </div>
+          
+          <div class="flex justify-end gap-2">
+            <button
+              @click="showDeleteScopeModal = false"
+              class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modale Historique complet -->
       <LessonsHistoryModal
         :show="showHistoryModal"
@@ -779,6 +935,12 @@ const showUpdateScopeModal = ref(false)
 const futureLessonsCount = ref(0)
 const pendingUpdatePayload = ref<any>(null)
 const originalLessonTime = ref<{ date: string; time: string } | null>(null)
+
+// Variables pour la modale de confirmation de suppression
+const showDeleteScopeModal = ref(false)
+const futureLessonsCountForDelete = ref(0)
+const lessonToDelete = ref<Lesson | null>(null)
+const deleteReason = ref<string>('')
 
 const slotForm = ref({
   day_of_week: 1,
@@ -2571,36 +2733,302 @@ async function openCreateLessonModalForTimeSlot(timeSlot: string) {
 
 // Fonction pour confirmer et supprimer un cours depuis les cartes
 async function confirmAndDeleteLesson(lesson: Lesson) {
-  const studentName = getLessonStudents(lesson)
-  const lessonDate = formatDateFull(new Date(lesson.start_time))
-  const lessonTime = formatLessonTime(lesson.start_time)
+  lessonToDelete.value = lesson
+  deleteReason.value = ''
   
-  const confirmMessage = `Êtes-vous sûr de vouloir supprimer ce cours ?\n\n` +
-    `Élève: ${studentName}\n` +
-    `Date: ${lessonDate}\n` +
-    `Heure: ${lessonTime}\n` +
-    `Type: ${lesson.course_type?.name || 'Non défini'}`
+  console.log('🎯 [openDeleteModal] Ouverture modale de suppression pour cours ID:', lesson.id)
   
-  if (!confirm(confirmMessage)) return
+  // Vérifier si le cours a des séances futures liées à un abonnement
+  await checkFutureLessonsForDelete(lesson)
   
-  await deleteLesson(lesson.id)
+  showDeleteScopeModal.value = true
 }
 
-async function deleteLesson(lessonId: number) {
+// Vérifier le nombre de cours futurs pour la suppression
+async function checkFutureLessonsForDelete(lesson: Lesson) {
+  console.log(`🚀 [checkFutureLessonsForDelete] DÉBUT - Cours ID: ${lesson.id}, start_time: ${lesson.start_time}`)
+  
+  try {
+    const { $api } = useNuxtApp()
+    
+    // Réinitialiser le compteur
+    futureLessonsCountForDelete.value = 0
+    
+    // Charger les détails complets du cours pour avoir les subscription_instances
+    console.log(`🔍 [checkFutureLessonsForDelete] Chargement des détails du cours ID ${lesson.id}`)
+    const response = await $api.get(`/lessons/${lesson.id}`, {
+      params: {
+        include: 'subscription_instances'
+      }
+    })
+    
+    console.log(`📥 [checkFutureLessonsForDelete] Réponse /lessons/${lesson.id}:`, response.data)
+    
+    if (response.data.success && response.data.data) {
+      const fullLesson = response.data.data
+      
+      console.log(`📋 [checkFutureLessonsForDelete] Cours chargé:`, {
+        id: fullLesson.id,
+        start_time: fullLesson.start_time,
+        subscription_instances_count: fullLesson.subscription_instances?.length || 0,
+        subscription_instances: fullLesson.subscription_instances
+      })
+      
+      // Mettre à jour lessonToDelete avec les données complètes (incluant subscription_instances)
+      lessonToDelete.value = fullLesson
+      
+      // Si le cours a des subscription_instances, vérifier les cours futurs
+      if (fullLesson.subscription_instances && fullLesson.subscription_instances.length > 0) {
+        const subscriptionInstance = fullLesson.subscription_instances[0]
+        
+        console.log(`✅ [checkFutureLessonsForDelete] Abonnement trouvé: ID ${subscriptionInstance.id}`, subscriptionInstance)
+        
+        // Utiliser l'API dédiée pour récupérer les cours futurs de cette instance d'abonnement
+        // Cette API est plus fiable car elle filtre directement côté serveur
+        // Formater la date/heure correctement pour l'API
+        // L'API utilise startOfDay() donc on passe la date du cours
+        // Utiliser fullLesson qui contient les données complètes chargées depuis l'API
+        const lessonDate = new Date(fullLesson.start_time || lesson.start_time) // Fallback vers lesson si fullLesson n'a pas start_time
+        const afterDate = lessonDate.toISOString().split('T')[0] // Format YYYY-MM-DD
+        
+        try {
+            // Utiliser fullLesson qui contient toutes les données nécessaires
+            // Si le cours actuel est annulé, inclure aussi les cours futurs annulés
+            const includeCancelled = fullLesson.status === 'cancelled'
+            
+            // Extraire les caractéristiques du créneau pour filtrer les cours futurs
+            const lessonStartDateTime = new Date(fullLesson.start_time)
+            const lessonEndDateTime = new Date(fullLesson.end_time || fullLesson.start_time) // Fallback si end_time n'existe pas
+            const lessonDayOfWeek = lessonStartDateTime.getDay() // 0 (Dimanche) à 6 (Samedi)
+            // Conversion pour MySQL DAYOFWEEK (1=Dimanche, 7=Samedi)
+            const lessonDayOfWeekMySQL = lessonDayOfWeek === 0 ? 1 : (lessonDayOfWeek + 1)
+            
+            // Formater les heures au format HH:MM:SS
+            const lessonStartTime = String(lessonStartDateTime.getHours()).padStart(2, '0') + ':' +
+                                   String(lessonStartDateTime.getMinutes()).padStart(2, '0') + ':' +
+                                   String(lessonStartDateTime.getSeconds()).padStart(2, '0')
+            const lessonEndTime = String(lessonEndDateTime.getHours()).padStart(2, '0') + ':' +
+                                 String(lessonEndDateTime.getMinutes()).padStart(2, '0') + ':' +
+                                 String(lessonEndDateTime.getSeconds()).padStart(2, '0')
+            
+            // S'assurer que student_id et club_id sont disponibles
+            const studentId = fullLesson.student_id || fullLesson.student?.id
+            const clubId = fullLesson.club_id || fullLesson.club?.id
+            
+            if (!studentId || !clubId) {
+              console.warn('⚠️ [checkFutureLessonsForDelete] student_id ou club_id manquant, impossible de filtrer par créneau', {
+                student_id: studentId,
+                club_id: clubId,
+                fullLesson: fullLesson
+              })
+              futureLessonsCountForDelete.value = 0
+              return
+            }
+            
+            console.log(`🔍 [checkFutureLessonsForDelete] Appel API future-lessons pour abonnement ${subscriptionInstance.id}`, {
+              after_date: afterDate,
+              includeCancelled: includeCancelled,
+              day_of_week: lessonDayOfWeekMySQL,
+              start_time: lessonStartTime,
+              end_time: lessonEndTime,
+              student_id: studentId,
+              club_id: clubId
+            })
+            
+            // ⚠️ IMPORTANT: La route est sous le préfixe /club/
+            const futureLessonsResponse = await $api.get(`/club/subscription-instances/${subscriptionInstance.id}/future-lessons`, {
+              params: {
+                after_date: afterDate, // Récupérer les cours après la date de ce cours
+                include_cancelled: includeCancelled ? 'true' : 'false', // Inclure les cours annulés si le cours actuel est annulé
+                // 🔒 FILTRAGE PAR CRÉNEAU : Même jour, même plage horaire, même élève, même club
+                reference_lesson_time: lessonStartTime,
+                reference_lesson_end_time: lessonEndTime,
+                reference_student_id: studentId,
+                reference_club_id: clubId,
+                reference_day_of_week: lessonDayOfWeekMySQL
+              }
+            })
+            
+            console.log(`📥 [checkFutureLessonsForDelete] Réponse API future-lessons:`, futureLessonsResponse.data)
+          
+          if (futureLessonsResponse.data.success && futureLessonsResponse.data.data) {
+            // Les cours retournés sont déjà filtrés par créneau par l'API (même jour, même plage horaire, même élève, même club)
+            // Il ne reste plus qu'à filtrer pour exclure le cours actuel et vérifier la date/heure
+            const lessonStartDateTime = new Date(fullLesson.start_time)
+            
+            // Si le cours actuel est annulé, on veut compter uniquement les cours futurs qui sont aussi annulés
+            // Si le cours actuel n'est pas annulé, on compte uniquement les cours non annulés
+            const futureLessons = futureLessonsResponse.data.data.lessons.filter((l: any) => {
+              const lessonTime = new Date(l.start_time)
+              const isAfterStartTime = lessonTime > lessonStartDateTime
+              const isNotCurrentLesson = l.id !== fullLesson.id
+              
+              if (fullLesson.status === 'cancelled') {
+                // Si le cours actuel est annulé, on compte uniquement les cours futurs qui sont aussi annulés
+                return isNotCurrentLesson && l.status === 'cancelled' && isAfterStartTime
+              } else {
+                // Si le cours actuel n'est pas annulé, on compte uniquement les cours non annulés
+                return isNotCurrentLesson && l.status !== 'cancelled' && isAfterStartTime
+              }
+            })
+            
+            futureLessonsCountForDelete.value = futureLessons.length
+            console.log(`✅ [checkFutureLessonsForDelete] Cours futurs trouvés: ${futureLessons.length} pour l'instance d'abonnement ${subscriptionInstance.id} (cours actuel annulé: ${fullLesson.status === 'cancelled'}, total dans la réponse: ${futureLessonsResponse.data.data.lessons.length})`)
+          } else {
+            futureLessonsCountForDelete.value = 0
+            console.log('ℹ️ [checkFutureLessonsForDelete] Aucun cours futur trouvé via l\'API future-lessons (success: false ou data manquant)')
+          }
+        } catch (apiError: any) {
+          console.error('❌ [checkFutureLessonsForDelete] Erreur lors de l\'appel API future-lessons:', apiError)
+          console.error('   URL appelée:', `/club/subscription-instances/${subscriptionInstance.id}/future-lessons?after_date=${afterDate}`)
+          console.error('   Status:', apiError.response?.status)
+          console.error('   Message:', apiError.response?.data?.message || apiError.message)
+          console.error('   Détails:', apiError.response?.data)
+          // En cas d'erreur avec l'API dédiée, on essaie la méthode de fallback
+          // en récupérant les cours depuis /lessons avec filtrage client
+          await checkFutureLessonsFallback(lesson, subscriptionInstance.id)
+        }
+      } else {
+        // Pas d'abonnement lié, donc pas de cours futurs
+        futureLessonsCountForDelete.value = 0
+        console.log('ℹ️ Aucune instance d\'abonnement liée à ce cours')
+      }
+    } else {
+      futureLessonsCountForDelete.value = 0
+      console.log('ℹ️ Impossible de charger les détails du cours')
+    }
+  } catch (err: any) {
+    console.error('❌ [checkFutureLessonsForDelete] ERREUR GLOBALE:', err)
+    console.error('   Message:', err.message)
+    console.error('   Stack:', err.stack)
+    if (err.response) {
+      console.error('   Response status:', err.response.status)
+      console.error('   Response data:', err.response.data)
+    }
+    // En cas d'erreur, on assume qu'il n'y a pas de cours futurs
+    futureLessonsCountForDelete.value = 0
+  }
+}
+
+// Méthode de fallback pour vérifier les cours futurs si l'API dédiée n'est pas disponible
+async function checkFutureLessonsFallback(lesson: Lesson, subscriptionInstanceId: number) {
+  try {
+    const { $api } = useNuxtApp()
+    
+    console.log('⚠️ Utilisation de la méthode fallback pour vérifier les cours futurs')
+    
+    // Récupérer tous les cours après cette date
+    const lessonsResponse = await $api.get('/lessons', {
+      params: {
+        start_time_after: lesson.start_time,
+        status: 'confirmed,pending'
+      }
+    })
+    
+    if (lessonsResponse.data.success && lessonsResponse.data.data) {
+      // Pour chaque cours, charger ses subscription_instances si nécessaire
+      // et filtrer pour trouver ceux liés à la même instance d'abonnement
+      const futureLessons: Lesson[] = []
+      
+      for (const l of lessonsResponse.data.data) {
+        // Vérifier si le cours a déjà les subscription_instances chargées
+        if (!l.subscription_instances) {
+          try {
+            const lessonDetailResponse = await $api.get(`/lessons/${l.id}`, {
+              params: {
+                include: 'subscription_instances'
+              }
+            })
+            if (lessonDetailResponse.data.success && lessonDetailResponse.data.data) {
+              l.subscription_instances = lessonDetailResponse.data.data.subscription_instances || []
+            }
+          } catch (err) {
+            console.warn(`Impossible de charger les détails du cours ${l.id}:`, err)
+            continue
+          }
+        }
+        
+        // Vérifier si le cours est lié à la même instance d'abonnement
+        const hasSameSubscription = l.subscription_instances?.some((si: any) => 
+          si.id === subscriptionInstanceId
+        )
+        
+        if (hasSameSubscription && 
+            l.id !== lesson.id && 
+            new Date(l.start_time) > new Date(lesson.start_time) &&
+            l.status !== 'cancelled') {
+          futureLessons.push(l)
+        }
+      }
+      
+      futureLessonsCountForDelete.value = futureLessons.length
+      console.log(`✅ Fallback: ${futureLessons.length} cours futurs trouvés`)
+    } else {
+      futureLessonsCountForDelete.value = 0
+      console.log('ℹ️ Fallback: Aucun cours trouvé')
+    }
+  } catch (err) {
+    console.error('Erreur lors de la vérification fallback des cours futurs:', err)
+    futureLessonsCountForDelete.value = 0
+  }
+}
+
+// Confirmer la suppression d'une seule séance
+async function confirmDeleteSingleLesson(action: 'cancel' | 'delete' = 'delete') {
+  if (!lessonToDelete.value) return
+  
+  console.log(`🎯 [confirmDeleteSingleLesson] Action: ${action}, Cours ID: ${lessonToDelete.value.id}, Statut: ${lessonToDelete.value.status}`)
+  
+  await deleteLesson(lessonToDelete.value.id, 'single', action)
+  showDeleteScopeModal.value = false
+  lessonToDelete.value = null
+  deleteReason.value = ''
+}
+
+// Confirmer la suppression de toutes les séances futures
+async function confirmDeleteAllFutureLessons(action: 'cancel' | 'delete' = 'delete') {
+  if (!lessonToDelete.value) return
+  
+  console.log(`🎯 [confirmDeleteAllFutureLessons] Action: ${action}, Cours ID: ${lessonToDelete.value.id}, Cours futurs: ${futureLessonsCountForDelete.value}`)
+  
+  await deleteLesson(lessonToDelete.value.id, 'all_future', action)
+  showDeleteScopeModal.value = false
+  lessonToDelete.value = null
+  deleteReason.value = ''
+}
+
+async function deleteLesson(lessonId: number, scope: 'single' | 'all_future' = 'single', action: 'cancel' | 'delete' = 'delete') {
   try {
     saving.value = true
     const { $api } = useNuxtApp()
     
-    const response = await $api.delete(`/lessons/${lessonId}`)
+    const defaultReason = action === 'delete' 
+      ? 'Supprimé définitivement par le club' 
+      : 'Annulé par le club'
+    
+    console.log(`🗑️ [deleteLesson] Suppression cours ID ${lessonId}, scope: ${scope}, action: ${action}`)
+    
+    const response = await $api.post(`/lessons/${lessonId}/cancel-with-future`, {
+      cancel_scope: scope,
+      action: action, // 'cancel' ou 'delete'
+      reason: deleteReason.value || defaultReason
+    })
+    
+    console.log(`📥 [deleteLesson] Réponse API:`, response.data)
     
     if (response.data.success) {
-      success('Cours supprimé avec succès', 'Succès')
+      const processedCount = response.data.data?.processed_count || 1
+      const actionText = action === 'delete' ? 'supprimé' : 'annulé'
+      const message = processedCount === 1 
+        ? `Cours ${actionText} avec succès` 
+        : `${processedCount} cours ${actionText}s avec succès`
+      success(message, 'Succès')
       await loadLessons()
       if (selectedLesson.value?.id === lessonId) {
         closeLessonModal()
       }
     } else {
-      showError(response.data.message || 'Erreur lors de la suppression', 'Erreur')
+      throw new Error(response.data.message || 'Erreur lors de la suppression')
     }
   } catch (err: any) {
     console.error('Erreur suppression cours:', err)
@@ -2674,7 +3102,7 @@ function getLessonBorderClass(lesson: Lesson): string {
   const classes: Record<string, string> = {
     'confirmed': 'border-green-300 bg-green-50',
     'pending': 'border-yellow-300 bg-yellow-50',
-    'cancelled': 'border-red-300 bg-red-50',
+    'cancelled': 'border-red-400 bg-red-100 opacity-75', // Cours annulés : plus visible
     'completed': 'border-gray-300 bg-gray-50'
   }
   return classes[lesson.status] || 'border-blue-300 bg-blue-50'

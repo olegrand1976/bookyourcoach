@@ -1912,13 +1912,54 @@ class SubscriptionController extends Controller
             }
 
             $referenceDate = Carbon::parse($afterDate)->startOfDay();
+            
+            // Paramètre optionnel : inclure les cours annulés (utile si le cours actuel est annulé)
+            $includeCancelled = request()->query('include_cancelled', 'false') === 'true';
+            
+            // Paramètres optionnels pour filtrer par créneau (même jour, même plage horaire, même élève, même club)
+            $filterBySlot = request()->has('reference_lesson_time') && 
+                           request()->has('reference_lesson_end_time') &&
+                           request()->has('reference_student_id') &&
+                           request()->has('reference_club_id');
 
             // Récupérer les cours futurs de cette instance d'abonnement
-            $futureLessons = $instance->lessons()
+            $futureLessonsQuery = $instance->lessons()
                 ->where('start_time', '>', $referenceDate)
-                ->where('status', '!=', 'cancelled')
-                ->orderBy('start_time', 'asc')
-                ->get();
+                ->orderBy('start_time', 'asc');
+            
+            // 🔒 FILTRAGE PAR CRÉNEAU : Si les paramètres de référence sont fournis, filtrer strictement
+            if ($filterBySlot) {
+                $referenceLessonTime = request()->query('reference_lesson_time'); // Format "HH:MM:SS"
+                $referenceLessonEndTime = request()->query('reference_lesson_end_time'); // Format "HH:MM:SS"
+                $referenceStudentId = request()->query('reference_student_id');
+                $referenceClubId = request()->query('reference_club_id');
+                $referenceDayOfWeek = request()->query('reference_day_of_week'); // Valeur MySQL DAYOFWEEK (1-7)
+                
+                // Si reference_day_of_week n'est pas fourni, l'extraire de after_date
+                if (!$referenceDayOfWeek) {
+                    $refDateCarbon = Carbon::parse($afterDate);
+                    $refDayCarbon = $refDateCarbon->dayOfWeek; // 0 (Dim) à 6 (Sam)
+                    $referenceDayOfWeek = $refDayCarbon === 0 ? 1 : ($refDayCarbon + 1); // Conversion MySQL
+                }
+                
+                // Filtrer par jour de semaine (MySQL DAYOFWEEK : 1=Dimanche, 7=Samedi)
+                $futureLessonsQuery->whereRaw('DAYOFWEEK(lessons.start_time) = ?', [$referenceDayOfWeek])
+                    // Filtrer par plage horaire (même heure de début et fin)
+                    ->whereRaw('TIME(lessons.start_time) = ?', [$referenceLessonTime])
+                    ->whereRaw('TIME(lessons.end_time) = ?', [$referenceLessonEndTime])
+                    // Filtrer par élève
+                    ->where('lessons.student_id', $referenceStudentId)
+                    // Filtrer par club
+                    ->where('lessons.club_id', $referenceClubId);
+            }
+            
+            // Si include_cancelled est false, exclure les cours annulés
+            // Sinon, inclure tous les cours (y compris annulés)
+            if (!$includeCancelled) {
+                $futureLessonsQuery->where('status', '!=', 'cancelled');
+            }
+            
+            $futureLessons = $futureLessonsQuery->get();
 
             return response()->json([
                 'success' => true,

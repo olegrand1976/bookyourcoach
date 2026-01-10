@@ -620,7 +620,12 @@ class LessonController extends Controller
                 'students.user:id,name,email',
                 'courseType',
                 'location',
-                'club'
+                'club',
+                // ⚠️ IMPORTANT : Charger les subscription_instances directement liées au cours
+                // (utilisées pour la suppression des cours futurs)
+                'subscriptionInstances' => function ($query) {
+                    $query->with(['subscription.template']);
+                }
             ]);
 
             // Vérifier les permissions selon le rôle
@@ -2416,6 +2421,7 @@ class LessonController extends Controller
         try {
             $validated = $request->validate([
                 'cancel_scope' => 'required|in:single,all_future',
+                'action' => 'required|in:cancel,delete', // Nouveau paramètre : cancel ou delete
                 'reason' => 'nullable|string|max:500',
             ]);
 
@@ -2431,66 +2437,151 @@ class LessonController extends Controller
 
             $lesson = Lesson::where('club_id', $club->id)->findOrFail($id);
             $cancelScope = $validated['cancel_scope'];
-            $reason = $validated['reason'] ?? 'Annulé pour libérer le créneau';
+            $action = $validated['action']; // 'cancel' ou 'delete'
+            $reason = $validated['reason'] ?? ($action === 'delete' ? 'Supprimé définitivement par le club' : 'Annulé par le club');
 
-            $cancelledCount = 0;
-            $cancelledLessons = [];
+            $processedCount = 0;
+            $processedLessons = [];
 
             if ($cancelScope === 'single') {
-                // Annuler uniquement ce cours
-                $lesson->status = 'cancelled';
-                $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
-                $lesson->save();
-                
-                // Libérer l'abonnement si lié
-                $this->releaseSubscriptionLesson($lesson);
-                
-                $cancelledCount = 1;
-                $cancelledLessons[] = $lesson->id;
+                // Traiter uniquement ce cours
+                if ($action === 'delete') {
+                    // Supprimer définitivement (peut être appelé même si le cours est déjà annulé)
+                    $lessonId = $lesson->id; // Sauvegarder l'ID avant suppression
+                    $this->releaseSubscriptionLesson($lesson);
+                    $lesson->delete();
+                    $processedCount = 1;
+                    $processedLessons[] = $lessonId; // Utiliser l'ID sauvegardé
+                } else {
+                    // Annuler (même si déjà annulé, on peut le réannuler/mettre à jour les notes)
+                    $lesson->status = 'cancelled';
+                    $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
+                    $lesson->save();
+                    
+                    // Libérer l'abonnement si lié
+                    $this->releaseSubscriptionLesson($lesson);
+                    
+                    $processedCount = 1;
+                    $processedLessons[] = $lesson->id;
+                }
                 
             } else {
-                // Annuler ce cours et tous les cours futurs de la même série (abonnement)
+                // Traiter ce cours et tous les cours futurs de la même série (abonnement)
                 $lesson->load('subscriptionInstances');
                 
-                // Annuler le cours actuel
-                $lesson->status = 'cancelled';
-                $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
-                $lesson->save();
-                $this->releaseSubscriptionLesson($lesson);
-                $cancelledCount = 1;
-                $cancelledLessons[] = $lesson->id;
+                $lessonsToProcess = [$lesson];
                 
-                // Si le cours est lié à un abonnement, annuler les cours futurs
+                // Si le cours est lié à un abonnement, récupérer les cours futurs
                 if ($lesson->subscriptionInstances->count() > 0) {
                     $subscriptionInstance = $lesson->subscriptionInstances->first();
                     
-                    $futureLessons = $subscriptionInstance->lessons()
-                        ->where('lessons.start_time', '>', Carbon::parse($lesson->start_time))
-                        ->where('lessons.status', '!=', 'cancelled')
-                        ->where('lessons.id', '!=', $lesson->id)
-                        ->get();
+                    // Extraire les caractéristiques du créneau du cours actuel pour filtrer les cours futurs
+                    $lessonStartDateTime = Carbon::parse($lesson->start_time);
+                    $lessonEndDateTime = Carbon::parse($lesson->end_time);
                     
-                    foreach ($futureLessons as $futureLesson) {
-                        $futureLesson->status = 'cancelled';
-                        $futureLesson->notes = ($futureLesson->notes ? $futureLesson->notes . "\n" : '') . "[Annulé en cascade] " . $reason;
-                        $futureLesson->save();
+                    // Carbon dayOfWeek retourne 0 (Dimanche) à 6 (Samedi)
+                    // MySQL DAYOFWEEK retourne 1 (Dimanche) à 7 (Samedi)
+                    // Conversion : Carbon 0 (Dim) -> MySQL 1 (Dim), Carbon 6 (Sam) -> MySQL 7 (Sam)
+                    $lessonDayOfWeekCarbon = $lessonStartDateTime->dayOfWeek;
+                    $lessonDayOfWeekMySQL = $lessonDayOfWeekCarbon === 0 ? 1 : ($lessonDayOfWeekCarbon + 1);
+                    
+                    $lessonStartTime = $lessonStartDateTime->format('H:i:s'); // Format "HH:MM:SS"
+                    $lessonEndTime = $lessonEndDateTime->format('H:i:s');
+                    $lessonStudentId = $lesson->student_id;
+                    $lessonClubId = $lesson->club_id;
+                    
+                    $futureLessonsQuery = $subscriptionInstance->lessons()
+                        ->where('lessons.start_time', '>', $lessonStartDateTime)
+                        ->where('lessons.id', '!=', $lesson->id)
+                        // 🔒 VÉRIFICATION IMPORTANTE : Même créneau (même jour, même plage horaire, même élève, même club)
+                        // Vérifier le jour de la semaine (MySQL DAYOFWEEK : 1=Dimanche, 7=Samedi)
+                        ->whereRaw('DAYOFWEEK(lessons.start_time) = ?', [$lessonDayOfWeekMySQL])
+                        // Vérifier la même plage horaire (même heure de début et fin)
+                        ->whereRaw('TIME(lessons.start_time) = ?', [$lessonStartTime])
+                        ->whereRaw('TIME(lessons.end_time) = ?', [$lessonEndTime])
+                        // Vérifier le même élève
+                        ->where('lessons.student_id', $lessonStudentId)
+                        // Vérifier le même club
+                        ->where('lessons.club_id', $lessonClubId);
+                    
+                    // Si on annule :
+                    // - Si le cours actuel est annulé, on traite uniquement les cours futurs qui sont aussi annulés
+                    // - Si le cours actuel n'est pas annulé, on traite uniquement les cours futurs non annulés
+                    // Si on supprime définitivement, on inclut tous les cours (y compris annulés)
+                    if ($action === 'cancel') {
+                        if ($lesson->status === 'cancelled') {
+                            // Si le cours actuel est annulé, on veut traiter uniquement les cours futurs qui sont aussi annulés
+                            $futureLessonsQuery->where('lessons.status', '=', 'cancelled');
+                        } else {
+                            // Si le cours actuel n'est pas annulé, on traite uniquement les cours futurs non annulés
+                            $futureLessonsQuery->where('lessons.status', '!=', 'cancelled');
+                        }
+                    }
+                    // Pour 'delete', on inclut tous les cours (y compris annulés) - pas de filtre supplémentaire
+                    
+                    $futureLessons = $futureLessonsQuery->get();
+                    $lessonsToProcess = array_merge($lessonsToProcess, $futureLessons->all());
+                }
+                
+                // Traiter tous les cours (actuel + futurs)
+                foreach ($lessonsToProcess as $lessonToProcess) {
+                    if ($action === 'delete') {
+                        // Supprimer définitivement (peut être appelé même si le cours est déjà annulé)
+                        $lessonId = $lessonToProcess->id; // Sauvegarder l'ID avant suppression
+                        $this->releaseSubscriptionLesson($lessonToProcess);
+                        $lessonToProcess->delete();
+                        $processedCount++;
+                        $processedLessons[] = $lessonId; // Utiliser l'ID sauvegardé
+                    } else {
+                        // Annuler (action='cancel')
+                        // Si le cours actuel est annulé, on traite uniquement les cours futurs annulés (pour mettre à jour leurs notes)
+                        // Si le cours actuel n'est pas annulé, on annule les cours futurs non annulés
+                        if ($lessonToProcess->status === 'cancelled') {
+                            // Si déjà annulé, mettre à jour uniquement les notes pour tracer l'action
+                            // Ne pas libérer l'abonnement car il a déjà été libéré lors de l'annulation initiale
+                            $currentNotes = $lessonToProcess->notes ?? '';
+                            if ($lessonToProcess->id === $lesson->id) {
+                                $newNote = "[Annulé] " . $reason;
+                            } else {
+                                $newNote = "[Annulé en cascade] " . $reason;
+                            }
+                            // Éviter les doublons de notes
+                            if (!str_contains($currentNotes, $newNote)) {
+                                $lessonToProcess->notes = ($currentNotes ? $currentNotes . "\n" : '') . $newNote;
+                                $lessonToProcess->save();
+                            }
+                        } else {
+                            // Si pas encore annulé, annuler maintenant et libérer l'abonnement
+                            if ($lessonToProcess->id === $lesson->id) {
+                                $lessonToProcess->status = 'cancelled';
+                                $lessonToProcess->notes = ($lessonToProcess->notes ? $lessonToProcess->notes . "\n" : '') . "[Annulé] " . $reason;
+                            } else {
+                                $lessonToProcess->status = 'cancelled';
+                                $lessonToProcess->notes = ($lessonToProcess->notes ? $lessonToProcess->notes . "\n" : '') . "[Annulé en cascade] " . $reason;
+                            }
+                            $lessonToProcess->save();
+                            // Libérer l'abonnement uniquement si le cours n'était pas déjà annulé
+                            $this->releaseSubscriptionLesson($lessonToProcess);
+                        }
                         
-                        $this->releaseSubscriptionLesson($futureLesson);
-                        
-                        $cancelledCount++;
-                        $cancelledLessons[] = $futureLesson->id;
+                        $processedCount++;
+                        $processedLessons[] = $lessonToProcess->id;
                     }
                 }
             }
 
+            $actionText = $action === 'delete' ? 'supprimé' : 'annulé';
+            $message = $processedCount === 1 
+                ? "Cours {$actionText} avec succès" 
+                : "{$processedCount} cours {$actionText}s avec succès";
+
             return response()->json([
                 'success' => true,
-                'message' => $cancelledCount === 1 
-                    ? 'Cours annulé avec succès' 
-                    : "{$cancelledCount} cours annulés avec succès",
+                'message' => $message,
                 'data' => [
-                    'cancelled_count' => $cancelledCount,
-                    'cancelled_lesson_ids' => $cancelledLessons
+                    'processed_count' => $processedCount,
+                    'processed_lesson_ids' => $processedLessons,
+                    'action' => $action
                 ]
             ]);
 
