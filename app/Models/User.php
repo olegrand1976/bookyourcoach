@@ -222,6 +222,18 @@ class User extends Authenticatable
                 'last_name' => $this->last_name,
                 'phone' => $this->phone,
             ]);
+
+            // Si l'étudiant a des clubs dans la table pivot, définir le premier comme club principal
+            $firstClub = \Illuminate\Support\Facades\DB::table('club_students')
+                ->where('student_id', $this->student->id)
+                ->where('is_active', true)
+                ->orderBy('joined_at', 'asc')
+                ->first();
+
+            if ($firstClub && !$this->student->club_id) {
+                $this->student->club_id = $firstClub->club_id;
+                $this->student->save();
+            }
         }
 
         return $this->student;

@@ -983,6 +983,9 @@ class StudentController extends Controller
 
             DB::beginTransaction();
 
+            // Vérifier si l'étudiant a déjà un club principal
+            $hasPrimaryClub = $student->club_id !== null;
+            
             $addedClubs = [];
             foreach ($request->club_ids as $clubId) {
                 // Vérifier si l'élève n'est pas déjà affilié à ce club
@@ -1002,6 +1005,13 @@ class StudentController extends Controller
                         'updated_at' => now(),
                     ]);
                     $addedClubs[] = $clubId;
+                    
+                    // Si l'étudiant n'a pas de club principal, définir le premier ajouté comme club principal
+                    if (!$hasPrimaryClub && count($addedClubs) === 1) {
+                        $student->club_id = $clubId;
+                        $student->save();
+                        $hasPrimaryClub = true;
+                    }
                 } elseif (!$existing->is_active) {
                     // Réactiver l'affiliation existante
                     DB::table('club_students')
@@ -1013,6 +1023,13 @@ class StudentController extends Controller
                             'updated_at' => now(),
                         ]);
                     $addedClubs[] = $clubId;
+                    
+                    // Si l'étudiant n'a pas de club principal, définir le premier réactivé comme club principal
+                    if (!$hasPrimaryClub && count($addedClubs) === 1) {
+                        $student->club_id = $clubId;
+                        $student->save();
+                        $hasPrimaryClub = true;
+                    }
                 }
             }
 
@@ -1140,12 +1157,21 @@ class StudentController extends Controller
                     'email' => $user->email
                 ]);
                 
-                $student = Student::create([
-                    'user_id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'phone' => $user->phone,
-                ]);
+                $student = $user->getOrCreateStudent();
+                
+                // Si l'étudiant a des clubs mais pas de club_id défini, définir le premier comme club principal
+                if ($student && !$student->club_id) {
+                    $firstClub = DB::table('club_students')
+                        ->where('student_id', $student->id)
+                        ->where('is_active', true)
+                        ->orderBy('joined_at', 'asc')
+                        ->first();
+                    
+                    if ($firstClub) {
+                        $student->club_id = $firstClub->club_id;
+                        $student->save();
+                    }
+                }
             }
 
             if (!$student) {

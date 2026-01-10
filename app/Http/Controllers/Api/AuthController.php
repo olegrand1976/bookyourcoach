@@ -104,8 +104,15 @@ class AuthController extends Controller
 
             // Si c'est un élève, créer le profil Student et lier aux clubs
             if ($request->role === 'student') {
+                // Déterminer le club principal (premier club sélectionné)
+                $primaryClubId = null;
+                if ($request->has('club_ids') && is_array($request->club_ids) && !empty($request->club_ids)) {
+                    $primaryClubId = $request->club_ids[0];
+                }
+
                 $student = Student::create([
                     'user_id' => $user->id,
+                    'club_id' => $primaryClubId, // Définir le club principal lors de l'inscription
                     'first_name' => $request->first_name,
                     'last_name' => $request->last_name,
                     'date_of_birth' => $request->birth_date,
@@ -231,25 +238,55 @@ class AuthController extends Controller
      */
     public function forgotPassword(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-        ]);
-
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
-
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json([
-                'message' => __($status),
-                'success' => true
+        try {
+            $request->validate([
+                'email' => 'required|email',
             ]);
-        }
 
-        return response()->json([
-            'message' => __($status),
-            'success' => false
-        ], 400);
+            $status = Password::sendResetLink(
+                $request->only('email')
+            );
+
+            if ($status === Password::RESET_LINK_SENT) {
+                return response()->json([
+                    'message' => 'Un lien de réinitialisation a été envoyé à votre adresse email.',
+                    'success' => true
+                ]);
+            }
+
+            // Gérer les différents cas d'erreur
+            $statusCode = 400;
+            $message = 'Une erreur est survenue lors de l\'envoi du lien de réinitialisation.';
+
+            if ($status === Password::INVALID_USER) {
+                // Ne pas révéler si l'utilisateur existe ou non pour des raisons de sécurité
+                // Mais retourner quand même un succès pour éviter l'énumération d'emails
+                return response()->json([
+                    'message' => 'Si cette adresse email existe dans notre système, un lien de réinitialisation a été envoyé.',
+                    'success' => true
+                ]);
+            } elseif ($status === Password::RESET_THROTTLED) {
+                $statusCode = 429;
+                $message = 'Trop de tentatives. Veuillez réessayer dans quelques minutes.';
+            }
+
+            return response()->json([
+                'message' => $message,
+                'success' => false
+            ], $statusCode);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'L\'adresse email est requise et doit être valide.',
+                'errors' => $e->errors(),
+                'success' => false
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de l\'envoi du lien de réinitialisation: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de l\'envoi du lien de réinitialisation.',
+                'success' => false
+            ], 500);
+        }
     }
 
     /**

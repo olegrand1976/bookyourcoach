@@ -335,6 +335,10 @@ export const useAuthStore = defineStore('auth', {
         const config = useRuntimeConfig()
         const response = await $fetch(`${config.public.apiBase}/auth/forgot-password`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: { email }
         })
         

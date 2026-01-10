@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Backend Laravel API - Configuration locale
   backend:
@@ -91,17 +89,20 @@ services:
       - app-network
 
   # MailHog pour capturer et visualiser les emails en développement
+  # Note: Ce service créera un nouveau container MailHog sur le port 8035 (web) et 1025 (SMTP).
+  # Si vous préférez utiliser un container MailHog existant (ex: fid-connect-mailhog-1),
+  # commentez ce service et connectez-le au réseau avec:
+  # docker network connect app-network fid-connect-mailhog-1
+  # Puis configurez dans .env.local: MAIL_HOST=fid-connect-mailhog-1, MAIL_PORT=1025
   mailhog:
     image: mailhog/mailhog:latest
     container_name: activibe-mailhog-local
     restart: unless-stopped
     ports:
-      # Interface web pour visualiser les emails
+      # Interface web pour visualiser les emails (port 8035 pour éviter les conflits)
       - "8035:8025"
-      # Port SMTP : pas besoin d'exposer car le backend Docker se connecte via le réseau interne
-      # Le backend utilise MAIL_HOST=mailhog et MAIL_PORT=1025 (port interne du conteneur)
     expose:
-      - "1025"  # Port SMTP accessible uniquement via le réseau Docker
+      - "1025"  # Port SMTP accessible via le réseau Docker (nom du service: mailhog)
     networks:
       - app-network
 
@@ -164,3 +165,5 @@ volumes:
 networks:
   app-network:
     driver: bridge
+    # Permet de connecter des containers externes (comme fid-connect-mailhog-1)
+    external: false
