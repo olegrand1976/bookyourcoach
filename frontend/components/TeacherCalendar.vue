@@ -564,26 +564,41 @@ const loadCalendarEvents = async () => {
     const response = await $api.get('/teacher/lessons')
     console.log('📅 [TeacherCalendar] Réponse API:', response.data)
     
-    // Transformer les cours (lessons) en événements pour le calendrier
-    const lessons = response.data.data || []
-    console.log('📅 [TeacherCalendar] Cours récupérés:', lessons.length)
+    let lessons = response.data.data || []
+    console.log('📅 [TeacherCalendar] Cours totaux récupérés:', lessons.length)
+
+    // Filtrer selon le calendrier sélectionné
+    if (selectedCalendar.value === 'personal') {
+      // Pour le calendrier personnel : uniquement les cours directs (sans club_id)
+      lessons = lessons.filter(lesson => !lesson.club_id && !lesson.club)
+    } else {
+      // Pour un calendrier de club : uniquement les cours de ce club
+      const clubId = Number(selectedCalendar.value)
+      lessons = lessons.filter(lesson => lesson.club_id === clubId || lesson.club?.id === clubId)
+    }
     
-    events.value = lessons.map(lesson => ({
-      id: lesson.id,
-      title: `${lesson.course_type?.name || 'Cours'} - ${lesson.student?.user?.name || 'Élève'}`,
-      start_time: lesson.start_time,
-      end_time: lesson.end_time,
-      duration: Math.round((new Date(lesson.end_time) - new Date(lesson.start_time)) / 60000),
-      type: lesson.course_type?.is_individual ? 'lesson' : 'group',
-      student_name: lesson.student?.user?.name,
-      student_age: lesson.student?.age,
-      club_name: lesson.club?.name,
-      price: lesson.price,
-      status: lesson.status,
-      description: lesson.notes
-    }))
+    events.value = lessons.map(lesson => {
+      const start = new Date(lesson.start_time)
+      const end = new Date(lesson.end_time)
+      const duration = Math.round((end.getTime() - start.getTime()) / 60000)
+
+      return {
+        id: lesson.id,
+        title: `${lesson.course_type?.name || 'Cours'} - ${lesson.student?.user?.name || lesson.student?.first_name || 'Élève'}`,
+        start_time: lesson.start_time,
+        end_time: lesson.end_time,
+        duration: duration,
+        type: lesson.course_type?.is_individual ? 'lesson' : 'group',
+        student_name: lesson.student?.user?.name || `${lesson.student?.first_name || ''} ${lesson.student?.last_name || ''}`.trim(),
+        student_age: lesson.student?.age,
+        club_name: lesson.club?.name,
+        price: lesson.price,
+        status: lesson.status,
+        description: lesson.notes
+      }
+    })
     
-    console.log('📅 [TeacherCalendar] Événements transformés:', events.value.length)
+    console.log(`📅 [TeacherCalendar] Événements filtrés (${selectedCalendar.value}):`, events.value.length)
   } catch (error) {
     console.error('❌ [TeacherCalendar] Erreur lors du chargement des événements:', error)
   }
@@ -641,10 +656,11 @@ const addLesson = async () => {
     
     const lessonData = {
       ...newLesson.value,
+      teacher_id: props.teacherId,
       title: title,
       start_time: new Date(`${newLesson.value.date}T${newLesson.value.time}`).toISOString(),
       end_time: new Date(new Date(`${newLesson.value.date}T${newLesson.value.time}`).getTime() + newLesson.value.duration * 60000).toISOString(),
-      calendar_id: selectedCalendar.value
+      club_id: selectedCalendar.value === 'personal' ? null : Number(selectedCalendar.value)
     }
     
     await $api.post('/teacher/lessons', lessonData)
@@ -665,7 +681,7 @@ const addLesson = async () => {
     }
     
     showAddLessonModal.value = false
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erreur lors de l\'ajout du cours:', error)
     
     // Gérer les différents types d'erreurs
