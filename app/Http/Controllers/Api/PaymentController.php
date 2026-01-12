@@ -53,24 +53,10 @@ class PaymentController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             $validated = $request->validate([
-                'lesson_id' => 'required|exists:lessons,id',
-                'is_trial' => 'sometimes|boolean'
+                'lesson_id' => 'required|exists:lessons,id'
             ]);
-
-            $isTrial = $request->boolean('is_trial');
-            $priceOverride = null;
-
-            if ($isTrial) {
-                if ($user->role !== 'student' || !$user->student || $user->student->trial_used_at) {
-                    return response()->json([
-                        'success' => false, 
-                        'message' => 'Vous n\'êtes plus éligible à la séance d\'essai ou n\'avez pas de profil étudiant.'
-                    ], 400);
-                }
-                $priceOverride = 18.00;
-            }
 
             // Vérifier que la leçon existe
             $lesson = Lesson::with('courseType')->findOrFail($validated['lesson_id']);
@@ -95,8 +81,8 @@ class PaymentController extends Controller
                 $lesson,
                 $successUrl,
                 $cancelUrl,
-                $priceOverride,
-                $isTrial
+                null, // priceOverride
+                false // isTrial
             );
 
             if (!$session) {
@@ -111,7 +97,6 @@ class PaymentController extends Controller
                 'checkout_url' => $session->url,
                 'session_id' => $session->id
             ]);
-
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Erreur createLessonCheckoutSession: ' . $e->getMessage());
             return response()->json([

@@ -31,48 +31,10 @@
       </div>
 
       <!-- Liste des abonnements disponibles -->
-      <div v-else-if="availableSubscriptions.length > 0 || isEligibleForTrial" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Trial Session Card (Special UI) -->
-        <div 
-          v-if="isEligibleForTrial"
-          class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-        >
-          <div class="p-6 border-b border-blue-100">
-            <div class="flex items-start justify-between mb-4">
-              <div class="flex-1">
-                <h3 class="text-xl font-bold text-blue-900 mb-1">Séance d'essai</h3>
-                <span class="bg-blue-600 text-white text-[10px] uppercase px-2 py-0.5 rounded font-bold">Offre de bienvenue</span>
-              </div>
-            </div>
-            
-            <div class="space-y-3">
-              <p class="text-sm text-gray-600">Idéal pour découvrir nos cours avant de vous engager.</p>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600">Prix unique</span>
-                <span class="text-2xl font-black text-blue-600">{{ formatPrice(18) }}</span>
-              </div>
-              <p class="text-[10px] text-gray-400 italic">* Limité à une seule séance par compte utilisateur.</p>
-            </div>
-          </div>
-          <div class="p-4">
-            <button
-              @click="handleTrialSession"
-              class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold text-sm flex items-center justify-center space-x-2 shadow-sm"
-            >
-              <span>Réserver ma séance d'essai</span>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Filter out the 18€ template from the list to avoid duplication if trial card is shown -->
+      <div v-else-if="availableSubscriptions.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <template v-for="subscription in availableSubscriptions" :key="subscription.id">
           <div 
-            v-if="!(isEligibleForTrial && subscription.price == 18)"
-            class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full"
-            :class="{'border-2 border-emerald-500 ring-2 ring-emerald-100': subscription.price === 180}"
+            class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col h-full border border-gray-200"
           >
             <!-- Header -->
             <div class="p-6 border-b border-gray-200 flex-grow">
@@ -80,9 +42,8 @@
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-1">
                     <h3 class="text-lg font-bold text-gray-900">
-                      {{ subscription.price === 180 ? 'Pack 10 cours' : (subscription.model_number || 'Abonnement') }}
+                      {{ subscription.model_number || 'Abonnement' }}
                     </h3>
-                    <span v-if="subscription.price === 180" class="bg-emerald-100 text-emerald-700 text-[10px] uppercase px-2 py-0.5 rounded font-bold">Le plus populaire</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <p v-if="subscription.club" class="text-sm text-gray-600">
@@ -100,17 +61,14 @@
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-gray-600">Nombre de séances</span>
                   <span class="text-sm font-semibold text-gray-900">
-                    {{ subscription.total_lessons }} 
-                    {{ subscription.total_lessons > 1 ? 'cours' : 'cours' }}
-                    <span v-if="subscription.free_lessons > 0" class="text-green-600">
-                      + {{ subscription.free_lessons }} offert{{ subscription.free_lessons > 1 ? 's' : '' }}
-                    </span>
+                    {{ subscription.total_lessons + (subscription.free_lessons || 0) }} 
+                    {{ (subscription.total_lessons + (subscription.free_lessons || 0)) > 1 ? 'cours' : 'cours' }}
                   </span>
                 </div>
                 
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-gray-600">Prix total</span>
-                  <span class="text-xl font-black text-gray-900" :class="{'text-emerald-600': subscription.price === 180}">
+                  <span class="text-xl font-black text-gray-900">
                     {{ formatPrice(subscription.price) }}
                   </span>
                 </div>
@@ -118,13 +76,13 @@
                 <div v-if="subscription.total_lessons > 1" class="flex items-center justify-between">
                   <span class="text-sm text-gray-600">Soit par cours</span>
                   <span class="text-sm font-medium text-gray-700">
-                    {{ formatPricePerLesson(subscription.price, subscription.total_lessons) }}
+                    {{ formatPricePerLesson(subscription.price, subscription.total_lessons + (subscription.free_lessons || 0)) }}
                   </span>
                 </div>
 
                 <div v-if="subscription.validity_months" class="flex items-center justify-between">
                   <span class="text-sm text-gray-600">Durée de validité</span>
-                  <span class="text-sm font-medium text-gray-700" :class="{'text-emerald-600 font-bold': subscription.validity_months === 24}">
+                  <span class="text-sm font-medium text-gray-700">
                     {{ subscription.validity_months }} mois
                   </span>
                 </div>
@@ -137,7 +95,6 @@
                 @click="subscribeToSubscription(subscription.id)"
                 :disabled="subscribing"
                 class="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold flex items-center justify-center space-x-2"
-                :class="{'bg-emerald-600 hover:bg-emerald-700': subscription.price === 180}"
               >
                 <span v-if="!subscribing">💳 Choisir cette offre</span>
                 <span v-else class="flex items-center justify-center">

@@ -242,25 +242,18 @@ class StripeService
 
             // Calculer la date d'expiration
             $subscriptionInstance->calculateExpiresAt();
-            
+
             // Si c'est un abonnement récurrent, enregistrer le subscription ID Stripe
             if ($session['subscription'] ?? false) {
                 $subscriptionInstance->stripe_subscription_id = $session['subscription'];
                 $subscriptionInstance->auto_renew = true;
             }
-            
+
             $subscriptionInstance->save();
 
             // Attacher l'élève
             $subscriptionInstance->students()->attach($student->id);
 
-            // Marquer le trial comme utilisé si applicable
-            if ($template->model_number === 'TRIAL-18' || $template->price == 18.00) {
-                if (!$student->trial_used_at) {
-                    $student->update(['trial_used_at' => now()]);
-                    Log::info('Séance d\'essai marquée comme utilisée pour l\'élève', ['student_id' => $student->id]);
-                }
-            }
 
             \Illuminate\Support\Facades\DB::commit();
 
@@ -269,7 +262,6 @@ class StripeService
                 'subscription_id' => $subscription->id,
                 'type' => $type
             ]);
-
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             Log::error('Erreur lors de la création de l\'abonnement après paiement Stripe', [
@@ -312,7 +304,7 @@ class StripeService
                 'processed_at' => now()
             ]
         );
-        
+
         // Si le paiement existait déjà (ex: créé via intent), le mettre à jour
         if (!$payment->wasRecentlyCreated) {
             $payment->update([
@@ -327,17 +319,6 @@ class StripeService
             // Si la leçon était pending (nouvelle réservation), la confirmer automatiquement
             'status' => ($lesson->status === 'pending') ? 'confirmed' : $lesson->status
         ]);
-
-        // Marquer le trial comme utilisé si applicable
-        if (($metadata['is_trial'] ?? false) === 'true' || ($metadata['type'] ?? '') === 'trial_session') {
-            $studentId = $metadata['student_id'] ?? $lesson->student_id;
-            if ($studentId) {
-                $student = \App\Models\Student::find($studentId);
-                if ($student && !$student->trial_used_at) {
-                    $student->update(['trial_used_at' => now()]);
-                }
-            }
-        }
 
         Log::info('Paiement leçon validé via Checkout Session', ['lesson_id' => $lesson->id]);
     }
@@ -525,7 +506,7 @@ class StripeService
         try {
             // Créer ou récupérer le customer Stripe
             $customerId = $this->createCustomer($user);
-            
+
             if (!$customerId) {
                 Log::error('Impossible de créer le customer Stripe', [
                     'user_id' => $user->id
@@ -535,7 +516,7 @@ class StripeService
 
             // Déterminer le mode (payment ou subscription)
             $mode = $template->is_recurring ? 'subscription' : 'payment';
-            
+
             $priceData = [
                 'currency' => 'eur',
                 'product_data' => [
@@ -567,7 +548,7 @@ class StripeService
                         'interval_count' => 1,
                     ];
                 }
-                
+
                 $lineItem = [
                     'price_data' => $priceData,
                     'quantity' => 1,

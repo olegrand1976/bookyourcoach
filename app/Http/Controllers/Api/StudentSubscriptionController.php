@@ -30,7 +30,7 @@ class StudentSubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if ($user->role !== 'student') {
                 return response()->json([
                     'success' => false,
@@ -60,7 +60,6 @@ class StudentSubscriptionController extends Controller
                 'success' => true,
                 'data' => $templates
             ]);
-
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération des abonnements disponibles: ' . $e->getMessage());
             return response()->json([
@@ -77,7 +76,7 @@ class StudentSubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if ($user->role !== 'student') {
                 return response()->json([
                     'success' => false,
@@ -95,8 +94,8 @@ class StudentSubscriptionController extends Controller
 
             // Récupérer les instances d'abonnements de cet élève
             $subscriptionInstances = SubscriptionInstance::whereHas('students', function ($query) use ($student) {
-                    $query->where('students.id', $student->id);
-                })
+                $query->where('students.id', $student->id);
+            })
                 ->with([
                     'subscription:id,club_id,subscription_template_id,subscription_number',
                     'subscription.club:id,name',
@@ -117,7 +116,6 @@ class StudentSubscriptionController extends Controller
                 'success' => true,
                 'data' => $subscriptionInstances
             ]);
-
         } catch (\Exception $e) {
             Log::error('Erreur lors de la récupération des abonnements de l\'élève: ' . $e->getMessage());
             return response()->json([
@@ -134,7 +132,7 @@ class StudentSubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if ($user->role !== 'student') {
                 return response()->json([
                     'success' => false,
@@ -178,15 +176,6 @@ class StudentSubscriptionController extends Controller
                 ], 422);
             }
 
-            // Vérifier l'éligibilité si c'est une séance d'essai (TRIAL-18 ou prix 18€)
-            if ($template->model_number === 'TRIAL-18' || $template->price == 18.00) {
-                if (!$student->is_eligible_for_trial) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Vous avez déjà utilisé votre séance d\'essai'
-                    ], 422);
-                }
-            }
 
             // URLs de redirection
             $baseUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
@@ -216,7 +205,6 @@ class StudentSubscriptionController extends Controller
                 'checkout_url' => $session->url,
                 'session_id' => $session->id
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -240,7 +228,7 @@ class StudentSubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if ($user->role !== 'student') {
                 return response()->json([
                     'success' => false,
@@ -327,7 +315,6 @@ class StudentSubscriptionController extends Controller
                 'message' => 'Abonnement souscrit avec succès (Numéro: ' . $subscription->subscription_number . ')',
                 'data' => $subscriptionInstance
             ], 201);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -351,7 +338,7 @@ class StudentSubscriptionController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             if ($user->role !== 'student') {
                 return response()->json([
                     'success' => false,
@@ -373,8 +360,8 @@ class StudentSubscriptionController extends Controller
 
             // Récupérer l'instance d'abonnement existante
             $existingInstance = SubscriptionInstance::whereHas('students', function ($query) use ($student) {
-                    $query->where('students.id', $student->id);
-                })
+                $query->where('students.id', $student->id);
+            })
                 ->with('subscription')
                 ->findOrFail($instanceId);
 
@@ -446,7 +433,6 @@ class StudentSubscriptionController extends Controller
                 'message' => 'Abonnement renouvelé avec succès (Numéro: ' . $newSubscription->subscription_number . ')',
                 'data' => $newInstance
             ], 201);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -463,4 +449,3 @@ class StudentSubscriptionController extends Controller
         }
     }
 }
-
