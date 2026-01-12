@@ -178,6 +178,16 @@ class StudentSubscriptionController extends Controller
                 ], 422);
             }
 
+            // Vérifier l'éligibilité si c'est une séance d'essai (TRIAL-18 ou prix 18€)
+            if ($template->model_number === 'TRIAL-18' || $template->price == 18.00) {
+                if (!$student->is_eligible_for_trial) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Vous avez déjà utilisé votre séance d\'essai'
+                    ], 422);
+                }
+            }
+
             // URLs de redirection
             $baseUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000'));
             $successUrl = $baseUrl . '/student/subscriptions?session_id={CHECKOUT_SESSION_ID}';

@@ -23,9 +23,9 @@ class SubscriptionPricingSeeder extends Seeder
                 [
                     'model_number' => 'PACK-10-180',
                     'total_lessons' => 10,
-                    'validity_months' => 24, // 2 ans pour que l'échéance soit gérée par le nombre de séances
+                    'validity_months' => 24, // 24 mois (2 ans) comme demandé
                     'is_active' => true,
-                    'is_recurring' => false, // Pack de 10 cours pour 180€
+                    'is_recurring' => false,
                 ]
             );
 
@@ -33,9 +33,7 @@ class SubscriptionPricingSeeder extends Seeder
             $courseTypes = CourseType::all()->pluck('id');
             $standard->courseTypes()->sync($courseTypes);
 
-            // Note: Le trial à 18€ est géré dynamiquement dans le frontend 
-            // car c'est une séance unique et non un "pack".
-            // Mais si on veut qu'il apparaisse comme un "Template" pour simplifier le backend :
+            // 2. Séance d'essai 18 € (Une fois par utilisateur)
             SubscriptionTemplate::updateOrCreate(
                 [
                     'club_id' => $club->id,
@@ -44,7 +42,7 @@ class SubscriptionPricingSeeder extends Seeder
                 [
                     'model_number' => 'TRIAL-18',
                     'total_lessons' => 1,
-                    'validity_months' => 1,
+                    'validity_months' => 24, // On met aussi 24 mois par précaution, même si c'est une séance unique
                     'is_active' => true,
                     'is_recurring' => false,
                 ]

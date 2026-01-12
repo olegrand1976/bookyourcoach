@@ -254,6 +254,14 @@ class StripeService
             // Attacher l'élève
             $subscriptionInstance->students()->attach($student->id);
 
+            // Marquer le trial comme utilisé si applicable
+            if ($template->model_number === 'TRIAL-18' || $template->price == 18.00) {
+                if (!$student->trial_used_at) {
+                    $student->update(['trial_used_at' => now()]);
+                    Log::info('Séance d\'essai marquée comme utilisée pour l\'élève', ['student_id' => $student->id]);
+                }
+            }
+
             \Illuminate\Support\Facades\DB::commit();
 
             Log::info('Abonnement/Pack créé avec succès via Stripe', [
@@ -533,7 +541,7 @@ class StripeService
                 'product_data' => [
                     'name' => $template->model_number ?? 'Abonnement',
                     'description' => sprintf(
-                        '%d cours%s%s - Validité: %d mois%s',
+                        '%d cours%s%s%s',
                         $template->total_lessons,
                         $template->free_lessons > 0 ? sprintf(' + %d gratuit%s', $template->free_lessons, $template->free_lessons > 1 ? 's' : '') : '',
                         $template->validity_months ? sprintf(' - Validité: %d mois', $template->validity_months) : '',

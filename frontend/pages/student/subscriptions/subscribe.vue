@@ -122,9 +122,9 @@
                   </span>
                 </div>
 
-                <div v-if="subscription.validity_months <= 12" class="flex items-center justify-between">
+                <div v-if="subscription.validity_months" class="flex items-center justify-between">
                   <span class="text-sm text-gray-600">Durée de validité</span>
-                  <span class="text-sm font-medium text-gray-700">
+                  <span class="text-sm font-medium text-gray-700" :class="{'text-emerald-600 font-bold': subscription.validity_months === 24}">
                     {{ subscription.validity_months }} mois
                   </span>
                 </div>
