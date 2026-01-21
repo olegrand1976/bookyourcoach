@@ -385,6 +385,14 @@
                             </select>
                         </div>
                         
+                        <!-- Gestion des liens familiaux (uniquement pour les étudiants en modification) -->
+                        <LinkedStudentsManager
+                            v-if="showEditModal && userForm.role === 'student' && userForm.studentId"
+                            :student-id="userForm.studentId"
+                            @link-created="onLinkCreated"
+                            @link-removed="onLinkRemoved"
+                        />
+
                         <!-- Mot de passe (uniquement création) -->
                         <div v-if="!showEditModal" class="space-y-4 border-t border-gray-100 pt-6">
                             <div>
@@ -433,6 +441,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import LinkedStudentsManager from '~/components/admin/LinkedStudentsManager.vue'
 
 definePageMeta({
     layout: 'admin',
@@ -472,7 +481,8 @@ const userForm = ref({
     country: 'Belgium',
     role: 'student',
     password: '',
-    password_confirmation: ''
+    password_confirmation: '',
+    studentId: null // ID de l'étudiant associé (pour gérer les liens familiaux)
 })
 
 // Computed
@@ -662,7 +672,8 @@ const editUser = async (user) => {
             country: userData.country || 'Belgium',
             role: userData.role,
             password: '',
-            password_confirmation: ''
+            password_confirmation: '',
+            studentId: userData.student?.id || null // ID de l'étudiant associé
         }
         showEditModal.value = true
     } catch (error) {
@@ -682,7 +693,8 @@ const editUser = async (user) => {
             country: user.country || 'Belgium',
             role: user.role,
             password: '',
-            password_confirmation: ''
+            password_confirmation: '',
+            studentId: user.student?.id || null // ID de l'étudiant associé
         }
         showEditModal.value = true
     }
@@ -807,6 +819,17 @@ const resetUserPassword = async (user) => {
     }
 }
 
+// Handlers pour les événements du composant LinkedStudentsManager
+const onLinkCreated = (student) => {
+    console.log('Lien créé avec succès:', student)
+    // Optionnel: recharger les données ou afficher une notification
+}
+
+const onLinkRemoved = (studentId) => {
+    console.log('Lien supprimé avec succès:', studentId)
+    // Optionnel: recharger les données ou afficher une notification
+}
+
 const closeModal = () => {
     showCreateModal.value = false
     showEditModal.value = false
@@ -824,7 +847,8 @@ const closeModal = () => {
         country: 'Belgium',
         role: 'student',
         password: '',
-        password_confirmation: ''
+        password_confirmation: '',
+        studentId: null
     }
 }
 
