@@ -76,6 +76,21 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/clubs/{id}/toggle-status', [AdminController::class, 'toggleClubStatus']);
     Route::post('/clubs/upload-logo', [AdminController::class, 'uploadLogo']);
     
+    // Routes pour la gestion des liens familiaux entre étudiants
+    Route::prefix('students')->group(function () {
+        // Récupérer les étudiants liés à un étudiant
+        Route::get('/{studentId}/linked', [AdminController::class, 'getLinkedStudents']);
+        
+        // Lier un étudiant à un autre
+        Route::post('/{studentId}/link', [AdminController::class, 'linkStudent']);
+        
+        // Délier un étudiant d'un autre
+        Route::delete('/{studentId}/unlink/{linkedStudentId}', [AdminController::class, 'unlinkStudent']);
+        
+        // Récupérer tous les étudiants disponibles pour liaison (avec email)
+        Route::get('/available-for-linking', [AdminController::class, 'getStudentsAvailableForLinking']);
+    });
+    
     // Routes pour les rapports de paie
     Route::prefix('payroll')->group(function () {
         Route::get('/reports', [App\Http\Controllers\Api\PayrollController::class, 'getReports']);
@@ -111,7 +126,7 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
     Route::post('/notifications/read-all', [App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
 });
 
-Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(function () {
+Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('student')->group(function () {
     Route::get('/dashboard', [StudentController::class, 'dashboard']);
     
     // Profil
@@ -148,6 +163,11 @@ Route::middleware(['auth:sanctum', 'student'])->prefix('student')->group(functio
     Route::post('/subscriptions/create-checkout-session', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'createCheckoutSession']);
     Route::post('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'subscribe']);
     Route::post('/subscriptions/{instanceId}/renew', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'renew']);
+    
+    // Gestion des comptes liés (famille)
+    Route::get('/linked-accounts', [StudentController::class, 'getLinkedAccounts']);
+    Route::post('/switch-account/{studentId}', [StudentController::class, 'switchAccount']);
+    Route::get('/active-account', [StudentController::class, 'getActiveAccount']);
 });
 
 // Webhook Stripe (route publique, sans authentification)

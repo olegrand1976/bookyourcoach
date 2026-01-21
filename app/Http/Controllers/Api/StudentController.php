@@ -1411,4 +1411,168 @@ class StudentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Récupérer tous les comptes étudiants liés au compte actuel de l'utilisateur.
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getLinkedAccounts(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user->student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil étudiant introuvable'
+                ], 404);
+            }
+
+            // Récupérer tous les comptes étudiants liés
+            $linkedStudents = $user->getLinkedStudents();
+            
+            // Inclure le compte principal dans la liste
+            $allAccounts = collect([$user->student])->merge($linkedStudents)->unique('id');
+            
+            // Formater les données
+            $formatted = $allAccounts->map(function ($student) use ($user) {
+                $isActive = session('active_student_id', $user->student->id) === $student->id;
+                
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->user->email ?? null,
+                    'user_id' => $student->user_id,
+                    'is_active' => $isActive,
+                    'is_primary' => $student->id === $user->student->id,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération des comptes liés: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des comptes liés',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Changer de compte étudiant actif (contexte de session).
+     * 
+     * @param Request $request
+     * @param int $studentId
+     * @return JsonResponse
+     */
+    public function switchAccount(Request $request, $studentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user->student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil étudiant introuvable'
+                ], 404);
+            }
+
+            // Vérifier que l'étudiant demandé existe
+            $targetStudent = Student::with('user')->findOrFail($studentId);
+            
+            // Vérifier que l'étudiant est bien lié au compte actuel ou est le compte principal
+            $linkedStudents = $user->getLinkedStudents();
+            $isLinked = $linkedStudents->contains('id', $studentId) 
+                     || $user->student->id === $studentId;
+            
+            if (!$isLinked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous n\'avez pas accès à ce compte étudiant'
+                ], 403);
+            }
+
+            // Vérifier que l'étudiant est actif
+            if ($targetStudent->user && !$targetStudent->user->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce compte étudiant est désactivé'
+                ], 403);
+            }
+
+            // Stocker l'ID de l'étudiant actif dans la session
+            session(['active_student_id' => $studentId]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Compte changé avec succès',
+                'data' => [
+                    'id' => $targetStudent->id,
+                    'name' => $targetStudent->name,
+                    'email' => $targetStudent->user->email ?? null,
+                    'user_id' => $targetStudent->user_id,
+                ]
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Étudiant non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors du changement de compte: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du changement de compte',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer le compte étudiant actuellement actif.
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getActiveAccount(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user->student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil étudiant introuvable'
+                ], 404);
+            }
+
+            // Récupérer l'ID de l'étudiant actif depuis la session
+            $activeStudentId = session('active_student_id', $user->student->id);
+            $activeStudent = Student::with('user')->findOrFail($activeStudentId);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $activeStudent->id,
+                    'name' => $activeStudent->name,
+                    'email' => $activeStudent->user->email ?? null,
+                    'user_id' => $activeStudent->user_id,
+                    'is_primary' => $activeStudent->id === $user->student->id,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors de la récupération du compte actif: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération du compte actif',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
