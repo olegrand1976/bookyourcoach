@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Club;
+use App\Models\Student;
 use App\Models\AuditLog;
 use App\Models\AppSetting;
 use Illuminate\Http\Request;
@@ -1597,6 +1598,264 @@ class AdminController extends BaseController
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Erreur lors de l\'upload',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer les étudiants liés à un étudiant donné.
+     * 
+     * @param int $studentId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLinkedStudents($studentId)
+    {
+        try {
+            $student = Student::with(['linkedStudents.user', 'linkedFromStudents.user'])->findOrFail($studentId);
+            
+            // Récupérer tous les étudiants liés (bidirectionnel)
+            $linkedStudents = $student->getAllLinkedStudents();
+            
+            // Formater les données pour la réponse
+            $formatted = $linkedStudents->map(function ($linkedStudent) use ($student) {
+                return [
+                    'id' => $linkedStudent->id,
+                    'name' => $linkedStudent->name,
+                    'email' => $linkedStudent->user->email ?? null,
+                    'user_id' => $linkedStudent->user_id,
+                    'relationship_type' => $linkedStudent->pivot->relationship_type ?? null,
+                    'linked_at' => $linkedStudent->pivot->created_at ?? null,
+                ];
+            });
+            
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des étudiants liés',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Lier un étudiant à un autre.
+     * 
+     * @param int $studentId
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function linkStudent($studentId, Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'linked_student_id' => 'required|integer|exists:students,id',
+                'relationship_type' => 'nullable|string|max:50',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de validation',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $primaryStudent = Student::findOrFail($studentId);
+            $linkedStudentId = $request->input('linked_student_id');
+            $linkedStudent = Student::findOrFail($linkedStudentId);
+
+            // Vérifications
+            if ($primaryStudent->id === $linkedStudent->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Un étudiant ne peut pas être lié à lui-même'
+                ], 422);
+            }
+
+            // Vérifier que les deux étudiants ont un user_id (compte avec email)
+            if (!$primaryStudent->user_id || !$linkedStudent->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les deux étudiants doivent avoir un compte avec email pour être liés'
+                ], 422);
+            }
+
+            // Vérifier si le lien existe déjà (dans un sens ou l'autre)
+            $existingLink = DB::table('student_family_links')
+                ->where(function ($query) use ($primaryStudent, $linkedStudentId) {
+                    $query->where('primary_student_id', $primaryStudent->id)
+                          ->where('linked_student_id', $linkedStudentId);
+                })
+                ->orWhere(function ($query) use ($primaryStudent, $linkedStudentId) {
+                    $query->where('primary_student_id', $linkedStudentId)
+                          ->where('linked_student_id', $primaryStudent->id);
+                })
+                ->first();
+
+            if ($existingLink) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ces deux étudiants sont déjà liés'
+                ], 422);
+            }
+
+            // Créer le lien (bidirectionnel : on crée les deux sens)
+            $adminId = Auth::id();
+            $relationshipType = $request->input('relationship_type');
+
+            DB::table('student_family_links')->insert([
+                [
+                    'primary_student_id' => $primaryStudent->id,
+                    'linked_student_id' => $linkedStudentId,
+                    'relationship_type' => $relationshipType,
+                    'created_by' => $adminId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'primary_student_id' => $linkedStudentId,
+                    'linked_student_id' => $primaryStudent->id,
+                    'relationship_type' => $relationshipType,
+                    'created_by' => $adminId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            ]);
+
+            // Log de l'action
+            AuditLog::create([
+                'user_id' => $adminId,
+                'action' => 'link_students',
+                'model_type' => Student::class,
+                'model_id' => $primaryStudent->id,
+                'description' => "Liaison créée entre l'étudiant {$primaryStudent->id} et l'étudiant {$linkedStudentId}",
+                'metadata' => [
+                    'primary_student_id' => $primaryStudent->id,
+                    'linked_student_id' => $linkedStudentId,
+                    'relationship_type' => $relationshipType,
+                ]
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Les étudiants ont été liés avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la liaison des étudiants',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Délier un étudiant d'un autre.
+     * 
+     * @param int $studentId
+     * @param int $linkedStudentId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function unlinkStudent($studentId, $linkedStudentId)
+    {
+        try {
+            $primaryStudent = Student::findOrFail($studentId);
+            $linkedStudent = Student::findOrFail($linkedStudentId);
+
+            // Supprimer les liens dans les deux sens
+            DB::table('student_family_links')
+                ->where(function ($query) use ($primaryStudent, $linkedStudentId) {
+                    $query->where('primary_student_id', $primaryStudent->id)
+                          ->where('linked_student_id', $linkedStudentId);
+                })
+                ->orWhere(function ($query) use ($primaryStudent, $linkedStudentId) {
+                    $query->where('primary_student_id', $linkedStudentId)
+                          ->where('linked_student_id', $primaryStudent->id);
+                })
+                ->delete();
+
+            // Log de l'action
+            $adminId = Auth::id();
+            AuditLog::create([
+                'user_id' => $adminId,
+                'action' => 'unlink_students',
+                'model_type' => Student::class,
+                'model_id' => $primaryStudent->id,
+                'description' => "Liaison supprimée entre l'étudiant {$primaryStudent->id} et l'étudiant {$linkedStudentId}",
+                'metadata' => [
+                    'primary_student_id' => $primaryStudent->id,
+                    'linked_student_id' => $linkedStudentId,
+                ]
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Les étudiants ont été déliés avec succès'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression du lien',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Récupérer tous les étudiants disponibles pour liaison (ayant un email).
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getStudentsAvailableForLinking(Request $request)
+    {
+        try {
+            $excludeStudentId = $request->input('exclude_student_id');
+            
+            // Récupérer tous les étudiants ayant un user_id (compte avec email)
+            $query = Student::with('user')
+                ->whereNotNull('user_id')
+                ->whereHas('user', function ($q) {
+                    $q->whereNotNull('email');
+                });
+
+            // Exclure l'étudiant en cours de modification et ceux déjà liés
+            if ($excludeStudentId) {
+                $excludeStudent = Student::find($excludeStudentId);
+                if ($excludeStudent) {
+                    $linkedIds = $excludeStudent->getAllLinkedStudents()->pluck('id')->toArray();
+                    $linkedIds[] = $excludeStudentId;
+                    $query->whereNotIn('id', $linkedIds);
+                } else {
+                    $query->where('id', '!=', $excludeStudentId);
+                }
+            }
+
+            $students = $query->get();
+
+            // Formater les données
+            $formatted = $students->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->user->email ?? null,
+                    'user_id' => $student->user_id,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des étudiants disponibles',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -256,6 +256,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Get all linked students for this user.
+     * Méthode pour récupérer les étudiants liés via le compte student.
+     * 
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getLinkedStudents()
+    {
+        if (!$this->student) {
+            return collect();
+        }
+        return $this->student->getAllLinkedStudents();
+    }
+
+    /**
      * Check if user is admin
      */
     public function isAdmin(): bool

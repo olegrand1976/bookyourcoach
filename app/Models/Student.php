@@ -169,6 +169,49 @@ class Student extends Model
     }
 
     /**
+     * Get the students linked to this student (where this student is the primary).
+     * Relation pour récupérer les étudiants liés (ce compte est le compte principal).
+     */
+    public function linkedStudents(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Student::class,
+            'student_family_links',
+            'primary_student_id',
+            'linked_student_id'
+        )->withPivot(['relationship_type', 'created_by', 'created_at'])
+         ->withTimestamps();
+    }
+
+    /**
+     * Get the students that have this student as a linked account.
+     * Relation inverse (pour récupérer les étudiants qui ont ce compte comme lié).
+     */
+    public function linkedFromStudents(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Student::class,
+            'student_family_links',
+            'linked_student_id',
+            'primary_student_id'
+        )->withPivot(['relationship_type', 'created_by', 'created_at'])
+         ->withTimestamps();
+    }
+
+    /**
+     * Get all linked students (bidirectional).
+     * Méthode helper pour récupérer tous les étudiants liés (bidirectionnel).
+     * 
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAllLinkedStudents()
+    {
+        $linked = $this->linkedStudents()->with('user')->get();
+        $linkedFrom = $this->linkedFromStudents()->with('user')->get();
+        return $linked->merge($linkedFrom)->unique('id');
+    }
+
+    /**
      * Get the total number of lessons for this student.
      */
     public function getTotalLessonsAttribute(): int
