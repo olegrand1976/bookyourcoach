@@ -18,6 +18,38 @@ use Carbon\Carbon;
 
 class StudentController extends Controller
 {
+    /**
+     * Récupère l'étudiant actif depuis le contexte de la requête.
+     * Utilise active_student_id injecté par le middleware SetActiveStudentContext.
+     * 
+     * @param Request $request
+     * @return Student|null
+     */
+    protected function getActiveStudent(Request $request)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->student) {
+            return null;
+        }
+
+        // Récupérer l'ID de l'étudiant actif depuis la requête (injecté par le middleware)
+        $activeStudentId = $request->input('active_student_id', $user->student->id);
+        
+        // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
+        $linkedStudents = $user->getLinkedStudents();
+        $isLinked = $linkedStudents->contains('id', $activeStudentId) 
+                 || $user->student->id === $activeStudentId;
+        
+        if (!$isLinked) {
+            // Si l'étudiant n'est plus lié, retourner le compte principal
+            return $user->student;
+        }
+
+        // Récupérer et retourner l'étudiant actif
+        return Student::with('user')->find($activeStudentId) ?? $user->student;
+    }
+
     public function dashboard()
     {
         return response()->json(['message' => 'Welcome to the student dashboard']);
@@ -925,7 +957,8 @@ class StudentController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
+            // Récupérer l'étudiant actif depuis le contexte
+            $student = $this->getActiveStudent($request);
             if (!$student) {
                 return response()->json([
                     'success' => false,
@@ -933,7 +966,7 @@ class StudentController extends Controller
                 ], 404);
             }
 
-            // Récupérer les clubs actifs de l'élève
+            // Récupérer les clubs actifs de l'étudiant actif
             $clubs = $student->clubs()
                 ->wherePivot('is_active', true)
                 ->select('clubs.id', 'clubs.name', 'clubs.city', 'clubs.postal_code')
@@ -973,7 +1006,8 @@ class StudentController extends Controller
                 'club_ids.*' => ['integer', 'exists:clubs,id'],
             ]);
 
-            $student = $user->student;
+            // Récupérer l'étudiant actif depuis le contexte
+            $student = $this->getActiveStudent($request);
             if (!$student) {
                 return response()->json([
                     'success' => false,
@@ -1079,7 +1113,8 @@ class StudentController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
+            // Récupérer l'étudiant actif depuis le contexte
+            $student = $this->getActiveStudent($request);
             if (!$student) {
                 return response()->json([
                     'success' => false,
@@ -1147,29 +1182,34 @@ class StudentController extends Controller
                 'role' => $user->role
             ]);
             
-            // Récupérer le profil étudiant
-            $student = $user->student;
+            // Récupérer l'étudiant actif depuis le contexte
+            $student = $this->getActiveStudent($request);
 
-            // Si l'utilisateur a le rôle student mais pas de profil, créer le profil automatiquement
-            if (!$student && $user->role === 'student') {
-                \Log::info('StudentController::getProfile - Création automatique du profil étudiant', [
-                    'user_id' => $user->id,
-                    'email' => $user->email
-                ]);
+            // Si l'étudiant actif n'existe pas, utiliser le compte principal
+            if (!$student) {
+                $student = $user->student;
                 
-                $student = $user->getOrCreateStudent();
-                
-                // Si l'étudiant a des clubs mais pas de club_id défini, définir le premier comme club principal
-                if ($student && !$student->club_id) {
-                    $firstClub = DB::table('club_students')
-                        ->where('student_id', $student->id)
-                        ->where('is_active', true)
-                        ->orderBy('joined_at', 'asc')
-                        ->first();
+                // Si l'utilisateur a le rôle student mais pas de profil, créer le profil automatiquement
+                if (!$student && $user->role === 'student') {
+                    \Log::info('StudentController::getProfile - Création automatique du profil étudiant', [
+                        'user_id' => $user->id,
+                        'email' => $user->email
+                    ]);
                     
-                    if ($firstClub) {
-                        $student->club_id = $firstClub->club_id;
-                        $student->save();
+                    $student = $user->getOrCreateStudent();
+                    
+                    // Si l'étudiant a des clubs mais pas de club_id défini, définir le premier comme club principal
+                    if ($student && !$student->club_id) {
+                        $firstClub = DB::table('club_students')
+                            ->where('student_id', $student->id)
+                            ->where('is_active', true)
+                            ->orderBy('joined_at', 'asc')
+                            ->first();
+                        
+                        if ($firstClub) {
+                            $student->club_id = $firstClub->club_id;
+                            $student->save();
+                        }
                     }
                 }
             }
@@ -1280,7 +1320,8 @@ class StudentController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
+            // Récupérer l'étudiant actif depuis le contexte
+            $student = $this->getActiveStudent($request);
             if (!$student) {
                 return response()->json([
                     'success' => false,

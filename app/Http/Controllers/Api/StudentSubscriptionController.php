@@ -85,13 +85,26 @@ class StudentSubscriptionController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
-            if (!$student) {
+            // Récupérer l'étudiant actif depuis le contexte
+            $activeStudentId = $request->input('active_student_id', $user->student->id ?? null);
+            
+            // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
+            $linkedStudents = $user->getLinkedStudents();
+            $isLinked = $linkedStudents->contains('id', $activeStudentId) 
+                     || ($user->student && $user->student->id === $activeStudentId);
+            
+            if (!$isLinked || !$activeStudentId) {
+                $activeStudentId = $user->student->id ?? null;
+            }
+            
+            if (!$activeStudentId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil élève non trouvé'
                 ], 404);
             }
+            
+            $student = Student::findOrFail($activeStudentId);
 
             // Récupérer les instances d'abonnements de cet élève
             $subscriptionInstances = SubscriptionInstance::whereHas('students', function ($query) use ($student) {

@@ -20,6 +20,9 @@
         </p>
       </div>
 
+      <!-- Sélecteur de compte (si plusieurs comptes liés) -->
+      <AccountSwitcher @account-switched="onAccountSwitched" />
+
       <!-- Stats principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <!-- Prochain cours -->
@@ -237,6 +240,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useAuthStore } from '~/stores/auth'
+import AccountSwitcher from '~/components/student/AccountSwitcher.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],
@@ -428,6 +432,30 @@ const closeCancelModal = () => {
 const handleCancelSuccess = () => {
   closeCancelModal()
   loadUpcomingLessons()
+}
+
+// Handler pour le changement de compte
+const onAccountSwitched = async (accountData) => {
+  console.log('🔄 Compte changé:', accountData)
+  // Recharger toutes les données du dashboard avec le nouveau contexte
+  try {
+    isLoading.value = true
+    // S'assurer que les données utilisateur sont chargées dans le store
+    if (!authStore.user) {
+      await authStore.fetchUser()
+    }
+    // Charger le prénom depuis le profil
+    await loadStudentProfile()
+    // Recharger les cours et abonnements
+    await Promise.all([
+      loadUpcomingLessons(),
+      loadActiveSubscriptions()
+    ])
+  } catch (error) {
+    console.error('Erreur lors du rechargement après changement de compte:', error)
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // Lifecycle

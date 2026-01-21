@@ -149,7 +149,7 @@ class AdminController extends BaseController
      */
     public function getUser($id)
     {
-        $user = User::with(['clubs'])->findOrFail($id);
+        $user = User::with(['clubs', 'student'])->findOrFail($id);
 
         // Si l'utilisateur a le rôle "club" mais n'a pas de club associé, en créer un automatiquement
         $clubCreated = null;

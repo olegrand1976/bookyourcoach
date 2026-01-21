@@ -20,6 +20,37 @@ use Illuminate\Support\Facades\Notification;
 class DashboardController extends Controller
 {
     /**
+     * Récupère l'étudiant actif depuis le contexte de la requête.
+     * 
+     * @param Request $request
+     * @return Student|null
+     */
+    protected function getActiveStudent(Request $request)
+    {
+        $user = $request->user();
+        
+        if (!$user || !$user->student) {
+            return null;
+        }
+
+        // Récupérer l'ID de l'étudiant actif depuis la requête (injecté par le middleware)
+        $activeStudentId = $request->input('active_student_id', $user->student->id);
+        
+        // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
+        $linkedStudents = $user->getLinkedStudents();
+        $isLinked = $linkedStudents->contains('id', $activeStudentId) 
+                 || $user->student->id === $activeStudentId;
+        
+        if (!$isLinked) {
+            // Si l'étudiant n'est plus lié, retourner le compte principal
+            return $user->student;
+        }
+
+        // Récupérer et retourner l'étudiant actif
+        return Student::with('user')->find($activeStudentId) ?? $user->student;
+    }
+
+    /**
      * Récupère les statistiques pour le tableau de bord de l'élève.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -29,15 +60,16 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // Assurer que l'utilisateur est un élève ou a un profil élève
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé.'
             ], 404);
         }
 
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         // Calcul des statistiques
         $upcoming_lessons = Lesson::where('student_id', $studentId)
@@ -129,14 +161,16 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
         
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('student_id', $studentId);
@@ -165,14 +199,16 @@ class DashboardController extends Controller
 
         $user = $request->user();
         
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
         
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         $lesson = Lesson::findOrFail($request->lesson_id);
         
@@ -207,14 +243,16 @@ class DashboardController extends Controller
 
         $user = $request->user();
         
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
         
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         $lesson = Lesson::where('id', $id)
             ->where('student_id', $studentId)
@@ -387,14 +425,16 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
         
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('student_id', $studentId)
@@ -420,14 +460,16 @@ class DashboardController extends Controller
 
         $user = $request->user();
         
-        if (!$user->student) {
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
         
-        $studentId = $user->student->id;
+        $studentId = $student->id;
 
         $lesson = Lesson::where('id', $id)
             ->where('student_id', $studentId)
@@ -448,7 +490,17 @@ class DashboardController extends Controller
     public function getFavoriteTeachers(Request $request)
     {
         $user = $request->user();
-        $studentId = $user->student->id;
+        
+        // Récupérer l'étudiant actif depuis le contexte
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+        
+        $studentId = $student->id;
 
         // Pour l'instant, retourner les enseignants avec qui l'étudiant a eu le plus de cours
         $teachers = Teacher::with('user')
