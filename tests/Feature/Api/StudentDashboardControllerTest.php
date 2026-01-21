@@ -443,12 +443,16 @@ class StudentDashboardControllerTest extends TestCase
         ]);
 
         // Act
-        $response = $this->putJson("/api/student/bookings/{$lesson->id}/cancel");
+        $response = $this->putJson("/api/student/bookings/{$lesson->id}/cancel", [
+            'reason' => 'Test cancellation reason'
+        ]);
 
         // Assert
         $response->assertStatus(200)
                  ->assertJson([
-                     'success' => true,
+                     'success' => true
+                 ])
+                 ->assertJsonFragment([
                      'message' => 'Réservation annulée avec succès'
                  ]);
 
@@ -479,7 +483,9 @@ class StudentDashboardControllerTest extends TestCase
         ]);
 
         // Act
-        $response = $this->putJson("/api/student/bookings/{$lesson->id}/cancel");
+        $response = $this->putJson("/api/student/bookings/{$lesson->id}/cancel", [
+            'reason' => 'Test cancellation reason'
+        ]);
 
         // Assert
         $response->assertStatus(404); // Not found car la leçon n'appartient pas à l'étudiant
