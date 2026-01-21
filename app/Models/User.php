@@ -40,6 +40,7 @@ class User extends Authenticatable
         'address',
         'street',
         'street_number',
+        'street_box',
         'postal_code',
         'city',
         'country',
@@ -133,13 +134,28 @@ class User extends Authenticatable
             return null;
         }
 
-        // If it's already a string in YYYY-MM-DD format, return it directly
-        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-            return $value;
+        // If it's already a string, return it directly (may be YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)
+        if (is_string($value)) {
+            // Extract just the date part (YYYY-MM-DD) if it contains time
+            if (strpos($value, ' ') !== false || strpos($value, 'T') !== false) {
+                return substr($value, 0, 10);
+            }
+            // If it's already in YYYY-MM-DD format, return it directly
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                return $value;
+            }
+            // If it's a valid date string but in another format, try to parse it
+            try {
+                $date = \Carbon\Carbon::parse($value);
+                return $date->format('Y-m-d');
+            } catch (\Exception $e) {
+                // If parsing fails, return the original value
+                return $value;
+            }
         }
 
         // If it's a Carbon instance or DateTime, format it as YYYY-MM-DD
-        if ($value instanceof \Carbon\Carbon || $value instanceof \DateTime) {
+        if ($value instanceof \Carbon\Carbon || $value instanceof \DateTime || $value instanceof \DateTimeInterface) {
             return $value->format('Y-m-d');
         }
 

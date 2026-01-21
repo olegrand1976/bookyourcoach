@@ -107,6 +107,123 @@
             </div>
           </div>
 
+          <!-- Section Informations bancaires et administratives -->
+          <div class="bg-yellow-50 rounded-xl p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-yellow-100 p-2 rounded-lg mr-3">
+                <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                </svg>
+              </div>
+              <h4 class="text-lg font-semibold text-gray-900">Informations bancaires et administratives</h4>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Numéro de compte bancaire</label>
+                <input 
+                  v-model="form.bank_account_number" 
+                  type="text" 
+                  maxlength="50"
+                  placeholder="BE12 3456 7890 1234"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+              </div>
+              
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Registre national (NISS)</label>
+                <input 
+                  v-model="form.niss" 
+                  type="text" 
+                  maxlength="15"
+                  placeholder="XX.XX.XX-XXX.XX"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Adresse -->
+          <div class="bg-indigo-50 rounded-xl p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-indigo-100 p-2 rounded-lg mr-3">
+                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+              </div>
+              <h4 class="text-lg font-semibold text-gray-900">Adresse</h4>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-6">
+              <div class="grid grid-cols-4 gap-4">
+                <div class="col-span-2 space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Rue</label>
+                  <input 
+                    v-model="form.street" 
+                    type="text" 
+                    maxlength="255"
+                    placeholder="Rue de..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Numéro</label>
+                  <input 
+                    v-model="form.street_number" 
+                    type="text" 
+                    maxlength="20"
+                    placeholder="123"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Boîte</label>
+                  <input 
+                    v-model="form.street_box" 
+                    type="text" 
+                    maxlength="20"
+                    placeholder="Bte 5"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-3 gap-4">
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Code postal</label>
+                  <input 
+                    v-model="form.postal_code" 
+                    type="text" 
+                    maxlength="10"
+                    placeholder="1000"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Ville</label>
+                  <input 
+                    v-model="form.city" 
+                    type="text" 
+                    maxlength="255"
+                    placeholder="Bruxelles"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+                <div class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">Pays</label>
+                  <input 
+                    v-model="form.country" 
+                    type="text" 
+                    maxlength="255"
+                    placeholder="Belgium"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Section Tarifs et Bio -->
           <div class="bg-emerald-50 rounded-xl p-6">
             <div class="flex items-center mb-4">
@@ -190,6 +307,16 @@ const form = ref({
   hourly_rate: 24,
   bio: '',
   contract_type: 'volunteer', // Valeur par défaut : Bénévole
+  // Informations bancaires et nationales
+  bank_account_number: '',
+  niss: '',
+  // Adresse
+  street: '',
+  street_number: '',
+  street_box: '',
+  postal_code: '',
+  city: '',
+  country: 'Belgium'
 });
 
 const addTeacher = async () => {
@@ -206,11 +333,21 @@ const addTeacher = async () => {
       first_name: firstName,
       last_name: lastName,
       email: form.value.email,
-      phone: form.value.phone,
+      phone: form.value.phone || null,
       experience_years: form.value.experience_years,
       hourly_rate: form.value.hourly_rate,
-      bio: form.value.bio,
-      contract_type: form.value.contract_type
+      bio: form.value.bio || null,
+      contract_type: form.value.contract_type,
+      // Informations bancaires et nationales
+      bank_account_number: form.value.bank_account_number || null,
+      niss: form.value.niss || null,
+      // Adresse
+      street: form.value.street || null,
+      street_number: form.value.street_number || null,
+      street_box: form.value.street_box || null,
+      postal_code: form.value.postal_code || null,
+      city: form.value.city || null,
+      country: form.value.country || 'Belgium'
     })
     
     console.log('✅ Enseignant créé avec succès:', response)

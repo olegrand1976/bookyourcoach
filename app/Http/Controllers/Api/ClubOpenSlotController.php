@@ -404,6 +404,41 @@ class ClubOpenSlotController extends Controller
             $validated['is_active'] = isset($validated['is_active']) ? filter_var($validated['is_active'], FILTER_VALIDATE_BOOLEAN) : true;
             $validated['max_slots'] = $validated['max_slots'] ?? 1;
 
+            // 🔒 VÉRIFICATION DES CHEVAUCHEMENTS : Vérifier qu'aucun créneau existant ne chevauche avec le nouveau créneau
+            // Un créneau chevauche si : (nouveau_start < existant_end) && (nouveau_end > existant_start)
+            // Les colonnes start_time et end_time sont de type TIME, donc on peut comparer directement
+            $existingSlot = ClubOpenSlot::where('club_id', $club->id)
+                ->where('day_of_week', $validated['day_of_week'])
+                ->where(function ($query) use ($validated) {
+                    // Vérifier le chevauchement : nouveau créneau commence avant que l'existant se termine
+                    // ET nouveau créneau se termine après que l'existant commence
+                    $query->where('start_time', '<', $validated['end_time'])
+                          ->where('end_time', '>', $validated['start_time']);
+                })
+                ->first();
+
+            if ($existingSlot) {
+                Log::warning('ClubOpenSlotController::store - Chevauchement détecté', [
+                    'club_id' => $club->id,
+                    'day_of_week' => $validated['day_of_week'],
+                    'new_start_time' => $validated['start_time'],
+                    'new_end_time' => $validated['end_time'],
+                    'existing_slot_id' => $existingSlot->id,
+                    'existing_start_time' => $existingSlot->start_time,
+                    'existing_end_time' => $existingSlot->end_time
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Un créneau existe déjà pour ce jour et cette plage horaire. Les créneaux ne peuvent pas se chevaucher.',
+                    'conflict' => [
+                        'existing_slot_id' => $existingSlot->id,
+                        'existing_start_time' => $existingSlot->start_time,
+                        'existing_end_time' => $existingSlot->end_time
+                    ]
+                ], 422);
+            }
+
             Log::info('ClubOpenSlotController::store - Création créneau', [
                 'club_id' => $club->id,
                 'validated' => $validated,
@@ -539,6 +574,52 @@ class ClubOpenSlotController extends Controller
             } else {
                 // Si is_active n'est pas dans la request, ne pas le modifier
                 unset($validated['is_active']);
+            }
+
+            // 🔒 VÉRIFICATION DES CHEVAUCHEMENTS : Si le jour ou les horaires sont modifiés, vérifier les chevauchements
+            $dayOfWeekChanged = isset($validated['day_of_week']) && $validated['day_of_week'] != $slot->day_of_week;
+            $startTimeChanged = isset($validated['start_time']) && $validated['start_time'] != $slot->start_time;
+            $endTimeChanged = isset($validated['end_time']) && $validated['end_time'] != $slot->end_time;
+
+            if ($dayOfWeekChanged || $startTimeChanged || $endTimeChanged) {
+                // Utiliser les nouvelles valeurs ou les valeurs actuelles
+                $checkDayOfWeek = $validated['day_of_week'] ?? $slot->day_of_week;
+                $checkStartTime = $validated['start_time'] ?? $slot->start_time;
+                $checkEndTime = $validated['end_time'] ?? $slot->end_time;
+
+                $existingSlot = ClubOpenSlot::where('club_id', $slot->club_id)
+                    ->where('day_of_week', $checkDayOfWeek)
+                    ->where('id', '!=', $slot->id) // Exclure le créneau actuel
+                    ->where(function ($query) use ($checkStartTime, $checkEndTime) {
+                        // Vérifier le chevauchement : nouveau créneau commence avant que l'existant se termine
+                        // ET nouveau créneau se termine après que l'existant commence
+                        $query->where('start_time', '<', $checkEndTime)
+                              ->where('end_time', '>', $checkStartTime);
+                    })
+                    ->first();
+
+                if ($existingSlot) {
+                    Log::warning('ClubOpenSlotController::update - Chevauchement détecté lors de la mise à jour', [
+                        'slot_id' => $slot->id,
+                        'club_id' => $slot->club_id,
+                        'day_of_week' => $checkDayOfWeek,
+                        'new_start_time' => $checkStartTime,
+                        'new_end_time' => $checkEndTime,
+                        'existing_slot_id' => $existingSlot->id,
+                        'existing_start_time' => $existingSlot->start_time,
+                        'existing_end_time' => $existingSlot->end_time
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Un autre créneau existe déjà pour ce jour et cette plage horaire. Les créneaux ne peuvent pas se chevaucher.',
+                        'conflict' => [
+                            'existing_slot_id' => $existingSlot->id,
+                            'existing_start_time' => $existingSlot->start_time,
+                            'existing_end_time' => $existingSlot->end_time
+                        ]
+                    ], 422);
+                }
             }
 
             Log::info('ClubOpenSlotController::update - Mise à jour créneau', [

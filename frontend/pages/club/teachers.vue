@@ -136,7 +136,7 @@
           <p class="mt-1 text-sm text-gray-500">Commencez par ajouter votre premier enseignant.</p>
           <div class="mt-6">
             <button 
-              @click="showAddTeacherModal = true"
+              @click="showNewTeacherModal = true"
               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Ajouter un enseignant
@@ -272,6 +272,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import EditTeacherModal from '~/components/EditTeacherModal.vue'
+import AddTeacherModal from '~/components/AddTeacherModal.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -370,20 +371,36 @@ const loadTeachers = async () => {
     
     if (response.data.success && response.data.teachers) {
       // Mapper les données pour inclure les informations de l'utilisateur
+      // Préserver l'objet user complet avec tous les champs pour la modification
       teachers.value = response.data.teachers.map(teacher => {
+        // Préserver l'objet user complet tel qu'il vient de l'API (tous les champs seront présents)
+        const userData = teacher.user || {}
+        
         return {
           id: teacher.id,
-          name: teacher.user?.name || 'N/A',
-          email: teacher.user?.email || 'N/A',
-          phone: teacher.user?.phone || null,
-          hourly_rate: parseFloat(teacher.hourly_rate) || 0,
+          name: userData.name || teacher.name || 'N/A',
+          email: userData.email || teacher.email || 'N/A',
+          phone: userData.phone || teacher.phone || null,
+          hourly_rate: parseFloat(teacher.hourly_rate || teacher.pivot_hourly_rate || 0) || 0,
           experience_years: parseInt(teacher.experience_years) || 0,
           bio: teacher.bio || '',
-          contract_type: teacher.contract_type || 'freelance'
+          contract_type: teacher.contract_type || 'freelance',
+          // Préserver l'objet user complet tel quel (avec tous ses attributs, y compris NISS, bank_account_number, adresse, etc.)
+          user: userData
         }
       })
       
-      console.log('✅ Enseignants mappés:', teachers.value)
+      console.log('✅ Enseignants mappés avec user complet:', teachers.value)
+      // Log du premier teacher pour vérifier la structure
+      if (teachers.value.length > 0) {
+        console.log('📋 [loadTeachers] Exemple teacher avec user:', {
+          teacher_id: teachers.value[0].id,
+          user_keys: teachers.value[0].user ? Object.keys(teachers.value[0].user) : 'no user',
+          user_niss: teachers.value[0].user?.niss,
+          user_bank_account: teachers.value[0].user?.bank_account_number,
+          user_street: teachers.value[0].user?.street
+        })
+      }
     }
   } catch (error) {
     console.error('❌ Erreur lors du chargement des enseignants:', error)
@@ -396,10 +413,16 @@ const loadTeachers = async () => {
 const editTeacher = (teacher) => {
   console.log('📝 Modifier enseignant:', teacher)
   console.log('📝 Teacher object:', JSON.stringify(teacher, null, 2))
-  selectedTeacher.value = { ...teacher } // Créer une copie pour éviter les problèmes de réactivité
+  console.log('📝 Teacher.user:', teacher.user)
+  
+  // Créer une copie profonde pour éviter les problèmes de réactivité
+  // Préserver notamment l'objet user complet
+  selectedTeacher.value = JSON.parse(JSON.stringify(teacher))
+  
+  console.log('📝 Selected teacher après copie:', selectedTeacher.value)
+  console.log('📝 Selected teacher.user après copie:', selectedTeacher.value.user)
+  
   showEditTeacherModal.value = true
-  console.log('📝 Modal ouvert:', showEditTeacherModal.value)
-  console.log('📝 Selected teacher:', selectedTeacher.value)
 }
 
 const closeEditModal = () => {

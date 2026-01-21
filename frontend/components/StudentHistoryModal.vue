@@ -774,6 +774,7 @@ const formatDate = (date) => {
 const formatDateTime = (dateTime) => {
   if (!dateTime) return 'Non définie'
   return new Date(dateTime).toLocaleString('fr-FR', {
+    weekday: 'long',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

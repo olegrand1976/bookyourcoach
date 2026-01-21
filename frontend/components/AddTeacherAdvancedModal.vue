@@ -278,8 +278,8 @@
                 <h4 class="text-lg font-semibold text-gray-900 mb-4">Adresse</h4>
                 
                 <div class="grid grid-cols-1 gap-4">
-                  <!-- Rue et numéro -->
-                  <div class="grid grid-cols-3 gap-4">
+                  <!-- Rue, numéro et boîte -->
+                  <div class="grid grid-cols-4 gap-4">
                     <div class="col-span-2">
                       <label class="block text-sm font-medium text-gray-700 mb-2">Rue</label>
                       <input 
@@ -296,6 +296,15 @@
                         type="text" 
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                         placeholder="12"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Boîte</label>
+                      <input 
+                        v-model="newTeacherForm.street_box" 
+                        type="text" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Bte 5"
                       >
                     </div>
                   </div>
@@ -466,6 +475,7 @@ const newTeacherForm = ref({
   niss: '',
   street: '',
   street_number: '',
+  street_box: '',
   postal_code: '',
   city: '',
   country: 'Belgium',
@@ -677,6 +687,7 @@ const createNewTeacher = async () => {
       phone: newTeacherForm.value.phone || null,
       street: newTeacherForm.value.street || null,
       street_number: newTeacherForm.value.street_number || null,
+      street_box: newTeacherForm.value.street_box || null,
       postal_code: newTeacherForm.value.postal_code || null,
       city: newTeacherForm.value.city || null,
       country: newTeacherForm.value.country,
@@ -734,6 +745,7 @@ const resetNewTeacherForm = () => {
     niss: '',
     street: '',
     street_number: '',
+    street_box: '',
     postal_code: '',
     city: '',
     country: 'Belgium',

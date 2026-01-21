@@ -640,10 +640,21 @@ class ClubController extends Controller
                 ->wherePivot('is_active', true)
                 ->get();
             
-            // Mapper les données du pivot
+            // Mapper les données du pivot et s'assurer que la relation user est bien chargée avec tous ses attributs
             $allTeachers = $allTeachers->map(function ($teacher) {
                 $teacher->contract_type = $teacher->pivot->contract_type ?? 'volunteer'; // Par défaut: volunteer
                 $teacher->pivot_hourly_rate = $teacher->pivot->hourly_rate ?? null;
+                
+                // S'assurer que l'utilisateur est bien chargé et visible pour la sérialisation JSON
+                if ($teacher->relationLoaded('user') && $teacher->user) {
+                    // Forcer la visibilité de tous les attributs de l'utilisateur (sauf password)
+                    $teacher->user->makeVisible([
+                        'name', 'email', 'phone', 'birth_date', 'niss', 'bank_account_number',
+                        'street', 'street_number', 'street_box', 'postal_code', 'city', 'country',
+                        'experience_start_date'
+                    ]);
+                }
+                
                 return $teacher;
             });
             
@@ -1095,6 +1106,7 @@ class ClubController extends Controller
                 'niss' => 'nullable|string|max:15',
                 'street' => 'nullable|string|max:255',
                 'street_number' => 'nullable|string|max:20',
+                'street_box' => 'nullable|string|max:20',
                 'postal_code' => 'nullable|string|max:10',
                 'city' => 'nullable|string|max:255',
                 'country' => 'nullable|string|max:255',
@@ -1161,6 +1173,7 @@ class ClubController extends Controller
                 'niss' => $request->niss,
                 'street' => $request->street,
                 'street_number' => $request->street_number,
+                'street_box' => $request->street_box,
                 'postal_code' => $request->postal_code,
                 'city' => $request->city,
                 'country' => $request->country ?? 'Belgium',
@@ -1450,6 +1463,16 @@ class ClubController extends Controller
                 'experience_years' => 'nullable|integer|min:0',
                 'bio' => 'nullable|string',
                 'contract_type' => 'nullable|in:volunteer,student,employee,freelance,intern,article17',
+                // Informations bancaires et nationales
+                'bank_account_number' => 'nullable|string|max:50',
+                'niss' => 'nullable|string|max:15',
+                // Adresse
+                'street' => 'nullable|string|max:255',
+                'street_number' => 'nullable|string|max:20',
+                'street_box' => 'nullable|string|max:20',
+                'postal_code' => 'nullable|string|max:10',
+                'city' => 'nullable|string|max:255',
+                'country' => 'nullable|string|max:255',
             ]);
 
             if ($validator->fails()) {
@@ -1478,6 +1501,34 @@ class ClubController extends Controller
             
             if ($request->has('phone')) {
                 $teacherUser->phone = $request->phone;
+            }
+            
+            // Gérer les informations bancaires et nationales
+            if ($request->has('bank_account_number')) {
+                $teacherUser->bank_account_number = $request->bank_account_number ?: null;
+            }
+            if ($request->has('niss')) {
+                $teacherUser->niss = $request->niss ?: null;
+            }
+            
+            // Gérer l'adresse
+            if ($request->has('street')) {
+                $teacherUser->street = $request->street ?: null;
+            }
+            if ($request->has('street_number')) {
+                $teacherUser->street_number = $request->street_number ?: null;
+            }
+            if ($request->has('street_box')) {
+                $teacherUser->street_box = $request->street_box ?: null;
+            }
+            if ($request->has('postal_code')) {
+                $teacherUser->postal_code = $request->postal_code ?: null;
+            }
+            if ($request->has('city')) {
+                $teacherUser->city = $request->city ?: null;
+            }
+            if ($request->has('country')) {
+                $teacherUser->country = $request->country ?: null;
             }
             
             $teacherUser->save();

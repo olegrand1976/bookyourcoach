@@ -273,6 +273,122 @@ class TeacherControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_can_update_teacher_profile_with_niss_bank_account_and_address()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+
+        $updateData = [
+            'name' => 'Nouveau Nom',
+            'phone' => '+33123456789',
+            'niss' => '76.01.10-427.03',
+            'bank_account_number' => 'BE12 3456 7890 1234',
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'street_box' => 'Bte 5',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            'country' => 'Belgium',
+            'bio' => 'Nouvelle bio',
+        ];
+
+        // Act
+        $response = $this->putJson('/api/teacher/profile', $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'message',
+                     'profile',
+                     'teacher',
+                 ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Nouveau Nom',
+            'phone' => '+33123456789',
+            'niss' => '76.01.10-427.03',
+            'bank_account_number' => 'BE12 3456 7890 1234',
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'street_box' => 'Bte 5',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            'country' => 'Belgium',
+        ]);
+
+        $this->assertDatabaseHas('teachers', [
+            'id' => $teacher->id,
+            'bio' => 'Nouvelle bio',
+        ]);
+    }
+
+    #[Test]
+    public function it_can_update_teacher_profile_with_partial_address_fields()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+
+        $updateData = [
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            // street_box et country non fournis
+        ];
+
+        // Act
+        $response = $this->putJson('/api/teacher/profile', $updateData);
+
+        // Assert
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+        ]);
+    }
+
+    #[Test]
+    public function it_can_clear_address_fields_by_sending_empty_strings()
+    {
+        // Arrange
+        $user = $this->actingAsTeacher();
+        
+        // D'abord définir des valeurs
+        $user->update([
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+        ]);
+
+        $updateData = [
+            'street' => '',
+            'street_number' => '',
+            'postal_code' => '',
+            'city' => '',
+        ];
+
+        // Act
+        $response = $this->putJson('/api/teacher/profile', $updateData);
+
+        // Assert
+        $response->assertStatus(200);
+
+        $user->refresh();
+        $this->assertNull($user->street);
+        $this->assertNull($user->street_number);
+        $this->assertNull($user->postal_code);
+        $this->assertNull($user->city);
+    }
+
+    #[Test]
     public function it_validates_profile_update_data()
     {
         // Arrange

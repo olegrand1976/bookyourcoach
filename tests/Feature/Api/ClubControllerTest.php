@@ -286,6 +286,127 @@ class ClubControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_can_create_teacher_with_niss_bank_account_and_address()
+    {
+        // Arrange
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+
+        Notification::fake();
+
+        $teacherData = [
+            'first_name' => 'Jane',
+            'last_name' => 'Smith',
+            'email' => 'jane.smith@example.com',
+            'phone' => '+33123456789',
+            'niss' => '76.01.10-427.03',
+            'bank_account_number' => 'BE12 3456 7890 1234',
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'street_box' => 'Bte 5',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            'country' => 'Belgium',
+            'contract_type' => 'volunteer',
+            'hourly_rate' => 0,
+        ];
+
+        // Act
+        $response = $this->postJson('/api/club/teachers', $teacherData);
+
+        // Assert
+        $response->assertStatus(201)
+                 ->assertJsonStructure([
+                     'success',
+                     'message',
+                     'data' => [
+                         'id',
+                         'user',
+                     ]
+                 ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'jane.smith@example.com',
+            'role' => 'teacher',
+            'niss' => '76.01.10-427.03',
+            'bank_account_number' => 'BE12 3456 7890 1234',
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'street_box' => 'Bte 5',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            'country' => 'Belgium',
+        ]);
+
+        // Vérifier que l'enseignant est associé au club
+        $teacher = Teacher::whereHas('user', function($q) {
+            $q->where('email', 'jane.smith@example.com');
+        })->first();
+
+        $this->assertTrue($teacher->clubs->contains($club));
+    }
+
+    #[Test]
+    public function it_can_update_teacher_with_niss_bank_account_and_address()
+    {
+        // Arrange
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+
+        $teacher = Teacher::factory()->create();
+        $teacherUser = $teacher->user;
+        $teacher->clubs()->attach($club->id, [
+            'is_active' => true,
+            'contract_type' => 'volunteer',
+            'hourly_rate' => 0,
+            'joined_at' => now(),
+        ]);
+
+        $updateData = [
+            'first_name' => 'Updated',
+            'last_name' => 'Name',
+            'email' => $teacherUser->email,
+            'niss' => '76.01.10-427.03',
+            'bank_account_number' => 'BE12 3456 7890 1234',
+            'street' => 'Rue de la Paix',
+            'street_number' => '123',
+            'street_box' => 'Bte 5',
+            'postal_code' => '1000',
+            'city' => 'Bruxelles',
+            'country' => 'Belgium',
+            'contract_type' => 'employee',
+            'hourly_rate' => 25.00,
+        ];
+
+        // Act
+        $response = $this->putJson("/api/club/teachers/{$teacher->id}", $updateData);
+
+        // Assert
+        $response->assertStatus(200)
+                 ->assertJson([
+                     'success' => true,
+                 ]);
+
+        $teacherUser->refresh();
+        $this->assertEquals('Updated Name', $teacherUser->name);
+        $this->assertEquals('76.01.10-427.03', $teacherUser->niss);
+        $this->assertEquals('BE12 3456 7890 1234', $teacherUser->bank_account_number);
+        $this->assertEquals('Rue de la Paix', $teacherUser->street);
+        $this->assertEquals('123', $teacherUser->street_number);
+        $this->assertEquals('Bte 5', $teacherUser->street_box);
+        $this->assertEquals('1000', $teacherUser->postal_code);
+        $this->assertEquals('Bruxelles', $teacherUser->city);
+        $this->assertEquals('Belgium', $teacherUser->country);
+
+        $this->assertDatabaseHas('club_teachers', [
+            'club_id' => $club->id,
+            'teacher_id' => $teacher->id,
+            'contract_type' => 'employee',
+            'hourly_rate' => 25.00,
+        ]);
+    }
+
+    #[Test]
     public function it_validates_teacher_creation_data()
     {
         // Arrange

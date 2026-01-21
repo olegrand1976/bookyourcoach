@@ -1060,6 +1060,16 @@ class TeacherController extends Controller
                 'specialties' => 'nullable|array',
                 'certifications' => 'nullable|array',
                 'experience_start_date' => 'nullable|date',
+                // Informations bancaires et nationales
+                'bank_account_number' => 'nullable|string|max:50',
+                'niss' => 'nullable|string|max:15',
+                // Adresse
+                'street' => 'nullable|string|max:255',
+                'street_number' => 'nullable|string|max:20',
+                'street_box' => 'nullable|string|max:20',
+                'postal_code' => 'nullable|string|max:10',
+                'city' => 'nullable|string|max:255',
+                'country' => 'nullable|string|max:255',
                 // experience_years et hourly_rate ne peuvent pas être modifiés par l'enseignant
                 'experience_years' => 'prohibited',
                 'hourly_rate' => 'prohibited',
@@ -1124,13 +1134,59 @@ class TeacherController extends Controller
                 $user->experience_start_date = $newExperienceStartDate;
             }
             
+            // Gérer les informations bancaires et nationales
+            if (array_key_exists('bank_account_number', $validated)) {
+                $user->bank_account_number = $validated['bank_account_number'] ?: null;
+            }
+            if (array_key_exists('niss', $validated)) {
+                $user->niss = $validated['niss'] ?: null;
+            }
+            
+            // Gérer l'adresse
+            if (array_key_exists('street', $validated)) {
+                $user->street = $validated['street'] ?: null;
+            }
+            if (array_key_exists('street_number', $validated)) {
+                $user->street_number = $validated['street_number'] ?: null;
+            }
+            if (array_key_exists('street_box', $validated)) {
+                $user->street_box = $validated['street_box'] ?: null;
+            }
+            if (array_key_exists('postal_code', $validated)) {
+                $user->postal_code = $validated['postal_code'] ?: null;
+            }
+            if (array_key_exists('city', $validated)) {
+                $user->city = $validated['city'] ?: null;
+            }
+            if (array_key_exists('country', $validated)) {
+                $user->country = $validated['country'] ?: null;
+            }
+            
+            // Formater les dates pour le log (éviter les erreurs de format)
+            $birthDateForLog = null;
+            if ($user->birth_date !== null) {
+                $birthDateForLog = is_string($user->birth_date) ? $user->birth_date : (method_exists($user->birth_date, 'format') ? $user->birth_date->format('Y-m-d') : (string)$user->birth_date);
+            }
+            
+            $experienceStartDateForLog = null;
+            if ($user->experience_start_date !== null) {
+                $experienceStartDateForLog = is_string($user->experience_start_date) ? $user->experience_start_date : (method_exists($user->experience_start_date, 'format') ? $user->experience_start_date->format('Y-m-d') : (string)$user->experience_start_date);
+            }
+            
             Log::info('📝 [TeacherController::updateProfile] État AVANT save():', [
                 'user_id' => $user->id,
                 'name' => $user->name,
                 'phone' => $user->phone,
-                'birth_date' => $user->birth_date,
+                'birth_date' => $birthDateForLog,
                 'birth_date_original' => $originalBirthDate,
-                'experience_start_date' => $user->experience_start_date,
+                'experience_start_date' => $experienceStartDateForLog,
+                'bank_account_number' => $user->bank_account_number,
+                'niss' => $user->niss,
+                'street' => $user->street,
+                'street_number' => $user->street_number,
+                'street_box' => $user->street_box,
+                'postal_code' => $user->postal_code,
+                'city' => $user->city,
                 'birth_date_is_dirty' => $user->isDirty('birth_date'),
                 'user_is_dirty' => $user->isDirty(),
                 'validated_birth_date' => $validated['birth_date'] ?? 'non défini',
@@ -1142,12 +1198,24 @@ class TeacherController extends Controller
             // Recharger depuis la DB pour vérifier la valeur sauvegardée
             $user->refresh();
             
+            // Formater birth_date pour le log (si c'est une chaîne, extraire juste la date)
+            $birthDateFormatted = 'null';
+            if ($user->birth_date) {
+                if (is_string($user->birth_date)) {
+                    $birthDateFormatted = substr($user->birth_date, 0, 10);
+                } elseif (method_exists($user->birth_date, 'format')) {
+                    $birthDateFormatted = $user->birth_date->format('Y-m-d');
+                } else {
+                    $birthDateFormatted = (string)$user->birth_date;
+                }
+            }
+            
             Log::info('✅ [TeacherController::updateProfile] État APRÈS save() et refresh():', [
                 'user_id' => $user->id,
                 'birth_date_saved' => $user->birth_date,
                 'birth_date_type' => gettype($user->birth_date),
                 'is_null' => $user->birth_date === null,
-                'formatted' => $user->birth_date ? $user->birth_date->format('Y-m-d') : 'null'
+                'formatted' => $birthDateFormatted
             ]);
 
             // Mettre à jour les informations de l'enseignant
@@ -1173,11 +1241,40 @@ class TeacherController extends Controller
             // Recharger les relations
             $teacher->load(['user', 'clubs']);
 
+            // Convertir les modèles en tableaux pour éviter les problèmes de sérialisation
+            // et s'assurer que les dates sont correctement formatées
+            $userArray = $user->toArray();
+            $teacherArray = $teacher->toArray();
+            
+            // S'assurer que birth_date est bien formatée comme string si elle existe
+            if (isset($userArray['birth_date']) && $userArray['birth_date'] !== null) {
+                if (!is_string($userArray['birth_date'])) {
+                    try {
+                        $userArray['birth_date'] = \Carbon\Carbon::parse($userArray['birth_date'])->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        // Si la conversion échoue, utiliser la valeur telle quelle
+                        $userArray['birth_date'] = (string)$userArray['birth_date'];
+                    }
+                }
+            }
+            
+            // S'assurer que experience_start_date est bien formatée comme string si elle existe
+            if (isset($userArray['experience_start_date']) && $userArray['experience_start_date'] !== null) {
+                if (!is_string($userArray['experience_start_date'])) {
+                    try {
+                        $userArray['experience_start_date'] = \Carbon\Carbon::parse($userArray['experience_start_date'])->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        // Si la conversion échoue, utiliser la valeur telle quelle
+                        $userArray['experience_start_date'] = (string)$userArray['experience_start_date'];
+                    }
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profil mis à jour avec succès',
-                'profile' => $user,
-                'teacher' => $teacher
+                'profile' => $userArray,
+                'teacher' => $teacherArray
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

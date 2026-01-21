@@ -89,6 +89,19 @@
                 Âge : {{ calculateAge(form.birth_date) }} ans
               </p>
             </div>
+            <div>
+              <label for="niss" class="block text-sm font-medium text-gray-700 mb-1">Registre national (NISS)</label>
+              <input
+                id="niss"
+                v-model="form.niss"
+                type="text"
+                maxlength="15"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.niss }"
+                placeholder="XX.XX.XX-XXX.XX"
+              />
+              <p v-if="errors.niss" class="mt-1 text-sm text-red-600">{{ errors.niss }}</p>
+            </div>
           </div>
         </section>
 
@@ -150,6 +163,111 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
               />
               <p class="mt-1 text-xs text-gray-500">Le tarif horaire est géré par le club</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Informations bancaires -->
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Informations bancaires</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="bank_account_number" class="block text-sm font-medium text-gray-700 mb-1">Numéro de compte bancaire</label>
+              <input
+                id="bank_account_number"
+                v-model="form.bank_account_number"
+                type="text"
+                maxlength="50"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.bank_account_number }"
+                placeholder="BE12 3456 7890 1234"
+              />
+              <p v-if="errors.bank_account_number" class="mt-1 text-sm text-red-600">{{ errors.bank_account_number }}</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Adresse -->
+        <section class="border-b pb-4 md:pb-6">
+          <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Adresse</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label for="street" class="block text-sm font-medium text-gray-700 mb-1">Rue</label>
+              <input
+                id="street"
+                v-model="form.street"
+                type="text"
+                maxlength="255"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.street }"
+                placeholder="Rue de..."
+              />
+              <p v-if="errors.street" class="mt-1 text-sm text-red-600">{{ errors.street }}</p>
+            </div>
+            <div>
+              <label for="street_number" class="block text-sm font-medium text-gray-700 mb-1">Numéro</label>
+              <input
+                id="street_number"
+                v-model="form.street_number"
+                type="text"
+                maxlength="20"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.street_number }"
+                placeholder="123"
+              />
+              <p v-if="errors.street_number" class="mt-1 text-sm text-red-600">{{ errors.street_number }}</p>
+            </div>
+            <div>
+              <label for="street_box" class="block text-sm font-medium text-gray-700 mb-1">Boîte</label>
+              <input
+                id="street_box"
+                v-model="form.street_box"
+                type="text"
+                maxlength="20"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.street_box }"
+                placeholder="Bte 5"
+              />
+              <p v-if="errors.street_box" class="mt-1 text-sm text-red-600">{{ errors.street_box }}</p>
+            </div>
+            <div>
+              <label for="postal_code" class="block text-sm font-medium text-gray-700 mb-1">Code postal</label>
+              <input
+                id="postal_code"
+                v-model="form.postal_code"
+                type="text"
+                maxlength="10"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.postal_code }"
+                placeholder="1000"
+              />
+              <p v-if="errors.postal_code" class="mt-1 text-sm text-red-600">{{ errors.postal_code }}</p>
+            </div>
+            <div>
+              <label for="city" class="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+              <input
+                id="city"
+                v-model="form.city"
+                type="text"
+                maxlength="255"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.city }"
+                placeholder="Bruxelles"
+              />
+              <p v-if="errors.city" class="mt-1 text-sm text-red-600">{{ errors.city }}</p>
+            </div>
+            <div>
+              <label for="country" class="block text-sm font-medium text-gray-700 mb-1">Pays</label>
+              <input
+                id="country"
+                v-model="form.country"
+                type="text"
+                maxlength="255"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-500': errors.country }"
+                placeholder="Belgium"
+              />
+              <p v-if="errors.country" class="mt-1 text-sm text-red-600">{{ errors.country }}</p>
             </div>
           </div>
         </section>
@@ -219,7 +337,17 @@ const initializeForm = () => {
     experience_years: null,
     certifications: '',
     hourly_rate: null,
-    bio: ''
+    bio: '',
+    // Informations bancaires et nationales
+    bank_account_number: user?.bank_account_number || '',
+    niss: user?.niss || '',
+    // Adresse
+    street: user?.street || '',
+    street_number: user?.street_number || '',
+    street_box: user?.street_box || '',
+    postal_code: user?.postal_code || '',
+    city: user?.city || '',
+    country: user?.country || 'Belgium'
   }
 }
 
@@ -327,6 +455,18 @@ const loadProfileData = async () => {
         } else {
           form.value.experience_start_date = ''
         }
+        
+        // Charger les informations bancaires et nationales
+        form.value.bank_account_number = profile?.bank_account_number || ''
+        form.value.niss = profile?.niss || ''
+        
+        // Charger l'adresse
+        form.value.street = profile?.street || ''
+        form.value.street_number = profile?.street_number || ''
+        form.value.street_box = profile?.street_box || ''
+        form.value.postal_code = profile?.postal_code || ''
+        form.value.city = profile?.city || ''
+        form.value.country = profile?.country || 'Belgium'
       }
       
       if (teacher) {
@@ -432,7 +572,17 @@ const handleSubmit = async () => {
         : null,
       certifications: form.value.certifications && form.value.certifications.trim()
         ? form.value.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
-        : null
+        : null,
+      // Informations bancaires et nationales
+      bank_account_number: form.value.bank_account_number && form.value.bank_account_number.trim() ? form.value.bank_account_number.trim() : null,
+      niss: form.value.niss && form.value.niss.trim() ? form.value.niss.trim() : null,
+      // Adresse
+      street: form.value.street && form.value.street.trim() ? form.value.street.trim() : null,
+      street_number: form.value.street_number && form.value.street_number.trim() ? form.value.street_number.trim() : null,
+      street_box: form.value.street_box && form.value.street_box.trim() ? form.value.street_box.trim() : null,
+      postal_code: form.value.postal_code && form.value.postal_code.trim() ? form.value.postal_code.trim() : null,
+      city: form.value.city && form.value.city.trim() ? form.value.city.trim() : null,
+      country: form.value.country && form.value.country.trim() ? form.value.country.trim() : null
     }
     
     // Log détaillé pour debug
