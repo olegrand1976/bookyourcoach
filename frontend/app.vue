@@ -9,7 +9,7 @@
 useHead({
   title: 'Acti\'Vibe',
   titleTemplate: (titleChunk) => {
-    return titleChunk ? `${titleChunk} - Acti'Vibe` : 'Acti\'Vibe'
+    return titleChunk ? `${titleChunk} - Acti'Vibe` : ' Acti\'Vibe '
   },
   meta: [
     { charset: 'utf-8' },
