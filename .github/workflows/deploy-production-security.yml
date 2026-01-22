@@ -506,23 +506,42 @@ jobs:
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
-            # Nettoyage complet de tous les caches
+            # Nettoyage complet de tous les caches et régénération de l'autoloader
             log_info "🧹 Nettoyage complet des caches..."
+            
+            # Supprimer manuellement les fichiers de cache corrompus
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf bootstrap/cache/*.php 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/cache/data/* 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/views/* 2>/dev/null || true
+            
+            # Nettoyer avec artisan
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
             
-            # Recréer les caches optimisés
+            # Régénérer l'autoloader Composer (important pour les service providers)
+            log_info "🔄 Régénération de l'autoloader Composer..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend composer dump-autoload --optimize 2>/dev/null || true
+            
+            # Recréer les caches optimisés (sans view:cache car cela peut causer des problèmes)
             log_info "⚡ Optimisation des caches..."
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:cache 2>/dev/null || true
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:cache 2>/dev/null || true
             
             # Vérifier que l'application fonctionne
             log_info "🔍 Vérification de l'application..."
-            sleep 2
+            sleep 3
+            
+            # Test rapide pour vérifier que le service view est disponible
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="app('view'); echo 'OK';" 2>/dev/null | grep -q "OK"; then
+                log_info "✅ Service 'view' disponible"
+            else
+                log_warning "⚠️  Service 'view' non disponible - redémarrage du conteneur..."
+                docker compose -f "$COMPOSE_FILE" restart backend
+                sleep 5
+            fi
         fi
 
         # Vérification de l'état des services
@@ -542,9 +561,21 @@ jobs:
             log_error "❌ Port 8080 (Backend Laravel) : Erreur serveur (HTTP 500)"
             log_info "📋 Vérification des logs du backend..."
             docker compose -f "$COMPOSE_FILE" logs backend --tail=30
-            log_info "🔧 Tentative de correction..."
+            log_info "🔧 Tentative de correction complète..."
+            
+            # Supprimer les caches corrompus
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf bootstrap/cache/*.php 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/cache/data/* 2>/dev/null || true
+            
+            # Nettoyer et régénérer
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend composer dump-autoload --optimize 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
+            
+            # Redémarrer le conteneur
+            log_info "🔄 Redémarrage du conteneur backend..."
+            docker compose -f "$COMPOSE_FILE" restart backend
+            sleep 5
         else
             log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (HTTP ${backend_http_code:-unknown})"
         fi
@@ -887,23 +918,42 @@ jobs:
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
-            # Nettoyage complet de tous les caches
+            # Nettoyage complet de tous les caches et régénération de l'autoloader
             log_info "🧹 Nettoyage complet des caches..."
+            
+            # Supprimer manuellement les fichiers de cache corrompus
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf bootstrap/cache/*.php 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/cache/data/* 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/views/* 2>/dev/null || true
+            
+            # Nettoyer avec artisan
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
             
-            # Recréer les caches optimisés
+            # Régénérer l'autoloader Composer (important pour les service providers)
+            log_info "🔄 Régénération de l'autoloader Composer..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend composer dump-autoload --optimize 2>/dev/null || true
+            
+            # Recréer les caches optimisés (sans view:cache car cela peut causer des problèmes)
             log_info "⚡ Optimisation des caches..."
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:cache 2>/dev/null || true
-            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:cache 2>/dev/null || true
             
             # Vérifier que l'application fonctionne
             log_info "🔍 Vérification de l'application..."
-            sleep 2
+            sleep 3
+            
+            # Test rapide pour vérifier que le service view est disponible
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="app('view'); echo 'OK';" 2>/dev/null | grep -q "OK"; then
+                log_info "✅ Service 'view' disponible"
+            else
+                log_warning "⚠️  Service 'view' non disponible - redémarrage du conteneur..."
+                docker compose -f "$COMPOSE_FILE" restart backend
+                sleep 5
+            fi
         fi
 
         # Vérification de l'état des services
@@ -923,9 +973,21 @@ jobs:
             log_error "❌ Port 8080 (Backend Laravel) : Erreur serveur (HTTP 500)"
             log_info "📋 Vérification des logs du backend..."
             docker compose -f "$COMPOSE_FILE" logs backend --tail=30
-            log_info "🔧 Tentative de correction..."
+            log_info "🔧 Tentative de correction complète..."
+            
+            # Supprimer les caches corrompus
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf bootstrap/cache/*.php 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend rm -rf storage/framework/cache/data/* 2>/dev/null || true
+            
+            # Nettoyer et régénérer
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend composer dump-autoload --optimize 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
+            
+            # Redémarrer le conteneur
+            log_info "🔄 Redémarrage du conteneur backend..."
+            docker compose -f "$COMPOSE_FILE" restart backend
+            sleep 5
         else
             log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (HTTP ${backend_http_code:-unknown})"
         fi
