@@ -425,9 +425,29 @@ jobs:
             exit 1
         fi
 
+        # Fonction pour attendre qu'un service soit prêt
+        wait_for_service() {
+            local service=$1
+            local url=$2
+            local max_attempts=${3:-30}
+            local attempt=0
+            
+            log_info "⏳ Attente que ${service} soit prêt..."
+            while [ $attempt -lt $max_attempts ]; do
+                if curl -f -s "${url}" >/dev/null 2>&1; then
+                    log_info "✅ ${service} est prêt (tentative $((attempt + 1)))"
+                    return 0
+                fi
+                attempt=$((attempt + 1))
+                sleep 1
+            done
+            log_warning "⚠️  ${service} n'est pas prêt après ${max_attempts} secondes"
+            return 1
+        }
+
         # Vérification que les conteneurs sont démarrés
         log_info "🔍 Vérification du démarrage des conteneurs..."
-        sleep 5
+        sleep 2
         FAILED_CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps --format json | jq -r 'select(.State == "exited" or .State == "restarting") | .Name' 2>/dev/null || true)
         if [ -n "$FAILED_CONTAINERS" ]; then
             log_error "Certains conteneurs ont échoué :"
@@ -437,9 +457,10 @@ jobs:
             exit 1
         fi
 
-        # Attente du démarrage
-        log_info "⏳ Attente du démarrage des services (30 secondes)..."
-        sleep 30
+        # Attente intelligente du démarrage des services (maximum 30 secondes)
+        log_info "⏳ Attente du démarrage des services..."
+        wait_for_service "Backend" "http://localhost:8080" 30 || true
+        wait_for_service "Frontend" "http://localhost:3000" 20 || true
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
@@ -744,9 +765,29 @@ jobs:
             exit 1
         fi
 
+        # Fonction pour attendre qu'un service soit prêt
+        wait_for_service() {
+            local service=$1
+            local url=$2
+            local max_attempts=${3:-30}
+            local attempt=0
+            
+            log_info "⏳ Attente que ${service} soit prêt..."
+            while [ $attempt -lt $max_attempts ]; do
+                if curl -f -s "${url}" >/dev/null 2>&1; then
+                    log_info "✅ ${service} est prêt (tentative $((attempt + 1)))"
+                    return 0
+                fi
+                attempt=$((attempt + 1))
+                sleep 1
+            done
+            log_warning "⚠️  ${service} n'est pas prêt après ${max_attempts} secondes"
+            return 1
+        }
+
         # Vérification que les conteneurs sont démarrés
         log_info "🔍 Vérification du démarrage des conteneurs..."
-        sleep 5
+        sleep 2
         FAILED_CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps --format json | jq -r 'select(.State == "exited" or .State == "restarting") | .Name' 2>/dev/null || true)
         if [ -n "$FAILED_CONTAINERS" ]; then
             log_error "Certains conteneurs ont échoué :"
@@ -756,9 +797,10 @@ jobs:
             exit 1
         fi
 
-        # Attente du démarrage
-        log_info "⏳ Attente du démarrage des services (30 secondes)..."
-        sleep 30
+        # Attente intelligente du démarrage des services (maximum 30 secondes)
+        log_info "⏳ Attente du démarrage des services..."
+        wait_for_service "Backend" "http://localhost:8080" 30 || true
+        wait_for_service "Frontend" "http://localhost:3000" 20 || true
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
@@ -890,9 +932,29 @@ jobs:
       run: |
         echo "🔍 Tests de vérification post-déploiement avec sécurité..."
         
-        # Attendre que les services soient prêts
-        echo "⏳ Attente du démarrage complet des services (30 secondes)..."
-        sleep 30
+        # Fonction pour attendre qu'un service soit prêt via SSH
+        wait_for_service_ssh() {
+            local service=$1
+            local url=$2
+            local max_attempts=${3:-30}
+            local attempt=0
+            
+            echo "⏳ Attente que ${service} soit prêt..."
+            while [ $attempt -lt $max_attempts ]; do
+                if ssh production-server "curl -f -s ${url}" >/dev/null 2>&1; then
+                    echo "✅ ${service} est prêt (tentative $((attempt + 1)))"
+                    return 0
+                fi
+                attempt=$((attempt + 1))
+                sleep 1
+            done
+            echo "⚠️  ${service} n'est pas prêt après ${max_attempts} secondes"
+            return 1
+        }
+        
+        # Attente intelligente du démarrage des services
+        wait_for_service_ssh "Backend" "http://localhost:8080" 30 || true
+        wait_for_service_ssh "Frontend" "http://localhost:3000" 20 || true
         
         # Test de connectivité des services
         echo "🔌 Test des services sur le serveur..."
