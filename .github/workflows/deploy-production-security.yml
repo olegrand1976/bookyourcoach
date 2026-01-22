@@ -8,22 +8,22 @@ on:
       skip_build:
         description: 'Ignorer le build (déployer seulement)'
         required: false
-        default: false
+        default: 'false'
         type: boolean
       skip_deploy:
         description: 'Ignorer le déploiement (build seulement)'
         required: false
-        default: false
+        default: 'false'
         type: boolean
       force_rebuild:
         description: 'Forcer la reconstruction des images'
         required: false
-        default: false
+        default: 'false'
         type: boolean
       security_fixes:
         description: 'Appliquer les corrections de sécurité'
         required: false
-        default: true
+        default: 'true'
         type: boolean
 
 env:
@@ -51,40 +51,39 @@ jobs:
     - name: 🔍 Vérification des conditions
       id: check
       run: |
-        # Déterminer si on doit builder (par défaut true sauf si explicitement false)
-        SKIP_BUILD="${{ inputs.skip_build }}"
-        if [[ "$SKIP_BUILD" == "true" ]]; then
+        # Déterminer si on doit builder
+        if [[ "${{ inputs.skip_build }}" == "true" ]]; then
           echo "should_build=false" >> $GITHUB_OUTPUT
         else
           echo "should_build=true" >> $GITHUB_OUTPUT
         fi
         
-        # Déterminer si on doit déployer (par défaut true sauf si explicitement false)
-        SKIP_DEPLOY="${{ inputs.skip_deploy }}"
-        if [[ "$SKIP_DEPLOY" == "true" ]]; then
+        # Déterminer si on doit déployer
+        if [[ "${{ inputs.skip_deploy }}" == "true" ]]; then
           echo "should_deploy=false" >> $GITHUB_OUTPUT
         else
           echo "should_deploy=true" >> $GITHUB_OUTPUT
         fi
         
-        # Déterminer si on applique les corrections de sécurité (par défaut true)
-        SECURITY_FIXES="${{ inputs.security_fixes }}"
-        if [[ "$SECURITY_FIXES" == "false" ]]; then
-          echo "apply_security=false" >> $GITHUB_OUTPUT
-        else
+        # Déterminer si on applique les corrections de sécurité
+        if [[ "${{ inputs.security_fixes }}" == "true" ]]; then
           echo "apply_security=true" >> $GITHUB_OUTPUT
+        else
+          echo "apply_security=false" >> $GITHUB_OUTPUT
         fi
         
         # Générer le tag d'image
-        FORCE_REBUILD="${{ inputs.force_rebuild }}"
-        if [[ "$FORCE_REBUILD" == "true" ]]; then
+        if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
           echo "image_tag=security-fix-$(date +%s)" >> $GITHUB_OUTPUT
         else
           echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
         fi
         
         echo "🔍 Conditions vérifiées :"
-        cat $GITHUB_OUTPUT
+        echo "  - Build: ${{ steps.check.outputs.should_build }}"
+        echo "  - Deploy: ${{ steps.check.outputs.should_deploy }}"
+        echo "  - Security fixes: ${{ steps.check.outputs.apply_security }}"
+        echo "  - Tag: ${{ steps.check.outputs.image_tag }}"
 
   # Job 2: Vérification des corrections de sécurité
   security-check:
@@ -246,6 +245,8 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -257,8 +258,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/html/storage
-              - app_bootstrap_cache:/var/www/html/bootstrap/cache
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -269,10 +270,8 @@ jobs:
               - no-new-privileges:true
             read_only: true
             tmpfs:
-              - /tmp:mode=1777
-              - /var/tmp:mode=1777
-              - /run:mode=755
-              - /var/run:mode=755
+              - /tmp
+              - /var/tmp
 
           # Frontend Nuxt.js
           frontend:
@@ -376,18 +375,29 @@ jobs:
 
         log_step "🚀 Démarrage du déploiement sécurisé..."
 
-        # Arrêt propre des containers existants
+        # Arrêt et suppression explicite des containers existants par nom
         log_info "🛑 Arrêt des containers existants..."
+        CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
+        for container in "${CONTAINERS[@]}"; do
+            if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+                log_info "  Arrêt et suppression de ${container}..."
+                docker stop "${container}" 2>/dev/null || true
+                docker rm -f "${container}" 2>/dev/null || true
+            fi
+        done
+
+        # Arrêt propre avec docker compose si le fichier existe
         if [[ -f "$COMPOSE_FILE" ]]; then
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
         fi
 
-        # Supprimer explicitement les conteneurs par nom pour éviter les conflits
-        log_info "🗑️  Suppression des conteneurs existants par nom..."
-        for container_name in activibe-backend activibe-frontend activibe-neo4j activibe-phpmyadmin; do
-            if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
-                log_info "  Suppression du conteneur: ${container_name}"
-                docker rm -f "${container_name}" 2>/dev/null || true
+        # Suppression explicite des réseaux existants
+        log_info "🗑️  Suppression des réseaux existants..."
+        NETWORKS=("activibe_app-network" "app-network" "bookyourcoach-network")
+        for network in "${NETWORKS[@]}"; do
+            if docker network ls --format '{{.Name}}' | grep -q "^${network}$"; then
+                log_info "  Suppression du réseau ${network}..."
+                docker network rm "${network}" 2>/dev/null || true
             fi
         done
 
@@ -398,143 +408,109 @@ jobs:
 
         # Pull des images avec corrections de sécurité
         log_info "📥 Récupération des images avec corrections de sécurité..."
-        source ".env"
+        if [[ -f "$ENV_FILE" ]]; then
+            source "$ENV_FILE" || true
+        else
+            log_warning "Fichier $ENV_FILE non trouvé - utilisation des variables d'environnement par défaut"
+        fi
         docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
         docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
 
         # Démarrage avec docker compose
         log_info "🚀 Démarrage des conteneurs sécurisés..."
-        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+        if ! docker compose -f "$COMPOSE_FILE" up -d --remove-orphans; then
+            log_error "Échec du démarrage des conteneurs"
+            docker compose -f "$COMPOSE_FILE" ps
+            docker compose -f "$COMPOSE_FILE" logs --tail=50
+            exit 1
+        fi
 
-        # Attente du démarrage des conteneurs
+        # Vérification que les conteneurs sont démarrés
+        log_info "🔍 Vérification du démarrage des conteneurs..."
+        sleep 5
+        FAILED_CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps --format json | jq -r 'select(.State == "exited" or .State == "restarting") | .Name' 2>/dev/null || true)
+        if [ -n "$FAILED_CONTAINERS" ]; then
+            log_error "Certains conteneurs ont échoué :"
+            echo "$FAILED_CONTAINERS"
+            docker compose -f "$COMPOSE_FILE" ps
+            docker compose -f "$COMPOSE_FILE" logs --tail=50
+            exit 1
+        fi
+
+        # Attente du démarrage
         log_info "⏳ Attente du démarrage des services (30 secondes)..."
         sleep 30
 
-        # Vérification de la connexion à la base de données
-        log_info "🔍 Vérification de la connexion à la base de données..."
-        if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
-          log_error "❌ Impossible de se connecter à la base de données"
-          log_info "⏳ Attente supplémentaire (30 secondes)..."
-          sleep 30
-          if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
-            log_error "❌ La base de données n'est toujours pas accessible"
-            exit 1
-          fi
-        fi
-        log_info "✅ Connexion à la base de données établie"
-        
-        # Vérifier si la table activity_types existe (migration critique)
-        log_info "🔍 Vérification de la table activity_types..."
-        # Vérifier via une requête SQL simple
-        ACTIVITY_TYPES_CHECK=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="try { DB::select('SELECT 1 FROM activity_types LIMIT 1'); echo 'exists'; } catch (Exception \$e) { echo 'not_exists'; }" 2>/dev/null | grep -E "(exists|not_exists)" | tail -1 || echo "not_exists")
-        if [ "$ACTIVITY_TYPES_CHECK" != "exists" ]; then
-          log_warning "⚠️  La table activity_types n'existe pas, exécution de la migration spécifique..."
-          # Exécuter directement la migration pour créer activity_types
-          MIGRATION_RESULT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --path=database/migrations/2025_09_07_110546_create_activity_types_table.php --force 2>&1)
-          if [ $? -eq 0 ]; then
-            log_info "✅ Migration activity_types exécutée avec succès"
-          else
-            log_warning "⚠️  Migration spécifique échouée, vérification si la table existe maintenant..."
-            echo "$MIGRATION_RESULT" | tail -10
-          fi
-        else
-          log_info "✅ La table activity_types existe"
-        fi
-        
-        # Exécution des migrations de base de données avec vérification
-        log_info "🗄️  Exécution des migrations de base de données..."
-        
-        # Vérifier l'état des migrations avant
-        log_info "📊 Vérification de l'état des migrations avant exécution..."
-        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" 2>/dev/null || echo "0")
-        # S'assurer que PENDING_BEFORE est un nombre
-        PENDING_BEFORE=${PENDING_BEFORE:-0}
-        log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
-        if [ "$PENDING_BEFORE" -gt 0 ] 2>/dev/null; then
-          log_info "📋 Liste des migrations en attente :"
-          echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
-        fi
-        
-        # Exécuter les migrations
-        log_step "🚀 Exécution des migrations..."
-        MIGRATION_OUTPUT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force 2>&1)
-        MIGRATION_EXIT_CODE=$?
-        
-        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-          log_info "✅ Migrations exécutées avec succès"
-          echo "$MIGRATION_OUTPUT" | tail -20
-          
-          # Vérifier l'état après migration
-          log_info "📊 Vérification de l'état des migrations après exécution..."
-          sleep 3
-          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" 2>/dev/null || echo "0")
-          # S'assurer que PENDING_AFTER est un nombre
-          PENDING_AFTER=${PENDING_AFTER:-0}
-          
-          if [ "$PENDING_AFTER" -gt 0 ] 2>/dev/null; then
-            log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
-            log_info "📋 Liste des migrations en attente :"
-            echo "$MIGRATIONS_AFTER" | grep "Pending" || true
-            
-            # Réessayer une fois après une courte pause
-            log_info "🔄 Nouvelle tentative d'exécution des migrations..."
-            sleep 5
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
-              log_info "✅ Migrations complémentaires exécutées"
-            else
-              log_error "❌ Échec de l'exécution des migrations complémentaires"
-              log_warning "⚠️  Vérifiez les logs pour identifier le problème"
-            fi
-          else
-            log_info "✅ Toutes les migrations ont été appliquées avec succès"
-          fi
-        else
-          log_error "❌ Échec de l'exécution des migrations"
-          log_error "📋 Détails de l'erreur :"
-          echo "$MIGRATION_OUTPUT" | tail -30
-          
-          # En production, on ne fait JAMAIS de migrate:refresh (trop dangereux)
-          log_warning "⚠️  Tentative de réparation sécurisée..."
-          
-          # Essayer de réparer seulement les migrations spécifiques qui ont échoué
-          log_info "🔄 Nouvelle tentative d'exécution des migrations..."
-          sleep 5
-          if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
-            log_info "✅ Migrations réparées avec succès"
-          else
-            log_error "❌ Échec définitif des migrations"
-            log_error "⚠️  ACTION REQUISE : Vérifiez manuellement les migrations en échec"
-            log_error "   Commande à exécuter : docker compose -f $COMPOSE_FILE exec backend php artisan migrate:status"
-            exit 1
-          fi
-        fi
-        
-        # Vérification finale
-        log_step "🔍 Vérification finale de l'état des migrations..."
-        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        if echo "$FINAL_STATUS" | grep -q "Pending"; then
-          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" 2>/dev/null || echo "0")
-          # S'assurer que PENDING_COUNT est un nombre
-          PENDING_COUNT=${PENDING_COUNT:-0}
-          log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
-          log_info "📋 État final des migrations :"
-          echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
-        else
-          log_info "✅ Toutes les migrations sont appliquées"
-        fi
-
-        # Initialisation de l'application avec sécurité (erreurs non critiques)
+        # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear || log_warning "⚠️  Impossible de clear les routes (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear || log_warning "⚠️  Impossible de clear la config (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear || log_warning "⚠️  Impossible de clear le cache (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear || log_warning "⚠️  Impossible de clear les vues (non critique)"
+        MAX_RETRIES=5
+        RETRY_COUNT=0
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null; then
+                break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            log_warning "Tentative $RETRY_COUNT/$MAX_RETRIES - Attente du backend..."
+            sleep 5
+        done
+        
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
+            docker compose -f "$COMPOSE_FILE" logs backend --tail=50
+        else
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
+        fi
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
         docker compose -f "$COMPOSE_FILE" ps
+
+        # Tests de connectivité et sécurité
+        log_step "🧪 Tests de connectivité et sécurité..."
+        
+        # Test du backend Laravel (port 8080)
+        if curl -f http://localhost:8080 >/dev/null 2>&1; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        else
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+        fi
+
+        # Test de sécurité des routes admin
+        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        
+        if [ "$admin_http_code" = "401" ]; then
+            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+        else
+            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+        fi
+
+        # Test de sécurité des routes teacher
+        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        
+        if [ "$teacher_http_code" = "401" ]; then
+            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+        else
+            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+        fi
+
+        # Test du frontend Nuxt.js (port 3000)
+        if curl -f http://localhost:3000 >/dev/null 2>&1; then
+            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
+        else
+            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible"
+        fi
+
+        # Test port 7474 (Neo4j)
+        if curl -f http://localhost:7474 >/dev/null 2>&1; then
+            log_info "✅ Port 7474 (Neo4j) : Accessible"
+        else
+            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
+        fi
 
         log_step "✅ Déploiement sécurisé terminé !"
         log_info "🔒 Corrections de sécurité appliquées :"
@@ -588,6 +564,8 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
+        version: "3.8"
+
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -599,8 +577,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/html/storage
-              - app_bootstrap_cache:/var/www/html/bootstrap/cache
+              - app_storage:/var/www/storage
+              - app_bootstrap_cache:/var/www/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -611,10 +589,8 @@ jobs:
               - no-new-privileges:true
             read_only: true
             tmpfs:
-              - /tmp:mode=1777
-              - /var/tmp:mode=1777
-              - /run:mode=755
-              - /var/run:mode=755
+              - /tmp
+              - /var/tmp
 
           # Frontend Nuxt.js
           frontend:
@@ -718,18 +694,29 @@ jobs:
 
         log_step "🚀 Démarrage du déploiement sécurisé..."
 
-        # Arrêt propre des containers existants
+        # Arrêt et suppression explicite des containers existants par nom
         log_info "🛑 Arrêt des containers existants..."
+        CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
+        for container in "${CONTAINERS[@]}"; do
+            if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+                log_info "  Arrêt et suppression de ${container}..."
+                docker stop "${container}" 2>/dev/null || true
+                docker rm -f "${container}" 2>/dev/null || true
+            fi
+        done
+
+        # Arrêt propre avec docker compose si le fichier existe
         if [[ -f "$COMPOSE_FILE" ]]; then
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
         fi
 
-        # Supprimer explicitement les conteneurs par nom pour éviter les conflits
-        log_info "🗑️  Suppression des conteneurs existants par nom..."
-        for container_name in activibe-backend activibe-frontend activibe-neo4j activibe-phpmyadmin; do
-            if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
-                log_info "  Suppression du conteneur: ${container_name}"
-                docker rm -f "${container_name}" 2>/dev/null || true
+        # Suppression explicite des réseaux existants
+        log_info "🗑️  Suppression des réseaux existants..."
+        NETWORKS=("activibe_app-network" "app-network" "bookyourcoach-network")
+        for network in "${NETWORKS[@]}"; do
+            if docker network ls --format '{{.Name}}' | grep -q "^${network}$"; then
+                log_info "  Suppression du réseau ${network}..."
+                docker network rm "${network}" 2>/dev/null || true
             fi
         done
 
@@ -740,143 +727,109 @@ jobs:
 
         # Pull des images avec corrections de sécurité
         log_info "📥 Récupération des images avec corrections de sécurité..."
-        source ".env"
+        if [[ -f "$ENV_FILE" ]]; then
+            source "$ENV_FILE" || true
+        else
+            log_warning "Fichier $ENV_FILE non trouvé - utilisation des variables d'environnement par défaut"
+        fi
         docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
         docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
 
         # Démarrage avec docker compose
         log_info "🚀 Démarrage des conteneurs sécurisés..."
-        docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+        if ! docker compose -f "$COMPOSE_FILE" up -d --remove-orphans; then
+            log_error "Échec du démarrage des conteneurs"
+            docker compose -f "$COMPOSE_FILE" ps
+            docker compose -f "$COMPOSE_FILE" logs --tail=50
+            exit 1
+        fi
 
-        # Attente du démarrage des conteneurs
+        # Vérification que les conteneurs sont démarrés
+        log_info "🔍 Vérification du démarrage des conteneurs..."
+        sleep 5
+        FAILED_CONTAINERS=$(docker compose -f "$COMPOSE_FILE" ps --format json | jq -r 'select(.State == "exited" or .State == "restarting") | .Name' 2>/dev/null || true)
+        if [ -n "$FAILED_CONTAINERS" ]; then
+            log_error "Certains conteneurs ont échoué :"
+            echo "$FAILED_CONTAINERS"
+            docker compose -f "$COMPOSE_FILE" ps
+            docker compose -f "$COMPOSE_FILE" logs --tail=50
+            exit 1
+        fi
+
+        # Attente du démarrage
         log_info "⏳ Attente du démarrage des services (30 secondes)..."
         sleep 30
 
-        # Vérification de la connexion à la base de données
-        log_info "🔍 Vérification de la connexion à la base de données..."
-        if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
-          log_error "❌ Impossible de se connecter à la base de données"
-          log_info "⏳ Attente supplémentaire (30 secondes)..."
-          sleep 30
-          if ! docker compose -f "$COMPOSE_FILE" exec -T backend php artisan db:show >/dev/null 2>&1; then
-            log_error "❌ La base de données n'est toujours pas accessible"
-            exit 1
-          fi
-        fi
-        log_info "✅ Connexion à la base de données établie"
-        
-        # Vérifier si la table activity_types existe (migration critique)
-        log_info "🔍 Vérification de la table activity_types..."
-        # Vérifier via une requête SQL simple
-        ACTIVITY_TYPES_CHECK=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="try { DB::select('SELECT 1 FROM activity_types LIMIT 1'); echo 'exists'; } catch (Exception \$e) { echo 'not_exists'; }" 2>/dev/null | grep -E "(exists|not_exists)" | tail -1 || echo "not_exists")
-        if [ "$ACTIVITY_TYPES_CHECK" != "exists" ]; then
-          log_warning "⚠️  La table activity_types n'existe pas, exécution de la migration spécifique..."
-          # Exécuter directement la migration pour créer activity_types
-          MIGRATION_RESULT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --path=database/migrations/2025_09_07_110546_create_activity_types_table.php --force 2>&1)
-          if [ $? -eq 0 ]; then
-            log_info "✅ Migration activity_types exécutée avec succès"
-          else
-            log_warning "⚠️  Migration spécifique échouée, vérification si la table existe maintenant..."
-            echo "$MIGRATION_RESULT" | tail -10
-          fi
-        else
-          log_info "✅ La table activity_types existe"
-        fi
-        
-        # Exécution des migrations de base de données avec vérification
-        log_info "🗄️  Exécution des migrations de base de données..."
-        
-        # Vérifier l'état des migrations avant
-        log_info "📊 Vérification de l'état des migrations avant exécution..."
-        MIGRATIONS_BEFORE=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        PENDING_BEFORE=$(echo "$MIGRATIONS_BEFORE" | grep -c "Pending" 2>/dev/null || echo "0")
-        # S'assurer que PENDING_BEFORE est un nombre
-        PENDING_BEFORE=${PENDING_BEFORE:-0}
-        log_info "📈 Migrations en attente avant : $PENDING_BEFORE"
-        if [ "$PENDING_BEFORE" -gt 0 ] 2>/dev/null; then
-          log_info "📋 Liste des migrations en attente :"
-          echo "$MIGRATIONS_BEFORE" | grep "Pending" || true
-        fi
-        
-        # Exécuter les migrations
-        log_step "🚀 Exécution des migrations..."
-        MIGRATION_OUTPUT=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force 2>&1)
-        MIGRATION_EXIT_CODE=$?
-        
-        if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-          log_info "✅ Migrations exécutées avec succès"
-          echo "$MIGRATION_OUTPUT" | tail -20
-          
-          # Vérifier l'état après migration
-          log_info "📊 Vérification de l'état des migrations après exécution..."
-          sleep 3
-          MIGRATIONS_AFTER=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-          PENDING_AFTER=$(echo "$MIGRATIONS_AFTER" | grep -c "Pending" 2>/dev/null || echo "0")
-          # S'assurer que PENDING_AFTER est un nombre
-          PENDING_AFTER=${PENDING_AFTER:-0}
-          
-          if [ "$PENDING_AFTER" -gt 0 ] 2>/dev/null; then
-            log_warning "⚠️  Il reste $PENDING_AFTER migration(s) en attente"
-            log_info "📋 Liste des migrations en attente :"
-            echo "$MIGRATIONS_AFTER" | grep "Pending" || true
-            
-            # Réessayer une fois après une courte pause
-            log_info "🔄 Nouvelle tentative d'exécution des migrations..."
-            sleep 5
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
-              log_info "✅ Migrations complémentaires exécutées"
-            else
-              log_error "❌ Échec de l'exécution des migrations complémentaires"
-              log_warning "⚠️  Vérifiez les logs pour identifier le problème"
-            fi
-          else
-            log_info "✅ Toutes les migrations ont été appliquées avec succès"
-          fi
-        else
-          log_error "❌ Échec de l'exécution des migrations"
-          log_error "📋 Détails de l'erreur :"
-          echo "$MIGRATION_OUTPUT" | tail -30
-          
-          # En production, on ne fait JAMAIS de migrate:refresh (trop dangereux)
-          log_warning "⚠️  Tentative de réparation sécurisée..."
-          
-          # Essayer de réparer seulement les migrations spécifiques qui ont échoué
-          log_info "🔄 Nouvelle tentative d'exécution des migrations..."
-          sleep 5
-          if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force; then
-            log_info "✅ Migrations réparées avec succès"
-          else
-            log_error "❌ Échec définitif des migrations"
-            log_error "⚠️  ACTION REQUISE : Vérifiez manuellement les migrations en échec"
-            log_error "   Commande à exécuter : docker compose -f $COMPOSE_FILE exec backend php artisan migrate:status"
-            exit 1
-          fi
-        fi
-        
-        # Vérification finale
-        log_step "🔍 Vérification finale de l'état des migrations..."
-        FINAL_STATUS=$(docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate:status 2>/dev/null || echo "")
-        if echo "$FINAL_STATUS" | grep -q "Pending"; then
-          PENDING_COUNT=$(echo "$FINAL_STATUS" | grep -c "Pending" 2>/dev/null || echo "0")
-          # S'assurer que PENDING_COUNT est un nombre
-          PENDING_COUNT=${PENDING_COUNT:-0}
-          log_warning "⚠️  Attention : $PENDING_COUNT migration(s) restent en attente"
-          log_info "📋 État final des migrations :"
-          echo "$FINAL_STATUS" | grep -E "(Pending|Ran)" | head -20
-        else
-          log_info "✅ Toutes les migrations sont appliquées"
-        fi
-
-        # Initialisation de l'application avec sécurité (erreurs non critiques)
+        # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear || log_warning "⚠️  Impossible de clear les routes (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear || log_warning "⚠️  Impossible de clear la config (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear || log_warning "⚠️  Impossible de clear le cache (non critique)"
-        docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear || log_warning "⚠️  Impossible de clear les vues (non critique)"
+        MAX_RETRIES=5
+        RETRY_COUNT=0
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null; then
+                break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            log_warning "Tentative $RETRY_COUNT/$MAX_RETRIES - Attente du backend..."
+            sleep 5
+        done
+        
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
+            docker compose -f "$COMPOSE_FILE" logs backend --tail=50
+        else
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
+        fi
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
         docker compose -f "$COMPOSE_FILE" ps
+
+        # Tests de connectivité et sécurité
+        log_step "🧪 Tests de connectivité et sécurité..."
+        
+        # Test du backend Laravel (port 8080)
+        if curl -f http://localhost:8080 >/dev/null 2>&1; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        else
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+        fi
+
+        # Test de sécurité des routes admin
+        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        
+        if [ "$admin_http_code" = "401" ]; then
+            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+        else
+            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+        fi
+
+        # Test de sécurité des routes teacher
+        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        
+        if [ "$teacher_http_code" = "401" ]; then
+            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+        else
+            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+        fi
+
+        # Test du frontend Nuxt.js (port 3000)
+        if curl -f http://localhost:3000 >/dev/null 2>&1; then
+            log_info "✅ Port 3000 (Frontend Nuxt.js) : Accessible"
+        else
+            log_warning "⚠️  Port 3000 (Frontend Nuxt.js) : Non accessible"
+        fi
+
+        # Test port 7474 (Neo4j)
+        if curl -f http://localhost:7474 >/dev/null 2>&1; then
+            log_info "✅ Port 7474 (Neo4j) : Accessible"
+        else
+            log_warning "⚠️  Port 7474 (Neo4j) : Non accessible"
+        fi
 
         log_step "✅ Déploiement sécurisé terminé !"
         log_info "🔒 Corrections de sécurité appliquées :"
@@ -906,13 +859,12 @@ jobs:
         echo "🎯 Exécution du déploiement sécurisé..."
         ssh production-server "cd /srv/activibe && chmod +x *.sh && ./auto-deploy-secure.sh '${{ needs.prepare.outputs.image_tag }}' '${{ env.IMAGE_NAME }}' '${{ env.FRONTEND_IMAGE_NAME }}'"
 
-  # Job 6: Tests post-déploiement avec sécurité (non bloquant)
+  # Job 6: Tests post-déploiement avec sécurité
   test-deployment:
     name: 🧪 Tests Post-Déploiement Sécurisé
     runs-on: ubuntu-latest
     needs: [prepare, deploy, generate-config]
     if: needs.prepare.outputs.should_deploy == 'true'
-    continue-on-error: true
     
     steps:
     - name: 🔑 Configuration SSH
@@ -1034,7 +986,7 @@ jobs:
     
     steps:
     - name: 📧 Notification de succès avec sécurité
-      if: needs.deploy.result == 'success'
+      if: needs.deploy.result == 'success' && needs.test-deployment.result == 'success'
       run: |
         echo "🎉 DÉPLOIEMENT SÉCURISÉ RÉUSSI !"
         echo ""
@@ -1059,7 +1011,7 @@ jobs:
         echo "📅 Date : $(date)"
 
     - name: 🚨 Notification d'échec
-      if: needs.deploy.result == 'failure'
+      if: needs.deploy.result == 'failure' || needs.test-deployment.result == 'failure'
       run: |
         echo "❌ ÉCHEC DU DÉPLOIEMENT SÉCURISÉ !"
         echo ""
