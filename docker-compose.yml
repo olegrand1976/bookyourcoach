@@ -84,10 +84,10 @@ services:
       # Exposition sur le port 8082 pour éviter les conflits
       - "8082:80"
     environment:
-      - PMA_HOST=${DB_HOST}
-      - PMA_PORT=${DB_PORT}
-      - PMA_USER=${DB_USERNAME}
-      - PMA_PASSWORD=${DB_PASSWORD}
+      - PMA_HOST=${DB_HOST:-mysql-local}
+      - PMA_PORT=${DB_PORT:-3306}
+      - PMA_USER=${DB_USERNAME:-activibe_user}
+      - PMA_PASSWORD=${DB_PASSWORD:-activibe_password}
       - UPLOAD_LIMIT=256M
       - MEMORY_LIMIT=512M
     networks:
@@ -133,7 +133,7 @@ services:
       - "7474:7474"  # Interface web
       - "7687:7687"  # Bolt protocol
     environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-secret_password}
       - NEO4J_PLUGINS=["apoc"]
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
       - NEO4J_dbms_security_procedures_allowlist=apoc.*
@@ -145,11 +145,28 @@ services:
     networks:
       - bookyourcoach-network
     healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1"]
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-secret_password}", "RETURN 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # =============================================================================
+  # laravel.test — service attendu par Laravel Sail (./vendor/bin/sail php …)
+  # Utilisé par l’extension VS Code Laravel pour la découverte (Eloquent, etc.).
+  # Ne tourne pas avec « docker compose up » ; uniquement pour « sail php ».
+  # Prérequis : composer install sur l’hôte (vendor) et .env.local.
+  # =============================================================================
+  laravel.test:
+    image: olegrand1976/activibe-app:latest
+    env_file:
+      - ./.env.local
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    networks:
+      - bookyourcoach-network
+    # Pas de depends_on : « sail php » ne démarre que ce service (pas mysql/neo4j).
 
   # =============================================================================
   # MailHog pour développement local (capture des emails)

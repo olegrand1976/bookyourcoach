@@ -131,9 +131,9 @@
 
       <!-- Modal de prévisualisation de la lettre -->
       <div v-if="selectedTeacher" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="closeModal">
-        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <!-- Header du modal -->
-          <div class="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-4 flex items-center justify-between rounded-t-xl">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+          <!-- Header du modal (reste visible au scroll) -->
+          <div class="sticky top-0 z-10 bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-4 flex items-center justify-between rounded-t-xl shrink-0">
             <div>
               <h2 class="text-2xl font-bold">Note d'Information au Volontaire</h2>
               <p class="text-purple-100 text-sm mt-1">{{ selectedTeacher.user?.name }}</p>
@@ -145,13 +145,13 @@
             </button>
           </div>
 
-          <!-- Contenu de la lettre -->
-          <div id="letter-content" class="p-8 prose prose-sm max-w-none">
+          <!-- Contenu de la lettre (zone scrollable, les boutons ne recouvrent plus le texte) -->
+          <div id="letter-content" class="p-8 prose prose-sm max-w-none flex-1 overflow-y-auto">
             <VolunteerLetterTemplate :club="clubData" :teacher="selectedTeacher" />
           </div>
 
-          <!-- Footer avec actions -->
-          <div class="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between rounded-b-xl">
+          <!-- Footer avec actions (en bas du contenu, sans sticky pour ne pas masquer l'adresse du volontaire) -->
+          <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 rounded-b-xl shrink-0">
             <button @click="closeModal" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors shadow-sm hover:shadow-md">
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -314,11 +314,38 @@ function printLetter() {
 }
 
 async function downloadPDF() {
+  if (!selectedTeacher.value) return
+
   toast.info('Génération du PDF en cours...')
-  
-  // TODO: Implémenter la génération PDF côté serveur
-  // Pour l'instant, on utilise l'impression du navigateur
-  window.print()
+  try {
+    const response = await $api.get(`/club/volunteer-letters/pdf/${selectedTeacher.value.id}`, { responseType: 'blob' })
+    const contentType = response.headers?.['content-type'] || ''
+    if (contentType.includes('application/json')) {
+      const text = await response.data.text()
+      const err = JSON.parse(text)
+      toast.error(err.message || 'Erreur lors de la génération du PDF')
+      return
+    }
+    const url = URL.createObjectURL(response.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Note_Information_Volontaire_${(selectedTeacher.value.user?.name || 'volontaire').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('PDF téléchargé')
+  } catch (e) {
+    if (e.response?.data instanceof Blob) {
+      try {
+        const text = await e.response.data.text()
+        const j = JSON.parse(text)
+        toast.error(j.message || 'Erreur lors de la génération du PDF')
+      } catch (_) {
+        toast.error('Erreur lors de la génération du PDF')
+      }
+    } else {
+      toast.error(e.response?.data?.message || 'Erreur lors de la génération du PDF')
+    }
+  }
 }
 
 async function sendEmail() {

@@ -115,7 +115,16 @@ class VolunteerLetterController extends Controller
                         'error' => 'Erreur de connexion email'
                     ], 500);
                 }
-                
+
+                // Erreur de permissions (storage/framework/views) : compilation Blade impossible
+                if (str_contains($jobException->getMessage(), 'Permission denied') && str_contains($jobException->getMessage(), 'storage')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Erreur de permissions sur le serveur : le dossier storage n\'est pas accessible en écriture. Veuillez exécuter sur le serveur : chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache',
+                        'error' => 'Permission denied (storage)'
+                    ], 500);
+                }
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Erreur lors de l\'envoi de la lettre: ' . $jobException->getMessage(),
@@ -299,6 +308,64 @@ class VolunteerLetterController extends Controller
         }
     }
     
+    /**
+     * Télécharger le PDF de la lettre pour un enseignant
+     */
+    public function downloadPdf(Request $request, $teacherId)
+    {
+        try {
+            $user = $request->user();
+
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+
+            if (!$clubUser) {
+                return response()->json(['success' => false, 'message' => 'Vous devez être administrateur d\'un club'], 403);
+            }
+
+            $club = Club::with(['teachers'])->find($clubUser->club_id);
+            if (!$club) {
+                return response()->json(['success' => false, 'message' => 'Club introuvable'], 404);
+            }
+
+            $teacher = $club->teachers()->with('user')->find($teacherId);
+            if (!$teacher || !$teacher->user) {
+                return response()->json(['success' => false, 'message' => 'Enseignant introuvable ou non affilié à votre club'], 404);
+            }
+
+            if (!$this->checkClubLegalInfo($club)) {
+                return response()->json(['success' => false, 'message' => 'Les informations légales du club sont incomplètes'], 400);
+            }
+
+            $pdfPath = $this->generatePDF($club, $teacher);
+            $filename = 'Note_Information_Volontaire_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $teacher->user->name) . '.pdf';
+
+            return response()->file($pdfPath, [
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Type' => 'application/pdf',
+            ])->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            Log::error('Erreur téléchargement PDF lettre volontariat: ' . $e->getMessage(), [
+                'teacher_id' => $teacherId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            if (str_contains($e->getMessage(), 'Permission denied') && str_contains($e->getMessage(), 'storage')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur de permissions sur le serveur (storage). Veuillez contacter l\'administrateur.',
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la génération du PDF: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     /**
      * Vérifier que les informations légales sont complètes
      */

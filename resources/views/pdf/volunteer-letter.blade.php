@@ -2,57 +2,64 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Note d'Information au Volontaire</title>
     <style>
+        /* Document officiel – mise en page sobre et lisible */
         body {
-            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-family: 'DejaVu Serif', 'Times New Roman', serif;
             font-size: 11pt;
-            line-height: 1.5;
-            color: #000;
+            line-height: 1.55;
+            color: #1a1a1a;
             margin: 0;
-            padding: 20px;
+            padding: 28px 32px;
+            max-width: 100%;
         }
         h1 {
             text-align: center;
-            font-size: 18pt;
-            margin-bottom: 5px;
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 0 0 4px 0;
             page-break-after: avoid;
-        }
-        h2 {
-            font-size: 13pt;
-            margin-top: 15px;
-            margin-bottom: 8px;
-            page-break-after: avoid;
-        }
-        h3 {
-            font-size: 11pt;
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
-        p {
-            margin: 8px 0;
-            text-align: justify;
         }
         .intro {
             text-align: center;
             font-style: italic;
             font-size: 9pt;
-            margin-bottom: 15px;
+            color: #444;
+            margin: 0 0 20px 0;
+            page-break-after: avoid;
+        }
+        h2 {
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 18px 0 8px 0;
+            page-break-after: avoid;
+        }
+        h3 {
+            font-size: 11pt;
+            font-weight: bold;
+            margin: 10px 0 4px 0;
+            page-break-after: avoid;
+        }
+        p {
+            margin: 6px 0;
+            text-align: justify;
         }
         .partie {
-            margin: 15px 0;
-            margin-left: 20px;
+            margin: 12px 0;
+            margin-left: 16px;
+            page-break-inside: avoid;
         }
         .section {
-            margin: 15px 0;
+            margin: 14px 0;
         }
         .subsection {
-            margin-left: 30px;
-            margin-top: 8px;
+            margin-left: 20px;
+            margin-top: 6px;
         }
         .signatures {
-            margin-top: 40px;
+            margin-top: 36px;
             page-break-inside: avoid;
         }
         .signature-block {
@@ -66,22 +73,12 @@
             border-top: 1px solid #000;
             padding-top: 5px;
         }
-        ul {
-            margin: 8px 0;
-            padding-left: 25px;
-        }
-        li {
-            margin: 3px 0;
-        }
-        .bold {
-            font-weight: bold;
-        }
-        .italic {
-            font-style: italic;
-        }
-        .small {
-            font-size: 9pt;
-        }
+        ul { margin: 8px 0; padding-left: 22px; }
+        li { margin: 2px 0; }
+        .bold { font-weight: bold; }
+        .italic { font-style: italic; }
+        .small { font-size: 9pt; color: #333; }
+        @page { margin: 18mm; }
     </style>
 </head>
 <body>

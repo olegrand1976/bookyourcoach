@@ -227,6 +227,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::put('/open-slots/{id}', [ClubOpenSlotController::class, 'update']);
     Route::delete('/open-slots/{id}', [ClubOpenSlotController::class, 'destroy']);
     // Lettres de volontariat
+    Route::get('/volunteer-letters/pdf/{teacherId}', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'downloadPdf']);
     Route::post('/volunteer-letters/send/{teacherId}', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'sendToTeacher']);
     Route::post('/volunteer-letters/send-all', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'sendToAll']);
     Route::get('/volunteer-letters/history', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'history']);

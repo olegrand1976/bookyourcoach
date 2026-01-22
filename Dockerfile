@@ -57,6 +57,8 @@ COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/php.ini
 COPY docker/start-workers.sh /usr/local/bin/start-workers.sh
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Ajouter la configuration Nginx spécifique au site
 # Copier les fichiers de l'application
@@ -65,8 +67,8 @@ COPY --chown=www-data:www-data . .
 # Installer les dépendances PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
-# Créer les répertoires nécessaires
-RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+# Créer les répertoires nécessaires (dont storage/app/temp pour les PDF lettres de volontariat)
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views storage/app/temp \
     && mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp \
     && mkdir -p /var/lib/nginx/logs /var/log/nginx \
     && chown -R www-data:www-data storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
@@ -82,5 +84,7 @@ RUN sed -i "s/'guard' => env('AUTH_GUARD', 'web')/'guard' => 'sanctum'/" config/
 # Exposer le port
 EXPOSE 80
 
+# Entrypoint pour corriger les permissions storage au démarrage (évite "Permission denied" sur storage/framework/views)
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # Démarrer Supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
