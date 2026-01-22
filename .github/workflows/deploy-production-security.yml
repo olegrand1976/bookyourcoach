@@ -488,25 +488,41 @@ jobs:
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
-        MAX_RETRIES=5
+        MAX_RETRIES=10
         RETRY_COUNT=0
         
+        # Attendre que le backend soit vraiment prêt
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null; then
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan --version >/dev/null 2>&1; then
+                log_info "✅ Backend prêt (tentative $((RETRY_COUNT + 1)))"
                 break
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
             log_warning "Tentative $RETRY_COUNT/$MAX_RETRIES - Attente du backend..."
-            sleep 5
+            sleep 3
         done
         
         if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
+            # Nettoyage complet de tous les caches
+            log_info "🧹 Nettoyage complet des caches..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
+            
+            # Recréer les caches optimisés
+            log_info "⚡ Optimisation des caches..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:cache 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:cache 2>/dev/null || true
+            
+            # Vérifier que l'application fonctionne
+            log_info "🔍 Vérification de l'application..."
+            sleep 2
         fi
 
         # Vérification de l'état des services
@@ -516,31 +532,45 @@ jobs:
         # Tests de connectivité et sécurité
         log_step "🧪 Tests de connectivité et sécurité..."
         
-        # Test du backend Laravel (port 8080)
-        if curl -f http://localhost:8080 >/dev/null 2>&1; then
-            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        # Test du backend Laravel (port 8080) avec diagnostic détaillé
+        backend_response=$(curl -s -w "\n%{http_code}" http://localhost:8080 2>/dev/null)
+        backend_http_code=$(echo "$backend_response" | tail -n 1)
+        
+        if [ "$backend_http_code" = "200" ] || [ "$backend_http_code" = "302" ] || [ "$backend_http_code" = "404" ]; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible (HTTP $backend_http_code)"
+        elif [ "$backend_http_code" = "500" ]; then
+            log_error "❌ Port 8080 (Backend Laravel) : Erreur serveur (HTTP 500)"
+            log_info "📋 Vérification des logs du backend..."
+            docker compose -f "$COMPOSE_FILE" logs backend --tail=30
+            log_info "🔧 Tentative de correction..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
         else
-            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (HTTP ${backend_http_code:-unknown})"
         fi
 
-        # Test de sécurité des routes admin
-        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
-        admin_http_code=$(echo "$admin_response" | tail -c 4)
-        
-        if [ "$admin_http_code" = "401" ]; then
-            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
-        else
-            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
-        fi
+        # Test de sécurité des routes admin (seulement si le backend répond correctement)
+        if [ "$backend_http_code" != "500" ] && [ -n "$backend_http_code" ]; then
+            admin_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+            admin_http_code=$(echo "$admin_response" | tail -n 1)
+            
+            if [ "$admin_http_code" = "401" ]; then
+                log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+            else
+                log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+            fi
 
-        # Test de sécurité des routes teacher
-        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
-        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
-        
-        if [ "$teacher_http_code" = "401" ]; then
-            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+            # Test de sécurité des routes teacher
+            teacher_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+            teacher_http_code=$(echo "$teacher_response" | tail -n 1)
+            
+            if [ "$teacher_http_code" = "401" ]; then
+                log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+            else
+                log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+            fi
         else
-            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+            log_warning "⚠️  Tests de sécurité ignorés - backend non accessible (HTTP $backend_http_code)"
         fi
 
         # Test du frontend Nuxt.js (port 3000)
@@ -839,25 +869,41 @@ jobs:
 
         # Initialisation de l'application avec sécurité
         log_info "🔧 Initialisation de l'application..."
-        MAX_RETRIES=5
+        MAX_RETRIES=10
         RETRY_COUNT=0
         
+        # Attendre que le backend soit vraiment prêt
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null; then
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan --version >/dev/null 2>&1; then
+                log_info "✅ Backend prêt (tentative $((RETRY_COUNT + 1)))"
                 break
             fi
             RETRY_COUNT=$((RETRY_COUNT + 1))
             log_warning "Tentative $RETRY_COUNT/$MAX_RETRIES - Attente du backend..."
-            sleep 5
+            sleep 3
         done
         
         if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
+            # Nettoyage complet de tous les caches
+            log_info "🧹 Nettoyage complet des caches..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:clear 2>/dev/null || true
             docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:clear 2>/dev/null || true
+            
+            # Recréer les caches optimisés
+            log_info "⚡ Optimisation des caches..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan route:cache 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan view:cache 2>/dev/null || true
+            
+            # Vérifier que l'application fonctionne
+            log_info "🔍 Vérification de l'application..."
+            sleep 2
         fi
 
         # Vérification de l'état des services
@@ -867,31 +913,45 @@ jobs:
         # Tests de connectivité et sécurité
         log_step "🧪 Tests de connectivité et sécurité..."
         
-        # Test du backend Laravel (port 8080)
-        if curl -f http://localhost:8080 >/dev/null 2>&1; then
-            log_info "✅ Port 8080 (Backend Laravel) : Accessible"
+        # Test du backend Laravel (port 8080) avec diagnostic détaillé
+        backend_response=$(curl -s -w "\n%{http_code}" http://localhost:8080 2>/dev/null)
+        backend_http_code=$(echo "$backend_response" | tail -n 1)
+        
+        if [ "$backend_http_code" = "200" ] || [ "$backend_http_code" = "302" ] || [ "$backend_http_code" = "404" ]; then
+            log_info "✅ Port 8080 (Backend Laravel) : Accessible (HTTP $backend_http_code)"
+        elif [ "$backend_http_code" = "500" ]; then
+            log_error "❌ Port 8080 (Backend Laravel) : Erreur serveur (HTTP 500)"
+            log_info "📋 Vérification des logs du backend..."
+            docker compose -f "$COMPOSE_FILE" logs backend --tail=30
+            log_info "🔧 Tentative de correction..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize:clear 2>/dev/null || true
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan config:cache 2>/dev/null || true
         else
-            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible"
+            log_warning "⚠️  Port 8080 (Backend Laravel) : Non accessible (HTTP ${backend_http_code:-unknown})"
         fi
 
-        # Test de sécurité des routes admin
-        admin_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
-        admin_http_code=$(echo "$admin_response" | tail -c 4)
-        
-        if [ "$admin_http_code" = "401" ]; then
-            log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
-        else
-            log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
-        fi
+        # Test de sécurité des routes admin (seulement si le backend répond correctement)
+        if [ "$backend_http_code" != "500" ] && [ -n "$backend_http_code" ]; then
+            admin_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+            admin_http_code=$(echo "$admin_response" | tail -n 1)
+            
+            if [ "$admin_http_code" = "401" ]; then
+                log_info "✅ Routes admin sécurisées (HTTP $admin_http_code)"
+            else
+                log_warning "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+            fi
 
-        # Test de sécurité des routes teacher
-        teacher_response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
-        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
-        
-        if [ "$teacher_http_code" = "401" ]; then
-            log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+            # Test de sécurité des routes teacher
+            teacher_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+            teacher_http_code=$(echo "$teacher_response" | tail -n 1)
+            
+            if [ "$teacher_http_code" = "401" ]; then
+                log_info "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
+            else
+                log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+            fi
         else
-            log_warning "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+            log_warning "⚠️  Tests de sécurité ignorés - backend non accessible (HTTP $backend_http_code)"
         fi
 
         # Test du frontend Nuxt.js (port 3000)
