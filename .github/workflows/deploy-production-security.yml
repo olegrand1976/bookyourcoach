@@ -269,8 +269,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/storage
-              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - app_storage:/var/www/html/storage
+              - app_bootstrap_cache:/var/www/html/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -283,6 +283,9 @@ jobs:
             tmpfs:
               - /tmp
               - /var/tmp
+              - /var/www/html/storage/framework/cache:uid=1000,gid=1000
+              - /var/www/html/storage/framework/sessions:uid=1000,gid=1000
+              - /var/www/html/storage/framework/views:uid=1000,gid=1000
 
           # Frontend Nuxt.js
           frontend:
@@ -681,8 +684,8 @@ jobs:
             ports:
               - "8080:80"
             volumes:
-              - app_storage:/var/www/storage
-              - app_bootstrap_cache:/var/www/bootstrap/cache
+              - app_storage:/var/www/html/storage
+              - app_bootstrap_cache:/var/www/html/bootstrap/cache
               - /srv/activibe/cert.pem:/var/www/html/cert.pem:ro
               - /srv/activibe/.env:/var/www/html/.env:ro
             depends_on:
@@ -695,6 +698,9 @@ jobs:
             tmpfs:
               - /tmp
               - /var/tmp
+              - /var/www/html/storage/framework/cache:uid=1000,gid=1000
+              - /var/www/html/storage/framework/sessions:uid=1000,gid=1000
+              - /var/www/html/storage/framework/views:uid=1000,gid=1000
 
           # Frontend Nuxt.js
           frontend:
