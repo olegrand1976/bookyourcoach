@@ -151,7 +151,9 @@
           </div>
 
           <!-- Footer avec actions (en bas du contenu, sans sticky pour ne pas masquer l'adresse du volontaire) -->
-          <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 rounded-b-xl shrink-0">
+          <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 shrink-0">
+            <p class="text-xs text-gray-500 mb-3">Document officiel généré par le serveur (PDF propre, sans interface).</p>
+            <div class="flex flex-wrap items-center justify-between gap-3">
             <button @click="closeModal" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors shadow-sm hover:shadow-md">
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -180,6 +182,7 @@
                 </svg>
                 Télécharger PDF
               </button>
+            </div>
             </div>
           </div>
         </div>
@@ -309,8 +312,28 @@ function closeModal() {
   selectedTeacher.value = null
 }
 
-function printLetter() {
-  window.print()
+async function printLetter() {
+  if (!selectedTeacher.value) return
+  toast.info('Ouverture du PDF pour impression...')
+  try {
+    const response = await $api.get(`/club/volunteer-letters/pdf/${selectedTeacher.value.id}`, { responseType: 'blob' })
+    if (response.status === 200 && response.data instanceof Blob && response.data.size > 0) {
+      const url = URL.createObjectURL(response.data)
+      window.open(url, '_blank', 'noopener')
+      toast.success('PDF ouvert. Utilisez Ctrl+P (ou Cmd+P) pour imprimer.')
+    } else {
+      toast.error('Impossible de générer le PDF pour l\'impression.')
+    }
+  } catch (e) {
+    let msg = e.response?.data?.message
+    if (e.response?.data instanceof Blob) {
+      try {
+        const j = JSON.parse(await e.response.data.text())
+        msg = j?.message
+      } catch { }
+    }
+    toast.error(msg || 'Erreur lors de la génération du PDF.')
+  }
 }
 
 async function downloadPDF() {
@@ -319,27 +342,35 @@ async function downloadPDF() {
   toast.info('Génération du PDF en cours...')
   try {
     const response = await $api.get(`/club/volunteer-letters/pdf/${selectedTeacher.value.id}`, { responseType: 'blob' })
-    const contentType = response.headers?.['content-type'] || ''
-    if (contentType.includes('application/json')) {
-      const text = await response.data.text()
-      const err = JSON.parse(text)
-      toast.error(err.message || 'Erreur lors de la génération du PDF')
+    // 200 = PDF (ne pas se fier au Content-Type qui peut être écrasé par un middleware)
+    if (response.status === 200 && response.data instanceof Blob && response.data.size > 0) {
+      const url = URL.createObjectURL(response.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Note_Information_Volontaire_${(selectedTeacher.value.user?.name || 'volontaire').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('PDF téléchargé')
       return
     }
-    const url = URL.createObjectURL(response.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Note_Information_Volontaire_${(selectedTeacher.value.user?.name || 'volontaire').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('PDF téléchargé')
+    // Réponse 200 avec corps vide ou erreur JSON (fallback)
+    const ct = (response.headers?.['content-type'] || '').toLowerCase()
+    if (ct.includes('application/json') && response.data instanceof Blob) {
+      try {
+        const j = JSON.parse(await response.data.text())
+        toast.error(j.message || 'Erreur lors de la génération du PDF')
+      } catch {
+        toast.error('Erreur lors de la génération du PDF')
+      }
+    } else {
+      toast.error('Erreur lors de la génération du PDF')
+    }
   } catch (e) {
     if (e.response?.data instanceof Blob) {
       try {
-        const text = await e.response.data.text()
-        const j = JSON.parse(text)
+        const j = JSON.parse(await e.response.data.text())
         toast.error(j.message || 'Erreur lors de la génération du PDF')
-      } catch (_) {
+      } catch {
         toast.error('Erreur lors de la génération du PDF')
       }
     } else {

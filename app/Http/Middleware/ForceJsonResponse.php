@@ -34,9 +34,13 @@ class ForceJsonResponse
         
         $response = $next($request);
         
-        // S'assurer que la réponse est en JSON UTF-8 pour les routes API (sauf OPTIONS et webhooks)
+        // S'assurer que la réponse est en JSON UTF-8 pour les routes API (sauf OPTIONS, webhooks, fichiers binaires)
         if ($request->is('api/*') && !$request->isMethod('OPTIONS') && !$request->is('api/stripe/webhook')) {
-            $response->headers->set('Content-Type', 'application/json; charset=utf-8');
+            $current = $response->headers->get('Content-Type', '');
+            // Ne pas écraser les réponses binaires (PDF, CSV, etc.)
+            if (!$current || str_contains($current, 'application/json')) {
+                $response->headers->set('Content-Type', 'application/json; charset=utf-8');
+            }
         }
         
         return $response;
