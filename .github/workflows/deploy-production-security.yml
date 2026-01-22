@@ -258,8 +258,6 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
-        version: "3.8"
-
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -389,20 +387,33 @@ jobs:
         log_step "🚀 Démarrage du déploiement sécurisé..."
 
         # Arrêt et suppression explicite des containers existants par nom
-        log_info "🛑 Arrêt des containers existants..."
+        log_info "🛑 Arrêt et suppression des containers existants..."
         CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
         for container in "${CONTAINERS[@]}"; do
+            # Forcer l'arrêt et la suppression sans vérification préalable
+            log_info "  Arrêt et suppression de ${container}..."
+            docker stop "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
+            # Vérifier que le conteneur a bien été supprimé
             if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
-                log_info "  Arrêt et suppression de ${container}..."
-                docker stop "${container}" 2>/dev/null || true
+                log_warning "  ⚠️  Le conteneur ${container} existe encore, nouvelle tentative..."
                 docker rm -f "${container}" 2>/dev/null || true
             fi
         done
 
         # Arrêt propre avec docker compose si le fichier existe
         if [[ -f "$COMPOSE_FILE" ]]; then
+            log_info "🛑 Arrêt avec docker compose..."
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+            # Attendre un peu pour que les conteneurs soient bien arrêtés
+            sleep 2
         fi
+
+        # Suppression finale forcée de tous les conteneurs par nom (au cas où)
+        log_info "🗑️  Suppression finale forcée des conteneurs..."
+        for container in "${CONTAINERS[@]}"; do
+            docker rm -f "${container}" 2>/dev/null || true
+        done
 
         # Suppression explicite des réseaux existants
         log_info "🗑️  Suppression des réseaux existants..."
@@ -598,8 +609,6 @@ jobs:
         
         # Créer docker-compose.yml avec sécurité renforcée
         cat > docker-compose.yml << 'EOF'
-        version: "3.8"
-
         services:
           # Backend Laravel API avec sécurité renforcée
           backend:
@@ -729,20 +738,33 @@ jobs:
         log_step "🚀 Démarrage du déploiement sécurisé..."
 
         # Arrêt et suppression explicite des containers existants par nom
-        log_info "🛑 Arrêt des containers existants..."
+        log_info "🛑 Arrêt et suppression des containers existants..."
         CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
         for container in "${CONTAINERS[@]}"; do
+            # Forcer l'arrêt et la suppression sans vérification préalable
+            log_info "  Arrêt et suppression de ${container}..."
+            docker stop "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
+            # Vérifier que le conteneur a bien été supprimé
             if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
-                log_info "  Arrêt et suppression de ${container}..."
-                docker stop "${container}" 2>/dev/null || true
+                log_warning "  ⚠️  Le conteneur ${container} existe encore, nouvelle tentative..."
                 docker rm -f "${container}" 2>/dev/null || true
             fi
         done
 
         # Arrêt propre avec docker compose si le fichier existe
         if [[ -f "$COMPOSE_FILE" ]]; then
+            log_info "🛑 Arrêt avec docker compose..."
             docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+            # Attendre un peu pour que les conteneurs soient bien arrêtés
+            sleep 2
         fi
+
+        # Suppression finale forcée de tous les conteneurs par nom (au cas où)
+        log_info "🗑️  Suppression finale forcée des conteneurs..."
+        for container in "${CONTAINERS[@]}"; do
+            docker rm -f "${container}" 2>/dev/null || true
+        done
 
         # Suppression explicite des réseaux existants
         log_info "🗑️  Suppression des réseaux existants..."
