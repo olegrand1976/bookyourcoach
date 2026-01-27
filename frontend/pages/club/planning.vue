@@ -807,24 +807,26 @@ const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
 const editingLesson = ref<Lesson | null>(null) // Cours en cours d'édition
-const lessonForm = ref({
-  teacher_id: null as number | null,
-  student_id: null as number | null,
-  course_type_id: null as number | null,
+const lessonForm = ref<{
+  date: string
+  time: string
+  duration: string
+  courseTypeId: string
+  teacherId: string
+  studentId: string
+  price: string
+  notes: string
+  deduct_from_subscription?: boolean
+}>({
   date: '',
   time: '',
-  start_time: '',
-  duration: 60,
-  price: 0,
+  duration: '60',
+  courseTypeId: '',
+  teacherId: '',
+  studentId: '',
+  price: '50.00',
   notes: '',
-  // Champs pour les commissions
-  est_legacy: false as boolean | null, // Par défaut DCL (false)
-  // Déduction d'abonnement (par défaut true)
-  deduct_from_subscription: true as boolean | null,
-  // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
-  recurring_interval: 1,
-  // Portée de la mise à jour (pour les récurrences)
-  update_scope: 'single' as 'single' | 'all_future'
+  deduct_from_subscription: true
 })
 const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a des créneaux
 
@@ -1172,28 +1174,35 @@ const getActivityIcon = (activityTypeId) => {
   return activityIcons[activityTypeId] || 'star'
 }
 
-const lessonForm = ref({
-  date: '',
-  time: '',
-  duration: '60',
-  courseTypeId: '',
-  teacherId: '',
-  studentId: '',
-  price: '50.00',
-  notes: ''
+const loadClubDisciplines = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const [profileRes, discRes] = await Promise.all([
+      $api.get('/club/profile'),
+      $api.get('/disciplines')
+    ])
+    if (profileRes.data?.success) {
+      clubProfile.value = profileRes.data.data
+      if (typeof clubProfile.value?.discipline_settings === 'string') {
+        try {
+          clubProfile.value.discipline_settings = JSON.parse(clubProfile.value.discipline_settings || '{}')
+        } catch {
+          clubProfile.value.discipline_settings = {}
         }
-        
-        console.log(`   Settings pour ${discipline.name}:`, settings)
-        
-      return {
-          ...discipline,
-          settings
-        }
-      })
-      .filter((d): d is ClubDiscipline => d !== null)
-    
-    console.log('🎯 RÉSULTAT FINAL:', clubDisciplines.value)
-    console.log('📊 Nombre de disciplines actives:', activeDisciplines.value.length)
+      }
+    }
+    const settingsMap = (typeof clubProfile.value?.discipline_settings === 'object' && clubProfile.value?.discipline_settings) || {}
+    if (discRes.data?.success && Array.isArray(discRes.data.data)) {
+      availableDisciplines.value = discRes.data.data
+      clubDisciplines.value = discRes.data.data
+        .map((d: any) => {
+          const settings = settingsMap[d.id] || {}
+          return { ...d, settings }
+        })
+        .filter((d): d is ClubDiscipline => d !== null)
+      console.log('🎯 RÉSULTAT FINAL:', clubDisciplines.value)
+      console.log('📊 Nombre de disciplines actives:', clubDisciplines.value.length)
+    }
   } catch (err: any) {
     console.error('❌ ERREUR:', err)
     const errorMessage = err.message || 'Erreur lors du chargement des disciplines'
@@ -1278,10 +1287,9 @@ const timeSlots = computed(() => {
       const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
       slots.push(timeStr)
     }
-    
-    showError(errorMessage, 'Erreur de chargement')
   }
-}
+  return slots
+})
 
 // Variables pour suivre la plage de dates chargée
 const loadedLessonsRange = ref<{ start: Date | null, end: Date | null }>({ start: null, end: null })
@@ -1301,77 +1309,7 @@ const weekDays = computed(() => {
       name: day.toLocaleDateString('fr-FR', { weekday: 'short' }),
       dayNumber: day.getDate()
     })
-    
-    if (response.data.success) {
-      // Si on recharge une plage spécifique, fusionner avec les cours existants
-      if (customStartDate || customEndDate) {
-        const newLessons = response.data.data
-        const existingLessonIds = new Set(lessons.value.map((l: any) => l.id))
-        const lessonsToAdd = newLessons.filter((l: any) => !existingLessonIds.has(l.id))
-        lessons.value = [...lessons.value, ...lessonsToAdd]
-        console.log('✅ Cours fusionnés:', { 
-          nouveaux: lessonsToAdd.length, 
-          total: lessons.value.length 
-        })
-      } else {
-        lessons.value = response.data.data
-        console.log('✅ Cours chargés:', lessons.value)
-      }
-      
-      // Mettre à jour la plage chargée
-      loadedLessonsRange.value = {
-        start: new Date(startDate),
-        end: new Date(endDate)
-      }
-      
-      console.log('📊 Nombre total de cours:', lessons.value.length)
-      console.log('📋 Plage chargée:', {
-        start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
-        end: loadedLessonsRange.value.end?.toISOString().split('T')[0]
-      })
-      console.log('📋 IDs des cours reçus:', lessons.value.map((l: any) => l.id).join(', '))
-      // Debug: Afficher le statut de chaque cours avec les élèves
-      lessons.value.forEach((lesson: any, index: number) => {
-        console.log(`  Cours ${index + 1}:`, {
-          id: lesson.id,
-          status: lesson.status,
-          course_type: lesson.course_type?.name,
-          start_time: lesson.start_time,
-          student_id: lesson.student_id,
-          student: lesson.student ? {
-            id: lesson.student.id,
-            name: lesson.student.user?.name
-          } : null,
-          students: lesson.students ? lesson.students.map((s: any) => ({
-            id: s.id,
-            name: s.user?.name
-          })) : []
-        })
-      })
-      
-      // Vérifier spécifiquement les cours du 29/11
-      const lessonsNov29 = lessons.value.filter((l: any) => {
-        if (!l.start_time) return false
-        const date = new Date(l.start_time)
-        return date.getDate() === 29 && date.getMonth() === 10 && date.getFullYear() === 2025
-      })
-      console.log('🔍 Cours du 29/11 trouvés:', lessonsNov29.length, lessonsNov29.map((l: any) => ({ id: l.id, start_time: l.start_time })))
-    } else {
-      console.error('Erreur chargement cours:', response.data.message)
-    }
-  } catch (err: any) {
-    console.error('Erreur chargement cours:', err)
-    
-    let errorMessage = 'Erreur lors du chargement des cours'
-    if (err.response?.data?.message) {
-      errorMessage = err.response.data.message
-    } else if (err.message) {
-      errorMessage = err.message
-    }
-    
-    showError(errorMessage, 'Erreur de chargement')
   }
-
   return days
 })
 
@@ -2318,26 +2256,15 @@ async function checkFutureLessonsForDelete(lesson: Lesson) {
       lessonForm.value = { date: '', time: '', duration: '60', courseTypeId: '', teacherId: '', studentId: '', price: '50.00', notes: '' }
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors de la création du cours:', error)
     if (error.response?.data?.errors) {
       console.error('Détails de validation:', error.response.data.errors)
       const errorMessages = Object.values(error.response.data.errors).flat().join('\n')
       alert(`Erreur de validation:\n${errorMessages}`)
     } else {
-      futureLessonsCountForDelete.value = 0
-      console.log('ℹ️ Impossible de charger les détails du cours')
+      alert('Erreur lors de la création du cours.')
     }
-  } catch (err: any) {
-    console.error('❌ [checkFutureLessonsForDelete] ERREUR GLOBALE:', err)
-    console.error('   Message:', err.message)
-    console.error('   Stack:', err.stack)
-    if (err.response) {
-      console.error('   Response status:', err.response.status)
-      console.error('   Response data:', err.response.data)
-    }
-    // En cas d'erreur, on assume qu'il n'y a pas de cours futurs
-    futureLessonsCountForDelete.value = 0
   }
 }
 
@@ -2717,15 +2644,9 @@ const saveSlotEdit = async (slot) => {
       await loadOpenSlots()
       cancelSlotEdit(slot)
     }
-    
-    // Si la date est après la plage chargée, étendre vers le futur
-    if (targetDate > loadedEnd) {
-      newEndDate = new Date(targetDate)
-      newEndDate.setMonth(targetDate.getMonth() + 3) // 3 mois après
-    }
-    
-    // Charger seulement la partie manquante
-    await loadLessons(newStartDate, newEndDate)
+  } catch (e: any) {
+    console.error('Erreur lors de la mise à jour du créneau:', e)
+    alert(e.response?.data?.message || 'Erreur lors de la mise à jour du créneau.')
   }
 }
 
