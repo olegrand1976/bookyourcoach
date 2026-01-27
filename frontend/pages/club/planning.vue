@@ -27,6 +27,9 @@
               <span>Nouveau cours</span>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Navigation avec choix de vue -->
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8">
@@ -76,6 +79,8 @@
             Aujourd'hui
           </button>
         </div>
+      </div>
+    </div>
 
     <!-- Planning Calendrier -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

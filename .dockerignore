@@ -1,7 +1,9 @@
 # Fichiers et dossiers à ignorer lors du build Docker
 
-# Dépendances
+# Dépendances (éviter de copier dans le contexte Docker)
 node_modules/
+**/node_modules/
+frontend/node_modules/
 vendor/
 
 # Cache et logs

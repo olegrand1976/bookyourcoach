@@ -38,10 +38,12 @@ desktop.ini
 Homestead.json
 Homestead.yaml
 
-# Node.js
+# Node.js (ne jamais committer node_modules)
 /node_modules
 node_modules/
 **/node_modules/
+frontend/node_modules/
+mobile/node_modules/
 npm-debug.log
 yarn-error.log
 yarn-debug.log
@@ -87,8 +89,10 @@ GUIDE_*.md
 # Copilot workspace copy
 /copilot/
 
-# Docker compose variants
+# Docker compose variants (fichiers locaux ou alternatifs, à ne pas pousser)
 docker-compose-new.yml
+docker-compose.local.yml
+docker-compose.override.yml
 
 # Docker persisted data
 /docker-data/
