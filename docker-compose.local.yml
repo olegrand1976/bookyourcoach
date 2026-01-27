@@ -1,0 +1,169 @@
+services:
+  # Backend Laravel API - Configuration locale
+  backend:
+    # L'image sera construite localement à partir du Dockerfile à la racine
+    # image: ${IMAGE_NAME:-olegrand1976/activibe-app:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: activibe-backend-local
+    restart: unless-stopped
+    env_file:
+      - ./.env.local
+    environment:
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      # API Backend accessible en interne et externe
+      - "8080:80"
+    volumes:
+      - app_storage:/var/www/storage
+      - app_bootstrap_cache:/var/www/bootstrap/cache
+      - ./cert.pem:/var/www/html/cert.pem:ro
+      - ./.env.local:/var/www/html/.env:ro
+      - ./config:/var/www/html/config
+      - ./database/migrations:/var/www/html/database/migrations
+      - ./app:/var/www/html/app
+      - ./database/seeders:/var/www/html/database/seeders
+      - ./database/factories:/var/www/html/database/factories
+      - ./routes:/var/www/html/routes
+      - ./tests:/var/www/html/tests
+      - ./resources:/var/www/html/resources
+      - ./phpunit.xml:/var/www/html/phpunit.xml:ro
+      - ./bootstrap/app.php:/var/www/html/bootstrap/app.php:ro
+    depends_on:
+      - neo4j
+      - mysql-local
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Frontend Nuxt.js - MODE DÉVELOPPEMENT AVEC CODE LOCAL
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: activibe-frontend-local
+    restart: unless-stopped
+    ports:
+      # Frontend accessible sur le port 3000
+      - "3000:3000"
+    volumes:
+      # MONTER LE CODE LOCAL pour développement en temps réel
+      - "./frontend:/app"
+      - "/app/node_modules"
+      - "/app/.nuxt"
+      - "/app/.output"
+    environment:
+      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      - NUXT_API_BASE=http://localhost:8080/api
+      - NITRO_HOST=0.0.0.0
+      - NITRO_PORT=3000
+      - FRONTEND_URL=http://localhost:3000
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  # phpMyAdmin pour administrer la base de données locale
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: activibe-phpmyadmin-local
+    restart: unless-stopped
+    ports:
+      # Exposition sur le port 8082 pour éviter les conflits
+      - "8082:80"
+    environment:
+      - PMA_HOST=mysql-local
+      - PMA_PORT=3306
+      - PMA_USER=activibe_user
+      - PMA_PASSWORD=activibe_password
+    depends_on:
+      - mysql-local
+    networks:
+      - app-network
+
+  # MailHog pour capturer et visualiser les emails en développement
+  # Note: Ce service créera un nouveau container MailHog sur le port 8035 (web) et 1025 (SMTP).
+  # Si vous préférez utiliser un container MailHog existant (ex: fid-connect-mailhog-1),
+  # commentez ce service et connectez-le au réseau avec:
+  # docker network connect app-network fid-connect-mailhog-1
+  # Puis configurez dans .env.local: MAIL_HOST=fid-connect-mailhog-1, MAIL_PORT=1025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: activibe-mailhog-local
+    restart: unless-stopped
+    ports:
+      # Interface web pour visualiser les emails (port 8035 pour éviter les conflits)
+      - "8035:8025"
+    expose:
+      - "1025"  # Port SMTP accessible via le réseau Docker (nom du service: mailhog)
+    networks:
+      - app-network
+
+  # Neo4j Database
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: activibe-neo4j-local
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/secret_password
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - app-network
+
+  # MySQL local pour développement
+  mysql-local:
+    image: mysql:8.0
+    container_name: activibe-mysql-local
+    restart: unless-stopped
+    ports:
+      - "3308:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=book_your_coach_local
+      - MYSQL_USER=activibe_user
+      - MYSQL_PASSWORD=activibe_password
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - app-network
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  neo4j_import:
+    driver: local
+  neo4j_plugins:
+    driver: local
+  mysql_local_data:
+    driver: local
+  app_storage:
+    driver: local
+  app_bootstrap_cache:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
+    # Permet de connecter des containers externes (comme fid-connect-mailhog-1)
+    external: false
