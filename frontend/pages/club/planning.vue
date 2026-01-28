@@ -290,7 +290,7 @@
                           d="M12 6v6m0 0v6m0-6h6m-6 0H6">
                         </path>
                       </svg>
-                      {{ formatLessonTime(lesson.start_time) }} - {{ formatLessonTime(lesson.end_time) }}
+                      {{ hour }}:00 - {{ parseInt(hour) + 1 }}:00
                     </div>
                   </div>
 
@@ -380,7 +380,7 @@
               <div v-for="lesson in getLessonsForDayWithColumns(day.date)" :key="lesson.id"
                 class="absolute rounded-xl border-l-4 shadow-lg hover:shadow-2xl transition-all cursor-pointer z-20 overflow-hidden pointer-events-auto"
                 :class="[
-                  getLessonClass(lesson),
+                  getLessonBorderClass(lesson),
                   lesson.totalColumns > 2 ? 'p-1.5 text-[10px]' : 'p-3 text-xs'
                 ]" :style="getLessonPositionWithColumns(lesson)" @click.stop="viewLesson(lesson)"
                 :title="`${lesson.title} - ${getLessonTime(lesson)}\n${lesson.teacher_name || ''}\n${lesson.student_name || ''}`">
@@ -1830,7 +1830,7 @@ const getLessonStartMinutes = (lesson) => {
 
 // Récupérer les cours d'un jour avec calcul des colonnes basé sur les créneaux ouverts
 const getLessonsForDayWithColumns = (date) => {
-  const dayLessons = getLessonsForDay(date)
+  const dayLessons = getLessonsForDay(date).filter(l => l && l.start_time)
 
   if (dayLessons.length === 0) return []
 
@@ -1899,7 +1899,7 @@ const getLessonsForDayWithColumns = (date) => {
 
 // Calculer la position d'un cours avec support des colonnes multiples
 const getLessonPositionWithColumns = (lesson) => {
-  if (!lesson.start_time || !lesson.duration) return { top: '0px', height: '60px', left: '4px', width: 'calc(100% - 8px)' }
+  if (!lesson || !lesson.start_time || !lesson.duration) return { top: '0px', height: '60px', left: '4px', width: 'calc(100% - 8px)' }
 
   // Parser l'heure de début
   let startHour, startMinute
@@ -1968,7 +1968,7 @@ const getLessonPositionWithColumns = (lesson) => {
 
 // Formater l'heure d'affichage du cours
 const getLessonTime = (lesson) => {
-  if (!lesson.start_time || !lesson.duration) return ''
+  if (!lesson || !lesson.start_time || !lesson.duration) return ''
 
   let startHour, startMinute
 
@@ -2586,7 +2586,8 @@ const deleteSlotById = async (slotId) => {
   return classes[status] || 'bg-blue-100 text-blue-800'
 }
 
-function getLessonBorderClass(lesson: Lesson): string {
+function getLessonBorderClass(lesson: Lesson | null | undefined): string {
+  if (!lesson) return 'border-gray-300 bg-gray-50'
   const classes: Record<string, string> = {
     'confirmed': 'border-green-300 bg-green-50',
     'pending': 'border-yellow-300 bg-yellow-50',
