@@ -871,9 +871,12 @@ const slotForm = ref({
   is_active: true
 })
 
+// Heures par défaut (6h–22h) pour availableHours
+const defaultHours = Array.from({ length: 17 }, (_, i) => (i + 6).toString().padStart(2, '0'))
+
 // Computed properties pour les données du profil
 const availableHours = computed(() => {
-  if (!clubProfile.value?.schedule_config) return hours
+  if (!clubProfile.value?.schedule_config) return defaultHours
 
   // Extraire les heures min/max des horaires d'ouverture du club
   let minHour = 24, maxHour = 0
@@ -887,12 +890,10 @@ const availableHours = computed(() => {
         if (endHour > maxHour) maxHour = endHour
       })
     }
-    
-    return dayMatch && timeMatch && dateMatch
   })
 
   // Si aucun horaire défini, utiliser les heures par défaut
-  if (minHour === 24) return hours
+  if (minHour === 24) return defaultHours
 
   // Générer les heures dans la plage définie
   const result = []
@@ -1462,6 +1463,13 @@ const nextWeek = () => {
 const previousDay = () => {
   const newDay = new Date(currentDay.value)
   newDay.setDate(newDay.getDate() - 1)
+  currentDay.value = newDay
+  loadPlanningData()
+}
+
+const nextDay = () => {
+  const newDay = new Date(currentDay.value)
+  newDay.setDate(newDay.getDate() + 1)
   currentDay.value = newDay
   loadPlanningData()
 }
