@@ -793,7 +793,21 @@ const clubProfile = ref<any>(null)
 const clubDisciplines = ref<ClubDiscipline[]>([])
 const openSlots = ref<OpenSlot[]>([])
 const availableSlots = openSlots
+const availableDisciplines = ref<any[]>([])
 const lessons = ref<Lesson[]>([])
+
+// Vue planning : jour ou semaine
+const viewMode = ref<'day' | 'week'>('week')
+// Lundi de la semaine courante et jour courant
+const getMondayOfWeek = (d: Date) => {
+  const date = new Date(d)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + diff)
+  return date
+}
+const currentWeek = ref<Date>(getMondayOfWeek(new Date()))
+const currentDay = ref<Date>(new Date())
 const showSlotModal = ref(false)
 const editingSlot = ref<OpenSlot | null>(null)
 const saving = ref(false)
@@ -1230,6 +1244,67 @@ const loadOpenSlots = async () => {
   }
 }
 
+const loadLessons = async (startDate?: Date, endDate?: Date) => {
+  try {
+    const { $api } = useNuxtApp()
+    let start: string
+    let end: string
+    if (startDate && endDate) {
+      start = startDate.toISOString().split('T')[0]
+      end = endDate.toISOString().split('T')[0]
+    } else if (viewMode.value === 'week') {
+      const s = new Date(currentWeek.value)
+      s.setHours(0, 0, 0, 0)
+      const e = new Date(s)
+      e.setDate(e.getDate() + 6)
+      start = s.toISOString().split('T')[0]
+      end = e.toISOString().split('T')[0]
+    } else {
+      start = currentDay.value.toISOString().split('T')[0]
+      end = start
+    }
+    const response = await $api.get(`/lessons?date_from=${start}&date_to=${end}`)
+    if (response.data?.success) {
+      lessons.value = response.data.data || []
+      loadedLessonsRange.value = { start: new Date(start), end: new Date(end) }
+    }
+  } catch (e) {
+    console.error('Erreur chargement cours:', e)
+    lessons.value = []
+  }
+}
+
+const loadPlanningData = () => loadLessons()
+
+function updateAvailableDays() {
+  const days = new Set(openSlots.value.map((s: OpenSlot) => parseInt(String(s.day_of_week), 10)))
+  availableDaysOfWeek.value = Array.from(days).sort((a, b) => a - b)
+  console.log('📅 Jours disponibles:', availableDaysOfWeek.value)
+}
+
+const goToToday = () => {
+  const today = new Date()
+  currentDay.value = today
+  currentWeek.value = getMondayOfWeek(today)
+  loadPlanningData()
+}
+
+async function checkAndReloadLessonsIfNeeded(date: Date) {
+  if (!loadedLessonsRange.value.start || !loadedLessonsRange.value.end) {
+    await loadLessons()
+    return
+  }
+  const dateStr = date.toISOString().split('T')[0]
+  if (dateStr < loadedLessonsRange.value.start.toISOString().split('T')[0] ||
+      dateStr > loadedLessonsRange.value.end.toISOString().split('T')[0]) {
+    const start = new Date(date)
+    const end = new Date(date)
+    start.setDate(start.getDate() - 7)
+    end.setDate(end.getDate() + 14)
+    await loadLessons(start, end)
+  }
+}
+
 // Fonction pour mettre à jour le prix automatiquement
 const updateLessonPrice = () => {
   const courseTypeId = lessonForm.value.courseTypeId
@@ -1461,7 +1536,7 @@ const formatWeekRange = (date) => {
   return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
 }
 
-const formatDayTitle = (date) => {
+const formatDayTitle = (date: Date | string) => {
   const day = new Date(date)
   return day.toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -1469,8 +1544,6 @@ const formatDayTitle = (date) => {
     month: 'long',
     year: 'numeric'
   })
-  availableDaysOfWeek.value = Array.from(days).sort()
-  console.log('📅 Jours disponibles:', availableDaysOfWeek.value)
 }
 
 // Vérifier si une date correspond à un jour disponible
