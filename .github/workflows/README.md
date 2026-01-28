@@ -133,6 +133,13 @@ Le serveur de production doit avoir :
 
 ## 🚨 Gestion des Erreurs
 
+### Cache frontend et déploiement
+
+Le build frontend utilise un **cache Docker dont le scope dépend du hash du code** (`frontend/**`). Ainsi, dès qu’un fichier du frontend change (ex. `planning.vue`), le cache est invalidé et l’image est reconstruite entièrement. Cela évite de servir en production un ancien bundle JS (ex. erreur « formatDate is not a function » alors que le correctif est dans le code).
+
+- **Déploiement automatique (push sur `main`)** : le workflow **Déploiement Production avec Corrections de Sécurité** build puis déploie ; avec le nouveau scope de cache, chaque modification du frontend déclenche un rebuild complet.
+- **Si la prod affiche encore l’ancien comportement** : faire un **hard refresh** (Ctrl+Shift+R) ou vider le cache navigateur ; si le problème persiste, lancer le workflow en manuel avec **Forcer la reconstruction des images** (`force_rebuild=true`) pour ignorer tout cache.
+
 ### En cas d'échec de build :
 1. Vérifier les logs du job de build
 2. Vérifier la configuration Docker

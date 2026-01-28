@@ -704,6 +704,21 @@ definePageMeta({
   middleware: ['auth']
 })
 
+// Helpers de formatage de date (exposés au template)
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  if (Number.isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+function formatDateForInput(date: Date | null): string {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = (date.getMonth() + 1).toString().padStart(2, '0')
+  const d = date.getDate().toString().padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // Types
 interface Discipline {
   id: number

@@ -101,8 +101,9 @@ jobs:
         tags: |
           ${{ env.FRONTEND_IMAGE_NAME }}:latest
           ${{ env.FRONTEND_IMAGE_NAME }}:build-$(date +%Y%m%d-%H%M%S)
-        cache-from: ${{ inputs.force_rebuild == 'false' && 'type=gha,scope=frontend' || '' }}
-        cache-to: ${{ inputs.force_rebuild == 'false' && 'type=gha,mode=max,scope=frontend' || '' }}
+        # Scope basé sur le hash du code : invalidation quand le frontend change (évite bundles obsolètes)
+        cache-from: ${{ inputs.force_rebuild == 'false' && 'type=gha,scope=frontend-' || '' }}${{ inputs.force_rebuild == 'false' && hashFiles('frontend/**') || '' }}
+        cache-to: ${{ inputs.force_rebuild == 'false' && 'type=gha,mode=max,scope=frontend-' || '' }}${{ inputs.force_rebuild == 'false' && hashFiles('frontend/**') || '' }}
         no-cache: ${{ inputs.force_rebuild == 'true' }}
 
     - name: 📋 Résumé Frontend
