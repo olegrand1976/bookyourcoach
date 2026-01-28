@@ -822,6 +822,7 @@ const selectedDateInput = ref<string>('') // Input date (format YYYY-MM-DD)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<any[]>([])
+const availableCourseTypes = ref<any[]>([])
 const editingLesson = ref<Lesson | null>(null) // Cours en cours d'édition
 const lessonForm = ref<{
   date: string
@@ -1275,6 +1276,26 @@ const loadLessons = async (startDate?: Date, endDate?: Date) => {
 }
 
 const loadPlanningData = () => loadLessons()
+
+const loadCourseTypes = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/course-types')
+    if (response.data?.success) {
+      availableCourseTypes.value = response.data.data || []
+    }
+  } catch (e) {
+    console.error('Erreur chargement types de cours:', e)
+    availableCourseTypes.value = []
+  }
+}
+
+function isToday(dateStr: string): boolean {
+  if (!dateStr) return false
+  const today = new Date()
+  const d = new Date(dateStr + 'T00:00:00')
+  return today.getFullYear() === d.getFullYear() && today.getMonth() === d.getMonth() && today.getDate() === d.getDate()
+}
 
 function updateAvailableDays() {
   const days = new Set(openSlots.value.map((s: OpenSlot) => parseInt(String(s.day_of_week), 10)))
