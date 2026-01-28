@@ -789,8 +789,10 @@ interface Lesson {
 // State
 const loading = ref(true)
 const error = ref<string | null>(null)
+const clubProfile = ref<any>(null)
 const clubDisciplines = ref<ClubDiscipline[]>([])
 const openSlots = ref<OpenSlot[]>([])
+const availableSlots = openSlots
 const lessons = ref<Lesson[]>([])
 const showSlotModal = ref(false)
 const editingSlot = ref<OpenSlot | null>(null)
@@ -1213,6 +1215,21 @@ const loadClubDisciplines = async () => {
   }
 }
 
+const loadOpenSlots = async () => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/open-slots')
+    if (response.data?.success) {
+      openSlots.value = response.data.data || []
+    } else {
+      openSlots.value = []
+    }
+  } catch (e) {
+    console.error('Erreur chargement créneaux:', e)
+    openSlots.value = []
+  }
+}
+
 // Fonction pour mettre à jour le prix automatiquement
 const updateLessonPrice = () => {
   const courseTypeId = lessonForm.value.courseTypeId
@@ -1258,9 +1275,6 @@ const hourRanges = computed(() => {
         if (startHour < minHour) minHour = startHour
         if (endHour > maxHour) maxHour = endHour
       })
-    } else {
-      console.error('❌ Erreur chargement créneaux:', response.data.message)
-      openSlots.value = []
     }
   })
 
