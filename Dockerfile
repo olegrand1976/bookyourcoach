@@ -29,15 +29,17 @@ RUN apk add --no-cache --virtual .build-deps \
     imagemagick-dev
 
 # Installer les extensions PHP (pdo_sqlite pour les tests PHPUnit)
-# L'image PHP supprime /usr/src/php après chaque docker-php-ext-install. Sauvegarde au début, restaure avant chaque ext.
-RUN cp -a /usr/src/php /usr/src/php-src \
+# Alpine ne contient pas /usr/src/php : l'extraire d'abord. Puis backup/restore avant chaque ext (make clean supprime les sources des autres).
+RUN docker-php-source extract \
+    && cp -a /usr/src/php /usr/src/php-src \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j1 gd \
     && for ext in pdo_mysql pdo_sqlite sqlite3 mbstring zip exif pcntl intl bcmath; do \
          rm -rf /usr/src/php && cp -a /usr/src/php-src /usr/src/php \
          && docker-php-ext-install -j1 "$ext"; \
        done \
-    && rm -rf /usr/src/php-src
+    && rm -rf /usr/src/php-src \
+    && docker-php-source delete
 
 # Installer les extensions PECL
 RUN pecl install redis imagick \
