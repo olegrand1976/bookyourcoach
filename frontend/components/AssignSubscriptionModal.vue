@@ -689,7 +689,6 @@ const assignSubscription = async () => {
     const response = await $api.post('/club/subscriptions/assign', payload)
     
     if (response.data.success) {
-      alert(response.data.message || 'Abonnement assigné avec succès')
       emit('success')
       emit('close')
     } else {
