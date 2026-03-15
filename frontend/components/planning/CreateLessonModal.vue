@@ -1420,13 +1420,17 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
 // Watcher pour recharger les cours quand la durée change (pour recalculer les heures disponibles)
 watch(() => props.form.duration, async () => {
   if (props.form.date && (props.selectedSlot || (props.editingLesson && currentSelectedSlot.value)) && props.form.course_type_id) {
-    // Les heures disponibles sont recalculées automatiquement via le computed
-    // Mais on peut recharger les cours si nécessaire
     await loadExistingLessons(props.form.date)
-    // Attendre que le computed availableTimes soit recalculé
     await nextTick()
-    // Auto-sélectionner la première heure disponible (toujours, car la durée a changé)
     if (availableTimes.value.length > 0) {
+      // En mode édition : garder l'heure actuelle si elle est encore disponible
+      if (props.editingLesson && props.form.time) {
+        const stillAvailable = availableTimes.value.some(t => t.value === props.form.time)
+        if (stillAvailable) {
+          console.log('✅ [CreateLessonModal] Heure conservée après changement de durée:', props.form.time)
+          return
+        }
+      }
       props.form.time = availableTimes.value[0].value
       console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de durée:', availableTimes.value[0].value)
     } else {

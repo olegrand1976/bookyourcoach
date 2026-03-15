@@ -2068,16 +2068,23 @@ async function openEditLessonModal(lesson: Lesson) {
       originalTime: originalLessonTime.value
     })
     
-    // Trouver le créneau correspondant au jour de la semaine pour charger les heures disponibles
+    // Trouver le créneau qui contient l'heure du cours (même jour ET plage horaire contenant start_time)
+    // pour éviter de sélectionner le premier créneau du jour et écraser l'heure par la 1ère plage
     const dayOfWeek = dateTime.getDay() // 0 = dimanche, 1 = lundi, etc.
-    const matchingSlot = openSlots.value.find(slot => slot.day_of_week === dayOfWeek)
+    const slotsSameDay = openSlots.value.filter(slot => slot.day_of_week === dayOfWeek)
+    const lessonStartStr = timeString // "HH:MM"
+    const duration = lesson.start_time && lesson.end_time
+      ? Math.round((new Date(lesson.end_time).getTime() - new Date(lesson.start_time).getTime()) / (1000 * 60))
+      : 60
+    const matchingSlot = findSlotContainingTime(slotsSameDay, lessonStartStr, duration) ?? slotsSameDay[0] ?? null
     if (matchingSlot) {
       selectedSlotForLesson.value = matchingSlot
-      console.log('🎯 [openEditLessonModal] Créneau trouvé pour le jour:', {
+      console.log('🎯 [openEditLessonModal] Créneau trouvé (contenant l\'heure du cours):', {
         day_of_week: dayOfWeek,
         slot_id: matchingSlot.id,
         slot_start: matchingSlot.start_time,
-        slot_end: matchingSlot.end_time
+        slot_end: matchingSlot.end_time,
+        lesson_time: lessonStartStr
       })
     } else {
       selectedSlotForLesson.value = null
@@ -3232,6 +3239,24 @@ function formatDateForInput(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+// Retourne le créneau dont la plage horaire contient l'heure de début du cours (et durée)
+function findSlotContainingTime(slots: { start_time?: string; end_time?: string }[], lessonStartStr: string, durationMinutes: number): { start_time?: string; end_time?: string } | null {
+  if (!slots.length || !lessonStartStr) return null
+  const toMinutes = (t: string) => {
+    const part = (t || '').substring(0, 5)
+    const [h, m] = part.split(':').map(Number)
+    return (h ?? 0) * 60 + (m ?? 0)
+  }
+  const startMin = toMinutes(lessonStartStr)
+  const endMin = startMin + durationMinutes
+  for (const slot of slots) {
+    const slotStart = toMinutes(slot.start_time)
+    const slotEnd = toMinutes(slot.end_time)
+    if (slotStart <= startMin && slotEnd >= endMin) return slot
+  }
+  return null
 }
 
 // Formater une date complète (ex: "Mercredi 6 novembre 2025")
