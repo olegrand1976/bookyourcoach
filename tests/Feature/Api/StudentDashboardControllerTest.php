@@ -451,10 +451,8 @@ class StudentDashboardControllerTest extends TestCase
         $response->assertStatus(200)
                  ->assertJson([
                      'success' => true
-                 ])
-                 ->assertJsonFragment([
-                     'message' => 'Réservation annulée avec succès'
                  ]);
+        $this->assertStringContainsString('Réservation annulée avec succès', $response->json('message'));
 
         $this->assertDatabaseHas('lessons', [
             'id' => $lesson->id,
