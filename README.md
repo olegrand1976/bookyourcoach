@@ -96,10 +96,11 @@ Le projet inclut des scripts pour faciliter le développement :
 
 La documentation complète est disponible dans le dossier [`docs/`](docs/) :
 
-- **[Index de la documentation](docs/INDEX.md)** - Vue d'ensemble de toute la documentation
-- **[Scripts utilitaires](scripts/README.md)** - Guide des scripts disponibles
-- **[Déploiement production](docs/PRODUCTION_DEPLOYMENT.md)** - Guide de déploiement
-- **[Documentation technique](docs/TECHNICAL_DOCUMENTATION.md)** - Architecture détaillée
+- **[Index de la documentation](docs/INDEX.md)** – Vue d'ensemble
+- **[Documentation fonctionnelle](docs/DOCUMENTATION_FONCTIONNELLE.md)** – Rôles et fonctionnalités
+- **[Documentation technique](docs/DOCUMENTATION_TECHNIQUE.md)** – Architecture et API
+- **[Scripts utilitaires](scripts/README.md)** – Scripts disponibles
+- **[Déploiement production](docs/PRODUCTION_DEPLOYMENT.md)** – Déploiement
 
 ## 🏗️ Architecture
 

@@ -308,6 +308,67 @@
         </div>
       </div>
 
+      <!-- Abonnements en fin de parcours -->
+      <div v-if="subscriptionsNearingEnd && subscriptionsNearingEnd.length > 0" class="mb-8">
+        <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-amber-800">
+                Abonnements en fin de parcours ({{ subscriptionsNearingEnd.length }})
+              </h3>
+              <p class="mt-1 text-sm text-amber-700">
+                Ces abonnements ont atteint le seuil d’alerte (séance n° ou max du pack) pour faciliter le suivi des renouvellements.
+              </p>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="item in subscriptionsNearingEnd.slice(0, 10)"
+                  :key="item.id"
+                  class="bg-white rounded-lg p-4 border border-amber-200 flex flex-wrap items-center justify-between gap-2"
+                >
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span class="font-medium text-gray-900">{{ item.template?.model_number || '—' }}</span>
+                    <span class="text-sm text-gray-600">
+                      <template v-if="item.lessons_used >= (item.template?.total_available_lessons ?? 0)">
+                        {{ item.lessons_used }} / {{ item.template?.total_available_lessons }} cours (terminé)
+                      </template>
+                      <template v-else>
+                        {{ item.lessons_used }} cours et +
+                      </template>
+                    </span>
+                    <span class="text-sm text-gray-500">
+                      {{ item.student_names?.length ? item.student_names.join(', ') : '—' }}
+                    </span>
+                    <span v-if="item.expires_at" class="text-xs text-gray-500">
+                      Exp. {{ item.expires_at }}
+                    </span>
+                  </div>
+                  <span
+                    class="px-2 py-1 text-xs font-medium rounded-full"
+                    :class="item.status === 'completed' ? 'bg-gray-100 text-gray-800' : 'bg-amber-100 text-amber-800'"
+                  >
+                    {{ item.status === 'completed' ? 'Terminé' : 'Actif' }}
+                  </span>
+                </div>
+                <NuxtLink
+                  v-if="subscriptionsNearingEnd.length > 10"
+                  to="/club/subscriptions"
+                  class="block text-center text-amber-700 hover:text-amber-800 text-sm font-medium py-2"
+                >
+                  Voir tous les abonnements ({{ subscriptionsNearingEnd.length }}) →
+                </NuxtLink>
+                <NuxtLink
+                  v-else
+                  to="/club/subscriptions"
+                  class="inline-flex items-center text-amber-700 hover:text-amber-800 text-sm font-medium mt-2"
+                >
+                  Voir tous les abonnements →
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Analyse Prédictive IA -->
       <div class="mb-8">
         <PredictiveAnalysis />
@@ -626,6 +687,7 @@ const recentTeachers = ref([])
 const recentStudents = ref([])
 const recentLessons = ref([])
 const incompleteStudents = ref([])
+const subscriptionsNearingEnd = ref([])
 const isLoading = ref(true)
 const hasError = ref(false)
 const errorMessage = ref('')
@@ -667,7 +729,8 @@ const loadDashboardData = async () => {
       recentStudents.value = response.data.data.recentStudents
       recentLessons.value = response.data.data.recentLessons || []
       incompleteStudents.value = response.data.data.incompleteStudents || []
-      
+      subscriptionsNearingEnd.value = response.data.data.subscriptionsNearingEnd || []
+
       console.log('📊 Stats chargées:', stats.value)
       console.log('⚠️ Élèves incomplets:', incompleteStudents.value)
     } else {

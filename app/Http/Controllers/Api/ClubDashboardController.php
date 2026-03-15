@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\SubscriptionInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -72,6 +73,9 @@ class ClubDashboardController extends Controller
             
             // Récupérer les élèves avec données incomplètes (pas de nom ou pas d'email)
             $incompleteStudents = $this->getIncompleteStudents($club->id);
+
+            // Abonnements en fin de parcours (seuil atteint, ex. 8ème séance)
+            $subscriptionsNearingEnd = $this->getSubscriptionsNearingEnd($club->id);
             
             return response()->json([
                 'success' => true,
@@ -81,7 +85,8 @@ class ClubDashboardController extends Controller
                     'recentTeachers' => $recentTeachers,
                     'recentStudents' => $recentStudents,
                     'recentLessons' => $recentLessons,
-                    'incompleteStudents' => $incompleteStudents
+                    'incompleteStudents' => $incompleteStudents,
+                    'subscriptionsNearingEnd' => $subscriptionsNearingEnd
                 ]
             ]);
             
@@ -458,6 +463,72 @@ class ClubDashboardController extends Controller
             ->values();
         
         return $allIncomplete;
+    }
+
+    /**
+     * Instances d'abonnements ayant atteint le seuil "fin de parcours" (ex. 8ème séance).
+     * Seuil = min(warning_at_session du template ?? 8, total_available_lessons). Filtre par club_id.
+     */
+    private function getSubscriptionsNearingEnd(int $clubId): array
+    {
+        $instances = SubscriptionInstance::query()
+            ->whereHas('subscription', function ($q) use ($clubId) {
+                $q->where('club_id', $clubId);
+            })
+            ->whereIn('status', ['active', 'completed'])
+            ->with([
+                'subscription' => function ($q) {
+                    $q->select('id', 'club_id', 'subscription_template_id', 'subscription_number');
+                },
+                'subscription.template' => function ($q) {
+                    $q->select('id', 'model_number', 'total_lessons', 'free_lessons', 'warning_at_session');
+                },
+                'students' => function ($q) {
+                    $q->select('students.id', 'students.first_name', 'students.last_name', 'students.user_id');
+                }
+            ])
+            ->get();
+
+        $limit = 20;
+        $result = $instances
+            ->filter(function ($instance) {
+                $template = $instance->subscription?->template;
+                if (!$template) {
+                    return false;
+                }
+                $totalAvailable = $template->total_lessons + $template->free_lessons;
+                $threshold = min($template->warning_at_session ?? 8, $totalAvailable);
+                return $instance->lessons_used >= $threshold;
+            })
+            ->sortByDesc('lessons_used')
+            ->take($limit)
+            ->values()
+            ->map(function ($instance) {
+                $template = $instance->subscription->template;
+                $totalAvailable = $template->total_lessons + $template->free_lessons;
+                $threshold = min($template->warning_at_session ?? 8, $totalAvailable);
+                $studentNames = $instance->students->map(function ($s) {
+                    return trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) ?: 'Élève #' . $s->id;
+                })->values()->all();
+                return [
+                    'id' => $instance->id,
+                    'subscription_id' => $instance->subscription_id,
+                    'subscription_number' => $instance->subscription->subscription_number ?? null,
+                    'template' => [
+                        'model_number' => $template->model_number,
+                        'total_available_lessons' => $totalAvailable,
+                        'warning_at_session' => $template->warning_at_session,
+                    ],
+                    'lessons_used' => $instance->lessons_used,
+                    'threshold' => $threshold,
+                    'status' => $instance->status,
+                    'expires_at' => $instance->expires_at?->format('Y-m-d'),
+                    'student_names' => $studentNames,
+                ];
+            })
+            ->all();
+
+        return $result;
     }
     
     private function getMissingFields($student)

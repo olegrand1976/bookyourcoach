@@ -1,837 +1,256 @@
-# 🔧 Documentation Technique - BookYourCoach
+# Documentation technique – BookYourCoach
 
-**Version :** 1.5.0  
-**Date :** Janvier 2025  
-**Plateforme :** activibe (BookYourCoach)
+**Dernière mise à jour :** Mars 2025
 
 ---
 
-## 📋 Table des Matières
+## 1. Vue d’ensemble
 
-1. [Architecture Générale](#architecture-générale)
-2. [Stack Technologique](#stack-technologique)
-3. [Structure du Projet](#structure-du-projet)
-4. [Modèles de Données](#modèles-de-données)
-5. [API REST](#api-rest)
-6. [Authentification et Sécurité](#authentification-et-sécurité)
-7. [Services et Business Logic](#services-et-business-logic)
-8. [Base de Données](#base-de-données)
-9. [Tests](#tests)
-10. [Déploiement](#déploiement)
-11. [Configuration](#configuration)
+BookYourCoach est une plateforme de gestion de cours et de clubs sportifs : backend API Laravel, frontend Nuxt, application mobile Flutter, bases MySQL et Neo4j, conteneurisation Docker.
 
 ---
 
-## 🏗️ Architecture Générale
+## 2. Stack technique
 
-### Architecture Multi-Tenant
+| Couche | Technologie | Version |
+|--------|-------------|---------|
+| **Backend** | PHP | 8.2+ |
+| | Laravel | 12.x |
+| | MySQL | 8.0 |
+| | Redis | 7-alpine |
+| | Neo4j | Latest (analytics) |
+| **Tests backend** | PHPUnit | 11.x |
+| **Frontend** | Nuxt.js | 3.x |
+| | Vue.js | 3.x |
+| | Tailwind CSS | 6.x |
+| **Tests frontend** | Vitest, Playwright | - |
+| **Mobile** | Flutter / Dart | Latest |
+| **Infra** | Docker / Docker Compose | - |
+| **CI/CD** | GitHub Actions | - |
 
-BookYourCoach utilise une architecture multi-tenant où chaque club est isolé mais partage la même infrastructure :
+**Bibliothèques principales :** Laravel Sanctum, Stripe PHP SDK, Google API Client, laudis/neo4j-php-client, DomPDF, SimpleSoftwareIO/QrCode, rlanvin/php-rrule.
+
+---
+
+## 3. Architecture
+
+- **Multi-tenant :** isolation des données par club.
+- **API-first :** fonctionnalités exposées via API REST.
+- **Séparation :** Controllers → Services → Models.
 
 ```
-┌─────────────────────────────────────────┐
-│         Frontend (Nuxt.js 3)           │
-│         Mobile (Flutter)               │
-└──────────────┬──────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────┐
-│      API REST (Laravel 11)              │
-│  ┌──────────────────────────────────┐   │
-│  │  Middleware (Auth, Roles)       │   │
-│  └──────────────────────────────────┘   │
-│  ┌──────────────────────────────────┐   │
-│  │  Controllers (API Endpoints)     │   │
-│  └──────────────────────────────────┘   │
-│  ┌──────────────────────────────────┐   │
-│  │  Services (Business Logic)      │   │
-│  └──────────────────────────────────┘   │
-└──────────────┬──────────────────────────┘
-               │
-       ┌───────┴───────┐
-       ▼               ▼
-┌─────────────┐  ┌─────────────┐
-│   MySQL     │  │   Neo4j     │
-│  (Primary)  │  │  (Analytics)│
-└─────────────┘  └─────────────┘
-       │
-       ▼
-┌─────────────┐
-│    Redis    │
-│   (Cache)   │
-└─────────────┘
+Frontend (Nuxt 3) / Mobile (Flutter)
+         │
+         ▼
+API REST (Laravel 12) — Middleware (auth, rôles) — Controllers — Services
+         │
+    ┌────┴────┐
+    ▼         ▼
+ MySQL      Neo4j
+ (principal) (analytics)
+    │
+    ▼
+  Redis (cache, sessions, queues)
 ```
 
-### Principes d'Architecture
-
-- **Séparation des responsabilités** : Controllers → Services → Models
-- **Multi-tenant** : Isolation des données par club
-- **API-First** : Toutes les fonctionnalités exposées via API REST
-- **Service Layer** : Logique métier dans les services
-- **Repository Pattern** : Accès aux données via Eloquent ORM
-
 ---
 
-## 💻 Stack Technologique
-
-### Backend
-
-| Technologie | Version | Usage |
-|------------|---------|-------|
-| **PHP** | 8.3+ | Langage principal |
-| **Laravel** | 12.x | Framework PHP |
-| **MySQL** | 8.0 | Base de données principale |
-| **Redis** | 7-alpine | Cache et sessions |
-| **Neo4j** | Latest | Base de données graphique (analytics) |
-| **PHPUnit** | 11+ | Framework de tests |
-
-### Frontend Web
-
-| Technologie | Version | Usage |
-|------------|---------|-------|
-| **Nuxt.js** | 3.x | Framework Vue.js |
-| **Vue.js** | 3.x | Framework JavaScript |
-| **Tailwind CSS** | 4.x | Framework CSS |
-| **TypeScript** | Latest | Typage statique |
-
-### Mobile
-
-| Technologie | Version | Usage |
-|------------|---------|-------|
-| **Flutter** | Latest | Framework mobile |
-| **Dart** | Latest | Langage Flutter |
-
-### Infrastructure
-
-| Technologie | Version | Usage |
-|------------|---------|-------|
-| **Docker** | Latest | Conteneurisation |
-| **Docker Compose** | Latest | Orchestration |
-| **Nginx** | Latest | Serveur web |
-| **GitHub Actions** | Latest | CI/CD |
-
-### Bibliothèques Principales
-
-- **Laravel Sanctum** : Authentification API
-- **Stripe PHP SDK** : Paiements en ligne
-- **Google API Client** : Intégration Google Calendar
-- **Neo4j PHP Client** : Connexion Neo4j
-- **DomPDF** : Génération de PDF
-- **SimpleSoftwareIO/QrCode** : Génération de QR codes
-
----
-
-## 📁 Structure du Projet
+## 4. Structure du projet
 
 ```
 bookyourcoach/
 ├── app/
-│   ├── Console/
-│   │   └── Commands/          # Commandes Artisan
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Api/          # Contrôleurs API
-│   │   │   └── AdminController.php
-│   │   ├── Middleware/       # Middlewares personnalisés
-│   │   └── Requests/         # Form Requests (validation)
-│   ├── Models/               # Modèles Eloquent
-│   ├── Notifications/        # Notifications email
-│   ├── Services/             # Services métier
-│   │   ├── AI/              # Services IA
-│   │   ├── Neo4jService.php
-│   │   ├── GoogleCalendarService.php
-│   │   └── StripeService.php
-│   └── Jobs/                # Jobs de queue
-├── bootstrap/
-│   └── app.php              # Bootstrap Laravel
-├── config/                  # Configuration Laravel
-├── database/
-│   ├── factories/          # Factories pour tests
-│   ├── migrations/         # Migrations DB
-│   └── seeders/           # Seeders de données
-├── docker/                 # Configuration Docker
-│   ├── nginx/             # Config Nginx
-│   └── php/               # Config PHP
-├── docs/                   # Documentation
-├── frontend/               # Application Nuxt.js
-│   ├── components/        # Composants Vue
-│   ├── pages/            # Pages/routes
-│   ├── composables/      # Composables Vue
-│   └── stores/           # Stores Pinia
-├── mobile/                # Application Flutter
-├── public/                # Assets publics
-├── resources/
-│   ├── views/           # Vues Blade (emails)
-│   └── js/             # Assets JS
-├── routes/
-│   ├── api.php        # Routes API
-│   └── web.php        # Routes web
-├── scripts/            # Scripts utilitaires
-├── storage/           # Fichiers stockés
-├── tests/            # Tests PHPUnit
-└── vendor/           # Dépendances Composer
+│   ├── Console/Commands/
+│   ├── Http/Controllers/Api/     # Contrôleurs API
+│   ├── Http/Middleware/
+│   ├── Models/                   # Modèles Eloquent
+│   ├── Services/                # Logique métier (dont AI/)
+│   ├── Notifications/
+│   └── Jobs/
+├── config/
+├── database/migrations, factories, seeders/
+├── docker/                      # Nginx, PHP
+├── docs/
+├── frontend/                    # Nuxt 3
+│   ├── components/, composables/, stores/
+│   └── pages/                   # Routes (admin, club, teacher, student)
+├── mobile/                      # Flutter
+├── routes/api.php
+├── scripts/                     # test-all.sh, docker-maintenance.sh, deploy.sh
+└── tests/Unit, tests/Feature/
 ```
 
 ---
 
-## 🗄️ Modèles de Données
+## 5. Modèles de données (principaux)
 
-### Modèles Principaux
-
-#### User
-
-**Table :** `users`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `name` : Nom complet
-- `first_name` : Prénom
-- `last_name` : Nom
-- `email` : Email (unique)
-- `password` : Mot de passe hashé
-- `role` : Rôle (admin, teacher, student, club)
-- `phone` : Téléphone
-- `birth_date` : Date de naissance
-- `is_active` : Statut actif/inactif
-- `status` : Statut (active, inactive, pending)
-
-**Relations :**
-```php
-belongsToMany(Club::class)      // via club_user
-hasOne(Teacher::class)          // Si role = 'teacher'
-hasOne(Student::class)          // Si role = 'student'
-```
-
-#### Club
-
-**Table :** `clubs`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `name` : Nom du club
-- `description` : Description
-- `email` : Email du club
-- `phone` : Téléphone
-- `address` : Adresse complète
-- `city` : Ville
-- `postal_code` : Code postal
-- `country` : Pays
-- `is_active` : Statut actif/inactif
-- `disciplines` : JSON - Liste des disciplines
-
-**Relations :**
-```php
-belongsToMany(User::class)      // via club_user
-belongsToMany(Teacher::class)   // via club_teachers
-belongsToMany(Student::class)   // via club_students
-hasMany(Lesson::class)
-hasMany(SubscriptionTemplate::class)
-hasMany(ClubOpenSlot::class)
-hasOne(ClubSettings::class)
-```
-
-#### Teacher
-
-**Table :** `teachers`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `user_id` : Référence User
-- `specialties` : JSON - Spécialités
-- `experience_years` : Années d'expérience
-- `hourly_rate` : Taux horaire
-- `bio` : Biographie
-- `birth_date` : Date de naissance
-
-**Relations :**
-```php
-belongsTo(User::class)
-belongsToMany(Club::class)      // via club_teachers
-hasMany(Lesson::class)
-hasMany(Certification::class)
-```
-
-#### Student
-
-**Table :** `students`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `user_id` : Référence User
-- `first_name` : Prénom
-- `last_name` : Nom
-- `date_of_birth` : Date de naissance
-- `phone` : Téléphone
-- `goals` : Objectifs
-- `medical_info` : Informations médicales
-
-**Relations :**
-```php
-belongsTo(User::class)
-belongsToMany(Club::class)      // via club_students
-belongsToMany(Lesson::class)    // via lesson_student
-hasMany(SubscriptionInstance::class)
-hasMany(StudentPreference::class)
-```
-
-#### Lesson
-
-**Table :** `lessons`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `club_id` : Référence Club
-- `teacher_id` : Référence Teacher
-- `student_id` : Référence Student (principal)
-- `course_type_id` : Référence CourseType
-- `location_id` : Référence Location
-- `start_time` : Date/heure de début
-- `end_time` : Date/heure de fin
-- `status` : Statut (planned, confirmed, completed, cancelled)
-- `payment_status` : Statut paiement
-- `price` : Prix
-- `montant` : Montant réellement payé
-- `est_legacy` : Booléen DCL/NDCL
-- `date_paiement` : Date de paiement
-- `deduct_from_subscription` : Déduire d'un abonnement
-
-**Relations :**
-```php
-belongsTo(Club::class)
-belongsTo(Teacher::class)
-belongsTo(Student::class)        // Étudiant principal
-belongsToMany(Student::class)   // Tous les étudiants
-belongsTo(CourseType::class)
-belongsTo(Location::class)
-```
-
-#### SubscriptionTemplate
-
-**Table :** `subscription_templates`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `club_id` : Référence Club
-- `name` : Nom du modèle
-- `description` : Description
-- `total_lessons` : Nombre total de cours
-- `free_lessons` : Nombre de cours gratuits
-- `price` : Prix
-- `validity_value` : Valeur de validité
-- `validity_unit` : Unité (weeks, months)
-- `is_active` : Statut actif/inactif
-
-**Relations :**
-```php
-belongsTo(Club::class)
-belongsToMany(CourseType::class) // via subscription_template_course_type
-hasMany(Subscription::class)
-```
-
-#### SubscriptionInstance
-
-**Table :** `subscription_instances`
-
-**Attributs principaux :**
-- `id` : Identifiant unique
-- `subscription_id` : Référence Subscription
-- `lessons_used` : Cours utilisés
-- `started_at` : Date de début
-- `expires_at` : Date d'expiration
-- `status` : Statut (active, expired, closed)
-
-**Relations :**
-```php
-belongsTo(Subscription::class)
-belongsToMany(Student::class)    // via subscription_instance_student
-hasMany(SubscriptionRecurringSlot::class)
-```
-
-### Tables Pivot
-
-#### club_user
-- `club_id` : Référence Club
-- `user_id` : Référence User
-- `role` : Rôle (owner, manager, staff)
-- `is_admin` : Booléen admin
-- `joined_at` : Date d'adhésion
-
-#### club_teachers
-- `club_id` : Référence Club
-- `teacher_id` : Référence Teacher
-- `is_active` : Statut actif/inactif
-- `joined_at` : Date d'adhésion
-
-#### club_students
-- `club_id` : Référence Club
-- `student_id` : Référence Student
-- `is_active` : Statut actif/inactif
-- `goals` : Objectifs spécifiques au club
-- `medical_info` : Informations médicales spécifiques
-- `joined_at` : Date d'adhésion
-
-#### lesson_student
-- `lesson_id` : Référence Lesson
-- `student_id` : Référence Student
-- `attended` : Présence
-- `rating` : Note
+| Modèle | Table | Rôle |
+|--------|--------|------|
+| User | users | Comptes (admin, club, teacher, student) |
+| Club | clubs | Clubs sportifs |
+| Teacher | teachers | Enseignants (user_id, spécialités, taux horaire) |
+| Student | students | Étudiants (user_id, infos médicales) |
+| Lesson | lessons | Cours (club, teacher, student(s), créneau, statut, paiement) |
+| SubscriptionTemplate | subscription_templates | Modèles d’abonnements (club) |
+| Subscription | subscriptions | Abonnements (lien template ↔ étudiants) |
+| SubscriptionInstance | subscription_instances | Instances (cours utilisés/restants, dates) |
+| ClubOpenSlot | club_open_slots | Créneaux ouverts récurrents |
+| RecurringSlot | recurring_slots | Créneaux récurrents réservés |
+| CourseType | course_types | Types de cours (par club/discipline) |
+| Location | locations | Lieux |
+| Payment | payments | Paiements |
+| Notification | notifications | Notifications in-app |
+| LessonReplacement | lesson_replacements | Demandes de remplacement |
+| AuditLog | audit_logs | Logs d’audit |
+| GoogleCalendarToken | google_calendar_tokens | Tokens OAuth Google |
+| VolunteerLetterSend | volunteer_letter_sends | Historique lettres bénévolat |
+| + pivot : club_user, club_teachers, club_students, lesson_student, etc. |
 
 ---
 
-## 🌐 API REST
+## 6. API REST
 
-### Structure des Routes
+Base : `/api`. Authentification : `Authorization: Bearer {token}` (Sanctum). Réponses JSON : `{ "success": true|false, "data": ..., "message": "..." }`.
 
-#### Authentification
+### Santé et public
 
-```
-POST   /api/auth/register          # Inscription
-POST   /api/auth/login             # Connexion
-POST   /api/auth/logout            # Déconnexion
-POST   /api/auth/forgot-password   # Mot de passe oublié
-POST   /api/auth/reset-password    # Réinitialisation
-GET    /api/auth/user              # Utilisateur connecté
-PUT    /api/auth/profile           # Mise à jour profil
-```
+- `GET /api/health`
+- `GET /api/activity-types`
+- `GET /api/disciplines`, `GET /api/disciplines/{id}`, `GET /api/disciplines/by-activity/{activityTypeId}`
+- `GET /api/clubs/public`
 
-#### Routes Publiques
+### Auth
 
-```
-GET    /api/health                 # Health check
-GET    /api/activity-types        # Types d'activités
-GET    /api/disciplines           # Disciplines
-GET    /api/clubs/public          # Liste des clubs actifs
-```
+- `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`
+- Avec `auth:sanctum` : `POST /api/auth/logout`, `GET /api/auth/user`, `PUT /api/auth/profile`
 
-#### Routes Admin
+### Admin (`auth:sanctum` + `admin`)
 
-```
-GET    /api/admin/dashboard       # Dashboard admin
-GET    /api/admin/stats           # Statistiques
-GET    /api/admin/users           # Liste utilisateurs
-POST   /api/admin/users           # Créer utilisateur
-PUT    /api/admin/users/{id}      # Modifier utilisateur
-GET    /api/admin/clubs           # Liste clubs
-POST   /api/admin/clubs           # Créer club
-GET    /api/admin/audit-logs     # Logs d'audit
-```
+- Dashboard : `GET /api/admin/dashboard`, `GET /api/admin/users`, `PUT /api/admin/users/{id}/status`
+- Stats / config : `GET /api/admin/stats`, `GET /api/admin/activities`, `GET|PUT /api/admin/settings`, `GET /api/admin/system-status`, `POST /api/admin/clear-cache`
+- Users : `GET|POST /api/admin/users`, `GET|PUT /api/admin/users/{id}`, `PATCH /api/admin/users/{id}/role`, `POST /api/admin/users/{id}/toggle-status`, `POST /api/admin/users/{id}/create-club`
+- Clubs : `GET|POST /api/admin/clubs`, `GET|PUT|DELETE /api/admin/clubs/{id}`, `POST /api/admin/clubs/{id}/toggle-status`, `POST /api/admin/clubs/upload-logo`
+- Étudiants liés : `GET /api/admin/students/{studentId}/linked`, `POST /api/admin/students/{studentId}/link`, `DELETE /api/admin/students/{studentId}/unlink/{linkedStudentId}`, `GET /api/admin/students/available-for-linking`
+- Paie globale : `GET /api/admin/payroll/reports`, `POST /api/admin/payroll/generate`, `GET /api/admin/payroll/reports/{year}/{month}`, `GET /api/admin/payroll/export/{year}/{month}/csv`
+- `GET /api/admin/audit-logs`
 
-#### Routes Club
+### Club (`auth:sanctum` + `club`)
 
-```
-GET    /api/club/dashboard                    # Dashboard club
-GET    /api/club/profile                      # Profil club
-PUT    /api/club/profile                      # Mettre à jour profil
-GET    /api/club/teachers                     # Liste enseignants
-POST   /api/club/teachers                     # Créer enseignant
-PUT    /api/club/teachers/{id}                # Modifier enseignant
-GET    /api/club/students                     # Liste étudiants
-POST   /api/club/students                     # Créer étudiant
-GET    /api/club/subscriptions                # Liste abonnements
-POST   /api/club/subscriptions                # Créer abonnement
-GET    /api/club/open-slots                   # Créneaux ouverts
-POST   /api/club/open-slots                   # Créer créneau
-GET    /api/club/subscription-templates        # Modèles d'abonnements
-POST   /api/club/planning/suggest-optimal-slot # Suggestion IA
-GET    /api/club/predictive-analysis           # Analyse prédictive
-```
+- Dashboard / profil : `GET /api/club/dashboard`, `GET|PUT /api/club/profile`, `GET /api/club/qr-code`, `GET /api/club/diagnose-columns`, `GET /api/club/custom-specialties`
+- Enseignants : `GET|POST /api/club/teachers`, `PUT|DELETE /api/club/teachers/{teacherId}`, `POST /api/club/teachers/{teacherId}/resend-invitation`
+- Étudiants : `GET /api/club/students`, `POST /api/club/students`, `GET /api/club/students/{studentId}/history`, `PATCH /api/club/students/{studentId}/toggle-status`, `POST /api/club/students/{studentId}/resend-invitation`, `PUT /api/club/students/{studentId}`, `DELETE` (remove) via ClubController
+- Abonnements : `GET|POST /api/club/subscriptions`, `GET|PUT|DELETE /api/club/subscriptions/{id}`, `POST /api/club/subscriptions/assign`, `POST /api/club/subscriptions/recalculate`, `POST /api/club/subscriptions/{instanceId}/close`, `PUT /api/club/subscriptions/{instanceId}/est-legacy`, `PUT /api/club/subscriptions/instances/{instanceId}`, `GET /api/club/subscriptions/instances/{instanceId}/history`, `GET /api/club/subscription-instances/{instanceId}/future-lessons`, `GET /api/club/students/{studentId}/subscriptions`, `POST /api/club/subscriptions/{instanceId}/renew`
+- Modèles d’abonnements : `GET|POST /api/club/subscription-templates`, `PUT|DELETE /api/club/subscription-templates/{id}`
+- Créneaux ouverts : `GET|POST /api/club/open-slots`, `GET|PUT|DELETE /api/club/open-slots/{id}`, `PUT /api/club/open-slots/{id}/course-types`
+- Créneaux récurrents : `GET /api/club/recurring-slots`, `GET /api/club/recurring-slots/{id}`, `POST /api/club/recurring-slots/{id}/release`, `POST /api/club/recurring-slots/{id}/reactivate`
+- Planning : `POST /api/club/planning/suggest-optimal-slot`, `POST /api/club/planning/check-availability`, `GET /api/club/planning/statistics`
+- Bénévolat : `POST /api/club/volunteer-letters/send/{teacherId}`, `POST /api/club/volunteer-letters/send-all`, `GET /api/club/volunteer-letters/history`
+- IA : `GET /api/club/predictive-analysis`, `GET /api/club/predictive-analysis/alerts`
+- Notifications : `GET /api/club/notifications`, `GET /api/club/notifications/unread-count`, `POST /api/club/notifications/{id}/read`, `POST /api/club/notifications/read-all`
+- Paie club : `GET /api/club/payroll/reports`, `POST /api/club/payroll/generate`, `GET /api/club/payroll/reports/{year}/{month}`, `POST /api/club/payroll/reports/{year}/{month}/reload`, `GET|PUT /api/club/payroll/reports/{year}/{month}/teachers/{teacherId}/payments`, `GET /api/club/payroll/export/{year}/{month}/csv`
 
-#### Routes Teacher
+### Teacher (`auth:sanctum` + `teacher`)
 
-```
-GET    /api/teacher/dashboard         # Dashboard enseignant
-GET    /api/teacher/profile           # Profil enseignant
-PUT    /api/teacher/profile           # Mettre à jour profil
-GET    /api/teacher/lessons           # Liste cours
-POST   /api/teacher/lessons           # Créer cours
-GET    /api/teacher/earnings         # Revenus
-GET    /api/teacher/lesson-replacements # Remplacements
-```
+- `GET /api/teacher/dashboard`, `GET /api/teacher/dashboard-simple`, `GET|PUT /api/teacher/profile`
+- Cours : `GET|POST /api/teacher/lessons`, `PUT|DELETE /api/teacher/lessons/{id}`
+- Remplacements : `GET /api/teacher/lesson-replacements`, `POST /api/teacher/lesson-replacements`, `POST /api/teacher/lesson-replacements/{id}/respond`, `DELETE /api/teacher/lesson-replacements/{id}`
+- `GET /api/teacher/teachers`, `GET /api/teacher/students`, `GET /api/teacher/students/{id}`, `GET /api/teacher/clubs`, `GET /api/teacher/earnings`
+- Notifications : index, unread-count, markAsRead, markAllAsRead
 
-#### Routes Student
+### Student (`auth:sanctum` + `student` + `active.student`)
 
-```
-GET    /api/student/dashboard              # Dashboard étudiant
-GET    /api/student/available-lessons      # Cours disponibles
-GET    /api/student/bookings               # Réservations
-POST   /api/student/bookings               # Créer réservation
-GET    /api/student/subscriptions          # Abonnements
-POST   /api/student/subscriptions          # Souscrire abonnement
-GET    /api/student/clubs                  # Clubs affiliés
-POST   /api/student/clubs                  # Ajouter club
-DELETE /api/student/clubs/{id}            # Retirer club
-```
+- `GET /api/student/dashboard`, `GET /api/student/dashboard/stats`, `GET|PUT /api/student/profile`
+- Clubs : `GET /api/student/clubs`
+- Cours : `GET /api/student/available-lessons`, `GET /api/student/lesson-history`, `GET /api/student/bookings`, `POST /api/student/bookings`, `PUT /api/student/bookings/{id}/cancel`
+- Préférences : `GET /api/student/disciplines`, `GET|POST|PUT|DELETE /api/student/preferences/advanced`
+- Abonnements : `GET /api/student/subscriptions/available`, `GET /api/student/subscriptions`, `POST /api/student/subscriptions/create-checkout-session`, `POST /api/student/subscriptions`, `POST /api/student/subscriptions/{instanceId}/renew`
+- Comptes liés : `GET /api/student/linked-accounts`, `POST /api/student/switch-account/{studentId}`, `GET /api/student/active-account`
 
-### Format des Réponses
+### Cours (auth:sanctum, tous rôles concernés)
 
-**Succès :**
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Opération réussie"
-}
-```
+- `GET /api/lessons/slot-occupants`, `GET|POST /api/lessons`, `GET|PUT|DELETE /api/lessons/{id}`, `PUT /api/lessons/{id}/subscription`, `POST /api/lessons/{id}/cancel-with-future`
 
-**Erreur :**
-```json
-{
-  "success": false,
-  "message": "Message d'erreur",
-  "errors": {
-    "field": ["Erreur de validation"]
-  }
-}
-```
+### Commun
 
-### Codes HTTP
-
-- `200` : Succès
-- `201` : Créé
-- `400` : Requête invalide
-- `401` : Non authentifié
-- `403` : Non autorisé
-- `404` : Non trouvé
-- `422` : Erreur de validation
-- `500` : Erreur serveur
+- `GET /api/course-types` (auth)
+- QR Code : `GET /api/qr-code/user/{userId}`, `GET /api/qr-code/club/{clubId}`, `POST /api/qr-code/club/{clubId}/regenerate`, `POST /api/qr-code/scan`
+- Stripe : `POST /api/stripe/webhook`
+- Debug : `GET /api/debug/course-types-filtering`, `GET /api/debug/slot/{id}`
 
 ---
 
-## 🔐 Authentification et Sécurité
+## 7. Authentification et sécurité
 
-### Laravel Sanctum
-
-**Configuration :**
-- Tokens pour API
-- Sessions pour SPA
-- CSRF protection
-
-**Utilisation :**
-```php
-// Création de token
-$token = $user->createToken('token-name')->plainTextToken;
-
-// Vérification dans les requêtes
-Authorization: Bearer {token}
-```
-
-### Middleware
-
-**AdminMiddleware :**
-```php
-// Vérifie que l'utilisateur est admin
-if ($user->role !== 'admin') {
-    return response()->json(['message' => 'Unauthorized'], 403);
-}
-```
-
-**ClubMiddleware :**
-```php
-// Vérifie que l'utilisateur est un club
-if ($user->role !== 'club') {
-    return response()->json(['message' => 'Unauthorized'], 403);
-}
-```
-
-**TeacherMiddleware / StudentMiddleware :** Similaire
-
-### Sécurité des Données
-
-- **Validation stricte** : Form Requests Laravel
-- **Protection CSRF** : Tokens CSRF pour les formulaires
-- **Chiffrement** : Mots de passe hashés avec bcrypt
-- **Audit logs** : Enregistrement des actions importantes
-- **Isolation multi-tenant** : Filtrage par club_id
+- **Sanctum :** tokens pour l’API, domaine stateful pour le front (SANCTUM_STATEFUL_DOMAINS, SESSION_DOMAIN).
+- **Middleware :** `admin`, `club`, `teacher`, `student`, `active.student`.
+- **Sécurité :** validation (Form Requests), CSRF pour SPA, mots de passe hashés, audit logs, isolation par `club_id` où applicable.
 
 ---
 
-## ⚙️ Services et Business Logic
+## 8. Services principaux
 
-### Services Principaux
-
-#### Neo4jService
-
-**Fonctionnalités :**
-- Synchronisation MySQL → Neo4j
-- Analyses de relations complexes
-- Métriques globales
-- Recommandations
-
-**Utilisation :**
-```php
-$service = app(Neo4jService::class);
-$metrics = $service->getGlobalMetrics();
-```
-
-#### GoogleCalendarService
-
-**Fonctionnalités :**
-- Synchronisation OAuth2
-- Export de cours vers Google Calendar
-- Import d'événements
-- Gestion des conflits
-
-#### StripeService
-
-**Fonctionnalités :**
-- Traitement des paiements
-- Gestion des webhooks
-- Abonnements récurrents
-- Remboursements
-
-#### TeacherAssignmentService
-
-**Fonctionnalités :**
-- Attribution automatique enseignants-étudiants
-- Matching par spécialités
-- Optimisation des assignations
-
-#### RecurringSlotValidator
-
-**Fonctionnalités :**
-- Validation disponibilité sur 26 semaines
-- Détection de conflits
-- Suggestions alternatives
-
-#### RecurringSlotSuggestionService
-
-**Fonctionnalités :**
-- Suggestions IA via Gemini
-- Analyse des contraintes
-- Optimisation des créneaux
+| Service | Rôle |
+|---------|------|
+| Neo4jService / Neo4jSyncService / Neo4jAnalysisService | Sync MySQL → Neo4j, analyses graphe, métriques |
+| GoogleCalendarService | OAuth2, export/import calendrier |
+| StripeService | Paiements, webhooks, abonnements, remboursements |
+| QrCodeService | Génération / scan QR (utilisateurs, clubs) |
+| RecurringSlotValidator | Vérification disponibilité sur 26 semaines, conflits |
+| RecurringSlotService / LegacyRecurringSlotService | Gestion créneaux récurrents |
+| AI/GeminiService | Appels Gemini |
+| AI/PredictiveAnalysisService | Analyse prédictive, alertes |
+| TeacherAssignmentService | Attribution enseignants |
+| CommissionCalculationService | Commissions enseignants |
+| NotificationService | Notifications in-app / email |
 
 ---
 
-## 🗄️ Base de Données
+## 9. Base de données
 
-### MySQL (Base Principale)
-
-**Configuration :**
-```env
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=activibe_prod
-DB_USERNAME=activibe_user
-DB_PASSWORD=...
-```
-
-**Tables Principales :**
-- `users` : Utilisateurs
-- `clubs` : Clubs
-- `teachers` : Enseignants
-- `students` : Étudiants
-- `lessons` : Cours
-- `subscriptions` : Abonnements
-- `subscription_templates` : Modèles d'abonnements
-- `subscription_instances` : Instances d'abonnements
-- `payments` : Paiements
-- `transactions` : Transactions
-
-### Redis (Cache)
-
-**Configuration :**
-```env
-REDIS_HOST=redis
-REDIS_PASSWORD=null
-REDIS_PORT=6379
-```
-
-**Utilisation :**
-- Cache des requêtes fréquentes
-- Sessions utilisateurs
-- Queue jobs
-
-### Neo4j (Analytics)
-
-**Configuration :**
-```env
-NEO4J_HOST=neo4j
-NEO4J_PORT=7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=...
-```
-
-**Utilisation :**
-- Analyses de relations
-- Métriques complexes
-- Recommandations
+- **MySQL :** base principale (tables listées en §5). Config : `DB_*` dans `.env`.
+- **Redis :** cache, sessions, files de queues. Config : `REDIS_*`, `CACHE_DRIVER`, `SESSION_DRIVER`, `QUEUE_CONNECTION`.
+- **Neo4j :** analytics. Config : `NEO4J_*`.
 
 ---
 
-## 🧪 Tests
+## 10. Tests
 
-### Configuration PHPUnit
+- **Backend :** PHPUnit 11, `phpunit.xml`, suites Unit et Feature.
+- **Frontend :** Vitest (unit), Playwright (e2e).
+- **Script projet :** `./scripts/test-all.sh` (login, api, docker, etc.).
 
-**phpunit.xml :**
-```xml
-<phpunit bootstrap="vendor/autoload.php">
-    <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
-        </testsuite>
-    </testsuites>
-</phpunit>
-```
-
-### Exécution des Tests
+Commandes utiles :
 
 ```bash
-# Tous les tests
 php artisan test
-
-# Tests unitaires uniquement
 php artisan test --testsuite=Unit
-
-# Tests avec couverture
 php artisan test --coverage
-
-# Tests spécifiques
-php artisan test tests/Feature/Api/AuthControllerTest.php
-```
-
-### Structure des Tests
-
-**Tests Unitaires :**
-- Modèles
-- Services
-- Middleware
-- Helpers
-
-**Tests Feature :**
-- Contrôleurs API
-- Flux complets
-- Authentification
-- Permissions
-
-### Fixtures et Factories
-
-**Factories :**
-```php
-User::factory()->create(['role' => 'admin']);
-Club::factory()->create();
-```
-
-**Seeders pour tests :**
-```php
-$this->seed(ClubTestDataSeeder::class);
+./scripts/test-all.sh
 ```
 
 ---
 
-## 🚀 Déploiement
+## 11. Déploiement et scripts
 
-### Docker
-
-**docker-compose.yml :**
-```yaml
-services:
-  app:
-    build: .
-    volumes:
-      - .:/var/www/html
-    depends_on:
-      - mysql
-      - redis
-  
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: activibe_prod
-  
-  redis:
-    image: redis:7-alpine
-  
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-```
-
-### Commandes de Déploiement
-
-```bash
-# Démarrer
-docker-compose up -d
-
-# Reconstruire
-docker-compose build --no-cache
-docker-compose up -d
-
-# Logs
-docker-compose logs -f app
-
-# Arrêter
-docker-compose down
-```
-
-### Variables d'Environnement
-
-**Fichier .env :**
-```env
-APP_NAME=BookYourCoach
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://api.activibe.com
-
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_DATABASE=activibe_prod
-
-REDIS_HOST=redis
-
-NEO4J_HOST=neo4j
-NEO4J_USER=neo4j
-```
+- **Docker :** `docker-compose.yml` (app, mysql, redis, neo4j, nginx, etc.). Développement : `./scripts/docker-maintenance.sh start|stop|rebuild|logs`.
+- **Déploiement :** `./scripts/deploy.sh local|dev|prod`. Détails production : voir [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md).
+- **CI/CD :** GitHub Actions (tests, sécurité, build, déploiement). Voir [GITHUB_ACTIONS_CONFIG.md](GITHUB_ACTIONS_CONFIG.md) si besoin.
 
 ---
 
-## ⚙️ Configuration
+## 12. Frontend (Nuxt 3)
 
-### Configuration Laravel
-
-**config/app.php :**
-- Nom de l'application
-- Timezone
-- Locale
-
-**config/database.php :**
-- Connexions MySQL, Redis, Neo4j
-
-**config/sanctum.php :**
-- Configuration Sanctum
-- Domaines autorisés
-
-**config/queue.php :**
-- Configuration des queues
-- Workers
-
-### Configuration Frontend
-
-**nuxt.config.ts :**
-- API base URL
-- Variables d'environnement
-- Modules Nuxt
-
-### Configuration Mobile
-
-**pubspec.yaml :**
-- Dépendances Flutter
-- Configuration Android/iOS
+- **Pages principales :** `index`, `login`, `register`, `reset-password`, `dashboard`, `profile`.
+- **Admin :** `admin/index`, `admin/users`, `admin/settings`, `admin/payroll`, `admin/graph-analysis`, `admin/contracts`.
+- **Club :** `club/dashboard`, `club/profile`, `club/teachers`, `club/students`, `club/planning`, `club/subscriptions`, `club/subscription-templates`, `club/open-slots`, `club/recurring-slots`, `club/payroll`, `club/volunteer-letter`, `club/qr-code`, `club/space`, etc.
+- **Teacher :** `teacher/dashboard`, `teacher/profile`, `teacher/schedule`, `teacher/earnings`, `teacher/settings`, `teacher/qr-code`.
+- **Student :** `student/dashboard`, `student/bookings`, `student/schedule`, `student/subscriptions`, `student/lessons`, `student/preferences`, `student/profile`.
 
 ---
 
-## 📚 Ressources Additionnelles
+## 13. Références
 
-- [Documentation Fonctionnelle](DOCUMENTATION_FONCTIONNELLE.md)
-- [Guide de Déploiement](PRODUCTION_DEPLOYMENT.md)
+- [Documentation fonctionnelle](DOCUMENTATION_FONCTIONNELLE.md)
+- [Index de la documentation](INDEX.md)
+- [Déploiement production](PRODUCTION_DEPLOYMENT.md)
 - [Configuration GitHub Actions](GITHUB_ACTIONS_CONFIG.md)
-- [Index de la Documentation](INDEX.md)
-
----
-
-**Dernière mise à jour :** Janvier 2025  
-**Version de la documentation :** 1.5.0

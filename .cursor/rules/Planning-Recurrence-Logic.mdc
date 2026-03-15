@@ -1,0 +1,33 @@
+---
+description: Règle des 26 semaines pour créneaux récurrents et suggestions en cas de conflit
+alwaysApply: true
+---
+
+# Planning & Recurrence Logic
+
+## Règle des 26 semaines (6 mois)
+
+Les créneaux récurrents sont validés sur **26 semaines** (≈ 6 mois) avant toute réservation.
+
+- **Constante backend** : `RecurringSlotValidator::VALIDATION_WEEKS = 26`
+- **Périmètre** : Chaque occurrence hebdomadaire (ou selon l’intervalle de récurrence) est vérifiée sur les 26 semaines à partir de la date de début
+- **Contrôles** : capacité du créneau (`ClubOpenSlot`), disponibilité enseignant, conflits avec d’autres récurrences (élève ou enseignant déjà pris sur ce créneau)
+- **Expiration** : `expires_at` d’un créneau récurrent = min(expiration abonnement, date de début + 6 mois)
+
+## En cas de collision de planning
+
+Dès qu’un conflit est détecté (validation récurrence, doublon élève/enseignant, capacité dépassée) :
+
+1. **Ne pas se contenter de bloquer** : proposer une alternative ou une piste de résolution
+2. **Suggérer l’usage de l’IA (Gemini)** lorsque c’est pertinent :
+   - Analyse des conflits et suggestions de créneaux alternatifs
+   - Utiliser `GeminiService` / `PredictiveAnalysisService` ou les endpoints de suggestion (ex. `ClubPlanningController::suggestOptimalSlot`, vérification disponibilité) pour alimenter les réponses API ou le frontend
+3. **Réponses API** : en cas d’erreur de récurrence, retourner les conflits détaillés (`conflicts` avec `type`, `date`, `message`) pour permettre au frontend ou à un module IA de proposer des créneaux de remplacement
+
+## Fichiers clés
+
+- `app/Services/RecurringSlotValidator.php` : validation 26 semaines, détection conflits
+- `app/Services/RecurringSlotService.php` : création/annulation des récurrences
+- `app/Http/Controllers/Api/LessonController.php` : création de cours et récurrence, vérification conflits
+- `app/Http/Controllers/Api/ClubPlanningController.php` : suggestions de créneaux
+- `app/Services/AI/GeminiService.php` : analyse et suggestions IA

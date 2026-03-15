@@ -19,6 +19,7 @@ class SubscriptionTemplate extends Model
         'validity_value',
         'validity_unit',
         'is_active',
+        'warning_at_session',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class SubscriptionTemplate extends Model
         'price' => 'decimal:2',
         'validity_months' => 'integer',
         'validity_value' => 'integer',
+        'warning_at_session' => 'integer',
     ];
 
     protected $attributes = [

@@ -8,8 +8,10 @@ Bienvenue dans la documentation complète de BookYourCoach, une plateforme moder
 - [README.md](../README.md) - Guide d'installation et utilisation
 - [Installation avec Docker](../README.md#installation) - Configuration Docker complète
 
-### 🛠 Documentation Technique
-- [Documentation Technique](TECHNICAL_DOCUMENTATION.md) - Architecture, API, configuration
+### 🛠 Documentation technique et fonctionnelle
+- [Documentation technique](DOCUMENTATION_TECHNIQUE.md) – Architecture, API, stack
+- [Documentation fonctionnelle](DOCUMENTATION_FONCTIONNELLE.md) – Rôles et fonctionnalités
+- [Index](INDEX.md) – Vue d’ensemble de la documentation
 - [Configuration GitHub Actions](GITHUB_ACTIONS_CONFIG.md) - Pipeline CI/CD
 - [Déploiement Production](PRODUCTION_DEPLOYMENT.md) - Guide de déploiement
 
@@ -19,9 +21,10 @@ Bienvenue dans la documentation complète de BookYourCoach, une plateforme moder
 ## 🎯 Vue d'Ensemble
 
 BookYourCoach est développé avec :
-- **Laravel 11** + **PHP 8.3**
-- **MySQL 8.0** + **Redis 7**
-- **PHPUnit 12** pour les tests
+- **Laravel 12** + **PHP 8.2+**
+- **MySQL 8.0** + **Redis 7** + **Neo4j**
+- **Nuxt 3** (frontend), **Flutter** (mobile)
+- **PHPUnit 11** pour les tests backend
 - **Docker** pour la conteneurisation
 - **GitHub Actions** pour CI/CD
 
@@ -43,17 +46,27 @@ BookYourCoach est développé avec :
 
 ## 🧪 Tests
 
-Le projet inclut une suite de tests complète :
+Le projet utilise **PHPUnit** pour les tests. La commande `php artisan test` est réservée à d’autres usages (notifications, remplacements, etc.). Pour lancer les tests PHPUnit, utilisez :
 
 ```bash
-# Tests unitaires
-docker exec -it activibe_app php artisan test --testsuite=Unit
+# Tous les tests
+php vendor/bin/phpunit
 
-# Tests avec couverture
-docker exec -it activibe_app php artisan test --coverage
+# Ou via Composer
+composer test
 
-# Résultat actuel : 303 tests ✅
+# Une suite ou des fichiers précis
+php vendor/bin/phpunit tests/Feature/Api/StudentFamilyLinksTest.php tests/Feature/Api/ClubStudentLinksTest.php
 ```
+
+**Depuis le conteneur (recommandé si vous utilisez Docker) :**  
+L’image backend est construite avec `composer install --no-dev`, donc PHPUnit n’est pas présent dans le conteneur. Utilisez le script qui monte le projet, installe les dépendances de dev puis lance PHPUnit :
+
+```bash
+./scripts/run-phpunit.sh tests/Feature/Api/StudentFamilyLinksTest.php tests/Feature/Api/ClubStudentLinksTest.php
+```
+
+**Prérequis :** La config PHPUnit (`phpunit.xml`) utilise SQLite. L’image Docker inclut `pdo_sqlite`. En local (sans le script), PHP doit avoir l’extension **pdo_sqlite**.
 
 ## 🚀 Déploiement
 
@@ -79,7 +92,7 @@ docker-compose -f docker-compose.prod.yml up -d
 - ✅ **QR Codes** pour adhésion rapide
 - ✅ **Analyses avancées** avec Neo4j
 - ✅ **Dashboard financier** pour les clubs
-- ✅ **Tests complets** avec PHPUnit 12
+- ✅ **Tests complets** avec PHPUnit 11
 
 ## 🔧 Configuration
 
@@ -94,7 +107,7 @@ REDIS_HOST=redis
 
 ### Services Docker
 
-- **app** - Application Laravel (PHP 8.3)
+- **app** - Application Laravel (PHP 8.2+)
 - **mysql** - Base de données MySQL 8.0
 - **redis** - Cache et sessions Redis 7
 - **webserver** - Nginx (production)

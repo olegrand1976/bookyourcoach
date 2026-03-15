@@ -100,6 +100,7 @@ class SubscriptionTemplateController extends Controller
                 'validity_unit' => 'required|in:weeks,months',
                 'validity_months' => 'nullable|integer|min:1|max:60', // Calculé automatiquement si non fourni
                 'is_active' => 'boolean',
+                'warning_at_session' => 'nullable|integer|min:1|max:255', // Alerte fin de parcours à la N-ième séance (défaut 8)
                 'course_type_ids' => 'required|array|min:1',
                 'course_type_ids.*' => 'exists:course_types,id'
             ]);
@@ -180,6 +181,7 @@ class SubscriptionTemplateController extends Controller
                 'validity_value' => $validated['validity_value'],
                 'validity_unit' => $validated['validity_unit'],
                 'is_active' => $validated['is_active'] ?? true,
+                'warning_at_session' => $validated['warning_at_session'] ?? null,
             ]);
 
             // Attacher les types de cours
@@ -247,6 +249,7 @@ class SubscriptionTemplateController extends Controller
                 'validity_unit' => 'sometimes|in:weeks,months',
                 'validity_months' => 'sometimes|integer|min:1|max:60',
                 'is_active' => 'boolean',
+                'warning_at_session' => 'sometimes|nullable|integer|min:1|max:255',
                 'course_type_ids' => 'sometimes|array|min:1',
                 'course_type_ids.*' => 'exists:course_types,id'
             ]);

@@ -6,8 +6,8 @@ use App\Models\SubscriptionRecurringSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LegacyRecurringSlotService
 {
@@ -29,21 +29,18 @@ class LegacyRecurringSlotService
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
         $recurringStartDate = Carbon::parse($recurringSlot->start_date);
         
-        // ⚠️ IMPORTANT : Utiliser la date du dernier cours créé pour ce créneau récurrent
-        // au lieu de Carbon::now() pour éviter de sauter des semaines
-        $lastLesson = Lesson::where('student_id', $recurringSlot->student_id)
-            ->where('teacher_id', $recurringSlot->teacher_id)
-            ->orderBy('start_time', 'desc')
-            ->first();
-        
+        // Dernier cours pour ce créneau récurrent uniquement (même jour de semaine + même horaire)
+        // pour éviter les décalages quand un élève a plusieurs récurrences avec le même prof
+        $lastLesson = $this->findLastLessonForRecurringSlot($recurringSlot);
+
         if ($lastLesson) {
-            // Commencer à partir de la période suivante selon l'intervalle de récurrence
             $recurringInterval = $recurringSlot->recurring_interval ?? 1;
             $defaultStartDate = Carbon::parse($lastLesson->start_time)->addWeeks($recurringInterval);
-            Log::info("📅 Utilisation du dernier cours pour déterminer la date de début", [
+            Log::info("📅 Utilisation du dernier cours pour ce créneau (jour/heure)", [
                 'last_lesson_date' => $lastLesson->start_time,
                 'calculated_start_date' => $defaultStartDate->format('Y-m-d'),
                 'recurring_slot_id' => $recurringSlot->id,
+                'day_of_week' => $recurringSlot->day_of_week,
                 'recurring_interval' => $recurringInterval
             ]);
         } else {
@@ -151,6 +148,34 @@ class LegacyRecurringSlotService
     }
 
     /**
+     * Dernière lesson pour ce créneau récurrent (même student, teacher, jour de semaine, horaire).
+     * Évite d'utiliser un cours d'un autre créneau (ex. lundi 10h vs mercredi 14h).
+     */
+    private function findLastLessonForRecurringSlot(SubscriptionRecurringSlot $recurringSlot): ?Lesson
+    {
+        $driver = DB::connection()->getDriverName();
+        $timeStr = $recurringSlot->start_time instanceof \Carbon\Carbon
+            ? $recurringSlot->start_time->format('H:i:s')
+            : (string) $recurringSlot->start_time;
+
+        $query = Lesson::where('student_id', $recurringSlot->student_id)
+            ->where('teacher_id', $recurringSlot->teacher_id)
+            ->orderBy('start_time', 'desc');
+
+        if ($driver === 'mysql') {
+            $dayOfWeekSql = ($recurringSlot->day_of_week % 7) + 1; // Carbon 0=Sun -> MySQL DAYOFWEEK 1=Sun
+            $query->whereRaw('DAYOFWEEK(start_time) = ?', [$dayOfWeekSql])
+                ->whereRaw('TIME(start_time) = ?', [$timeStr]);
+        } else {
+            // SQLite : strftime('%w', start_time) 0=Sun..6=Sat ; strftime('%H:%M:%S', start_time)
+            $query->whereRaw("strftime('%w', start_time) = ?", [(string) ($recurringSlot->day_of_week % 7)])
+                ->whereRaw("strftime('%H:%M:%S', start_time) = ?", [substr($timeStr, 0, 8)]);
+        }
+
+        return $query->first();
+    }
+
+    /**
      * Génère les dates pour un créneau récurrent legacy
      * Ne filtre plus par la validité de l'abonnement, seulement par la période de la récurrence
      * Gère l'intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
@@ -235,11 +260,12 @@ class LegacyRecurringSlotService
             return null;
         }
 
-        // Récupérer le dernier cours créé pour ce créneau récurrent pour avoir les mêmes infos
-        $lastLesson = Lesson::where('student_id', $recurringSlot->student_id)
-            ->where('teacher_id', $recurringSlot->teacher_id)
-            ->orderBy('start_time', 'desc')
-            ->first();
+        // Utiliser le dernier cours de ce créneau (même jour/heure) comme modèle, sinon n'importe quel cours student+teacher
+        $lastLesson = $this->findLastLessonForRecurringSlot($recurringSlot)
+            ?? Lesson::where('student_id', $recurringSlot->student_id)
+                ->where('teacher_id', $recurringSlot->teacher_id)
+                ->orderBy('start_time', 'desc')
+                ->first();
 
         if (!$lastLesson) {
             Log::warning("Aucun cours précédent trouvé pour créneau récurrent #{$recurringSlot->id}");

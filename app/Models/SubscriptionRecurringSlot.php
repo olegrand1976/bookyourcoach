@@ -86,13 +86,24 @@ class SubscriptionRecurringSlot extends Model
     }
 
     /**
-     * Scope pour les récurrences actives
+     * Scope pour les récurrences actives (à la date du jour)
      */
     public function scopeActive($query)
     {
         return $query->where('status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now());
+    }
+
+    /**
+     * Scope pour les récurrences actives à une date donnée (validation 26 semaines)
+     */
+    public function scopeActiveOnDate($query, $date)
+    {
+        $d = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
+        return $query->where('status', 'active')
+            ->where('start_date', '<=', $d)
+            ->where('end_date', '>=', $d);
     }
 
     /**

@@ -100,6 +100,119 @@ class RecurringSlotValidator
     }
 
     /**
+     * Valider la disponibilité sur 26 semaines sans créneau ouvert (création depuis un cours).
+     * Vérifie enseignant et élève sur chaque occurrence.
+     *
+     * @param int $teacherId
+     * @param int $studentId
+     * @param string $startDate Date de début (Y-m-d)
+     * @param int $dayOfWeek 0=Dim, 1=Lun, etc.
+     * @param string $startTime H:i ou H:i:s
+     * @param string $endTime H:i ou H:i:s
+     * @return array ['valid' => bool, 'conflicts' => array, 'message' => string]
+     */
+    public function validateRecurringAvailabilityWithoutOpenSlot(
+        int $teacherId,
+        int $studentId,
+        string $startDate,
+        int $dayOfWeek,
+        string $startTime,
+        string $endTime
+    ): array {
+        $startDate = Carbon::parse($startDate);
+        $conflicts = [];
+
+        Log::info("🔍 Validation récurrence (sans open_slot)", [
+            'teacher_id' => $teacherId,
+            'student_id' => $studentId,
+            'start_date' => $startDate->format('Y-m-d'),
+            'day_of_week' => $dayOfWeek,
+            'weeks_to_check' => self::VALIDATION_WEEKS
+        ]);
+
+        for ($week = 0; $week < self::VALIDATION_WEEKS; $week++) {
+            $occurrenceDate = $this->getNextOccurrence($startDate, $dayOfWeek, $week);
+
+            $teacherConflict = $this->checkTeacherAvailability(
+                $teacherId,
+                $occurrenceDate,
+                $startTime,
+                $endTime
+            );
+            if ($teacherConflict) {
+                $conflicts[] = [
+                    'type' => 'teacher_unavailable',
+                    'date' => $occurrenceDate->format('Y-m-d'),
+                    'message' => $teacherConflict
+                ];
+            }
+
+            $studentConflict = $this->checkStudentAvailability(
+                $studentId,
+                $occurrenceDate,
+                $startTime,
+                $endTime
+            );
+            if ($studentConflict) {
+                $conflicts[] = [
+                    'type' => 'student_unavailable',
+                    'date' => $occurrenceDate->format('Y-m-d'),
+                    'message' => $studentConflict
+                ];
+            }
+        }
+
+        $valid = empty($conflicts);
+        Log::info($valid ? "✅ Récurrence validée (sans open_slot)" : "❌ Récurrence invalide (sans open_slot)", [
+            'conflicts_count' => count($conflicts),
+            'conflicts' => array_slice($conflicts, 0, 5)
+        ]);
+
+        return [
+            'valid' => $valid,
+            'conflicts' => $conflicts,
+            'message' => $valid
+                ? 'Créneau disponible pour les 6 prochains mois'
+                : 'Conflits détectés sur ' . count($conflicts) . ' occurrence(s)'
+        ];
+    }
+
+    /**
+     * Vérifier si l'élève a déjà un cours ou une récurrence à cette date/heure
+     */
+    private function checkStudentAvailability(
+        int $studentId,
+        Carbon $date,
+        string $startTime,
+        string $endTime
+    ): ?string {
+        $conflictingLesson = Lesson::where('student_id', $studentId)
+            ->whereDate('start_time', $date->format('Y-m-d'))
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->whereTime('start_time', '<', $endTime)
+                    ->whereTime('end_time', '>', $startTime);
+            })
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->exists();
+
+        if ($conflictingLesson) {
+            return "Élève déjà occupé (cours)";
+        }
+
+        $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
+            ->where('student_id', $studentId)
+            ->byDayOfWeek($date->dayOfWeek)
+            ->byTimeRange($startTime, $endTime)
+            ->exists();
+
+        if ($conflictingRecurring) {
+            return "Élève déjà réservé (récurrence)";
+        }
+
+        return null;
+    }
+
+    /**
      * Calculer la prochaine occurrence d'un jour de la semaine
      *
      * @param Carbon $startDate Date de départ
@@ -144,8 +257,8 @@ class RecurringSlotValidator
             ->whereIn('status', ['pending', 'confirmed'])
             ->count();
 
-        // Compter les récurrences actives ce jour-là
-        $recurringCount = SubscriptionRecurringSlot::active()
+        // Compter les récurrences actives à cette date d'occurrence (pas seulement "aujourd'hui")
+        $recurringCount = SubscriptionRecurringSlot::activeOnDate($date)
             ->byDayOfWeek($date->dayOfWeek)
             ->byTimeRange($openSlot->start_time, $openSlot->end_time)
             ->whereHas('openSlot', function ($query) use ($openSlot) {
@@ -195,8 +308,8 @@ class RecurringSlotValidator
             return "Enseignant déjà occupé";
         }
 
-        // Vérifier les récurrences actives
-        $conflictingRecurring = SubscriptionRecurringSlot::active()
+        // Vérifier les récurrences actives à cette date d'occurrence
+        $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
             ->byTeacher($teacherId)
             ->byDayOfWeek($date->dayOfWeek)
             ->byTimeRange($startTime, $endTime)
@@ -245,8 +358,8 @@ class RecurringSlotValidator
             'day_of_week' => $openSlot->day_of_week,
             'start_time' => $openSlot->start_time,
             'end_time' => $openSlot->end_time,
-            'started_at' => $startDate,
-            'expires_at' => $expiresAt,
+            'start_date' => $startDate,
+            'end_date' => $expiresAt,
             'status' => 'active',
         ]);
 
@@ -256,8 +369,8 @@ class RecurringSlotValidator
             'open_slot_id' => $openSlotId,
             'teacher_id' => $teacherId,
             'student_id' => $studentId,
-            'started_at' => $startDate->format('Y-m-d'),
-            'expires_at' => $expiresAt->format('Y-m-d'),
+            'start_date' => $startDate->format('Y-m-d'),
+            'end_date' => $expiresAt->format('Y-m-d'),
         ]);
 
         return $recurringSlot;

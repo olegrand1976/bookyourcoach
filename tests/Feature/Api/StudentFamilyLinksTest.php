@@ -314,4 +314,78 @@ class StudentFamilyLinksTest extends TestCase
         $this->assertEquals($student->id, $data['id']);
         $this->assertTrue($data['is_primary']);
     }
+
+    #[Test]
+    public function admin_can_link_student_with_email_to_student_without_email()
+    {
+        $admin = $this->actingAsAdmin();
+        $studentWithEmail = Student::factory()->create([
+            'user_id' => User::factory()->create(['role' => 'student', 'email' => 'with@test.com'])->id,
+        ]);
+        $studentWithoutEmail = Student::factory()->create(['user_id' => null]);
+
+        $response = $this->postJson("/api/admin/students/{$studentWithEmail->id}/link", [
+            'linked_student_id' => $studentWithoutEmail->id,
+            'relationship_type' => 'sibling',
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJson([
+                     'success' => true,
+                     'message' => 'Les étudiants ont été liés avec succès'
+                 ]);
+
+        $this->assertDatabaseHas('student_family_links', [
+            'primary_student_id' => $studentWithEmail->id,
+            'linked_student_id' => $studentWithoutEmail->id,
+        ]);
+        $this->assertDatabaseCount('student_family_links', 1);
+    }
+
+    #[Test]
+    public function admin_cannot_link_when_primary_has_no_user_id()
+    {
+        $admin = $this->actingAsAdmin();
+        $primaryWithoutEmail = Student::factory()->create(['user_id' => null]);
+        $linkedWithEmail = Student::factory()->create([
+            'user_id' => User::factory()->create(['role' => 'student', 'email' => 'linked@test.com'])->id,
+        ]);
+
+        $response = $this->postJson("/api/admin/students/{$primaryWithoutEmail->id}/link", [
+            'linked_student_id' => $linkedWithEmail->id,
+        ]);
+
+        $response->assertStatus(422)
+                 ->assertJson([
+                     'success' => false,
+                     'message' => 'Seul un élève avec compte (email) peut être le compte principal'
+                 ]);
+        $this->assertDatabaseCount('student_family_links', 0);
+    }
+
+    #[Test]
+    public function student_can_see_linked_account_without_email_in_linked_accounts()
+    {
+        $user = $this->actingAsStudent();
+        $student1 = $user->student;
+        $student2WithoutUser = Student::factory()->create(['user_id' => null, 'first_name' => 'Sœur', 'last_name' => 'Dupont']);
+
+        DB::table('student_family_links')->insert([
+            'primary_student_id' => $student1->id,
+            'linked_student_id' => $student2WithoutUser->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/student/linked-accounts');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('success', true);
+        $data = $response->json('data');
+        $this->assertGreaterThanOrEqual(2, count($data));
+        $linked = collect($data)->firstWhere('id', $student2WithoutUser->id);
+        $this->assertNotNull($linked);
+        $this->assertNull($linked['email']);
+        $this->assertNull($linked['user_id']);
+    }
 }

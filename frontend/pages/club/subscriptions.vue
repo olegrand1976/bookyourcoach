@@ -51,8 +51,8 @@
 
       <!-- Filtres -->
       <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div class="flex items-center space-x-4">
-          <div class="flex-1">
+        <div class="flex flex-wrap items-end gap-4">
+          <div class="flex-1 min-w-[200px]">
             <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
               Rechercher par nom/prénom d'élève
             </label>
@@ -78,11 +78,44 @@
               <option value="urgent">🚨 Urgent (≥ 90%)</option>
             </select>
           </div>
+          <div class="flex items-center gap-1 border border-gray-300 rounded-lg p-1 bg-gray-50">
+            <span class="text-sm font-medium text-gray-600 px-2">Vue&nbsp;:</span>
+            <button
+              type="button"
+              :class="[
+                'p-2 rounded transition-colors',
+                viewMode === 'card'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              ]"
+              title="Vue cartes"
+              @click="setViewMode('card')"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+              </svg>
+            </button>
+            <button
+              type="button"
+              :class="[
+                'p-2 rounded transition-colors',
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              ]"
+              title="Vue liste"
+              @click="setViewMode('list')"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Liste des abonnements -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Vue CARTES -->
+      <div v-if="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div 
           v-for="subscription in filteredSubscriptions" 
           :key="subscription.id"
@@ -186,13 +219,13 @@
                   </span>
                   <span 
                     :class="{
-                      'bg-green-100 text-green-800': instance.status === 'active',
-                      'bg-gray-100 text-gray-800': instance.status === 'completed',
-                      'bg-red-100 text-red-800': instance.status === 'expired'
+                      'bg-green-100 text-green-800': getDisplayStatus(instance) === 'active',
+                      'bg-gray-100 text-gray-800': getDisplayStatus(instance) === 'completed',
+                      'bg-red-100 text-red-800': getDisplayStatus(instance) === 'expired'
                     }"
                     class="px-2 py-1 rounded text-xs"
                   >
-                    {{ getStatusLabel(instance.status) }}
+                    {{ getStatusLabel(getDisplayStatus(instance)) }}
                   </span>
                 </div>
                 
@@ -238,6 +271,91 @@
               Aucun élève assigné
             </p>
           </div>
+        </div>
+      </div>
+
+      <!-- Vue LISTE -->
+      <div v-else class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Abonnement</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Modèle</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élèves / Statut</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisation</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiration</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr
+                v-for="subscription in filteredSubscriptions"
+                :key="subscription.id"
+                @click="viewSubscriptionHistory(subscription)"
+                class="hover:bg-blue-50 cursor-pointer transition-colors"
+              >
+                <td class="px-4 py-3">
+                  <span class="font-medium text-gray-900">Abonnement {{ subscription.subscription_number }}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">
+                  {{ subscription.template?.model_number ?? '-' }}
+                </td>
+                <td class="px-4 py-3">
+                  <div v-if="subscription.instances?.length" class="space-y-1">
+                    <div
+                      v-for="instance in subscription.instances.slice(0, 5)"
+                      :key="instance.id"
+                      class="flex items-center gap-2 text-sm"
+                    >
+                      <span class="text-gray-700">{{ getInstanceStudentNames(instance) }}</span>
+                      <span
+                        :class="{
+                          'bg-green-100 text-green-800': getDisplayStatus(instance) === 'active',
+                          'bg-gray-100 text-gray-800': getDisplayStatus(instance) === 'completed',
+                          'bg-red-100 text-red-800': getDisplayStatus(instance) === 'expired'
+                        }"
+                        class="px-2 py-0.5 rounded text-xs"
+                      >
+                        {{ getStatusLabel(getDisplayStatus(instance)) }}
+                      </span>
+                    </div>
+                    <span v-if="subscription.instances.length > 5" class="text-xs text-gray-500">+{{ subscription.instances.length - 5 }} autre(s)</span>
+                  </div>
+                  <span v-else class="text-gray-400 text-sm">Aucun élève</span>
+                </td>
+                <td class="px-4 py-3 text-sm">
+                  <template v-if="getMostUrgentInstance(subscription)">
+                    {{ getInstanceLessonsUsed(getMostUrgentInstance(subscription)) }} / {{ subscription.template?.total_available_lessons ?? 0 }}
+                    <span class="text-gray-500">({{ getUsagePercentage(getMostUrgentInstance(subscription), subscription.template) }}%)</span>
+                  </template>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">
+                  <template v-if="getMostUrgentInstance(subscription)?.expires_at">
+                    {{ formatDate(getMostUrgentInstance(subscription).expires_at) }}
+                    <span v-if="isExpiringSoon(getMostUrgentInstance(subscription))" class="text-red-600 font-medium"> (bientôt)</span>
+                  </template>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
+                <td class="px-4 py-3 text-right" @click.stop>
+                  <button
+                    @click.stop="openDeleteModal(subscription)"
+                    :disabled="hasAnyStudents(subscription)"
+                    :class="[
+                      'p-2 rounded-lg transition-colors',
+                      hasAnyStudents(subscription) ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
+                    ]"
+                    title="Supprimer"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -332,12 +450,12 @@
                       <strong>Statut:</strong> 
                       <span 
                         :class="{
-                          'text-green-600': instance.status === 'active',
-                          'text-gray-600': instance.status === 'completed',
-                          'text-red-600': instance.status === 'expired'
+                          'text-green-600': getDisplayStatus(instance) === 'active',
+                          'text-gray-600': getDisplayStatus(instance) === 'completed',
+                          'text-red-600': getDisplayStatus(instance) === 'expired'
                         }"
                       >
-                        {{ getStatusLabel(instance.status) }}
+                        {{ getStatusLabel(getDisplayStatus(instance)) }}
                       </span>
                     </p>
                   </div>
@@ -807,6 +925,8 @@ definePageMeta({
   middleware: ['auth']
 })
 
+const SUBSCRIPTIONS_VIEW_KEY = 'club-subscriptions-view'
+
 // État
 const subscriptions = ref([])
 const availableDisciplines = ref([])
@@ -814,6 +934,7 @@ const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
+const viewMode = ref('card')
 
 // Modals
 const showCreateModal = ref(false)
@@ -1033,6 +1154,23 @@ const getStatusLabel = (status) => {
     'cancelled': 'Annulé'
   }
   return labels[status] || status
+}
+
+// Statut affiché : si expires_at est dépassée, considérer comme expiré (cohérence affichage)
+const getDisplayStatus = (instance) => {
+  if (!instance) return 'active'
+  if (instance.expires_at) {
+    const expiresAt = new Date(instance.expires_at)
+    if (expiresAt < new Date()) return 'expired'
+  }
+  return instance.status || 'active'
+}
+
+const setViewMode = (mode) => {
+  viewMode.value = mode
+  if (import.meta.client && typeof localStorage !== 'undefined') {
+    localStorage.setItem(SUBSCRIPTIONS_VIEW_KEY, mode)
+  }
 }
 
 const getInstanceLessonsUsed = (instance) => {
@@ -1535,18 +1673,20 @@ const getUsagePercentage = (instance, template) => {
   return Math.round((lessonsUsed / template.total_available_lessons) * 100)
 }
 
-// Obtenir la classe de couleur pour l'instance selon le pourcentage
+// Obtenir la classe de couleur pour l'instance selon le pourcentage et le statut (expiré prioritaire)
 const getInstanceColorClass = (instance, template) => {
+  if (getDisplayStatus(instance) === 'expired') {
+    return 'bg-gray-100 border-gray-300 text-gray-700'
+  }
+  if (getDisplayStatus(instance) === 'completed') {
+    return 'bg-gray-50 border-gray-200 text-gray-700'
+  }
   const percentage = getUsagePercentage(instance, template)
-  
   if (percentage >= 90) {
-    // Rouge foncé : >90% (renouvellement urgent)
     return 'bg-red-100 border-red-300 text-red-900'
   } else if (percentage >= 70) {
-    // Rouge clair : >70% (approchant de la fin)
     return 'bg-orange-50 border-orange-300 text-orange-900'
   } else {
-    // Blanc : <70% (normal)
     return 'bg-white border-blue-200 text-gray-700'
   }
 }
@@ -1690,6 +1830,10 @@ const formatValidity = (template) => {
 
 // Initialisation
 onMounted(async () => {
+  if (import.meta.client && typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem(SUBSCRIPTIONS_VIEW_KEY)
+    if (saved === 'card' || saved === 'list') viewMode.value = saved
+  }
   console.log('🚀 [SUBSCRIPTIONS] onMounted appelé')
   try {
     await Promise.all([

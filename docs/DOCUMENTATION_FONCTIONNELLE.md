@@ -1,8 +1,6 @@
-# 📚 Documentation Fonctionnelle - BookYourCoach
+# Documentation fonctionnelle – BookYourCoach
 
-**Version :** 1.5.0  
-**Date :** Janvier 2025  
-**Plateforme :** activibe (BookYourCoach)
+**Dernière mise à jour :** Mars 2025
 
 ---
 
@@ -45,11 +43,12 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 
 **Fonctionnalités principales :**
 - Dashboard administratif avec statistiques globales
-- Gestion des utilisateurs (création, modification, suppression)
-- Gestion des clubs (création, validation, activation)
+- Gestion des utilisateurs (création, modification, suppression, statut)
+- Gestion des clubs (création, validation, activation, logo)
+- Liaison de comptes étudiants (famille) : lier/délier des étudiants pour un même responsable
 - Configuration des paramètres système
 - Consultation des logs d'audit
-- Rapports de paie globaux
+- Rapports de paie globaux (génération, détail par mois, export CSV)
 
 ### 2. Club (`club`)
 
@@ -68,8 +67,9 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 - Planification des cours et créneaux récurrents
 - Gestion des modèles d'abonnements
 - Suivi des paiements et commissions
-- Rapports de paie pour les enseignants
-- Analyse prédictive avec IA
+- Rapports de paie pour les enseignants (génération, rechargement, détail par enseignant, export CSV)
+- Lettres bénévolat : envoi aux enseignants (individuel ou global), historique
+- Analyse prédictive avec IA (alertes, suggestions)
 
 ### 3. Enseignant (`teacher`)
 
@@ -160,6 +160,10 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 - Les étudiants peuvent s'affilier à plusieurs clubs
 - Gestion des affiliations depuis le profil étudiant
 
+**Comptes liés (famille) :**
+- Un compte utilisateur peut être lié à plusieurs profils étudiant (ex. parent pour plusieurs enfants)
+- L'admin peut lier/délier des étudiants ; l'étudiant (ou le parent) peut basculer entre comptes actifs
+
 #### 4. Planification des Cours
 
 **Créneaux ouverts (Open Slots) :**
@@ -177,6 +181,7 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 - Blocage automatique des créneaux récurrents
 - Validation de disponibilité sur 26 semaines
 - Suggestions alternatives via IA Gemini
+- Libération ou réactivation de créneaux récurrents
 
 #### 5. Système d'Abonnements
 
@@ -189,7 +194,8 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 - Attribution d'abonnements depuis les modèles
 - Suivi de l'utilisation (cours utilisés/restants)
 - Gestion des dates d'expiration
-- Renouvellement automatique ou manuel
+- Renouvellement manuel (création d'une nouvelle instance)
+- Fermeture d'instance, recalcul des instances, marquage legacy (est_legacy)
 
 **Créneaux récurrents d'abonnement :**
 - Réservation automatique sur 6 mois lors de la création d'un cours
@@ -293,7 +299,7 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 **Informations personnelles :**
 - Modification des informations de base
 - Gestion des affiliations aux clubs
-- Préférences de disciplines
+- Préférences de disciplines et préférences avancées (types de cours, créneaux)
 
 **Affiliation aux clubs :**
 - Sélection lors de l'inscription
@@ -309,7 +315,7 @@ BookYourCoach (activibe) est une plateforme complète de gestion de clubs sporti
 
 **Souscription :**
 - Consultation des modèles disponibles
-- Souscription à un abonnement
+- Souscription à un abonnement (y compris paiement en ligne via Stripe Checkout Session)
 - Renouvellement d'abonnement
 
 ---
@@ -493,10 +499,8 @@ Modèle "Abonnement 10 cours"
 ### Stripe (Paiements)
 
 **Intégration :**
-- Traitement des paiements en ligne
-    Abonnement : 180 € (10 scéances + 1 gratuite)
-    Scéance : 18 €
-    Stage : uniquement aux périodes de vacances scolaires et le prix dépend du nombre de jours
+- Traitement des paiements en ligne (séance, abonnement, stages)
+- Exemples de tarification : abonnement (ex. 10 séances + 1 gratuite), séance à l'unité, stages (périodes vacances, prix selon nombre de jours)
 - Webhooks pour les notifications
 - Gestion des abonnements récurrents
 - Remboursements
@@ -614,5 +618,6 @@ Modèle "Abonnement 10 cours"
 
 ---
 
-**Dernière mise à jour :** Janvier 2025  
-**Version de la documentation :** 1.5.0
+**Voir aussi :** [Documentation technique](DOCUMENTATION_TECHNIQUE.md) · [Index de la documentation](INDEX.md)
+
+**Dernière mise à jour :** Mars 2025
