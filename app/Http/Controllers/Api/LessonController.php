@@ -1158,6 +1158,11 @@ class LessonController extends Controller
                 $query->whereHas('student', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
+            } elseif ($user->role === 'club') {
+                $club = $user->getFirstClub();
+                if ($club) {
+                    $query->where('club_id', $club->id);
+                }
             }
 
             $lesson = $query->findOrFail($id);
