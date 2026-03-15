@@ -7,6 +7,7 @@ use App\Models\SubscriptionInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class ClubDashboardController extends Controller
 {
@@ -481,7 +482,11 @@ class ClubDashboardController extends Controller
                     $q->select('id', 'club_id', 'subscription_template_id', 'subscription_number');
                 },
                 'subscription.template' => function ($q) {
-                    $q->select('id', 'model_number', 'total_lessons', 'free_lessons', 'warning_at_session');
+                    $cols = ['id', 'model_number', 'total_lessons', 'free_lessons'];
+                    if (Schema::hasColumn('subscription_templates', 'warning_at_session')) {
+                        $cols[] = 'warning_at_session';
+                    }
+                    $q->select($cols);
                 },
                 'students' => function ($q) {
                     $q->select('students.id', 'students.first_name', 'students.last_name', 'students.user_id');

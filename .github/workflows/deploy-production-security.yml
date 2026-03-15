@@ -510,6 +510,10 @@ jobs:
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
+            # Exécuter les migrations (production)
+            log_info "📦 Exécution des migrations..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force || { log_error "Échec des migrations"; exit 1; }
+            
             # Nettoyage complet de tous les caches et régénération de l'autoloader
             log_info "🧹 Nettoyage complet des caches..."
             
@@ -925,6 +929,10 @@ jobs:
             log_error "Impossible d'exécuter les commandes artisan - le backend n'est pas prêt"
             docker compose -f "$COMPOSE_FILE" logs backend --tail=50
         else
+            # Exécuter les migrations (production)
+            log_info "📦 Exécution des migrations..."
+            docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force || { log_error "Échec des migrations"; exit 1; }
+            
             # Nettoyage complet de tous les caches et régénération de l'autoloader
             log_info "🧹 Nettoyage complet des caches..."
             
