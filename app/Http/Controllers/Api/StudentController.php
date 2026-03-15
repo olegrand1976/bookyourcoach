@@ -1484,7 +1484,7 @@ class StudentController extends Controller
                 return [
                     'id' => $student->id,
                     'name' => $student->name,
-                    'email' => $student->user->email ?? null,
+                    'email' => $student->user?->email ?? null,
                     'user_id' => $student->user_id,
                     'is_active' => $isActive,
                     'is_primary' => $student->id === $user->student->id,
@@ -1556,7 +1556,7 @@ class StudentController extends Controller
                 'data' => [
                     'id' => $targetStudent->id,
                     'name' => $targetStudent->name,
-                    'email' => $targetStudent->user->email ?? null,
+                    'email' => $targetStudent->user?->email ?? null,
                     'user_id' => $targetStudent->user_id,
                 ]
             ]);
@@ -1602,7 +1602,7 @@ class StudentController extends Controller
                 'data' => [
                     'id' => $activeStudent->id,
                     'name' => $activeStudent->name,
-                    'email' => $activeStudent->user->email ?? null,
+                    'email' => $activeStudent->user?->email ?? null,
                     'user_id' => $activeStudent->user_id,
                     'is_primary' => $activeStudent->id === $user->student->id,
                 ]
@@ -1612,6 +1612,306 @@ class StudentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération du compte actif',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Vérifier qu'un élève appartient au club de l'utilisateur connecté (rôle club).
+     */
+    protected function studentBelongsToClub(int $studentId, $club): bool
+    {
+        return DB::table('club_students')
+            ->where('club_id', $club->id)
+            ->where('student_id', $studentId)
+            ->exists();
+    }
+
+    /**
+     * GET /api/club/students/{studentId}/linked — Liste des élèves liés (fiche élève, côté club).
+     */
+    public function getLinkedForClub(Request $request, $studentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            if (!$this->studentBelongsToClub((int) $studentId, $club)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet élève n\'appartient pas à votre club'
+                ], 403);
+            }
+
+            $student = Student::with(['linkedStudents.user', 'linkedFromStudents.user'])->findOrFail($studentId);
+            $linkedStudents = $student->getAllLinkedStudents();
+
+            // Isolation multi-tenant : ne retourner que les élèves liés qui appartiennent au même club
+            $linkedStudents = $linkedStudents->filter(function ($linkedStudent) use ($club) {
+                return $this->studentBelongsToClub((int) $linkedStudent->id, $club);
+            })->values();
+
+            $formatted = $linkedStudents->map(function ($linkedStudent) {
+                return [
+                    'id' => $linkedStudent->id,
+                    'name' => $linkedStudent->name,
+                    'email' => $linkedStudent->user?->email ?? null,
+                    'user_id' => $linkedStudent->user_id,
+                    'relationship_type' => $linkedStudent->pivot->relationship_type ?? null,
+                    'linked_at' => $linkedStudent->pivot->created_at ?? null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Élève non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Erreur getLinkedForClub: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des élèves liés',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/club/students/{studentId}/link — Lier un élève (fiche élève, côté club).
+     */
+    public function linkForClub(Request $request, $studentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'linked_student_id' => 'required|integer|exists:students,id',
+                'relationship_type' => 'nullable|string|max:50',
+            ]);
+
+            $primaryStudent = Student::findOrFail($studentId);
+            $linkedStudentId = (int) $validated['linked_student_id'];
+            $linkedStudent = Student::findOrFail($linkedStudentId);
+
+            if (!$this->studentBelongsToClub($primaryStudent->id, $club) || !$this->studentBelongsToClub($linkedStudent->id, $club)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les deux élèves doivent appartenir à votre club'
+                ], 403);
+            }
+
+            if ($primaryStudent->id === $linkedStudent->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Un élève ne peut pas être lié à lui-même'
+                ], 422);
+            }
+
+            if (!$primaryStudent->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seul un élève avec compte (email) peut être le compte principal'
+                ], 422);
+            }
+
+            $existingLink = DB::table('student_family_links')
+                ->where(function ($q) use ($primaryStudent, $linkedStudentId) {
+                    $q->where('primary_student_id', $primaryStudent->id)->where('linked_student_id', $linkedStudentId);
+                })
+                ->orWhere(function ($q) use ($primaryStudent, $linkedStudentId) {
+                    $q->where('primary_student_id', $linkedStudentId)->where('linked_student_id', $primaryStudent->id);
+                })
+                ->first();
+
+            if ($existingLink) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ces deux élèves sont déjà liés'
+                ], 422);
+            }
+
+            $relationshipType = $validated['relationship_type'] ?? null;
+
+            if ($linkedStudent->user_id) {
+                DB::table('student_family_links')->insert([
+                    [
+                        'primary_student_id' => $primaryStudent->id,
+                        'linked_student_id' => $linkedStudentId,
+                        'relationship_type' => $relationshipType,
+                        'created_by' => $user->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
+                    [
+                        'primary_student_id' => $linkedStudentId,
+                        'linked_student_id' => $primaryStudent->id,
+                        'relationship_type' => $relationshipType,
+                        'created_by' => $user->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                ]);
+            } else {
+                DB::table('student_family_links')->insert([
+                    'primary_student_id' => $primaryStudent->id,
+                    'linked_student_id' => $linkedStudentId,
+                    'relationship_type' => $relationshipType,
+                    'created_by' => $user->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Les élèves ont été liés avec succès'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Élève non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Erreur linkForClub: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la liaison',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * DELETE /api/club/students/{studentId}/unlink/{linkedStudentId} — Délier (fiche élève, côté club).
+     */
+    public function unlinkForClub(Request $request, $studentId, $linkedStudentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $primaryStudent = Student::findOrFail($studentId);
+            $linkedStudent = Student::findOrFail($linkedStudentId);
+
+            if (!$this->studentBelongsToClub($primaryStudent->id, $club) || !$this->studentBelongsToClub($linkedStudent->id, $club)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Les deux élèves doivent appartenir à votre club'
+                ], 403);
+            }
+
+            DB::table('student_family_links')
+                ->where(function ($q) use ($primaryStudent, $linkedStudentId) {
+                    $q->where('primary_student_id', $primaryStudent->id)->where('linked_student_id', $linkedStudentId);
+                })
+                ->orWhere(function ($q) use ($primaryStudent, $linkedStudentId) {
+                    $q->where('primary_student_id', $linkedStudentId)->where('linked_student_id', $primaryStudent->id);
+                })
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Les élèves ont été déliés avec succès'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Élève non trouvé'
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Erreur unlinkForClub: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression du lien',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/club/students/available-for-linking — Élèves du club disponibles pour liaison (avec ou sans email).
+     */
+    public function getAvailableForLinkingForClub(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $excludeStudentId = $request->input('exclude_student_id');
+            $studentIdsInClub = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->pluck('student_id')
+                ->toArray();
+
+            $query = Student::with('user')->whereIn('id', $studentIdsInClub);
+
+            if ($excludeStudentId) {
+                $excludeStudent = Student::find($excludeStudentId);
+                if ($excludeStudent) {
+                    $linkedIds = $excludeStudent->getAllLinkedStudents()->pluck('id')->toArray();
+                    $linkedIds[] = (int) $excludeStudentId;
+                    $query->whereNotIn('id', $linkedIds);
+                } else {
+                    $query->where('id', '!=', $excludeStudentId);
+                }
+            }
+
+            $students = $query->get();
+            $formatted = $students->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->user?->email ?? null,
+                    'user_id' => $student->user_id,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erreur getAvailableForLinkingForClub: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des élèves disponibles',
                 'error' => $e->getMessage()
             ], 500);
         }

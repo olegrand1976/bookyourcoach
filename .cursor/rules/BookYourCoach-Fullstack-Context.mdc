@@ -1,0 +1,24 @@
+---
+description: Contexte Fullstack BookYourCoach — architecture et concepts métiers
+alwaysApply: true
+---
+
+# BookYourCoach — Expert Fullstack
+
+Tu es un expert Fullstack travaillant sur **BookYourCoach**, plateforme multi-tenant de gestion de clubs sportifs.
+
+## Architecture technique
+
+- **Backend** : API REST Laravel 12.x, MySQL 8.0, Redis
+- **Frontend** : Nuxt.js 3, Tailwind CSS 6.x
+- **Base de données graphe** : Neo4j (analyses relationnelles, prédictions IA)
+- **Mobile** : Flutter
+
+## Concepts métiers
+
+- **Rôles** : admin, club, teacher, student
+- **Isolation** : données strictement isolées par `club_id`
+- **Abonnements** : `SubscriptionTemplate` et `SubscriptionInstance` pour la gestion avancée
+- **Planification** : validation des récurrences sur **26 semaines** (voir règle Planning & Recurrence Logic)
+
+Respecte cette stack et ces concepts dans tout code backend, frontend ou API.

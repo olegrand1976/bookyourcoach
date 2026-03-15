@@ -9,6 +9,9 @@ use App\Models\Student;
 use App\Models\Lesson;
 use App\Models\CourseType;
 use App\Models\Location;
+use App\Models\SubscriptionTemplate;
+use App\Models\Subscription;
+use App\Models\SubscriptionInstance;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -74,6 +77,8 @@ class ClubDashboardControllerTest extends TestCase
                          'recentTeachers',
                          'recentStudents',
                          'recentLessons',
+                         'incompleteStudents',
+                         'subscriptionsNearingEnd',
                      ]
                  ]);
 
@@ -226,6 +231,79 @@ class ClubDashboardControllerTest extends TestCase
         $response->assertStatus(200);
         $recentLessons = $response->json('data.recentLessons');
         $this->assertGreaterThanOrEqual(3, count($recentLessons));
+    }
+
+    #[Test]
+    public function it_includes_subscriptions_nearing_end_in_dashboard()
+    {
+        // Arrange: club + template (10 cours, seuil par défaut 8) + subscription + instance à 8 séances
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+
+        $template = SubscriptionTemplate::factory()->create([
+            'club_id' => $club->id,
+            'model_number' => 'PACK10',
+            'total_lessons' => 10,
+            'free_lessons' => 0,
+            'warning_at_session' => 8,
+        ]);
+
+        $subscription = Subscription::create([
+            'club_id' => $club->id,
+            'subscription_template_id' => $template->id,
+        ]);
+
+        $student = Student::factory()->create(['club_id' => $club->id]);
+        DB::table('club_students')->insert([
+            'club_id' => $club->id,
+            'student_id' => $student->id,
+            'is_active' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $instanceNearing = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'lessons_used' => 8,
+            'started_at' => now()->subMonths(1),
+            'expires_at' => now()->addMonths(2),
+            'status' => 'active',
+        ]);
+        $instanceNearing->students()->attach($student->id);
+
+        // Une autre instance en dessous du seuil ne doit pas apparaître
+        $subscription2 = Subscription::create([
+            'club_id' => $club->id,
+            'subscription_template_id' => $template->id,
+        ]);
+        $instanceBelow = SubscriptionInstance::create([
+            'subscription_id' => $subscription2->id,
+            'lessons_used' => 3,
+            'started_at' => now()->subDays(10),
+            'expires_at' => now()->addMonths(2),
+            'status' => 'active',
+        ]);
+        $instanceBelow->students()->attach($student->id);
+
+        // Act
+        $response = $this->getJson('/api/club/dashboard');
+
+        // Assert
+        $response->assertStatus(200);
+        $nearing = $response->json('data.subscriptionsNearingEnd');
+        $this->assertIsArray($nearing);
+        $this->assertGreaterThanOrEqual(1, count($nearing));
+        $ids = array_column($nearing, 'id');
+        $this->assertContains($instanceNearing->id, $ids);
+        $this->assertNotContains($instanceBelow->id, $ids);
+
+        $first = collect($nearing)->firstWhere('id', $instanceNearing->id);
+        $this->assertNotNull($first);
+        $this->assertSame(8, $first['lessons_used']);
+        $this->assertSame(8, $first['threshold']);
+        $this->assertSame('PACK10', $first['template']['model_number']);
+        $this->assertSame(10, $first['template']['total_available_lessons']);
     }
 }
 

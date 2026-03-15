@@ -1,7 +1,7 @@
 # Dockerfile pour BookYourCoach - Backend Laravel uniquement
 FROM php:8.3-fpm-alpine AS base
 
-# Installer les dépendances système
+# Installer les dépendances système (sqlite-dev pour pdo_sqlite/sqlite3 en tests)
 RUN apk add --no-cache \
     nginx \
     supervisor \
@@ -16,6 +16,7 @@ RUN apk add --no-cache \
     libzip-dev \
     icu-dev \
     oniguruma-dev \
+    sqlite-dev \
     imagemagick \
     autoconf \
     gcc \
@@ -27,17 +28,16 @@ RUN apk add --no-cache --virtual .build-deps \
     $PHPIZE_DEPS \
     imagemagick-dev
 
-# Installer les extensions PHP
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
-        pdo_mysql \
-        mbstring \
-        zip \
-        exif \
-        pcntl \
-        gd \
-        intl \
-        bcmath
+# Installer les extensions PHP (pdo_sqlite pour les tests PHPUnit)
+# L'image PHP supprime /usr/src/php après chaque docker-php-ext-install. Sauvegarde au début, restaure avant chaque ext.
+RUN cp -a /usr/src/php /usr/src/php-src \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j1 gd \
+    && for ext in pdo_mysql pdo_sqlite sqlite3 mbstring zip exif pcntl intl bcmath; do \
+         rm -rf /usr/src/php && cp -a /usr/src/php-src /usr/src/php \
+         && docker-php-ext-install -j1 "$ext"; \
+       done \
+    && rm -rf /usr/src/php-src
 
 # Installer les extensions PECL
 RUN pecl install redis imagick \

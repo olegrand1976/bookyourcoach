@@ -1887,6 +1887,7 @@ class LessonController extends Controller
                 $timeStart,
                 $timeEnd,
                 $lesson->teacher_id,
+                $lesson->student_id,
                 $lesson->club_id,
                 $recurringStartDate,
                 $recurringEndDate
@@ -1897,12 +1898,28 @@ class LessonController extends Controller
                     'lesson_id' => $lesson->id,
                     'student_id' => $lesson->student_id,
                     'conflicts_count' => count($conflicts),
-                    'conflicts' => array_slice($conflicts, 0, 5), // Limiter aux 5 premiers
+                    'conflicts' => array_slice($conflicts, 0, 5),
                     'note' => 'Créneaux RÉSERVÉS (pas bloqués) - Peuvent être libérés manuellement'
                 ]);
-                
-                // On crée quand même la réservation mais on log l'avertissement
-                // Les conflits n'empêchent PAS la création, ils servent juste d'avertissement
+            }
+
+            // Validation 26 semaines (règle Planning & Recurrence) : refuser la création si conflits
+            $validator = new \App\Services\RecurringSlotValidator();
+            $validation26 = $validator->validateRecurringAvailabilityWithoutOpenSlot(
+                (int) $lesson->teacher_id,
+                (int) $lesson->student_id,
+                $recurringStartDate->format('Y-m-d'),
+                $dayOfWeek,
+                $timeStart,
+                $timeEnd
+            );
+            if (!$validation26['valid']) {
+                Log::warning("❌ Récurrence non créée : conflits sur 26 semaines", [
+                    'lesson_id' => $lesson->id,
+                    'conflicts_count' => count($validation26['conflicts']),
+                    'conflicts' => array_slice($validation26['conflicts'], 0, 5),
+                ]);
+                return;
             }
 
             // Créer la réservation de créneau récurrent
@@ -1961,6 +1978,7 @@ class LessonController extends Controller
         string $startTime,
         string $endTime,
         int $teacherId,
+        int $studentId,
         int $clubId,
         Carbon $startDate,
         Carbon $endDate
@@ -2006,8 +2024,8 @@ class LessonController extends Controller
 
         // 2. Vérifier si l'élève lui-même a déjà une récurrence active sur ce créneau
         // (éviter qu'un élève ait 2 cours en même temps avec 2 enseignants différents)
-        // Note: On ne filtre pas par clubId car on veut détecter les conflits même inter-clubs
-        $studentRecurringConflicts = SubscriptionRecurringSlot::where('day_of_week', $dayOfWeek)
+        $studentRecurringConflicts = SubscriptionRecurringSlot::where('student_id', $studentId)
+            ->where('day_of_week', $dayOfWeek)
             ->where('status', 'active')
             ->where(function ($query) use ($startDate, $endDate) {
                 $query->where(function ($q) use ($startDate, $endDate) {

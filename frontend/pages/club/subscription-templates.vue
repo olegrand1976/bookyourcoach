@@ -83,6 +83,14 @@
                 Validité: {{ formatValidity(template) }}
               </span>
             </div>
+            <div v-if="template.warning_at_session != null" class="flex items-center text-sm">
+              <svg class="w-4 h-4 text-amber-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <span class="text-gray-700">
+                Alerte fin de parcours : séance n°{{ template.warning_at_session }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -236,6 +244,22 @@
                 <span v-if="form.total_lessons > 0 && form.price > 0">
                   Prix par cours : {{ (form.price / form.total_lessons).toFixed(2) }} €
                 </span>
+              </p>
+            </div>
+
+            <!-- Alerte fin de parcours -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Alerte fin de parcours à la séance n°</label>
+              <input 
+                v-model.number="form.warning_at_session"
+                type="number" 
+                min="1"
+                :max="(form.total_lessons || 0) + (form.free_lessons || 0)"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="8"
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                À partir de cette séance, l'abonnement apparaît dans « Abonnements en fin de parcours » sur le dashboard. Vide = 8 par défaut.
               </p>
             </div>
 
@@ -401,6 +425,7 @@ const form = ref({
   validity_months: 12,
   validity_unit: 'weeks', // 'weeks' ou 'months'
   validity_value: 12, // Valeur numérique
+  warning_at_session: 8, // Alerte fin de parcours (null = 8 par défaut côté API)
   course_type_ids: [],
   is_active: true
 })
@@ -756,6 +781,7 @@ const resetForm = () => {
       : defaults.default_subscription_validity_value,
     validity_unit: defaults.default_subscription_validity_unit,
     validity_value: defaults.default_subscription_validity_value,
+    warning_at_session: 8,
     course_type_ids: [],
     is_active: true
   }
@@ -776,7 +802,12 @@ const createTemplate = async () => {
     // Supprimer les champs frontend qui ne sont pas dans l'API
     delete payload.validity_months // Ne pas envoyer, sera calculé côté serveur
     delete payload.model_number // Généré automatiquement côté serveur
-    
+    // warning_at_session: envoyer null si vide pour utiliser le défaut (8) côté API
+    const w = payload.warning_at_session
+    if (w == null || w === '' || w < 1 || Number.isNaN(Number(w))) {
+      payload.warning_at_session = null
+    }
+
     const response = await $api.post('/club/subscription-templates', payload)
     if (response.data.success) {
       await loadTemplates()
@@ -821,6 +852,7 @@ const editTemplate = (template) => {
     validity_months: template.validity_months || 12,
     validity_unit: validityUnit,
     validity_value: validityValue,
+    warning_at_session: template.warning_at_session ?? 8,
     course_type_ids: template.course_types?.map(ct => ct.id) || [],
     is_active: template.is_active
   }
@@ -836,7 +868,11 @@ const updateTemplate = async () => {
     }
     // Supprimer les champs frontend qui ne sont pas dans l'API
     delete payload.validity_months // Ne pas envoyer, sera calculé côté serveur
-    
+    const w = payload.warning_at_session
+    if (w == null || w === '' || w < 1 || Number.isNaN(Number(w))) {
+      payload.warning_at_session = null
+    }
+
     const response = await $api.put(`/club/subscription-templates/${editingTemplate.value.id}`, payload)
     if (response.data.success) {
       await loadTemplates()

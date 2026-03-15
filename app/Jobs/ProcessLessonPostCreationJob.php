@@ -204,7 +204,7 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
             }
 
-            // Vérifier si une récurrence existe déjà (sans filtre status car la colonne n'existe pas)
+            // Vérifier si une récurrence existe déjà
             $existingRecurring = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
                 ->where('student_id', $this->lesson->student_id)
                 ->where('teacher_id', $this->lesson->teacher_id)
@@ -217,9 +217,29 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 return;
             }
 
-            // ✅ OPTIMISATION : Ne pas vérifier les conflits - les créer directement
-            // Les conflits seront gérés manuellement par le club via l'interface
-            // Note: La table n'a que les colonnes de base (pas de status, open_slot_id, ni notes)
+            // Validation 26 semaines avant création (règle Planning & Recurrence)
+            $validator = new \App\Services\RecurringSlotValidator();
+            $validation = $validator->validateRecurringAvailabilityWithoutOpenSlot(
+                (int) $this->lesson->teacher_id,
+                (int) $this->lesson->student_id,
+                $recurringStartDate->format('Y-m-d'),
+                $dayOfWeek,
+                $timeStart,
+                $timeEnd
+            );
+
+            if (!$validation['valid']) {
+                Log::warning("❌ Récurrence refusée : conflits sur 26 semaines", [
+                    'lesson_id' => $this->lesson->id,
+                    'student_id' => $this->lesson->student_id,
+                    'teacher_id' => $this->lesson->teacher_id,
+                    'conflicts_count' => count($validation['conflicts']),
+                    'conflicts' => array_slice($validation['conflicts'], 0, 10),
+                    'message' => $validation['message'],
+                ]);
+                return;
+            }
+
             $recurringSlot = SubscriptionRecurringSlot::create([
                 'subscription_instance_id' => $activeSubscription->id,
                 'teacher_id' => $this->lesson->teacher_id,

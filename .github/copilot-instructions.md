@@ -152,7 +152,7 @@ If experiencing redirect loops:
 
 ## When Stuck
 
-1. Check relevant doc: `docs/{AUTH_SOLUTION,BACKEND_CONNECTION_GUIDE,TECHNICAL_DOCUMENTATION}.md`
+1. Check relevant doc: `docs/INDEX.md`, `docs/DOCUMENTATION_TECHNIQUE.md`, `docs/DOCUMENTATION_FONCTIONNELLE.md`, `docs/AUTH_SOLUTION.md`
 2. Review script helpers: `scripts/README.md`
 3. Test account credentials in `frontend/README.md` and `mobile/README.md`
 4. Verify Docker health: `./scripts/docker-maintenance.sh status`

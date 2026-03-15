@@ -1,0 +1,79 @@
+---
+description: Format de réponse API standard, FormRequests et Resources Laravel pour cohérence avec le frontend Nuxt
+globs: app/Http/Controllers/Api/**/*.php,app/Http/Requests/**/*.php,app/Http/Resources/**/*.php
+alwaysApply: false
+---
+
+# API Design System & Contracts
+
+Garantir que chaque contrôleur API respecte le même format et les mêmes contrats pour ne pas casser l'intégration avec le frontend Nuxt.
+
+## Format de réponse standard
+
+Toute réponse JSON de l'API doit suivre :
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "..."
+}
+```
+
+- **Succès** : `success: true`, payload dans `data`, message optionnel.
+- **Erreur** : `success: false`, pas de `data` (ou null), `message` obligatoire pour l'UX. Code HTTP adapté (4xx/5xx).
+
+### Exemples dans les contrôleurs
+
+```php
+// ✅ Succès
+return response()->json([
+    'success' => true,
+    'data' => $resource->toArray($request),
+    'message' => 'Ressource récupérée avec succès'
+]);
+
+// ✅ Erreur métier / accès
+return response()->json([
+    'success' => false,
+    'message' => 'Accès réservé aux clubs'
+], 403);
+
+// ❌ À éviter : réponse sans success/data/message
+return response()->json(['items' => $items]);
+```
+
+## FormRequests
+
+- **Toujours** utiliser un FormRequest pour toute entrée utilisateur (create/update) au lieu de `Request` nu.
+- Implémenter `authorize()` (vérification rôle / club) et `rules()`.
+- Optionnel : `messages()` pour les messages de validation en français.
+
+```php
+// Dans le contrôleur
+public function store(StoreClubRequest $request): JsonResponse
+{
+    $validated = $request->validated();
+    // ...
+}
+```
+
+## Resources Laravel
+
+- Exposer les modèles via des **Resources** (JsonResource) plutôt qu'en retournant les modèles bruts.
+- Garder un contrat stable (mêmes clés) pour que le frontend Nuxt puisse typer et réutiliser les réponses.
+
+```php
+// Dans le contrôleur
+return response()->json([
+    'success' => true,
+    'data' => new ClubResource($club),
+    'message' => 'Club créé'
+]);
+```
+
+## Checklist nouveau contrôleur API
+
+1. Réponses au format `{ success, data?, message }`.
+2. Endpoints de création/modification → FormRequest dédié.
+3. Données métier retournées → Resource dédiée (ou tableau cohérent avec les autres endpoints).

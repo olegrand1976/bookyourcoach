@@ -1,0 +1,44 @@
+---
+description: Isolation des données par club (multi-tenant) — where club_id ou scopes globaux obligatoires
+globs: app/**/*.php
+alwaysApply: false
+---
+
+# Multi-Tenant & Data Isolation
+
+Toute requête sur un modèle lié au club **doit** filtrer par `club_id` (ou utiliser un scope global Eloquent). Pas d’exception : la sécurité des données en multi-tenant repose sur cette isolation.
+
+## Règles
+
+- Pour les modèles ayant une colonne `club_id` : inclure systématiquement `->where('club_id', $clubId)` (ou équivalent) sur les requêtes de lecture/écriture, **sauf** si le modèle applique déjà un **global scope** sur `club_id`.
+- Si le contrôleur ou le service reçoit un `club_id` (utilisateur courant, paramètre, token), l’utiliser pour filtrer toutes les requêtes sur les modèles liés au club.
+- Les relations (`hasMany`, `belongsTo`, etc.) qui traversent des modèles « par club » ne suffisent pas seules : la requête racine doit être scopée par club (ou le modèle doit avoir un global scope).
+
+## Exemples
+
+```php
+// ❌ BAD — pas de filtre club
+$lessons = Lesson::where('course_slot_id', $slotId)->get();
+
+// ✅ GOOD — filtre explicite par club
+$lessons = Lesson::where('club_id', $clubId)->where('course_slot_id', $slotId)->get();
+```
+
+```php
+// ❌ BAD — liste tous les enseignants
+$teachers = Teacher::query()->get();
+
+// ✅ GOOD — limité au club
+$teachers = Teacher::where('club_id', $clubId)->get();
+```
+
+```php
+// ✅ GOOD — global scope sur le modèle (alors pas besoin de where dans chaque requête)
+// Dans le modèle : booted() avec addGlobalScope('club', fn ($q) => $q->where('club_id', current_club_id()))
+$teachers = Teacher::all(); // déjà filtré si scope actif
+```
+
+## À vérifier à chaque modification
+
+- Nouveaux contrôleurs / actions qui lisent ou écrivent des entités liées au club → filtre `club_id` ou usage de modèles déjà scopés.
+- Nouvelles requêtes Eloquent (y compris `find`, `first`, `get`, `update`, `delete`) sur des modèles avec `club_id` → s’assurer que le scope club est appliqué (explicite ou global).

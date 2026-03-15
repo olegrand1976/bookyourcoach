@@ -229,6 +229,10 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
     Route::post('/students', [StudentController::class, 'store']);
+    Route::get('/students/available-for-linking', [StudentController::class, 'getAvailableForLinkingForClub']);
+    Route::get('/students/{studentId}/linked', [StudentController::class, 'getLinkedForClub']);
+    Route::post('/students/{studentId}/link', [StudentController::class, 'linkForClub']);
+    Route::delete('/students/{studentId}/unlink/{linkedStudentId}', [StudentController::class, 'unlinkForClub']);
     Route::get('/students/{studentId}/history', [StudentController::class, 'history']);
     Route::patch('/students/{studentId}/toggle-status', [StudentController::class, 'toggleStatus']);
     Route::post('/students/{studentId}/resend-invitation', [StudentController::class, 'resendInvitation']);

@@ -165,10 +165,11 @@ class SubscriptionController extends Controller
                     foreach ($subscription->instances as $instance) {
                         try {
                             // Recalculer lessons_used pour ne compter que les cours passés
-                            // Cela met à jour la valeur si nécessaire sans écraser les valeurs manuelles
                             $instance->recalculateLessonsUsed();
+                            // Mettre à jour le statut (expired si expires_at dépassée, completed si 100% utilisé)
+                            $instance->checkAndUpdateStatus();
                         } catch (\Exception $e) {
-                            Log::warning('Erreur lors du recalcul de lessons_used pour l\'instance: ' . $e->getMessage(), [
+                            Log::warning('Erreur lors du recalcul pour l\'instance: ' . $e->getMessage(), [
                                 'instance_id' => $instance->id ?? null
                             ]);
                         }

@@ -1622,7 +1622,7 @@ class AdminController extends BaseController
                 return [
                     'id' => $linkedStudent->id,
                     'name' => $linkedStudent->name,
-                    'email' => $linkedStudent->user->email ?? null,
+                    'email' => $linkedStudent->user?->email ?? null,
                     'user_id' => $linkedStudent->user_id,
                     'relationship_type' => $linkedStudent->pivot->relationship_type ?? null,
                     'linked_at' => $linkedStudent->pivot->created_at ?? null,
@@ -1677,11 +1677,11 @@ class AdminController extends BaseController
                 ], 422);
             }
 
-            // Vérifier que les deux étudiants ont un user_id (compte avec email)
-            if (!$primaryStudent->user_id || !$linkedStudent->user_id) {
+            // Seul le compte principal (primary) doit avoir un user_id pour que le titulaire puisse voir les liés
+            if (!$primaryStudent->user_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Les deux étudiants doivent avoir un compte avec email pour être liés'
+                    'message' => 'Seul un élève avec compte (email) peut être le compte principal'
                 ], 422);
             }
 
@@ -1704,28 +1704,39 @@ class AdminController extends BaseController
                 ], 422);
             }
 
-            // Créer le lien (bidirectionnel : on crée les deux sens)
             $adminId = Auth::id();
             $relationshipType = $request->input('relationship_type');
 
-            DB::table('student_family_links')->insert([
-                [
+            // Si les deux ont un compte : lien bidirectionnel (les deux voient l'autre). Sinon : une seule ligne (primary avec email -> lié)
+            if ($linkedStudent->user_id) {
+                DB::table('student_family_links')->insert([
+                    [
+                        'primary_student_id' => $primaryStudent->id,
+                        'linked_student_id' => $linkedStudentId,
+                        'relationship_type' => $relationshipType,
+                        'created_by' => $adminId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ],
+                    [
+                        'primary_student_id' => $linkedStudentId,
+                        'linked_student_id' => $primaryStudent->id,
+                        'relationship_type' => $relationshipType,
+                        'created_by' => $adminId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                ]);
+            } else {
+                DB::table('student_family_links')->insert([
                     'primary_student_id' => $primaryStudent->id,
                     'linked_student_id' => $linkedStudentId,
                     'relationship_type' => $relationshipType,
                     'created_by' => $adminId,
                     'created_at' => now(),
                     'updated_at' => now(),
-                ],
-                [
-                    'primary_student_id' => $linkedStudentId,
-                    'linked_student_id' => $primaryStudent->id,
-                    'relationship_type' => $relationshipType,
-                    'created_by' => $adminId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            ]);
+                ]);
+            }
 
             // Log de l'action
             AuditLog::create([
@@ -1807,8 +1818,8 @@ class AdminController extends BaseController
     }
 
     /**
-     * Récupérer tous les étudiants disponibles pour liaison (ayant un email).
-     * 
+     * Récupérer tous les étudiants disponibles pour liaison (avec ou sans email).
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -1816,20 +1827,15 @@ class AdminController extends BaseController
     {
         try {
             $excludeStudentId = $request->input('exclude_student_id');
-            
-            // Récupérer tous les étudiants ayant un user_id (compte avec email)
-            $query = Student::with('user')
-                ->whereNotNull('user_id')
-                ->whereHas('user', function ($q) {
-                    $q->whereNotNull('email');
-                });
+
+            $query = Student::with('user');
 
             // Exclure l'étudiant en cours de modification et ceux déjà liés
             if ($excludeStudentId) {
                 $excludeStudent = Student::find($excludeStudentId);
                 if ($excludeStudent) {
                     $linkedIds = $excludeStudent->getAllLinkedStudents()->pluck('id')->toArray();
-                    $linkedIds[] = $excludeStudentId;
+                    $linkedIds[] = (int) $excludeStudentId;
                     $query->whereNotIn('id', $linkedIds);
                 } else {
                     $query->where('id', '!=', $excludeStudentId);
@@ -1838,12 +1844,12 @@ class AdminController extends BaseController
 
             $students = $query->get();
 
-            // Formater les données
+            // Formater les données (élèves avec ou sans compte)
             $formatted = $students->map(function ($student) {
                 return [
                     'id' => $student->id,
                     'name' => $student->name,
-                    'email' => $student->user->email ?? null,
+                    'email' => $student->user?->email ?? null,
                     'user_id' => $student->user_id,
                 ];
             });

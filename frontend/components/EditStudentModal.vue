@@ -318,6 +318,91 @@
               </button>
             </div>
           </div>
+
+          <!-- Section Élèves liés (famille / fratrie) : visible uniquement si l'élève a un compte (email) -->
+          <div v-if="hasStudentAccount && student.id" class="bg-purple-50 rounded-xl p-6">
+            <div class="flex items-center mb-4">
+              <div class="bg-purple-100 p-2 rounded-lg mr-3">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+              </div>
+              <div>
+                <h4 class="text-lg font-semibold text-gray-900">Élèves liés (famille / fratrie)</h4>
+                <p class="text-sm text-gray-600">Les élèves liés peuvent être gérés depuis le compte de cet élève (planning et abonnements visibles ensemble).</p>
+              </div>
+            </div>
+
+            <div v-if="loadingLinked" class="flex justify-center py-4">
+              <svg class="animate-spin h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <template v-else>
+              <div v-if="linkedStudents.length > 0" class="mb-4 space-y-2">
+                <div
+                  v-for="linked in linkedStudents"
+                  :key="linked.id"
+                  class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                >
+                  <div class="flex-1">
+                    <div class="font-medium text-gray-900">{{ linked.name }}</div>
+                    <div class="text-sm text-gray-600">{{ linked.email || 'Sans compte' }}</div>
+                  </div>
+                  <button
+                    type="button"
+                    @click="unlinkStudent(linked.id)"
+                    :disabled="loadingLinkAction"
+                    class="ml-4 text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Délier"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div v-else class="mb-4 p-4 bg-white rounded-lg border border-gray-200 text-center text-sm text-gray-600">
+                Aucun élève lié pour le moment
+              </div>
+
+              <div class="border-t border-gray-200 pt-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Lier un élève du club</label>
+                <div class="flex gap-2">
+                  <input
+                    v-model="linkSearchQuery"
+                    type="text"
+                    placeholder="Rechercher par nom ou email..."
+                    class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    @focus="loadAvailableForLinking"
+                  />
+                  <button
+                    type="button"
+                    @click="loadAvailableForLinking"
+                    :disabled="loadingLinkAction"
+                    class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div v-if="filteredAvailableForLinking.length > 0" class="mt-3 max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                  <div
+                    v-for="s in filteredAvailableForLinking"
+                    :key="s.id"
+                    @click="linkStudent(s)"
+                    class="p-3 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                  >
+                    <div class="font-medium text-gray-900">{{ s.name }}</div>
+                    <div class="text-sm text-gray-600">{{ s.email || 'Sans compte' }}</div>
+                  </div>
+                </div>
+                <p v-else-if="linkSearchQuery && availableForLinking.length > 0" class="mt-2 text-sm text-gray-500">Aucun résultat pour « {{ linkSearchQuery }} »</p>
+              </div>
+            </template>
+          </div>
           
           <!-- Boutons d'action -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
@@ -360,6 +445,23 @@ const loading = ref(false)
 const availableDisciplines = ref([])
 const selectedDisciplines = ref([])
 const medicalDocuments = ref([])
+
+// Élèves liés (section visible si élève a un compte)
+const hasStudentAccount = computed(() => !!(props.student?.user_id))
+const linkedStudents = ref([])
+const loadingLinked = ref(false)
+const loadingLinkAction = ref(false)
+const linkSearchQuery = ref('')
+const availableForLinking = ref([])
+const filteredAvailableForLinking = computed(() => {
+  const q = (linkSearchQuery.value || '').toLowerCase().trim()
+  if (!q) return availableForLinking.value
+  return availableForLinking.value.filter(s => {
+    const name = (s.name || '').toLowerCase()
+    const email = (s.email || '').toLowerCase()
+    return name.includes(q) || email.includes(q)
+  })
+})
 
 const form = ref({
   first_name: '',
@@ -463,6 +565,85 @@ const loadStudentDisciplines = async () => {
   selectedDisciplines.value = []
 }
 
+// Charger les élèves liés (API club)
+const loadLinkedStudents = async () => {
+  if (!props.student?.id || !props.student?.user_id) return
+  loadingLinked.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/club/students/${props.student.id}/linked`)
+    if (response.data.success) {
+      linkedStudents.value = response.data.data || []
+    }
+  } catch (e) {
+    console.error('Erreur chargement élèves liés:', e)
+    linkedStudents.value = []
+  } finally {
+    loadingLinked.value = false
+  }
+}
+
+// Charger les élèves disponibles pour liaison (API club)
+const loadAvailableForLinking = async () => {
+  if (!props.student?.id) return
+  loadingLinkAction.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/students/available-for-linking', {
+      params: { exclude_student_id: props.student.id }
+    })
+    if (response.data.success) {
+      availableForLinking.value = response.data.data || []
+    }
+  } catch (e) {
+    console.error('Erreur chargement disponibles pour liaison:', e)
+    availableForLinking.value = []
+  } finally {
+    loadingLinkAction.value = false
+  }
+}
+
+const linkStudent = async (s) => {
+  if (!props.student?.id) return
+  loadingLinkAction.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/students/${props.student.id}/link`, {
+      linked_student_id: s.id
+    })
+    if (response.data.success) {
+      await loadLinkedStudents()
+      availableForLinking.value = availableForLinking.value.filter(x => x.id !== s.id)
+      linkSearchQuery.value = ''
+    }
+  } catch (e) {
+    const msg = e?.response?.data?.message || 'Erreur lors de la liaison'
+    const { error: showError } = useToast()
+    showError(msg, 'Erreur')
+  } finally {
+    loadingLinkAction.value = false
+  }
+}
+
+const unlinkStudent = async (linkedStudentId) => {
+  if (!props.student?.id || !confirm('Retirer le lien avec cet élève ?')) return
+  loadingLinkAction.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.delete(`/club/students/${props.student.id}/unlink/${linkedStudentId}`)
+    if (response.data.success) {
+      await loadLinkedStudents()
+      await loadAvailableForLinking()
+    }
+  } catch (e) {
+    const msg = e?.response?.data?.message || 'Erreur lors de la suppression du lien'
+    const { error: showError } = useToast()
+    showError(msg, 'Erreur')
+  } finally {
+    loadingLinkAction.value = false
+  }
+}
+
 // Charger les documents médicaux de l'élève
 const loadStudentMedicalDocuments = async () => {
   // Utiliser les documents déjà présents dans student.prop si disponibles
@@ -550,6 +731,12 @@ watch(() => props.student, (newStudent) => {
     if (newStudent.id) {
       loadStudentDisciplines()
       loadStudentMedicalDocuments()
+      if (newStudent.user_id) {
+        loadLinkedStudents()
+      } else {
+        linkedStudents.value = []
+        availableForLinking.value = []
+      }
     }
   }
 }, { immediate: true })
@@ -646,6 +833,9 @@ onMounted(() => {
   if (props.student?.id) {
     loadStudentDisciplines()
     loadStudentMedicalDocuments()
+    if (props.student?.user_id) {
+      loadLinkedStudents()
+    }
   }
 })
 </script>
