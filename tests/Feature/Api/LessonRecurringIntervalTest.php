@@ -51,7 +51,7 @@ class LessonRecurringIntervalTest extends TestCase
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
         
-        // Créer un template d'abonnement
+        // Créer un template d'abonnement et lier le type de cours (requis pour findActiveSubscriptionForLesson)
         $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
             'name' => 'Abonnement Test',
@@ -60,7 +60,8 @@ class LessonRecurringIntervalTest extends TestCase
             'duration_days' => 365,
             'price' => 200.00,
         ]);
-        
+        $template->courseTypes()->attach($this->courseType->id);
+
         // Créer un abonnement
         $subscription = Subscription::create([
             'club_id' => $this->club->id,
@@ -71,17 +72,15 @@ class LessonRecurringIntervalTest extends TestCase
             'duration_days' => 365,
             'price' => 200.00,
         ]);
-        
-        // Créer une instance d'abonnement active
+
+        // Créer une instance d'abonnement active (relation students via pivot pour findActiveSubscriptionForLesson)
         $this->subscriptionInstance = SubscriptionInstance::create([
             'subscription_id' => $subscription->id,
-            'student_id' => $this->student->id,
             'status' => 'active',
             'started_at' => Carbon::now()->subDays(30),
-            'starts_at' => Carbon::now()->subDays(30),
             'expires_at' => Carbon::now()->addDays(335),
-            'lessons_remaining' => 20,
         ]);
+        $this->subscriptionInstance->students()->attach($this->student->id);
     }
 
     /**
@@ -110,32 +109,32 @@ class LessonRecurringIntervalTest extends TestCase
         ]);
 
         $response->assertStatus(201);
-        
-        // Vérifier que le cours principal est créé
+
+        // Création synchrone : le créneau récurrent et les cours futurs sont créés avant la réponse 201
         $this->assertDatabaseHas('lessons', [
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
         ]);
 
-        // Vérifier qu'un créneau récurrent est créé avec recurring_interval = 1
         $lesson = Lesson::where('teacher_id', $this->teacher->id)
             ->where('student_id', $this->student->id)
+            ->orderBy('start_time')
             ->first();
-
         $this->assertNotNull($lesson);
 
-        // Attendre que le job asynchrone soit traité
-        $this->artisan('queue:work', ['--once' => true, '--tries' => 1]);
-
-        // Vérifier qu'un SubscriptionRecurringSlot est créé avec recurring_interval = 1
+        // Le créneau récurrent est créé en sync (pas besoin de queue:work)
         $recurringSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
             ->where('day_of_week', $startTime->dayOfWeek)
             ->first();
+        $this->assertNotNull($recurringSlot, 'Un créneau récurrent doit être créé de façon synchrone');
+        $this->assertEquals(1, $recurringSlot->recurring_interval);
 
-        if ($recurringSlot) {
-            $this->assertEquals(1, $recurringSlot->recurring_interval);
-        }
+        // Au moins 2 cours : le premier + au moins un généré par la récurrence
+        $lessonCount = Lesson::where('teacher_id', $this->teacher->id)
+            ->where('student_id', $this->student->id)
+            ->count();
+        $this->assertGreaterThanOrEqual(2, $lessonCount, 'Des cours futurs doivent être générés par la récurrence');
     }
 
     /**
@@ -165,17 +164,12 @@ class LessonRecurringIntervalTest extends TestCase
 
         $response->assertStatus(201);
 
-        // Attendre que le job asynchrone soit traité
-        $this->artisan('queue:work', ['--once' => true, '--tries' => 1]);
-
-        // Vérifier qu'un SubscriptionRecurringSlot est créé avec recurring_interval = 2
+        // Création synchrone du créneau récurrent
         $recurringSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
             ->where('day_of_week', $startTime->dayOfWeek)
             ->first();
-
-        if ($recurringSlot) {
-            $this->assertEquals(2, $recurringSlot->recurring_interval);
-        }
+        $this->assertNotNull($recurringSlot);
+        $this->assertEquals(2, $recurringSlot->recurring_interval);
     }
 
     /**
@@ -205,17 +199,12 @@ class LessonRecurringIntervalTest extends TestCase
 
         $response->assertStatus(201);
 
-        // Attendre que le job asynchrone soit traité
-        $this->artisan('queue:work', ['--once' => true, '--tries' => 1]);
-
-        // Vérifier qu'un SubscriptionRecurringSlot est créé avec recurring_interval = 4
+        // Création synchrone du créneau récurrent
         $recurringSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
             ->where('day_of_week', $startTime->dayOfWeek)
             ->first();
-
-        if ($recurringSlot) {
-            $this->assertEquals(4, $recurringSlot->recurring_interval);
-        }
+        $this->assertNotNull($recurringSlot);
+        $this->assertEquals(4, $recurringSlot->recurring_interval);
     }
 
     /**
@@ -247,10 +236,15 @@ class LessonRecurringIntervalTest extends TestCase
         // Créer un créneau récurrent avec intervalle = 1
         $recurringSlot = SubscriptionRecurringSlot::create([
             'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
             'day_of_week' => $startTime->dayOfWeek,
             'start_time' => $startTime->format('H:i:s'),
             'end_time' => $startTime->copy()->addMinutes(60)->format('H:i:s'),
             'recurring_interval' => 1,
+            'start_date' => $startTime->copy()->startOfDay(),
+            'end_date' => $startTime->copy()->addWeeks(26),
+            'status' => 'active',
         ]);
 
         // Créer quelques cours futurs

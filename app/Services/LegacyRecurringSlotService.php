@@ -98,10 +98,6 @@ class LegacyRecurringSlotService
             $endDate = $recurringEndDate->copy();
         }
 
-        // Vérifier que l'abonnement est valide pour cette période
-        $subscriptionStartedAt = Carbon::parse($subscriptionInstance->started_at);
-        $subscriptionExpiresAt = $subscriptionInstance->expires_at ? Carbon::parse($subscriptionInstance->expires_at) : null;
-
         // Générer les dates pour chaque semaine dans la plage
         // On ne filtre plus par la validité de l'abonnement, on génère pour toute la période de la récurrence
         $dates = $this->generateDatesForRecurringSlot(
@@ -114,7 +110,7 @@ class LegacyRecurringSlotService
 
         Log::info("Génération de lessons pour créneau récurrent legacy #{$recurringSlot->id}", [
             'total_dates' => count($dates),
-            'subscription_instance_id' => $subscriptionInstance->id,
+            'subscription_instance_id' => $subscriptionInstance?->id,
             'day_of_week' => $recurringSlot->day_of_week,
             'start_time' => $recurringSlot->start_time,
             'recurring_interval' => $recurringSlot->recurring_interval ?? 1,

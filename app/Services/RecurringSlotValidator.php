@@ -101,7 +101,7 @@ class RecurringSlotValidator
 
     /**
      * Valider la disponibilité sur 26 semaines sans créneau ouvert (création depuis un cours).
-     * Vérifie enseignant et élève sur chaque occurrence.
+     * Vérifie enseignant et élève sur chaque occurrence (selon la fréquence recurring_interval).
      *
      * @param int $teacherId
      * @param int $studentId
@@ -109,6 +109,8 @@ class RecurringSlotValidator
      * @param int $dayOfWeek 0=Dim, 1=Lun, etc.
      * @param string $startTime H:i ou H:i:s
      * @param string $endTime H:i ou H:i:s
+     * @param int $recurringInterval Fréquence en semaines (1=hebdo, 2=bi-hebdo, etc.). Défaut 1.
+     * @param int|null $excludeLessonId ID d'un cours à exclure du contrôle (ex: cours déclencheur déjà créé)
      * @return array ['valid' => bool, 'conflicts' => array, 'message' => string]
      */
     public function validateRecurringAvailabilityWithoutOpenSlot(
@@ -117,27 +119,32 @@ class RecurringSlotValidator
         string $startDate,
         int $dayOfWeek,
         string $startTime,
-        string $endTime
+        string $endTime,
+        int $recurringInterval = 1,
+        ?int $excludeLessonId = null
     ): array {
         $startDate = Carbon::parse($startDate);
         $conflicts = [];
+        $recurringInterval = max(1, min(52, $recurringInterval));
 
         Log::info("🔍 Validation récurrence (sans open_slot)", [
             'teacher_id' => $teacherId,
             'student_id' => $studentId,
             'start_date' => $startDate->format('Y-m-d'),
             'day_of_week' => $dayOfWeek,
+            'recurring_interval' => $recurringInterval,
             'weeks_to_check' => self::VALIDATION_WEEKS
         ]);
 
-        for ($week = 0; $week < self::VALIDATION_WEEKS; $week++) {
-            $occurrenceDate = $this->getNextOccurrence($startDate, $dayOfWeek, $week);
+        for ($k = 0; $k * $recurringInterval < self::VALIDATION_WEEKS; $k++) {
+            $occurrenceDate = $this->getNextOccurrence($startDate, $dayOfWeek, $k * $recurringInterval);
 
             $teacherConflict = $this->checkTeacherAvailability(
                 $teacherId,
                 $occurrenceDate,
                 $startTime,
-                $endTime
+                $endTime,
+                $excludeLessonId
             );
             if ($teacherConflict) {
                 $conflicts[] = [
@@ -151,7 +158,8 @@ class RecurringSlotValidator
                 $studentId,
                 $occurrenceDate,
                 $startTime,
-                $endTime
+                $endTime,
+                $excludeLessonId
             );
             if ($studentConflict) {
                 $conflicts[] = [
@@ -184,16 +192,22 @@ class RecurringSlotValidator
         int $studentId,
         Carbon $date,
         string $startTime,
-        string $endTime
+        string $endTime,
+        ?int $excludeLessonId = null
     ): ?string {
-        $conflictingLesson = Lesson::where('student_id', $studentId)
+        $lessonQuery = Lesson::where('student_id', $studentId)
             ->whereDate('start_time', $date->format('Y-m-d'))
             ->where(function ($query) use ($startTime, $endTime) {
                 $query->whereTime('start_time', '<', $endTime)
                     ->whereTime('end_time', '>', $startTime);
             })
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+            ->whereIn('status', ['pending', 'confirmed']);
+
+        if ($excludeLessonId) {
+            $lessonQuery->where('id', '!=', $excludeLessonId);
+        }
+
+        $conflictingLesson = $lessonQuery->exists();
 
         if ($conflictingLesson) {
             return "Élève déjà occupé (cours)";
@@ -289,10 +303,11 @@ class RecurringSlotValidator
         int $teacherId,
         Carbon $date,
         string $startTime,
-        string $endTime
+        string $endTime,
+        ?int $excludeLessonId = null
     ): ?string {
         // Vérifier les cours existants
-        $conflictingLesson = Lesson::where('teacher_id', $teacherId)
+        $lessonQuery = Lesson::where('teacher_id', $teacherId)
             ->whereDate('start_time', $date->format('Y-m-d'))
             ->where(function ($query) use ($startTime, $endTime) {
                 // Conflit si les plages se chevauchent
@@ -301,8 +316,13 @@ class RecurringSlotValidator
                       ->whereTime('end_time', '>', $startTime);
                 });
             })
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->exists();
+            ->whereIn('status', ['pending', 'confirmed']);
+
+        if ($excludeLessonId) {
+            $lessonQuery->where('id', '!=', $excludeLessonId);
+        }
+
+        $conflictingLesson = $lessonQuery->exists();
 
         if ($conflictingLesson) {
             return "Enseignant déjà occupé";

@@ -51,6 +51,7 @@ class Lesson extends Model
         'date_paiement',   // Date de paiement (détermine le mois de commission)
         'montant',         // Montant réellement payé (peut différer de price)
         'deduct_from_subscription', // true = déduire d'un abonnement, false = séance libre
+        'recurrence_skipped_reason', // motif affiché si la récurrence n'a pas été créée (job asynchrone)
     ];
 
     protected $casts = [

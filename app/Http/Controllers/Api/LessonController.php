@@ -302,6 +302,11 @@ class LessonController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            Log::info('📥 [LessonController::store] Requête reçue', [
+                'student_id' => $request->input('student_id'),
+                'recurring_interval' => $request->input('recurring_interval'),
+                'deduct_from_subscription' => $request->input('deduct_from_subscription'),
+            ]);
             $user = Auth::user();
 
             // Validation de base - permettre les dates dans le passé pour l'encodage rétroactif
@@ -319,8 +324,8 @@ class LessonController extends Controller
                 'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer de price)
                 // Déduction d'abonnement (par défaut true)
                 'deduct_from_subscription' => 'nullable|boolean',
-                // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
-                'recurring_interval' => 'nullable|integer|min:1|max:52',
+                // Intervalle de récurrence (0 = pas de récurrence, 1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+                'recurring_interval' => 'nullable|integer|min:0|max:52',
             ]);
 
             // 🔒 Validation : vérifier que la durée correspond au type de cours sélectionné
@@ -482,22 +487,97 @@ class LessonController extends Controller
                 }
             }
 
+            // 🔒 Règle : déduction abonnement ou récurrence → exiger un abonnement actif (sinon bloquer la création)
+            $deductFromSubscription = filter_var($request->input('deduct_from_subscription', true), FILTER_VALIDATE_BOOLEAN);
+            $recurringInterval = max(0, min(52, (int) $request->input('recurring_interval', 0))); // 0 = pas de récurrence
+            // Intervalle effectif pour la récurrence : si déduction + élève mais request envoie 0, on considère 1 (hebdo)
+            $recurringIntervalForRecurrence = $recurringInterval >= 1
+                ? $recurringInterval
+                : ($deductFromSubscription && !empty($validated['student_id']) ? 1 : 0);
+            $recurringIntervalForRecurrence = max(0, min(52, $recurringIntervalForRecurrence));
+
+            if (!empty($validated['student_id']) && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1)) {
+                $clubId = $validated['club_id'] ?? null;
+                $activeSubscription = SubscriptionInstance::findActiveSubscriptionForLesson(
+                    (int) $validated['student_id'],
+                    (int) $validated['course_type_id'],
+                    $clubId
+                );
+                if (!$activeSubscription) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Aucun abonnement actif pour cet élève et ce type de cours. La création du cours est impossible.',
+                        'errors' => [
+                            'student_id' => ['Aucun abonnement actif trouvé pour cet élève et ce type de cours. Veuillez souscrire un abonnement ou créer le cours sans récurrence ni déduction.'],
+                        ],
+                    ], 422);
+                }
+            }
+
+            // 🔒 Récurrence : valider les 26 semaines avant de créer le premier cours (selon l'intervalle effectif)
+            if (!empty($validated['student_id']) && $recurringIntervalForRecurrence >= 1 && !empty($validated['teacher_id']) && !empty($validated['start_time'])) {
+                $startCarbon = \Carbon\Carbon::parse($validated['start_time']);
+                $dayOfWeek = $startCarbon->dayOfWeek;
+                $startTimeStr = $startCarbon->format('H:i:s');
+                $endCarbon = isset($validated['end_time']) ? \Carbon\Carbon::parse($validated['end_time']) : $startCarbon->copy()->addMinutes($validated['duration'] ?? 60);
+                $endTimeStr = $endCarbon->format('H:i:s');
+                $startDateStr = $startCarbon->format('Y-m-d');
+
+                $recurringValidator = new \App\Services\RecurringSlotValidator();
+                $recurringValidation = $recurringValidator->validateRecurringAvailabilityWithoutOpenSlot(
+                    (int) $validated['teacher_id'],
+                    (int) $validated['student_id'],
+                    $startDateStr,
+                    $dayOfWeek,
+                    $startTimeStr,
+                    $endTimeStr,
+                    $recurringIntervalForRecurrence
+                );
+
+                if (!$recurringValidation['valid']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $recurringValidation['message'],
+                        'errors' => [
+                            'recurring' => array_map(function (array $c) {
+                                return ($c['date'] ?? '') . ' : ' . ($c['message'] ?? '');
+                            }, $recurringValidation['conflicts']),
+                        ],
+                        'conflicts' => $recurringValidation['conflicts'],
+                    ], 422);
+                }
+            }
+
             $lesson = Lesson::create($validated);
 
-            // ⚡ OPTIMISATION : Déplacer tous les traitements post-création en asynchrone
-            // Cela permet de retourner immédiatement une réponse au client sans attendre
-            // - Consommation d'abonnement
-            // - Création de créneaux récurrents
-            // - Envoi des notifications
-            // - Programmation des rappels
-            // Ne consommer l'abonnement que si deduct_from_subscription est true (par défaut true)
-            $deductFromSubscription = $request->input('deduct_from_subscription', true);
-            $recurringInterval = $request->input('recurring_interval', 1); // Par défaut 1 (chaque semaine)
-            if (isset($validated['student_id']) && $deductFromSubscription) {
-                ProcessLessonPostCreationJob::dispatch($lesson, $recurringInterval);
-                Log::info("⚡ [LessonController] Job de traitement asynchrone dispatché pour le cours {$lesson->id} (déduction d'abonnement: oui, intervalle: {$recurringInterval})");
+            // Récurrence : création synchrone du créneau + génération des cours pour affichage immédiat au calendrier
+            if (!empty($validated['student_id']) && $recurringIntervalForRecurrence >= 1) {
+                Log::info("[LessonController] Création récurrence synchrone", [
+                    'lesson_id' => $lesson->id,
+                    'recurring_interval' => $recurringIntervalForRecurrence,
+                ]);
+                $recurrenceService = new \App\Services\RecurrenceCreationService();
+                $recurrenceService->createRecurrenceAndGenerateLessons($lesson, $recurringIntervalForRecurrence);
+            }
+
+            // Job async : déduction abonnement, notifications, rappel (récurrence déjà créée en sync si demandée)
+            $shouldDispatchJob = !empty($validated['student_id']) && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1);
+            Log::info("⚡ [LessonController] Dispatch job?", [
+                'lesson_id' => $lesson->id,
+                'student_id' => $validated['student_id'] ?? null,
+                'deduct_from_subscription' => $deductFromSubscription,
+                'recurring_interval' => $recurringInterval,
+                'should_dispatch' => $shouldDispatchJob,
+            ]);
+            if ($shouldDispatchJob) {
+                $interval = $recurringIntervalForRecurrence >= 1 ? $recurringIntervalForRecurrence : 1;
+                ProcessLessonPostCreationJob::dispatch($lesson, $interval);
+                Log::info("⚡ [LessonController] Job dispatché pour le cours {$lesson->id}", [
+                    'deduct_from_subscription' => $deductFromSubscription,
+                    'recurring_interval' => $recurringInterval,
+                ]);
             } else {
-                Log::info("⚡ [LessonController] Cours {$lesson->id} créé sans déduction d'abonnement (deduct_from_subscription: " . ($deductFromSubscription ? 'true' : 'false') . ")");
+                Log::info("⚡ [LessonController] Cours {$lesson->id} créé sans job (pas d'élève ou pas de déduction ni récurrence)");
             }
 
             // Charger les relations nécessaires pour la réponse
@@ -1143,10 +1223,15 @@ class LessonController extends Controller
      *     )
      * )
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
         try {
             $user = Auth::user();
+            // Club avec cancel_scope (modale planning) → déléguer à cancelWithFuture pour gérer single/all_future
+            if ($user->role === 'club' && $request->input('cancel_scope')) {
+                return $this->cancelWithFuture($request, $id);
+            }
+
             $query = Lesson::query();
 
             // Vérifier les permissions selon le rôle
@@ -1910,13 +1995,16 @@ class LessonController extends Controller
 
             // Validation 26 semaines (règle Planning & Recurrence) : refuser la création si conflits
             $validator = new \App\Services\RecurringSlotValidator();
+            $recurringIntervalForValidation = 1;
             $validation26 = $validator->validateRecurringAvailabilityWithoutOpenSlot(
                 (int) $lesson->teacher_id,
                 (int) $lesson->student_id,
                 $recurringStartDate->format('Y-m-d'),
                 $dayOfWeek,
                 $timeStart,
-                $timeEnd
+                $timeEnd,
+                $recurringIntervalForValidation,
+                (int) $lesson->id
             );
             if (!$validation26['valid']) {
                 Log::warning("❌ Récurrence non créée : conflits sur 26 semaines", [

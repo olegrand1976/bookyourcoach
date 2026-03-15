@@ -586,10 +586,15 @@
               </p>
             </div>
             
+            <p v-if="saving" class="mb-4 text-sm text-blue-600 flex items-center gap-2">
+              <span class="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+              Modification et génération des occurrences en cours…
+            </p>
             <div class="flex flex-col gap-3 mb-6">
               <button
                 @click="confirmUpdateSingleLesson"
-                class="flex items-center justify-between p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                :disabled="saving"
+                class="flex items-center justify-between p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div class="font-semibold">Ce cours uniquement</div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -599,10 +604,10 @@
               
               <button
                 @click="confirmUpdateAllFutureLessons"
-                :disabled="futureLessonsCount === 0"
+                :disabled="futureLessonsCount === 0 || saving"
                 :class="[
                   'flex items-center justify-between p-4 border-2 rounded-lg transition-colors',
-                  futureLessonsCount > 0
+                  futureLessonsCount > 0 && !saving
                     ? 'border-green-300 hover:border-green-500 hover:bg-green-50'
                     : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                 ]"
@@ -1869,32 +1874,17 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
     totalCourseTypes: courseTypes.value.length,
     currentSelectedSlot: selectedSlotForLesson.value?.id
   })
-  
+
   selectedSlotForLesson.value = slot || null
-  
-  console.log('📝 [openCreateLessonModal] APRÈS mise à jour selectedSlotForLesson', {
-    newSelectedSlotId: selectedSlotForLesson.value?.id,
-    newSelectedSlotDisciplineId: selectedSlotForLesson.value?.discipline_id,
-    newSelectedSlotHasCourseTypes: !!selectedSlotForLesson.value?.course_types,
-    newSelectedSlotCourseTypesCount: selectedSlotForLesson.value?.course_types?.length || 0
-  })
-  
-  // Ouvrir la modale AVANT d'initialiser le formulaire pour que filteredCourseTypes soit calculé
-  showCreateLessonModal.value = true
-  
-  // Utiliser nextTick pour s'assurer que le computed filteredCourseTypes est recalculé
-  await nextTick()
-  
+
+  // Initialiser le formulaire AVANT d'ouvrir la modale pour que l'heure de la plage soit bien
+  // reprise à l'ouverture (évite que les watchers de la modale réinitialisent form.time)
   if (slot) {
-    // Utiliser la date sélectionnée dans "Cours programmés" si elle existe et correspond au jour du créneau
-    // Sinon, calculer la prochaine date correspondant au jour du créneau
     let dateToUse: Date
     if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
-      // Utiliser la date sélectionnée dans "Cours programmés"
       dateToUse = new Date(selectedDate.value)
       console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
     } else {
-      // Calculer la prochaine date correspondant au jour du créneau
       const today = new Date()
       const targetDay = slot.day_of_week
       const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
@@ -1902,33 +1892,27 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       dateToUse.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
       console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', formatDateForInput(dateToUse))
     }
-    
-    // Utiliser formatDateForInput pour éviter les problèmes de timezone (toISOString convertit en UTC)
+
     const dateStr = formatDateForInput(dateToUse)
-    // Utiliser l'heure personnalisée si fournie, sinon utiliser l'heure de début du créneau
-    const timeStr = customTime || slot.start_time.substring(0, 5)
-    
-    // ✅ CORRECTION : Utiliser les types de cours du créneau (slot.course_types) au lieu de tous les types
-    // Les types de cours du créneau sont déjà filtrés par le backend selon la discipline
+    // Heure de la plage (bouton sur une plage) ou heure de début du créneau (bouton vert)
+    const timeStr = customTime ?? slot.start_time.substring(0, 5)
+
     let courseTypeId = null
     let initialDuration = slot.duration || 60
     let initialPrice = slot.price || 0
-    
-    // Utiliser les types de cours du créneau s'ils sont disponibles
+
     const slotCourseTypes = slot.course_types || []
     if (slotCourseTypes.length > 0) {
-      // Prendre le premier type de cours du créneau (ou celui qui correspond à la discipline)
-      const matchingCourseType = slotCourseTypes.find(ct => 
+      const matchingCourseType = slotCourseTypes.find(ct =>
         ct.discipline_id === slot.discipline_id || !ct.discipline_id
       ) || slotCourseTypes[0]
-      
+
       if (matchingCourseType) {
         courseTypeId = matchingCourseType.id
-        // Utiliser la durée et le prix du type de cours si disponibles
         initialDuration = matchingCourseType.duration_minutes || matchingCourseType.duration || initialDuration
         initialPrice = matchingCourseType.price || initialPrice
       }
-      
+
       console.log('🔍 Recherche type de cours pour discipline', slot.discipline_id, ':', {
         found: !!matchingCourseType,
         selectedId: courseTypeId,
@@ -1937,7 +1921,6 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
         allTypes: courseTypes.value.map(ct => ({ id: ct.id, name: ct.name, discipline_id: ct.discipline_id }))
       })
     } else {
-      // Fallback : chercher dans tous les types de cours si le créneau n'a pas de types
       if (slot.discipline_id) {
         const matchingCourseType = courseTypes.value.find(ct => ct.discipline_id === slot.discipline_id)
         if (matchingCourseType) {
@@ -1951,28 +1934,23 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
         })
       }
     }
-    
+
     lessonForm.value = {
       teacher_id: null,
       student_id: null,
       course_type_id: courseTypeId,
       date: dateStr,
       time: timeStr,
-      start_time: `${dateStr}T${timeStr}:00`, // Format avec secondes pour Laravel
+      start_time: `${dateStr}T${timeStr}:00`,
       duration: initialDuration,
       price: initialPrice,
       notes: '',
-      // Champs pour les commissions (par défaut DCL)
       est_legacy: false,
-      // Déduction d'abonnement (par défaut true)
       deduct_from_subscription: true,
-      // Intervalle de récurrence (par défaut 1 = chaque semaine)
       recurring_interval: 1,
-      // Portée de la mise à jour
       update_scope: 'single'
     }
   } else {
-    // Réinitialiser le formulaire
     lessonForm.value = {
       teacher_id: null,
       student_id: null,
@@ -1983,16 +1961,15 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       duration: 60,
       price: 0,
       notes: '',
-      // Champs pour les commissions (par défaut DCL)
       est_legacy: false,
-      // Déduction d'abonnement (par défaut true)
       deduct_from_subscription: true,
-      // Intervalle de récurrence (par défaut 1 = chaque semaine)
       recurring_interval: 1,
-      // Portée de la mise à jour
       update_scope: 'single'
     }
   }
+
+  showCreateLessonModal.value = true
+  await nextTick()
 }
 
 function closeCreateLessonModal() {
@@ -2284,8 +2261,8 @@ async function createLesson() {
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
       // Déduction d'abonnement (par défaut true)
       deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
-      // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
-      recurring_interval: lessonForm.value.recurring_interval || 1
+      // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.) — toujours envoyé quand déduction abo
+      recurring_interval: Math.max(1, Math.min(52, Number(lessonForm.value.recurring_interval) || 1))
     }
     
     console.log('📤 Création du cours avec payload:', payload)
@@ -2325,13 +2302,24 @@ async function createLesson() {
     
     // Gérer les différents types d'erreurs
     let errorMessage = 'Erreur lors de la création du cours'
+    const data = err.response?.data
     
-    if (err.response?.data?.message) {
-      // Message d'erreur direct (conflit horaire, capacité, etc.)
-      errorMessage = err.response.data.message
-    } else if (err.response?.data?.errors) {
-      // Erreurs de validation Laravel
-      const errors = err.response.data.errors
+    if (data?.message) {
+      errorMessage = data.message
+      // Enrichir avec les conflits de récurrence si présents (422)
+      if (data.conflicts?.length) {
+        const dates = data.conflicts.slice(0, 6).map((c: { date?: string }) => c.date).filter(Boolean)
+        if (dates.length) {
+          errorMessage += '\nDates concernées : ' + dates.join(', ')
+        }
+        errorMessage += '\n\nCréez le cours sans récurrence ou choisissez un autre créneau/horaire.'
+      } else if (data.errors?.recurring?.length) {
+        const recurringErrors = Array.isArray(data.errors.recurring) ? data.errors.recurring : [data.errors.recurring]
+        errorMessage += '\n' + recurringErrors.slice(0, 5).join('\n')
+        errorMessage += '\n\nCréez le cours sans récurrence ou choisissez un autre créneau.'
+      }
+    } else if (data?.errors) {
+      const errors = data.errors
       if (typeof errors === 'object') {
         const formattedErrors = Object.entries(errors)
           .map(([field, msgs]) => {
@@ -2429,18 +2417,23 @@ async function loadFutureLessonsCount() {
 
 // Confirmer la mise à jour pour ce cours uniquement
 async function confirmUpdateSingleLesson() {
-  showUpdateScopeModal.value = false
-  lessonForm.value.update_scope = 'single'
-  await performUpdate(pendingUpdatePayload.value, 'single')
+  try {
+    lessonForm.value.update_scope = 'single'
+    await performUpdate(pendingUpdatePayload.value, 'single')
+  } finally {
+    showUpdateScopeModal.value = false
+  }
 }
 
 // Confirmer la mise à jour pour tous les cours futurs
 async function confirmUpdateAllFutureLessons() {
   if (futureLessonsCount.value === 0) return
-  
-  showUpdateScopeModal.value = false
-  lessonForm.value.update_scope = 'all_future'
-  await performUpdate(pendingUpdatePayload.value, 'all_future')
+  try {
+    lessonForm.value.update_scope = 'all_future'
+    await performUpdate(pendingUpdatePayload.value, 'all_future')
+  } finally {
+    showUpdateScopeModal.value = false
+  }
 }
 
 // Effectuer la mise à jour

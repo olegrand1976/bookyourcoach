@@ -181,8 +181,12 @@
                   <option :value="''">
                     {{ editingLesson ? 'Sélectionnez une heure' : (availableTimes.length === 0 ? 'Aucune heure disponible' : 'Sélectionnez une heure') }}
                   </option>
-                  <option v-for="time in availableTimes" :key="time.value" :value="time.value">
-                    {{ time.label }}
+                  <option
+                    v-for="opt in timeOptionsForSelect"
+                    :key="opt.value"
+                    :value="opt.value"
+                    :disabled="opt.disabled">
+                    {{ opt.label }}
                   </option>
                 </select>
                 <div v-if="!editingLesson && selectedSlot && form.date && availableTimes.length === 0" class="mt-2">
@@ -482,8 +486,9 @@
               Annuler
             </button>
             <button type="submit" :disabled="saving"
-                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-              {{ saving ? (editingLesson ? 'Modification...' : 'Création...') : (editingLesson ? 'Modifier le cours' : 'Créer le cours') }}
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+              <span v-if="saving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+              {{ saving ? (editingLesson ? 'Modification...' : (form.recurring_interval >= 1 ? 'Création du cours et des occurrences en cours…' : 'Création...')) : (editingLesson ? 'Modifier le cours' : 'Créer le cours') }}
             </button>
           </div>
         </form>
@@ -517,6 +522,8 @@ interface OpenSlot {
   discipline?: any
   duration?: number
   price?: number
+  /** Nombre max de cours simultanés sur cette plage (défini par le créneau). */
+  max_slots?: number | null
 }
 
 interface LessonForm {
@@ -1046,6 +1053,16 @@ function minutesToTime(minutes: number): string {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }
 
+/** Nombre max de cours simultanés sur la plage (défini par le créneau). Utilise openSlots si le slot n'a pas max_slots. */
+function getSlotMaxSlots(slot: OpenSlot | null | undefined): number {
+  if (!slot) return 1
+  const fromSlot = slot.max_slots
+  if (fromSlot != null && fromSlot >= 1) return fromSlot
+  const fromList = props.openSlots?.find(s => s.id === slot.id)?.max_slots
+  if (fromList != null && fromList >= 1) return fromList
+  return 1
+}
+
 // Générer toutes les heures possibles pour le mode édition (00:00 à 23:30)
 const allPossibleTimes = computed(() => {
   const times: { value: string; label: string }[] = []
@@ -1095,8 +1112,8 @@ const availableTimes = computed(() => {
         })
       }
       
-      // Filtrer les heures qui sont déjà complètes (max_slots atteint)
-      const maxSlots = slot.max_slots || 1
+      // Filtrer les heures qui sont déjà complètes (max_slots du créneau = nombre de cours simultanés possibles)
+      const maxSlots = getSlotMaxSlots(slot)
       
       const available = allTimes.filter(time => {
         // Vérifier combien de cours se chevauchent avec cette heure
@@ -1172,9 +1189,8 @@ const availableTimes = computed(() => {
     })
   }
   
-  // Filtrer les heures qui sont déjà complètes (max_slots atteint)
-  // Les plages complètes sont automatiquement supprimées du select
-  const maxSlots = slot.max_slots || 1
+  // Filtrer les heures qui sont déjà complètes (max_slots du créneau = nombre de cours simultanés possibles)
+  const maxSlots = getSlotMaxSlots(slot)
   
   const available = allTimes.filter(time => {
     // Vérifier combien de cours se chevauchent avec cette heure
@@ -1220,6 +1236,32 @@ const availableTimes = computed(() => {
   console.log(`✅ [availableTimes] ${available.length} plage(s) horaire(s) disponible(s) sur ${allTimes.length} possibles`)
   
   return available
+})
+
+// Heure de la plage demandée à l'ouverture (clic sur "Créer un cours" sur une plage), pour l'afficher en "(complet)" si elle est pleine.
+const requestedTimeFromSlot = ref<string | null>(null)
+
+watch(() => props.show, (isOpen) => {
+  if (isOpen && props.form.time) {
+    requestedTimeFromSlot.value = props.form.time
+  } else if (!isOpen) {
+    requestedTimeFromSlot.value = null
+  }
+}, { immediate: true })
+
+// Options pour le select Heure : inclure la plage cliquée en "(complet)" si elle n'est pas disponible,
+// pour éviter l'impression de décalage (heures qui commencent à la plage suivante).
+const timeOptionsForSelect = computed(() => {
+  const available = availableTimes.value
+  const requested = requestedTimeFromSlot.value
+  const isRequestedFull = requested && !available.some(t => t.value === requested)
+  if (isRequestedFull) {
+    return [
+      { value: `__complet__${requested}`, label: `${requested} (complet)`, disabled: true },
+      ...available.map(t => ({ value: t.value, label: t.label, disabled: false }))
+    ]
+  }
+  return available.map(t => ({ value: t.value, label: t.label, disabled: false }))
 })
 
 // Watcher pour mettre à jour le créneau quand la date change en mode édition
