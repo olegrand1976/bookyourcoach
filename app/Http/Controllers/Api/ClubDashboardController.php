@@ -489,7 +489,8 @@ class ClubDashboardController extends Controller
                     $q->select($cols);
                 },
                 'students' => function ($q) {
-                    $q->select('students.id', 'students.first_name', 'students.last_name', 'students.user_id');
+                    $q->select('students.id', 'students.first_name', 'students.last_name', 'students.user_id')
+                        ->with(['user:id,name,email,first_name,last_name']);
                 }
             ])
             ->get();
@@ -515,6 +516,21 @@ class ClubDashboardController extends Controller
                 $studentNames = $instance->students->map(function ($s) {
                     return trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? '')) ?: 'Élève #' . $s->id;
                 })->values()->all();
+                $primaryStudent = $instance->students->first();
+
+                $primaryStudentData = null;
+                if ($primaryStudent) {
+                    $primaryStudentName = trim(($primaryStudent->first_name ?? '') . ' ' . ($primaryStudent->last_name ?? ''));
+                    $user = $primaryStudent->user;
+                    $primaryStudentData = [
+                        'id' => $primaryStudent->id,
+                        'name' => $primaryStudentName ?: ($user?->name ?? ('Élève #' . $primaryStudent->id)),
+                        'email' => $user?->email ?? null,
+                        'first_name' => $primaryStudent->first_name ?? $user?->first_name ?? null,
+                        'last_name' => $primaryStudent->last_name ?? $user?->last_name ?? null,
+                    ];
+                }
+
                 return [
                     'id' => $instance->id,
                     'subscription_id' => $instance->subscription_id,
@@ -528,6 +544,7 @@ class ClubDashboardController extends Controller
                     'threshold' => $threshold,
                     'status' => $instance->status,
                     'expires_at' => $instance->expires_at?->format('Y-m-d'),
+                    'primary_student' => $primaryStudentData,
                     'student_names' => $studentNames,
                 ];
             })

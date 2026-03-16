@@ -304,6 +304,8 @@ class ClubDashboardControllerTest extends TestCase
         $this->assertSame(8, $first['threshold']);
         $this->assertSame('PACK10', $first['template']['model_number']);
         $this->assertSame(10, $first['template']['total_available_lessons']);
+        $this->assertSame($student->id, $first['primary_student']['id']);
+        $this->assertArrayHasKey('name', $first['primary_student']);
     }
 }
 

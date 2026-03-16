@@ -27,6 +27,8 @@ on:
         type: boolean
 
 env:
+  # Opt-in Node.js 24 pour les actions JavaScript (évite la dépréciation Node 20)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-app
   FRONTEND_IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/activibe-frontend

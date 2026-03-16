@@ -334,10 +334,12 @@ class ClubOpenSlotController extends Controller
                 $maxDuration = !empty($durations) ? max($durations) : 60;
                 
                 $slotData = $slot->toArray();
-                
+                // ✅ Garantir que max_slots (nombre de cours simultanés sur la plage) est toujours présent
+                $slotData['max_slots'] = $slot->max_slots ?? 1;
+
                 // ✅ IMPORTANT : Remplacer les courseTypes par la version filtrée
                 $slotData['course_types'] = $courseTypes->toArray();
-                
+
                 $slotData['time_step'] = $timeStep;
                 $slotData['min_duration'] = $minDuration;
                 $slotData['max_duration'] = $maxDuration;

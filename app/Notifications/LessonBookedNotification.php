@@ -23,14 +23,22 @@ class LessonBookedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        $firstName = $notifiable->profile?->first_name ?? $notifiable->name ?? 'Utilisateur';
+        $courseName = $this->lesson->courseType?->name ?? 'Cours';
+        $dateStr = $this->lesson->start_time?->format('d/m/Y à H:i') ?? '—';
+        $locationName = $this->lesson->location?->name ?? '—';
+        $studentName = $this->lesson->student?->user?->profile?->full_name
+            ?? $this->lesson->student?->user?->name
+            ?? 'Élève';
+
         return (new MailMessage)
             ->subject('Nouvelle réservation de cours - activibe')
-            ->greeting("Bonjour {$notifiable->profile->first_name},")
+            ->greeting("Bonjour {$firstName},")
             ->line('Une nouvelle réservation a été effectuée.')
-            ->line("**Cours** : {$this->lesson->courseType->name}")
-            ->line("**Date** : {$this->lesson->start_time->format('d/m/Y à H:i')}")
-            ->line("**Lieu** : {$this->lesson->location->name}")
-            ->line("**Élève** : {$this->lesson->student->user->profile->full_name}")
+            ->line("**Cours** : {$courseName}")
+            ->line("**Date** : {$dateStr}")
+            ->line("**Lieu** : {$locationName}")
+            ->line("**Élève** : {$studentName}")
             ->action('Voir les détails', url("/api/lessons/{$this->lesson->id}"))
             ->line('Merci d\'utiliser activibe !');
     }
@@ -40,7 +48,7 @@ class LessonBookedNotification extends Notification implements ShouldQueue
         return [
             'lesson_id' => $this->lesson->id,
             'message' => 'Nouvelle réservation de cours',
-            'course_type' => $this->lesson->courseType->name,
+            'course_type' => $this->lesson->courseType?->name ?? 'Cours',
             'start_time' => $this->lesson->start_time,
         ];
     }
