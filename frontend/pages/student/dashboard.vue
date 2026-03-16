@@ -215,12 +215,11 @@
               <h3 class="text-xl font-semibold mb-2">Gérez vos abonnements</h3>
               <p class="text-emerald-100">Souscrivez à un nouvel abonnement ou consultez vos abonnements actifs</p>
             </div>
-            <NuxtLink 
-              to="/student/subscriptions/subscribe"
-              class="bg-white text-emerald-600 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md hover:shadow-lg"
+            <span 
+              class="inline-block bg-gray-200 text-gray-500 px-6 py-3 rounded-lg font-semibold cursor-not-allowed opacity-70 shadow-md"
             >
               Créer un abonnement →
-            </NuxtLink>
+            </span>
           </div>
         </div>
       </div>

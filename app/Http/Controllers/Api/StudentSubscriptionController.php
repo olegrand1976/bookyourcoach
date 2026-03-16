@@ -227,10 +227,17 @@ class StudentSubscriptionController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la création de la session Checkout: ' . $e->getMessage());
+            Log::error('Erreur lors de la création de la session Checkout: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'template_id' => $request->input('subscription_template_id'),
+            ]);
+            $message = 'Erreur lors de la création de la session de paiement';
+            if (config('app.debug')) {
+                $message .= ': ' . $e->getMessage();
+            }
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la création de la session de paiement'
+                'message' => $message
             ], 500);
         }
     }

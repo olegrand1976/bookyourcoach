@@ -376,6 +376,22 @@ class StripeService
     }
 
     /**
+     * Construit la description du produit pour Stripe Checkout (évite les erreurs sprintf avec null)
+     */
+    private function buildCheckoutDescription(\App\Models\SubscriptionTemplate $template): string
+    {
+        $total = (int) ($template->total_lessons ?? 0);
+        $free = (int) ($template->free_lessons ?? 0);
+        $months = (int) ($template->validity_months ?? 12);
+        $parts = [$total . ' cours'];
+        if ($free > 0) {
+            $parts[] = sprintf('+ %d gratuit%s', $free, $free > 1 ? 's' : '');
+        }
+        $parts[] = sprintf('Validité: %d mois', $months);
+        return implode(' - ', $parts);
+    }
+
+    /**
      * Créer une session Stripe Checkout pour un abonnement
      */
     public function createCheckoutSession(
@@ -405,14 +421,9 @@ class StripeService
                         'currency' => 'eur',
                         'product_data' => [
                             'name' => $template->model_number ?? 'Abonnement',
-                            'description' => sprintf(
-                                '%d cours%s%s - Validité: %d mois',
-                                $template->total_lessons,
-                                $template->free_lessons > 0 ? sprintf(' + %d gratuit%s', $template->free_lessons, $template->free_lessons > 1 ? 's' : '') : '',
-                                $template->validity_months ? sprintf(' - Validité: %d mois', $template->validity_months) : ''
-                            ),
+                            'description' => $this->buildCheckoutDescription($template),
                         ],
-                        'unit_amount' => (int) ($template->price * 100), // Stripe utilise les centimes
+                        'unit_amount' => (int) round(($template->price ?? 0) * 100), // Stripe: centimes
                     ],
                     'quantity' => 1,
                 ]],
