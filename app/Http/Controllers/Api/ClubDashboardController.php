@@ -476,7 +476,10 @@ class ClubDashboardController extends Controller
             ->whereHas('subscription', function ($q) use ($clubId) {
                 $q->where('club_id', $clubId);
             })
-            ->whereIn('status', ['active', 'completed'])
+            ->where('status', 'active')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()->startOfDay());
+            })
             ->with([
                 'subscription' => function ($q) {
                     $q->select('id', 'club_id', 'subscription_template_id', 'subscription_number');
