@@ -148,6 +148,12 @@ class LessonController extends Controller
             }
             // Les admins voient tous les cours
 
+            // Planning club/enseignant : exclure les cours annulés pour libérer la plage (réutilisable par un autre élève)
+            // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
+            if (in_array($user->role, ['club', 'teacher'], true)) {
+                $query->where('status', '!=', 'cancelled');
+            }
+
             // Filtres optionnels
             if ($request->has('status')) {
                 $query->where('status', $request->status);
@@ -2314,20 +2320,8 @@ class LessonController extends Controller
                     }
                 }
             } else {
-                // Délier le cours de tous les abonnements
-                $subscriptionInstances = $lesson->subscriptionInstances;
-                
-                foreach ($subscriptionInstances as $subscriptionInstance) {
-                    // Retirer le cours de l'abonnement (décrémenter lessons_used)
-                    if ($subscriptionInstance->lessons_used > 0) {
-                        $subscriptionInstance->lessons_used = max(0, $subscriptionInstance->lessons_used - 1);
-                        $subscriptionInstance->save();
-                    }
-                }
-                
-                // Supprimer toutes les relations
+                // Délier le cours de tous les abonnements (sans décrémenter lessons_used)
                 $lesson->subscriptionInstances()->detach();
-                
                 Log::info("✅ Cours {$lesson->id} délié de tous les abonnements");
             }
 

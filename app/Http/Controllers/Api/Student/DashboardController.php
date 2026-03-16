@@ -436,9 +436,10 @@ class DashboardController extends Controller
         
         $studentId = $student->id;
 
+        // Historique : cours terminés et annulés (les annulés restent visibles pour l'élève)
         $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
             ->where('student_id', $studentId)
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'cancelled'])
             ->orderBy('start_time', 'desc')
             ->get();
 

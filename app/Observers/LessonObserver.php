@@ -44,106 +44,48 @@ class LessonObserver
     }
     
     /**
-     * Gère l'annulation d'un cours : détache de l'abonnement et décrémente lessons_used
+     * Gère l'annulation d'un cours : détache de l'abonnement sans décrémenter lessons_used.
+     * Le total ne doit jamais diminuer (ni être inférieur au nombre de cours d'initialisation).
      */
     private function handleLessonCancellation(Lesson $lesson): void
     {
-        // Récupérer toutes les instances d'abonnements liées à ce cours
         $subscriptionInstances = SubscriptionInstance::whereHas('lessons', function ($query) use ($lesson) {
             $query->where('lesson_id', $lesson->id);
         })->get();
 
         foreach ($subscriptionInstances as $instance) {
-            $oldLessonsUsed = $instance->lessons_used;
-            $oldStatus = $instance->status;
-            
-            // Détacher le cours annulé de l'abonnement
             $instance->lessons()->detach($lesson->id);
-            
-            // ⚠️ LOGIQUE CRITIQUE : Décrémenter directement lessons_used au lieu de recalculer
-            // Cela préserve la valeur manuelle initiale
-            // Exemple : 6 (5 manuel + 1 cours) - 1 cours annulé = 5 (valeur manuelle préservée)
-            if ($instance->lessons_used > 0) {
-                $instance->lessons_used = $instance->lessons_used - 1;
-            }
-            
-            Log::info("🚫 Cours {$lesson->id} détaché de l'abonnement {$instance->id} (annulé, décrémentation)", [
+
+            Log::info("🚫 Cours {$lesson->id} détaché de l'abonnement {$instance->id} (annulé, pas de décrémentation)", [
                 'lesson_id' => $lesson->id,
                 'subscription_instance_id' => $instance->id,
-                'old_lessons_used' => $oldLessonsUsed,
-                'new_lessons_used' => $instance->lessons_used,
-                'calculation' => "{$oldLessonsUsed} - 1 = {$instance->lessons_used}",
-                'old_status' => $oldStatus,
-                'note' => 'Décrémentation directe pour préserver la valeur manuelle'
+                'lessons_used' => $instance->lessons_used,
             ]);
-            
-            // Sauvegarder la décrémentation
+
             $instance->saveQuietly();
-            
-            // Si l'abonnement était completed et qu'il redevient disponible, le réouvrir
-            if ($oldStatus === 'completed' && $instance->lessons_used < $instance->subscription->total_available_lessons) {
-                $instance->status = 'active';
-                $instance->saveQuietly();
-                
-                Log::info("🔄 Abonnement {$instance->id} réouvert après annulation de cours", [
-                    'subscription_instance_id' => $instance->id,
-                    'lessons_used' => $instance->lessons_used,
-                    'total_available' => $instance->subscription->total_available_lessons,
-                    'cancelled_lesson_id' => $lesson->id
-                ]);
-            }
         }
     }
 
     /**
      * Handle the Lesson "deleted" event.
-     * Si un cours est supprimé, le détacher de l'abonnement et décrémenter lessons_used
+     * Détache le cours de l'abonnement sans décrémenter lessons_used.
      */
     public function deleted(Lesson $lesson): void
     {
-        // Récupérer toutes les instances d'abonnements liées à ce cours
         $subscriptionInstances = SubscriptionInstance::whereHas('lessons', function ($query) use ($lesson) {
             $query->where('lesson_id', $lesson->id);
         })->get();
 
         foreach ($subscriptionInstances as $instance) {
-            $oldLessonsUsed = $instance->lessons_used;
-            $oldStatus = $instance->status;
-            
-            // Détacher le cours supprimé de l'abonnement
             $instance->lessons()->detach($lesson->id);
-            
-            // ⚠️ LOGIQUE CRITIQUE : Décrémenter directement lessons_used au lieu de recalculer
-            // Cela préserve la valeur manuelle initiale
-            if ($instance->lessons_used > 0) {
-                $instance->lessons_used = $instance->lessons_used - 1;
-            }
-            
-            Log::info("🗑️ Cours {$lesson->id} détaché de l'abonnement {$instance->id} (supprimé, décrémentation)", [
+
+            Log::info("🗑️ Cours {$lesson->id} détaché de l'abonnement {$instance->id} (supprimé, pas de décrémentation)", [
                 'lesson_id' => $lesson->id,
                 'subscription_instance_id' => $instance->id,
-                'old_lessons_used' => $oldLessonsUsed,
-                'new_lessons_used' => $instance->lessons_used,
-                'calculation' => "{$oldLessonsUsed} - 1 = {$instance->lessons_used}",
-                'old_status' => $oldStatus,
-                'note' => 'Décrémentation directe pour préserver la valeur manuelle'
+                'lessons_used' => $instance->lessons_used,
             ]);
-            
-            // Sauvegarder la décrémentation
+
             $instance->saveQuietly();
-            
-            // Si l'abonnement était completed et qu'il redevient disponible, le réouvrir
-            if ($oldStatus === 'completed' && $instance->lessons_used < $instance->subscription->total_available_lessons) {
-                $instance->status = 'active';
-                $instance->saveQuietly();
-                
-                Log::info("🔄 Abonnement {$instance->id} réouvert après suppression de cours", [
-                    'subscription_instance_id' => $instance->id,
-                    'lessons_used' => $instance->lessons_used,
-                    'total_available' => $instance->subscription->total_available_lessons,
-                    'deleted_lesson_id' => $lesson->id
-                ]);
-            }
         }
     }
 

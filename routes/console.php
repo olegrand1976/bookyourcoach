@@ -31,6 +31,18 @@ Schedule::command('recurring-slots:generate-lessons')
         \Log::error('Échec de la génération automatique des lessons depuis les créneaux récurrents');
     });
 
+// Prolonger les récurrences des abonnements actifs (horizon 26 semaines)
+// Exécuté chaque dimanche à 3h du matin
+Schedule::command('recurring-slots:prolong')
+    ->weeklyOn(0, '03:00')
+    ->timezone('Europe/Brussels')
+    ->onSuccess(function () {
+        \Log::info('Prolongation automatique des récurrences (horizon 26 semaines) terminée');
+    })
+    ->onFailure(function () {
+        \Log::error('Échec de la prolongation automatique des récurrences');
+    });
+
 // Expirer automatiquement les liaisons abonnement-créneau récurrent
 // Exécuté quotidiennement à 3h du matin
 Schedule::command('recurring-slots:expire-subscriptions')
