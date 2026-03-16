@@ -87,6 +87,12 @@
               </svg>
               <span class="hidden xl:inline">Lettres</span>
             </button>
+            <button @click="navigateTo('/club/social-dashboard')" class="inline-flex items-center px-3 xl:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-sm text-sm">
+              <svg class="w-5 h-5 xl:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+              </svg>
+              <span class="hidden xl:inline">Posts</span>
+            </button>
           </div>
 
           <!-- Boutons mobile/tablette -->
@@ -125,6 +131,12 @@
               </svg>
               <span class="hidden sm:inline">Lettres</span>
               <span class="sm:hidden ml-2">Lettres</span>
+            </button>
+            <button @click="navigateTo('/club/social-dashboard')" class="inline-flex items-center justify-center px-2 sm:px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs sm:text-sm">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+              </svg>
+              <span>Posts</span>
             </button>
           </div>
         </div>
@@ -308,24 +320,25 @@
         </div>
       </div>
 
-      <!-- Abonnements en fin de parcours -->
-      <div v-if="subscriptionsNearingEnd && subscriptionsNearingEnd.length > 0" class="mb-8">
+      <!-- Abonnements en fin de parcours : section toujours visible (bouton visible dès qu'il y a des items) -->
+      <div class="mb-8">
         <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
           <div class="flex items-start justify-between">
             <div class="flex-1">
               <h3 class="text-lg font-semibold text-amber-800">
-                Abonnements en fin de parcours ({{ subscriptionsNearingEnd.length }})
+                Abonnements en fin de parcours ({{ subscriptionsNearingEnd?.length ?? 0 }})
               </h3>
               <p class="mt-1 text-sm text-amber-700">
                 Ces abonnements ont atteint le seuil d’alerte (séance n° ou max du pack) pour faciliter le suivi des renouvellements.
               </p>
               <div class="mt-4 space-y-3">
-                <div
-                  v-for="item in subscriptionsNearingEnd.slice(0, 10)"
-                  :key="item.id"
-                  class="bg-white rounded-lg p-4 border border-amber-200 flex flex-wrap items-center justify-between gap-2"
-                >
-                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <template v-if="subscriptionsNearingEnd && subscriptionsNearingEnd.length > 0">
+                  <div
+                    v-for="item in subscriptionsNearingEnd.slice(0, 10)"
+                    :key="item.id"
+                    class="bg-white rounded-lg p-4 border border-amber-200 flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span class="font-medium text-gray-900">{{ item.template?.model_number || '—' }}</span>
                     <span class="text-sm text-gray-600">
                       <template v-if="item.lessons_used >= (item.template?.total_available_lessons ?? 0)">
@@ -342,27 +355,40 @@
                       Exp. {{ item.expires_at }}
                     </span>
                   </div>
-                  <span
-                    class="px-2 py-1 text-xs font-medium rounded-full"
-                    :class="item.status === 'completed' ? 'bg-gray-100 text-gray-800' : 'bg-amber-100 text-amber-800'"
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        @click="openSubscription(item)"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0"
+                      >
+                        Ouvrir l'abonnement
+                      </button>
+                      <span
+                        class="px-2 py-1 text-xs font-medium rounded-full"
+                        :class="item.status === 'completed' ? 'bg-gray-100 text-gray-800' : 'bg-amber-100 text-amber-800'"
+                      >
+                        {{ item.status === 'completed' ? 'Terminé' : 'Actif' }}
+                      </span>
+                    </div>
+                  </div>
+                  <NuxtLink
+                    v-if="subscriptionsNearingEnd.length > 10"
+                    to="/club/subscriptions"
+                    class="block text-center text-amber-700 hover:text-amber-800 text-sm font-medium py-2"
                   >
-                    {{ item.status === 'completed' ? 'Terminé' : 'Actif' }}
-                  </span>
-                </div>
-                <NuxtLink
-                  v-if="subscriptionsNearingEnd.length > 10"
-                  to="/club/subscriptions"
-                  class="block text-center text-amber-700 hover:text-amber-800 text-sm font-medium py-2"
-                >
-                  Voir tous les abonnements ({{ subscriptionsNearingEnd.length }}) →
-                </NuxtLink>
-                <NuxtLink
-                  v-else
-                  to="/club/subscriptions"
-                  class="inline-flex items-center text-amber-700 hover:text-amber-800 text-sm font-medium mt-2"
-                >
-                  Voir tous les abonnements →
-                </NuxtLink>
+                    Voir tous les abonnements ({{ subscriptionsNearingEnd.length }}) →
+                  </NuxtLink>
+                  <NuxtLink
+                    v-else
+                    to="/club/subscriptions"
+                    class="inline-flex items-center text-amber-700 hover:text-amber-800 text-sm font-medium mt-2"
+                  >
+                    Voir tous les abonnements →
+                  </NuxtLink>
+                </template>
+                <p v-else class="text-sm text-amber-700">
+                  Aucun abonnement en fin de parcours pour le moment.
+                </p>
               </div>
             </div>
           </div>
@@ -576,6 +602,13 @@
       </div>
     </div>
 
+    <StudentSubscriptionsModal
+      v-if="showSubscriptionsModal && selectedStudentForSubscriptions"
+      :student="selectedStudentForSubscriptions"
+      @close="closeSubscriptionModal"
+      @success="onSubscriptionUpdated"
+    />
+
     <!-- Modal pour compléter les données d'un élève -->
     <div 
       v-if="showCompleteModal && selectedStudentForComplete"
@@ -675,6 +708,7 @@
 import { ref, onMounted } from 'vue'
 import PredictiveAnalysis from '~/components/AI/PredictiveAnalysis.vue'
 import ClubNotificationBell from '~/components/club/ClubNotificationBell.vue'
+import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
 
 // Le middleware global 'auth.global.ts' gère déjà la protection de cette route.
 // definePageMeta({
@@ -693,6 +727,8 @@ const hasError = ref(false)
 const errorMessage = ref('')
 const showCompleteModal = ref(false)
 const selectedStudentForComplete = ref(null)
+const showSubscriptionsModal = ref(false)
+const selectedStudentForSubscriptions = ref(null)
 const completing = ref(false)
 const completeForm = ref({
   first_name: '',
@@ -729,9 +765,12 @@ const loadDashboardData = async () => {
       recentStudents.value = response.data.data.recentStudents
       recentLessons.value = response.data.data.recentLessons || []
       incompleteStudents.value = response.data.data.incompleteStudents || []
-      subscriptionsNearingEnd.value = response.data.data.subscriptionsNearingEnd || []
+      // Accepter camelCase ou snake_case (selon config API / middleware Laravel)
+      const raw = response.data.data
+      subscriptionsNearingEnd.value = raw.subscriptionsNearingEnd ?? raw.subscriptions_nearing_end ?? []
 
       console.log('📊 Stats chargées:', stats.value)
+      console.log('📦 Abonnements en fin de parcours:', subscriptionsNearingEnd.value?.length ?? 0, subscriptionsNearingEnd.value)
       console.log('⚠️ Élèves incomplets:', incompleteStudents.value)
     } else {
       console.error('❌ Format de réponse invalide:', response)
@@ -847,6 +886,20 @@ const openCompleteStudentModal = (student) => {
     phone: ''
   }
   showCompleteModal.value = true
+}
+
+/** Ouvre uniquement l'abonnement cliqué : redirection vers la page abonnements avec l'instance ciblée. */
+const openSubscription = (item) => {
+  navigateTo({ path: '/club/subscriptions', query: { instance: item.id } })
+}
+
+const closeSubscriptionModal = () => {
+  showSubscriptionsModal.value = false
+  selectedStudentForSubscriptions.value = null
+}
+
+const onSubscriptionUpdated = async () => {
+  await loadDashboardData()
 }
 
 const closeCompleteModal = () => {

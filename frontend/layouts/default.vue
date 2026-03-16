@@ -105,6 +105,11 @@
                     <span>📄</span>
                     <span>Lettres de volontariat</span>
                   </NuxtLink>
+                  <NuxtLink v-if="isClub" to="/club/social-dashboard" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>📱</span>
+                    <span>Posts réseaux sociaux</span>
+                  </NuxtLink>
 
                   <NuxtLink :to="getProfileRoute()" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">

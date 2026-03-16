@@ -313,6 +313,14 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
         Route::put('/reports/{year}/{month}/teachers/{teacherId}/payments', [App\Http\Controllers\Api\ClubPayrollController::class, 'updatePayments']);
         Route::get('/export/{year}/{month}/csv', [App\Http\Controllers\Api\ClubPayrollController::class, 'exportCsv']);
     });
+
+    // Générateur de posts réseaux sociaux (Activibe CM)
+    Route::prefix('social-generator')->group(function () {
+        Route::get('/planning', [App\Http\Controllers\Api\ClubSocialGeneratorController::class, 'planning']);
+        Route::post('/planning/generate', [App\Http\Controllers\Api\ClubSocialGeneratorController::class, 'generate']);
+        Route::put('/posts/{id}', [App\Http\Controllers\Api\ClubSocialGeneratorController::class, 'update']);
+        Route::post('/posts/{id}/regenerate-image', [App\Http\Controllers\Api\ClubSocialGeneratorController::class, 'regenerateImage']);
+    });
 });
 
 // Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés

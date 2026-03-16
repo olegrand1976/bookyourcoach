@@ -19,12 +19,14 @@ class GeminiService
 
     /**
      * Générer du contenu avec Gemini
+     * Options: temperature, topK, topP, maxTokens, model (override du modèle par appel)
      */
     public function generateContent(string $prompt, array $options = []): ?string
     {
+        $model = $options['model'] ?? $this->model;
         try {
             $response = Http::timeout(30)->post(
-                "{$this->baseUrl}/models/{$this->model}:generateContent?key={$this->apiKey}",
+                "{$this->baseUrl}/models/{$model}:generateContent?key={$this->apiKey}",
                 [
                     'contents' => [
                         [

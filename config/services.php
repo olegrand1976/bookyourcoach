@@ -57,6 +57,15 @@ return [
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+        'text_models' => [
+            'gemini-1.5-pro',
+            'gemini-1.5-flash',
+            'gemini-2.5-flash',
+        ],
+        'image_models' => [
+            'imagen-4.0-generate-001',
+            'imagen-4.0-fast-generate-001',
+        ],
     ],
 
 ];
