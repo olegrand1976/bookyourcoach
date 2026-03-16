@@ -1018,6 +1018,7 @@ const instanceHistory = ref([])
 const savingInstance = ref(false)
 const deletingSubscription = ref(null)
 const subscriptionToDelete = ref(null)
+const openedModalForInstanceId = ref(null)
 
 // Formulaire d'édition d'instance
 const editForm = ref({
@@ -1347,7 +1348,9 @@ const filteredSubscriptions = computed(() => {
   if (instanceIdParam) {
     const instanceId = Number(instanceIdParam)
     if (instanceId && filtered.length > 0) {
-      const found = filtered.find(s => s.instances?.some(i => i.id === instanceId))
+      const found = filtered.find(s =>
+        s.instances?.some(i => Number(i.id) === instanceId || String(i.id) === String(instanceIdParam))
+      )
       if (found) filtered = [found]
     }
   }
@@ -1945,6 +1948,19 @@ const formatValidity = (template) => {
 }
 
 // Initialisation
+// Ouvrir la modale de l'abonnement contenant l'instance (depuis dashboard "Ouvrir l'abonnement")
+const openModalForInstanceId = async (instanceIdParam) => {
+  const instanceId = Number(instanceIdParam)
+  if (!instanceId || !subscriptions.value.length) return
+  // Comparaison souple (string/number) pour matcher l'id instance
+  const subscription = subscriptions.value.find(s =>
+    s.instances?.some(i => Number(i.id) === instanceId || String(i.id) === String(instanceIdParam))
+  )
+  if (subscription) {
+    await viewSubscriptionHistory(subscription)
+  }
+}
+
 onMounted(async () => {
   if (import.meta.client && typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(SUBSCRIPTIONS_VIEW_KEY)
@@ -1958,20 +1974,27 @@ onMounted(async () => {
       loadStudents()
     ])
     console.log('🚀 [SUBSCRIPTIONS] Toutes les données chargées')
-    // Depuis le dashboard "Ouvrir l'abonnement" : ouvrir le détail de l'abonnement contenant l'instance ciblée
     const instanceIdParam = route.query.instance
-    if (instanceIdParam) {
-      const instanceId = Number(instanceIdParam)
-      if (instanceId && subscriptions.value.length > 0) {
-        const subscription = subscriptions.value.find(s => s.instances?.some(i => i.id === instanceId))
-        if (subscription) {
-          await viewSubscriptionHistory(subscription)
-        }
-      }
+    if (instanceIdParam && openedModalForInstanceId.value !== instanceIdParam) {
+      openedModalForInstanceId.value = instanceIdParam
+      await nextTick()
+      await openModalForInstanceId(instanceIdParam)
     }
   } catch (error) {
     console.error('🚀 [SUBSCRIPTIONS] Erreur lors du chargement initial:', error)
   }
 })
+
+// Quand on arrive sur la page avec ?instance= en navigation client, ouvrir la modale une fois les abonnements chargés
+watch(
+  () => [route.query.instance, subscriptions.value.length],
+  async ([instanceParam, len]) => {
+    if (!instanceParam || len === 0 || openedModalForInstanceId.value === instanceParam) return
+    openedModalForInstanceId.value = instanceParam
+    await nextTick()
+    await openModalForInstanceId(instanceParam)
+  },
+  { immediate: false }
+)
 </script>
 
