@@ -14,6 +14,7 @@ class SubscriptionInstance extends Model
     protected $fillable = [
         'subscription_id',
         'lessons_used',
+        'manual_lessons_used',
         'started_at',
         'expires_at',
         'status',
@@ -26,6 +27,7 @@ class SubscriptionInstance extends Model
 
     protected $casts = [
         'lessons_used' => 'integer',
+        'manual_lessons_used' => 'integer',
         'started_at' => 'date',
         'expires_at' => 'date',
         'est_legacy' => 'boolean',
@@ -108,95 +110,56 @@ class SubscriptionInstance extends Model
      */
     public function recalculateLessonsUsed(): void
     {
-        // Compter directement dans la table subscription_lessons avec un JOIN sur lessons
-        // pour être sûr d'avoir les données à jour (évite les problèmes de cache Eloquent)
-        // ⚠️ IMPORTANT : Ne compter QUE les cours passés (dont la date/heure est passée)
-        // Les cours futurs planifiés sont attachés mais ne sont pas encore comptabilisés
-        // Ils seront comptabilisés automatiquement quand leur date/heure sera passée
-        $now = Carbon::now();
-        $consumedLessons = \Illuminate\Support\Facades\DB::table('subscription_lessons')
-            ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
-            ->where('subscription_lessons.subscription_instance_id', $this->id)
-            ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-            ->where('lessons.status', '!=', 'cancelled')
-            ->where('lessons.start_time', '<=', $now) // ⚠️ Seulement les cours passés
-            ->count();
-        
-        // ⚠️ NOTE : 
-        // - Les cours passés sont automatiquement consommés lors de l'attachement via consumeLesson()
-        // - Les cours futurs planifiés sont attachés mais ne sont PAS encore comptabilisés dans lessons_used
-        // - Ils seront comptabilisés automatiquement quand leur date/heure sera passée
-        // - Cette méthode compte uniquement les cours passés pour avoir le total réellement utilisé
-
+        $consumedLessons = $this->getConsumedLessonsCount();
         $oldValue = $this->lessons_used;
-        
-        // Log AVANT la mise à jour pour debug
+        $manualLessonsUsed = $this->resolveManualLessonsUsed($consumedLessons);
+        $newLessonsUsed = $manualLessonsUsed + $consumedLessons;
+
         \Log::info("🔍 Recalcul lessons_used pour subscription_instance {$this->id}", [
             'old_lessons_used' => $oldValue,
-            'new_calculated' => $consumedLessons,
-            'has_attached_lessons' => $consumedLessons > 0,
-            'will_update' => ($oldValue != $consumedLessons && $consumedLessons > 0),
+            'manual_lessons_used' => $manualLessonsUsed,
+            'consumed_lessons' => $consumedLessons,
+            'new_calculated' => $newLessonsUsed,
+            'will_update' => ($oldValue !== $newLessonsUsed),
             'subscription_id' => $this->subscription_id,
             'subscription_instance_id' => $this->id
         ]);
 
-        // ⚠️ LOGIQUE CRITIQUE : Ne compter que les cours passés dans lessons_used
-        // 
-        // RÈGLE : lessons_used doit refléter uniquement les cours passés (réellement consommés)
-        // Les cours futurs planifiés sont attachés mais ne sont pas encore comptabilisés
-        // 
-        // Exception : Si oldValue est significativement supérieur à consumedLessons ET qu'il n'y a pas de cours attachés,
-        // on considère que c'est une valeur manuelle et on la préserve
-        // 
-        // Exemple : Abonnement créé avec 5 cours utilisés manuellement (pas de cours attachés) → préserver 5
-        //          Abonnement avec 30 cours utilisés mais seulement 10 cours passés → utiliser 10 (corriger)
-        
-        if ($consumedLessons > 0) {
-            // Des cours passés sont attachés
-            // Utiliser le comptage réel des cours passés
-            if ($this->lessons_used != $consumedLessons) {
-                $this->lessons_used = $consumedLessons;
-                $this->saveQuietly();
-                
-                \Log::info("✅ Lessons_used mis à jour (cours passés uniquement) pour subscription_instance {$this->id}", [
-                    'old_value' => $oldValue,
-                    'consumed_lessons' => $consumedLessons,
-                    'new_value' => $consumedLessons,
-                    'note' => 'Mise à jour avec uniquement les cours passés'
-                ]);
-                
-                $this->checkAndUpdateStatus();
-            }
-        } else {
-            // Aucun cours passé attaché
-            // Si oldValue est > 0 et qu'il n'y a pas de cours attachés du tout, préserver la valeur manuelle
-            $totalAttachedLessons = \Illuminate\Support\Facades\DB::table('subscription_lessons')
-                ->where('subscription_instance_id', $this->id)
-                ->count();
-            
-            if ($totalAttachedLessons === 0 && $oldValue > 0) {
-                // Aucun cours attaché et valeur manuelle → préserver
-                \Log::info("🔒 Valeur manuelle préservée pour subscription_instance {$this->id}", [
-                    'manual_value' => $oldValue,
-                    'calculated_value' => $consumedLessons,
-                    'reason' => 'Aucun cours attaché, préservation de la valeur manuelle'
-                ]);
-            } else {
-                // Des cours sont attachés mais tous sont futurs → mettre à 0
-                if ($this->lessons_used != 0) {
-                    $this->lessons_used = 0;
-                    $this->saveQuietly();
-                    
-                    \Log::info("✅ Lessons_used mis à 0 (seulement des cours futurs attachés) pour subscription_instance {$this->id}", [
-                        'old_value' => $oldValue,
-                        'total_attached_lessons' => $totalAttachedLessons,
-                        'note' => 'Seulement des cours futurs attachés, lessons_used mis à 0'
-                    ]);
-                    
-                    $this->checkAndUpdateStatus();
-                }
-            }
+        if ($this->manual_lessons_used !== $manualLessonsUsed || $this->lessons_used !== $newLessonsUsed) {
+            $this->manual_lessons_used = $manualLessonsUsed;
+            $this->lessons_used = $newLessonsUsed;
+            $this->saveQuietly();
+
+            \Log::info("✅ Lessons_used recalculé avec base manuelle pour subscription_instance {$this->id}", [
+                'old_value' => $oldValue,
+                'manual_lessons_used' => $manualLessonsUsed,
+                'consumed_lessons' => $consumedLessons,
+                'new_value' => $newLessonsUsed,
+            ]);
+
+            $this->checkAndUpdateStatus();
         }
+    }
+
+    private function getConsumedLessonsCount(): int
+    {
+        return \Illuminate\Support\Facades\DB::table('subscription_lessons')
+            ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
+            ->where('subscription_lessons.subscription_instance_id', $this->id)
+            ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+            ->where('lessons.start_time', '<=', Carbon::now())
+            ->count();
+    }
+
+    private function resolveManualLessonsUsed(?int $consumedLessons = null): int
+    {
+        if ($this->manual_lessons_used !== null) {
+            return max(0, (int) $this->manual_lessons_used);
+        }
+
+        $consumedLessons ??= $this->getConsumedLessonsCount();
+
+        return max(0, ((int) $this->lessons_used) - $consumedLessons);
     }
 
     /**

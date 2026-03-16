@@ -79,6 +79,33 @@
             </select>
           </div>
           <div class="flex items-center gap-1 border border-gray-300 rounded-lg p-1 bg-gray-50">
+            <span class="text-sm font-medium text-gray-600 px-2">Données&nbsp;:</span>
+            <button
+              type="button"
+              :class="[
+                'px-3 py-2 rounded text-sm transition-colors',
+                subscriptionScope === 'active'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              ]"
+              @click="setSubscriptionScope('active')"
+            >
+              Actifs
+            </button>
+            <button
+              type="button"
+              :class="[
+                'px-3 py-2 rounded text-sm transition-colors',
+                subscriptionScope === 'trashed'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-200'
+              ]"
+              @click="setSubscriptionScope('trashed')"
+            >
+              Corbeille
+            </button>
+          </div>
+          <div class="flex items-center gap-1 border border-gray-300 rounded-lg p-1 bg-gray-50">
             <span class="text-sm font-medium text-gray-600 px-2">Vue&nbsp;:</span>
             <button
               type="button"
@@ -137,20 +164,24 @@
                 <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                   {{ subscription.instances?.length || 0 }} instance(s)
                 </span>
-                <!-- Bouton de suppression -->
                 <button
+                  v-if="subscriptionScope === 'active'"
                   @click.stop="openDeleteModal(subscription)"
-                  :disabled="hasAnyStudents(subscription)"
-                  :class="[
-                    'p-2 rounded-lg transition-colors',
-                    hasAnyStudents(subscription)
-                      ? 'text-gray-400 cursor-not-allowed opacity-50'
-                      : 'text-red-600 hover:text-red-800 hover:bg-red-50'
-                  ]"
-                  :title="hasAnyStudents(subscription) ? 'Impossible de supprimer : des élèves sont assignés' : 'Supprimer cet abonnement'"
+                  class="p-2 rounded-lg transition-colors text-red-600 hover:text-red-800 hover:bg-red-50"
+                  title="Placer cet abonnement dans la corbeille"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
+                </button>
+                <button
+                  v-else
+                  @click.stop="restoreSubscription(subscription.id)"
+                  class="p-2 rounded-lg transition-colors text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                  title="Restaurer cet abonnement"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 110 8H9m-6-8l4-4m-4 4l4 4"></path>
                   </svg>
                 </button>
               </div>
@@ -340,16 +371,23 @@
                 </td>
                 <td class="px-4 py-3 text-right" @click.stop>
                   <button
+                    v-if="subscriptionScope === 'active'"
                     @click.stop="openDeleteModal(subscription)"
-                    :disabled="hasAnyStudents(subscription)"
-                    :class="[
-                      'p-2 rounded-lg transition-colors',
-                      hasAnyStudents(subscription) ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
-                    ]"
-                    title="Supprimer"
+                    class="p-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
+                    title="Placer dans la corbeille"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                  <button
+                    v-else
+                    @click.stop="restoreSubscription(subscription.id)"
+                    class="p-2 rounded-lg transition-colors text-emerald-600 hover:bg-emerald-50"
+                    title="Restaurer"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11a4 4 0 110 8H9m-6-8l4-4m-4 4l4 4"></path>
                     </svg>
                   </button>
                 </td>
@@ -360,7 +398,7 @@
       </div>
 
       <!-- Message si aucun abonnement -->
-      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0" class="bg-white rounded-lg shadow-sm p-12 text-center">
+      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0 && subscriptionScope === 'active'" class="bg-white rounded-lg shadow-sm p-12 text-center">
         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
         </svg>
@@ -385,6 +423,15 @@
             <span>Créer un abonnement</span>
           </button>
         </div>
+      </div>
+      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0 && subscriptionScope === 'trashed'" class="bg-white rounded-lg shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14m-1 0l-1 12H7L6 8m3 0V5a1 1 0 011-1h4a1 1 0 011 1v3"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">La corbeille est vide</h3>
+        <p class="text-gray-600">
+          Aucun abonnement soft-supprimé n'est disponible pour restauration.
+        </p>
       </div>
     </div>
 
@@ -619,10 +666,10 @@
           <div class="flex items-center justify-between mb-6">
             <div>
               <h3 class="text-2xl font-semibold text-gray-900">
-                Confirmer la suppression
+                Confirmer la mise en corbeille
               </h3>
               <p class="text-sm text-gray-600 mt-1">
-                Cette action est irréversible
+                L'abonnement sera masqué de la liste active, sans suppression définitive des données.
               </p>
             </div>
             <button 
@@ -692,7 +739,7 @@
                 </div>
               </div>
 
-              <!-- Avertissement si des élèves sont assignés -->
+              <!-- Information si des élèves sont assignés -->
               <div v-if="hasAnyStudents(subscriptionToDelete)" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div class="flex items-start">
                   <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -700,10 +747,10 @@
                   </svg>
                   <div>
                     <p class="text-sm font-medium text-yellow-800">
-                      Attention : Cet abonnement a des élèves assignés
+                      Cet abonnement a des élèves assignés
                     </p>
                     <p class="text-xs text-yellow-700 mt-1">
-                      La suppression de cet abonnement supprimera également toutes les instances associées et leurs données.
+                      La mise en corbeille masque l'abonnement actif, mais conserve les données existantes pour l'historique.
                     </p>
                   </div>
                 </div>
@@ -726,8 +773,8 @@
               :disabled="deletingSubscription === subscriptionToDelete.id"
               class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
-              <span v-if="deletingSubscription === subscriptionToDelete.id">Suppression...</span>
-              <span v-else>Confirmer la suppression</span>
+              <span v-if="deletingSubscription === subscriptionToDelete.id">Mise en corbeille...</span>
+              <span v-else>Confirmer la mise en corbeille</span>
               <svg v-if="deletingSubscription === subscriptionToDelete.id" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -935,6 +982,7 @@ const selectedStudent = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
 const viewMode = ref('card')
+const subscriptionScope = ref('active')
 
 // Modals
 const showCreateModal = ref(false)
@@ -965,6 +1013,9 @@ const editForm = ref({
 // Calculer la valeur manuelle initiale (lessons_used - cours passés réellement consommés)
 const getManualLessonsUsed = (instance) => {
   if (!instance) return 0
+  if (instance.manual_lessons_used !== undefined && instance.manual_lessons_used !== null) {
+    return instance.manual_lessons_used
+  }
   const consumedLessons = getConsumedLessonsCount(instance)
   const totalUsed = instance.lessons_used || 0
   return Math.max(0, totalUsed - consumedLessons)
@@ -1016,7 +1067,11 @@ const loadSubscriptions = async () => {
     const { $api } = useNuxtApp()
     console.log('📦 [SUBSCRIPTIONS] $api disponible:', !!$api)
     console.log('📦 [SUBSCRIPTIONS] Appel API vers /club/subscriptions')
-    const response = await $api.get('/club/subscriptions')
+    const response = await $api.get('/club/subscriptions', {
+      params: {
+        scope: subscriptionScope.value
+      }
+    })
     console.log('📦 [SUBSCRIPTIONS] Réponse API reçue:', response)
     console.log('📦 [SUBSCRIPTIONS] Réponse API data:', response.data)
     if (response.data.success) {
@@ -1173,6 +1228,12 @@ const setViewMode = (mode) => {
   }
 }
 
+const setSubscriptionScope = async (scope) => {
+  if (subscriptionScope.value === scope) return
+  subscriptionScope.value = scope
+  await loadSubscriptions()
+}
+
 const getInstanceLessonsUsed = (instance) => {
   // ⚠️ IMPORTANT : Utiliser lessons_used en PRIORITÉ car c'est la valeur source de vérité
   // Cette valeur peut être manuelle (entrée lors de la création) ou calculée automatiquement
@@ -1266,7 +1327,7 @@ const filteredSubscriptions = computed(() => {
   console.log('🔍 [DEBUG TRI] Abonnements bruts:', filtered)
   
   // 1. Filtrer par statut d'utilisation (couleur)
-  if (statusFilter.value !== 'all') {
+  if (subscriptionScope.value === 'active' && statusFilter.value !== 'all') {
     filtered = filtered.filter(subscription => {
       if (!subscription.instances || subscription.instances.length === 0) {
         return false
@@ -1354,6 +1415,14 @@ const filteredSubscriptions = computed(() => {
   
   console.log('🔍 [DEBUG TRI] Après filtrage:', filtered.length)
   
+  if (subscriptionScope.value === 'trashed') {
+    return [...filtered].sort((a, b) => {
+      const deletedAtA = a.deleted_at ? new Date(a.deleted_at).getTime() : 0
+      const deletedAtB = b.deleted_at ? new Date(b.deleted_at).getTime() : 0
+      return deletedAtB - deletedAtA
+    })
+  }
+
   // 3. Tri par urgence décroissante, puis date d'expiration croissante
   // IMPORTANT: Créer une copie avant de trier pour que Vue détecte les changements
   const sorted = [...filtered].sort((a, b) => {
@@ -1512,18 +1581,11 @@ const saveInstanceChanges = async () => {
     const { $api } = useNuxtApp()
     const { success: showSuccess, error: showError } = useToast()
     
-    // La date d'expiration est toujours recalculée automatiquement côté backend
-    // On envoie null pour déclencher le recalcul basé sur la nouvelle date de début
-    // Pour lessons_used, on calcule le nouveau total = valeur manuelle + cours réellement consommés
-    const consumedLessons = getConsumedLessonsCount(editingInstance.value)
-    const newManualValue = editForm.value.manual_lessons_used || 0
-    const newTotalLessonsUsed = newManualValue + consumedLessons
-    
     const response = await $api.put(`/club/subscriptions/instances/${editingInstance.value.id}`, {
       started_at: editForm.value.started_at,
       expires_at: null, // Toujours null pour recalcul automatique
       status: editForm.value.status,
-      lessons_used: newTotalLessonsUsed, // Total = valeur manuelle + cours réellement consommés
+      manual_lessons_used: editForm.value.manual_lessons_used || 0,
       est_legacy: editForm.value.est_legacy
     })
     
@@ -1745,13 +1807,6 @@ const hasAnyStudents = (subscription) => {
 
 // Ouvrir la modale de confirmation de suppression
 const openDeleteModal = async (subscription) => {
-  // Vérifier d'abord si l'abonnement a des élèves assignés
-  if (hasAnyStudents(subscription)) {
-    const { error: showError } = useToast()
-    showError('Impossible de supprimer cet abonnement car il a des élèves assignés', 'Suppression impossible')
-    return
-  }
-
   try {
     // Charger les détails complets de l'abonnement si nécessaire
     const { $api } = useNuxtApp()
@@ -1789,7 +1844,7 @@ const deleteSubscription = async (subscriptionId) => {
     const response = await $api.delete(`/club/subscriptions/${subscriptionId}`)
     
     if (response.data.success) {
-      showSuccess('Abonnement supprimé avec succès')
+      showSuccess(response.data.message || 'Abonnement placé dans la corbeille avec succès')
       // Fermer la modale
       closeDeleteModal()
       // Recharger la liste des abonnements
@@ -1803,6 +1858,31 @@ const deleteSubscription = async (subscriptionId) => {
     showError(error.response?.data?.message || 'Erreur lors de la suppression de l\'abonnement')
   } finally {
     deletingSubscription.value = null
+  }
+}
+
+const restoreSubscription = async (subscriptionId) => {
+  const confirmed = window.confirm('Restaurer cet abonnement depuis la corbeille ?')
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    const response = await $api.post(`/club/subscriptions/${subscriptionId}/restore`)
+
+    if (response.data.success) {
+      showSuccess(response.data.message || 'Abonnement restauré avec succès')
+      await loadSubscriptions()
+      return
+    }
+
+    showError(response.data.message || 'Erreur lors de la restauration')
+  } catch (error) {
+    console.error('Erreur lors de la restauration de l\'abonnement:', error)
+    const { error: showError } = useToast()
+    showError(error.response?.data?.message || 'Erreur lors de la restauration de l\'abonnement')
   }
 }
 

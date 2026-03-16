@@ -677,6 +677,7 @@ const assignSubscription = async () => {
       started_at: form.value.started_at,
       expires_at: calculatedExpiresAt.value || null,
       lessons_used: form.value.lessons_used || 0,
+      manual_lessons_used: form.value.lessons_used || 0,
       // Champs pour les commissions
       est_legacy: form.value.est_legacy === true || form.value.est_legacy === 'true',
       date_paiement: form.value.date_paiement || null,

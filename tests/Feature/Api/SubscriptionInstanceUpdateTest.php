@@ -227,7 +227,7 @@ class SubscriptionInstanceUpdateTest extends TestCase
             'started_at' => $this->instance->started_at->format('Y-m-d'),
             'expires_at' => null,
             'status' => 'active',
-            'lessons_used' => $expectedTotal,
+            'manual_lessons_used' => $newManualValue,
             'est_legacy' => false
         ]);
 
@@ -236,11 +236,73 @@ class SubscriptionInstanceUpdateTest extends TestCase
 
         $this->instance->refresh();
         
-        // Vérifier que la valeur a été mise à jour
-        // La valeur peut être soit celle envoyée (8), soit recalculée (1 cours passé)
-        // selon si recalculateLessonsUsed() est appelé dans updateInstance()
-        $this->assertGreaterThanOrEqual($consumedLessons, $this->instance->lessons_used);
-        $this->assertLessThanOrEqual($expectedTotal, $this->instance->lessons_used);
+        $this->assertSame($newManualValue, $this->instance->manual_lessons_used);
+        $this->assertSame($expectedTotal, $this->instance->lessons_used);
+    }
+
+    /**
+     * Test : La valeur manuelle initiale est persistée à la création d'un abonnement.
+     */
+    public function test_assigning_subscription_persists_manual_lessons_used()
+    {
+        $manualLessonsUsed = 4;
+
+        $response = $this->postJson('/api/club/subscriptions/assign', [
+            'subscription_template_id' => $this->template->id,
+            'student_ids' => [$this->student->id],
+            'started_at' => Carbon::now()->format('Y-m-d'),
+            'manual_lessons_used' => $manualLessonsUsed,
+            'lessons_used' => $manualLessonsUsed,
+            'est_legacy' => false,
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJson(['success' => true]);
+
+        $createdInstance = SubscriptionInstance::latest('id')->first();
+
+        $this->assertNotNull($createdInstance);
+        $this->assertSame($manualLessonsUsed, $createdInstance->manual_lessons_used);
+        $this->assertSame($manualLessonsUsed, $createdInstance->lessons_used);
+    }
+
+    /**
+     * Test : Un abonnement peut être placé dans la corbeille même avec des élèves assignés.
+     */
+    public function test_subscription_can_be_soft_deleted_with_assigned_students()
+    {
+        $response = $this->deleteJson("/api/club/subscriptions/{$this->subscription->id}");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Abonnement placé dans la corbeille avec succès',
+            ]);
+
+        $this->assertSoftDeleted('subscriptions', [
+            'id' => $this->subscription->id,
+        ]);
+    }
+
+    /**
+     * Test : Un abonnement placé dans la corbeille peut être restauré.
+     */
+    public function test_subscription_can_be_restored_from_trash()
+    {
+        $this->subscription->delete();
+
+        $response = $this->postJson("/api/club/subscriptions/{$this->subscription->id}/restore");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Abonnement restauré avec succès',
+            ]);
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $this->subscription->id,
+            'deleted_at' => null,
+        ]);
     }
 
     /**

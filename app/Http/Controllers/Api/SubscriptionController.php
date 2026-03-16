@@ -25,6 +25,11 @@ class SubscriptionController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $scope = $request->query('scope', 'active');
+            if (!in_array($scope, ['active', 'trashed'], true)) {
+                $scope = 'active';
+            }
+
             $user = Auth::user();
             
             if (!$user) {
@@ -62,7 +67,11 @@ class SubscriptionController extends Controller
             // Si pas d'abonnements, retourner un tableau vide directement
             // Utiliser scopeForClub qui gère automatiquement le cas où club_id n'existe pas
             try {
-                $subscriptionCount = Subscription::forClub($club->id)->count();
+                $subscriptionQuery = $scope === 'trashed'
+                    ? Subscription::onlyTrashed()->forClub($club->id)
+                    : Subscription::forClub($club->id);
+
+                $subscriptionCount = (clone $subscriptionQuery)->count();
                 if ($subscriptionCount === 0) {
                     return response()->json([
                         'success' => true,
@@ -70,7 +79,7 @@ class SubscriptionController extends Controller
                     ]);
                 }
 
-                $subscriptions = Subscription::forClub($club->id)
+                $subscriptions = $subscriptionQuery
                     ->with([
                         'template' => function ($query) {
                             $query->with('courseTypes');
@@ -81,7 +90,7 @@ class SubscriptionController extends Controller
                             }]);
                         }
                     ])
-                    ->orderBy('created_at', 'desc')
+                    ->orderBy($scope === 'trashed' ? 'deleted_at' : 'created_at', 'desc')
                     ->get();
             } catch (\Exception $e) {
                 Log::error('Erreur lors de la récupération des abonnements (query): ' . $e->getMessage(), [
@@ -96,92 +105,99 @@ class SubscriptionController extends Controller
                 ]);
             }
             
-            // 🔧 Lier automatiquement les cours non liés aux abonnements actifs
-            // Utiliser l'ordre chronologique : les abonnements les plus anciens sont utilisés en premier
-            $allStudentIds = [];
-            foreach ($subscriptions as $subscription) {
-                if ($subscription->instances && $subscription->instances->count() > 0) {
-                    foreach ($subscription->instances as $instance) {
-                        if ($instance->status === 'active') {
-                            $allStudentIds = array_merge($allStudentIds, $instance->students->pluck('id')->toArray());
+            if ($scope === 'active') {
+                // 🔧 Lier automatiquement les cours non liés aux abonnements actifs
+                // Utiliser l'ordre chronologique : les abonnements les plus anciens sont utilisés en premier
+                $allStudentIds = [];
+                foreach ($subscriptions as $subscription) {
+                    if ($subscription->instances && $subscription->instances->count() > 0) {
+                        foreach ($subscription->instances as $instance) {
+                            if ($instance->status === 'active') {
+                                $allStudentIds = array_merge($allStudentIds, $instance->students->pluck('id')->toArray());
+                            }
                         }
                     }
                 }
-            }
-            $allStudentIds = array_unique($allStudentIds);
 
-            // Pour chaque élève, trouver ses cours non liés et les lier au bon abonnement
-            foreach ($allStudentIds as $studentId) {
-                // Récupérer tous les cours non liés de cet élève
-                $unlinkedLessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
-                        $query->where('student_id', $studentId)
-                              ->orWhereHas('students', function ($q) use ($studentId) {
-                                  $q->where('students.id', $studentId);
-                              });
-                    })
-                    ->whereNotIn('status', ['cancelled'])
-                    ->whereDoesntHave('subscriptionInstances')
-                    ->get();
+                $allStudentIds = array_unique($allStudentIds);
 
-                foreach ($unlinkedLessons as $lesson) {
-                    if (!$lesson->course_type_id) {
-                        continue;
-                    }
+                // Pour chaque élève, trouver ses cours non liés et les lier au bon abonnement
+                foreach ($allStudentIds as $studentId) {
+                    // Récupérer tous les cours non liés de cet élève
+                    $unlinkedLessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
+                            $query->where('student_id', $studentId)
+                                ->orWhereHas('students', function ($q) use ($studentId) {
+                                    $q->where('students.id', $studentId);
+                                });
+                        })
+                        ->whereNotIn('status', ['cancelled'])
+                        ->whereDoesntHave('subscriptionInstances')
+                        ->get();
 
-                    try {
-                        // Trouver le bon abonnement actif pour cet élève et ce type de cours
-                        // (le plus ancien qui a encore des cours disponibles)
-                        $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
-                            $studentId,
-                            $lesson->course_type_id,
-                            $club->id
-                        );
+                    foreach ($unlinkedLessons as $lesson) {
+                        if (!$lesson->course_type_id) {
+                            continue;
+                        }
 
-                        if ($instance) {
-                            $instance->consumeLesson($lesson);
-                            Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} (le plus ancien disponible)", [
+                        try {
+                            // Trouver le bon abonnement actif pour cet élève et ce type de cours
+                            // (le plus ancien qui a encore des cours disponibles)
+                            $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                                $studentId,
+                                $lesson->course_type_id,
+                                $club->id
+                            );
+
+                            if ($instance) {
+                                $instance->consumeLesson($lesson);
+                                Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} (le plus ancien disponible)", [
+                                    'lesson_id' => $lesson->id,
+                                    'student_id' => $studentId,
+                                    'course_type_id' => $lesson->course_type_id,
+                                    'subscription_instance_id' => $instance->id,
+                                    'subscription_created_at' => $instance->created_at
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning("Impossible de lier le cours {$lesson->id} à un abonnement: " . $e->getMessage(), [
                                 'lesson_id' => $lesson->id,
                                 'student_id' => $studentId,
-                                'course_type_id' => $lesson->course_type_id,
-                                'subscription_instance_id' => $instance->id,
-                                'subscription_created_at' => $instance->created_at
+                                'course_type_id' => $lesson->course_type_id
                             ]);
                         }
-                    } catch (\Exception $e) {
-                        Log::warning("Impossible de lier le cours {$lesson->id} à un abonnement: " . $e->getMessage(), [
-                            'lesson_id' => $lesson->id,
-                            'student_id' => $studentId,
-                            'course_type_id' => $lesson->course_type_id
-                        ]);
                     }
                 }
-            }
 
-            // ⚠️ IMPORTANT : Recalculer lessons_used pour ne compter que les cours passés
-            // Cela garantit que seuls les cours réellement passés sont comptabilisés
-            // Les valeurs manuelles sont préservées si elles sont supérieures au nombre de cours passés
-            foreach ($subscriptions as $subscription) {
-                if ($subscription->instances && $subscription->instances->count() > 0) {
-                    foreach ($subscription->instances as $instance) {
-                        try {
-                            // Recalculer lessons_used pour ne compter que les cours passés
-                            $instance->recalculateLessonsUsed();
-                            // Mettre à jour le statut (expired si expires_at dépassée, completed si 100% utilisé)
-                            $instance->checkAndUpdateStatus();
-                        } catch (\Exception $e) {
-                            Log::warning('Erreur lors du recalcul pour l\'instance: ' . $e->getMessage(), [
-                                'instance_id' => $instance->id ?? null
-                            ]);
+                // ⚠️ IMPORTANT : Recalculer lessons_used pour ne compter que les cours passés
+                // Cela garantit que seuls les cours réellement passés sont comptabilisés
+                // Les valeurs manuelles sont préservées si elles sont supérieures au nombre de cours passés
+                foreach ($subscriptions as $subscription) {
+                    if ($subscription->instances && $subscription->instances->count() > 0) {
+                        foreach ($subscription->instances as $instance) {
+                            try {
+                                // Recalculer lessons_used pour ne compter que les cours passés
+                                $instance->recalculateLessonsUsed();
+                                // Mettre à jour le statut (expired si expires_at dépassée, completed si 100% utilisé)
+                                $instance->checkAndUpdateStatus();
+                            } catch (\Exception $e) {
+                                Log::warning('Erreur lors du recalcul pour l\'instance: ' . $e->getMessage(), [
+                                    'instance_id' => $instance->id ?? null
+                                ]);
+                            }
                         }
                     }
+
+                    // Ajouter l'alias subscriptionStudents pour compatibilité frontend
+                    try {
+                        $subscription->subscription_students = $subscription->instances ?? collect([]);
+                    } catch (\Exception $e) {
+                        Log::warning('Erreur lors de l\'ajout de subscription_students: ' . $e->getMessage());
+                        $subscription->subscription_students = collect([]);
+                    }
                 }
-                
-                // Ajouter l'alias subscriptionStudents pour compatibilité frontend
-                try {
+            } else {
+                foreach ($subscriptions as $subscription) {
                     $subscription->subscription_students = $subscription->instances ?? collect([]);
-                } catch (\Exception $e) {
-                    Log::warning('Erreur lors de l\'ajout de subscription_students: ' . $e->getMessage());
-                    $subscription->subscription_students = collect([]);
                 }
             }
 
@@ -341,7 +357,12 @@ class SubscriptionController extends Controller
                 'student_ids' => 'required|array|min:1',
                 'student_ids.*' => 'exists:students,id',
                 'started_at' => 'nullable|date',
-                'expires_at' => 'nullable|date'
+                'expires_at' => 'nullable|date',
+                'lessons_used' => 'nullable|integer|min:0',
+                'manual_lessons_used' => 'nullable|integer|min:0',
+                'est_legacy' => 'nullable|boolean',
+                'date_paiement' => 'nullable|date',
+                'montant' => 'nullable|numeric|min:0',
             ]);
 
             // Vérifier que le template appartient au club
@@ -359,16 +380,20 @@ class SubscriptionController extends Controller
 
             // Date de début (aujourd'hui par défaut)
             $startedAt = $validated['started_at'] ? Carbon::parse($validated['started_at']) : Carbon::now();
+            $manualLessonsUsed = isset($validated['manual_lessons_used'])
+                ? (int) $validated['manual_lessons_used']
+                : (int) ($validated['lessons_used'] ?? 0);
 
             // Créer l'instance d'abonnement
             $subscriptionInstance = SubscriptionInstance::create([
                 'subscription_id' => $subscription->id,
-                'lessons_used' => $validated['lessons_used'] ?? 0,
+                'lessons_used' => $manualLessonsUsed,
+                'manual_lessons_used' => $manualLessonsUsed,
                 'started_at' => $startedAt,
                 'expires_at' => $validated['expires_at'] ? Carbon::parse($validated['expires_at']) : null,
                 'status' => 'active',
                 'est_legacy' => $validated['est_legacy'] ?? false,
-                'date_paiement' => $validated['date_paiement'] ? Carbon::parse($validated['date_paiement']) : null,
+                'date_paiement' => !empty($validated['date_paiement']) ? Carbon::parse($validated['date_paiement']) : null,
                 'montant' => $validated['montant'] ?? null,
             ]);
 
@@ -392,6 +417,8 @@ class SubscriptionController extends Controller
                     'started_at' => $subscriptionInstance->started_at,
                     'expires_at' => $subscriptionInstance->expires_at,
                     'status' => $subscriptionInstance->status,
+                    'manual_lessons_used' => $subscriptionInstance->manual_lessons_used,
+                    'lessons_used' => $subscriptionInstance->lessons_used,
                     'est_legacy' => $subscriptionInstance->est_legacy,
                     'student_ids' => $validated['student_ids'],
                 ],
@@ -674,41 +701,16 @@ class SubscriptionController extends Controller
                 ->with(['instances.students'])
                 ->findOrFail($id);
 
-            // Vérifier qu'il n'y a aucun élève assigné à cet abonnement
-            $hasStudents = false;
-            if ($subscription->instances && $subscription->instances->count() > 0) {
-                foreach ($subscription->instances as $instance) {
-                    if ($instance->students && $instance->students->count() > 0) {
-                        $hasStudents = true;
-                        break;
-                    }
-                }
-            }
-
-            if ($hasStudents) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Impossible de supprimer cet abonnement car il a des élèves assignés'
-                ], 422);
-            }
-
             DB::beginTransaction();
 
-            // Supprimer les associations avec les types de cours
-            if (Schema::hasTable('subscription_course_types')) {
-                DB::table('subscription_course_types')
-                    ->where('subscription_id', $subscription->id)
-                    ->delete();
-            }
-
-            // Soft-delete l'abonnement (les instances seront supprimées en cascade si elles existent)
+            // Soft-delete uniquement l'abonnement pour conserver l'historique et les relations.
             $subscription->delete();
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Abonnement supprimé avec succès'
+                'message' => 'Abonnement placé dans la corbeille avec succès'
             ]);
 
         } catch (\Exception $e) {
@@ -717,6 +719,61 @@ class SubscriptionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la suppression de l\'abonnement'
+            ], 500);
+        }
+    }
+
+    /**
+     * Restaurer un abonnement depuis la corbeille
+     */
+    public function restore($id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Missing token'
+                ], 401);
+            }
+
+            if ($user->role !== 'club') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux clubs'
+                ], 403);
+            }
+
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non trouvé'
+                ], 404);
+            }
+
+            $subscription = Subscription::onlyTrashed()
+                ->forClub($club->id)
+                ->findOrFail($id);
+
+            $subscription->restore();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Abonnement restauré avec succès'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Abonnement introuvable dans la corbeille'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la restauration de l\'abonnement: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la restauration de l\'abonnement'
             ], 500);
         }
     }
@@ -825,6 +882,7 @@ class SubscriptionController extends Controller
             'started_at' => 'nullable|date',
             'expires_at' => 'nullable|date',
             'lessons_used' => 'nullable|integer|min:0',
+            'manual_lessons_used' => 'nullable|integer|min:0',
             // Champs pour les commissions
             'est_legacy' => 'nullable|boolean',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
             'date_paiement' => 'nullable|date',      // Date de paiement (détermine le mois de commission)
@@ -869,22 +927,25 @@ class SubscriptionController extends Controller
             // Date de début (aujourd'hui par défaut)
             $startedAt = $validated['started_at'] ? Carbon::parse($validated['started_at']) : Carbon::now();
 
-            // Nombre de cours déjà utilisés (par défaut 0)
-            $lessonsUsed = isset($validated['lessons_used']) ? (int) $validated['lessons_used'] : 0;
+            // Valeur manuelle initiale des cours déjà utilisés (par défaut 0)
+            $manualLessonsUsed = isset($validated['manual_lessons_used'])
+                ? (int) $validated['manual_lessons_used']
+                : (isset($validated['lessons_used']) ? (int) $validated['lessons_used'] : 0);
             
-            // Vérifier que lessons_used ne dépasse pas le total disponible
+            // Vérifier que la valeur manuelle ne dépasse pas le total disponible
             $totalAvailable = $template->total_lessons + $template->free_lessons;
-            if ($lessonsUsed > $totalAvailable) {
+            if ($manualLessonsUsed > $totalAvailable) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Le nombre de cours utilisés ({$lessonsUsed}) ne peut pas dépasser le total disponible ({$totalAvailable})"
+                    'message' => "Le nombre de cours utilisés ({$manualLessonsUsed}) ne peut pas dépasser le total disponible ({$totalAvailable})"
                 ], 422);
             }
 
             // Créer une instance d'abonnement avec les champs de commission
             $subscriptionInstanceData = [
                 'subscription_id' => $subscription->id,
-                'lessons_used' => $lessonsUsed,
+                'lessons_used' => $manualLessonsUsed,
+                'manual_lessons_used' => $manualLessonsUsed,
                 'started_at' => $startedAt,
                 'expires_at' => isset($validated['expires_at']) && $validated['expires_at'] ? Carbon::parse($validated['expires_at']) : null,
                 'status' => 'active'
@@ -915,7 +976,8 @@ class SubscriptionController extends Controller
             Log::info('✅ [assignToStudent] Instance créée:', [
                 'instance_id' => $subscriptionInstance->id,
                 'lessons_used_saved' => $subscriptionInstance->lessons_used,
-                'expected_lessons_used' => $lessonsUsed
+                'manual_lessons_used_saved' => $subscriptionInstance->manual_lessons_used,
+                'expected_lessons_used' => $manualLessonsUsed
             ]);
 
             DB::commit();
@@ -1568,6 +1630,7 @@ class SubscriptionController extends Controller
                 'expires_at' => 'nullable|date',
                 'status' => 'required|in:active,completed,expired,cancelled',
                 'lessons_used' => 'nullable|integer|min:0',
+                'manual_lessons_used' => 'nullable|integer|min:0',
                 'est_legacy' => 'nullable|boolean',
             ]);
 
@@ -1590,6 +1653,7 @@ class SubscriptionController extends Controller
                 'expires_at' => $instance->expires_at,
                 'status' => $instance->status,
                 'lessons_used' => $instance->lessons_used,
+                'manual_lessons_used' => $instance->manual_lessons_used,
                 'est_legacy' => $instance->est_legacy,
             ];
 
@@ -1630,8 +1694,20 @@ class SubscriptionController extends Controller
             }
             
             $instance->status = $validated['status'];
-            if (isset($validated['lessons_used'])) {
-                $instance->lessons_used = $validated['lessons_used'];
+            if (isset($validated['manual_lessons_used']) || isset($validated['lessons_used'])) {
+                $consumedLessons = $instance->lessons
+                    ->filter(function ($lesson) {
+                        return in_array($lesson->status, ['pending', 'confirmed', 'completed'], true)
+                            && Carbon::parse($lesson->start_time)->lessThanOrEqualTo(now());
+                    })
+                    ->count();
+
+                $manualLessonsUsed = isset($validated['manual_lessons_used'])
+                    ? (int) $validated['manual_lessons_used']
+                    : max(0, (int) $validated['lessons_used'] - $consumedLessons);
+
+                $instance->manual_lessons_used = $manualLessonsUsed;
+                $instance->lessons_used = $manualLessonsUsed + $consumedLessons;
             }
             
             // ⚠️ IMPORTANT : Mettre à jour est_legacy si fourni
@@ -2015,6 +2091,7 @@ class SubscriptionController extends Controller
                         'expires_at' => 'Date d\'expiration',
                         'status' => 'Statut',
                         'lessons_used' => 'Nombre de cours utilisés',
+                        'manual_lessons_used' => 'Valeur manuelle initiale',
                     ];
                     
                     $label = $fieldLabels[$field] ?? $field;
