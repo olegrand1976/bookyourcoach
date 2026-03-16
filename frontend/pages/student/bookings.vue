@@ -26,7 +26,7 @@
       </div>
 
       <!-- Status Filter -->
-      <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+      <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
         <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Filtrer par statut</h2>
         <div class="flex flex-wrap gap-2">
           <button 
@@ -34,7 +34,7 @@
             :key="status.value"
             @click="selectedStatus = status.value"
             :class="[
-              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+              'min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
               selectedStatus === status.value
                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -75,13 +75,13 @@
       </div>
 
       <!-- Bookings List -->
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-4 sm:space-y-6">
         <div 
           v-for="booking in filteredBookings" 
           :key="booking.id"
           class="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all"
         >
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <!-- Booking Header -->
             <div class="flex items-start justify-between mb-4">
               <div>
@@ -151,7 +151,7 @@
               <button 
                 v-if="canCancel(booking)"
                 @click="handleCancelBooking(booking.id)"
-                class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
+                class="min-h-[44px] px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
               >
                 Annuler
               </button>
@@ -159,14 +159,14 @@
               <button 
                 v-if="canRate(booking)"
                 @click="rateLesson(booking)"
-                class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
+                class="min-h-[44px] px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
               >
                 Noter
               </button>
               
               <button 
                 @click="viewBookingDetails(booking.id)"
-                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                class="min-h-[44px] px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               >
                 Détails
               </button>
@@ -186,7 +186,7 @@
           <div v-if="selectedStatus === 'all'" class="mt-6">
             <NuxtLink 
               to="/student/lessons"
-              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
+              class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm hover:shadow-md font-medium"
             >
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

@@ -28,17 +28,17 @@
       </div>
 
       <!-- Calendrier -->
-      <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
         <StudentCalendar :student-id="authStore.user?.student?.id || authStore.user?.id" />
       </div>
     </div>
 
     <!-- Modal de détails de cours -->
     <div v-if="selectedLesson" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="selectedLesson = null">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">Détails du cours</h3>
-          <button @click="selectedLesson = null" class="text-gray-400 hover:text-gray-600">
+      <div class="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 min-w-0">Détails du cours</h3>
+          <button @click="selectedLesson = null" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 shrink-0" aria-label="Fermer">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -101,7 +101,7 @@
         
         <div class="mt-6 flex justify-end">
           <button @click="selectedLesson = null" 
-            class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+            class="min-h-[44px] px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
             Fermer
           </button>
         </div>

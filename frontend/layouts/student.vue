@@ -70,9 +70,57 @@
     </nav>
 
     <!-- Contenu principal -->
-    <main>
+    <main class="pb-20 md:pb-0">
       <slot />
     </main>
+
+    <!-- Barre de navigation mobile (fixe en bas) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]" aria-label="Navigation principale">
+      <div class="flex items-stretch justify-around min-h-[56px] max-w-full">
+        <NuxtLink
+          to="/student/dashboard"
+          class="flex flex-col items-center justify-center min-h-[44px] flex-1 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          active-class="!text-blue-600 !bg-blue-50/50"
+        >
+          <span class="text-lg" aria-hidden="true">📊</span>
+          <span class="text-xs font-medium mt-0.5">Dashboard</span>
+        </NuxtLink>
+        <NuxtLink
+          to="/student/schedule"
+          class="flex flex-col items-center justify-center min-h-[44px] flex-1 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          active-class="!text-blue-600 !bg-blue-50/50"
+        >
+          <span class="text-lg" aria-hidden="true">📅</span>
+          <span class="text-xs font-medium mt-0.5">Planning</span>
+        </NuxtLink>
+        <NuxtLink
+          to="/student/subscriptions"
+          class="flex flex-col items-center justify-center min-h-[44px] flex-1 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          active-class="!text-blue-600 !bg-blue-50/50"
+        >
+          <span class="text-lg" aria-hidden="true">💳</span>
+          <span class="text-xs font-medium mt-0.5">Abos</span>
+        </NuxtLink>
+        <NuxtLink
+          to="/student/profile"
+          class="flex flex-col items-center justify-center min-h-[44px] flex-1 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          active-class="!text-blue-600 !bg-blue-50/50"
+        >
+          <span class="text-lg" aria-hidden="true">👤</span>
+          <span class="text-xs font-medium mt-0.5">Profil</span>
+        </NuxtLink>
+        <button
+          type="button"
+          @click="toggleUserMenu"
+          class="flex flex-col items-center justify-center min-h-[44px] flex-1 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          :aria-expanded="userMenuOpen"
+          aria-haspopup="true"
+        >
+          <span class="text-lg" aria-hidden="true">⋯</span>
+          <span class="text-xs font-medium mt-0.5">Plus</span>
+        </button>
+      </div>
+    </nav>
   </div>
 </template>
 

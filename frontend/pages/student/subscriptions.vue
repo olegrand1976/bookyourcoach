@@ -31,14 +31,14 @@
       </div>
 
       <!-- Liste des abonnements -->
-      <div v-else-if="subscriptions.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div v-else-if="subscriptions.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div 
           v-for="subscription in subscriptions" 
           :key="subscription.id"
           class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
         >
           <!-- Header -->
-          <div class="p-6 border-b border-gray-200">
+          <div class="p-4 sm:p-6 border-b border-gray-200">
             <div class="flex items-start justify-between mb-4">
               <div class="flex-1">
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">
@@ -105,7 +105,7 @@
           </div>
 
           <!-- Dates -->
-          <div class="p-4 bg-gray-50 space-y-2">
+          <div class="p-4 sm:p-5 bg-gray-50 space-y-2">
             <div class="flex items-center justify-between text-sm">
               <span class="text-gray-600">Date de début</span>
               <span class="font-medium text-gray-900">
@@ -165,14 +165,14 @@
             <button
               v-if="subscription.status === 'active' && canRenew(subscription)"
               @click="renewSubscription(subscription.id)"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              class="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
             >
               Renouveler
             </button>
             <button
               v-else-if="subscription.status === 'expired' && subscription.subscription?.template?.is_active"
               @click="renewSubscription(subscription.id)"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              class="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
             >
               Renouveler
             </button>

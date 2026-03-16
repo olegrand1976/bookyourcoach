@@ -1,17 +1,18 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
+  <div class="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
+      <div class="mb-6 sm:mb-8">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">Mon Planning</h1>
-            <p class="mt-2 text-gray-600">Gestion de vos cours et créneaux horaires</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mon Planning</h1>
+            <p class="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">Gestion de vos cours et créneaux horaires</p>
           </div>
           <NuxtLink to="/teacher/dashboard" 
-            class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium">
-            <span>←</span>
-            <span class="ml-2">Retour au dashboard</span>
+            class="inline-flex items-center justify-center min-h-[44px] px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-200 font-medium w-full sm:w-auto"
+            aria-label="Retour au dashboard">
+            <span aria-hidden="true">←</span>
+            <span class="ml-2 hidden sm:inline">Retour au dashboard</span>
           </NuxtLink>
         </div>
       </div>
@@ -41,7 +42,7 @@
               :key="club.id"
               @click="selectCalendar(String(club.id))"
               :class="[
-                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                'min-h-[44px] px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 selectedCalendar === String(club.id)
                   ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -53,13 +54,14 @@
             <button
               @click="selectCalendar('personal')"
               :class="[
-                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                'min-h-[44px] px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 selectedCalendar === 'personal'
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
-              Mon Calendrier Personnel
+              <span class="sm:hidden">Personnel</span>
+              <span class="hidden sm:inline">Mon Calendrier Personnel</span>
             </button>
           </div>
           <p v-if="selectedCalendar !== 'personal'" class="mt-3 text-sm text-gray-500">
@@ -68,27 +70,27 @@
         </div>
 
         <!-- Calendrier avec cours -->
-        <div class="bg-white shadow rounded-lg p-6 mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Calendrier mensuel</h3>
+        <div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-6">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Calendrier mensuel</h3>
           <div class="calendar-month-view">
             <!-- En-tête des jours de la semaine -->
-            <div class="grid grid-cols-7 gap-1 mb-2">
+            <div class="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
               <div v-for="day in weekDays" :key="day" 
-                class="p-2 text-center text-xs font-medium text-gray-500 bg-gray-50">
+                class="p-1 sm:p-2 text-center text-xs font-medium text-gray-500 bg-gray-50">
                 {{ day }}
               </div>
             </div>
             <!-- Grille du calendrier -->
-            <div class="grid grid-cols-7 gap-1">
+            <div class="grid grid-cols-7 gap-0.5 sm:gap-1">
               <div v-for="day in calendarDays" :key="day.date" 
                 :class="[
-                  'min-h-[100px] p-2 border border-gray-200 rounded',
+                  'min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border border-gray-200 rounded',
                   day.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
                   day.isToday ? 'bg-blue-50 border-blue-300' : ''
                 ]">
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-0.5 sm:mb-1">
                   <span :class="[
-                    'text-sm font-medium',
+                    'text-xs sm:text-sm font-medium',
                     day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
                     day.isToday ? 'text-blue-600 font-bold' : ''
                   ]">
@@ -96,12 +98,12 @@
                   </span>
                 </div>
                 <!-- Cours du jour -->
-                <div class="space-y-1">
+                <div class="space-y-0.5 sm:space-y-1">
                   <div 
                     v-for="lesson in getLessonsForDay(day.date)" 
                     :key="lesson.id"
                     @click="openLessonModal(lesson)"
-                    class="p-1 rounded text-xs cursor-pointer transition-colors hover:shadow-sm"
+                    class="min-h-[36px] flex flex-col justify-center p-1 rounded text-xs cursor-pointer transition-colors hover:shadow-sm"
                     :class="getLessonBorderClass(lesson)"
                   >
                     <div class="font-medium truncate">{{ formatLessonTime(lesson.start_time) }}</div>
@@ -117,19 +119,19 @@
         </div>
 
         <!-- Bloc : Cours programmés -->
-        <div class="bg-white shadow rounded-lg p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">
+        <div class="bg-white shadow rounded-lg p-4 sm:p-6">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div class="min-w-0">
+              <h2 class="text-lg sm:text-xl font-semibold text-gray-900">
                 Cours programmés
-                <span v-if="selectedCalendar !== 'personal'" class="text-base font-normal text-gray-600">
+                <span v-if="selectedCalendar !== 'personal'" class="text-sm sm:text-base font-normal text-gray-600">
                   • {{ getClubName(selectedCalendar) }}
                 </span>
-                <span v-else class="text-base font-normal text-gray-600">
+                <span v-else class="text-sm sm:text-base font-normal text-gray-600">
                   • Cours directs uniquement
                 </span>
               </h2>
-              <p class="text-sm text-gray-500 mt-1">
+              <p class="text-xs sm:text-sm text-gray-500 mt-1">
                 {{ lessons.length }} cours programmé{{ lessons.length > 1 ? 's' : '' }}
                 <span v-if="selectedCalendar === 'personal'" class="text-xs text-gray-400">
                   (cours directs avec vos élèves, sans club)
@@ -140,8 +142,8 @@
             <button 
               v-if="selectedCalendar === 'personal'"
               @click="openCreateLessonModal"
-              class="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center gap-2 shadow-lg">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="min-h-[44px] w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg font-medium">
+              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
               Créer un cours
@@ -154,7 +156,7 @@
               v-for="lesson in lessons" 
               :key="lesson.id"
               @click="openLessonModal(lesson)"
-              class="border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+              class="min-h-[44px] border-2 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md active:bg-gray-50"
               :class="getLessonBorderClass(lesson)">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
@@ -202,12 +204,12 @@
       <!-- Modale Détails du Cours -->
       <div v-if="showLessonModal && selectedLesson" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div class="p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-2xl font-bold text-gray-900">
+          <div class="p-4 sm:p-6">
+            <div class="flex items-center justify-between gap-2 mb-4 sm:mb-6">
+              <h3 class="text-xl sm:text-2xl font-bold text-gray-900 min-w-0">
                 Détails du cours
               </h3>
-              <button @click="closeLessonModal" class="text-gray-400 hover:text-gray-600">
+              <button @click="closeLessonModal" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 shrink-0" aria-label="Fermer">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -219,13 +221,13 @@
               <!-- Type de cours -->
               <div class="bg-gray-50 rounded-lg p-4">
                 <label class="block text-sm font-medium text-gray-500 mb-1">Type de cours</label>
-                <p class="text-lg font-semibold text-gray-900">
+                <p class="text-base sm:text-lg font-semibold text-gray-900">
                   {{ selectedLesson.course_type?.name || 'Non défini' }}
                 </p>
               </div>
 
               <!-- Horaires -->
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="bg-gray-50 rounded-lg p-4">
                   <label class="block text-sm font-medium text-gray-500 mb-1">Début</label>
                   <p class="text-base font-semibold text-gray-900">
@@ -272,28 +274,28 @@
                   <button 
                     @click="updateLessonStatus(selectedLesson.id, 'confirmed')"
                     :class="selectedLesson.status === 'confirmed' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'"
-                    class="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
+                    class="min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
                     :disabled="saving">
                     ✓ Confirmé
                   </button>
                   <button 
                     @click="updateLessonStatus(selectedLesson.id, 'pending')"
                     :class="selectedLesson.status === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'"
-                    class="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
+                    class="min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
                     :disabled="saving">
                     ⏳ En attente
                   </button>
                   <button 
                     @click="updateLessonStatus(selectedLesson.id, 'completed')"
                     :class="selectedLesson.status === 'completed' ? 'bg-gray-500 text-white' : 'bg-gray-200 text-gray-700'"
-                    class="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
+                    class="min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
                     :disabled="saving">
                     ✓ Terminé
                   </button>
                   <button 
                     @click="updateLessonStatus(selectedLesson.id, 'cancelled')"
                     :class="selectedLesson.status === 'cancelled' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'"
-                    class="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
+                    class="min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-80"
                     :disabled="saving">
                     ✗ Annulé
                   </button>
@@ -308,11 +310,11 @@
             </div>
 
             <!-- Boutons d'action -->
-            <div class="flex justify-between gap-3 mt-6 pt-4 border-t">
+            <div class="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-6 pt-4 border-t">
               <button 
                 @click="deleteLesson(selectedLesson.id)"
                 :disabled="saving"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
+                class="min-h-[44px] px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-medium">
                 <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -320,7 +322,7 @@
               </button>
               <button 
                 @click="closeLessonModal"
-                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                class="min-h-[44px] px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
                 Fermer
               </button>
             </div>

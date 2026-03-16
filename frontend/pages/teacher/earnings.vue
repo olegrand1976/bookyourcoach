@@ -3,14 +3,14 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Header -->
       <div class="mb-6 md:mb-8">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Mes Revenus</h1>
             <p class="mt-1 md:mt-2 text-sm md:text-base text-gray-600">Consultez vos revenus et statistiques financières</p>
           </div>
           <NuxtLink to="/teacher/dashboard" 
-            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <span>←</span>
+            class="inline-flex items-center justify-center min-h-[44px] px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors w-full sm:w-auto">
+            <span aria-hidden="true">←</span>
             <span class="ml-2">Retour au dashboard</span>
           </NuxtLink>
         </div>
@@ -18,13 +18,13 @@
 
       <!-- Filtres de période -->
       <div class="mb-6 md:mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
           <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div class="flex flex-col sm:flex-row gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Période</label>
                 <select v-model="selectedPeriod" @change="loadEarningsData" 
-                  class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="min-h-[44px] w-full sm:w-auto px-3 py-2.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="current_month">Ce mois</option>
                   <option value="last_month">Mois dernier</option>
                   <option value="current_quarter">Ce trimestre</option>
@@ -35,12 +35,12 @@
               <div v-if="selectedPeriod === 'custom'">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
                 <input v-model="customStartDate" type="date" 
-                  class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="min-h-[44px] w-full sm:w-auto px-3 py-2.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
               </div>
               <div v-if="selectedPeriod === 'custom'">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
                 <input v-model="customEndDate" type="date" 
-                  class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  class="min-h-[44px] w-full sm:w-auto px-3 py-2.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
               </div>
             </div>
             
@@ -69,15 +69,15 @@
         <h3 class="text-base md:text-lg font-semibold text-red-900 mb-2">Erreur de chargement</h3>
         <p class="text-red-700 mb-4">{{ error }}</p>
         <button @click="loadEarningsData" 
-          class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+          class="min-h-[44px] inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
           Réessayer
         </button>
       </div>
 
       <div v-else class="space-y-8">
         <!-- Vue d'ensemble -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-4 md:gap-6">
-          <div class="bg-white rounded-lg shadow p-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
             <div class="flex items-center">
               <div class="p-2 bg-green-100 rounded-lg">
                 <span class="text-2xl text-green-600">💰</span>
@@ -89,7 +89,7 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
             <div class="flex items-center">
               <div class="p-2 bg-blue-100 rounded-lg">
                 <span class="text-2xl text-blue-600">👤</span>
@@ -101,7 +101,7 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
             <div class="flex items-center">
               <div class="p-2 bg-purple-100 rounded-lg">
                 <span class="text-2xl text-purple-600">🏢</span>
@@ -113,7 +113,7 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
             <div class="flex items-center">
               <div class="p-2 bg-yellow-100 rounded-lg">
                 <span class="text-2xl text-yellow-600">📊</span>
@@ -128,22 +128,22 @@
 
         <!-- Onglets de navigation -->
         <div class="bg-white rounded-lg shadow">
-          <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8 px-6">
+          <div class="border-b border-gray-200 overflow-x-auto">
+            <nav class="-mb-px flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-0">
               <button v-for="tab in tabs" :key="tab.id" 
                 @click="activeTab = tab.id"
                 :class="[
                   activeTab === tab.id 
                     ? 'border-blue-500 text-blue-600' 
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
-                  'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm'
+                  'whitespace-nowrap min-h-[44px] py-4 px-2 sm:px-1 border-b-2 font-medium text-sm flex items-center'
                 ]">
                 {{ tab.name }}
               </button>
             </nav>
           </div>
 
-          <div class="p-6">
+          <div class="p-4 sm:p-6">
             <!-- Onglet: Par club -->
             <div v-if="activeTab === 'clubs'">
               <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Revenus par club</h3>
@@ -233,8 +233,8 @@
             <!-- Onglet: Détail des cours -->
             <div v-if="activeTab === 'lessons'">
               <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Détail des cours</h3>
-              <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+              <div class="overflow-x-auto -mx-4 sm:mx-0">
+                <table class="min-w-[600px] divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                     <tr>
                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>

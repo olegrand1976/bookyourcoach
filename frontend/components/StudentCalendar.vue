@@ -1,89 +1,83 @@
 <template>
   <div class="bg-white rounded-lg shadow-lg">
     <!-- En-tête du calendrier -->
-    <div class="flex items-center justify-between p-6 border-b border-gray-200">
-      <div class="flex items-center space-x-4">
-        <h2 class="text-xl font-semibold text-gray-900">Mon Calendrier</h2>
-        <div class="flex items-center space-x-2">
-          <button @click="toggleView('month')" 
-            :class="['px-3 py-1 rounded-md text-sm font-medium transition-colors', 
-              currentView === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
-            Mois
-          </button>
-          <button @click="toggleView('week')" 
-            :class="['px-3 py-1 rounded-md text-sm font-medium transition-colors', 
-              currentView === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
-            Semaine
-          </button>
-          <button @click="toggleView('day')" 
-            :class="['px-3 py-1 rounded-md text-sm font-medium transition-colors', 
-              currentView === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
-            Jour
-          </button>
-        </div>
-      </div>
-      
-      <div class="flex items-center space-x-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 border-b border-gray-200">
+      <h2 class="text-lg sm:text-xl font-semibold text-gray-900">Mon Calendrier</h2>
+      <div class="flex flex-wrap items-center gap-2">
+        <button @click="toggleView('month')" 
+          :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
+            currentView === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
+          Mois
+        </button>
+        <button @click="toggleView('week')" 
+          :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
+            currentView === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
+          Semaine
+        </button>
+        <button @click="toggleView('day')" 
+          :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
+            currentView === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
+          Jour
+        </button>
         <button @click="goToToday" 
-          class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 transition-colors">
+          class="min-h-[44px] px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors">
           Aujourd'hui
         </button>
       </div>
     </div>
 
     <!-- Navigation du calendrier -->
-    <div class="flex items-center justify-between p-4 border-b border-gray-200">
-      <div class="flex items-center space-x-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 border-b border-gray-200">
+      <div class="flex items-center gap-2 sm:gap-4">
         <button @click="previousPeriod" 
-          class="p-2 rounded-md hover:bg-gray-100 transition-colors">
+          class="min-h-[44px] min-w-[44px] p-2 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center"
+          aria-label="Période précédente">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        
-        <h3 class="text-lg font-medium text-gray-900">
+        <h3 class="text-base sm:text-lg font-medium text-gray-900 min-w-0">
           {{ currentPeriodTitle }}
         </h3>
-        
         <button @click="nextPeriod" 
-          class="p-2 rounded-md hover:bg-gray-100 transition-colors">
+          class="min-h-[44px] min-w-[44px] p-2 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center"
+          aria-label="Période suivante">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
       </div>
-      
-      <div class="text-sm text-gray-500">
+      <div class="text-xs sm:text-sm text-gray-500">
         {{ events.length }} cours programmés
       </div>
     </div>
 
     <!-- Calendrier -->
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
       <!-- Vue Mois -->
       <div v-if="currentView === 'month'" class="calendar-month">
-        <div class="grid grid-cols-7 gap-1 mb-2">
+        <div class="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
           <div v-for="day in weekDays" :key="day" 
-            class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
+            class="p-1.5 sm:p-3 text-center text-xs sm:text-sm font-medium text-gray-500 bg-gray-50">
             {{ day }}
           </div>
         </div>
-        <div class="grid grid-cols-7 gap-1">
+        <div class="grid grid-cols-7 gap-0.5 sm:gap-1">
           <div v-for="day in calendarDays" :key="day.date" 
-            :class="['min-h-[120px] p-2 border border-gray-200', 
+            :class="['min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-200', 
               day.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
               day.isToday ? 'bg-blue-50 border-blue-300' : '']">
-            <div class="flex items-center justify-between mb-1">
-              <span :class="['text-sm font-medium', 
+            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+              <span :class="['text-xs sm:text-sm font-medium', 
                 day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
                 day.isToday ? 'text-blue-600' : '']">
                 {{ day.day }}
               </span>
             </div>
-            <div class="space-y-1">
+            <div class="space-y-0.5 sm:space-y-1">
               <div v-for="event in day.events" :key="event.id" 
                 @click="selectEvent(event)"
-                :class="['text-xs p-1 rounded cursor-pointer truncate hover:opacity-80 transition-opacity', 
+                :class="['text-xs p-1.5 sm:p-1 rounded cursor-pointer truncate hover:opacity-80 transition-opacity min-h-[28px] flex items-center', 
                   event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
                   event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                   event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
@@ -95,36 +89,41 @@
         </div>
       </div>
 
-      <!-- Vue Semaine -->
+      <!-- Vue Semaine : message sur mobile, grille sur md+ -->
       <div v-else-if="currentView === 'week'" class="calendar-week">
-        <div class="grid grid-cols-8 gap-1">
-          <div class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
-            Heure
-          </div>
-          <div v-for="day in weekDays" :key="day" 
-            class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
-            {{ day }}
-          </div>
+        <div class="md:hidden p-4 text-center text-sm text-gray-500 bg-gray-50 rounded-lg">
+          Vue semaine disponible sur écran plus large. Utilisez « Mois » ou « Jour » sur mobile.
         </div>
-        <div class="grid grid-cols-8 gap-1">
-          <div v-for="hour in dayHours" :key="hour" class="relative">
-            <div class="p-2 text-xs text-gray-500 bg-gray-50 border-r border-gray-200">
-              {{ formatTime(hour) }}
+        <div class="hidden md:block">
+          <div class="grid grid-cols-8 gap-1">
+            <div class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
+              Heure
             </div>
             <div v-for="day in weekDays" :key="day" 
-              class="min-h-[60px] p-2 border border-gray-200 bg-white relative">
-              <div 
-                v-for="event in getEventsForHourAndDay(hour, day)" 
-                :key="event.id"
-                @click="selectEvent(event)"
-                :class="['absolute left-1 right-1 p-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity',
-                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
-                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800']"
-                :style="{ top: `${getEventPosition(event, hour)}px`, height: `${getEventHeight(event)}px` }"
-              >
-                {{ event.title }}
+              class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
+              {{ day }}
+            </div>
+          </div>
+          <div class="grid grid-cols-8 gap-1">
+            <div v-for="hour in dayHours" :key="hour" class="relative">
+              <div class="p-2 text-xs text-gray-500 bg-gray-50 border-r border-gray-200">
+                {{ formatTime(hour) }}
+              </div>
+              <div v-for="day in weekDays" :key="day" 
+                class="min-h-[60px] p-2 border border-gray-200 bg-white relative">
+                <div 
+                  v-for="event in getEventsForHourAndDay(hour, day)" 
+                  :key="event.id"
+                  @click="selectEvent(event)"
+                  :class="['absolute left-1 right-1 p-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity',
+                    event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
+                    event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800']"
+                  :style="{ top: `${getEventPosition(event, hour)}px`, height: `${getEventHeight(event)}px` }"
+                >
+                  {{ event.title }}
+                </div>
               </div>
             </div>
           </div>
@@ -133,18 +132,19 @@
 
       <!-- Vue Jour -->
       <div v-else-if="currentView === 'day'" class="calendar-day">
-        <div class="space-y-4">
+        <div class="space-y-3 sm:space-y-4">
           <div v-for="hour in dayHours" :key="hour" 
-            class="flex items-start space-x-4 p-3 border border-gray-200 rounded-lg">
-            <div class="w-16 text-sm text-gray-500 pt-1">
+            class="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 border border-gray-200 rounded-lg">
+            <div class="w-14 sm:w-16 text-xs sm:text-sm text-gray-500 pt-1 shrink-0">
               {{ formatTime(hour) }}
             </div>
-            <div class="flex-1 space-y-2">
+            <div class="flex-1 space-y-2 min-w-0">
               <div 
                 v-for="event in getEventsForHour(hour)" 
                 :key="event.id"
                 @click="selectEvent(event)"
-                :class="['p-3 rounded-lg cursor-pointer hover:opacity-80 transition-opacity',
+                class="min-h-[44px] flex flex-col justify-center"
+                :class="['p-3 sm:p-4 rounded-lg cursor-pointer hover:opacity-80 transition-opacity',
                   event.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
                   event.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
                   event.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
@@ -161,10 +161,10 @@
 
     <!-- Modal de détails d'événement -->
     <div v-if="selectedEvent" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="closeModal">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">{{ selectedEvent.title }}</h3>
-          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
+      <div class="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 min-w-0">{{ selectedEvent.title }}</h3>
+          <button @click="closeModal" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 shrink-0" aria-label="Fermer">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -216,7 +216,7 @@
         
         <div class="mt-6 flex justify-end">
           <button @click="closeModal" 
-            class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+            class="min-h-[44px] px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
             Fermer
           </button>
         </div>

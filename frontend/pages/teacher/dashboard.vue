@@ -26,7 +26,7 @@
               <button
                 @click="selectClub(null)"
                 :class="[
-                  'text-left p-3 md:p-4 rounded-lg border-2 transition-all duration-200',
+                  'text-left min-h-[44px] p-3 md:p-4 rounded-lg border-2 transition-all duration-200',
                   selectedClubId === null 
                     ? 'border-purple-500 bg-purple-50 shadow-md' 
                     : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
@@ -50,7 +50,7 @@
                 :key="club.id"
                 @click="selectClub(club.id)"
                 :class="[
-                  'text-left p-3 md:p-5 rounded-lg border-2 transition-all duration-200',
+                  'text-left min-h-[44px] p-3 md:p-5 rounded-lg border-2 transition-all duration-200',
                   selectedClubId === club.id 
                     ? 'border-purple-500 bg-purple-50 shadow-md' 
                     : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
@@ -327,7 +327,7 @@
           <div class="flex flex-wrap gap-2">
             <NuxtLink 
               to="/teacher/schedule"
-              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
+              class="min-h-[44px] inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -338,7 +338,7 @@
               v-for="club in clubs"
               :key="club.id"
               :to="`/teacher/schedule?club=${club.id}`"
-              class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
+              class="min-h-[44px] inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -351,7 +351,7 @@
 
       <!-- Mes cours -->
       <div class="bg-white rounded-lg shadow mb-8">
-        <div class="p-6 border-b border-gray-200">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h3 class="text-lg font-medium text-gray-900">
@@ -365,7 +365,7 @@
               <button
                 @click="changePeriod('7days')"
                 :class="[
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                   selectedPeriod === '7days'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -376,7 +376,7 @@
               <button
                 @click="changePeriod('15days')"
                 :class="[
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                   selectedPeriod === '15days'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -387,7 +387,7 @@
               <button
                 @click="changePeriod('previous_month')"
                 :class="[
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                   selectedPeriod === 'previous_month'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -398,7 +398,7 @@
               <button
                 @click="changePeriod('current_month')"
                 :class="[
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                   selectedPeriod === 'current_month'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -409,7 +409,7 @@
               <button
                 @click="changePeriod('next_month')"
                 :class="[
-                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors',
                   selectedPeriod === 'next_month'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -420,13 +420,13 @@
             </div>
           </div>
         </div>
-        <div class="p-6">
+        <div class="p-4 sm:p-6">
           <div v-if="loading" class="text-center py-8">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p class="text-gray-600 mt-4">Chargement...</p>
           </div>
 
-          <div v-else-if="filteredLessons.length > 0" class="overflow-x-auto">
+          <div v-else-if="filteredLessons.length > 0" class="overflow-x-auto -mx-4 sm:mx-0">
             <!-- Groupement par jour/date -->
             <div v-for="(dayLessons, dateKey) in groupedLessonsByDate" :key="dateKey" class="mb-6">
               <!-- En-tête du jour -->
@@ -437,33 +437,33 @@
               </div>
               
               <!-- Tableau des cours pour ce jour -->
-              <table class="min-w-full divide-y divide-gray-200">
+              <table class="min-w-[700px] sm:min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remplacement</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Élève</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remplacement</th>
+                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-for="lesson in dayLessons" :key="lesson.id" class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div class="text-sm font-medium text-gray-900">
                         {{ lesson.club?.name || 'N/A' }}
                       </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div class="text-sm text-gray-900">{{ formatTime(lesson.start_time) }} - {{ formatTime(lesson.end_time) }}</div>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4">
                       <div class="text-sm text-gray-900">{{ lesson.course_type?.name || 'N/A' }}</div>
                       <div class="text-xs text-gray-500">{{ calculateDuration(lesson.start_time, lesson.end_time) }}min - {{ lesson.price }}€</div>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4">
                       <div class="text-sm font-medium text-gray-900">
                         {{ getLessonStudentNames(lesson) }}
                       </div>
@@ -471,12 +471,12 @@
                         {{ getLessonStudentAges(lesson) }}
                       </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span :class="getStatusClass(lesson.status)" class="px-2 py-1 text-xs font-semibold rounded-full">
                         {{ getStatusLabel(lesson.status) }}
                       </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div v-if="getReplacementForLesson(lesson.id)">
                         <div class="mb-1">
                           <!-- Cas 1: On a demandé un remplacement (on est l'enseignant d'origine) -->
@@ -495,13 +495,13 @@
                             <div v-if="getReplacementForLesson(lesson.id).status === 'pending'" class="mt-2 flex gap-2">
                               <button
                                 @click="cancelReplacementRequest(getReplacementForLesson(lesson.id).id)"
-                                class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 py-2 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                               >
                                 ✗ Annuler
                               </button>
                               <button
                                 @click="modifyReplacementRequest(lesson, getReplacementForLesson(lesson.id))"
-                                class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                               >
                                 ✏️ Modifier
                               </button>
@@ -530,27 +530,29 @@
                         Aucun
                       </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        @click="openLessonDetails(lesson)"
-                        class="text-blue-600 hover:text-blue-900"
-                      >
-                        👁️ Voir
-                      </button>
-                      <button
-                        v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
-                        @click="openReplacementRequest(lesson)"
-                        class="text-orange-600 hover:text-orange-900"
-                      >
-                        🔄 Remplacer
-                      </button>
-                      <button
-                        v-if="hasPendingReplacementReceived(lesson.id)"
-                        @click="acceptReplacementForLesson(lesson.id)"
-                        class="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-xs font-medium"
-                      >
-                        ✓ Accepter
-                      </button>
+                    <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">
+                      <div class="flex flex-wrap gap-2">
+                        <button
+                          @click="openLessonDetails(lesson)"
+                          class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-3 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          👁️ Voir
+                        </button>
+                        <button
+                          v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
+                          @click="openReplacementRequest(lesson)"
+                          class="min-h-[44px] inline-flex items-center justify-center px-3 py-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors"
+                        >
+                          🔄 Remplacer
+                        </button>
+                        <button
+                          v-if="hasPendingReplacementReceived(lesson.id)"
+                          @click="acceptReplacementForLesson(lesson.id)"
+                          class="min-h-[44px] px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-xs font-medium"
+                        >
+                          ✓ Accepter
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
