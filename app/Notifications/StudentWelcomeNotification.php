@@ -29,25 +29,27 @@ class StudentWelcomeNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $resetUrl = $this->resetToken 
+        $resetUrl = $this->resetToken
             ? url(config('app.frontend_url') . '/reset-password?token=' . $this->resetToken . '&email=' . urlencode($notifiable->email))
             : url(config('app.frontend_url') . '/login');
 
+        $name = $notifiable->name ?? '';
+        $firstName = trim((string) ($notifiable->first_name ?? '')) ?: (explode(' ', $name)[0] ?? '') ?: $name ?: 'vous';
+
         return (new MailMessage)
-            ->subject('Bienvenue dans ' . $this->clubName . ' - activibe')
-            ->greeting("Bonjour {$notifiable->name},")
-            ->line("Félicitations ! Vous avez été inscrit(e) comme élève dans le club **{$this->clubName}**.")
-            ->line('Pour commencer à utiliser la plateforme activibe, vous devez définir votre mot de passe.')
-            ->action('Définir mon mot de passe', $resetUrl)
-            ->line('Ce lien est valable pendant 24 heures.')
-            ->line('Votre adresse email de connexion est : **' . $notifiable->email . '**')
-            ->line('Une fois votre mot de passe défini, vous pourrez :')
-            ->line('• Consulter vos cours et réservations')
+            ->subject("Bienvenue chez {$this->clubName} — Activibe")
+            ->greeting("Bonjour {$firstName},")
+            ->line("Bonne nouvelle : vous êtes inscrit(e) au club **{$this->clubName}** sur Activibe.")
+            ->line("Pour accéder à votre espace (cours, réservations, suivi), il suffit de définir votre mot de passe en un clic.")
+            ->action('Créer mon mot de passe', $resetUrl)
+            ->line('**À savoir :** ce lien est valable 24 h. Votre adresse de connexion : **' . $notifiable->email . '**')
+            ->line('Ensuite, vous pourrez :')
+            ->line('• Voir vos cours et réservations')
             ->line('• Suivre votre progression')
-            ->line('• Communiquer avec vos enseignants')
+            ->line('• Échanger avec vos enseignants')
             ->line('• Gérer votre profil')
-            ->line('Si vous n\'avez pas demandé à rejoindre ce club, veuillez ignorer cet email.')
-            ->salutation('À bientôt sur activibe !');
+            ->line('Si vous n’avez pas demandé cette inscription, vous pouvez ignorer ce message.')
+            ->salutation("L’équipe Activibe\nÀ très bientôt !");
     }
 
     public function toArray(object $notifiable): array
