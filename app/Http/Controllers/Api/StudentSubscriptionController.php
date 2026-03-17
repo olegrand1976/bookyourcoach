@@ -85,30 +85,28 @@ class StudentSubscriptionController extends Controller
                 ], 403);
             }
 
-            // Récupérer l'étudiant actif depuis le contexte
-            $activeStudentId = $request->input('active_student_id', $user->student->id ?? null);
-            
-            // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
+            $param = $request->query('active_student_id') ?? $request->input('active_student_id');
             $linkedStudents = $user->getLinkedStudents();
-            $isLinked = $linkedStudents->contains('id', $activeStudentId) 
-                     || ($user->student && $user->student->id === $activeStudentId);
-            
-            if (!$isLinked || !$activeStudentId) {
-                $activeStudentId = $user->student->id ?? null;
+            $linkedIds = collect([$user->student->id])->merge($linkedStudents->pluck('id'))->unique()->values()->all();
+
+            $studentIds = $linkedIds;
+            if ($param !== 'all' && $param !== null && $param !== '') {
+                $id = (int) $param;
+                if (in_array($id, $linkedIds, true)) {
+                    $studentIds = [$id];
+                }
             }
-            
-            if (!$activeStudentId) {
+
+            if (empty($studentIds)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil élève non trouvé'
                 ], 404);
             }
-            
-            $student = Student::findOrFail($activeStudentId);
 
-            // Récupérer les instances d'abonnements de cet élève
-            $subscriptionInstances = SubscriptionInstance::whereHas('students', function ($query) use ($student) {
-                    $query->where('students.id', $student->id);
+            // Récupérer les instances d'abonnements pour le(s) élève(s)
+            $subscriptionInstances = SubscriptionInstance::whereHas('students', function ($query) use ($studentIds) {
+                    $query->whereIn('students.id', $studentIds);
                 })
                 ->with([
                     'subscription:id,club_id,subscription_template_id,subscription_number',

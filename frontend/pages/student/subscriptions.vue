@@ -3,22 +3,25 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">Mes Abonnements</h1>
             <p class="text-gray-600 mt-1">Visualisez et gérez vos abonnements de cours</p>
           </div>
-          <button 
+          <button
             disabled
-            class="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-70 flex items-center space-x-2"
+            class="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-70 flex items-center gap-2 min-h-[44px]"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             <span>Souscrire à un abonnement</span>
           </button>
         </div>
       </div>
+
+      <!-- Vue globale ou par élève (si plusieurs élèves liés) -->
+      <StudentViewSwitcher @scope-changed="loadSubscriptions" />
 
       <!-- Loading -->
       <div v-if="loading" class="flex justify-center items-center py-12">
@@ -50,6 +53,16 @@
                 <!-- Référence de l'abonnement -->
                 <p v-if="subscription.subscription?.subscription_number" class="text-xs text-gray-500 mt-1">
                   Référence: {{ subscription.subscription.subscription_number }}
+                </p>
+                <!-- Prévu pour X enfant(s) : toujours affiché pour clarifier -->
+                <p v-if="subscription.students?.length" class="text-sm text-gray-700 mt-2 flex items-center gap-1.5">
+                  <span class="text-gray-500">Prévu pour</span>
+                  <span v-if="subscription.students.length > 1" class="font-medium">
+                    {{ subscription.students.length }} enfants : {{ getStudentsLabel(subscription.students) }}
+                  </span>
+                  <span v-else class="font-medium">
+                    {{ getStudentDisplayName(subscription.students[0]) }}
+                  </span>
                 </p>
               </div>
               <span 
@@ -146,34 +159,33 @@
             </div>
           </div>
 
-          <!-- Élèves partagés (si abonnement familial) -->
-          <div v-if="subscription.students?.length > 1" class="p-4 bg-blue-50 border-t border-blue-100">
-            <div class="text-xs font-medium text-blue-700 uppercase mb-2">Abonnement familial</div>
-            <div class="flex flex-wrap gap-1">
-              <span 
-                v-for="student in subscription.students" 
-                :key="student.id"
-                class="bg-white text-blue-700 px-2 py-1 rounded text-xs border border-blue-200"
-              >
-                {{ student.user?.first_name }} {{ student.user?.last_name }}
-              </span>
-            </div>
+          <!-- Rappel abonnement multi-enfants (badge visuel) -->
+          <div v-if="subscription.students?.length > 1" class="px-4 py-2 bg-blue-50 border-t border-blue-100">
+            <span class="text-xs font-medium text-blue-700">
+              Abonnement familial – partagé entre les {{ subscription.students.length }} enfants
+            </span>
           </div>
 
-          <!-- Actions -->
-          <div class="p-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-2">
+          <!-- Actions : ligne dédiée, bouton avec icône -->
+          <div class="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
             <button
               v-if="subscription.status === 'active' && canRenew(subscription)"
               @click="renewSubscription(subscription.id)"
-              class="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              class="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
             >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               Renouveler
             </button>
             <button
               v-else-if="subscription.status === 'expired' && subscription.subscription?.template?.is_active"
               @click="renewSubscription(subscription.id)"
-              class="min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              class="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
             >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               Renouveler
             </button>
           </div>
@@ -216,18 +228,19 @@ definePageMeta({
 })
 
 const { $api } = useNuxtApp()
+const studentScopeStore = useStudentScopeStore()
 const subscriptions = ref([])
 const loading = ref(true)
 const error = ref(null)
 const showSubscribeModal = ref(false)
 
-// Charger les abonnements
+// Charger les abonnements (vue globale ou un élève selon le scope)
 const loadSubscriptions = async () => {
   try {
     loading.value = true
     error.value = null
-    
-    const response = await $api.get('/student/subscriptions')
+    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const response = await $api.get('/student/subscriptions', { params })
     if (response.data.success) {
       subscriptions.value = response.data.data
     } else {
@@ -323,21 +336,32 @@ const getUsagePercentage = (subscription) => {
   return Math.round((used / total) * 100)
 }
 
+const getStudentDisplayName = (student) => {
+  if (!student?.user) return 'Élève'
+  const u = student.user
+  if (u.first_name && u.last_name) return `${u.first_name} ${u.last_name}`
+  return u.name || 'Élève'
+}
+
+const getStudentsLabel = (students) => {
+  if (!students?.length) return ''
+  return students.map(getStudentDisplayName).join(', ')
+}
+
 // Vérifier si on revient d'un paiement Stripe réussi
 const checkStripeReturn = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const sessionId = urlParams.get('session_id')
-  
   if (sessionId) {
-    // Recharger les abonnements pour voir le nouveau
+    const { success } = useToast()
+    success('Paiement réussi. Votre abonnement est actif.', 'Paiement Stripe')
     loadSubscriptions()
-    // Nettoyer l'URL
     window.history.replaceState({}, document.title, window.location.pathname)
   }
 }
 
-// Charger au montage
 onMounted(() => {
+  studentScopeStore.loadLinkedAccounts()
   loadSubscriptions()
   checkStripeReturn()
 })

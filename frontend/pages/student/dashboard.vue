@@ -20,8 +20,8 @@
         </p>
       </div>
 
-      <!-- Sélecteur de compte (si plusieurs comptes liés) -->
-      <AccountSwitcher @account-switched="onAccountSwitched" />
+      <!-- Vue globale ou par élève (si plusieurs élèves liés) -->
+      <StudentViewSwitcher @scope-changed="refreshData" />
 
       <!-- Stats principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -95,44 +95,47 @@
             <div 
               v-for="lesson in upcomingLessons.slice(0, 5)" 
               :key="lesson.id"
-              class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              class="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <div class="flex items-center space-x-3 flex-1 min-w-0">
-                <div class="bg-blue-100 p-2 rounded-lg flex-shrink-0">
+              <div class="flex items-start md:items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                <div class="bg-blue-100 p-2.5 rounded-lg flex-shrink-0">
                   <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-0 overflow-hidden">
                   <p class="font-medium text-gray-900 truncate">{{ lesson.course_type?.name || lesson.courseType?.name || 'Cours' }}</p>
-                  <div class="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                    <span class="flex items-center">
-                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <p v-if="studentScopeStore.apiScopeParam === 'all' && (lesson.student?.user?.name || lesson.student?.name)" class="text-xs text-gray-500 mt-0.5 truncate">
+                    {{ lesson.student?.user?.name || lesson.student?.name }}
+                  </p>
+                  <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
+                    <span class="flex items-center shrink-0">
+                      <svg class="w-4 h-4 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       {{ formatFullDate(lesson.start_time) }}
                     </span>
-                    <span class="flex items-center">
-                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span class="flex items-center shrink-0">
+                      <svg class="w-4 h-4 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       {{ formatTime(lesson.start_time) }}
                     </span>
-                    <span class="flex items-center">
-                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span class="flex items-center min-w-0 max-w-full">
+                      <svg class="w-4 h-4 mr-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      {{ lesson.teacher?.user?.name || lesson.teacher?.name || 'Enseignant' }}
+                      <span class="truncate">{{ lesson.teacher?.user?.name || lesson.teacher?.name || 'Enseignant' }}</span>
                     </span>
                   </div>
                 </div>
               </div>
-              <div class="flex items-center space-x-2 ml-4">
+              <div class="flex justify-end md:justify-start shrink-0 pt-1 md:pt-0 border-t border-gray-200/60 md:border-t-0 md:border-none w-full md:w-auto">
                 <button
                   @click.stop="openCancelModal(lesson)"
-                  class="px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors flex items-center space-x-1"
+                  class="min-h-[44px] w-full md:w-auto md:min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   <span>Annuler</span>
@@ -239,7 +242,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useAuthStore } from '~/stores/auth'
-import AccountSwitcher from '~/components/student/AccountSwitcher.vue'
+import StudentViewSwitcher from '~/components/student/StudentViewSwitcher.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],
@@ -248,6 +251,7 @@ definePageMeta({
 
 const { $api } = useNuxtApp()
 const authStore = useAuthStore()
+const studentScopeStore = useStudentScopeStore()
 
 // State
 const upcomingLessons = ref<any[]>([])
@@ -294,8 +298,8 @@ const nextLesson = computed(() => {
 // Methods
 const loadUpcomingLessons = async () => {
   try {
-    // Charger directement depuis l'API bookings qui retourne les cours de l'étudiant
-    const response = await $api.get('/student/bookings')
+    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const response = await $api.get('/student/bookings', { params })
     if (response.data.success) {
       const bookings = response.data.data || []
       const now = new Date()
@@ -339,7 +343,8 @@ const loadUpcomingLessons = async () => {
 
 const loadActiveSubscriptions = async () => {
   try {
-    const response = await $api.get('/student/subscriptions')
+    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const response = await $api.get('/student/subscriptions', { params })
     if (response.data.success) {
       const subscriptions = response.data.data || []
       activeSubscriptions.value = subscriptions.filter((sub: any) => sub.status === 'active')
@@ -433,39 +438,24 @@ const handleCancelSuccess = () => {
   loadUpcomingLessons()
 }
 
-// Handler pour le changement de compte
-const onAccountSwitched = async (accountData) => {
-  console.log('🔄 Compte changé:', accountData)
-  // Recharger toutes les données du dashboard avec le nouveau contexte
+const refreshData = async () => {
   try {
-    isLoading.value = true
-    // S'assurer que les données utilisateur sont chargées dans le store
-    if (!authStore.user) {
-      await authStore.fetchUser()
-    }
-    // Charger le prénom depuis le profil
-    await loadStudentProfile()
-    // Recharger les cours et abonnements
     await Promise.all([
       loadUpcomingLessons(),
       loadActiveSubscriptions()
     ])
   } catch (error) {
-    console.error('Erreur lors du rechargement après changement de compte:', error)
-  } finally {
-    isLoading.value = false
+    console.error('Erreur lors du rechargement des données:', error)
   }
 }
 
-// Lifecycle
 onMounted(async () => {
   try {
     isLoading.value = true
-    // S'assurer que les données utilisateur sont chargées dans le store
     if (!authStore.user) {
       await authStore.fetchUser()
     }
-    // Charger le prénom depuis le profil
+    await studentScopeStore.loadLinkedAccounts()
     await loadStudentProfile()
     await Promise.all([
       loadUpcomingLessons(),

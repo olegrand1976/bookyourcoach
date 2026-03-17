@@ -27,9 +27,12 @@
         </div>
       </div>
 
+      <!-- Vue globale ou par élève (si plusieurs élèves liés) -->
+      <StudentViewSwitcher @scope-changed="calendarKey++" />
+
       <!-- Calendrier -->
       <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
-        <StudentCalendar :student-id="authStore.user?.student?.id || authStore.user?.id" />
+        <StudentCalendar :key="calendarKey" />
       </div>
     </div>
 
@@ -66,6 +69,11 @@
           <div v-if="selectedLesson.teacher">
             <span class="text-sm font-medium text-gray-500">Enseignant:</span>
             <p class="mt-1 text-sm text-gray-900">{{ selectedLesson.teacher?.user?.name || selectedLesson.teacher?.name || 'N/A' }}</p>
+          </div>
+          
+          <div v-if="selectedLesson.student && studentScopeStore.apiScopeParam === 'all'">
+            <span class="text-sm font-medium text-gray-500">Élève:</span>
+            <p class="mt-1 text-sm text-gray-900">{{ selectedLesson.student?.user?.name || selectedLesson.student?.name || 'N/A' }}</p>
           </div>
           
           <div v-if="selectedLesson.location">
@@ -117,7 +125,13 @@ definePageMeta({
 })
 
 const authStore = useAuthStore()
+const studentScopeStore = useStudentScopeStore()
 const selectedLesson = ref(null)
+const calendarKey = ref(0)
+
+onMounted(() => {
+  studentScopeStore.loadLinkedAccounts()
+})
 
 // Vérifier que l'utilisateur peut agir comme étudiant
 if (!authStore.canActAsStudent) {

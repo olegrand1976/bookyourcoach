@@ -269,6 +269,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/planning/suggest-optimal-slot', [App\Http\Controllers\Api\ClubPlanningController::class, 'suggestOptimalSlot']);
     Route::post('/planning/check-availability', [App\Http\Controllers\Api\ClubPlanningController::class, 'checkAvailability']);
     Route::get('/planning/statistics', [App\Http\Controllers\Api\ClubPlanningController::class, 'getStatistics']);
+    Route::get('/planning/availability-by-week', [App\Http\Controllers\Api\ClubPlanningController::class, 'availabilityByWeek']);
     // Cours (suppression depuis le planning club)
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     // Modèles d'abonnements

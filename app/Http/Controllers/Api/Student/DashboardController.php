@@ -21,7 +21,7 @@ class DashboardController extends Controller
 {
     /**
      * Récupère l'étudiant actif depuis le contexte de la requête.
-     * 
+     *
      * @param Request $request
      * @return Student|null
      */
@@ -33,21 +33,55 @@ class DashboardController extends Controller
             return null;
         }
 
-        // Récupérer l'ID de l'étudiant actif depuis la requête (injecté par le middleware)
         $activeStudentId = $request->input('active_student_id', $user->student->id);
-        
-        // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
-        $linkedStudents = $user->getLinkedStudents();
-        $isLinked = $linkedStudents->contains('id', $activeStudentId) 
-                 || $user->student->id === $activeStudentId;
-        
-        if (!$isLinked) {
-            // Si l'étudiant n'est plus lié, retourner le compte principal
+        if ($activeStudentId === 'all' || $activeStudentId === null || $activeStudentId === '') {
             return $user->student;
         }
 
-        // Récupérer et retourner l'étudiant actif
+        $linkedStudents = $user->getLinkedStudents();
+        $isLinked = $linkedStudents->contains('id', (int) $activeStudentId)
+                 || $user->student->id === (int) $activeStudentId;
+
+        if (!$isLinked) {
+            return $user->student;
+        }
+
         return Student::with('user')->find($activeStudentId) ?? $user->student;
+    }
+
+    /**
+     * Retourne les IDs des élèves à prendre en compte (vue globale = tous les liés, sinon un seul).
+     * Priorité : paramètre de requête active_student_id (pour le front), puis session.
+     *
+     * @param Request $request
+     * @return array<int>
+     */
+    protected function getActiveStudentIds(Request $request): array
+    {
+        $user = $request->user();
+        if (!$user || !$user->student) {
+            return [];
+        }
+
+        $linkedIds = collect([$user->student->id])->merge($user->getLinkedStudents()->pluck('id'))->unique()->values()->all();
+        // Priorité au paramètre de requête (choix frontend vue globale / un élève)
+        $param = $request->query('active_student_id') ?? $request->input('active_student_id');
+
+        if ($param === 'all' || $param === null || $param === '') {
+            return $linkedIds;
+        }
+
+        $id = (int) $param;
+        if (in_array($id, $linkedIds, true)) {
+            return [$id];
+        }
+
+        $fromSession = session('active_student_id', $user->student->id);
+        if (in_array((int) $fromSession, $linkedIds, true)) {
+            return [(int) $fromSession];
+        }
+
+        return $linkedIds;
     }
 
     /**
@@ -155,25 +189,28 @@ class DashboardController extends Controller
     }
 
     /**
-     * Récupère les réservations de l'étudiant.
+     * Récupère les réservations de l'étudiant (ou de tous les élèves liés si vue globale).
      */
     public function getBookings(Request $request)
     {
         $user = $request->user();
-        
-        // Récupérer l'étudiant actif depuis le contexte
-        $student = $this->getActiveStudent($request);
-        if (!$student) {
+        if (!$user || !$user->student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
-        
-        $studentId = $student->id;
 
-        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
-            ->where('student_id', $studentId);
+        $studentIds = $this->getActiveStudentIds($request);
+        if (empty($studentIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+
+        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
+            ->whereIn('student_id', $studentIds);
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -419,26 +456,29 @@ class DashboardController extends Controller
     }
 
     /**
-     * Récupère l'historique des cours.
+     * Récupère l'historique des cours (vue globale ou un seul élève).
      */
     public function getLessonHistory(Request $request)
     {
         $user = $request->user();
-        
-        // Récupérer l'étudiant actif depuis le contexte
-        $student = $this->getActiveStudent($request);
-        if (!$student) {
+        if (!$user || !$user->student) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
             ], 404);
         }
-        
-        $studentId = $student->id;
 
-        // Historique : cours terminés et annulés (les annulés restent visibles pour l'élève)
-        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club'])
-            ->where('student_id', $studentId)
+        $studentIds = $this->getActiveStudentIds($request);
+        if (empty($studentIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé'
+            ], 404);
+        }
+
+        // Historique : cours terminés et annulés
+        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
+            ->whereIn('student_id', $studentIds)
             ->whereIn('status', ['completed', 'cancelled'])
             ->orderBy('start_time', 'desc')
             ->get();

@@ -117,9 +117,10 @@ const confirmCancel = async () => {
   try {
     processing.value = true
     
-    const response = await $api.put(`/student/bookings/${props.lesson.id}/cancel`, {
-      reason: reason.value.trim()
-    })
+    const payload = { reason: reason.value.trim() }
+    const studentId = props.lesson.student_id ?? props.lesson.student?.id
+    if (studentId) payload.active_student_id = studentId
+    const response = await $api.put(`/student/bookings/${props.lesson.id}/cancel`, payload)
     
     if (response.data.success) {
       emit('success')

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Club;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
+use App\Models\SubscriptionRecurringSlot;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +29,11 @@ class ClubPlanningController extends Controller
      */
     public function suggestOptimalSlot(Request $request): JsonResponse
     {
-        $clubId = Auth::user()->club_id;
+        $club = Auth::user()->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Aucun club associé à cet utilisateur'], 404);
+        }
+        $clubId = $club->id;
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
             'duration' => 'nullable|integer|min:5|max:240',
@@ -41,8 +46,6 @@ class ClubPlanningController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-
-        $club = Club::findOrFail($clubId);
         $date = $request->date;
         $duration = $request->duration ?? 60;
         $disciplineId = $request->discipline_id;
@@ -165,7 +168,11 @@ class ClubPlanningController extends Controller
      */
     public function checkAvailability(Request $request): JsonResponse
     {
-        $clubId = Auth::user()->club_id;
+        $club = Auth::user()->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Aucun club associé à cet utilisateur'], 404);
+        }
+        $clubId = $club->id;
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
             'time' => 'required|date_format:H:i',
@@ -181,8 +188,6 @@ class ClubPlanningController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-
-        $club = Club::findOrFail($clubId);
         $date = $request->date;
         $time = $request->time;
         $duration = $request->duration;
@@ -282,7 +287,10 @@ class ClubPlanningController extends Controller
      */
     public function getStatistics(Request $request): JsonResponse
     {
-        $club = Club::findOrFail(Auth::user()->club_id);
+        $club = Auth::user()->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Aucun club associé à cet utilisateur'], 404);
+        }
         $clubId = $club->id;
         $startDate = $request->get('start_date', Carbon::now()->startOfWeek()->format('Y-m-d'));
         $endDate = $request->get('end_date', Carbon::now()->endOfWeek()->format('Y-m-d'));
@@ -365,6 +373,130 @@ class ClubPlanningController extends Controller
     }
 
     /**
+     * Plages restant disponibles par semaine et par créneau.
+     * Pour chaque semaine, chaque créneau ouvert, chaque date concernée : liste des plages horaires avec (occupé, max, restant).
+     *
+     * @param Request $request weeks (nombre de semaines à partir d'aujourd'hui, défaut 4)
+     * @return JsonResponse
+     */
+    public function availabilityByWeek(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $club = $user->getFirstClub();
+        if (!$club) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun club associé à cet utilisateur',
+            ], 404);
+        }
+        $clubId = $club->id;
+        $weeksCount = (int) $request->get('weeks', 4);
+        $weeksCount = max(1, min(12, $weeksCount));
+
+        $today = Carbon::now()->startOfDay();
+        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+        if ($weekStart->gt($today)) {
+            $weekStart->subWeek();
+        }
+
+        $openSlots = ClubOpenSlot::where('club_id', $clubId)
+            ->with(['courseTypes', 'discipline'])
+            ->where('is_active', true)
+            ->orderBy('day_of_week')
+            ->orderBy('start_time')
+            ->get();
+
+        $horizonEnd = $today->copy()->addWeeks(26)->format('Y-m-d');
+        $slotIds = $openSlots->pluck('id')->all();
+
+        // Récurrences actives (créneau + plage) sur 26 semaines : une requête, indexée par open_slot_id
+        $recurringBySlot = SubscriptionRecurringSlot::where('status', 'active')
+            ->whereNotNull('open_slot_id')
+            ->whereIn('open_slot_id', $slotIds)
+            ->where('start_date', '<=', $horizonEnd)
+            ->where('end_date', '>=', $today->format('Y-m-d'))
+            ->whereHas('subscriptionInstance.subscription', fn ($q) => $q->where('club_id', $clubId))
+            ->get(['open_slot_id', 'day_of_week', 'start_time', 'end_time'])
+            ->groupBy('open_slot_id');
+
+        $result = [];
+
+        for ($w = 0; $w < $weeksCount; $w++) {
+            $startDate = $weekStart->copy()->addWeeks($w)->format('Y-m-d');
+            $endDate = Carbon::parse($startDate)->endOfWeek()->format('Y-m-d');
+
+            $lessons = Lesson::where('club_id', $clubId)
+                ->where('status', '!=', 'cancelled')
+                ->whereBetween('start_time', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->get();
+
+            $weeksSlots = [];
+
+            foreach ($openSlots as $slot) {
+                $timeStep = $this->calculateTimeStep($slot->courseTypes);
+                $slotStartMinutes = $this->timeToMinutes($slot->start_time);
+                $slotEndMinutes = $this->timeToMinutes($slot->end_time);
+                $maxSlots = (int) ($slot->max_slots ?? 1);
+
+                $recurringForSlot = $recurringBySlot->get($slot->id, collect())->filter(
+                    fn ($rec) => (int) $rec->day_of_week === (int) $slot->day_of_week
+                );
+
+                $dates = $this->getDatesByDayOfWeek($startDate, $endDate, $slot->day_of_week);
+                $slotLabel = $slot->discipline->name ?? 'Créneau';
+                $timeRange = substr($slot->start_time, 0, 5) . ' - ' . substr($slot->end_time, 0, 5);
+
+                $datesDetail = [];
+
+                foreach ($dates as $date) {
+                    $plages = [];
+                    for ($min = $slotStartMinutes; $min + $timeStep <= $slotEndMinutes; $min += $timeStep) {
+                        $timeStr = $this->minutesToTime($min);
+                        $occupied = $lessons->filter(function ($lesson) use ($date, $timeStr) {
+                            $d = Carbon::parse($lesson->start_time)->format('Y-m-d');
+                            $t = Carbon::parse($lesson->start_time)->format('H:i');
+                            return $d === $date && $t === $timeStr;
+                        })->count();
+                        $remaining = max(0, $maxSlots - $occupied);
+                        $isRecurringPlage = $this->isTimeInRecurringRanges($timeStr, $recurringForSlot);
+                        $plages[] = [
+                            'time' => $timeStr,
+                            'max_slots' => $maxSlots,
+                            'occupied' => $occupied,
+                            'remaining' => $remaining,
+                            'is_recurring' => $isRecurringPlage,
+                        ];
+                    }
+                    $datesDetail[] = [
+                        'date' => $date,
+                        'day_of_week' => $slot->day_of_week,
+                        'plages' => $plages,
+                    ];
+                }
+
+                $weeksSlots[] = [
+                    'slot_id' => $slot->id,
+                    'slot_name' => $slotLabel,
+                    'time_range' => $timeRange,
+                    'day_of_week' => $slot->day_of_week,
+                    'dates' => $datesDetail,
+                ];
+            }
+
+            $result[] = [
+                'week_start' => $startDate,
+                'week_end' => $endDate,
+                'slots' => $weeksSlots,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'weeks' => $result,
+        ]);
+    }
+
+    /**
      * Convertir une heure "HH:MM:SS" ou "HH:MM" en minutes depuis minuit
      */
     private function timeToMinutes(string $time): int
@@ -383,6 +515,22 @@ class ClubPlanningController extends Controller
         $hours = floor($minutes / 60);
         $mins = $minutes % 60;
         return sprintf('%02d:%02d', $hours, $mins);
+    }
+
+    /**
+     * Vérifier si une heure (HH:mm) tombe dans l'une des plages récurrentes (start_time / end_time).
+     */
+    private function isTimeInRecurringRanges(string $timeStr, $recurringSlots): bool
+    {
+        $min = $this->timeToMinutes($timeStr);
+        foreach ($recurringSlots as $rec) {
+            $startMin = $this->timeToMinutes($rec->start_time ?? '00:00');
+            $endMin = $this->timeToMinutes($rec->end_time ?? '23:59');
+            if ($min >= $startMin && $min < $endMin) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

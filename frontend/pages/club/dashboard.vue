@@ -66,6 +66,12 @@
               </svg>
               <span class="hidden xl:inline">Planning</span>
             </button>
+            <button @click="navigateTo('/club/availability')" class="inline-flex items-center px-3 xl:px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all duration-200 shadow-sm text-sm" title="Plages restant disponibles par semaine et par créneau">
+              <svg class="w-5 h-5 xl:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span class="hidden xl:inline">Plages</span>
+            </button>
             
             <button @click="navigateTo('/club/teachers/add')" class="btn-teacher">
               <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,6 +115,12 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span>Planning</span>
+            </button>
+            <button @click="navigateTo('/club/availability')" class="inline-flex items-center justify-center px-2 sm:px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-xs sm:text-sm" title="Plages restant disponibles">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span>Plages</span>
             </button>
             
             <button @click="navigateTo('/club/teachers/add')" class="btn-teacher text-xs sm:text-sm">
@@ -547,12 +559,15 @@
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
           <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold text-gray-900">Cours récents</h3>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center flex-wrap gap-2">
               <button @click="navigateTo('/club/planning')" class="btn-planning">
                 <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
                 <span>Voir le planning</span>
+              </button>
+              <button @click="navigateTo('/club/availability')" class="inline-flex items-center px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm">
+                <span>Plages disponibles</span>
               </button>
               <button @click="navigateTo('/club/lessons/new')" class="btn-success">
                 Créer un cours

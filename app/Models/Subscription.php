@@ -123,38 +123,56 @@ class Subscription extends Model
             $finalAttributes['subscription_number'] = static::generateSubscriptionNumber($clubId);
         }
         
-        // Utiliser DB::table() directement pour l'insertion afin d'éviter complètement $fillable
-        try {
-            $now = \Carbon\Carbon::now();
-            if (in_array('created_at', $existingColumns)) {
-                $finalAttributes['created_at'] = $now;
-            }
-            if (in_array('updated_at', $existingColumns)) {
-                $finalAttributes['updated_at'] = $now;
-            }
-            
-            // Insérer directement dans la table
-            $id = DB::table($tableName)->insertGetId($finalAttributes);
-            
-            // Charger l'instance créée
-            $instance = static::find($id);
-            
-            \Log::info("✅ [createSafe] Abonnement créé avec succès", [
-                'id' => $id,
-                'attributes_insertes' => array_keys($finalAttributes),
-                'subscription_number' => $instance->subscription_number ?? null
-            ]);
-        } catch (\Exception $e) {
-            \Log::error("❌ [createSafe] Erreur lors de l'insertion directe", [
-                'error' => $e->getMessage(),
-                'attributes' => $finalAttributes,
-                'existing_columns' => $existingColumns,
-                'sql' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
+        $maxAttempts = 5;
+        $attempt = 0;
         
-        return $instance;
+        while (true) {
+            try {
+                $now = \Carbon\Carbon::now();
+                if (in_array('created_at', $existingColumns)) {
+                    $finalAttributes['created_at'] = $now;
+                }
+                if (in_array('updated_at', $existingColumns)) {
+                    $finalAttributes['updated_at'] = $now;
+                }
+                
+                $id = DB::table($tableName)->insertGetId($finalAttributes);
+                $instance = static::find($id);
+                
+                \Log::info("✅ [createSafe] Abonnement créé avec succès", [
+                    'id' => $id,
+                    'attributes_insertes' => array_keys($finalAttributes),
+                    'subscription_number' => $instance->subscription_number ?? null
+                ]);
+                
+                return $instance;
+                
+            } catch (\Illuminate\Database\QueryException $e) {
+                // 23000 = Integrity constraint violation (duplicate key)
+                $isDuplicate = (in_array($e->getCode(), ['23000', 23000]) || str_contains($e->getMessage(), 'Duplicate entry'))
+                    && str_contains($e->getMessage(), 'subscription_number');
+                if ($isDuplicate && $attempt < $maxAttempts - 1) {
+                    $attempt++;
+                    $hasClubIdColumn = in_array('club_id', $existingColumns);
+                    $clubId = $hasClubIdColumn ? ($finalAttributes['club_id'] ?? null) : null;
+                    $finalAttributes['subscription_number'] = static::generateSubscriptionNumber($clubId);
+                    \Log::warning("[createSafe] Doublon subscription_number, tentative {$attempt}/{$maxAttempts} avec nouveau numéro: {$finalAttributes['subscription_number']}");
+                    continue;
+                }
+                \Log::error("❌ [createSafe] Erreur lors de l'insertion directe", [
+                    'error' => $e->getMessage(),
+                    'attributes' => $finalAttributes,
+                    'attempt' => $attempt + 1,
+                ]);
+                throw $e;
+            } catch (\Exception $e) {
+                \Log::error("❌ [createSafe] Erreur lors de l'insertion directe", [
+                    'error' => $e->getMessage(),
+                    'attributes' => $finalAttributes,
+                ]);
+                throw $e;
+            }
+        }
     }
 
     /**
@@ -228,17 +246,17 @@ class Subscription extends Model
     /**
      * Générer un numéro d'abonnement au format AAMM-incrément
      * Exemple : 2501-001 (année 2025, mois 01, incrément 001)
+     * Inclut les enregistrements soft-deleted pour éviter les doublons (contrainte unique).
      */
     public static function generateSubscriptionNumber($clubId): string
     {
         $now = Carbon::now();
         $yearMonth = $now->format('ym'); // Format AAMM (ex: 2501)
         
-        // Vérifier si la colonne club_id existe dans la table
         $hasClubIdColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
         
-        // Trouver le dernier numéro pour ce mois (et ce club si la colonne existe)
-        $query = static::where('subscription_number', 'like', $yearMonth . '-%');
+        // Inclure withTrashed() pour ne jamais réutiliser un numéro déjà pris (y compris soft-deleted)
+        $query = static::withTrashed()->where('subscription_number', 'like', $yearMonth . '-%');
         
         if ($hasClubIdColumn && $clubId) {
             $query->where('club_id', $clubId);
@@ -247,7 +265,6 @@ class Subscription extends Model
         $lastSubscription = $query->orderBy('subscription_number', 'desc')->first();
         
         if ($lastSubscription && $lastSubscription->subscription_number) {
-            // Extraire l'incrément et l'incrémenter
             $parts = explode('-', $lastSubscription->subscription_number);
             if (count($parts) === 2) {
                 $increment = (int) $parts[1];
@@ -256,7 +273,6 @@ class Subscription extends Model
                 $increment = 1;
             }
         } else {
-            // Premier abonnement du mois
             $increment = 1;
         }
         

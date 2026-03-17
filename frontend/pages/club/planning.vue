@@ -2,10 +2,15 @@
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-7xl mx-auto">
     <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Planning</h1>
-        <p class="mt-2 text-gray-600">Gestion des cours et créneaux horaires</p>
-          </div>
+      <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Planning</h1>
+          <p class="mt-2 text-gray-600">Gestion des cours et créneaux horaires</p>
+        </div>
+        <NuxtLink to="/club/availability" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">
+          Plages disponibles
+        </NuxtLink>
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-20">
@@ -791,6 +796,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
+
+const route = useRoute()
+const router = useRouter()
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
@@ -1391,16 +1399,18 @@ async function loadOpenSlots() {
       if (openSlots.value.length === 0) {
         console.warn('⚠️ Aucun créneau trouvé pour ce club')
       } else {
-        // 🎯 Présélectionner automatiquement le créneau le plus proche
-        const nearestSlot = findNearestSlot()
-        if (nearestSlot) {
-          console.log('🎯 Créneau le plus proche trouvé:', {
-            id: nearestSlot.id,
-            day: getDayName(nearestSlot.day_of_week),
-            time: formatTime(nearestSlot.start_time),
-            discipline: nearestSlot.discipline?.name
+        const slotIdFromQuery = route.query.slot_id ? String(route.query.slot_id) : null
+        const slotToSelect = slotIdFromQuery
+          ? openSlots.value.find((s: any) => s.id === Number(slotIdFromQuery))
+          : findNearestSlot()
+        if (slotToSelect) {
+          console.log('🎯 Créneau sélectionné:', slotIdFromQuery ? 'depuis URL' : 'plus proche', {
+            id: slotToSelect.id,
+            day: getDayName(slotToSelect.day_of_week),
+            time: formatTime(slotToSelect.start_time),
+            discipline: slotToSelect.discipline?.name
           })
-          handleSlotSelection(nearestSlot)
+          handleSlotSelection(slotToSelect)
         } else {
           console.log('⚠️ Aucun créneau actif trouvé pour présélectionner')
         }
@@ -1865,7 +1875,7 @@ async function deleteSlot(id: number) {
   }
 }
 
-async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
+async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, explicitDate?: string) {
   console.log('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
     hasSlot: !!slot,
     slotId: slot?.id,
@@ -1880,11 +1890,15 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
 
   selectedSlotForLesson.value = slot || null
 
-  // Initialiser le formulaire AVANT d'ouvrir la modale pour que l'heure de la plage soit bien
-  // reprise à l'ouverture (évite que les watchers de la modale réinitialisent form.time)
+  // Initialiser le formulaire AVANT d'ouvrir la modale (jour / heure choisis : date explicite ou sélection, heure plage ou début créneau)
   if (slot) {
     let dateToUse: Date
-    if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
+    if (explicitDate && /^\d{4}-\d{2}-\d{2}$/.test(explicitDate)) {
+      dateToUse = new Date(explicitDate + 'T00:00:00')
+      selectedDate.value = dateToUse
+      selectedDateInput.value = explicitDate
+      console.log('📅 [openCreateLessonModal] Date explicite (ex. depuis Plages disponibles):', explicitDate)
+    } else if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
       dateToUse = new Date(selectedDate.value)
       console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
     } else {
@@ -1893,6 +1907,8 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
       dateToUse = new Date(today)
       dateToUse.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
+      selectedDate.value = dateToUse
+      selectedDateInput.value = formatDateForInput(dateToUse)
       console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', formatDateForInput(dateToUse))
     }
 
@@ -3389,6 +3405,17 @@ onMounted(async () => {
     loadCourseTypes()
   ])
   updateAvailableDays()
+
+  // Depuis la page Plages disponibles : même modale et mêmes règles (CreateLessonModal + createLesson).
+  // slot_id + date [+ time] → sélection du créneau (déjà fait dans loadOpenSlots), ouverture modale avec jour/heure.
+  const slotId = route.query.slot_id
+  const dateFromQuery = route.query.date ? String(route.query.date) : null
+  const timeFromQuery = route.query.time ? String(route.query.time) : null
+  if (slotId && selectedSlot.value && dateFromQuery) {
+    await nextTick()
+    await openCreateLessonModal(selectedSlot.value, timeFromQuery || undefined, dateFromQuery)
+    await router.replace({ path: '/club/planning', query: {} })
+  }
 })
 </script>
 

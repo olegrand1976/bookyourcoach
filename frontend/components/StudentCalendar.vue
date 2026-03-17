@@ -9,9 +9,12 @@
             currentView === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
           Mois
         </button>
-        <button @click="toggleView('week')" 
+        <button
+          v-if="!isMobile"
           :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
-            currentView === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
+            currentView === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+          @click="toggleView('week')"
+        >
           Semaine
         </button>
         <button @click="toggleView('day')" 
@@ -77,52 +80,82 @@
             <div class="space-y-0.5 sm:space-y-1">
               <div v-for="event in day.events" :key="event.id" 
                 @click="selectEvent(event)"
-                :class="['text-xs p-1.5 sm:p-1 rounded cursor-pointer truncate hover:opacity-80 transition-opacity min-h-[28px] flex items-center', 
+                :class="['text-xs p-1.5 sm:p-2 rounded cursor-pointer hover:opacity-90 transition-opacity min-h-[32px] flex flex-col justify-center leading-tight', 
                   event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
                   event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                   event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800']">
-                {{ event.title }}
+                  'bg-gray-100 text-gray-800']"
+                :title="`${event.title} – ${formatTime(event.start)}`">
+                <span class="font-medium whitespace-nowrap">{{ formatTime(event.start) }}</span>
+                <span class="block truncate mt-0.5" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Vue Semaine : message sur mobile, grille sur md+ -->
+      <!-- Vue Semaine : liste par jour sur mobile, grille sur md+ -->
       <div v-else-if="currentView === 'week'" class="calendar-week">
-        <div class="md:hidden p-4 text-center text-sm text-gray-500 bg-gray-50 rounded-lg">
-          Vue semaine disponible sur écran plus large. Utilisez « Mois » ou « Jour » sur mobile.
+        <!-- Mobile : un bloc par jour avec les cours du jour -->
+        <div class="md:hidden space-y-4">
+          <div
+            v-for="(dayInfo, index) in weekDaysWithEvents"
+            :key="dayInfo.dateKey"
+            class="border border-gray-200 rounded-lg overflow-hidden"
+          >
+            <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
+              {{ dayInfo.dayLabel }} {{ dayInfo.dateShort }}
+            </div>
+            <div class="p-2 space-y-2">
+              <div
+                v-for="event in dayInfo.events"
+                :key="event.id"
+                @click="selectEvent(event)"
+                :class="['p-3 rounded-lg cursor-pointer hover:opacity-90 transition-opacity',
+                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800']"
+              >
+                <p class="font-medium text-sm" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</p>
+                <p class="text-xs mt-0.5 text-gray-600">{{ formatTime(event.start) }} – {{ formatTime(event.end) }}</p>
+              </div>
+              <p v-if="dayInfo.events.length === 0" class="text-xs text-gray-400 py-2">Aucun cours</p>
+            </div>
+          </div>
         </div>
-        <div class="hidden md:block">
-          <div class="grid grid-cols-8 gap-1">
+        <!-- Desktop : grille heure × jours -->
+        <div class="hidden md:block overflow-x-auto">
+          <div class="grid grid-cols-8 gap-1 min-w-[600px]">
             <div class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
               Heure
             </div>
-            <div v-for="day in weekDays" :key="day" 
+            <div v-for="day in weekDays" :key="day"
               class="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
               {{ day }}
             </div>
           </div>
-          <div class="grid grid-cols-8 gap-1">
+          <div class="grid grid-cols-8 gap-1 min-w-[600px]">
             <div v-for="hour in dayHours" :key="hour" class="relative">
               <div class="p-2 text-xs text-gray-500 bg-gray-50 border-r border-gray-200">
                 {{ formatTime(hour) }}
               </div>
-              <div v-for="day in weekDays" :key="day" 
+              <div v-for="day in weekDays" :key="day"
                 class="min-h-[60px] p-2 border border-gray-200 bg-white relative">
-                <div 
-                  v-for="event in getEventsForHourAndDay(hour, day)" 
+                <div
+                  v-for="event in getEventsForHourAndDay(hour, day)"
                   :key="event.id"
                   @click="selectEvent(event)"
-                  :class="['absolute left-1 right-1 p-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity',
-                    event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
+                  :class="['absolute left-1 right-1 p-2 rounded text-xs cursor-pointer hover:opacity-90 transition-opacity overflow-hidden flex flex-col justify-center',
+                    event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
                     event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                     'bg-gray-100 text-gray-800']"
                   :style="{ top: `${getEventPosition(event, hour)}px`, height: `${getEventHeight(event)}px` }"
+                  :title="event.title"
                 >
-                  {{ event.title }}
+                  <span class="font-medium">{{ formatTime(event.start) }}</span>
+                  <span class="truncate block" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</span>
                 </div>
               </div>
             </div>
@@ -143,15 +176,15 @@
                 v-for="event in getEventsForHour(hour)" 
                 :key="event.id"
                 @click="selectEvent(event)"
-                class="min-h-[44px] flex flex-col justify-center"
-                :class="['p-3 sm:p-4 rounded-lg cursor-pointer hover:opacity-80 transition-opacity',
+                class="min-h-[48px] flex flex-col justify-center"
+                :class="['p-3 sm:p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity',
                   event.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
                   event.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
                   event.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
                   'bg-gray-100 text-gray-800 border border-gray-200']"
               >
-                <p class="font-medium">{{ event.title }}</p>
-                <p class="text-xs mt-1">{{ formatTime(event.start) }} - {{ formatTime(event.end) }}</p>
+                <p class="font-medium" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</p>
+                <p class="text-xs mt-1 text-gray-600">{{ formatTime(event.start) }} – {{ formatTime(event.end) }}</p>
               </div>
             </div>
           </div>
@@ -242,6 +275,22 @@ const events = ref([])
 const selectedEvent = ref(null)
 const isLoading = ref(false)
 
+// Masquer le bouton Semaine sur mobile (largeur < 768px)
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
+const updateIsMobile = () => {
+  if (typeof window !== 'undefined') isMobile.value = window.innerWidth < 768
+}
+onMounted(() => {
+  updateIsMobile()
+  if (typeof window !== 'undefined') window.addEventListener('resize', updateIsMobile)
+})
+onUnmounted(() => {
+  if (typeof window !== 'undefined') window.removeEventListener('resize', updateIsMobile)
+})
+watch(isMobile, (mobile) => {
+  if (mobile && currentView.value === 'week') currentView.value = 'month'
+})
+
 // Jours de la semaine
 const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -297,6 +346,30 @@ const calendarDays = computed(() => {
   }
   
   return days
+})
+
+// Pour la vue semaine mobile : 7 jours avec leurs événements
+const weekDaysWithEvents = computed(() => {
+  const date = currentDate.value
+  const startOfWeek = new Date(date)
+  startOfWeek.setDate(date.getDate() - date.getDay() + 1)
+  startOfWeek.setHours(0, 0, 0, 0)
+  const out = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startOfWeek)
+    d.setDate(startOfWeek.getDate() + i)
+    const dayEvents = events.value.filter(event => {
+      const eventDate = new Date(event.start)
+      return eventDate.toDateString() === d.toDateString()
+    }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    out.push({
+      dateKey: d.toISOString().split('T')[0],
+      dayLabel: weekDays[i],
+      dateShort: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      events: dayEvents
+    })
+  }
+  return out
 })
 
 // Fonctions de navigation
@@ -420,21 +493,24 @@ const getEventHeight = (event) => {
   return Math.max((durationMinutes / 60) * 60, 20) // Hauteur minimale de 20px
 }
 
-// Chargement des données
+// Chargement des données (vue globale ou un élève selon le store)
+const studentScopeStore = useStudentScopeStore()
 const loadCalendarEvents = async () => {
   try {
     isLoading.value = true
-    // Charger tous les cours de l'étudiant depuis l'API bookings (incluant les annulés et passés)
-    const response = await $api.get('/student/bookings')
+    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const response = await $api.get('/student/bookings', { params })
     if (response.data.success) {
       const lessons = response.data.data || []
-      
-      // Transformer les cours en événements pour le calendrier (inclure tous les statuts y compris cancelled)
+      const scopeLabel = studentScopeStore.apiScopeParam === 'all' ? (lesson) => {
+        const name = lesson.student?.user?.name || lesson.student?.name
+        return name ? `${lesson.course_type?.name || lesson.courseType?.name || 'Cours'} (${name})` : (lesson.course_type?.name || lesson.courseType?.name || 'Cours')
+      } : (lesson) => lesson.course_type?.name || lesson.courseType?.name || 'Cours'
       events.value = lessons
-        .filter(lesson => lesson.start_time) // Filtrer seulement ceux qui ont une date
+        .filter(lesson => lesson.start_time)
         .map(lesson => ({
           id: lesson.id,
-          title: lesson.course_type?.name || lesson.courseType?.name || 'Cours',
+          title: scopeLabel(lesson),
           start: lesson.start_time,
           end: lesson.end_time,
           teacher: lesson.teacher,
