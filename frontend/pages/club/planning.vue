@@ -552,6 +552,7 @@
       <CreateLessonModal
         :show="showCreateLessonModal"
         :form="lessonForm"
+        :requested-time="createLessonRequestedTime"
         :selected-slot="selectedSlotForLesson"
         :teachers="teachers"
         :students="students"
@@ -895,6 +896,8 @@ const saving = ref(false)
 const showLessonModal = ref(false)
 const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
+/** Heure demandée à l'ouverture (clic sur une plage) — transmise à la modale pour éviter toute course avec les watchers. */
+const createLessonRequestedTime = ref<string | null>(null)
 const showHistoryModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
@@ -1896,6 +1899,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
     const dateStr = formatDateForInput(dateToUse)
     // Heure de la plage (bouton sur une plage) ou heure de début du créneau (bouton vert)
     const timeStr = customTime ?? slot.start_time.substring(0, 5)
+    createLessonRequestedTime.value = customTime ?? null
 
     let courseTypeId = null
     let initialDuration = slot.duration || 60
@@ -1951,6 +1955,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
       update_scope: 'single'
     }
   } else {
+    createLessonRequestedTime.value = null
     lessonForm.value = {
       teacher_id: null,
       student_id: null,
@@ -1975,6 +1980,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string) {
 function closeCreateLessonModal() {
   console.log('🚪 [closeCreateLessonModal] Fermeture modale')
   showCreateLessonModal.value = false
+  createLessonRequestedTime.value = null
   
   // Si on était en mode édition, utiliser closeEditLessonModal
   if (editingLesson.value) {

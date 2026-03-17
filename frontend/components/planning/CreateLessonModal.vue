@@ -548,6 +548,8 @@ interface LessonForm {
 interface Props {
   show: boolean
   form: LessonForm
+  /** Heure demandée à l'ouverture (clic sur une plage) — prioritaire pour éviter toute course avec les watchers. */
+  requestedTime?: string | null
   selectedSlot: OpenSlot | null
   teachers: any[]
   students: any[]
@@ -1266,9 +1268,21 @@ const availableTimes = computed(() => {
 const requestedTimeFromSlot = ref<string | null>(null)
 
 watch(() => props.show, (isOpen) => {
-  if (isOpen && props.form.time) {
-    requestedTimeFromSlot.value = props.form.time
-  } else if (!isOpen) {
+  if (isOpen) {
+    // Priorité à la prop explicitement passée par le parent (évite toute course avec les watchers)
+    const requested = (props.requestedTime ?? props.form.time) ? String(props.requestedTime ?? props.form.time).substring(0, 5) : ''
+    if (requested && /^\d{1,2}:\d{2}$/.test(requested)) {
+      requestedTimeFromSlot.value = requested
+      props.form.time = requested
+      if (props.form.date) {
+        props.form.start_time = `${props.form.date}T${requested}:00`
+      }
+    } else if (props.form.time) {
+      requestedTimeFromSlot.value = props.form.time.substring(0, 5)
+    } else {
+      requestedTimeFromSlot.value = null
+    }
+  } else {
     requestedTimeFromSlot.value = null
   }
 }, { immediate: true })
@@ -1378,20 +1392,26 @@ watch(() => props.form.date, async (newDate, oldDate) => {
         console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible:', props.form.time)
       }
     } else if (!props.editingLesson && currentSelectedSlot.value) {
-      // Vérifier si l'heure actuelle est toujours disponible
-      const currentTime = props.form.time
-      const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime)
-      
-      // Si l'heure actuelle est disponible, la conserver
+      const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
+      const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+      const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
+      const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+
       if (isCurrentTimeAvailable) {
         console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible, conservée:', currentTime)
+      } else if (requested && requestedInList) {
+        props.form.time = requested
+        console.log('✅ [CreateLessonModal] Heure de la plage cliquée conservée après changement de date:', requested)
       } else if (availableTimes.value.length > 0 && props.form.course_type_id) {
-        // Sinon, sélectionner la première heure disponible seulement si aucune heure n'est sélectionnée ou si l'heure actuelle n'est plus disponible
         if (!currentTime || !isCurrentTimeAvailable) {
           props.form.time = availableTimes.value[0].value
           console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de date:', availableTimes.value[0].value)
         }
       } else if (availableTimes.value.length === 0) {
+        if (requested && props.form.time && props.form.time.substring(0, 5) === requested) {
+          // Garder l'heure demandée (sera affichée en "complet" si besoin)
+          return
+        }
         props.form.time = ''
         console.log('⚠️ [CreateLessonModal] Aucune heure disponible pour cette date')
       }
@@ -1399,7 +1419,7 @@ watch(() => props.form.date, async (newDate, oldDate) => {
   } else {
     existingLessons.value = []
     if (!props.editingLesson) {
-      props.form.time = ''
+      if (!requestedTimeFromSlot.value) props.form.time = ''
     }
   }
 }, { immediate: true })
@@ -1427,16 +1447,26 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
   // - La date et le type de cours sont définis
   // - Aucune heure n'est sélectionnée OU l'heure sélectionnée n'est plus disponible
   if (newTimes.length > 0 && props.form.date && props.form.course_type_id) {
-    const currentTime = props.form.time
-    const isCurrentTimeAvailable = currentTime && newTimes.some(t => t.value === currentTime)
-    
-    // Si aucune heure n'est sélectionnée ou si l'heure actuelle n'est plus disponible
+    const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
+    const isCurrentTimeAvailable = currentTime && newTimes.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+    // Heure demandée à l'ouverture (clic sur une plage horaire) : la conserver si elle est dans la liste
+    const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
+    const requestedInList = requested && newTimes.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+
+    if (requested && requestedInList && (!currentTime || !isCurrentTimeAvailable)) {
+      props.form.time = requested
+      console.log('✅ [CreateLessonModal] Heure de la plage cliquée conservée:', requested)
+      return
+    }
     if (!currentTime || !isCurrentTimeAvailable) {
       props.form.time = newTimes[0].value
       console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée depuis availableTimes:', newTimes[0].value)
     }
   } else if (newTimes.length === 0 && props.form.time) {
-    // Si plus aucune heure n'est disponible, réinitialiser
+    // Ne pas réinitialiser si l'heure correspond à la plage demandée à l'ouverture (elle peut être affichée en "(complet)")
+    if (requestedTimeFromSlot.value && props.form.time.substring(0, 5) === requestedTimeFromSlot.value.substring(0, 5)) {
+      return
+    }
     props.form.time = ''
     console.log('⚠️ [CreateLessonModal] Plus d\'heures disponibles, heure réinitialisée')
   }
@@ -1461,14 +1491,17 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
         console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau en mode édition:', props.form.time)
       }
     } else if (!props.editingLesson) {
-      // Auto-sélectionner la première heure disponible si le type de cours est défini (seulement en mode création)
-      // Mais seulement si aucune heure n'est déjà sélectionnée ou si l'heure actuelle n'est plus disponible
       if (availableTimes.value.length > 0 && props.form.course_type_id) {
-        const currentTime = props.form.time
-        const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime)
-        
+        const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
+        const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+        const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
+        const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+
         if (isCurrentTimeAvailable) {
           console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau, conservée:', currentTime)
+        } else if (requested && requestedInList) {
+          props.form.time = requested
+          console.log('✅ [CreateLessonModal] Heure de la plage cliquée conservée après changement de créneau:', requested)
         } else if (!currentTime || !isCurrentTimeAvailable) {
           props.form.time = availableTimes.value[0].value
           console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de créneau:', availableTimes.value[0].value)
@@ -1477,7 +1510,7 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
     }
   } else {
     existingLessons.value = []
-    if (!props.editingLesson) {
+    if (!props.editingLesson && !requestedTimeFromSlot.value) {
       props.form.time = ''
     }
   }
@@ -1497,11 +1530,19 @@ watch(() => props.form.duration, async () => {
           return
         }
       }
-      props.form.time = availableTimes.value[0].value
-      console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de durée:', availableTimes.value[0].value)
+      const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
+      const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+      if (requested && requestedInList) {
+        props.form.time = requested
+      } else {
+        props.form.time = availableTimes.value[0].value
+        console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de durée:', availableTimes.value[0].value)
+      }
     } else {
-      props.form.time = ''
-      console.log('⚠️ [CreateLessonModal] Plus d\'heures disponibles après changement de durée')
+      if (!requestedTimeFromSlot.value) {
+        props.form.time = ''
+        console.log('⚠️ [CreateLessonModal] Plus d\'heures disponibles après changement de durée')
+      }
     }
   }
 })
