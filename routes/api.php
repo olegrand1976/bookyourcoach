@@ -229,6 +229,8 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
     Route::post('/students', [StudentController::class, 'store']);
+    Route::patch('/students/bulk-subscription-creation-block', [StudentController::class, 'bulkSetSubscriptionCreationBlocked']);
+    Route::post('/students/bulk-archive', [StudentController::class, 'bulkArchive']);
     Route::get('/students/available-for-linking', [StudentController::class, 'getAvailableForLinkingForClub']);
     Route::get('/students/{studentId}/linked', [StudentController::class, 'getLinkedForClub']);
     Route::post('/students/{studentId}/link', [StudentController::class, 'linkForClub']);

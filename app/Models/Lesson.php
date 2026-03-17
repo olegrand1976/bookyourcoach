@@ -52,6 +52,9 @@ class Lesson extends Model
         'montant',         // Montant réellement payé (peut différer de price)
         'deduct_from_subscription', // true = déduire d'un abonnement, false = séance libre
         'recurrence_skipped_reason', // motif affiché si la récurrence n'a pas été créée (job asynchrone)
+        'cancellation_reason',       // 'medical' | 'other' (annulation élève < 8h)
+        'cancellation_certificate_path',
+        'cancellation_count_in_subscription', // true = cours annulé < 8h sans certificat médical → compté dans l'abo
     ];
 
     protected $casts = [
@@ -63,6 +66,7 @@ class Lesson extends Model
         'date_paiement' => 'date',
         'montant' => 'decimal:2',
         'deduct_from_subscription' => 'boolean',
+        'cancellation_count_in_subscription' => 'boolean',
     ];
 
     // Accessors désactivés par défaut pour améliorer les performances

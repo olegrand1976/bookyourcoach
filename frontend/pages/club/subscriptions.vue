@@ -1624,11 +1624,12 @@ const saveInstanceChanges = async () => {
     if (response.data.success) {
       showSuccess('Abonnement modifié avec succès')
       
-      // Mettre à jour l'instance dans selectedSubscription
-      if (selectedSubscription.value && selectedSubscription.value.instances) {
+      // Mettre à jour l'instance (dont le statut) avec la réponse API pour cohérence immédiate
+      if (selectedSubscription.value?.instances) {
         const instanceIndex = selectedSubscription.value.instances.findIndex(i => i.id === editingInstance.value.id)
         if (instanceIndex !== -1) {
-          selectedSubscription.value.instances[instanceIndex] = response.data.data
+          const updated = response.data.data
+          selectedSubscription.value.instances[instanceIndex] = { ...selectedSubscription.value.instances[instanceIndex], ...updated, status: updated?.status ?? editForm.value.status }
         }
       }
       

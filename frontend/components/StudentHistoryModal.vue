@@ -154,13 +154,13 @@
               </div>
             </div>
 
-            <!-- Cours -->
+            <!-- Cours (triés par date croissante) -->
             <div>
               <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                 </svg>
-                Cours ({{ historyData?.lessons?.length || 0 }})
+                Calendrier des cours ({{ historyData?.lessons?.length || 0 }}) — par date croissante
               </h3>
               
               <div v-if="!historyData?.lessons || historyData.lessons.length === 0" class="bg-gray-50 rounded-lg p-6 text-center">
@@ -188,100 +188,108 @@
                   </div>
                 </div>
 
-                <div class="space-y-3">
-                <div 
-                  v-for="lesson in historyData.lessons" 
-                  :key="lesson.id"
-                  :class="[
-                    'rounded-lg p-4 border transition-colors',
-                    isLessonUncovered(lesson) 
-                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
-                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                  ]"
-                >
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <div class="flex items-center flex-wrap gap-2 mb-2">
-                        <h4 class="font-semibold text-gray-900">
-                          {{ lesson.course_type?.name || 'Cours' }}
-                        </h4>
-                        <!-- Badge d'abonnement -->
+                <!-- En-tête du tableau (desktop) -->
+                <div class="hidden md:grid md:grid-cols-12 gap-2 px-4 py-2 bg-gray-100 rounded-t-lg border border-b-0 border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  <div class="col-span-2">Date</div>
+                  <div class="col-span-1">Heure</div>
+                  <div class="col-span-2">Type de cours</div>
+                  <div class="col-span-2">Enseignant</div>
+                  <div class="col-span-1">Statut</div>
+                  <div class="col-span-1">Prix</div>
+                  <div class="col-span-2">Lieu / Abo</div>
+                  <div class="col-span-1 text-right">Action</div>
+                </div>
+
+                <div class="space-y-2 border border-gray-200 rounded-b-lg md:rounded-t-none overflow-hidden">
+                  <div 
+                    v-for="lesson in lessonsSortedByDate" 
+                    :key="lesson.id"
+                    :class="[
+                      'rounded-lg md:rounded-none p-4 md:py-3 border-b border-gray-100 last:border-b-0 md:grid md:grid-cols-12 md:gap-2 md:items-center transition-colors',
+                      isLessonUncovered(lesson) 
+                        ? 'bg-red-50 border-red-200 md:border-0' 
+                        : 'bg-white hover:bg-gray-50 md:border-0'
+                    ]"
+                  >
+                    <!-- Date (mise en avant) -->
+                    <div class="md:col-span-2 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Date</span>
+                      <p class="font-semibold text-gray-900">{{ formatDateShort(lesson.start_time) }}</p>
+                      <p class="text-xs text-gray-500">{{ formatWeekday(lesson.start_time) }}</p>
+                    </div>
+                    <!-- Heure -->
+                    <div class="md:col-span-1 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Heure</span>
+                      <p class="font-medium text-gray-900">{{ formatTimeOnly(lesson.start_time) }} – {{ formatTimeOnly(lesson.end_time) }}</p>
+                    </div>
+                    <!-- Type de cours + badges -->
+                    <div class="md:col-span-2 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Type</span>
+                      <p class="font-medium text-gray-900">{{ lesson.course_type?.name || 'Cours' }}</p>
+                      <div class="flex flex-wrap gap-1 mt-1">
                         <span 
-                          v-if="lesson.subscription_instances && lesson.subscription_instances.length > 0"
-                          class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full"
-                          title="Déduit d'un abonnement"
-                        >
-                          ✓ Abonnement
-                        </span>
-                        <span 
-                          v-else
-                          class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full"
-                          title="Séance non incluse dans l'abonnement"
-                        >
-                          Séance libre
-                        </span>
-                        <!-- Badge NON COUVERT pour les cours futurs -->
+                          v-if="lesson.subscription_instances?.length"
+                          class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded"
+                        >✓ Abo</span>
+                        <span v-else class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-800 rounded">Séance libre</span>
                         <span 
                           v-if="isLessonUncovered(lesson)"
-                          class="px-2 py-1 text-xs font-bold bg-red-500 text-white rounded-full animate-pulse"
-                          :title="lesson.subscription_coverage?.warning || 'Cours non couvert par un abonnement'"
-                        >
-                          ⚠️ NON COUVERT
-                        </span>
-                        <!-- Badge cours futur couvert -->
+                          class="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded"
+                        >⚠️ Non couvert</span>
                         <span 
                           v-else-if="lesson.subscription_coverage?.is_future && lesson.subscription_coverage?.is_covered"
-                          class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
-                          :title="'Couvert jusqu\'au ' + formatDate(lesson.subscription_coverage.coverage_end_date)"
-                        >
-                          ✓ Couvert
-                        </span>
-                      </div>
-                      
-                      <!-- Avertissement détaillé pour les cours non couverts -->
-                      <div 
-                        v-if="isLessonUncovered(lesson)" 
-                        class="bg-red-100 border border-red-200 rounded-lg p-3 mb-3"
-                      >
-                        <p class="text-red-800 text-sm font-medium">
-                          {{ lesson.subscription_coverage?.warning || 'Ce cours futur n\'est pas couvert par un abonnement actif.' }}
-                        </p>
-                        <p class="text-red-600 text-xs mt-1">
-                          Vérifiez que l'élève dispose d'un abonnement actif couvrant ce type de cours ({{ lesson.course_type?.name || 'cours' }}) jusqu'au {{ formatDateTime(lesson.start_time) }}.
-                        </p>
-                      </div>
-                      
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span class="text-gray-600">Date:</span>
-                          <span class="font-medium text-gray-900 ml-1">{{ formatDateTime(lesson.start_time) }}</span>
-                        </div>
-                        <div v-if="lesson.teacher?.user">
-                          <span class="text-gray-600">Enseignant:</span>
-                          <span class="font-medium text-gray-900 ml-1">{{ lesson.teacher.user.name }}</span>
-                        </div>
-                        <div>
-                          <span class="text-gray-600">Prix:</span>
-                          <span class="font-medium text-gray-900 ml-1">{{ formatPrice(lesson.price || 0) }} €</span>
-                        </div>
-                        <div v-if="lesson.location">
-                          <span class="text-gray-600">Lieu:</span>
-                          <span class="font-medium text-gray-900 ml-1">{{ lesson.location.name }}</span>
-                        </div>
+                          class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded"
+                        >✓ Couvert</span>
+                        <span 
+                          :class="{
+                            'bg-green-100 text-green-800': lesson.status === 'completed',
+                            'bg-yellow-100 text-yellow-800': lesson.status === 'pending' || lesson.status === 'confirmed',
+                            'bg-red-100 text-red-800': lesson.status === 'cancelled',
+                            'bg-gray-100 text-gray-800': !['completed','pending','confirmed','cancelled'].includes(lesson.status)
+                          }"
+                          class="px-1.5 py-0.5 text-xs rounded"
+                        >{{ getLessonStatusLabel(lesson.status) }}</span>
                       </div>
                     </div>
-                    <div class="ml-4">
+                    <!-- Enseignant -->
+                    <div class="md:col-span-2 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Enseignant</span>
+                      <p class="text-gray-900">{{ lesson.teacher?.user?.name || '—' }}</p>
+                    </div>
+                    <!-- Statut (desktop: déjà dans Type) -->
+                    <div class="hidden md:block md:col-span-1">
+                      <span :class="statusLessonClass(lesson.status)">{{ getLessonStatusLabel(lesson.status) }}</span>
+                    </div>
+                    <!-- Prix -->
+                    <div class="md:col-span-1 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Prix</span>
+                      <p class="text-gray-900">{{ formatPrice(lesson.price || 0) }} €</p>
+                    </div>
+                    <!-- Lieu -->
+                    <div class="md:col-span-2 mb-2 md:mb-0">
+                      <span class="text-xs text-gray-500 md:hidden">Lieu</span>
+                      <p class="text-gray-700 text-sm">{{ lesson.location?.name || '—' }}</p>
+                    </div>
+                    <!-- Action -->
+                    <div class="md:col-span-1 flex justify-end mt-2 md:mt-0">
                       <button
                         @click="openEditLessonModal(lesson)"
-                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         title="Modifier la déduction d'abonnement"
                       >
                         Modifier
                       </button>
                     </div>
+
+                    <!-- Avertissement non couvert (mobile, sous la ligne) -->
+                    <div 
+                      v-if="isLessonUncovered(lesson)" 
+                      class="md:col-span-12 mt-2 bg-red-100 border border-red-200 rounded p-2 text-red-800 text-sm"
+                    >
+                      {{ lesson.subscription_coverage?.warning || 'Cours futur non couvert par un abonnement actif.' }}
+                    </div>
                   </div>
                 </div>
-              </div>
               </template>
             </div>
           </div>
@@ -734,10 +742,19 @@ const getStudentName = (student) => {
 
 // Helper pour vérifier si un cours futur n'est pas couvert par un abonnement
 const isLessonUncovered = (lesson) => {
-  // Un cours est "non couvert" s'il est futur ET pas couvert par un abonnement actif
   return lesson?.subscription_coverage?.is_future === true && 
          lesson?.subscription_coverage?.is_covered === false
 }
+
+// Cours triés par date croissante (du plus ancien au plus récent)
+const lessonsSortedByDate = computed(() => {
+  const lessons = historyData.value?.lessons || []
+  return [...lessons].sort((a, b) => {
+    const t1 = new Date(a.start_time).getTime()
+    const t2 = new Date(b.start_time).getTime()
+    return t1 - t2
+  })
+})
 
 // Charger l'historique
 const loadHistory = async () => {
@@ -781,6 +798,41 @@ const formatDateTime = (dateTime) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const formatDateShort = (dateTime) => {
+  if (!dateTime) return '—'
+  return new Date(dateTime).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
+const formatWeekday = (dateTime) => {
+  if (!dateTime) return ''
+  return new Date(dateTime).toLocaleDateString('fr-FR', { weekday: 'long' })
+}
+
+const formatTimeOnly = (dateTime) => {
+  if (!dateTime) return '—'
+  return new Date(dateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getLessonStatusLabel = (status) => {
+  const labels = { pending: 'En attente', confirmed: 'Confirmé', completed: 'Terminé', cancelled: 'Annulé' }
+  return labels[status] || status || '—'
+}
+
+const statusLessonClass = (status) => {
+  const base = 'text-xs font-medium px-2 py-0.5 rounded'
+  const map = {
+    completed: 'bg-green-100 text-green-800',
+    confirmed: 'bg-blue-100 text-blue-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+    cancelled: 'bg-red-100 text-red-800'
+  }
+  return `${base} ${map[status] || 'bg-gray-100 text-gray-800'}`
 }
 
 const formatPrice = (price) => {

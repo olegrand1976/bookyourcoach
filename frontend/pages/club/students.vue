@@ -10,7 +10,27 @@
               Gérez vos élèves et leurs informations
             </p>
           </div>
-          <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button 
+              @click="bulkSetSubscriptionCreationBlock(true)"
+              :disabled="bulkBlockLoading || (stats?.total ?? 0) === 0"
+              class="px-3 py-2 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Bloquer la création d'abonnement par les élèves pour tout le club"
+            >
+              <svg v-if="bulkBlockLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <span>Bloquer création abo (tous)</span>
+            </button>
+            <button 
+              @click="bulkSetSubscriptionCreationBlock(false)"
+              :disabled="bulkBlockLoading || (stats?.total ?? 0) === 0"
+              class="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Autoriser la création d'abonnement par les élèves pour tout le club"
+            >
+              <svg v-if="bulkBlockLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+              <span>Autoriser création abo (tous)</span>
+            </button>
             <button 
               @click="showAddStudentModal = true"
               class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 font-medium flex items-center justify-center space-x-2 text-sm md:text-base"
@@ -99,6 +119,7 @@
             >
               <option value="active">Actifs</option>
               <option value="inactive">Inactifs</option>
+              <option value="no_active_subscription">Sans abonnement actif</option>
               <option value="all">Tous</option>
             </select>
           </div>
@@ -120,12 +141,25 @@
 
       <!-- Liste des élèves -->
       <div class="bg-white rounded-xl shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <div class="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
           <h3 class="text-lg font-medium text-gray-900">
             Liste des élèves ({{ totalStudents }})
           </h3>
-          <div v-if="pagination && pagination.total > pagination.per_page" class="text-sm text-gray-600">
-            Page {{ pagination.current_page }} sur {{ pagination.last_page }}
+          <div class="flex items-center gap-3">
+            <div v-if="pagination && pagination.total > pagination.per_page" class="text-sm text-gray-600">
+              Page {{ pagination.current_page }} sur {{ pagination.last_page }}
+            </div>
+            <button
+              v-if="selectedStatus === 'no_active_subscription' && (stats?.no_active_subscription ?? 0) > 0"
+              @click="bulkArchiveNoActiveSubscription"
+              :disabled="bulkArchiveLoading"
+              class="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Archiver tous les élèves sans abonnement actif"
+            >
+              <svg v-if="bulkArchiveLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+              <span>Archiver tous ({{ stats?.no_active_subscription ?? 0 }})</span>
+            </button>
           </div>
         </div>
         
@@ -441,6 +475,8 @@ const selectedStatus = ref('active')
 const sortBy = ref('name')
 const resending = ref({})
 const updatingBlockFlags = ref({})
+const bulkBlockLoading = ref(false)
+const bulkArchiveLoading = ref(false)
 const loading = ref(false)
 const pagination = ref(null)
 const currentPage = ref(1)
@@ -714,6 +750,50 @@ const closeEditModal = () => {
 // Par défaut true si non défini (rétrocompat avant migration)
 const isStudentBlocked = (student) => student.is_blocked !== false
 const isSubscriptionCreationBlocked = (student) => student.subscription_creation_blocked !== false
+
+const bulkArchiveNoActiveSubscription = async () => {
+  const count = stats.value?.no_active_subscription ?? 0
+  if (count === 0) return
+  if (!confirm(`Archiver les ${count} élève(s) sans abonnement actif ? Ils passeront en statut inactif.`)) return
+  bulkArchiveLoading.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post('/club/students/bulk-archive', { filter: 'no_active_subscription' })
+    if (response.data.success) {
+      alert(response.data.message || 'Élèves archivés.')
+      loadStudents(1)
+      selectedStatus.value = 'inactive'
+    } else {
+      alert(response.data.message || 'Erreur.')
+    }
+  } catch (err) {
+    console.error('Erreur archivage:', err)
+    alert(err.response?.data?.message || 'Erreur lors de l\'archivage.')
+  } finally {
+    bulkArchiveLoading.value = false
+  }
+}
+
+const bulkSetSubscriptionCreationBlock = async (block) => {
+  bulkBlockLoading.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.patch('/club/students/bulk-subscription-creation-block', {
+      subscription_creation_blocked: block
+    })
+    if (response.data.success) {
+      alert(response.data.message || (block ? 'Création d\'abonnement bloquée pour tous.' : 'Création d\'abonnement autorisée pour tous.'))
+      loadStudents(currentPage.value)
+    } else {
+      alert(response.data.message || 'Erreur.')
+    }
+  } catch (err) {
+    console.error('Erreur bulk block:', err)
+    alert(err.response?.data?.message || 'Erreur lors de la mise à jour.')
+  } finally {
+    bulkBlockLoading.value = false
+  }
+}
 
 const toggleBlockFlag = async (student, flagName) => {
   updatingBlockFlags.value[student.id] = true

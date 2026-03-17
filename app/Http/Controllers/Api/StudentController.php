@@ -1004,6 +1004,100 @@ class StudentController extends Controller
     }
 
     /**
+     * Bloquer ou débloquer la création d'abonnement pour tous les élèves du club.
+     */
+    public function bulkSetSubscriptionCreationBlocked(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if ($user->role !== 'club') {
+                return response()->json(['success' => false, 'message' => 'Accès réservé aux clubs'], 403);
+            }
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+            }
+            $validated = $request->validate([
+                'subscription_creation_blocked' => 'required|boolean',
+            ]);
+            $blocked = (bool) $validated['subscription_creation_blocked'];
+            $count = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->update([
+                    'subscription_creation_blocked' => $blocked,
+                    'updated_at' => now(),
+                ]);
+            return response()->json([
+                'success' => true,
+                'message' => $blocked
+                    ? "Création d'abonnement bloquée pour les {$count} élève(s)."
+                    : "Création d'abonnement autorisée pour les {$count} élève(s).",
+                'data' => ['updated_count' => $count, 'subscription_creation_blocked' => $blocked],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('Erreur bulkSetSubscriptionCreationBlocked: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erreur lors de la mise à jour'], 500);
+        }
+    }
+
+    /**
+     * Archiver en masse les élèves selon un filtre (ex: sans abonnement actif).
+     * Met is_active = false sur club_students pour tous les élèves concernés.
+     */
+    public function bulkArchive(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if ($user->role !== 'club') {
+                return response()->json(['success' => false, 'message' => 'Accès réservé aux clubs'], 403);
+            }
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+            }
+            $validated = $request->validate([
+                'filter' => 'required|in:no_active_subscription',
+            ]);
+            $filter = $validated['filter'];
+            $clubId = $club->id;
+
+            if ($filter === 'no_active_subscription') {
+                $studentIds = DB::table('club_students')
+                    ->join('students', 'club_students.student_id', '=', 'students.id')
+                    ->where('club_students.club_id', $clubId)
+                    ->where('club_students.is_active', true)
+                    ->whereNotExists(function ($q) use ($clubId) {
+                        $q->select(DB::raw(1))
+                            ->from('subscription_instance_students as sis')
+                            ->join('subscription_instances as si', 'si.id', '=', 'sis.subscription_instance_id')
+                            ->join('subscriptions as sub', 'sub.id', '=', 'si.subscription_id')
+                            ->whereColumn('sis.student_id', 'students.id')
+                            ->where('sub.club_id', $clubId)
+                            ->where('si.status', 'active');
+                    })
+                    ->pluck('students.id');
+                $count = DB::table('club_students')
+                    ->where('club_id', $clubId)
+                    ->whereIn('student_id', $studentIds)
+                    ->update(['is_active' => false, 'updated_at' => now()]);
+                return response()->json([
+                    'success' => true,
+                    'message' => "{$count} élève(s) sans abonnement actif ont été archivés.",
+                    'data' => ['archived_count' => $count],
+                ]);
+            }
+            return response()->json(['success' => false, 'message' => 'Filtre non supporté'], 400);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('Erreur bulkArchive: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erreur lors de l\'archivage'], 500);
+        }
+    }
+
+    /**
      * Récupérer les clubs de l'élève connecté
      */
     public function getMyClubs(Request $request): JsonResponse

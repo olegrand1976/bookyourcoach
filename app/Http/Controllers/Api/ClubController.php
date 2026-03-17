@@ -774,17 +774,27 @@ class ClubController extends Controller
             
             // Filtrer par statut - Par défaut, seuls les élèves actifs sont retournés
             if ($status === 'active' || empty($status) || $status === null) {
-                // Par défaut, ne retourner que les élèves actifs (non soft-deleted)
                 $query->where('club_students.is_active', true);
                 \Log::info('ClubController::getStudents - Filtre ACTIF appliqué');
             } elseif ($status === 'inactive') {
                 $query->where('club_students.is_active', false);
                 \Log::info('ClubController::getStudents - Filtre INACTIF appliqué');
+            } elseif ($status === 'no_active_subscription') {
+                // Élèves actifs (dans le club) sans aucun abonnement actif pour ce club
+                $query->where('club_students.is_active', true);
+                $query->whereNotExists(function ($q) use ($clubUser) {
+                    $q->select(DB::raw(1))
+                        ->from('subscription_instance_students as sis')
+                        ->join('subscription_instances as si', 'si.id', '=', 'sis.subscription_instance_id')
+                        ->join('subscriptions as sub', 'sub.id', '=', 'si.subscription_id')
+                        ->whereColumn('sis.student_id', 'students.id')
+                        ->where('sub.club_id', $clubUser->club_id)
+                        ->where('si.status', 'active');
+                });
+                \Log::info('ClubController::getStudents - Filtre SANS ABONNEMENT ACTIF appliqué');
             } elseif ($status === 'all') {
-                // Pas de filtre, retourner tous les élèves
                 \Log::info('ClubController::getStudents - Aucun filtre (TOUS)');
             }
-            // Si 'all', pas de filtre (retourne tous les élèves, actifs et inactifs)
             
             $query->select(
                 'students.id',
@@ -822,6 +832,25 @@ class ClubController extends Controller
                 ->count();
             
             $totalAllStudents = $totalActiveStudents + $totalInactiveStudents;
+            
+            // Nombre d'élèves actifs sans abonnement actif (pour le filtre et le bouton "Archiver tous")
+            $totalNoActiveSubscription = 0;
+            if (\Illuminate\Support\Facades\Schema::hasTable('subscription_instances') && \Illuminate\Support\Facades\Schema::hasTable('subscription_instance_students') && \Illuminate\Support\Facades\Schema::hasTable('subscriptions')) {
+                $totalNoActiveSubscription = DB::table('club_students')
+                    ->join('students', 'club_students.student_id', '=', 'students.id')
+                    ->where('club_students.club_id', $clubUser->club_id)
+                    ->where('club_students.is_active', true)
+                    ->whereNotExists(function ($q) use ($clubUser) {
+                        $q->select(DB::raw(1))
+                            ->from('subscription_instance_students as sis')
+                            ->join('subscription_instances as si', 'si.id', '=', 'sis.subscription_instance_id')
+                            ->join('subscriptions as sub', 'sub.id', '=', 'si.subscription_id')
+                            ->whereColumn('sis.student_id', 'students.id')
+                            ->where('sub.club_id', $clubUser->club_id)
+                            ->where('si.status', 'active');
+                    })
+                    ->count();
+            }
             
             // Appliquer la pagination
             $students = $query->skip(($page - 1) * $perPage)
@@ -874,7 +903,8 @@ class ClubController extends Controller
                 'stats' => [
                     'total' => $totalAllStudents,
                     'active' => $totalActiveStudents,
-                    'inactive' => $totalInactiveStudents
+                    'inactive' => $totalInactiveStudents,
+                    'no_active_subscription' => $totalNoActiveSubscription
                 ]
             ]);
             

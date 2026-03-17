@@ -143,12 +143,23 @@ class SubscriptionInstance extends Model
 
     private function getConsumedLessonsCount(): int
     {
-        return \Illuminate\Support\Facades\DB::table('subscription_lessons')
+        $hasCountColumn = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
+        $query = \Illuminate\Support\Facades\DB::table('subscription_lessons')
             ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
             ->where('subscription_lessons.subscription_instance_id', $this->id)
-            ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-            ->where('lessons.start_time', '<=', Carbon::now())
-            ->count();
+            ->where(function ($q) use ($hasCountColumn) {
+                $q->where(function ($q2) {
+                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+                        ->where('lessons.start_time', '<=', Carbon::now());
+                });
+                if ($hasCountColumn) {
+                    $q->orWhere(function ($q2) {
+                        $q2->where('lessons.status', 'cancelled')
+                            ->where('lessons.cancellation_count_in_subscription', true);
+                    });
+                }
+            });
+        return $query->count();
     }
 
     private function resolveManualLessonsUsed(?int $consumedLessons = null): int
