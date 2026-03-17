@@ -1232,7 +1232,31 @@ const availableTimes = computed(() => {
     
     return isAvailable
   })
-  
+
+  // Inclure l'heure déjà saisie (ex. clic sur plage 10:40) si elle est dans le créneau et sans conflit,
+  // pour qu'elle ne soit pas écrasée par les watchers avec la première plage (9h).
+  const formTime = props.form.time ? props.form.time.substring(0, 5) : ''
+  if (formTime && /^\d{1,2}:\d{2}$/.test(formTime)) {
+    const formMinutes = timeToMinutes(formTime)
+    const inSlot = formMinutes >= slotStartMinutes && formMinutes + duration <= slotEndMinutes
+    const alreadyInList = available.some(t => t.value === formTime || t.value.substring(0, 5) === formTime)
+    if (inSlot && !alreadyInList) {
+      const timeStart = new Date(`${date}T${formTime}:00`)
+      const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+      let overlappingCount = 0
+      for (const lesson of existingLessons.value) {
+        if (lesson.status === 'cancelled') continue
+        const lessonStart = new Date(lesson.start_time)
+        const lessonEnd = lesson.end_time ? new Date(lesson.end_time) : new Date(lessonStart.getTime() + (lesson.course_type?.duration_minutes || 60) * 60000)
+        if (timeStart < lessonEnd && timeEnd > lessonStart) overlappingCount++
+      }
+      if (overlappingCount < maxSlots) {
+        available.push({ value: formTime, label: formTime, minutes: formMinutes })
+        available.sort((a, b) => a.minutes - b.minutes)
+      }
+    }
+  }
+
   console.log(`✅ [availableTimes] ${available.length} plage(s) horaire(s) disponible(s) sur ${allTimes.length} possibles`)
   
   return available

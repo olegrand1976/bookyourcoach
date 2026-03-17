@@ -401,6 +401,12 @@ class StripeService
         string $cancelUrl,
         array $metadata = []
     ): ?Session {
+        $secret = config('services.stripe.secret');
+        if (empty($secret)) {
+            Log::error('Stripe: STRIPE_SECRET non configuré (vérifier .env en production)');
+            return null;
+        }
+
         try {
             // Créer ou récupérer le customer Stripe
             $customerId = $this->createCustomer($user);
