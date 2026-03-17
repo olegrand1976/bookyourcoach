@@ -169,15 +169,25 @@ class StudentSubscriptionController extends Controller
             $template = \App\Models\SubscriptionTemplate::with('club')->findOrFail($validated['subscription_template_id']);
 
             // Vérifier que l'élève est inscrit dans le club qui propose ce modèle
-            $isMember = $student->clubs()
-                ->wherePivot('is_active', true)
+            $clubPivot = $student->clubs()
                 ->where('clubs.id', $template->club_id)
-                ->exists();
-
-            if (!$isMember) {
+                ->first();
+            if (!$clubPivot || !$clubPivot->pivot->is_active) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être inscrit dans ce club pour souscrire à cet abonnement'
+                ], 403);
+            }
+            if ($clubPivot->pivot->is_blocked ?? true) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Votre compte est bloqué pour ce club. Contactez le club.'
+                ], 403);
+            }
+            if ($clubPivot->pivot->subscription_creation_blocked ?? true) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La création d\'abonnement par l\'élève est désactivée pour ce club.'
                 ], 403);
             }
 
@@ -273,15 +283,25 @@ class StudentSubscriptionController extends Controller
             $template = \App\Models\SubscriptionTemplate::with('club')->findOrFail($validated['subscription_template_id']);
 
             // Vérifier que l'élève est inscrit dans le club qui propose ce modèle
-            $isMember = $student->clubs()
-                ->wherePivot('is_active', true)
+            $clubPivot = $student->clubs()
                 ->where('clubs.id', $template->club_id)
-                ->exists();
-
-            if (!$isMember) {
+                ->first();
+            if (!$clubPivot || !$clubPivot->pivot->is_active) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous devez être inscrit dans ce club pour souscrire à cet abonnement'
+                ], 403);
+            }
+            if ($clubPivot->pivot->is_blocked ?? true) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Votre compte est bloqué pour ce club. Contactez le club.'
+                ], 403);
+            }
+            if ($clubPivot->pivot->subscription_creation_blocked ?? true) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La création d\'abonnement par l\'élève est désactivée pour ce club.'
                 ], 403);
             }
 

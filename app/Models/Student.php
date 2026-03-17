@@ -76,7 +76,7 @@ class Student extends Model
     public function clubs()
     {
         return $this->belongsToMany(Club::class, 'club_students')
-                    ->withPivot(['level', 'goals', 'medical_info', 'preferred_disciplines', 'is_active', 'joined_at'])
+                    ->withPivot(['level', 'goals', 'medical_info', 'preferred_disciplines', 'is_active', 'is_blocked', 'subscription_creation_blocked', 'joined_at'])
                     ->withTimestamps();
     }
 

@@ -235,6 +235,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::delete('/students/{studentId}/unlink/{linkedStudentId}', [StudentController::class, 'unlinkForClub']);
     Route::get('/students/{studentId}/history', [StudentController::class, 'history']);
     Route::patch('/students/{studentId}/toggle-status', [StudentController::class, 'toggleStatus']);
+    Route::patch('/students/{studentId}/block-flags', [StudentController::class, 'updateBlockFlags']);
     Route::post('/students/{studentId}/resend-invitation', [StudentController::class, 'resendInvitation']);
     Route::put('/students/{studentId}', [StudentController::class, 'update']);
     Route::delete('/students/{studentId}', [ClubController::class, 'removeStudent']);

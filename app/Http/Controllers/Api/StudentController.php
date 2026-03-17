@@ -943,6 +943,67 @@ class StudentController extends Controller
     }
 
     /**
+     * Mettre à jour les indicateurs de blocage (compte, création d'abonnement par l'élève).
+     */
+    public function updateBlockFlags(Request $request, $studentId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            if ($user->role !== 'club') {
+                return response()->json(['success' => false, 'message' => 'Accès réservé aux clubs'], 403);
+            }
+            $club = $user->getFirstClub();
+            if (!$club) {
+                return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+            }
+            $student = Student::findOrFail($studentId);
+            $clubStudent = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->first();
+            if (!$clubStudent) {
+                return response()->json(['success' => false, 'message' => 'Cet élève n\'appartient pas à votre club'], 403);
+            }
+            $validated = $request->validate([
+                'is_blocked' => 'sometimes|boolean',
+                'subscription_creation_blocked' => 'sometimes|boolean',
+            ]);
+            $updates = array_intersect_key($validated, array_flip(['is_blocked', 'subscription_creation_blocked']));
+            if (empty($updates)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'is_blocked' => (bool) $clubStudent->is_blocked,
+                        'subscription_creation_blocked' => (bool) ($clubStudent->subscription_creation_blocked ?? true),
+                    ],
+                ]);
+            }
+            $updates['updated_at'] = now();
+            DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->update($updates);
+            $updated = DB::table('club_students')
+                ->where('club_id', $club->id)
+                ->where('student_id', $student->id)
+                ->first();
+            return response()->json([
+                'success' => true,
+                'message' => 'Paramètres de blocage mis à jour',
+                'data' => [
+                    'is_blocked' => (bool) ($updated->is_blocked ?? true),
+                    'subscription_creation_blocked' => (bool) ($updated->subscription_creation_blocked ?? true),
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('Erreur updateBlockFlags: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erreur lors de la mise à jour'], 500);
+        }
+    }
+
+    /**
      * Récupérer les clubs de l'élève connecté
      */
     public function getMyClubs(Request $request): JsonResponse

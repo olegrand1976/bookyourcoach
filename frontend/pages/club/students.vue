@@ -271,6 +271,46 @@
                 </button>
                 
                 <button 
+                  @click="toggleBlockFlag(student, 'is_blocked')"
+                  :disabled="updatingBlockFlags[student.id]"
+                  :class="[
+                    'p-1.5 md:p-2 rounded-lg transition-colors',
+                    isStudentBlocked(student) 
+                      ? 'text-red-600 hover:text-red-800 hover:bg-red-50' 
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  ]"
+                  :title="isStudentBlocked(student) ? 'Compte bloqué (cliquer pour débloquer)' : 'Débloquer compte'"
+                >
+                  <svg v-if="updatingBlockFlags[student.id]" class="animate-spin w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  <svg v-else class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                  </svg>
+                </button>
+                
+                <button 
+                  @click="toggleBlockFlag(student, 'subscription_creation_blocked')"
+                  :disabled="updatingBlockFlags[student.id]"
+                  :class="[
+                    'p-1.5 md:p-2 rounded-lg transition-colors',
+                    isSubscriptionCreationBlocked(student) 
+                      ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' 
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  ]"
+                  :title="isSubscriptionCreationBlocked(student) ? 'Création abo bloquée (cliquer pour autoriser)' : 'Autoriser création abonnement par l\'élève'"
+                >
+                  <svg v-if="updatingBlockFlags[student.id]" class="animate-spin w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  <svg v-else class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                </button>
+                
+                <button 
                   @click="toggleStudentStatus(student)"
                   :class="[
                     'p-1.5 md:p-2 rounded-lg transition-colors',
@@ -400,6 +440,7 @@ const searchQuery = ref('')
 const selectedStatus = ref('active')
 const sortBy = ref('name')
 const resending = ref({})
+const updatingBlockFlags = ref({})
 const loading = ref(false)
 const pagination = ref(null)
 const currentPage = ref(1)
@@ -668,6 +709,30 @@ const viewStudentSubscriptions = (student) => {
 const closeEditModal = () => {
   showEditStudentModal.value = false
   selectedStudent.value = null
+}
+
+// Par défaut true si non défini (rétrocompat avant migration)
+const isStudentBlocked = (student) => student.is_blocked !== false
+const isSubscriptionCreationBlocked = (student) => student.subscription_creation_blocked !== false
+
+const toggleBlockFlag = async (student, flagName) => {
+  updatingBlockFlags.value[student.id] = true
+  try {
+    const current = flagName === 'is_blocked' ? isStudentBlocked(student) : isSubscriptionCreationBlocked(student)
+    const { $api } = useNuxtApp()
+    const response = await $api.patch(`/club/students/${student.id}/block-flags`, { [flagName]: !current })
+    if (response.data.success && response.data.data) {
+      student[flagName] = response.data.data[flagName]
+    } else {
+      loadStudents(currentPage.value)
+    }
+  } catch (err) {
+    console.error('Erreur mise à jour blocage:', err)
+    alert(err.response?.data?.message || 'Erreur lors de la mise à jour.')
+    loadStudents(currentPage.value)
+  } finally {
+    updatingBlockFlags.value[student.id] = false
+  }
 }
 
 const toggleStudentStatus = async (student) => {

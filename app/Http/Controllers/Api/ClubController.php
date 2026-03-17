@@ -802,7 +802,9 @@ class ClubController extends Controller
                 'students.total_lessons',
                 'students.total_spent',
                 'club_students.joined_at',
-                'club_students.is_active'
+                'club_students.is_active',
+                'club_students.is_blocked',
+                'club_students.subscription_creation_blocked'
             );
             
             // Compter le total avant pagination (pour le filtre en cours)
