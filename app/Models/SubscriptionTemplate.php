@@ -12,6 +12,9 @@ class SubscriptionTemplate extends Model
     protected $fillable = [
         'club_id',
         'model_number',
+        'stripe_enabled',
+        'stripe_product_id',
+        'stripe_price_id',
         'total_lessons',
         'free_lessons',
         'price',
@@ -20,16 +23,19 @@ class SubscriptionTemplate extends Model
         'validity_unit',
         'is_active',
         'warning_at_session',
+        'cancellation_deadline_hours',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'stripe_enabled' => 'boolean',
         'total_lessons' => 'integer',
         'free_lessons' => 'integer',
         'price' => 'decimal:2',
         'validity_months' => 'integer',
         'validity_value' => 'integer',
         'warning_at_session' => 'integer',
+        'cancellation_deadline_hours' => 'integer',
     ];
 
     protected $attributes = [

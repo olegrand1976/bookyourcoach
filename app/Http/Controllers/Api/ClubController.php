@@ -282,7 +282,8 @@ class ClubController extends Controller
                         'activity_types', 'disciplines', 'discipline_settings', 'schedule_config',
                         'default_subscription_total_lessons', 'default_subscription_free_lessons',
                         'default_subscription_price', 'default_subscription_validity_value',
-                        'default_subscription_validity_unit'
+                        'default_subscription_validity_unit',
+                        'default_cancellation_deadline_hours'
                     ]);
                     
                     // Ne garder que les colonnes qui existent dans la table
@@ -385,7 +386,8 @@ class ClubController extends Controller
                 'default_subscription_free_lessons' => 'nullable|integer|min:0',
                 'default_subscription_price' => 'nullable|numeric|min:0',
                 'default_subscription_validity_value' => 'nullable|integer|min:1',
-                'default_subscription_validity_unit' => 'nullable|in:weeks,months'
+                'default_subscription_validity_unit' => 'nullable|in:weeks,months',
+                'default_cancellation_deadline_hours' => 'nullable|integer|min:1|max:168',
             ]);
             
             // Mettre à jour le club existant avec les données validées

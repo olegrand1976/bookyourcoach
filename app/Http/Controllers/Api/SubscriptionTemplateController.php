@@ -93,6 +93,9 @@ class SubscriptionTemplateController extends Controller
 
             $validated = $request->validate([
                 'model_number' => 'nullable|string|max:50', // Rendre optionnel, sera généré automatiquement
+                'stripe_enabled' => 'sometimes|boolean',
+                'stripe_product_id' => 'nullable|string|max:255',
+                'stripe_price_id' => 'nullable|string|max:255',
                 'total_lessons' => 'required|integer|min:1',
                 'free_lessons' => 'nullable|integer|min:0',
                 'price' => 'required|numeric|min:0',
@@ -101,9 +104,20 @@ class SubscriptionTemplateController extends Controller
                 'validity_months' => 'nullable|integer|min:1|max:60', // Calculé automatiquement si non fourni
                 'is_active' => 'boolean',
                 'warning_at_session' => 'nullable|integer|min:1|max:255', // Alerte fin de parcours à la N-ième séance (défaut 8)
+                'cancellation_deadline_hours' => 'nullable|integer|min:1|max:168', // Délai (h) : annulation au-delà = non déduit
                 'course_type_ids' => 'required|array|min:1',
                 'course_type_ids.*' => 'exists:course_types,id'
             ]);
+
+            if (($validated['stripe_enabled'] ?? false) && empty($validated['stripe_price_id'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le tarif Stripe est obligatoire quand le paiement Stripe est active',
+                    'errors' => [
+                        'stripe_price_id' => ['Le tarif Stripe est obligatoire quand le paiement Stripe est active.']
+                    ]
+                ], 422);
+            }
             
             // Calculer validity_months à partir de validity_value et validity_unit si non fourni
             if (!isset($validated['validity_months']) || $validated['validity_months'] === null) {
@@ -174,6 +188,9 @@ class SubscriptionTemplateController extends Controller
             $template = SubscriptionTemplate::create([
                 'club_id' => $club->id,
                 'model_number' => $modelNumber,
+                'stripe_enabled' => $validated['stripe_enabled'] ?? false,
+                'stripe_product_id' => $validated['stripe_product_id'] ?? null,
+                'stripe_price_id' => $validated['stripe_price_id'] ?? null,
                 'total_lessons' => $validated['total_lessons'],
                 'free_lessons' => $validated['free_lessons'] ?? 0,
                 'price' => $validated['price'],
@@ -182,6 +199,7 @@ class SubscriptionTemplateController extends Controller
                 'validity_unit' => $validated['validity_unit'],
                 'is_active' => $validated['is_active'] ?? true,
                 'warning_at_session' => $validated['warning_at_session'] ?? null,
+                'cancellation_deadline_hours' => $validated['cancellation_deadline_hours'] ?? null,
             ]);
 
             // Attacher les types de cours
@@ -242,6 +260,9 @@ class SubscriptionTemplateController extends Controller
 
             $validated = $request->validate([
                 'model_number' => 'sometimes|string|max:50',
+                'stripe_enabled' => 'sometimes|boolean',
+                'stripe_product_id' => 'sometimes|nullable|string|max:255',
+                'stripe_price_id' => 'sometimes|nullable|string|max:255',
                 'total_lessons' => 'sometimes|integer|min:1',
                 'free_lessons' => 'sometimes|integer|min:0',
                 'price' => 'sometimes|numeric|min:0',
@@ -250,9 +271,27 @@ class SubscriptionTemplateController extends Controller
                 'validity_months' => 'sometimes|integer|min:1|max:60',
                 'is_active' => 'boolean',
                 'warning_at_session' => 'sometimes|nullable|integer|min:1|max:255',
+                'cancellation_deadline_hours' => 'sometimes|nullable|integer|min:1|max:168',
                 'course_type_ids' => 'sometimes|array|min:1',
                 'course_type_ids.*' => 'exists:course_types,id'
             ]);
+
+            $stripeEnabled = array_key_exists('stripe_enabled', $validated)
+                ? (bool) $validated['stripe_enabled']
+                : (bool) $template->stripe_enabled;
+            $stripePriceId = array_key_exists('stripe_price_id', $validated)
+                ? $validated['stripe_price_id']
+                : $template->stripe_price_id;
+
+            if ($stripeEnabled && empty($stripePriceId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le tarif Stripe est obligatoire quand le paiement Stripe est active',
+                    'errors' => [
+                        'stripe_price_id' => ['Le tarif Stripe est obligatoire quand le paiement Stripe est active.']
+                    ]
+                ], 422);
+            }
             
             // Si validity_value et validity_unit sont fournis, calculer validity_months
             if (isset($validated['validity_value']) && isset($validated['validity_unit'])) {

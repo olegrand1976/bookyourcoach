@@ -383,6 +383,15 @@
 
               <!-- Intervalle de récurrence (uniquement si un élève est sélectionné et déduction d'abonnement activée) -->
               <!-- En mode création OU en mode édition avec portée 'all_future' -->
+              <!-- Alerte : pas d'abonnement actif pour déduction / récurrence -->
+              <div v-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <p class="text-sm text-amber-800 flex items-start gap-2">
+                  <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Cet élève n'a pas d'abonnement actif pour ce type de cours. Créez le cours sans déduction (décocher « Déduire de l'abonnement ») ou assignez un abonnement à l'élève.</span>
+                </p>
+              </div>
               <div v-if="((!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future'))" class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-3">
                   Fréquence de récurrence
@@ -485,7 +494,7 @@
                     class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               Annuler
             </button>
-            <button type="submit" :disabled="saving"
+            <button type="submit" :disabled="saving || (needsSubscriptionCheck && hasActiveSubscription === false)"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
               <span v-if="saving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
               {{ saving ? (editingLesson ? 'Modification...' : (form.recurring_interval >= 1 ? 'Création du cours et des occurrences en cours…' : 'Création...')) : (editingLesson ? 'Modifier le cours' : 'Créer le cours') }}
@@ -568,6 +577,14 @@ const emit = defineEmits<{
 }>()
 
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+// Vérification abonnement actif pour déduction / récurrence (création uniquement)
+const hasActiveSubscription = ref<boolean | null>(null)
+const loadingCheckSubscription = ref(false)
+const needsSubscriptionCheck = computed(() => {
+  const f = props.form
+  return !props.editingLesson && !!f.student_id && !!f.course_type_id && (f.deduct_from_subscription === true || (f.recurring_interval ?? 0) >= 1)
+})
 
 // Fonction pour normaliser les chaînes (supprimer les accents) pour la recherche
 function normalizeString(str: string): string {
@@ -942,6 +959,9 @@ function canNavigateDate(direction: number): boolean {
 }
 
 function handleSubmit() {
+  if (needsSubscriptionCheck.value && hasActiveSubscription.value === false) {
+    return
+  }
   emit('submit', props.form)
 }
 
@@ -955,6 +975,41 @@ function formatPrice(price: number | string | null | undefined): string {
   }
   return numPrice.toFixed(2).replace('.', ',')
 }
+
+// Watcher : vérifier si l'élève a un abonnement actif pour ce type de cours (déduction / récurrence)
+watch(
+  () => [
+    props.show,
+    props.form.student_id,
+    props.form.course_type_id,
+    props.form.deduct_from_subscription,
+    props.form.recurring_interval
+  ],
+  async ([show, studentId, courseTypeId, deduct, recurring]) => {
+    const needsCheck = show && !props.editingLesson && studentId && courseTypeId &&
+      (deduct === true || (recurring ?? 0) >= 1)
+    if (!needsCheck) {
+      hasActiveSubscription.value = null
+      return
+    }
+    loadingCheckSubscription.value = true
+    hasActiveSubscription.value = null
+    try {
+      const { $api } = useNuxtApp()
+      const response = await $api.get('/club/students/check-active-subscription', {
+        params: { student_id: studentId, course_type_id: courseTypeId }
+      })
+      if (response?.data?.success === true) {
+        hasActiveSubscription.value = response.data.has_active === true
+      }
+    } catch {
+      hasActiveSubscription.value = null
+    } finally {
+      loadingCheckSubscription.value = false
+    }
+  },
+  { immediate: true }
+)
 
 // Watcher pour auto-sélectionner le type de cours s'il n'y en a qu'un seul
 watch(() => props.courseTypes, (newCourseTypes) => {

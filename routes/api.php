@@ -134,7 +134,9 @@ Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('studen
     Route::put('/profile', [StudentController::class, 'updateProfile']);
     
     // Clubs de l'élève
-    Route::get('/clubs', [StudentController::class, 'getClubs']);
+    Route::get('/clubs', [StudentController::class, 'getMyClubs']);
+    Route::post('/clubs', [StudentController::class, 'addClubs']);
+    Route::delete('/clubs/{clubId}', [StudentController::class, 'removeClub']);
     
     // Statistiques du dashboard
     Route::get('/dashboard/stats', [App\Http\Controllers\Api\Student\DashboardController::class, 'getStats']);
@@ -148,7 +150,8 @@ Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('studen
     // Réservations
     Route::get('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'getBookings']);
     Route::post('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'createBooking']);
-    Route::put('/bookings/{id}/cancel', [App\Http\Controllers\Api\Student\DashboardController::class, 'cancelBooking']);
+    Route::match(['put', 'post'], '/bookings/{id}/cancel', [App\Http\Controllers\Api\Student\DashboardController::class, 'cancelBooking']);
+    Route::post('/bookings/{id}/cancellation-certificate/resubmit', [App\Http\Controllers\Api\Student\DashboardController::class, 'resubmitCancellationCertificate']);
     
     // Préférences
     Route::get('/disciplines', [App\Http\Controllers\Api\Student\PreferencesController::class, 'getDisciplines']);
@@ -161,6 +164,7 @@ Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('studen
     Route::get('/subscriptions/available', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'availableSubscriptions']);
     Route::get('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'mySubscriptions']);
     Route::post('/subscriptions/create-checkout-session', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'createCheckoutSession']);
+    Route::get('/subscriptions/checkout-status', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'confirmCheckoutSession']);
     Route::post('/subscriptions', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'subscribe']);
     Route::post('/subscriptions/{instanceId}/renew', [App\Http\Controllers\Api\StudentSubscriptionController::class, 'renew']);
     
@@ -228,6 +232,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::delete('/teachers/{teacherId}', [ClubController::class, 'deleteTeacher']);
     Route::post('/teachers/{teacherId}/resend-invitation', [ClubController::class, 'resendTeacherInvitation']);
     Route::get('/students', [ClubController::class, 'getStudents']);
+    Route::get('/students/check-active-subscription', [StudentController::class, 'checkActiveSubscriptionForCourseType']);
     Route::post('/students', [StudentController::class, 'store']);
     Route::patch('/students/bulk-subscription-creation-block', [StudentController::class, 'bulkSetSubscriptionCreationBlocked']);
     Route::post('/students/bulk-archive', [StudentController::class, 'bulkArchive']);
@@ -275,6 +280,13 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/planning/availability-by-week', [App\Http\Controllers\Api\ClubPlanningController::class, 'availabilityByWeek']);
     // Cours (suppression depuis le planning club)
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
+    // Certificats médicaux en attente (liste pour le bloc planning)
+    Route::get('/lessons/pending-certificates', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'pendingCertificates']);
+    // Validation / refus certificat médical (annulation élève)
+    Route::get('/lessons/{id}/cancellation-certificate/download', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'download']);
+    Route::post('/lessons/{id}/cancellation-certificate/accept', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'accept']);
+    Route::post('/lessons/{id}/cancellation-certificate/reject', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'reject']);
+    Route::post('/lessons/{id}/cancellation-certificate/close', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'close']);
     // Modèles d'abonnements
     Route::get('/subscription-templates', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'index']);
     Route::post('/subscription-templates', [App\Http\Controllers\Api\SubscriptionTemplateController::class, 'store']);

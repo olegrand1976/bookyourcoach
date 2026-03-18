@@ -8,7 +8,7 @@
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="text-xl font-bold text-white">Historique de {{ getStudentName(student) }}</h2>
+              <h2 class="text-xl font-bold text-white">Historique de {{ studentDisplayName }}</h2>
               <p class="text-sm text-purple-100 mt-1">Abonnements et cours</p>
             </div>
             <button 
@@ -60,30 +60,101 @@
                 <div class="text-sm text-amber-600 font-medium">Dépensé</div>
                 <div class="text-2xl font-bold text-amber-900 mt-1">{{ formatPrice(historyData.stats.total_spent) }} €</div>
               </div>
-              <!-- Statistique des cours non couverts -->
-              <div 
-                :class="[
-                  'rounded-lg p-4',
-                  historyData.stats.uncovered_future_lessons > 0 
-                    ? 'bg-red-50 ring-2 ring-red-300' 
-                    : 'bg-gray-50'
-                ]"
-              >
-                <div 
-                  :class="[
-                    'text-sm font-medium',
-                    historyData.stats.uncovered_future_lessons > 0 ? 'text-red-600' : 'text-gray-600'
-                  ]"
-                >
-                  Non couverts
+              <!-- Fin théorique des abonnements actifs -->
+              <div class="bg-slate-50 rounded-lg p-4">
+                <div class="text-sm text-slate-600 font-medium">
+                  Fin théorique des abonnements
                 </div>
-                <div 
-                  :class="[
-                    'text-2xl font-bold mt-1',
-                    historyData.stats.uncovered_future_lessons > 0 ? 'text-red-900' : 'text-gray-900'
-                  ]"
+                <div class="text-lg font-bold text-slate-900 mt-1">
+                  {{ subscriptionsEarliestEndFormatted || '—' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Bloc dédié : Validation des certificats médicaux -->
+            <div v-if="lessonsWithCertificate.length > 0" class="border border-amber-200 rounded-xl bg-amber-50/50 overflow-hidden">
+              <div class="px-6 py-4 border-b border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                  <svg class="w-5 h-5 mr-2 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Validation des certificats médicaux ({{ lessonsWithCertificate.length }})
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">Acceptez, refusez avec un message à l'élève, ou clôturez la demande après plusieurs aller-retour.</p>
+              </div>
+              <div class="p-4 space-y-4">
+                <div
+                  v-for="lesson in lessonsWithCertificate"
+                  :key="`cert-${lesson.id}`"
+                  class="flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-white rounded-lg border border-amber-100 shadow-sm"
                 >
-                  {{ historyData.stats.uncovered_future_lessons || 0 }}
+                  <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-semibold text-gray-900">{{ lesson.course_type?.name || 'Cours' }}</span>
+                      <span class="text-sm text-gray-500">{{ formatDateShort(lesson.start_time) }} — {{ formatTimeOnly(lesson.start_time) }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                      <span
+                        :class="getCancellationSubscriptionImpactClass(lesson)"
+                        class="px-2 py-0.5 text-xs font-medium rounded-full"
+                      >
+                        {{ getCancellationSubscriptionImpact(lesson) }}
+                      </span>
+                      <span
+                        v-if="shouldShowCertificateStatusBadge(lesson)"
+                        :class="getCertificateStatusClass(lesson.cancellation_certificate_status)"
+                        class="px-2 py-0.5 text-xs font-medium rounded-full"
+                      >
+                        {{ getCertificateStatusLabel(lesson.cancellation_certificate_status) }}
+                      </span>
+                    </div>
+                    <p v-if="lesson.cancellation_certificate_rejection_reason && (lesson.cancellation_certificate_status === 'rejected' || lesson.cancellation_certificate_status === 'closed')" class="text-xs text-gray-600 mt-2 italic">
+                      Message envoyé à l'élève : {{ lesson.cancellation_certificate_rejection_reason }}
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      @click="downloadCertificate(lesson.id)"
+                      class="px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+                    >
+                      Télécharger
+                    </button>
+                    <template v-if="lesson.cancellation_certificate_status === 'pending'">
+                      <button
+                        @click="acceptCertificate(lesson)"
+                        :disabled="certificateActionLoading === lesson.id"
+                        class="px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        Accepter
+                      </button>
+                      <button
+                        @click="openRejectCertificate(lesson)"
+                        :disabled="certificateActionLoading === lesson.id"
+                        class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Refuser (message à l'élève)
+                      </button>
+                      <button
+                        @click="openCloseCertificate(lesson)"
+                        :disabled="certificateActionLoading === lesson.id"
+                        class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                        title="Clôturer la demande : l'élève ne pourra plus renvoyer de certificat"
+                      >
+                        Clôturer la demande
+                      </button>
+                    </template>
+                    <template v-else-if="lesson.cancellation_certificate_status === 'rejected'">
+                      <button
+                        @click="openCloseCertificate(lesson)"
+                        :disabled="certificateActionLoading === lesson.id"
+                        class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                        title="Clôturer : l'élève ne pourra plus renvoyer de certificat"
+                      >
+                        Clôturer la demande
+                      </button>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
@@ -160,7 +231,7 @@
                 <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                 </svg>
-                Calendrier des cours ({{ historyData?.lessons?.length || 0 }}) — par date croissante
+                Calendrier des cours ({{ historyData?.lessons?.length || 0 }}) — certificats à valider en tête, puis par date
               </h3>
               
               <div v-if="!historyData?.lessons || historyData.lessons.length === 0" class="bg-gray-50 rounded-lg p-6 text-center">
@@ -168,24 +239,14 @@
               </div>
               
               <template v-else>
-                <!-- Alerte si des cours futurs ne sont pas couverts -->
+                <!-- Fin théorique des abonnements à partir du … -->
                 <div 
-                  v-if="historyData?.stats?.uncovered_future_lessons > 0" 
-                  class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+                  v-if="subscriptionsEarliestEndFormatted" 
+                  class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4"
                 >
-                  <div class="flex items-center gap-3">
-                    <svg class="w-6 h-6 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                      <p class="text-red-800 font-semibold">
-                        ⚠️ {{ historyData.stats.uncovered_future_lessons }} cours futur(s) non couvert(s) par un abonnement
-                      </p>
-                      <p class="text-red-600 text-sm mt-1">
-                        Ces cours sont planifiés après la fin des abonnements actifs ou ne correspondent pas aux types de cours couverts.
-                      </p>
-                    </div>
-                  </div>
+                  <p class="text-slate-800 font-medium">
+                    Fin théorique des abonnements à partir du {{ subscriptionsEarliestEndFormatted }}.
+                  </p>
                 </div>
 
                 <!-- En-tête du tableau (desktop) -->
@@ -249,6 +310,13 @@
                           }"
                           class="px-1.5 py-0.5 text-xs rounded"
                         >{{ getLessonStatusLabel(lesson.status) }}</span>
+                        <span
+                          v-if="lesson.status === 'cancelled' && (lesson.cancellation_count_in_subscription !== undefined || lesson.cancellation_reason === 'medical')"
+                          :class="getCancellationSubscriptionImpactClass(lesson)"
+                          class="px-1.5 py-0.5 text-xs rounded"
+                        >
+                          {{ getCancellationSubscriptionImpact(lesson) }}
+                        </span>
                       </div>
                     </div>
                     <!-- Enseignant -->
@@ -271,8 +339,45 @@
                       <p class="text-gray-700 text-sm">{{ lesson.location?.name || '—' }}</p>
                     </div>
                     <!-- Action -->
-                    <div class="md:col-span-1 flex justify-end mt-2 md:mt-0">
+                    <div class="md:col-span-1 flex justify-end items-start gap-2 mt-2 md:mt-0">
+                      <template v-if="lesson.status === 'cancelled' && lesson.cancellation_reason === 'medical' && lesson.cancellation_certificate_path">
+                        <span
+                          :class="{
+                            'bg-amber-100 text-amber-800': lesson.cancellation_certificate_status === 'pending',
+                            'bg-emerald-100 text-emerald-800': lesson.cancellation_certificate_status === 'accepted',
+                            'bg-red-100 text-red-800': lesson.cancellation_certificate_status === 'rejected',
+                            'bg-gray-100 text-gray-700': lesson.cancellation_certificate_status === 'closed'
+                          }"
+                          class="px-1.5 py-0.5 text-xs font-medium rounded"
+                        >
+                          {{ getCertificateStatusLabel(lesson.cancellation_certificate_status) }}
+                        </span>
+                        <button
+                          type="button"
+                          @click="downloadCertificate(lesson.id)"
+                          class="px-2 py-1 text-xs text-blue-600 hover:underline"
+                        >
+                          Télécharger
+                        </button>
+                        <template v-if="lesson.cancellation_certificate_status === 'pending'">
+                          <button
+                            @click="acceptCertificate(lesson)"
+                            :disabled="certificateActionLoading === lesson.id"
+                            class="px-2 py-1 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Accepter
+                          </button>
+                          <button
+                            @click="openRejectCertificate(lesson)"
+                            :disabled="certificateActionLoading === lesson.id"
+                            class="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Refuser
+                          </button>
+                        </template>
+                      </template>
                       <button
+                        v-if="lesson.status !== 'cancelled' || !lesson.cancellation_certificate_path"
                         @click="openEditLessonModal(lesson)"
                         class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         title="Modifier la déduction d'abonnement"
@@ -642,6 +747,68 @@
     </div>
   </div>
 
+  <!-- Modale refus certificat médical -->
+  <div v-if="showRejectCertificateModal && lessonToReject" class="fixed inset-0 z-[60] bg-black bg-opacity-50 flex items-center justify-center p-4" @click.self="showRejectCertificateModal = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Refuser le certificat médical</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Cours du {{ formatDateShort(lessonToReject.start_time) }} — {{ lessonToReject.course_type?.name || 'Cours' }}. Indiquez le motif de refus (obligatoire). Ce message sera envoyé à l'élève par email.
+      </p>
+      <textarea
+        v-model="rejectCertificateReason"
+        rows="3"
+        maxlength="500"
+        placeholder="Motif du refus (envoyé à l'élève)..."
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 text-gray-900"
+      />
+      <p class="text-xs text-gray-500 mt-1">{{ (rejectCertificateReason || '').length }}/500</p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" @click="showRejectCertificateModal = false" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+          Annuler
+        </button>
+        <button
+          type="button"
+          @click="confirmRejectCertificate"
+          :disabled="!rejectCertificateReason.trim() || certificateActionLoading === lessonToReject?.id"
+          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+        >
+          {{ certificateActionLoading === lessonToReject?.id ? 'Envoi...' : 'Refuser le certificat' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale clôture demande certificat -->
+  <div v-if="showCloseCertificateModal && lessonToClose" class="fixed inset-0 z-[60] bg-black bg-opacity-50 flex items-center justify-center p-4" @click.self="showCloseCertificateModal = false">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Clôturer la demande de certificat</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Cours du {{ formatDateShort(lessonToClose.start_time) }} — {{ lessonToClose.course_type?.name || 'Cours' }}. Après clôture, l'élève ne pourra plus renvoyer de certificat pour ce cours. Vous pouvez optionnellement lui envoyer un message explicatif.
+      </p>
+      <textarea
+        v-model="closeCertificateReason"
+        rows="3"
+        maxlength="500"
+        placeholder="Message optionnel à l'élève (ex : demande clôturée après plusieurs échanges, certificat non conforme)..."
+        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 text-gray-900"
+      />
+      <p class="text-xs text-gray-500 mt-1">{{ (closeCertificateReason || '').length }}/500</p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" @click="showCloseCertificateModal = false" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+          Annuler
+        </button>
+        <button
+          type="button"
+          @click="confirmCloseCertificate"
+          :disabled="certificateActionLoading === lessonToClose?.id"
+          class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+        >
+          {{ certificateActionLoading === lessonToClose?.id ? 'Envoi...' : 'Clôturer la demande' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modale de gestion des conflits de créneaux -->
   <SlotConflictModal
     :is-open="showSlotConflictModal"
@@ -657,6 +824,13 @@
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import SlotConflictModal from '~/components/planning/SlotConflictModal.vue'
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+  getCertificateStatusLabel,
+  getCertificateStatusClass,
+  shouldShowCertificateStatusBadge,
+} from '~/composables/useCancellationLabels'
 
 const props = defineProps({
   student: {
@@ -670,6 +844,9 @@ const emit = defineEmits(['close', 'success'])
 const loading = ref(false)
 const error = ref(null)
 const historyData = ref(null)
+
+// Nom affiché : priorité aux données chargées (permet d'ouvrir la modale avec seulement { id } depuis ?openStudent=)
+const studentDisplayName = computed(() => getStudentName(historyData.value?.student || props.student))
 const showEditLessonModal = ref(false)
 const selectedLesson = ref(null)
 const savingLesson = ref(false)
@@ -697,6 +874,15 @@ const updateScope = ref(null) // 'single' ou 'all_future'
 // Variables pour la modale de conflit de créneaux
 const showSlotConflictModal = ref(false)
 const conflictTime = ref('')
+
+// Certificat médical (accept / reject / close)
+const certificateActionLoading = ref(null)
+const showRejectCertificateModal = ref(false)
+const lessonToReject = ref(null)
+const rejectCertificateReason = ref('')
+const showCloseCertificateModal = ref(false)
+const lessonToClose = ref(null)
+const closeCertificateReason = ref('')
 
 // Ouvrir la modale de conflit
 const openSlotConflictModal = () => {
@@ -730,11 +916,16 @@ const shouldShowDclNdcl = computed(() => {
   return editLessonForm.value.deduct_from_subscription === false
 })
 
-// Helper pour obtenir le nom de l'élève
+// Helper pour obtenir le nom de l'élève (supporte student direct ou student.user depuis l'API history)
 const getStudentName = (student) => {
   if (student?.name) return student.name
+  if (student?.user?.name) return student.user.name
   if (student?.first_name || student?.last_name) {
     const name = ((student.first_name || '') + ' ' + (student.last_name || '')).trim()
+    return name || 'Élève sans nom'
+  }
+  if (student?.user?.first_name || student?.user?.last_name) {
+    const name = ((student.user.first_name || '') + ' ' + (student.user.last_name || '')).trim()
     return name || 'Élève sans nom'
   }
   return 'Élève sans nom'
@@ -746,15 +937,170 @@ const isLessonUncovered = (lesson) => {
          lesson?.subscription_coverage?.is_covered === false
 }
 
-// Cours triés par date croissante (du plus ancien au plus récent)
+// Cours triés : d'abord ceux demandant une confirmation de certificat médical (en haut), puis par date croissante
 const lessonsSortedByDate = computed(() => {
   const lessons = historyData.value?.lessons || []
+  const needsCertificateConfirmation = (l) =>
+    l?.status === 'cancelled' &&
+    l?.cancellation_reason === 'medical' &&
+    (l?.cancellation_certificate_status === 'pending' || l?.cancellation_certificate_path)
   return [...lessons].sort((a, b) => {
+    const aFirst = needsCertificateConfirmation(a)
+    const bFirst = needsCertificateConfirmation(b)
+    if (aFirst && !bFirst) return -1
+    if (!aFirst && bFirst) return 1
     const t1 = new Date(a.start_time).getTime()
     const t2 = new Date(b.start_time).getTime()
     return t1 - t2
   })
 })
+
+// Date de fin la plus proche parmi les abonnements actifs (pour affichage "fin théorique")
+const subscriptionsEarliestEndFormatted = computed(() => {
+  const subs = historyData.value?.subscriptions || []
+  const active = subs.filter(s => s.status === 'active' && s.expires_at)
+  if (active.length === 0) return null
+  const earliest = active.reduce((min, s) => {
+    const d = new Date(s.expires_at).getTime()
+    return d < min ? d : min
+  }, Infinity)
+  if (earliest === Infinity) return null
+  return new Date(earliest).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+})
+
+// Cours annulés pour raison médicale avec certificat (pour le bloc validation)
+const lessonsWithCertificate = computed(() => {
+  const lessons = historyData.value?.lessons || []
+  return lessons
+    .filter(l => l.status === 'cancelled' && l.cancellation_reason === 'medical' && l.cancellation_certificate_path)
+    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+})
+
+// Télécharger le certificat (appel API avec blob)
+const downloadCertificate = async (lessonId) => {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/club/lessons/${lessonId}/cancellation-certificate/download`, { responseType: 'blob' })
+    const blob = response.data
+    const contentType = response.headers?.['content-type'] || ''
+    if (contentType.includes('application/json')) {
+      const text = await blob.text()
+      const json = JSON.parse(text)
+      const { error: showError } = useToast()
+      showError(json?.message || 'Erreur lors du téléchargement')
+      return
+    }
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `certificat_lesson_${lessonId}.pdf`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Erreur téléchargement certificat:', err)
+    const { error: showError } = useToast()
+    let msg = 'Erreur lors du téléchargement'
+    const data = err.response?.data
+    if (data) {
+      if (data instanceof Blob) {
+        try {
+          const text = await data.text()
+          const json = JSON.parse(text)
+          if (json?.message) msg = json.message
+        } catch (_) { /* ignore */ }
+      } else if (typeof data?.message === 'string') {
+        msg = data.message
+      }
+    } else if (err.response?.status === 404) {
+      msg = 'Fichier introuvable. Le certificat n\'est peut-être plus disponible sur ce serveur.'
+    }
+    showError(msg)
+  }
+}
+
+const acceptCertificate = async (lesson) => {
+  try {
+    certificateActionLoading.value = lesson.id
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    const response = await $api.post(`/club/lessons/${lesson.id}/cancellation-certificate/accept`)
+    if (response.data?.success) {
+      showSuccess(response.data.message || 'Certificat accepté.')
+      await loadHistory()
+    } else {
+      showError(response.data?.message || 'Erreur.')
+    }
+  } catch (err) {
+    const { error: showError } = useToast()
+    showError(err.response?.data?.message || 'Erreur lors de l\'acceptation.')
+  } finally {
+    certificateActionLoading.value = null
+  }
+}
+
+const openRejectCertificate = (lesson) => {
+  lessonToReject.value = lesson
+  rejectCertificateReason.value = ''
+  showRejectCertificateModal.value = true
+}
+
+const confirmRejectCertificate = async () => {
+  if (!lessonToReject.value || !rejectCertificateReason.value.trim()) return
+  try {
+    certificateActionLoading.value = lessonToReject.value.id
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    const response = await $api.post(`/club/lessons/${lessonToReject.value.id}/cancellation-certificate/reject`, {
+      rejection_reason: rejectCertificateReason.value.trim()
+    })
+    if (response.data?.success) {
+      showSuccess(response.data.message || 'Certificat refusé.')
+      showRejectCertificateModal.value = false
+      lessonToReject.value = null
+      rejectCertificateReason.value = ''
+      await loadHistory()
+    } else {
+      showError(response.data?.message || 'Erreur.')
+    }
+  } catch (err) {
+    const { error: showError } = useToast()
+    showError(err.response?.data?.message || err.response?.data?.errors?.rejection_reason?.[0] || 'Erreur lors du refus.')
+  } finally {
+    certificateActionLoading.value = null
+  }
+}
+
+const openCloseCertificate = (lesson) => {
+  lessonToClose.value = lesson
+  closeCertificateReason.value = ''
+  showCloseCertificateModal.value = true
+}
+
+const confirmCloseCertificate = async () => {
+  if (!lessonToClose.value) return
+  try {
+    certificateActionLoading.value = lessonToClose.value.id
+    const { $api } = useNuxtApp()
+    const { success: showSuccess, error: showError } = useToast()
+    const response = await $api.post(`/club/lessons/${lessonToClose.value.id}/cancellation-certificate/close`, {
+      close_reason: closeCertificateReason.value?.trim() || null
+    })
+    if (response.data?.success) {
+      showSuccess(response.data.message || 'Demande clôturée.')
+      showCloseCertificateModal.value = false
+      lessonToClose.value = null
+      closeCertificateReason.value = ''
+      await loadHistory()
+    } else {
+      showError(response.data?.message || 'Erreur.')
+    }
+  } catch (err) {
+    const { error: showError } = useToast()
+    showError(err.response?.data?.message || 'Erreur lors de la clôture.')
+  } finally {
+    certificateActionLoading.value = null
+  }
+}
 
 // Charger l'historique
 const loadHistory = async () => {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Student;
+use App\Models\SubscriptionInstance;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -53,6 +54,33 @@ class StudentController extends Controller
     public function dashboard()
     {
         return response()->json(['message' => 'Welcome to the student dashboard']);
+    }
+
+    /**
+     * Vérifier si un élève a un abonnement actif pour un type de cours (pour le club connecté).
+     * GET /club/students/check-active-subscription?student_id=X&course_type_id=Y
+     */
+    public function checkActiveSubscriptionForCourseType(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if ($user->role !== 'club') {
+            return response()->json(['success' => false, 'message' => 'Accès réservé aux clubs'], 403);
+        }
+        $club = $user->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+        }
+        $validated = $request->validate([
+            'student_id' => 'required|integer|exists:students,id',
+            'course_type_id' => 'required|integer|exists:course_types,id',
+        ]);
+        $studentId = (int) $validated['student_id'];
+        $courseTypeId = (int) $validated['course_type_id'];
+        $active = SubscriptionInstance::findActiveSubscriptionForLesson($studentId, $courseTypeId, $club->id);
+        return response()->json([
+            'success' => true,
+            'has_active' => $active !== null,
+        ]);
     }
 
     /**
@@ -122,25 +150,44 @@ class StudentController extends Controller
             ]);
 
             // Récupérer les cours de l'élève (via relation many-to-many ou student_id)
-            $lessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
-                    $query->whereHas('students', function ($q) use ($studentId) {
-                        $q->where('students.id', $studentId);
-                    })
-                    ->orWhere('student_id', $studentId);
+            $lessonQuery = \App\Models\Lesson::where(function ($query) use ($studentId) {
+                $query->whereHas('students', function ($q) use ($studentId) {
+                    $q->where('students.id', $studentId);
                 })
-                ->with([
-                    'teacher.user',
-                    'courseType',
-                    'location',
-                    'club',
-                    'students.user',
-                    'subscriptionInstances.subscription.template.courseTypes' // Inclure les abonnements liés avec leurs types de cours
-                ])
+                ->orWhere('student_id', $studentId);
+            })->with([
+                'teacher.user',
+                'courseType',
+                'location',
+                'club',
+                'students.user',
+                'subscriptionInstances.subscription.template.courseTypes'
+            ]);
+
+            $lessons = (clone $lessonQuery)
                 ->orderBy('start_time', 'desc')
-                ->limit(100) // Limiter à 100 cours récents
+                ->limit(100)
                 ->get()
-                ->unique('id') // Éviter les doublons si l'élève est à la fois dans students et student_id
+                ->unique('id')
                 ->values();
+
+            // Les cours avec certificat médical en attente (pending) doivent toujours apparaître dans l'historique
+            $idsAlready = $lessons->pluck('id')->toArray();
+            $hasCertColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status')
+                && \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_path');
+            if ($hasCertColumns) {
+                $extraCertificateLessons = (clone $lessonQuery)
+                    ->where('status', 'cancelled')
+                    ->where('cancellation_reason', 'medical')
+                    ->where(function ($q) {
+                        $q->where('cancellation_certificate_status', 'pending')
+                            ->orWhereNotNull('cancellation_certificate_path');
+                    })
+                    ->when(count($idsAlready) > 0, fn ($q) => $q->whereNotIn('id', $idsAlready))
+                    ->orderBy('start_time', 'desc')
+                    ->get();
+                $lessons = $lessons->concat($extraCertificateLessons)->unique('id')->values();
+            }
 
             // Calculer la couverture d'abonnement pour les cours futurs
             $now = Carbon::now();

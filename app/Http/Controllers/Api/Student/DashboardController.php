@@ -12,6 +12,9 @@ use App\Models\Student;
 use App\Models\CourseType;
 use App\Models\Location;
 use App\Models\Club;
+use App\Models\SubscriptionInstance;
+use App\Notifications\LessonCancellationConfirmationNotification;
+use App\Notifications\LessonCancelledByStudentClubNotification;
 use App\Notifications\LessonCancelledByStudentNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -288,8 +291,13 @@ class DashboardController extends Controller
 
         $lesson = Lesson::where('id', $id)
             ->where('student_id', $studentId)
-            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user'])
+            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user', 'subscriptionInstances.subscription.template'])
             ->firstOrFail();
+
+        $cancellationDeadlineHours = $this->resolveCancellationDeadlineHours($lesson);
+        if ($cancellationDeadlineHours === null) {
+            $cancellationDeadlineHours = 8;
+        }
 
         if ($lesson->status === 'cancelled') {
             return response()->json(['success' => false, 'message' => 'Ce cours est déjà annulé.'], 400);
@@ -301,8 +309,8 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'Impossible d\'annuler un cours qui a déjà commencé.'], 400);
         }
 
-        $hoursUntilStart = Carbon::parse($lesson->start_time)->diffInHours(Carbon::now(), false);
-        $isLateCancel = $hoursUntilStart < 8;
+        $hoursUntilStart = Carbon::now()->diffInHours(Carbon::parse($lesson->start_time));
+        $isLateCancel = $hoursUntilStart < $cancellationDeadlineHours;
 
         $rules = [];
         if ($isLateCancel) {
@@ -311,11 +319,26 @@ class DashboardController extends Controller
         } else {
             $rules['reason'] = 'nullable|string|max:500';
         }
+
+        // Log inconditionnel pour diagnostic (multipart mal parsé = request_all vide)
+        Log::info('cancelBooking request', [
+            'method' => $request->method(),
+            'content_type' => $request->header('Content-Type'),
+            'request_all' => $request->all(),
+            'has_file' => $request->hasFile('cancellation_certificate'),
+            'POST_keys' => array_keys($_POST ?? []),
+        ]);
+
+        // Correctif : si multipart mal reçu (certificat présent mais raison absente), considérer médical
+        if ($isLateCancel && $request->hasFile('cancellation_certificate') && !$request->filled('cancellation_reason')) {
+            $request->merge(['cancellation_reason' => 'medical']);
+        }
+
         $validated = $request->validate($rules);
         if ($isLateCancel && ($request->input('cancellation_reason') === 'medical') && !$request->hasFile('cancellation_certificate')) {
             return response()->json([
                 'success' => false,
-                'message' => 'Pour une annulation pour raison médicale à moins de 8 h du cours, un certificat médical (PDF ou photo) est obligatoire.',
+                'message' => "Pour une annulation pour raison médicale à moins de {$cancellationDeadlineHours} h du cours, un certificat médical (PDF ou photo) est obligatoire.",
                 'errors' => ['cancellation_certificate' => ['Le certificat médical est obligatoire.']]
             ], 422);
         }
@@ -347,16 +370,30 @@ class DashboardController extends Controller
             $notePart .= " " . $reasonText;
         }
 
+        $certificateStatus = ($isLateCancel && $cancellationReason === 'medical' && $certificatePath) ? 'pending' : null;
         $updateData = [
             'status' => 'cancelled',
             'notes' => ($lesson->notes ? $lesson->notes . "\n\n" : '') . $notePart,
             'cancellation_reason' => $cancellationReason,
             'cancellation_certificate_path' => $certificatePath,
             'cancellation_count_in_subscription' => $countInSubscription,
+            'cancellation_certificate_status' => $certificateStatus,
+            'cancellation_certificate_reviewed_at' => null,
+            'cancellation_certificate_reviewed_by' => null,
+            'cancellation_certificate_rejection_reason' => null,
+            'cancellation_certificate_resubmitted_at' => null,
+            'cancellation_certificate_submitted_by_student_id' => $certificateStatus ? $studentId : null,
         ];
         $hasCancellationColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
         if (!$hasCancellationColumns) {
             unset($updateData['cancellation_reason'], $updateData['cancellation_certificate_path'], $updateData['cancellation_count_in_subscription']);
+        }
+        $hasReviewColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status');
+        if (!$hasReviewColumns) {
+            unset($updateData['cancellation_certificate_status'], $updateData['cancellation_certificate_reviewed_at'], $updateData['cancellation_certificate_reviewed_by'], $updateData['cancellation_certificate_rejection_reason'], $updateData['cancellation_certificate_resubmitted_at']);
+        }
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_submitted_by_student_id')) {
+            unset($updateData['cancellation_certificate_submitted_by_student_id']);
         }
         $lesson->update($updateData);
 
@@ -386,18 +423,142 @@ class DashboardController extends Controller
                     })
                     ->pluck('user_id');
                 foreach (User::whereIn('id', $clubManagers)->get() as $manager) {
-                    $manager->notify(new LessonCancelledByStudentNotification($lesson, $reasonForNotification, $user->student));
+                    $manager->notify(new LessonCancelledByStudentClubNotification(
+                        $lesson,
+                        $reasonForNotification,
+                        $user->student,
+                        $isLateCancel,
+                        (bool) $certificatePath,
+                        $countInSubscription,
+                        $cancellationDeadlineHours
+                    ));
                 }
             }
         } catch (\Exception $e) {
             Log::error("Erreur envoi notifications annulation: " . $e->getMessage(), ['lesson_id' => $lesson->id]);
         }
 
+        try {
+            $studentUser = $lesson->student?->user ?? $user;
+            if ($studentUser) {
+                $studentUser->notify(new LessonCancellationConfirmationNotification(
+                    $lesson->fresh(),
+                    $countInSubscription,
+                    $certificateStatus,
+                    $cancellationDeadlineHours
+                ));
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur envoi confirmation annulation à l'élève: " . $e->getMessage(), ['lesson_id' => $lesson->id]);
+        }
+
         $message = 'Réservation annulée avec succès. Les responsables du club et l\'enseignant ont été notifiés.';
         if ($countInSubscription) {
-            $message .= ' Ce cours sera compté dans votre abonnement (annulation à moins de 8 h sans certificat médical).';
+            $message .= " Ce cours sera compté dans votre abonnement (annulation à moins de {$cancellationDeadlineHours} h sans certificat médical).";
         }
         return response()->json(['success' => true, 'message' => $message]);
+    }
+
+    /**
+     * Résout le délai d'annulation en heures (template > défaut club > 8).
+     */
+    private function resolveCancellationDeadlineHours(Lesson $lesson): ?int
+    {
+        $template = null;
+        $instance = $lesson->subscriptionInstances->first();
+        if ($instance && $instance->relationLoaded('subscription') && $instance->subscription) {
+            $sub = $instance->subscription;
+            if ($sub->relationLoaded('template') && $sub->template) {
+                $template = $sub->template;
+            } else {
+                $template = $sub->template()->first();
+            }
+        }
+        if (!$template && $lesson->student_id && $lesson->course_type_id && $lesson->club_id) {
+            $activeInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                (int) $lesson->student_id,
+                (int) $lesson->course_type_id,
+                (int) $lesson->club_id
+            );
+            if ($activeInstance && $activeInstance->subscription) {
+                $template = $activeInstance->subscription->template ?? $activeInstance->subscription->template()->first();
+            }
+        }
+        if ($template && $template->cancellation_deadline_hours !== null) {
+            return (int) $template->cancellation_deadline_hours;
+        }
+        $club = $lesson->relationLoaded('club') ? $lesson->club : $lesson->club()->first();
+        if ($club && \Illuminate\Support\Facades\Schema::hasColumn('clubs', 'default_cancellation_deadline_hours') && $club->default_cancellation_deadline_hours !== null) {
+            return (int) $club->default_cancellation_deadline_hours;
+        }
+        return null;
+    }
+
+    /**
+     * Renvoi d'un certificat médical pour un cours annulé dont le certificat a été refusé par le club.
+     */
+    public function resubmitCancellationCertificate(Request $request, string $id)
+    {
+        $student = $this->getActiveStudent($request);
+        if (!$student) {
+            return response()->json(['success' => false, 'message' => 'Profil étudiant non trouvé'], 404);
+        }
+
+        $lesson = Lesson::where('id', $id)
+            ->where('student_id', $student->id)
+            ->firstOrFail();
+
+        if ($lesson->status !== 'cancelled') {
+            return response()->json(['success' => false, 'message' => 'Ce cours n\'est pas annulé.'], 400);
+        }
+        if ($lesson->cancellation_reason !== 'medical') {
+            return response()->json(['success' => false, 'message' => 'Ce cours n\'a pas été annulé pour raison médicale.'], 400);
+        }
+        if ($lesson->cancellation_certificate_status !== 'rejected') {
+            return response()->json(['success' => false, 'message' => 'Le certificat de ce cours n\'a pas été refusé, a déjà été renvoyé ou la demande a été clôturée par le club.'], 400);
+        }
+
+        $request->validate([
+            'cancellation_certificate' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $file = $request->file('cancellation_certificate');
+        $ext = $file->getClientOriginalExtension() ?: 'pdf';
+        $certificatePath = $file->storeAs(
+            'cancellation_certificates',
+            'lesson_' . $lesson->id . '_resubmit_' . Str::random(8) . '.' . $ext,
+            'public'
+        );
+
+        $hasReviewColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status');
+        if (!$hasReviewColumns) {
+            return response()->json(['success' => false, 'message' => 'Fonctionnalité non disponible.'], 500);
+        }
+
+        $oldPath = $lesson->cancellation_certificate_path;
+        $lesson->cancellation_certificate_path = $certificatePath;
+        $lesson->cancellation_certificate_status = 'pending';
+        $lesson->cancellation_certificate_reviewed_at = null;
+        $lesson->cancellation_certificate_reviewed_by = null;
+        $lesson->cancellation_certificate_rejection_reason = null;
+        $lesson->cancellation_certificate_resubmitted_at = now();
+        if (\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_submitted_by_student_id')) {
+            $lesson->cancellation_certificate_submitted_by_student_id = $student->id;
+        }
+        $lesson->saveQuietly();
+
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            try {
+                Storage::disk('public')->delete($oldPath);
+            } catch (\Exception $e) {
+                Log::warning("Impossible de supprimer l'ancien certificat: " . $e->getMessage(), ['path' => $oldPath]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Votre nouveau certificat a été envoyé. Le club le réexaminera sous peu.',
+        ]);
     }
 
     /**

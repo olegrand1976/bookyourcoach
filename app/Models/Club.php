@@ -67,6 +67,7 @@ class Club extends Model
         'default_subscription_price',
         'default_subscription_validity_value',
         'default_subscription_validity_unit',
+        'default_cancellation_deadline_hours',
         'is_active',
         'terms_and_conditions',
         'activity_type_id',

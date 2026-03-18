@@ -45,6 +45,14 @@
               <h3 class="text-lg font-semibold text-gray-900 mb-1">
                 Modèle {{ template.model_number }}
               </h3>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span
+                  :class="isStripeAvailable(template) ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
+                >
+                  {{ isStripeAvailable(template) ? 'Disponible en ligne' : 'Non activé pour Stripe' }}
+                </span>
+              </div>
             </div>
             <span 
               :class="template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
@@ -91,6 +99,22 @@
                 Alerte fin de parcours : séance n°{{ template.warning_at_session }}
               </span>
             </div>
+            <div v-if="template.cancellation_deadline_hours != null" class="flex items-center text-sm">
+              <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="text-gray-700">
+                Délai annulation sans déduction : {{ template.cancellation_deadline_hours }} h
+              </span>
+            </div>
+            <div v-if="template.stripe_product_id || template.stripe_price_id" class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900 space-y-1">
+              <div v-if="template.stripe_product_id">
+                <span class="font-semibold">Produit Stripe :</span> {{ template.stripe_product_id }}
+              </div>
+              <div v-if="template.stripe_price_id">
+                <span class="font-semibold">Tarif Stripe :</span> {{ template.stripe_price_id }}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -113,17 +137,23 @@
 
         <!-- Actions -->
         <div class="p-4 bg-white border-t border-gray-200">
-          <div class="flex items-center justify-between">
+          <div class="grid grid-cols-3 gap-2">
             <button 
               @click="editTemplate(template)"
-              class="flex-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 py-2 rounded-lg text-sm font-medium transition-colors"
+              class="text-blue-600 hover:text-blue-800 hover:bg-blue-50 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Modifier
             </button>
-            <div class="w-px h-6 bg-gray-200 mx-2"></div>
+            <button 
+              @click="toggleTemplateActive(template)"
+              :class="template.is_active ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50' : 'text-green-600 hover:text-green-800 hover:bg-green-50'"
+              class="py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              {{ template.is_active ? 'Désactiver' : 'Activer' }}
+            </button>
             <button 
               @click="deleteTemplate(template)"
-              class="flex-1 text-red-600 hover:text-red-800 hover:bg-red-50 py-2 rounded-lg text-sm font-medium transition-colors"
+              class="text-red-600 hover:text-red-800 hover:bg-red-50 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Supprimer
             </button>
@@ -247,6 +277,52 @@
               </p>
             </div>
 
+            <div class="rounded-lg border border-gray-200 p-4">
+              <label class="flex items-start gap-3">
+                <input
+                  v-model="form.stripe_enabled"
+                  type="checkbox"
+                  class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>
+                  <span class="block text-sm font-medium text-gray-700">Activer le paiement Stripe pour ce modèle</span>
+                  <span class="block text-xs text-gray-500 mt-1">Quand active, ce modèle devient souscriptible en ligne par l'eleve et le `Stripe Price ID` devient obligatoire.</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Stripe Product ID</label>
+                <input
+                  v-model.trim="form.stripe_product_id"
+                  type="text"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="prod_..."
+                />
+                <p class="text-xs text-gray-500 mt-1">
+                  Optionnel. Produit Stripe associe a ce modele.
+                </p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Stripe Price ID <span v-if="form.stripe_enabled" class="text-red-500">*</span></label>
+                <input
+                  v-model.trim="form.stripe_price_id"
+                  type="text"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="price_..."
+                />
+                <p class="text-xs mt-1" :class="form.stripe_enabled && !form.stripe_price_id ? 'text-red-600' : 'text-gray-500'">
+                  <span v-if="form.stripe_enabled && !form.stripe_price_id">
+                    Obligatoire quand le paiement Stripe est active.
+                  </span>
+                  <span v-else>
+                    Si renseigne, le checkout utilisera ce tarif Stripe.
+                  </span>
+                </p>
+              </div>
+            </div>
+
             <!-- Alerte fin de parcours -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Alerte fin de parcours à la séance n°</label>
@@ -260,6 +336,22 @@
               />
               <p class="text-xs text-gray-500 mt-1">
                 À partir de cette séance, l'abonnement apparaît dans « Abonnements en fin de parcours » sur le dashboard. Vide = 8 par défaut.
+              </p>
+            </div>
+
+            <!-- Délai d'annulation -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Délai d'annulation (heures)</label>
+              <input 
+                v-model.number="form.cancellation_deadline_hours"
+                type="number" 
+                min="1"
+                max="168"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2"
+                :placeholder="(clubDefaults.default_cancellation_deadline_hours ?? 8).toString()"
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                Vide = valeur par défaut du club ({{ clubDefaults.default_cancellation_deadline_hours ?? 8 }} h). Annulation au-delà de ce délai avant le cours = non déduit de l'abonnement.
               </p>
             </div>
 
@@ -414,11 +506,15 @@ const clubDefaults = ref({
   default_subscription_free_lessons: 1,
   default_subscription_price: 180,
   default_subscription_validity_value: 12,
-  default_subscription_validity_unit: 'weeks'
+  default_subscription_validity_unit: 'weeks',
+  default_cancellation_deadline_hours: null
 })
 
 const form = ref({
   model_number: '',
+  stripe_enabled: false,
+  stripe_product_id: '',
+  stripe_price_id: '',
   total_lessons: 10,
   free_lessons: 1,
   price: 180,
@@ -426,6 +522,7 @@ const form = ref({
   validity_unit: 'weeks', // 'weeks' ou 'months'
   validity_value: 12, // Valeur numérique
   warning_at_session: 8, // Alerte fin de parcours (null = 8 par défaut côté API)
+  cancellation_deadline_hours: null, // Délai (h) : annulation au-delà = non déduit (null = défaut club)
   course_type_ids: [],
   is_active: true
 })
@@ -435,7 +532,8 @@ const isFormValid = computed(() => {
   return form.value.total_lessons > 0 && 
          form.value.price >= 0 && 
          form.value.validity_value > 0 &&
-         form.value.course_type_ids.length > 0
+         form.value.course_type_ids.length > 0 &&
+         (!form.value.stripe_enabled || !!form.value.stripe_price_id)
 })
 
 // Grouper les types de cours par Activité → Discipline
@@ -584,6 +682,10 @@ const formatValidity = (template) => {
   return `${months} mois`
 }
 
+const isStripeAvailable = (template) => {
+  return !!(template.stripe_enabled || template.stripe_price_id)
+}
+
 // Charger les modèles
 const loadTemplates = async () => {
   try {
@@ -634,7 +736,8 @@ const loadClubDefaults = async () => {
         default_subscription_free_lessons: club.default_subscription_free_lessons ?? 1,
         default_subscription_price: club.default_subscription_price ?? 180,
         default_subscription_validity_value: club.default_subscription_validity_value ?? 12,
-        default_subscription_validity_unit: club.default_subscription_validity_unit || 'weeks'
+        default_subscription_validity_unit: club.default_subscription_validity_unit || 'weeks',
+        default_cancellation_deadline_hours: club.default_cancellation_deadline_hours ?? null
       }
       // Mettre à jour le formulaire avec les valeurs par défaut du club
       resetForm()
@@ -773,6 +876,9 @@ const resetForm = () => {
   const defaults = clubDefaults.value
   form.value = {
     model_number: '', // Sera généré automatiquement côté serveur
+    stripe_enabled: false,
+    stripe_product_id: '',
+    stripe_price_id: '',
     total_lessons: defaults.default_subscription_total_lessons,
     free_lessons: defaults.default_subscription_free_lessons,
     price: defaults.default_subscription_price,
@@ -782,6 +888,7 @@ const resetForm = () => {
     validity_unit: defaults.default_subscription_validity_unit,
     validity_value: defaults.default_subscription_validity_value,
     warning_at_session: 8,
+    cancellation_deadline_hours: defaults.default_cancellation_deadline_hours ?? null,
     course_type_ids: [],
     is_active: true
   }
@@ -806,6 +913,16 @@ const createTemplate = async () => {
     const w = payload.warning_at_session
     if (w == null || w === '' || w < 1 || Number.isNaN(Number(w))) {
       payload.warning_at_session = null
+    }
+    const ch = payload.cancellation_deadline_hours
+    if (ch == null || ch === '' || ch < 1 || Number.isNaN(Number(ch))) {
+      payload.cancellation_deadline_hours = null
+    }
+    if (!payload.stripe_product_id) {
+      payload.stripe_product_id = null
+    }
+    if (!payload.stripe_price_id) {
+      payload.stripe_price_id = null
     }
 
     const response = await $api.post('/club/subscription-templates', payload)
@@ -846,6 +963,9 @@ const editTemplate = (template) => {
   
   form.value = {
     model_number: template.model_number,
+    stripe_enabled: !!(template.stripe_enabled || template.stripe_price_id),
+    stripe_product_id: template.stripe_product_id || '',
+    stripe_price_id: template.stripe_price_id || '',
     total_lessons: template.total_lessons,
     free_lessons: template.free_lessons,
     price: parseFloat(template.price),
@@ -853,6 +973,7 @@ const editTemplate = (template) => {
     validity_unit: validityUnit,
     validity_value: validityValue,
     warning_at_session: template.warning_at_session ?? 8,
+    cancellation_deadline_hours: template.cancellation_deadline_hours ?? null,
     course_type_ids: template.course_types?.map(ct => ct.id) || [],
     is_active: template.is_active
   }
@@ -872,6 +993,16 @@ const updateTemplate = async () => {
     if (w == null || w === '' || w < 1 || Number.isNaN(Number(w))) {
       payload.warning_at_session = null
     }
+    const ch = payload.cancellation_deadline_hours
+    if (ch == null || ch === '' || ch < 1 || Number.isNaN(Number(ch))) {
+      payload.cancellation_deadline_hours = null
+    }
+    if (!payload.stripe_product_id) {
+      payload.stripe_product_id = null
+    }
+    if (!payload.stripe_price_id) {
+      payload.stripe_price_id = null
+    }
 
     const response = await $api.put(`/club/subscription-templates/${editingTemplate.value.id}`, payload)
     if (response.data.success) {
@@ -887,6 +1018,29 @@ const updateTemplate = async () => {
     } else {
       alert('Erreur lors de la mise à jour du modèle')
     }
+  }
+}
+
+const toggleTemplateActive = async (template) => {
+  const nextState = !template.is_active
+  const actionLabel = nextState ? 'activer' : 'désactiver'
+  if (!confirm(`Voulez-vous vraiment ${actionLabel} le modèle ${template.model_number} ?`)) {
+    return
+  }
+
+  try {
+    const response = await $api.put(`/club/subscription-templates/${template.id}`, {
+      is_active: nextState
+    })
+    if (response.data.success) {
+      await loadTemplates()
+      alert(`Modèle ${nextState ? 'activé' : 'désactivé'} avec succès`)
+    } else {
+      alert(response.data.message || `Erreur lors de la mise à jour du modèle`)
+    }
+  } catch (error) {
+    console.error('Erreur lors du changement de statut du modèle:', error)
+    alert(error.response?.data?.message || 'Erreur lors du changement de statut du modèle')
   }
 }
 

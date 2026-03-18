@@ -73,11 +73,90 @@
         </div>
       </div>
 
-      <!-- Prochains cours (détails) -->
+      <!-- Annulations du mois (en premier) -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-rose-50">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900">Annulations du mois</h3>
+            <NuxtLink to="/student/schedule" class="text-red-600 hover:text-red-800 text-sm font-medium">
+              Voir mon planning →
+            </NuxtLink>
+          </div>
+          <p class="text-sm text-gray-600 mt-1">{{ currentMonthLabel }}</p>
+        </div>
+        <div class="p-6 space-y-3">
+          <div v-if="cancellationsThisMonth.length === 0" class="text-center text-gray-500 py-6">
+            Aucune annulation ce mois-ci.
+          </div>
+          <div
+            v-for="lesson in cancellationsThisMonth"
+            :key="`cancelled-month-${lesson.id}`"
+            class="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-100"
+          >
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-medium text-gray-900 line-through">
+                  {{ lesson.course_type?.name || lesson.courseType?.name || 'Cours' }}
+                </p>
+                <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                  Annulé
+                </span>
+                <span
+                  v-if="lesson.cancellation_reason === 'medical'"
+                  class="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-800 rounded-full"
+                >
+                  Raison médicale
+                </span>
+                <span
+                  :class="getCancellationSubscriptionImpactClass(lesson)"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
+                >
+                  {{ getCancellationSubscriptionImpact(lesson) }}
+                </span>
+                <span
+                  v-if="shouldShowCertificateStatusBadge(lesson)"
+                  :class="getCertificateStatusClass(lesson.cancellation_certificate_status)"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
+                >
+                  {{ getCertificateStatusLabel(lesson.cancellation_certificate_status) }}
+                </span>
+              </div>
+              <p v-if="studentScopeStore.apiScopeParam === 'all' && (lesson.student?.user?.name || lesson.student?.name)" class="text-xs text-gray-500 mt-1">
+                {{ lesson.student?.user?.name || lesson.student?.name }}
+              </p>
+              <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                <span>{{ formatFullDate(lesson.start_time) }}</span>
+                <span>{{ formatTime(lesson.start_time) }}</span>
+                <span>{{ lesson.teacher?.user?.name || lesson.teacher?.name || 'Enseignant' }}</span>
+              </div>
+              <div v-if="lesson.cancellation_reason === 'medical' && (lesson.cancellation_certificate_status === 'rejected' || lesson.cancellation_certificate_status === 'closed')" class="mt-3 pt-3 border-t border-red-200">
+                <p class="text-xs text-gray-600 mb-2">
+                  <template v-if="lesson.cancellation_certificate_status === 'rejected'">Motif du refus :</template>
+                  <template v-else>Raison de la clôture :</template>
+                  {{ lesson.cancellation_certificate_rejection_reason || '—' }}
+                </p>
+                <div v-if="lesson.cancellation_certificate_status === 'rejected'" class="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    @click="openResubmitCertificate(lesson)"
+                    :disabled="resubmitLoading === lesson.id"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                  >
+                    <span v-if="resubmitLoading === lesson.id" class="animate-spin">⏳</span>
+                    <span>{{ resubmitLoading === lesson.id ? 'Envoi...' : 'Choisir un nouveau fichier et renvoyer le certificat' }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cours à venir (détails) -->
       <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">Prochains cours</h3>
+            <h3 class="text-lg font-semibold text-gray-900">Cours à venir</h3>
             <NuxtLink to="/student/schedule" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
               Voir mon planning complet →
             </NuxtLink>
@@ -93,18 +172,29 @@
           </div>
           <div v-else class="space-y-3">
             <div 
-              v-for="lesson in upcomingLessons.slice(0, 5)" 
+              v-for="lesson in upcomingLessons" 
               :key="lesson.id"
-              class="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              :class="lesson.status === 'cancelled' ? 'bg-red-50 border border-red-100' : 'bg-gray-50 hover:bg-gray-100'"
+              class="flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-lg transition-colors"
             >
               <div class="flex items-start md:items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                <div class="bg-blue-100 p-2.5 rounded-lg flex-shrink-0">
+                <div :class="lesson.status === 'cancelled' ? 'bg-red-100' : 'bg-blue-100'" class="p-2.5 rounded-lg flex-shrink-0">
                   <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div class="flex-1 min-w-0 overflow-hidden">
-                  <p class="font-medium text-gray-900 truncate">{{ lesson.course_type?.name || lesson.courseType?.name || 'Cours' }}</p>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p :class="lesson.status === 'cancelled' ? 'line-through text-gray-700' : 'text-gray-900'" class="font-medium truncate">
+                      {{ lesson.course_type?.name || lesson.courseType?.name || 'Cours' }}
+                    </p>
+                    <span
+                      v-if="lesson.status === 'cancelled'"
+                      class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full"
+                    >
+                      Annulé
+                    </span>
+                  </div>
                   <p v-if="studentScopeStore.apiScopeParam === 'all' && (lesson.student?.user?.name || lesson.student?.name)" class="text-xs text-gray-500 mt-0.5 truncate">
                     {{ lesson.student?.user?.name || lesson.student?.name }}
                   </p>
@@ -130,7 +220,7 @@
                   </div>
                 </div>
               </div>
-              <div class="flex justify-end md:justify-start shrink-0 pt-1 md:pt-0 border-t border-gray-200/60 md:border-t-0 md:border-none w-full md:w-auto">
+              <div v-if="lesson.status !== 'cancelled'" class="flex justify-end md:justify-start shrink-0 pt-1 md:pt-0 border-t border-gray-200/60 md:border-t-0 md:border-none w-full md:w-auto">
                 <button
                   @click.stop="openCancelModal(lesson)"
                   class="min-h-[44px] w-full md:w-auto md:min-w-[100px] inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
@@ -218,11 +308,12 @@
               <h3 class="text-xl font-semibold mb-2">Gérez vos abonnements</h3>
               <p class="text-emerald-100">Souscrivez à un nouvel abonnement ou consultez vos abonnements actifs</p>
             </div>
-            <span 
-              class="inline-block bg-gray-200 text-gray-500 px-6 py-3 rounded-lg font-semibold cursor-not-allowed opacity-70 shadow-md"
+            <NuxtLink 
+              to="/student/subscriptions/subscribe"
+              class="bg-white text-emerald-600 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md hover:shadow-lg"
             >
               Créer un abonnement →
-            </span>
+            </NuxtLink>
           </div>
         </div>
       </div>
@@ -235,6 +326,15 @@
       @close="closeCancelModal"
       @success="handleCancelSuccess"
     />
+
+    <!-- Input caché pour renvoi de certificat -->
+    <input
+      ref="resubmitFileInputRef"
+      type="file"
+      accept=".pdf,image/jpeg,image/jpg,image/png"
+      class="hidden"
+      @change="onResubmitCertificateFile"
+    />
   </div>
 </template>
 
@@ -242,6 +342,13 @@
 import { ref, onMounted, computed } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useAuthStore } from '~/stores/auth'
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+  getCertificateStatusLabel,
+  getCertificateStatusClass,
+  shouldShowCertificateStatusBadge,
+} from '~/composables/useCancellationLabels'
 import StudentViewSwitcher from '~/components/student/StudentViewSwitcher.vue'
 
 definePageMeta({
@@ -255,9 +362,14 @@ const studentScopeStore = useStudentScopeStore()
 
 // State
 const upcomingLessons = ref<any[]>([])
+const cancelledLessons = ref<any[]>([])
+const cancellationsThisMonth = ref<any[]>([])
 const activeSubscriptions = ref<any[]>([])
 const isLoading = ref(true)
 const selectedLessonForCancel = ref<any>(null)
+const resubmitFileInputRef = ref<HTMLInputElement | null>(null)
+const currentResubmitLesson = ref<any>(null)
+const resubmitLoading = ref<number | null>(null)
 
 // State pour le prénom (chargé depuis le profil)
 const studentFirstName = ref<string>('')
@@ -291,8 +403,13 @@ const extractFirstName = (data: any): string => {
 // Computed pour le prochain cours
 const nextLesson = computed(() => {
   if (upcomingLessons.value.length === 0) return null
-  // Retourner le premier cours qui n'est pas annulé
   return upcomingLessons.value.find((lesson: any) => lesson.status !== 'cancelled') || null
+})
+
+// Libellé du mois en cours (pour la section Annulations du mois)
+const currentMonthLabel = computed(() => {
+  const d = new Date()
+  return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 })
 
 // Methods
@@ -303,18 +420,42 @@ const loadUpcomingLessons = async () => {
     if (response.data.success) {
       const bookings = response.data.data || []
       const now = new Date()
+      const oneMonthLater = new Date(now)
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
       upcomingLessons.value = bookings
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && ['confirmed', 'pending'].includes(lesson.status)
+          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending', 'cancelled'].includes(lesson.status)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(a.start_time)
           const dateB = new Date(b.start_time)
           return dateA.getTime() - dateB.getTime()
         })
-        .slice(0, 10)
+      cancelledLessons.value = bookings
+        .filter((lesson: any) => {
+          if (!lesson.start_time) return false
+          const lessonDate = new Date(lesson.start_time)
+          return lessonDate > now && lessonDate <= oneMonthLater && lesson.status === 'cancelled'
+        })
+        .sort((a: any, b: any) => {
+          const dateA = new Date(b.start_time)
+          const dateB = new Date(a.start_time)
+          return dateA.getTime() - dateB.getTime()
+        })
+      cancellationsThisMonth.value = bookings
+        .filter((lesson: any) => {
+          if (!lesson.start_time || lesson.status !== 'cancelled') return false
+          const d = new Date(lesson.start_time)
+          const today = new Date()
+          return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
+        })
+        .sort((a: any, b: any) => {
+          const dateA = new Date(b.start_time)
+          const dateB = new Date(a.start_time)
+          return dateA.getTime() - dateB.getTime()
+        })
     }
   } catch (err) {
     console.error('Error loading upcoming lessons:', err)
@@ -323,18 +464,42 @@ const loadUpcomingLessons = async () => {
       const { loadLessonHistory } = useStudentData()
       const history = await loadLessonHistory(20)
       const now = new Date()
+      const oneMonthLater = new Date(now)
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1)
       upcomingLessons.value = history
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && ['confirmed', 'pending'].includes(lesson.status)
+          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending', 'cancelled'].includes(lesson.status)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(a.start_time)
           const dateB = new Date(b.start_time)
           return dateA.getTime() - dateB.getTime()
         })
-        .slice(0, 10)
+      cancelledLessons.value = history
+        .filter((lesson: any) => {
+          if (!lesson.start_time) return false
+          const lessonDate = new Date(lesson.start_time)
+          return lessonDate > now && lessonDate <= oneMonthLater && lesson.status === 'cancelled'
+        })
+        .sort((a: any, b: any) => {
+          const dateA = new Date(b.start_time)
+          const dateB = new Date(a.start_time)
+          return dateA.getTime() - dateB.getTime()
+        })
+      const today = new Date()
+      cancellationsThisMonth.value = history
+        .filter((lesson: any) => {
+          if (!lesson.start_time || lesson.status !== 'cancelled') return false
+          const d = new Date(lesson.start_time)
+          return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
+        })
+        .sort((a: any, b: any) => {
+          const dateA = new Date(b.start_time)
+          const dateB = new Date(a.start_time)
+          return dateA.getTime() - dateB.getTime()
+        })
     } catch (historyErr) {
       console.error('Error loading from history:', historyErr)
     }
@@ -400,6 +565,40 @@ const formatTime = (dateString: string | null): string => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const openResubmitCertificate = (lesson: any) => {
+  currentResubmitLesson.value = lesson
+  resubmitFileInputRef.value?.click()
+}
+
+const onResubmitCertificateFile = async (e: Event) => {
+  const lesson = currentResubmitLesson.value
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  currentResubmitLesson.value = null
+  if (!lesson || !file) return
+  try {
+    resubmitLoading.value = lesson.id
+    const formData = new FormData()
+    formData.append('cancellation_certificate', file)
+    if (studentScopeStore.apiScopeParam && studentScopeStore.apiScopeParam !== 'all') {
+      formData.append('active_student_id', String(studentScopeStore.apiScopeParam))
+    }
+    const url = `/student/bookings/${lesson.id}/cancellation-certificate/resubmit`
+    const response = await $api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (response.data?.success) {
+      await loadUpcomingLessons()
+    } else {
+      alert(response.data?.message || 'Erreur lors de l\'envoi du certificat.')
+    }
+  } catch (err: any) {
+    const msg = err.response?.data?.message ?? err.response?.data?.errors?.cancellation_certificate?.[0] ?? 'Erreur lors de l\'envoi du certificat.'
+    alert(msg)
+  } finally {
+    resubmitLoading.value = null
+  }
 }
 
 const formatDayDate = (dateString: string | null): string => {

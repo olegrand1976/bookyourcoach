@@ -241,6 +241,35 @@
               {{ getStatusLabel(selectedEvent.status) }}
             </span>
           </div>
+          <template v-if="selectedEvent.status === 'cancelled'">
+            <div v-if="selectedEvent.cancellation_count_in_subscription !== undefined || selectedEvent.cancellation_reason === 'medical'">
+              <span class="text-sm font-medium text-gray-500">Impact abonnement:</span>
+              <span
+                :class="getCancellationSubscriptionImpactClass(selectedEvent)"
+                class="ml-2 inline-block px-2 py-1 text-xs font-medium rounded-full"
+              >
+                {{ getCancellationSubscriptionImpact(selectedEvent) }}
+              </span>
+            </div>
+            <div v-if="shouldShowCertificateStatusBadge(selectedEvent)">
+              <span class="text-sm font-medium text-gray-500">Certificat:</span>
+              <span
+                :class="getCertificateStatusClass(selectedEvent.cancellation_certificate_status)"
+                class="ml-2 inline-block px-2 py-1 text-xs font-medium rounded-full"
+              >
+                {{ getCertificateStatusLabel(selectedEvent.cancellation_certificate_status) }}
+              </span>
+            </div>
+            <div v-if="selectedEvent.cancellation_certificate_status === 'rejected' || selectedEvent.cancellation_certificate_status === 'closed'" class="mt-2">
+              <span class="text-sm font-medium text-gray-500">
+                {{ selectedEvent.cancellation_certificate_status === 'rejected' ? 'Motif du refus :' : 'Raison de la clôture :' }}
+              </span>
+              <p class="mt-1 text-sm text-gray-700">{{ selectedEvent.cancellation_certificate_rejection_reason || '—' }}</p>
+              <p v-if="selectedEvent.cancellation_certificate_status === 'rejected'" class="mt-1 text-xs text-blue-600">
+                Vous pouvez renvoyer un certificat depuis votre dashboard.
+              </p>
+            </div>
+          </template>
           <div v-if="selectedEvent.description || selectedEvent.notes">
             <span class="text-sm font-medium text-gray-500">Description:</span>
             <p class="mt-1 text-sm text-gray-900">{{ selectedEvent.description || selectedEvent.notes || 'N/A' }}</p>
@@ -259,6 +288,14 @@
 </template>
 
 <script setup>
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+  getCertificateStatusLabel,
+  getCertificateStatusClass,
+  shouldShowCertificateStatusBadge,
+} from '~/composables/useCancellationLabels'
+
 const props = defineProps({
   studentId: {
     type: [String, Number],
@@ -447,6 +484,7 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
+
 // Fonctions de gestion des événements
 const selectEvent = (event) => {
   selectedEvent.value = event
@@ -520,7 +558,11 @@ const loadCalendarEvents = async () => {
           description: lesson.notes,
           notes: lesson.notes,
           course_type: lesson.course_type || lesson.courseType,
-          type: 'lesson'
+          type: 'lesson',
+          cancellation_certificate_status: lesson.cancellation_certificate_status,
+          cancellation_count_in_subscription: lesson.cancellation_count_in_subscription,
+          cancellation_reason: lesson.cancellation_reason,
+          cancellation_certificate_rejection_reason: lesson.cancellation_certificate_rejection_reason
         }))
         .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     }

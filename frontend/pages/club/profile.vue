@@ -464,6 +464,21 @@
                 </span>
               </p>
             </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Seuil d'annulation sans déduction (heures)</label>
+              <input
+                v-model.number="formData.default_cancellation_deadline_hours"
+                type="number"
+                min="1"
+                max="168"
+                placeholder="8"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                Annulation au-delà de ce délai avant le cours = non déduit de l'abonnement. Vide = 8 h par défaut.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -544,7 +559,8 @@ const formData = reactive({
   default_subscription_free_lessons: 1,
   default_subscription_price: 180,
   default_subscription_validity_value: 12,
-  default_subscription_validity_unit: 'weeks'
+  default_subscription_validity_unit: 'weeks',
+  default_cancellation_deadline_hours: null
 })
 
 // IDs sélectionnés (la source de vérité)
@@ -726,7 +742,8 @@ async function loadData() {
       formData.default_subscription_price = club.default_subscription_price ?? 180
       formData.default_subscription_validity_value = club.default_subscription_validity_value ?? 12
       formData.default_subscription_validity_unit = club.default_subscription_validity_unit || 'weeks'
-      
+      formData.default_cancellation_deadline_hours = club.default_cancellation_deadline_hours ?? null
+
       // Si c'est un nouveau profil (needs_setup), afficher un message informatif
       if (club.needs_setup) {
         console.log('🆕 Nouveau profil club détecté - configuration initiale requise')
@@ -1009,7 +1026,11 @@ async function handleSubmit() {
       disciplines: selectedDisciplineIds.value,
       discipline_settings: settings.value
     }
-    
+    const h = payload.default_cancellation_deadline_hours
+    if (h == null || h === '' || Number.isNaN(Number(h)) || Number(h) < 1) {
+      payload.default_cancellation_deadline_hours = null
+    }
+
     // Log détaillé pour vérifier les champs importants
     console.log('📤 Envoi du profil club:', {
       company_number: payload.company_number,
