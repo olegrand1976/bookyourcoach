@@ -341,6 +341,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
+import { useToast } from '~/composables/useToast'
 import { useAuthStore } from '~/stores/auth'
 import {
   getCancellationSubscriptionImpact,
@@ -357,6 +358,7 @@ definePageMeta({
 })
 
 const { $api } = useNuxtApp()
+const toast = useToast()
 const authStore = useAuthStore()
 const studentScopeStore = useStudentScopeStore()
 
@@ -583,13 +585,15 @@ const onResubmitCertificateFile = async (e: Event) => {
     resubmitLoading.value = lesson.id
     const formData = new FormData()
     formData.append('cancellation_certificate', file)
-    if (studentScopeStore.apiScopeParam && studentScopeStore.apiScopeParam !== 'all') {
-      formData.append('active_student_id', String(studentScopeStore.apiScopeParam))
+    const studentId = lesson.student_id ?? lesson.student?.id ?? studentScopeStore.apiScopeParam
+    if (studentId && String(studentId) !== 'all') {
+      formData.append('active_student_id', String(studentId))
     }
     const url = `/student/bookings/${lesson.id}/cancellation-certificate/resubmit`
     const response = await $api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     if (response.data?.success) {
       await loadUpcomingLessons()
+      toast.success(response.data.message || 'Nouveau certificat envoyé. Le club le réexaminera sous peu.')
     } else {
       alert(response.data?.message || 'Erreur lors de l\'envoi du certificat.')
     }
