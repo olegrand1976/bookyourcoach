@@ -5,37 +5,35 @@ description: Enforces backend/frontend/API code standards for BookYourCoach. Use
 
 # Standards de code BookYourCoach
 
-Respecte ces conventions pour garder la cohérence backend / frontend.
+## Détail API & contrats (référence longue)
 
-## Backend (Laravel)
+Pour le format JSON, erreurs HTTP, FormRequests, Resources et conventions contrôleurs : **lire d’abord**  
+**`.cursor/rules/API-Design-System-Contracts.mdc`** (globs : `app/Http/Controllers/Api/**`, Requests, Resources).
 
-- **Validation** : Toujours utiliser des **FormRequests** pour valider les entrées (pas de `$request->validate()` direct dans le contrôleur).
-- **Réponses JSON** : Utiliser des **Resources** (API Resources) pour formater les réponses (pas de tableaux associatifs bruts).
-- **Logique métier** : Déléguer la logique complexe à des **Services** (ex. `RecurringSlotValidator`, services dans `app/Services/`). Les contrôleurs restent fins : validation → appel service → retour Resource.
+Ce skill résume la checklist ; la rule porte le détail contractuel.
 
-## Frontend (Nuxt)
+## Backend (Laravel) — rappel
 
-- **Composition** : Utiliser la **Composition API** avec **&lt;script setup&gt;** (pas d’Options API).
-- **Composants** : Composants réutilisables dans `frontend/components/` ; les pages composent ces composants.
-- **État** : **Pinia** pour la gestion du store (pas Vuex).
+- **Validation** : **FormRequests** (éviter la validation inline lourde dans le contrôleur).
+- **Réponses** : **API Resources** pour les payloads exposés au client.
+- **Métier** : **Services** dans `app/Services/` ; contrôleurs fins.
 
-## API
+## Frontend (Nuxt) — rappel
 
-- **Routes** : Préfixe par rôle : `/api/{role}/` (ex. `/api/club/teachers`, `/api/student/bookings`).
-- **Format de réponse** : Toutes les réponses JSON doivent suivre :
-  ```json
-  {
-    "success": true,
-    "data": { ... },
-    "message": "Message optionnel"
-  }
-  ```
-  En cas d’erreur : `success: false`, `data` null ou détail d’erreur, `message` explicite.
+- **Composition API** + `<script setup>`.
+- Composants réutilisables dans `frontend/components/`.
+- **Pinia** pour l’état global (pas Vuex).
+
+## API — rappel format
+
+Réponses : `{ "success": true|false, "data": ..., "message": "..." }` (voir rule API ci-dessus pour les cas d’erreur et HTTP).
+
+Routes : préfixes par rôle, ex. `/api/club/...`, `/api/student/...`.
 
 ## Checklist rapide
 
-- [ ] Contrôleur : FormRequest + Service + Resource
-- [ ] Route : préfixe `/api/{role}/`
-- [ ] Réponse : `{ success, data, message }`
-- [ ] Composant Nuxt : `<script setup>` + Pinia si état partagé
-- [ ] Nouveau composant réutilisable → `frontend/components/`
+- [ ] Contrôleur : FormRequest + Service + Resource (ou alignement explicite avec le code existant du fichier)
+- [ ] Contrats API : conforme à `API-Design-System-Contracts.mdc`
+- [ ] Route : préfixe cohérent avec le rôle
+- [ ] Nuxt : `<script setup>` + Pinia si état partagé
+- [ ] Nouveau composable partagé → `frontend/composables/` ; composant UI → `frontend/components/`

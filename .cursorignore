@@ -1,0 +1,34 @@
+# Réduit le bruit et accélère l'indexation Cursor sur BookYourCoach
+
+# Dépendances
+node_modules/
+frontend/node_modules/
+vendor/
+
+# Builds & caches
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+public/build/
+bootstrap/cache/
+storage/framework/
+storage/logs/
+*.log
+
+# Environnements & secrets (ne jamais indexer)
+.env
+.env.*
+!.env.example
+
+# Binaires / médias lourds
+*.min.js
+*.min.css
+
+# Tests / coverage locaux
+coverage/
+.phpunit.result.cache
+
+# IDE & OS
+.idea/
+*.swp
+.DS_Store
