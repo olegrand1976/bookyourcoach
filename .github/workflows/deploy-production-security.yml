@@ -396,13 +396,16 @@ jobs:
         log_info "🛑 Arrêt et suppression des containers existants..."
         CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
         for container in "${CONTAINERS[@]}"; do
-            # Forcer l'arrêt et la suppression sans vérification préalable
             log_info "  Arrêt et suppression de ${container}..."
+            # Désactiver restart policy (unless-stopped peut empêcher une suppression propre)
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
             docker stop "${container}" 2>/dev/null || true
             docker rm -f "${container}" 2>/dev/null || true
-            # Vérifier que le conteneur a bien été supprimé
             if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
                 log_warning "  ⚠️  Le conteneur ${container} existe encore, nouvelle tentative..."
+                docker kill "${container}" 2>/dev/null || true
                 docker rm -f "${container}" 2>/dev/null || true
             fi
         done
@@ -418,6 +421,8 @@ jobs:
         # Suppression finale forcée de tous les conteneurs par nom (au cas où)
         log_info "🗑️  Suppression finale forcée des conteneurs..."
         for container in "${CONTAINERS[@]}"; do
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
             docker rm -f "${container}" 2>/dev/null || true
         done
 
@@ -445,6 +450,17 @@ jobs:
         fi
         docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
         docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Dernière passe : éviter "Conflict. The container name ... is already in use"
+        # (conteneur orphelin, autre projet compose, ou restart policy)
+        log_info "🗑️  Passage final avant compose up (libération des noms réservés)..."
+        sleep 2
+        for container in "${CONTAINERS[@]}"; do
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
+        done
+        sleep 1
 
         # Démarrage avec docker compose
         log_info "🚀 Démarrage des conteneurs sécurisés..."
@@ -815,13 +831,16 @@ jobs:
         log_info "🛑 Arrêt et suppression des containers existants..."
         CONTAINERS=("activibe-backend" "activibe-frontend" "activibe-phpmyadmin" "activibe-neo4j")
         for container in "${CONTAINERS[@]}"; do
-            # Forcer l'arrêt et la suppression sans vérification préalable
             log_info "  Arrêt et suppression de ${container}..."
+            # Désactiver restart policy (unless-stopped peut empêcher une suppression propre)
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
             docker stop "${container}" 2>/dev/null || true
             docker rm -f "${container}" 2>/dev/null || true
-            # Vérifier que le conteneur a bien été supprimé
             if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
                 log_warning "  ⚠️  Le conteneur ${container} existe encore, nouvelle tentative..."
+                docker kill "${container}" 2>/dev/null || true
                 docker rm -f "${container}" 2>/dev/null || true
             fi
         done
@@ -837,6 +856,8 @@ jobs:
         # Suppression finale forcée de tous les conteneurs par nom (au cas où)
         log_info "🗑️  Suppression finale forcée des conteneurs..."
         for container in "${CONTAINERS[@]}"; do
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
             docker rm -f "${container}" 2>/dev/null || true
         done
 
@@ -864,6 +885,17 @@ jobs:
         fi
         docker pull "$2:latest" || { log_error "Impossible de pull l'image backend"; exit 1; }
         docker pull "$3:latest" || { log_error "Impossible de pull l'image frontend"; exit 1; }
+
+        # Dernière passe : éviter "Conflict. The container name ... is already in use"
+        # (conteneur orphelin, autre projet compose, ou restart policy)
+        log_info "🗑️  Passage final avant compose up (libération des noms réservés)..."
+        sleep 2
+        for container in "${CONTAINERS[@]}"; do
+            docker update --restart=no "${container}" 2>/dev/null || true
+            docker kill "${container}" 2>/dev/null || true
+            docker rm -f "${container}" 2>/dev/null || true
+        done
+        sleep 1
 
         # Démarrage avec docker compose
         log_info "🚀 Démarrage des conteneurs sécurisés..."
