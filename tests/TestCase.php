@@ -14,30 +14,30 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Configuration de la base de données pour les tests
-     * Utilise une base SQLite persistante pour permettre à RefreshDatabase de fonctionner correctement
-     * avec les transactions. La base est nettoyée automatiquement après chaque test.
+     * SQLite si le driver est disponible (sinon MySQL via tests/bootstrap.php).
      */
     protected function setUp(): void
     {
         parent::setUp();
-        
-        // Utiliser une base SQLite persistante au lieu de :memory: pour permettre
-        // à RefreshDatabase d'utiliser les transactions correctement
-        $databasePath = database_path('testing.sqlite');
-        
-        // Créer le fichier de base de données s'il n'existe pas
-        if (!file_exists($databasePath)) {
-            touch($databasePath);
+
+        if (extension_loaded('pdo_sqlite')) {
+            $databasePath = database_path('testing.sqlite');
+            if (!file_exists($databasePath)) {
+                touch($databasePath);
+            }
+            config(['database.default' => 'sqlite']);
+            config(['database.connections.sqlite' => [
+                'driver' => 'sqlite',
+                'database' => $databasePath,
+                'prefix' => '',
+                'foreign_key_constraints' => true,
+            ]]);
+        } else {
+            config(['database.default' => 'mysql']);
+            $testDb = env('DB_DATABASE_TEST', (env('DB_DATABASE', 'bookyourcoach')) . '_test');
+            config(['database.connections.mysql.database' => $testDb]);
+            $this->app->forgetInstance(\Illuminate\Database\DatabaseManager::class);
         }
-        
-        // S'assurer que SQLite est bien configuré
-        config(['database.default' => 'sqlite']);
-        config(['database.connections.sqlite' => [
-            'driver' => 'sqlite',
-            'database' => $databasePath,
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ]]);
     }
 
     /**

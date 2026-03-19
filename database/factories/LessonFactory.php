@@ -182,6 +182,64 @@ class LessonFactory extends Factory
     }
 
     /**
+     * Lesson for specific club
+     */
+    public function forClub($club)
+    {
+        return $this->state(function (array $attributes) use ($club) {
+            return [
+                'club_id' => $club->id ?? $club,
+            ];
+        });
+    }
+
+    /**
+     * Cancelled lesson with medical certificate pending (club review)
+     */
+    public function withPendingCertificate(string $certificatePath = 'cancellation_certificates/lesson_1_test.pdf')
+    {
+        return $this->state(function (array $attributes) use ($certificatePath) {
+            return [
+                'status' => 'cancelled',
+                'cancellation_reason' => 'medical',
+                'cancellation_certificate_path' => $certificatePath,
+                'cancellation_count_in_subscription' => false,
+                'cancellation_certificate_status' => 'pending',
+            ];
+        });
+    }
+
+    /**
+     * Cancelled lesson with certificate rejected (student can resubmit)
+     */
+    public function withRejectedCertificate(string $rejectionReason = 'Document illisible')
+    {
+        return $this->state(function (array $attributes) use ($rejectionReason) {
+            return [
+                'status' => 'cancelled',
+                'cancellation_reason' => 'medical',
+                'cancellation_certificate_path' => 'cancellation_certificates/lesson_1_old.pdf',
+                'cancellation_count_in_subscription' => true,
+                'cancellation_certificate_status' => 'rejected',
+                'cancellation_certificate_reviewed_at' => now(),
+                'cancellation_certificate_rejection_reason' => $rejectionReason,
+            ];
+        });
+    }
+
+    /**
+     * Set the student who submitted the cancellation certificate (e.g. parent for another child)
+     */
+    public function certificateSubmittedBy($student)
+    {
+        return $this->state(function (array $attributes) use ($student) {
+            return [
+                'cancellation_certificate_submitted_by_student_id' => $student->id ?? $student,
+            ];
+        });
+    }
+
+    /**
      * Lesson at specific location
      */
     public function atLocation($location)

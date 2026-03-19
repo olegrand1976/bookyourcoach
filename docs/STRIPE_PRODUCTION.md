@@ -1,5 +1,7 @@
 # Stripe en production
 
+Voir aussi `docs/STRIPE_SUBSCRIPTION_SETUP.md` pour le tutoriel de creation produit/tarif Stripe et la saisie des IDs dans les modèles d'abonnement.
+
 ## Pourquoi Stripe peut ne pas fonctionner « en ligne »
 
 ### 1. Variables d'environnement manquantes ou incorrectes

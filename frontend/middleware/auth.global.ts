@@ -9,23 +9,18 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     
     const authStore = useAuthStore()
     
-    // Côté serveur, vérifier au moins le token dans les cookies
+    // Côté serveur : initialiser l'auth (cookies de la requête) mais ne pas rediriger.
+    // La redirection est faite côté client uniquement, car le prefetch NuxtLink ou certaines
+    // requêtes initiales n'envoient pas les cookies, ce qui provoquerait un 302 vers /login à tort.
     if (process.server) {
-      console.log('🔴 Plugin auth: côté serveur - vérification basique')
-      // Initialiser l'authentification même côté serveur pour vérifier le token
       await authStore.initializeAuth()
-      
-      if (!authStore.isAuthenticated || !authStore.token) {
-        console.log('❌ Non authentifié côté serveur, redirection vers /login')
-        return navigateTo('/login')
-      }
+      // On ne redirige pas ici : on laisse le client trancher après hydratation (cookies disponibles).
     }
     
-    // Côté client, initialiser l'authentification complète
+    // Côté client uniquement : initialiser l'auth, rediriger si non authentifié ou mauvais rôle.
+    // En SSR on ne redirige jamais (store peut être vide si cookies non envoyés).
     if (process.client) {
-      // Initialiser l'authentification
       await authStore.initializeAuth()
-      
       console.log('🔐 État auth store après initialisation:', {
         isAuthenticated: authStore.isAuthenticated,
         hasToken: !!authStore.token,
@@ -35,34 +30,27 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         isAdmin: authStore.isAdmin,
         isClub: authStore.user?.role === 'club'
       })
-      
       if (!authStore.isAuthenticated) {
         console.log('❌ Non authentifié côté client, redirection vers /login')
         return navigateTo('/login')
       }
+      if (to.path.startsWith('/teacher/') && !authStore.canActAsTeacher) {
+        console.log('❌ Pas de droits enseignant')
+        return navigateTo('/dashboard')
+      }
+      if (to.path.startsWith('/student/') && !authStore.canActAsStudent) {
+        console.log('❌ Pas de droits étudiant')
+        return navigateTo('/dashboard')
+      }
+      if (to.path.startsWith('/admin') && !authStore.isAdmin) {
+        console.log('❌ Pas de droits admin')
+        return navigateTo('/dashboard')
+      }
+      if (to.path.startsWith('/club/') && authStore.user?.role !== 'club' && !authStore.isAdmin) {
+        console.log('❌ Pas de droits club')
+        return navigateTo('/dashboard')
+      }
     }
-    
-    // Vérifications spécifiques selon la route
-    if (to.path.startsWith('/teacher/') && !authStore.canActAsTeacher) {
-      console.log('❌ Pas de droits enseignant')
-      return navigateTo('/dashboard')
-    }
-    
-    if (to.path.startsWith('/student/') && !authStore.canActAsStudent) {
-      console.log('❌ Pas de droits étudiant')
-      return navigateTo('/dashboard')
-    }
-    
-    if (to.path.startsWith('/admin') && !authStore.isAdmin) {
-      console.log('❌ Pas de droits admin')
-      return navigateTo('/dashboard')
-    }
-    
-    if (to.path.startsWith('/club/') && authStore.user?.role !== 'club' && !authStore.isAdmin) {
-      console.log('❌ Pas de droits club')
-      return navigateTo('/dashboard')
-    }
-    
     console.log('✅ Accès autorisé à:', to.path)
   }
   

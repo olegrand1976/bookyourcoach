@@ -63,6 +63,9 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php vendor/bin/phpunit"
+        ],
+        "test:lessons": [
+            "@php artisan test tests/Unit/Models/LessonTest.php tests/Feature/Api/StudentLessonCancellationTest.php tests/Feature/Api/ClubCancellationCertificateTest.php"
         ]
     },
     "extra": {

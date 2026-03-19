@@ -12,6 +12,7 @@ use App\Models\Club;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Carbon\Carbon;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Tests unitaires pour le modèle Lesson
@@ -278,5 +279,106 @@ class LessonTest extends TestCase
         ]);
 
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\BelongsToMany::class, $lesson->subscriptionInstances());
+    }
+
+    /**
+     * Test : Champs d'annulation et certificat médical (création manuelle)
+     */
+    #[Test]
+    public function test_cancellation_and_certificate_fields_are_stored(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status')) {
+            $this->markTestSkipped('Colonnes certificat non présentes.');
+        }
+
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDay(),
+            'end_time' => Carbon::now()->addDay()->addHour(),
+            'price' => 50.00,
+            'status' => 'cancelled',
+            'cancellation_reason' => 'medical',
+            'cancellation_certificate_path' => 'cancellation_certificates/lesson_1.pdf',
+            'cancellation_count_in_subscription' => false,
+            'cancellation_certificate_status' => 'pending',
+        ]);
+
+        $this->assertSame('medical', $lesson->cancellation_reason);
+        $this->assertSame('cancellation_certificates/lesson_1.pdf', $lesson->cancellation_certificate_path);
+        $this->assertFalse($lesson->cancellation_count_in_subscription);
+        $this->assertSame('pending', $lesson->cancellation_certificate_status);
+    }
+
+    /**
+     * Test : Relation cancellationCertificateSubmittedByStudent
+     */
+    #[Test]
+    public function test_cancellation_certificate_submitted_by_student_relation(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_submitted_by_student_id')) {
+            $this->markTestSkipped('Colonne cancellation_certificate_submitted_by_student_id non présente.');
+        }
+
+        $submittedBy = Student::create(['user_id' => User::create([
+            'name' => 'Parent',
+            'first_name' => 'Parent',
+            'last_name' => 'User',
+            'email' => 'parent@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'student',
+        ])->id]);
+
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDay(),
+            'end_time' => Carbon::now()->addDay()->addHour(),
+            'price' => 50.00,
+            'status' => 'cancelled',
+            'cancellation_certificate_submitted_by_student_id' => $submittedBy->id,
+        ]);
+
+        $lesson->load('cancellationCertificateSubmittedByStudent');
+        $this->assertNotNull($lesson->cancellationCertificateSubmittedByStudent);
+        $this->assertSame((int) $submittedBy->id, (int) $lesson->cancellationCertificateSubmittedByStudent->id);
+    }
+
+    /**
+     * Test : Factory states withPendingCertificate et withRejectedCertificate
+     */
+    #[Test]
+    public function test_factory_states_for_cancellation_certificate(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status')) {
+            $this->markTestSkipped('Colonnes certificat non présentes.');
+        }
+
+        $pending = Lesson::factory()
+            ->forClub($this->club)
+            ->forTeacher($this->teacher)
+            ->forStudent($this->student)
+            ->withPendingCertificate()
+            ->create();
+
+        $this->assertSame('cancelled', $pending->status);
+        $this->assertSame('medical', $pending->cancellation_reason);
+        $this->assertSame('pending', $pending->cancellation_certificate_status);
+
+        $rejected = Lesson::factory()
+            ->forClub($this->club)
+            ->forTeacher($this->teacher)
+            ->forStudent($this->student)
+            ->withRejectedCertificate('Document flou')
+            ->create();
+
+        $this->assertSame('rejected', $rejected->cancellation_certificate_status);
+        $this->assertSame('Document flou', $rejected->cancellation_certificate_rejection_reason);
     }
 }

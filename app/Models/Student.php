@@ -68,8 +68,13 @@ class Student extends Model
     }
 
     /**
-     * Get the club that owns the student.
+     * Club principal (optionnel, dérivé de club_id).
      */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
+    }
+
     /**
      * Get the clubs that the student belongs to
      */

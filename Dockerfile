@@ -69,6 +69,13 @@ COPY --chown=www-data:www-data . .
 # Installer les dépendances PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
+# Régénérer le cache de découverte des paquets (packages.php, services.php) pour qu'il
+# ne référence que les paquets installés (sans require-dev). Sinon le cache copié depuis
+# l'hôte liste Collision et Laravel tente de charger une classe absente en image.
+RUN cp .env.example .env \
+    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    && php artisan package:discover --ansi
+
 # Créer les répertoires nécessaires (dont storage/app/temp pour les PDF lettres de volontariat)
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views storage/app/temp \
     && mkdir -p /tmp/nginx_client_temp /tmp/nginx_proxy_temp /tmp/nginx_fastcgi_temp /tmp/nginx_uwsgi_temp /tmp/nginx_scgi_temp \
@@ -76,9 +83,6 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     && chown -R www-data:www-data storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
     && chmod -R 775 storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
     && chmod +x /usr/local/bin/start-workers.sh
-
-# Créer le fichier .env à partir de .env.example
-RUN cp .env.example .env
 
 # Correction du garde d'authentification
 RUN sed -i "s/'guard' => env('AUTH_GUARD', 'web')/'guard' => 'sanctum'/" config/auth.php

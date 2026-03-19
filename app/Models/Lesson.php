@@ -54,7 +54,13 @@ class Lesson extends Model
         'recurrence_skipped_reason', // motif affiché si la récurrence n'a pas été créée (job asynchrone)
         'cancellation_reason',       // 'medical' | 'other' (annulation élève < 8h)
         'cancellation_certificate_path',
-        'cancellation_count_in_subscription', // true = cours annulé < 8h sans certificat médical → compté dans l'abo
+        'cancellation_count_in_subscription', // true = cours annulé < 8h sans certificat médical valide → compté dans l'abo
+        'cancellation_certificate_status',   // 'pending' | 'accepted' | 'rejected'
+        'cancellation_certificate_reviewed_at',
+        'cancellation_certificate_reviewed_by',
+        'cancellation_certificate_rejection_reason',
+        'cancellation_certificate_resubmitted_at',
+        'cancellation_certificate_submitted_by_student_id',
     ];
 
     protected $casts = [
@@ -67,6 +73,8 @@ class Lesson extends Model
         'montant' => 'decimal:2',
         'deduct_from_subscription' => 'boolean',
         'cancellation_count_in_subscription' => 'boolean',
+        'cancellation_certificate_reviewed_at' => 'datetime',
+        'cancellation_certificate_resubmitted_at' => 'datetime',
     ];
 
     // Accessors désactivés par défaut pour améliorer les performances
@@ -95,6 +103,15 @@ class Lesson extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    /**
+     * Élève ayant déposé le certificat médical (annulation / renvoi).
+     * Peut différer de student_id quand un parent annule "au nom de" un autre enfant.
+     */
+    public function cancellationCertificateSubmittedByStudent(): BelongsTo
+    {
+        return $this->belongsTo(Student::class, 'cancellation_certificate_submitted_by_student_id');
     }
 
     /**
@@ -130,6 +147,14 @@ class Lesson extends Model
     {
         return $this->belongsToMany(SubscriptionInstance::class, 'subscription_lessons', 'lesson_id', 'subscription_instance_id')
             ->withTimestamps();
+    }
+
+    /**
+     * User who reviewed the cancellation certificate (club owner/manager/admin).
+     */
+    public function cancellationCertificateReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancellation_certificate_reviewed_by');
     }
 
     /**

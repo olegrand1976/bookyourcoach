@@ -28,5 +28,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Ajouter les en-têtes CORS aux réponses d'erreur (ex. 500) pour les routes API,
+        // sinon le navigateur bloque avec "Access-Control-Allow-Origin manquant" au lieu d'afficher l'erreur.
+        $exceptions->respond(function ($response, $e, $request) {
+            if (! $request->is('api/*')) {
+                return $response;
+            }
+            $cors = app(\Fruitcake\Cors\CorsService::class);
+            $cors->setOptions(config('cors', []));
+            return $cors->addActualRequestHeaders($response, $request);
+        });
     })->create();

@@ -269,6 +269,58 @@
         </div>
       </div>
 
+      <!-- Certificats médicaux à valider -->
+      <div v-if="pendingCertificates.length > 0" class="mb-8">
+        <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-amber-800 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Certificats médicaux à valider ({{ pendingCertificates.length }})
+              </h3>
+              <p class="mt-1 text-sm text-amber-700">
+                Acceptez ou refusez les certificats pour décider si le cours est décompté de l’abonnement.
+              </p>
+              <div class="mt-4 space-y-3">
+                <div
+                  v-for="lesson in pendingCertificates.slice(0, 10)"
+                  :key="lesson.id"
+                  class="bg-white rounded-lg p-4 border border-amber-200 flex flex-wrap items-center justify-between gap-2"
+                >
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span class="font-medium text-gray-900">{{ lesson.student?.user?.name || (lesson.student?.first_name && lesson.student?.last_name ? `${lesson.student.first_name} ${lesson.student.last_name}` : `Élève #${lesson.student_id}`) }}</span>
+                    <span class="text-sm text-gray-600">{{ lesson.course_type?.name || 'Cours' }}</span>
+                    <span class="text-sm text-gray-500">{{ lesson.start_time ? new Date(lesson.start_time).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' }}</span>
+                  </div>
+                  <NuxtLink
+                    :to="`/club/students?openStudent=${lesson.student_id}`"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0"
+                  >
+                    Ouvrir l’historique
+                  </NuxtLink>
+                </div>
+                <NuxtLink
+                  v-if="pendingCertificates.length > 10"
+                  to="/club/planning"
+                  class="block text-center text-amber-700 hover:text-amber-800 text-sm font-medium py-2"
+                >
+                  Voir tous sur le planning ({{ pendingCertificates.length }}) →
+                </NuxtLink>
+                <NuxtLink
+                  v-else
+                  to="/club/planning"
+                  class="inline-flex items-center text-amber-700 hover:text-amber-800 text-sm font-medium mt-2"
+                >
+                  Voir sur le planning →
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Élèves avec données incomplètes -->
       <div v-if="incompleteStudents && incompleteStudents.length > 0" class="mb-8">
         <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
@@ -737,6 +789,7 @@ const recentStudents = ref([])
 const recentLessons = ref([])
 const incompleteStudents = ref([])
 const subscriptionsNearingEnd = ref([])
+const pendingCertificates = ref([])
 const isLoading = ref(true)
 const hasError = ref(false)
 const errorMessage = ref('')
@@ -783,6 +836,14 @@ const loadDashboardData = async () => {
       // Accepter camelCase ou snake_case (selon config API / middleware Laravel)
       const raw = response.data.data
       subscriptionsNearingEnd.value = raw.subscriptionsNearingEnd ?? raw.subscriptions_nearing_end ?? []
+
+      // Certificats médicaux en attente de validation (accès rapide)
+      try {
+        const certRes = await $api.get('/club/lessons/pending-certificates')
+        pendingCertificates.value = certRes.data?.data ?? []
+      } catch (_) {
+        pendingCertificates.value = []
+      }
 
       console.log('📊 Stats chargées:', stats.value)
       console.log('📦 Abonnements en fin de parcours:', subscriptionsNearingEnd.value?.length ?? 0, subscriptionsNearingEnd.value)

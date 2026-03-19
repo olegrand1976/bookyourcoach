@@ -1,5 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-6">
+  <NuxtPage v-if="!isIndexRoute" />
+  <div v-else class="min-h-screen bg-gray-50 py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -9,8 +10,9 @@
             <p class="text-gray-600 mt-1">Visualisez et gérez vos abonnements de cours</p>
           </div>
           <button
-            disabled
-            class="bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-70 flex items-center gap-2 min-h-[44px]"
+            type="button"
+            @click="goToSubscribe"
+            class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center gap-2 min-h-[44px] transition-colors w-full sm:w-auto justify-center"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -202,9 +204,10 @@
           Vous n'avez pas encore souscrit à un abonnement.
         </p>
         <div class="mt-6">
-          <button 
-            disabled
-            class="inline-flex items-center px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed opacity-70"
+          <button
+            type="button"
+            @click="goToSubscribe"
+            class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Souscrire à un abonnement
           </button>
@@ -228,6 +231,14 @@ definePageMeta({
 })
 
 const { $api } = useNuxtApp()
+const route = useRoute()
+
+const isIndexRoute = computed(() => route.path === '/student/subscriptions')
+
+// Navigation côté client uniquement pour éviter 302 en SSR sur mobile / prefetch
+const goToSubscribe = async () => {
+  await navigateTo('/student/subscriptions/subscribe')
+}
 const studentScopeStore = useStudentScopeStore()
 const subscriptions = ref([])
 const loading = ref(true)
@@ -349,13 +360,25 @@ const getStudentsLabel = (students) => {
 }
 
 // Vérifier si on revient d'un paiement Stripe réussi
-const checkStripeReturn = () => {
+const checkStripeReturn = async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const sessionId = urlParams.get('session_id')
   if (sessionId) {
-    const { success } = useToast()
-    success('Paiement réussi. Votre abonnement est actif.', 'Paiement Stripe')
-    loadSubscriptions()
+    const { success, error: showError } = useToast()
+    try {
+      const response = await $api.get('/student/subscriptions/checkout-status', {
+        params: { session_id: sessionId }
+      })
+      if (response.data?.success) {
+        success('Paiement réussi. Votre abonnement est actif.', 'Paiement Stripe')
+        await loadSubscriptions()
+      } else {
+        showError(response.data?.message || 'Le paiement a été reçu mais l’abonnement n’a pas pu être activé.')
+      }
+    } catch (err) {
+      console.error('Erreur confirmation retour Stripe:', err)
+      showError(err.response?.data?.message || 'Erreur lors de la confirmation du paiement Stripe')
+    }
     window.history.replaceState({}, document.title, window.location.pathname)
   }
 }

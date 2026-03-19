@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Jobs\GenerateInvoiceJob;
 use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class StripeService
 {
@@ -178,83 +179,119 @@ class StripeService
     private function handleCheckoutSessionCompleted(array $session): void
     {
         try {
-            $metadata = $session['metadata'] ?? [];
-            
-            // Vérifier que c'est bien un paiement d'abonnement
-            if (($metadata['type'] ?? '') !== 'subscription') {
-                Log::info('Session Checkout non liée à un abonnement', [
-                    'session_id' => $session['id']
-                ]);
+            $subscriptionInstance = $this->ensureSubscriptionCreatedFromCheckoutSession($session);
+            if (!$subscriptionInstance) {
                 return;
             }
-
-            $userId = $metadata['user_id'] ?? null;
-            $templateId = $metadata['subscription_template_id'] ?? null;
-            $studentId = $metadata['student_id'] ?? null;
-
-            if (!$userId || !$templateId || !$studentId) {
-                Log::error('Métadonnées manquantes dans la session Checkout', [
-                    'session_id' => $session['id'],
-                    'metadata' => $metadata
-                ]);
-                return;
-            }
-
-            $user = User::find($userId);
-            $student = \App\Models\Student::find($studentId);
-            $template = \App\Models\SubscriptionTemplate::find($templateId);
-
-            if (!$user || !$student || !$template) {
-                Log::error('Ressources non trouvées pour créer l\'abonnement', [
-                    'user_id' => $userId,
-                    'student_id' => $studentId,
-                    'template_id' => $templateId
-                ]);
-                return;
-            }
-
-            // Créer l'abonnement
-            \Illuminate\Support\Facades\DB::beginTransaction();
-
-            // Créer l'abonnement depuis le template
-            $subscription = \App\Models\Subscription::createSafe([
-                'club_id' => $template->club_id,
-                'subscription_template_id' => $template->id,
-            ]);
-
-            // Créer l'instance d'abonnement
-            $subscriptionInstance = \App\Models\SubscriptionInstance::create([
-                'subscription_id' => $subscription->id,
-                'lessons_used' => 0,
-                'started_at' => \Carbon\Carbon::now(),
-                'expires_at' => null, // Sera calculé automatiquement
-                'status' => 'active'
-            ]);
-
-            // Calculer la date d'expiration
-            $subscriptionInstance->calculateExpiresAt();
-            $subscriptionInstance->save();
-
-            // Attacher l'élève
-            $subscriptionInstance->students()->attach($student->id);
-
-            \Illuminate\Support\Facades\DB::commit();
-
             Log::info('Abonnement créé automatiquement après paiement Stripe', [
                 'session_id' => $session['id'],
-                'subscription_id' => $subscription->id,
+                'subscription_id' => $subscriptionInstance->subscription_id,
                 'subscription_instance_id' => $subscriptionInstance->id,
-                'student_id' => $studentId
             ]);
-
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\DB::rollBack();
             Log::error('Erreur lors de la création de l\'abonnement après paiement Stripe', [
                 'session_id' => $session['id'] ?? null,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+
+    public function retrieveCheckoutSession(string $sessionId): ?Session
+    {
+        try {
+            return Session::retrieve($sessionId);
+        } catch (ApiErrorException $e) {
+            Log::error('Erreur récupération session Stripe Checkout', [
+                'session_id' => $sessionId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    public function ensureSubscriptionCreatedFromCheckoutSession(array $session): ?\App\Models\SubscriptionInstance
+    {
+        $metadata = $session['metadata'] ?? [];
+        $sessionId = $session['id'] ?? null;
+
+        if (($metadata['type'] ?? '') !== 'subscription') {
+            Log::info('Session Checkout non liée à un abonnement', [
+                'session_id' => $sessionId
+            ]);
+            return null;
+        }
+
+        if (($session['payment_status'] ?? null) !== 'paid') {
+            Log::warning('Paiement Stripe non confirmé pour la session Checkout', [
+                'session_id' => $sessionId,
+                'payment_status' => $session['payment_status'] ?? null,
+                'status' => $session['status'] ?? null,
+            ]);
+            return null;
+        }
+
+        if ($sessionId) {
+            $existingInstance = \App\Models\SubscriptionInstance::where('stripe_checkout_session_id', $sessionId)->first();
+            if ($existingInstance) {
+                return $existingInstance->load([
+                    'subscription.club',
+                    'subscription.template.courseTypes',
+                    'students.user'
+                ]);
+            }
+        }
+
+        $userId = $metadata['user_id'] ?? null;
+        $templateId = $metadata['subscription_template_id'] ?? null;
+        $studentId = $metadata['student_id'] ?? null;
+
+        if (!$userId || !$templateId || !$studentId) {
+            Log::error('Métadonnées manquantes dans la session Checkout', [
+                'session_id' => $sessionId,
+                'metadata' => $metadata
+            ]);
+            return null;
+        }
+
+        $user = User::find($userId);
+        $student = \App\Models\Student::find($studentId);
+        $template = \App\Models\SubscriptionTemplate::find($templateId);
+
+        if (!$user || !$student || !$template) {
+            Log::error('Ressources non trouvées pour créer l\'abonnement', [
+                'user_id' => $userId,
+                'student_id' => $studentId,
+                'template_id' => $templateId
+            ]);
+            return null;
+        }
+
+        return DB::transaction(function () use ($template, $student, $sessionId) {
+            $subscription = \App\Models\Subscription::createSafe([
+                'club_id' => $template->club_id,
+                'subscription_template_id' => $template->id,
+            ]);
+
+            $subscriptionInstance = \App\Models\SubscriptionInstance::create([
+                'subscription_id' => $subscription->id,
+                'lessons_used' => 0,
+                'started_at' => \Carbon\Carbon::now(),
+                'expires_at' => null,
+                'status' => 'active',
+                'stripe_checkout_session_id' => $sessionId,
+            ]);
+
+            $subscriptionInstance->calculateExpiresAt();
+            $subscriptionInstance->save();
+            $subscriptionInstance->students()->attach($student->id);
+
+            return $subscriptionInstance->load([
+                'subscription.club',
+                'subscription.template.courseTypes',
+                'students.user'
+            ]);
+        });
     }
 
     /**
@@ -422,17 +459,6 @@ class StripeService
                 'customer' => $customerId,
                 'payment_method_types' => ['card'],
                 'mode' => 'payment',
-                'line_items' => [[
-                    'price_data' => [
-                        'currency' => 'eur',
-                        'product_data' => [
-                            'name' => $template->model_number ?? 'Abonnement',
-                            'description' => $this->buildCheckoutDescription($template),
-                        ],
-                        'unit_amount' => (int) round(($template->price ?? 0) * 100), // Stripe: centimes
-                    ],
-                    'quantity' => 1,
-                ]],
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'metadata' => array_merge([
@@ -442,6 +468,30 @@ class StripeService
                     'type' => 'subscription'
                 ], $metadata),
             ];
+
+            if (!empty($template->stripe_price_id)) {
+                $sessionData['line_items'] = [[
+                    'price' => $template->stripe_price_id,
+                    'quantity' => 1,
+                ]];
+            } else {
+                $sessionData['line_items'] = [[
+                    'price_data' => [
+                        'currency' => 'eur',
+                        'unit_amount' => (int) round(($template->price ?? 0) * 100), // Stripe: centimes
+                    ],
+                    'quantity' => 1,
+                ]];
+
+                if (!empty($template->stripe_product_id)) {
+                    $sessionData['line_items'][0]['price_data']['product'] = $template->stripe_product_id;
+                } else {
+                    $sessionData['line_items'][0]['price_data']['product_data'] = [
+                        'name' => $template->model_number ?? 'Abonnement',
+                        'description' => $this->buildCheckoutDescription($template),
+                    ];
+                }
+            }
 
             $session = Session::create($sessionData);
 

@@ -469,7 +469,7 @@ const handleLogin = async () => {
     if (err.response?.data?.message) {
       errorMessage = err.response.data.message
     } else if (err.code === 'ECONNREFUSED' || err.message.includes('Network Error')) {
-      errorMessage = 'Impossible de se connecter au serveur. Vérifiez que l\'API est accessible.'
+      errorMessage = 'Impossible de se connecter au serveur. Vérifiez que l\'API est accessible (backend sur http://localhost:8080).'
     } else if (err.response?.status === 422) {
       errorMessage = 'Informations de connexion invalides'
     } else if (err.response?.status === 401) {

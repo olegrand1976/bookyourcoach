@@ -30,6 +30,11 @@
         <p class="text-red-800">{{ error }}</p>
       </div>
 
+      <!-- Erreur paiement (création session Stripe) -->
+      <div v-if="subscribeError" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <p class="text-red-800">{{ subscribeError }}</p>
+      </div>
+
       <!-- Liste des abonnements disponibles -->
       <div v-else-if="availableSubscriptions.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div 
@@ -126,7 +131,7 @@
         </svg>
         <h3 class="mt-4 text-lg font-medium text-gray-900">Aucun abonnement disponible</h3>
         <p class="mt-2 text-sm text-gray-500">
-          Aucun abonnement n'est actuellement proposé par vos clubs.
+          {{ emptyStateMessage }}
         </p>
         <div class="mt-6">
           <NuxtLink 
@@ -149,20 +154,33 @@ definePageMeta({
 
 const { $api } = useNuxtApp()
 const router = useRouter()
+const studentScope = useStudentScopeStore()
 const availableSubscriptions = ref([])
 const loading = ref(true)
 const error = ref(null)
+const emptyStateMessage = ref("Aucun abonnement n'est actuellement proposé par vos clubs.")
 const subscribing = ref(false)
+const subscribeError = ref(null)
 
-// Charger les abonnements disponibles
+// Charger les abonnements disponibles (scopés à l'élève actif en compte famille)
 const loadAvailableSubscriptions = async () => {
   try {
     loading.value = true
     error.value = null
-    
-    const response = await $api.get('/student/subscriptions/available')
+    emptyStateMessage.value = "Aucun abonnement n'est actuellement proposé par vos clubs."
+    const params = {}
+    if (studentScope.activeStudentId != null) {
+      params.active_student_id = studentScope.activeStudentId
+    }
+    const response = await $api.get('/student/subscriptions/available', { params })
     if (response.data.success) {
       availableSubscriptions.value = response.data.data
+      if (response.data.message) {
+        emptyStateMessage.value = response.data.message
+      }
+      if (availableSubscriptions.value.length === 1) {
+        await subscribeToSubscription(availableSubscriptions.value[0].id)
+      }
     } else {
       error.value = response.data.message || 'Erreur lors du chargement des abonnements'
     }
@@ -176,23 +194,23 @@ const loadAvailableSubscriptions = async () => {
 
 // Souscrire à un abonnement via Stripe Checkout
 const subscribeToSubscription = async (subscriptionTemplateId) => {
+  subscribeError.value = null
   try {
     subscribing.value = true
-    
-    // Créer la session Stripe Checkout
-    const response = await $api.post('/student/subscriptions/create-checkout-session', {
-      subscription_template_id: subscriptionTemplateId
-    })
-    
-    if (response.data.success && response.data.checkout_url) {
-      // Rediriger vers Stripe Checkout
-      window.location.href = response.data.checkout_url
+    const payload = { subscription_template_id: subscriptionTemplateId }
+    if (studentScope.activeStudentId != null) {
+      payload.active_student_id = studentScope.activeStudentId
+    }
+    const response = await $api.post('/student/subscriptions/create-checkout-session', payload)
+    if (response.data?.success && response.data?.checkout_url) {
+      window.location.assign(response.data.checkout_url)
+      return
     } else {
-      alert(response.data.message || 'Erreur lors de la création de la session de paiement')
+      subscribeError.value = response.data.message || 'Erreur lors de la création de la session de paiement'
     }
   } catch (err) {
     console.error('Erreur lors de la souscription:', err)
-    alert(err.response?.data?.message || 'Erreur lors de la création de la session de paiement')
+    subscribeError.value = err.response?.data?.message || 'Erreur lors de la création de la session de paiement'
   } finally {
     subscribing.value = false
   }

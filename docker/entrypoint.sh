@@ -15,8 +15,8 @@ if [ -d /var/www/html/bootstrap/cache ]; then
     chmod -R 775 /var/www/html/bootstrap/cache 2>/dev/null || true
 fi
 
-# S'assurer que storage/app/temp existe pour la génération des PDF (lettres de volontariat)
-mkdir -p /var/www/html/storage/app/temp 2>/dev/null || true
-chown www-data:www-data /var/www/html/storage/app/temp 2>/dev/null || true
+# S'assurer que storage/app/temp et storage/app/public existent (PDF, certificats médicaux)
+mkdir -p /var/www/html/storage/app/temp /var/www/html/storage/app/public /var/www/html/storage/app/public/cancellation_certificates 2>/dev/null || true
+chown -R www-data:www-data /var/www/html/storage/app/temp /var/www/html/storage/app/public 2>/dev/null || true
 
 exec "$@"

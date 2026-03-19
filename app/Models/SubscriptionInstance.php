@@ -18,6 +18,7 @@ class SubscriptionInstance extends Model
         'started_at',
         'expires_at',
         'status',
+        'stripe_checkout_session_id',
         // Champs pour le calcul des commissions
         'est_legacy',
         'date_paiement',

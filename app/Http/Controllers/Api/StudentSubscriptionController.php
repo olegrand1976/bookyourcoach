@@ -38,27 +38,77 @@ class StudentSubscriptionController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
-            if (!$student) {
+            $mainStudent = $user->student;
+            if (!$mainStudent) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil élève non trouvé'
                 ], 404);
             }
 
-            // Récupérer les clubs où l'élève est inscrit
-            $clubIds = $student->clubs()->wherePivot('is_active', true)->pluck('clubs.id');
+            // Élève cible : paramètre active_student_id (compte famille) ou élève principal
+            $student = $mainStudent;
+            $activeStudentId = $request->query('active_student_id') ?? $request->input('active_student_id');
+            if ($activeStudentId !== null && $activeStudentId !== '') {
+                $linkedIds = $user->getLinkedStudents()->pluck('id')->push($mainStudent->id)->unique()->values()->all();
+                if (in_array((int) $activeStudentId, $linkedIds, true)) {
+                    $student = Student::findOrFail((int) $activeStudentId);
+                }
+            }
+
+            $activeClubs = $student->clubs()
+                ->wherePivot('is_active', true)
+                ->select(
+                    'clubs.id',
+                    'clubs.name',
+                    'club_students.is_blocked',
+                    'club_students.subscription_creation_blocked'
+                )
+                ->get();
+
+            // Clubs où l'élève est inscrit et non bloqué
+            $clubIds = $activeClubs
+                ->filter(fn ($club) => !($club->pivot->is_blocked ?? false))
+                ->pluck('id');
 
             // Récupérer les modèles d'abonnements actifs de ces clubs
             $templates = \App\Models\SubscriptionTemplate::whereIn('club_id', $clubIds)
                 ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->where('stripe_enabled', true)
+                        ->orWhereNotNull('stripe_price_id');
+                })
                 ->with(['club:id,name', 'courseTypes:id,name,description'])
                 ->orderBy('price', 'asc')
                 ->get();
 
+            $activeTemplatesWithoutStripe = \App\Models\SubscriptionTemplate::whereIn('club_id', $clubIds)
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->where('stripe_enabled', false)
+                        ->whereNull('stripe_price_id');
+                })
+                ->count();
+
+            $message = null;
+            if ($templates->isEmpty()) {
+                if ($activeClubs->isEmpty()) {
+                    $message = 'Aucun club actif n’est associé a votre compte élève.';
+                } elseif ($activeClubs->every(fn ($club) => (bool) ($club->pivot->is_blocked ?? false))) {
+                    $message = 'Votre compte élève est bloque pour votre club. Contactez le club pour activer la souscription.';
+                } elseif ($activeClubs->every(fn ($club) => (bool) ($club->pivot->subscription_creation_blocked ?? false))) {
+                    $message = 'La souscription en ligne est desactivee pour votre compte. Contactez votre club.';
+                } elseif ($activeTemplatesWithoutStripe > 0) {
+                    $message = 'Des abonnements existent pour vos clubs, mais ils ne sont pas encore activés pour le paiement Stripe. Contactez votre club.';
+                } else {
+                    $message = 'Aucun abonnement actif n’est actuellement propose par vos clubs.';
+                }
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $templates
+                'data' => $templates,
+                'message' => $message
             ]);
 
         } catch (\Exception $e) {
@@ -153,8 +203,8 @@ class StudentSubscriptionController extends Controller
                 ], 403);
             }
 
-            $student = $user->student;
-            if (!$student) {
+            $mainStudent = $user->student;
+            if (!$mainStudent) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil élève non trouvé'
@@ -163,7 +213,17 @@ class StudentSubscriptionController extends Controller
 
             $validated = $request->validate([
                 'subscription_template_id' => 'required|exists:subscription_templates,id',
+                'active_student_id' => 'nullable|integer|exists:students,id',
             ]);
+
+            // Utiliser l'élève actif (compte famille) si fourni et autorisé, sinon l'élève principal
+            $student = $mainStudent;
+            if (!empty($validated['active_student_id'])) {
+                $linkedIds = $user->getLinkedStudents()->pluck('id')->push($mainStudent->id)->unique()->values()->all();
+                if (in_array((int) $validated['active_student_id'], $linkedIds, true)) {
+                    $student = Student::findOrFail($validated['active_student_id']);
+                }
+            }
 
             // Récupérer le modèle d'abonnement
             $template = \App\Models\SubscriptionTemplate::with('club')->findOrFail($validated['subscription_template_id']);
@@ -196,6 +256,13 @@ class StudentSubscriptionController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Ce modèle d\'abonnement n\'est plus disponible'
+                ], 422);
+            }
+
+            if (!$template->stripe_enabled && empty($template->stripe_price_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ce modèle n’est pas disponible en paiement Stripe'
                 ], 422);
             }
 
@@ -246,6 +313,86 @@ class StudentSubscriptionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => $message
+            ], 500);
+        }
+    }
+
+    /**
+     * Confirmer le paiement Stripe au retour du Checkout et créer l'abonnement si nécessaire.
+     */
+    public function confirmCheckoutSession(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Accès réservé aux élèves'
+                ], 403);
+            }
+
+            $validated = $request->validate([
+                'session_id' => 'required|string',
+            ]);
+
+            $session = $this->stripeService->retrieveCheckoutSession($validated['session_id']);
+            if (!$session) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Session Stripe introuvable'
+                ], 404);
+            }
+
+            $sessionData = $session->toArray();
+            $metadata = $sessionData['metadata'] ?? [];
+
+            if (($metadata['type'] ?? '') !== 'subscription') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette session Stripe n’est pas liée à un abonnement'
+                ], 422);
+            }
+
+            if (($metadata['user_id'] ?? null) != $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cette session Stripe ne vous appartient pas'
+                ], 403);
+            }
+
+            if (($sessionData['payment_status'] ?? null) !== 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Le paiement Stripe n’est pas encore confirmé'
+                ], 202);
+            }
+
+            $instance = $this->stripeService->ensureSubscriptionCreatedFromCheckoutSession($sessionData);
+
+            if (!$instance) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de finaliser la création de l’abonnement'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Paiement confirmé et abonnement activé',
+                'data' => $instance
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la confirmation de la session Stripe: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la confirmation du paiement'
             ], 500);
         }
     }

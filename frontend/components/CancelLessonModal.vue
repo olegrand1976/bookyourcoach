@@ -170,19 +170,21 @@ const confirmCancel = async () => {
     processing.value = true
     const studentId = props.lesson.student_id ?? props.lesson.student?.id
     const url = `/student/bookings/${props.lesson.id}/cancel`
+    const reasonValue = cancellationReason.value || ''
+    const fileValue = certificateFile.value
 
-    if (isLateCancel.value && certificateFile.value) {
+    if (isLateCancel.value && fileValue) {
       const formData = new FormData()
-      formData.append('cancellation_reason', cancellationReason.value)
+      formData.append('cancellation_reason', reasonValue || 'medical')
       if (reason.value.trim()) formData.append('reason', reason.value.trim())
-      formData.append('cancellation_certificate', certificateFile.value)
-      if (studentId) formData.append('active_student_id', studentId)
-      const response = await $api.put(url, formData)
-      if (response.data.success) {
+      formData.append('cancellation_certificate', fileValue)
+      if (studentId) formData.append('active_student_id', String(studentId))
+      const response = await $api.post(url, formData)
+      if (response.data?.success) {
         emit('success')
         emit('close')
       } else {
-        alert(response.data.message || 'Erreur lors de l\'annulation')
+        alert(response.data?.message || response.data?.errors?.cancellation_reason?.[0] || 'Erreur lors de l\'annulation')
       }
     } else {
       const payload = {

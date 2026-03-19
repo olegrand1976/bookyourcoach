@@ -155,7 +155,25 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async initializeAuth() {
-      if (this.isInitialized) return
+      const decodeCookieValue = (value) => {
+        if (!value || typeof value !== 'string') return value
+        try {
+          return decodeURIComponent(escape(atob(value)))
+        } catch (e) {
+          try {
+            return decodeURIComponent(value)
+          } catch (e2) {
+            return value
+          }
+        }
+      }
+
+      const isDecodedToken = (value) => typeof value === 'string' && value.includes('|')
+
+      // Autoriser une ré-initialisation côté client si l'initialisation SSR a restauré
+      // des cookies encodés (base64) au lieu des vraies valeurs.
+      if (process.server && this.isInitialized) return
+      if (process.client && this.isInitialized && isDecodedToken(this.token) && this.user?.role) return
 
       console.log('🚀 [INIT ULTRA SIMPLE] Début - restauration depuis cookies')
       
@@ -163,17 +181,20 @@ export const useAuthStore = defineStore('auth', {
       if (process.server) {
         try {
           const authTokenCookie = useCookie('auth-token', { default: () => null })
-          const authUserCookie = useCookie('auth-user', { 
-            default: () => null,
-            serialize: JSON.stringify,
-            deserialize: JSON.parse
-          })
+          const authUserCookie = useCookie('auth-user', { default: () => null })
           
           if (authTokenCookie.value && authUserCookie.value) {
-            this.token = authTokenCookie.value
-            this.user = authUserCookie.value
-            this.isAuthenticated = true
-            console.log('🚀 [INIT] Token et user restaurés depuis cookies (serveur)')
+            const decodedToken = decodeCookieValue(authTokenCookie.value)
+            const decodedUserRaw = decodeCookieValue(authUserCookie.value)
+
+            this.token = decodedToken
+            if (typeof decodedUserRaw === 'string') {
+              this.user = JSON.parse(decodedUserRaw)
+            } else {
+              this.user = decodedUserRaw
+            }
+            this.isAuthenticated = !!this.token && !!this.user
+            console.log('🚀 [INIT] Token et user restaurés depuis cookies (serveur décodé)')
           }
         } catch (error) {
           console.error('🚀 [INIT] Erreur restauration côté serveur:', error)
@@ -188,19 +209,7 @@ export const useAuthStore = defineStore('auth', {
           const parts = value.split(`; ${name}=`);
           if (parts.length === 2) {
             const cookieValue = parts.pop().split(';').shift();
-            // Décoder base64 puis UTF-8 pour gérer correctement les caractères spéciaux
-            try {
-              // Essayer d'abord le nouveau format (base64)
-              const decoded = decodeURIComponent(escape(atob(cookieValue)))
-              return decoded
-            } catch (e) {
-              // Si ça échoue, essayer l'ancien format (direct)
-              try {
-                return decodeURIComponent(cookieValue);
-              } catch (e2) {
-                return cookieValue;
-              }
-            }
+            return decodeCookieValue(cookieValue)
           }
           return null;
         }
@@ -302,6 +311,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.token = null
       this.isAuthenticated = false
+      this.isInitialized = false
       
       // Nettoyer les cookies côté client
       if (process.client) {

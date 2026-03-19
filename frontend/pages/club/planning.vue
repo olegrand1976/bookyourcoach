@@ -76,10 +76,43 @@
           </div>
         </div>
         
+        <!-- Bloc : Certificats médicaux à valider (chargé via API dédiée) -->
+        <div v-if="pendingCertificateLessons.length > 0" class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-amber-700 font-semibold">📋 Certificats médicaux à valider</span>
+                <span class="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full text-sm font-medium">{{ pendingCertificateLessons.length }}</span>
+              </div>
+              <NuxtLink
+                to="/club/students"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+              >
+                Voir les élèves →
+              </NuxtLink>
+            </div>
+            <p class="text-sm text-amber-800">
+              Cours annulés pour raison médicale avec certificat en attente. Ouvrez la fiche de l'élève pour accepter, refuser ou clôturer.
+            </p>
+            <div v-if="pendingCertificateStudents.length > 0" class="flex flex-wrap items-center gap-2 text-sm">
+              <span class="text-amber-700 font-medium">Élèves concernés :</span>
+              <NuxtLink
+                v-for="s in pendingCertificateStudents"
+                :key="s.id"
+                :to="`/club/students?openStudent=${s.id}`"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-100 transition-colors"
+              >
+                {{ s.name }}
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+
         <!-- Bloc 3: Cours programmés (filtrés par créneau sélectionné) -->
         <div class="bg-white shadow rounded-lg p-6">
           <div class="mb-4">
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <h2 class="text-xl font-semibold text-gray-900">
                   Cours programmés
@@ -982,6 +1015,25 @@ const activeDisciplines = computed(() => {
   return active
 })
 
+// Cours avec certificat médical en attente (chargés via API dédiée : GET /club/lessons/pending-certificates)
+const pendingCertificateLessons = ref<any[]>([])
+
+// Élèves concernés = ceux ayant déposé le certificat (soumis par), pas forcément le student_id du cours
+const pendingCertificateStudents = computed(() => {
+  const seen = new Set<number>()
+  const list: { id: number; name: string }[] = []
+  for (const lesson of pendingCertificateLessons.value) {
+    const s = lesson.cancellation_certificate_submitted_by_student ?? lesson.student
+    const id = s?.id ?? lesson.cancellation_certificate_submitted_by_student_id ?? lesson.student_id
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      const name = (s?.user?.name ?? [s?.first_name, s?.last_name].filter(Boolean).join(' ')) || 'Élève'
+      list.push({ id, name: name.trim() || 'Élève' })
+    }
+  }
+  return list
+})
+
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
   if (!selectedSlot.value) {
@@ -1553,6 +1605,27 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     }
     
     showError(errorMessage, 'Erreur de chargement')
+  }
+}
+
+// Charger les cours avec certificat médical en attente (bloc CM à valider)
+async function loadPendingCertificates() {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/lessons/pending-certificates')
+    const list = response.data?.data
+    pendingCertificateLessons.value = Array.isArray(list) ? list : []
+    if (import.meta.dev) {
+      console.log('[Planning] CM à valider:', pendingCertificateLessons.value.length, response.data)
+      if (response.data?._debug) {
+        console.log('[Planning] pending-certificates _debug:', response.data._debug)
+      }
+    }
+  } catch (err: any) {
+    pendingCertificateLessons.value = []
+    if (import.meta.dev) {
+      console.warn('[Planning] Erreur chargement pending-certificates:', err?.response?.status, err?.response?.data)
+    }
   }
 }
 
@@ -3404,6 +3477,8 @@ onMounted(async () => {
     loadStudents(),
     loadCourseTypes()
   ])
+  // Chargement dédié CM à valider (appel explicite pour garantir l'exécution)
+  await loadPendingCertificates()
   updateAvailableDays()
 
   // Depuis la page Plages disponibles : même modale et mêmes règles (CreateLessonModal + createLesson).

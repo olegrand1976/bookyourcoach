@@ -150,7 +150,7 @@
             <div class="flex flex-wrap gap-2 pt-4 mt-4 border-t border-gray-200">
               <button 
                 v-if="canCancel(booking)"
-                @click="handleCancelBooking(booking.id)"
+                @click="openCancelModal(booking)"
                 class="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-sm hover:shadow-md text-sm font-medium"
               >
                 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,6 +205,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Modale d'annulation (raison + certificat si < 8h) -->
+    <CancelLessonModal
+      v-if="selectedLessonForCancel"
+      :lesson="selectedLessonForCancel"
+      @close="selectedLessonForCancel = null"
+      @success="handleCancelSuccess"
+    />
   </div>
 </template>
 
@@ -219,12 +227,13 @@ definePageMeta({
 })
 
 // Composables
-const { loading, loadBookings: loadBookingsData, cancelBooking } = useStudentData()
+const { loading, loadBookings: loadBookingsData } = useStudentData()
 const { formatDate, formatTime, formatPrice, getStatusClass, getStatusText } = useStudentFormatters()
 
 // State
 const bookings = ref<any[]>([])
 const selectedStatus = ref('all')
+const selectedLessonForCancel = ref<any>(null)
 
 const statusOptions = [
   { value: 'all', label: 'Toutes' },
@@ -251,17 +260,14 @@ const loadBookings = async () => {
   }
 }
 
-const handleCancelBooking = async (bookingId: number) => {
-  if (!confirm('Êtes-vous sûr de vouloir annuler cette réservation ?')) {
-    return
-  }
+// Ouvrir la modale d'annulation (raison + certificat obligatoire si < 8h)
+function openCancelModal(booking: any) {
+  selectedLessonForCancel.value = booking
+}
 
-  try {
-    await cancelBooking(bookingId)
-    await loadBookings()
-  } catch (err) {
-    console.error('Error cancelling booking:', err)
-  }
+async function handleCancelSuccess() {
+  selectedLessonForCancel.value = null
+  await loadBookings()
 }
 
 const rateLesson = (booking: any) => {
@@ -275,8 +281,8 @@ const viewBookingDetails = (bookingId: number) => {
 }
 
 const canCancel = (booking: any) => {
-  return ['pending', 'confirmed'].includes(booking.status) && 
-         new Date(booking.lesson?.start_time) > new Date()
+  const startTime = booking.start_time ?? booking.lesson?.start_time
+  return ['pending', 'confirmed'].includes(booking.status) && startTime && new Date(startTime) > new Date()
 }
 
 const canRate = (booking: any) => {

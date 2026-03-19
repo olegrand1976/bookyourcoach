@@ -886,7 +886,17 @@ const resendInvitation = async (studentId) => {
   }
 }
 
-onMounted(() => {
-  loadStudents()
+// Ouvrir la modale historique si l'URL contient ?openStudent=id (ex. depuis le bloc certificats du planning)
+onMounted(async () => {
+  await loadStudents()
+  const route = useRoute()
+  const openId = route.query.openStudent
+  if (openId) {
+    const id = Number(openId)
+    if (id) {
+      selectedStudent.value = { id }
+      showHistoryModal.value = true
+    }
+  }
 })
 </script>
