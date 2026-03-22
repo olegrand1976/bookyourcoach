@@ -190,44 +190,44 @@ class RecurringSlotValidator
             // Même id : doublon seulement si la ligne en base correspond exactement au couple (enseignant, élève) demandé
             // (évite un faux « recurring_duplicate » si deux branches renvoient le même id par incohérence / données).
             $sameRecurringSlot = false;
+            $duplicateSlotRow = null;
             if ($teacherRid !== null && $studentRid !== null && (int) $teacherRid === (int) $studentRid) {
-                $slotRow = SubscriptionRecurringSlot::query()->find((int) $teacherRid);
-                if ($slotRow !== null
-                    && (int) $slotRow->teacher_id === (int) $teacherId
-                    && (int) $slotRow->student_id === (int) $studentId) {
+                $duplicateSlotRow = SubscriptionRecurringSlot::query()->find((int) $teacherRid);
+                if ($duplicateSlotRow !== null
+                    && (int) $duplicateSlotRow->teacher_id === (int) $teacherId
+                    && (int) $duplicateSlotRow->student_id === (int) $studentId) {
                     $sameRecurringSlot = true;
                 }
             }
 
-            if ($sameRecurringSlot) {
+            if ($sameRecurringSlot && $duplicateSlotRow !== null) {
                 $conflicts[] = [
                     'type' => 'recurring_duplicate',
                     'date' => $occurrenceDate->format('Y-m-d'),
                     'message' => 'Créneau récurrent déjà enregistré pour cet élève et cet enseignant à cet horaire.',
                     'recurring_slot_id' => (int) $teacherRid,
                     'lesson_id' => null,
+                    'slot_student_id' => (int) $duplicateSlotRow->student_id,
+                    'slot_teacher_id' => (int) $duplicateSlotRow->teacher_id,
+                    'subscription_instance_id' => (int) $duplicateSlotRow->subscription_instance_id,
                 ];
                 continue;
             }
 
             if ($teacherConflict !== null) {
-                $conflicts[] = [
-                    'type' => 'teacher_unavailable',
-                    'date' => $occurrenceDate->format('Y-m-d'),
-                    'message' => $teacherConflict['message'],
-                    'lesson_id' => $teacherConflict['lesson_id'] ?? null,
-                    'recurring_slot_id' => $teacherConflict['recurring_slot_id'] ?? null,
-                ];
+                $conflicts[] = $this->conflictPayloadFromCheck(
+                    'teacher_unavailable',
+                    $occurrenceDate->format('Y-m-d'),
+                    $teacherConflict
+                );
             }
 
             if ($studentConflict !== null) {
-                $conflicts[] = [
-                    'type' => 'student_unavailable',
-                    'date' => $occurrenceDate->format('Y-m-d'),
-                    'message' => $studentConflict['message'],
-                    'lesson_id' => $studentConflict['lesson_id'] ?? null,
-                    'recurring_slot_id' => $studentConflict['recurring_slot_id'] ?? null,
-                ];
+                $conflicts[] = $this->conflictPayloadFromCheck(
+                    'student_unavailable',
+                    $occurrenceDate->format('Y-m-d'),
+                    $studentConflict
+                );
             }
         }
 
@@ -327,6 +327,34 @@ class RecurringSlotValidator
                 });
             }
         });
+    }
+
+    /**
+     * Enrichit la réponse API 422 (diagnostic : qui bloque réellement).
+     *
+     * @param  array<string, mixed>  $check
+     * @return array<string, mixed>
+     */
+    private function conflictPayloadFromCheck(string $type, string $dateYmd, array $check): array
+    {
+        $base = [
+            'type' => $type,
+            'date' => $dateYmd,
+            'message' => $check['message'],
+            'lesson_id' => $check['lesson_id'] ?? null,
+            'recurring_slot_id' => $check['recurring_slot_id'] ?? null,
+        ];
+        foreach (['slot_student_id', 'slot_teacher_id', 'lesson_teacher_id', 'lesson_student_id', 'subscription_instance_id'] as $key) {
+            if (! array_key_exists($key, $check)) {
+                continue;
+            }
+            if ($check[$key] === null) {
+                continue;
+            }
+            $base[$key] = $check[$key];
+        }
+
+        return $base;
     }
 
     private function occurrenceUtcBounds(Carbon $occurrenceDate, string $startTime, string $endTime): array
@@ -444,6 +472,8 @@ class RecurringSlotValidator
                 'message' => 'Élève déjà occupé (cours)',
                 'lesson_id' => (int) $conflictLesson->id,
                 'recurring_slot_id' => null,
+                'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
+                'lesson_student_id' => $conflictLesson->student_id !== null ? (int) $conflictLesson->student_id : null,
             ];
         }
 
@@ -483,6 +513,9 @@ class RecurringSlotValidator
                     'message' => 'Élève déjà réservé (récurrence)',
                     'lesson_id' => null,
                     'recurring_slot_id' => (int) $slot->id,
+                    'slot_student_id' => (int) $slot->student_id,
+                    'slot_teacher_id' => (int) $slot->teacher_id,
+                    'subscription_instance_id' => (int) $slot->subscription_instance_id,
                 ];
             }
         }
@@ -615,6 +648,8 @@ class RecurringSlotValidator
                 'message' => 'Enseignant déjà occupé',
                 'lesson_id' => (int) $conflictLesson->id,
                 'recurring_slot_id' => null,
+                'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
+                'lesson_student_id' => $conflictLesson->student_id !== null ? (int) $conflictLesson->student_id : null,
             ];
         }
 
@@ -655,6 +690,9 @@ class RecurringSlotValidator
                     'message' => 'Enseignant déjà réservé (récurrence)',
                     'lesson_id' => null,
                     'recurring_slot_id' => (int) $slot->id,
+                    'slot_student_id' => (int) $slot->student_id,
+                    'slot_teacher_id' => (int) $slot->teacher_id,
+                    'subscription_instance_id' => (int) $slot->subscription_instance_id,
                 ];
             }
         }
