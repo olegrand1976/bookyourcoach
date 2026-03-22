@@ -556,16 +556,17 @@ class LessonController extends Controller
                         'hint' => 'Mettre RECURRING_VALIDATION_LOG_CONFLICTS=true (.env) pour journaliser chaque conflit ([RecurringAvailability] dans les logs).',
                     ]);
 
-                    return response()->json([
+                    return response()->json(array_filter([
                         'success' => false,
                         'message' => $recurringValidation['message'],
+                        'hint' => $recurringValidation['hint'] ?? null,
                         'errors' => [
                             'recurring' => array_map(function (array $c) {
                                 return ($c['date'] ?? '') . ' : ' . ($c['message'] ?? '');
                             }, $recurringValidation['conflicts']),
                         ],
                         'conflicts' => $recurringValidation['conflicts'],
-                    ], 422);
+                    ], fn ($v) => $v !== null), 422);
                 }
             }
 

@@ -93,11 +93,13 @@ class RecurringSlotValidator
                 $openSlot->start_time,
                 $openSlot->end_time
             );
-            if ($teacherConflict) {
+            if ($teacherConflict !== null) {
                 $conflicts[] = [
                     'type' => 'teacher_unavailable',
                     'date' => $occurrenceDate->format('Y-m-d'),
-                    'message' => $teacherConflict
+                    'message' => $teacherConflict['message'],
+                    'lesson_id' => $teacherConflict['lesson_id'] ?? null,
+                    'recurring_slot_id' => $teacherConflict['recurring_slot_id'] ?? null,
                 ];
             }
         }
@@ -130,7 +132,7 @@ class RecurringSlotValidator
      * @param string $endTime H:i ou H:i:s
      * @param int $recurringInterval Fréquence en semaines (1=hebdo, 2=bi-hebdo, etc.). Défaut 1.
      * @param int|null $excludeLessonId ID d'un cours à exclure du contrôle (ex: cours déclencheur déjà créé)
-     * @return array ['valid' => bool, 'conflicts' => array, 'message' => string]
+     * @return array{valid: bool, conflicts: array, message: string, hint: ?string}
      */
     public function validateRecurringAvailabilityWithoutOpenSlot(
         int $teacherId,
@@ -166,13 +168,6 @@ class RecurringSlotValidator
                 $excludeLessonId,
                 $k
             );
-            if ($teacherConflict) {
-                $conflicts[] = [
-                    'type' => 'teacher_unavailable',
-                    'date' => $occurrenceDate->format('Y-m-d'),
-                    'message' => $teacherConflict
-                ];
-            }
 
             $studentConflict = $this->checkStudentAvailability(
                 $studentId,
@@ -182,16 +177,60 @@ class RecurringSlotValidator
                 $excludeLessonId,
                 $k
             );
-            if ($studentConflict) {
+
+            $teacherRid = $teacherConflict !== null ? ($teacherConflict['recurring_slot_id'] ?? null) : null;
+            $studentRid = $studentConflict !== null ? ($studentConflict['recurring_slot_id'] ?? null) : null;
+            $sameRecurringSlot = $teacherRid !== null && $studentRid !== null
+                && (int) $teacherRid === (int) $studentRid;
+
+            if ($sameRecurringSlot) {
+                $conflicts[] = [
+                    'type' => 'recurring_duplicate',
+                    'date' => $occurrenceDate->format('Y-m-d'),
+                    'message' => 'Créneau récurrent déjà enregistré pour cet élève et cet enseignant à cet horaire.',
+                    'recurring_slot_id' => (int) $teacherRid,
+                    'lesson_id' => null,
+                ];
+                continue;
+            }
+
+            if ($teacherConflict !== null) {
+                $conflicts[] = [
+                    'type' => 'teacher_unavailable',
+                    'date' => $occurrenceDate->format('Y-m-d'),
+                    'message' => $teacherConflict['message'],
+                    'lesson_id' => $teacherConflict['lesson_id'] ?? null,
+                    'recurring_slot_id' => $teacherConflict['recurring_slot_id'] ?? null,
+                ];
+            }
+
+            if ($studentConflict !== null) {
                 $conflicts[] = [
                     'type' => 'student_unavailable',
                     'date' => $occurrenceDate->format('Y-m-d'),
-                    'message' => $studentConflict
+                    'message' => $studentConflict['message'],
+                    'lesson_id' => $studentConflict['lesson_id'] ?? null,
+                    'recurring_slot_id' => $studentConflict['recurring_slot_id'] ?? null,
                 ];
             }
         }
 
         $valid = empty($conflicts);
+
+        $hint = null;
+        if (! $valid) {
+            $hasDuplicateRecurring = false;
+            foreach ($conflicts as $c) {
+                if (($c['type'] ?? '') === 'recurring_duplicate') {
+                    $hasDuplicateRecurring = true;
+                    break;
+                }
+            }
+            if ($hasDuplicateRecurring) {
+                $hint = 'Une réservation récurrente identique (même élève, enseignant et horaire) existe déjà. Supprimez ou modifiez ce créneau récurrent avant d’en enregistrer un nouveau, ou créez un cours sans récurrence.';
+            }
+        }
+
         Log::info($valid ? "✅ Récurrence validée (sans open_slot)" : "❌ Récurrence invalide (sans open_slot)", [
             'conflicts_count' => count($conflicts),
             'conflicts' => array_slice($conflicts, 0, 5)
@@ -225,7 +264,8 @@ class RecurringSlotValidator
             'conflicts' => $conflicts,
             'message' => $valid
                 ? 'Créneau disponible pour les 6 prochains mois'
-                : 'Conflits détectés sur ' . count($conflicts) . ' occurrence(s)'
+                : 'Conflits détectés sur ' . count($conflicts) . ' occurrence(s)',
+            'hint' => $hint,
         ];
     }
 
@@ -311,7 +351,7 @@ class RecurringSlotValidator
     }
 
     /**
-     * Vérifier si l'élève a déjà un cours ou une récurrence à cette date/heure
+     * @return array{message: string, lesson_id: ?int, recurring_slot_id: ?int}|null
      */
     private function checkStudentAvailability(
         int $studentId,
@@ -320,7 +360,7 @@ class RecurringSlotValidator
         string $endTime,
         ?int $excludeLessonId = null,
         int $weekIndex = 0
-    ): ?string {
+    ): ?array {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
         $lessonQuery = Lesson::where('student_id', $studentId)
@@ -353,7 +393,11 @@ class RecurringSlotValidator
                 ],
             ]);
 
-            return "Élève déjà occupé (cours)";
+            return [
+                'message' => 'Élève déjà occupé (cours)',
+                'lesson_id' => (int) $conflictLesson->id,
+                'recurring_slot_id' => null,
+            ];
         }
 
         $recurringCandidates = SubscriptionRecurringSlot::activeOnDate($date)
@@ -385,7 +429,11 @@ class RecurringSlotValidator
                     ],
                 ]);
 
-                return "Élève déjà réservé (récurrence)";
+                return [
+                    'message' => 'Élève déjà réservé (récurrence)',
+                    'lesson_id' => null,
+                    'recurring_slot_id' => (int) $slot->id,
+                ];
             }
         }
 
@@ -465,13 +513,7 @@ class RecurringSlotValidator
     }
 
     /**
-     * Vérifier si l'enseignant est disponible pour une date/heure donnée
-     *
-     * @param int $teacherId
-     * @param Carbon $date
-     * @param string $startTime
-     * @param string $endTime
-     * @return string|null Message d'erreur ou null si OK
+     * @return array{message: string, lesson_id: ?int, recurring_slot_id: ?int}|null
      */
     private function checkTeacherAvailability(
         int $teacherId,
@@ -480,7 +522,7 @@ class RecurringSlotValidator
         string $endTime,
         ?int $excludeLessonId = null,
         int $weekIndex = 0
-    ): ?string {
+    ): ?array {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
         // Vérifier les cours existants (chevauchement d'intervalles réels en UTC, pas whereDate/whereTime)
@@ -514,7 +556,11 @@ class RecurringSlotValidator
                 ],
             ]);
 
-            return "Enseignant déjà occupé";
+            return [
+                'message' => 'Enseignant déjà occupé',
+                'lesson_id' => (int) $conflictLesson->id,
+                'recurring_slot_id' => null,
+            ];
         }
 
         // Vérifier les récurrences actives à cette date d'occurrence
@@ -547,7 +593,11 @@ class RecurringSlotValidator
                     ],
                 ]);
 
-                return "Enseignant déjà réservé (récurrence)";
+                return [
+                    'message' => 'Enseignant déjà réservé (récurrence)',
+                    'lesson_id' => null,
+                    'recurring_slot_id' => (int) $slot->id,
+                ];
             }
         }
 
