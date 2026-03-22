@@ -186,6 +186,49 @@ class RecurringSlotValidator
     }
 
     /**
+     * Normalise une heure (TIME SQL, H:i ou H:i:s) pour construction datetime locale.
+     */
+    private function normalizeTimeToHis(mixed $time): string
+    {
+        if ($time instanceof \DateTimeInterface) {
+            return $time->format('H:i:s');
+        }
+        $s = trim((string) $time);
+        if ($s === '') {
+            return '00:00:00';
+        }
+        if (preg_match('/^\d{1,2}:\d{2}$/', $s)) {
+            return $s . ':00';
+        }
+
+        return $s;
+    }
+
+    /**
+     * Fenêtre d'une occurrence en fuseau app → bornes UTC pour comparaison SQL sur lessons (datetimes stockés en UTC).
+     *
+     * @return array{0: string, 1: string} [startUtc, endUtc] format Y-m-d H:i:s
+     */
+    private function occurrenceUtcBounds(Carbon $occurrenceDate, string $startTime, string $endTime): array
+    {
+        $tz = config('app.timezone');
+        $dateStr = $occurrenceDate->format('Y-m-d');
+        $startHms = $this->normalizeTimeToHis($startTime);
+        $endHms = $this->normalizeTimeToHis($endTime);
+
+        $localStart = Carbon::createFromFormat('Y-m-d H:i:s', $dateStr . ' ' . $startHms, $tz);
+        $localEnd = Carbon::createFromFormat('Y-m-d H:i:s', $dateStr . ' ' . $endHms, $tz);
+        if ($localEnd->lte($localStart)) {
+            $localEnd->addDay();
+        }
+
+        return [
+            $localStart->utc()->format('Y-m-d H:i:s'),
+            $localEnd->utc()->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
      * Vérifier si l'élève a déjà un cours ou une récurrence à cette date/heure
      */
     private function checkStudentAvailability(
@@ -195,12 +238,11 @@ class RecurringSlotValidator
         string $endTime,
         ?int $excludeLessonId = null
     ): ?string {
+        [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
+
         $lessonQuery = Lesson::where('student_id', $studentId)
-            ->whereDate('start_time', $date->format('Y-m-d'))
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->whereTime('start_time', '<', $endTime)
-                    ->whereTime('end_time', '>', $startTime);
-            })
+            ->where('start_time', '<', $endUtc)
+            ->where('end_time', '>', $startUtc)
             ->whereIn('status', ['pending', 'confirmed']);
 
         if ($excludeLessonId) {
@@ -264,11 +306,14 @@ class RecurringSlotValidator
             return null;
         }
 
-        // Compter les cours existants ce jour-là dans cette plage horaire
+        // Compter les cours dont l'intervalle chevauche la fenêtre du créneau ouvert (date + heures en fuseau app → UTC)
+        $slotStart = $this->normalizeTimeToHis($openSlot->start_time);
+        $slotEnd = $this->normalizeTimeToHis($openSlot->end_time);
+        [$windowStartUtc, $windowEndUtc] = $this->occurrenceUtcBounds($date, $slotStart, $slotEnd);
+
         $existingLessonsCount = Lesson::where('club_id', $openSlot->club_id)
-            ->whereDate('start_time', $date->format('Y-m-d'))
-            ->whereTime('start_time', '>=', $openSlot->start_time)
-            ->whereTime('start_time', '<', $openSlot->end_time)
+            ->where('start_time', '<', $windowEndUtc)
+            ->where('end_time', '>', $windowStartUtc)
             ->whereIn('status', ['pending', 'confirmed'])
             ->count();
 
@@ -308,16 +353,12 @@ class RecurringSlotValidator
         string $endTime,
         ?int $excludeLessonId = null
     ): ?string {
-        // Vérifier les cours existants
+        [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
+
+        // Vérifier les cours existants (chevauchement d'intervalles réels en UTC, pas whereDate/whereTime)
         $lessonQuery = Lesson::where('teacher_id', $teacherId)
-            ->whereDate('start_time', $date->format('Y-m-d'))
-            ->where(function ($query) use ($startTime, $endTime) {
-                // Conflit si les plages se chevauchent
-                $query->where(function ($q) use ($startTime, $endTime) {
-                    $q->whereTime('start_time', '<', $endTime)
-                      ->whereTime('end_time', '>', $startTime);
-                });
-            })
+            ->where('start_time', '<', $endUtc)
+            ->where('end_time', '>', $startUtc)
             ->whereIn('status', ['pending', 'confirmed']);
 
         if ($excludeLessonId) {
