@@ -13,10 +13,11 @@ class SubscriptionRecurringSlot extends Model
 
     /**
      * Durée max (minutes) pour considérer start_time/end_time comme un créneau « cours ».
-     * Au-delà (ex. 14h–21h copié depuis ClubOpenSlot), on n'applique pas le chevauchement horaire
-     * contre une leçon ponctuelle : sinon tout créneau dans la journée serait en conflit.
+     * Au-delà (ex. plage club 14h–17h = 180 min), on ignore le chevauchement contre une leçon ponctuelle :
+     * sinon une fenêtre d’après-midi entière bloque abusivement 16h40–17h00.
+     * Les vraies réservations récurrentes « cours » restent typiquement ≤ 90–120 min.
      */
-    public const MAX_LESSON_LIKE_WINDOW_MINUTES = 300;
+    public const MAX_LESSON_LIKE_WINDOW_MINUTES = 120;
 
     protected $fillable = [
         'subscription_instance_id',

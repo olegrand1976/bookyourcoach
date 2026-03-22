@@ -229,6 +229,44 @@ class RecurringSlotValidator
     }
 
     /**
+     * Indique si un SubscriptionRecurringSlot génère réellement une occurrence à la date donnée,
+     * en suivant la même logique que LegacyRecurringSlotService::generateDatesForRecurringSlot
+     * (ancrage sur start_date + jour de la semaine, puis une occurrence tous les recurring_interval semaines).
+     */
+    private function subscriptionRecurringSlotFiresOnDate(SubscriptionRecurringSlot $slot, Carbon $occurrenceDate): bool
+    {
+        $interval = max(1, (int) ($slot->recurring_interval ?? 1));
+        $occurrence = $occurrenceDate->copy()->startOfDay();
+        $slotEnd = Carbon::parse($slot->end_date)->endOfDay();
+        $anchorBase = Carbon::parse($slot->start_date)->startOfDay();
+
+        if ($occurrence->lt($anchorBase) || $occurrence->gt($slotEnd)) {
+            return false;
+        }
+        if ((int) $occurrence->dayOfWeek !== (int) $slot->day_of_week) {
+            return false;
+        }
+
+        $anchor = $anchorBase->copy();
+        while ($anchor->dayOfWeek !== (int) $slot->day_of_week) {
+            $anchor->addDay();
+        }
+
+        if ($occurrence->lt($anchor)) {
+            return false;
+        }
+
+        $daysBetween = $anchor->diffInDays($occurrence, false);
+        if ($daysBetween < 0 || ($daysBetween % 7) !== 0) {
+            return false;
+        }
+
+        $weekIndex = (int) ($daysBetween / 7);
+
+        return ($weekIndex % $interval) === 0;
+    }
+
+    /**
      * Vérifier si l'élève a déjà un cours ou une récurrence à cette date/heure
      */
     private function checkStudentAvailability(
@@ -255,15 +293,17 @@ class RecurringSlotValidator
             return "Élève déjà occupé (cours)";
         }
 
-        $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
+        $recurringCandidates = SubscriptionRecurringSlot::activeOnDate($date)
             ->where('student_id', $studentId)
             ->byDayOfWeek($date->dayOfWeek)
             ->lessonLikeTimeWindow()
             ->byTimeRange($startTime, $endTime)
-            ->exists();
+            ->get();
 
-        if ($conflictingRecurring) {
-            return "Élève déjà réservé (récurrence)";
+        foreach ($recurringCandidates as $slot) {
+            if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                return "Élève déjà réservé (récurrence)";
+            }
         }
 
         return null;
@@ -318,13 +358,17 @@ class RecurringSlotValidator
             ->count();
 
         // Compter les récurrences actives à cette date d'occurrence (pas seulement "aujourd'hui")
-        $recurringCount = SubscriptionRecurringSlot::activeOnDate($date)
+        $recurringSlots = SubscriptionRecurringSlot::activeOnDate($date)
             ->byDayOfWeek($date->dayOfWeek)
             ->lessonLikeTimeWindow()
             ->byTimeRange($openSlot->start_time, $openSlot->end_time)
             ->whereHas('openSlot', function ($query) use ($openSlot) {
                 $query->where('club_id', $openSlot->club_id);
             })
+            ->get();
+
+        $recurringCount = $recurringSlots
+            ->filter(fn (SubscriptionRecurringSlot $s) => $this->subscriptionRecurringSlotFiresOnDate($s, $date))
             ->count();
 
         $totalCount = $existingLessonsCount + $recurringCount;
@@ -372,15 +416,17 @@ class RecurringSlotValidator
         }
 
         // Vérifier les récurrences actives à cette date d'occurrence
-        $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
+        $teacherRecurringCandidates = SubscriptionRecurringSlot::activeOnDate($date)
             ->byTeacher($teacherId)
             ->byDayOfWeek($date->dayOfWeek)
             ->lessonLikeTimeWindow()
             ->byTimeRange($startTime, $endTime)
-            ->exists();
+            ->get();
 
-        if ($conflictingRecurring) {
-            return "Enseignant déjà réservé (récurrence)";
+        foreach ($teacherRecurringCandidates as $slot) {
+            if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                return "Enseignant déjà réservé (récurrence)";
+            }
         }
 
         return null;

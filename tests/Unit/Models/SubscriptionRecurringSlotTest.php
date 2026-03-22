@@ -433,11 +433,25 @@ class SubscriptionRecurringSlotTest extends TestCase
             'status' => 'active',
         ]);
 
+        // 14h–17h = 180 min > MAX_LESSON_LIKE (120) : ne doit pas être traité comme un « cours » ponctuel
+        $mediumClubWindow = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY,
+            'start_time' => '14:00:00',
+            'end_time' => '17:00:00',
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
         $lessonLike = SubscriptionRecurringSlot::lessonLikeTimeWindow()->pluck('id')->all();
 
         $this->assertContains($this->recurringSlot->id, $lessonLike);
         $this->assertContains($narrow->id, $lessonLike);
         $this->assertNotContains($wide->id, $lessonLike);
+        $this->assertNotContains($mediumClubWindow->id, $lessonLike);
     }
 }
 
