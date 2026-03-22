@@ -1052,10 +1052,22 @@ watch(() => props.form.course_type_id, async (newCourseTypeId, oldCourseTypeId) 
       
       // Attendre que availableTimes soit recalculé avec la nouvelle durée
       await nextTick()
-      // Auto-sélectionner la première heure disponible
+      // Conserver l’heure déjà choisie / plage cliquée si elle reste valide ; sinon seulement alors 1re plage
       if (availableTimes.value.length > 0 && props.form.date) {
-        props.form.time = availableTimes.value[0].value
-        console.log('✨ [CreateLessonModal] Première heure disponible auto-sélectionnée après changement de type de cours:', availableTimes.value[0].value)
+        const list = availableTimes.value
+        const fromCurrent = findMatchingTimeOption(list, props.form.time)
+        const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
+        const fromRequested = requested ? findMatchingTimeOption(list, requested) : undefined
+        if (fromCurrent) {
+          props.form.time = fromCurrent.value
+          console.log('✨ [CreateLessonModal] Heure conservée après changement de type de cours:', fromCurrent.value)
+        } else if (fromRequested) {
+          props.form.time = fromRequested.value
+          console.log('✨ [CreateLessonModal] Heure de la plage cliquée réappliquée après type de cours:', fromRequested.value)
+        } else {
+          props.form.time = list[0].value
+          console.log('✨ [CreateLessonModal] Première heure disponible après changement de type de cours:', list[0].value)
+        }
       }
     }
   }
@@ -1108,6 +1120,25 @@ function minutesToTime(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+/** Même heure HH:mm (tolère HH:mm:ss ou espaces côté formulaire / select). */
+function timeOptionMatches(formTime: string | null | undefined, optionValue: string): boolean {
+  if (formTime == null || formTime === '' || !optionValue) return false
+  const a = String(formTime).trim().substring(0, 5)
+  const b = String(optionValue).trim().substring(0, 5)
+  return /^\d{1,2}:\d{2}$/.test(a) && a === b
+}
+
+function findMatchingTimeOption(
+  list: { value: string }[],
+  formTime: string | null | undefined
+): { value: string } | undefined {
+  return list.find((t) => timeOptionMatches(formTime, t.value))
+}
+
+function isTimeInAvailableList(list: { value: string }[], formTime: string | null | undefined): boolean {
+  return !!findMatchingTimeOption(list, formTime)
 }
 
 /** Créneaux récurrents (abonnements) du club — pour aligner la modale sur RecurringSlotValidator. */
@@ -1443,8 +1474,8 @@ const requestedTimeFromSlot = ref<string | null>(null)
 
 watch(() => props.show, async (isOpen) => {
   if (isOpen) {
-    await loadClubRecurringSlots()
-    // Priorité à la prop explicitement passée par le parent (évite toute course avec les watchers)
+    // D’abord figer l’heure demandée : si on await l’API avant, les watchers (type de cours, availableTimes)
+    // peuvent assigner la 1re plage du créneau (ex. 14:00) avant que 16:40 ne soit appliquée.
     const requested = (props.requestedTime ?? props.form.time) ? String(props.requestedTime ?? props.form.time).substring(0, 5) : ''
     if (requested && /^\d{1,2}:\d{2}$/.test(requested)) {
       requestedTimeFromSlot.value = requested
@@ -1457,6 +1488,7 @@ watch(() => props.show, async (isOpen) => {
     } else {
       requestedTimeFromSlot.value = null
     }
+    await loadClubRecurringSlots()
   } else {
     requestedTimeFromSlot.value = null
   }
@@ -1467,7 +1499,7 @@ watch(() => props.show, async (isOpen) => {
 const timeOptionsForSelect = computed(() => {
   const available = availableTimes.value
   const requested = requestedTimeFromSlot.value
-  const isRequestedFull = requested && !available.some(t => t.value === requested)
+  const isRequestedFull = requested && !available.some((t) => timeOptionMatches(requested, t.value))
   if (isRequestedFull) {
     return [
       { value: `__complet__${requested}`, label: `${requested} (complet)`, disabled: true },
@@ -1558,7 +1590,7 @@ watch(() => props.form.date, async (newDate, oldDate) => {
     await nextTick()
     // En mode édition, ne pas changer l'heure si elle est déjà définie et disponible
     if (props.editingLesson && props.form.time) {
-      const isCurrentTimeAvailable = availableTimes.value.some(t => t.value === props.form.time)
+      const isCurrentTimeAvailable = isTimeInAvailableList(availableTimes.value, props.form.time)
       if (!isCurrentTimeAvailable && availableTimes.value.length > 0) {
         // L'heure actuelle n'est plus disponible, sélectionner la première disponible
         props.form.time = availableTimes.value[0].value
@@ -1568,9 +1600,9 @@ watch(() => props.form.date, async (newDate, oldDate) => {
       }
     } else if (!props.editingLesson && currentSelectedSlot.value) {
       const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
-      const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+      const isCurrentTimeAvailable = currentTime && isTimeInAvailableList(availableTimes.value, currentTime)
       const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
-      const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+      const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
 
       if (isCurrentTimeAvailable) {
         console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible, conservée:', currentTime)
@@ -1605,7 +1637,7 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
   if (props.editingLesson) {
     // Vérifier si l'heure actuelle est toujours disponible
     if (props.form.time) {
-      const isCurrentTimeAvailable = newTimes.some(t => t.value === props.form.time)
+      const isCurrentTimeAvailable = isTimeInAvailableList(newTimes, props.form.time)
       if (!isCurrentTimeAvailable && newTimes.length > 0) {
         // L'heure actuelle n'est plus disponible, sélectionner la première disponible
         props.form.time = newTimes[0].value
@@ -1623,10 +1655,10 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
   // - Aucune heure n'est sélectionnée OU l'heure sélectionnée n'est plus disponible
   if (newTimes.length > 0 && props.form.date && props.form.course_type_id) {
     const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
-    const isCurrentTimeAvailable = currentTime && newTimes.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+    const isCurrentTimeAvailable = currentTime && isTimeInAvailableList(newTimes, currentTime)
     // Heure demandée à l'ouverture (clic sur une plage horaire) : la conserver si elle est dans la liste
     const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
-    const requestedInList = requested && newTimes.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+    const requestedInList = requested && isTimeInAvailableList(newTimes, requested)
 
     if (requested && requestedInList && (!currentTime || !isCurrentTimeAvailable)) {
       props.form.time = requested
@@ -1657,7 +1689,7 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
     
     // En mode édition, vérifier si l'heure actuelle est toujours disponible
     if (props.editingLesson && props.form.time) {
-      const isCurrentTimeAvailable = availableTimes.value.some(t => t.value === props.form.time)
+      const isCurrentTimeAvailable = isTimeInAvailableList(availableTimes.value, props.form.time)
       if (!isCurrentTimeAvailable && availableTimes.value.length > 0) {
         // L'heure actuelle n'est plus disponible, sélectionner la première disponible
         props.form.time = availableTimes.value[0].value
@@ -1668,9 +1700,9 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
     } else if (!props.editingLesson) {
       if (availableTimes.value.length > 0 && props.form.course_type_id) {
         const currentTime = props.form.time ? props.form.time.substring(0, 5) : ''
-        const isCurrentTimeAvailable = currentTime && availableTimes.value.some(t => t.value === currentTime || (t.value && t.value.substring(0, 5) === currentTime))
+        const isCurrentTimeAvailable = currentTime && isTimeInAvailableList(availableTimes.value, currentTime)
         const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
-        const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+        const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
 
         if (isCurrentTimeAvailable) {
           console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau, conservée:', currentTime)
@@ -1699,14 +1731,14 @@ watch(() => props.form.duration, async () => {
     if (availableTimes.value.length > 0) {
       // En mode édition : garder l'heure actuelle si elle est encore disponible
       if (props.editingLesson && props.form.time) {
-        const stillAvailable = availableTimes.value.some(t => t.value === props.form.time)
+        const stillAvailable = isTimeInAvailableList(availableTimes.value, props.form.time)
         if (stillAvailable) {
           console.log('✅ [CreateLessonModal] Heure conservée après changement de durée:', props.form.time)
           return
         }
       }
       const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
-      const requestedInList = requested && availableTimes.value.some(t => t.value === requested || (t.value && t.value.substring(0, 5) === requested))
+      const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
       if (requested && requestedInList) {
         props.form.time = requested
       } else {
