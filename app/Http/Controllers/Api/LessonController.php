@@ -537,7 +537,9 @@ class LessonController extends Controller
                     $dayOfWeek,
                     $startTimeStr,
                     $endTimeStr,
-                    $recurringIntervalForRecurrence
+                    $recurringIntervalForRecurrence,
+                    null,
+                    isset($validated['club_id']) ? (int) $validated['club_id'] : null
                 );
 
                 if (!$recurringValidation['valid']) {
@@ -2026,7 +2028,8 @@ class LessonController extends Controller
                 $timeStart,
                 $timeEnd,
                 $recurringIntervalForValidation,
-                (int) $lesson->id
+                (int) $lesson->id,
+                $lesson->club_id ? (int) $lesson->club_id : null
             );
             if (!$validation26['valid']) {
                 Log::warning("❌ Récurrence non créée : conflits sur 26 semaines", [

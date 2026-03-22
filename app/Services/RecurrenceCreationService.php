@@ -98,7 +98,8 @@ class RecurrenceCreationService
                 $timeStart,
                 $timeEnd,
                 $recurringInterval,
-                (int) $lesson->id
+                (int) $lesson->id,
+                $lesson->club_id ? (int) $lesson->club_id : null
             );
 
             if (!$validation['valid']) {

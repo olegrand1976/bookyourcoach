@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
+use App\Models\Subscription;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\SubscriptionInstance;
+use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -132,6 +134,7 @@ class RecurringSlotValidator
      * @param string $endTime H:i ou H:i:s
      * @param int $recurringInterval Fréquence en semaines (1=hebdo, 2=bi-hebdo, etc.). Défaut 1.
      * @param int|null $excludeLessonId ID d'un cours à exclure du contrôle (ex: cours déclencheur déjà créé)
+     * @param int|null $clubId Si défini, ne considère que les cours et récurrences de cet abonnement/club (évite faux conflits inter-clubs).
      * @return array{valid: bool, conflicts: array, message: string, hint: ?string}
      */
     public function validateRecurringAvailabilityWithoutOpenSlot(
@@ -142,7 +145,8 @@ class RecurringSlotValidator
         string $startTime,
         string $endTime,
         int $recurringInterval = 1,
-        ?int $excludeLessonId = null
+        ?int $excludeLessonId = null,
+        ?int $clubId = null
     ): array {
         $startDate = Carbon::parse($startDate);
         $conflicts = [];
@@ -151,6 +155,7 @@ class RecurringSlotValidator
         Log::info("🔍 Validation récurrence (sans open_slot)", [
             'teacher_id' => $teacherId,
             'student_id' => $studentId,
+            'club_id' => $clubId,
             'start_date' => $startDate->format('Y-m-d'),
             'day_of_week' => $dayOfWeek,
             'recurring_interval' => $recurringInterval,
@@ -166,7 +171,8 @@ class RecurringSlotValidator
                 $startTime,
                 $endTime,
                 $excludeLessonId,
-                $k
+                $k,
+                $clubId
             );
 
             $studentConflict = $this->checkStudentAvailability(
@@ -175,13 +181,23 @@ class RecurringSlotValidator
                 $startTime,
                 $endTime,
                 $excludeLessonId,
-                $k
+                $k,
+                $clubId
             );
 
             $teacherRid = $teacherConflict !== null ? ($teacherConflict['recurring_slot_id'] ?? null) : null;
             $studentRid = $studentConflict !== null ? ($studentConflict['recurring_slot_id'] ?? null) : null;
-            $sameRecurringSlot = $teacherRid !== null && $studentRid !== null
-                && (int) $teacherRid === (int) $studentRid;
+            // Même id : doublon seulement si la ligne en base correspond exactement au couple (enseignant, élève) demandé
+            // (évite un faux « recurring_duplicate » si deux branches renvoient le même id par incohérence / données).
+            $sameRecurringSlot = false;
+            if ($teacherRid !== null && $studentRid !== null && (int) $teacherRid === (int) $studentRid) {
+                $slotRow = SubscriptionRecurringSlot::query()->find((int) $teacherRid);
+                if ($slotRow !== null
+                    && (int) $slotRow->teacher_id === (int) $teacherId
+                    && (int) $slotRow->student_id === (int) $studentId) {
+                    $sameRecurringSlot = true;
+                }
+            }
 
             if ($sameRecurringSlot) {
                 $conflicts[] = [
@@ -227,7 +243,7 @@ class RecurringSlotValidator
                 }
             }
             if ($hasDuplicateRecurring) {
-                $hint = 'Une réservation récurrente identique (même élève, enseignant et horaire) existe déjà. Supprimez ou modifiez ce créneau récurrent avant d’en enregistrer un nouveau, ou créez un cours sans récurrence.';
+                $hint = 'Une réservation récurrente identique (même élève, même enseignant et même horaire) existe déjà pour ce club. Deux élèves différents sur le même abonnement peuvent avoir cours au même moment avec des enseignants différents. Supprimez ou modifiez le créneau récurrent existant, ou créez un cours sans récurrence.';
             }
         }
 
@@ -293,6 +309,26 @@ class RecurringSlotValidator
      *
      * @return array{0: string, 1: string} [startUtc, endUtc] format Y-m-d H:i:s
      */
+    /**
+     * Limite les SubscriptionRecurringSlot au club du cours (via subscription → club).
+     */
+    private function scopeRecurringSlotsToClub(Builder $query, ?int $clubId): Builder
+    {
+        if ($clubId === null) {
+            return $query;
+        }
+
+        return $query->whereHas('subscriptionInstance.subscription', function ($q) use ($clubId) {
+            if (Subscription::hasClubIdColumn()) {
+                $q->where('club_id', $clubId);
+            } else {
+                $q->whereHas('template', function ($tq) use ($clubId) {
+                    $tq->where('club_id', $clubId);
+                });
+            }
+        });
+    }
+
     private function occurrenceUtcBounds(Carbon $occurrenceDate, string $startTime, string $endTime): array
     {
         $tz = config('app.timezone');
@@ -359,14 +395,25 @@ class RecurringSlotValidator
         string $startTime,
         string $endTime,
         ?int $excludeLessonId = null,
-        int $weekIndex = 0
+        int $weekIndex = 0,
+        ?int $clubId = null
     ): ?array {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
-        $lessonQuery = Lesson::where('student_id', $studentId)
+        $lessonQuery = Lesson::query()
+            ->whereIn('status', ['pending', 'confirmed'])
             ->where('start_time', '<', $endUtc)
             ->where('end_time', '>', $startUtc)
-            ->whereIn('status', ['pending', 'confirmed']);
+            ->where(function ($q) use ($studentId) {
+                $q->where('student_id', $studentId)
+                    ->orWhereHas('students', function ($sq) use ($studentId) {
+                        $sq->where('students.id', $studentId);
+                    });
+            });
+
+        if ($clubId !== null) {
+            $lessonQuery->where('club_id', $clubId);
+        }
 
         if ($excludeLessonId) {
             $lessonQuery->where('id', '!=', $excludeLessonId);
@@ -400,12 +447,15 @@ class RecurringSlotValidator
             ];
         }
 
-        $recurringCandidates = SubscriptionRecurringSlot::activeOnDate($date)
+        $recurringCandidatesQuery = SubscriptionRecurringSlot::activeOnDate($date)
             ->where('student_id', $studentId)
             ->byDayOfWeek($date->dayOfWeek)
             ->lessonLikeTimeWindow()
-            ->byTimeRange($startTime, $endTime)
-            ->get();
+            ->byTimeRange($startTime, $endTime);
+
+        $this->scopeRecurringSlotsToClub($recurringCandidatesQuery, $clubId);
+
+        $recurringCandidates = $recurringCandidatesQuery->get();
 
         foreach ($recurringCandidates as $slot) {
             if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
@@ -521,7 +571,8 @@ class RecurringSlotValidator
         string $startTime,
         string $endTime,
         ?int $excludeLessonId = null,
-        int $weekIndex = 0
+        int $weekIndex = 0,
+        ?int $clubId = null
     ): ?array {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
@@ -530,6 +581,10 @@ class RecurringSlotValidator
             ->where('start_time', '<', $endUtc)
             ->where('end_time', '>', $startUtc)
             ->whereIn('status', ['pending', 'confirmed']);
+
+        if ($clubId !== null) {
+            $lessonQuery->where('club_id', $clubId);
+        }
 
         if ($excludeLessonId) {
             $lessonQuery->where('id', '!=', $excludeLessonId);
@@ -564,12 +619,15 @@ class RecurringSlotValidator
         }
 
         // Vérifier les récurrences actives à cette date d'occurrence
-        $teacherRecurringCandidates = SubscriptionRecurringSlot::activeOnDate($date)
+        $teacherRecurringQuery = SubscriptionRecurringSlot::activeOnDate($date)
             ->byTeacher($teacherId)
             ->byDayOfWeek($date->dayOfWeek)
             ->lessonLikeTimeWindow()
-            ->byTimeRange($startTime, $endTime)
-            ->get();
+            ->byTimeRange($startTime, $endTime);
+
+        $this->scopeRecurringSlotsToClub($teacherRecurringQuery, $clubId);
+
+        $teacherRecurringCandidates = $teacherRecurringQuery->get();
 
         foreach ($teacherRecurringCandidates as $slot) {
             if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
