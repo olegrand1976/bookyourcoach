@@ -4,11 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class SubscriptionRecurringSlot extends Model
 {
     use HasFactory;
+
+    /**
+     * Durée max (minutes) pour considérer start_time/end_time comme un créneau « cours ».
+     * Au-delà (ex. 14h–21h copié depuis ClubOpenSlot), on n'applique pas le chevauchement horaire
+     * contre une leçon ponctuelle : sinon tout créneau dans la journée serait en conflit.
+     */
+    public const MAX_LESSON_LIKE_WINDOW_MINUTES = 300;
 
     protected $fillable = [
         'subscription_instance_id',
@@ -126,6 +134,38 @@ class SubscriptionRecurringSlot extends Model
                    ->where('end_time', '>', $startTime);
             });
         });
+    }
+
+    /**
+     * Limite aux récurrences dont la plage horaire ressemble à un cours (pas toute la fenêtre club).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    public function scopeLessonLikeTimeWindow($query, ?int $maxMinutes = null): \Illuminate\Database\Eloquent\Builder
+    {
+        $max = $maxMinutes ?? self::MAX_LESSON_LIKE_WINDOW_MINUTES;
+        $maxSeconds = $max * 60;
+        $driver = DB::connection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            return $query->whereRaw(
+                'TIME_TO_SEC(TIMEDIFF(end_time, start_time)) > 0 AND TIME_TO_SEC(TIMEDIFF(end_time, start_time)) <= ?',
+                [$maxSeconds]
+            );
+        }
+
+        if ($driver === 'sqlite') {
+            return $query->whereRaw(
+                "(julianday('1970-01-01 ' || end_time) - julianday('1970-01-01 ' || start_time)) * 86400 > 0
+                 AND (julianday('1970-01-01 ' || end_time) - julianday('1970-01-01 ' || start_time)) * 86400 <= ?",
+                [$maxSeconds]
+            );
+        }
+
+        return $query->whereRaw(
+            'TIME_TO_SEC(TIMEDIFF(end_time, start_time)) > 0 AND TIME_TO_SEC(TIMEDIFF(end_time, start_time)) <= ?',
+            [$maxSeconds]
+        );
     }
 
     /**

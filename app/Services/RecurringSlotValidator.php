@@ -216,6 +216,7 @@ class RecurringSlotValidator
         $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
             ->where('student_id', $studentId)
             ->byDayOfWeek($date->dayOfWeek)
+            ->lessonLikeTimeWindow()
             ->byTimeRange($startTime, $endTime)
             ->exists();
 
@@ -274,6 +275,7 @@ class RecurringSlotValidator
         // Compter les récurrences actives à cette date d'occurrence (pas seulement "aujourd'hui")
         $recurringCount = SubscriptionRecurringSlot::activeOnDate($date)
             ->byDayOfWeek($date->dayOfWeek)
+            ->lessonLikeTimeWindow()
             ->byTimeRange($openSlot->start_time, $openSlot->end_time)
             ->whereHas('openSlot', function ($query) use ($openSlot) {
                 $query->where('club_id', $openSlot->club_id);
@@ -332,6 +334,7 @@ class RecurringSlotValidator
         $conflictingRecurring = SubscriptionRecurringSlot::activeOnDate($date)
             ->byTeacher($teacherId)
             ->byDayOfWeek($date->dayOfWeek)
+            ->lessonLikeTimeWindow()
             ->byTimeRange($startTime, $endTime)
             ->exists();
 

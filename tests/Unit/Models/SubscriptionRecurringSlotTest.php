@@ -405,5 +405,39 @@ class SubscriptionRecurringSlotTest extends TestCase
         $this->assertTrue($overlappingSlots->contains($overlappingSlot->id));
         $this->assertFalse($overlappingSlots->contains($nonOverlappingSlot->id));
     }
+
+    #[Test]
+    public function scopeLessonLikeTimeWindow_excludes_full_club_window_rows(): void
+    {
+        $wide = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY,
+            'start_time' => '14:00:00',
+            'end_time' => '21:00:00',
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
+        $narrow = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY,
+            'start_time' => '16:40:00',
+            'end_time' => '17:00:00',
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
+        $lessonLike = SubscriptionRecurringSlot::lessonLikeTimeWindow()->pluck('id')->all();
+
+        $this->assertContains($this->recurringSlot->id, $lessonLike);
+        $this->assertContains($narrow->id, $lessonLike);
+        $this->assertNotContains($wide->id, $lessonLike);
+    }
 }
 

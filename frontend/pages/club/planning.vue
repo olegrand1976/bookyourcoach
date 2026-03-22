@@ -2403,7 +2403,9 @@ async function createLesson() {
       errorMessage = data.message
       // Enrichir avec les conflits de récurrence si présents (422)
       if (data.conflicts?.length) {
-        const dates = data.conflicts.slice(0, 6).map((c: { date?: string }) => c.date).filter(Boolean)
+        const dates = [...new Set(
+          data.conflicts.map((c: { date?: string }) => c.date).filter(Boolean) as string[]
+        )].slice(0, 8)
         if (dates.length) {
           errorMessage += '\nDates concernées : ' + dates.join(', ')
         }
