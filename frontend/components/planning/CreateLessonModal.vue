@@ -1064,6 +1064,11 @@ watch(() => props.form.course_type_id, async (newCourseTypeId, oldCourseTypeId) 
         } else if (fromRequested) {
           props.form.time = fromRequested.value
           console.log('✨ [CreateLessonModal] Heure de la plage cliquée réappliquée après type de cours:', fromRequested.value)
+        } else if (shouldPreserveRequestedTimeWhileCreating(props.form.time)) {
+          console.log(
+            '✋ [CreateLessonModal] Heure plage initiale conservée après changement de type (hors liste calculée):',
+            props.form.time
+          )
         } else {
           props.form.time = list[0].value
           console.log('✨ [CreateLessonModal] Première heure disponible après changement de type de cours:', list[0].value)
@@ -1139,6 +1144,34 @@ function findMatchingTimeOption(
 
 function isTimeInAvailableList(list: { value: string }[], formTime: string | null | undefined): boolean {
   return !!findMatchingTimeOption(list, formTime)
+}
+
+/** Même jour calendaire local que la date du planning (évite fuites / chevauchements fantômes sur les bords UTC). */
+function lessonIsOnPlanningDate(lesson: any, planningDateYmd: string): boolean {
+  if (!lesson?.start_time || !planningDateYmd) return false
+  const raw = lesson.start_time
+  const s = typeof raw === 'string' ? raw : String(raw)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const day = s.substring(0, 10)
+    if (day === planningDateYmd) return true
+  }
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return false
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}` === planningDateYmd
+}
+
+/**
+ * Heure demandée à l’ouverture (clic plage) : ne pas l’écraser par la 1re plage quand le recalcul
+ * (cours chargés, recurring-slots async) la retire temporairement ou à tort de la liste.
+ */
+function shouldPreserveRequestedTimeWhileCreating(formTime: string | null | undefined): boolean {
+  if (props.editingLesson) return false
+  const req = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : ''
+  const cur = formTime ? String(formTime).trim().substring(0, 5) : ''
+  return !!(req && cur && req === cur && /^\d{1,2}:\d{2}$/.test(cur))
 }
 
 /** Créneaux récurrents (abonnements) du club — pour aligner la modale sur RecurringSlotValidator. */
@@ -1278,6 +1311,7 @@ function isTimeSlotAvailableForBooking(
   for (const lesson of existingLessons.value) {
     if (editingLessonId != null && lesson.id === editingLessonId) continue
     if (lesson.status === 'cancelled') continue
+    if (!lessonIsOnPlanningDate(lesson, date)) continue
 
     const lessonStart = new Date(lesson.start_time)
     let lessonEnd: Date
@@ -1431,6 +1465,7 @@ const availableTimes = computed(() => {
       const timeEnd = new Date(timeStart.getTime() + duration * 60000)
       for (const lesson of existingLessons.value) {
         if (lesson.status === 'cancelled') continue
+        if (!lessonIsOnPlanningDate(lesson, date)) continue
         const lessonStart = new Date(lesson.start_time)
         let lessonEnd: Date
         if (lesson.end_time) {
@@ -1498,11 +1533,14 @@ watch(() => props.show, async (isOpen) => {
 // pour éviter l'impression de décalage (heures qui commencent à la plage suivante).
 const timeOptionsForSelect = computed(() => {
   const available = availableTimes.value
-  const requested = requestedTimeFromSlot.value
-  const isRequestedFull = requested && !available.some((t) => timeOptionMatches(requested, t.value))
+  const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : ''
+  const isRequestedFull =
+    requested &&
+    /^\d{1,2}:\d{2}$/.test(requested) &&
+    !available.some((t) => timeOptionMatches(requested, t.value))
   if (isRequestedFull) {
     return [
-      { value: `__complet__${requested}`, label: `${requested} (complet)`, disabled: true },
+      { value: requested, label: `${requested} (complet / conflit calculé)`, disabled: true },
       ...available.map(t => ({ value: t.value, label: t.label, disabled: false }))
     ]
   }
@@ -1604,7 +1642,9 @@ watch(() => props.form.date, async (newDate, oldDate) => {
       const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
       const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
 
-      if (isCurrentTimeAvailable) {
+      if (shouldPreserveRequestedTimeWhileCreating(props.form.time)) {
+        console.log('✋ [CreateLessonModal] Heure plage initiale conservée (pas d’auto-remplacement après date):', currentTime)
+      } else if (isCurrentTimeAvailable) {
         console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible, conservée:', currentTime)
       } else if (requested && requestedInList) {
         props.form.time = requested
@@ -1660,6 +1700,13 @@ watch(() => availableTimes.value, (newTimes, oldTimes) => {
     const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
     const requestedInList = requested && isTimeInAvailableList(newTimes, requested)
 
+    if (shouldPreserveRequestedTimeWhileCreating(props.form.time)) {
+      console.log(
+        '✋ [CreateLessonModal] Heure plage initiale conservée (disponibilité recalculée sans écraser):',
+        currentTime
+      )
+      return
+    }
     if (requested && requestedInList && (!currentTime || !isCurrentTimeAvailable)) {
       props.form.time = requested
       console.log('✅ [CreateLessonModal] Heure de la plage cliquée conservée:', requested)
@@ -1704,7 +1751,9 @@ watch(() => [props.selectedSlot, currentSelectedSlot.value, selectedSlotId.value
         const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
         const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
 
-        if (isCurrentTimeAvailable) {
+        if (shouldPreserveRequestedTimeWhileCreating(props.form.time)) {
+          console.log('✋ [CreateLessonModal] Heure plage initiale conservée après changement de créneau:', currentTime)
+        } else if (isCurrentTimeAvailable) {
           console.log('✅ [CreateLessonModal] Heure actuelle toujours disponible après changement de créneau, conservée:', currentTime)
         } else if (requested && requestedInList) {
           props.form.time = requested
@@ -1736,6 +1785,10 @@ watch(() => props.form.duration, async () => {
           console.log('✅ [CreateLessonModal] Heure conservée après changement de durée:', props.form.time)
           return
         }
+      }
+      if (!props.editingLesson && shouldPreserveRequestedTimeWhileCreating(props.form.time)) {
+        console.log('✋ [CreateLessonModal] Heure plage initiale conservée après changement de durée:', props.form.time)
+        return
       }
       const requested = requestedTimeFromSlot.value ? requestedTimeFromSlot.value.substring(0, 5) : null
       const requestedInList = requested && isTimeInAvailableList(availableTimes.value, requested)
@@ -1787,7 +1840,8 @@ function isTeacherAvailable(teacherId: number): boolean {
   for (const lesson of existingLessons.value) {
     if (lesson.status === 'cancelled') continue
     if (lesson.teacher_id !== teacherId) continue
-    
+    if (!lessonIsOnPlanningDate(lesson, props.form.date)) continue
+
     const existingStart = new Date(lesson.start_time)
     let existingEnd: Date
     
@@ -1821,7 +1875,8 @@ function isStudentAvailable(studentId: number): boolean {
   // Vérifier si l'élève a déjà un cours qui se chevauche
   for (const lesson of existingLessons.value) {
     if (lesson.status === 'cancelled') continue
-    
+    if (!lessonIsOnPlanningDate(lesson, props.form.date)) continue
+
     // Vérifier si l'élève est l'étudiant principal
     if (lesson.student_id === studentId) {
       const existingStart = new Date(lesson.start_time)
