@@ -69,6 +69,14 @@
         ],
         "test:recurring": [
             "@php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php"
+        ],
+        "test:docker": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test'"
+        ],
+        "test:recurring:docker": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php'"
         ]
     },
     "extra": {

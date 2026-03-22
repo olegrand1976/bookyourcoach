@@ -169,6 +169,27 @@ services:
     # Pas de depends_on : « sail php » ne démarre que ce service (pas mysql/neo4j).
 
   # =============================================================================
+  # php-test — PHPUnit / artisan test avec SQLite (pdo_sqlite)
+  # Profil « test » : jamais démarré par « docker compose up ».
+  # Ex. : sh -c 'mkdir -p database && touch database/testing.sqlite && php artisan test'
+  #       ou ajouter des chemins : php artisan test tests/Unit/Models/LessonTest.php
+  # Ou : composer test:docker
+  # =============================================================================
+  php-test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: docker/php-test/Dockerfile
+    image: bookyourcoach-php-test:latest
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+    networks:
+      - bookyourcoach-network
+
+  # =============================================================================
   # MailHog pour développement local (capture des emails)
   # Note: Le container MailHog existant (fid-connect-mailhog-1) est déjà connecté
   # au réseau bookyourcoach-network et accessible via son nom de container.
