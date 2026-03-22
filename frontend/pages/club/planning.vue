@@ -2401,6 +2401,9 @@ async function createLesson() {
     
     if (data?.message) {
       errorMessage = data.message
+      if (data.hint && typeof data.hint === 'string') {
+        errorMessage += '\n\n' + data.hint
+      }
       // Enrichir avec les conflits de récurrence si présents (422)
       if (data.conflicts?.length) {
         const dates = [...new Set(
@@ -2408,6 +2411,12 @@ async function createLesson() {
         )].slice(0, 8)
         if (dates.length) {
           errorMessage += '\nDates concernées : ' + dates.join(', ')
+        }
+        const typeSet = [...new Set(
+          data.conflicts.map((c: { type?: string }) => c.type).filter(Boolean) as string[]
+        )]
+        if (typeSet.length) {
+          errorMessage += '\nTypes : ' + typeSet.join(', ')
         }
         errorMessage += '\n\nCréez le cours sans récurrence ou choisissez un autre créneau/horaire.'
       } else if (data.errors?.recurring?.length) {

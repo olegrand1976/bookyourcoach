@@ -1110,6 +1110,181 @@ function minutesToTime(minutes: number): string {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }
 
+/** Créneaux récurrents (abonnements) du club — pour aligner la modale sur RecurringSlotValidator. */
+const clubRecurringSlots = ref<any[]>([])
+
+async function loadClubRecurringSlots() {
+  try {
+    const { $api } = useNuxtApp()
+    const res = await $api.get('/club/recurring-slots')
+    if (res.data?.success && Array.isArray(res.data.data)) {
+      clubRecurringSlots.value = res.data.data
+    } else {
+      clubRecurringSlots.value = []
+    }
+  } catch (e) {
+    console.warn('⚠️ [CreateLessonModal] Chargement recurring-slots impossible:', e)
+    clubRecurringSlots.value = []
+  }
+}
+
+const appliesRecurringUiBlock = computed(() => {
+  if (props.editingLesson) return false
+  const f = props.form
+  return f.deduct_from_subscription === true || (f.recurring_interval ?? 0) >= 1
+})
+
+function getLessonTeacherId(lesson: any): number | null {
+  const id = lesson?.teacher_id ?? lesson?.teacher?.id
+  return id != null && id !== '' ? Number(id) : null
+}
+
+function parseYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10))
+  return new Date(y, m - 1, d)
+}
+
+function ymdInRange(d: string, start: string, end: string): boolean {
+  const ds = d.substring(0, 10)
+  const a = (start || '').substring(0, 10)
+  const b = (end || '').substring(0, 10)
+  return a <= ds && ds <= b
+}
+
+/** Même logique que RecurringSlotValidator::subscriptionRecurringSlotFiresOnDate (Carbon). */
+function subscriptionRecurringSlotFiresOnDate(slot: any, occurrenceDateStr: string): boolean {
+  const interval = Math.max(1, Math.min(52, Number(slot.recurring_interval) || 1))
+  const occurrence = parseYmd(occurrenceDateStr)
+  const slotEnd = parseYmd(String(slot.end_date || '').substring(0, 10))
+  const anchorBase = parseYmd(String(slot.start_date || '').substring(0, 10))
+
+  if (occurrence.getDay() !== Number(slot.day_of_week)) return false
+  if (occurrence < anchorBase || occurrence > slotEnd) return false
+
+  const anchor = new Date(anchorBase)
+  while (anchor.getDay() !== Number(slot.day_of_week)) {
+    anchor.setDate(anchor.getDate() + 1)
+  }
+  if (occurrence < anchor) return false
+
+  const daysBetween = Math.round((occurrence.getTime() - anchor.getTime()) / 86400000)
+  if (daysBetween < 0 || daysBetween % 7 !== 0) return false
+  const weekIndex = daysBetween / 7
+  return weekIndex % interval === 0
+}
+
+function recurringSlotWindowMinutes(start: string, end: string): number {
+  const sm = timeToMinutes(String(start).substring(0, 5))
+  const em = timeToMinutes(String(end).substring(0, 5))
+  if (em <= sm) return em + 24 * 60 - sm
+  return em - sm
+}
+
+/** SubscriptionRecurringSlot::MAX_LESSON_LIKE_WINDOW_MINUTES */
+function isLessonLikeRecurringSlot(slot: { start_time: string; end_time: string }): boolean {
+  const w = recurringSlotWindowMinutes(slot.start_time, slot.end_time)
+  return w > 0 && w <= 120
+}
+
+function localRangesOverlapOnDate(
+  dateStr: string,
+  proposedStartHHmm: string,
+  durationMinutes: number,
+  slotStartRaw: string,
+  slotEndRaw: string
+): boolean {
+  const proposedStart = new Date(`${dateStr}T${proposedStartHHmm}:00`)
+  const proposedEnd = new Date(proposedStart.getTime() + durationMinutes * 60000)
+  const slotStart = new Date(`${dateStr}T${String(slotStartRaw).substring(0, 5)}:00`)
+  let slotEnd = new Date(`${dateStr}T${String(slotEndRaw).substring(0, 5)}:00`)
+  if (slotEnd <= slotStart) {
+    slotEnd = new Date(slotEnd.getTime() + 86400000)
+  }
+  return proposedStart < slotEnd && proposedEnd > slotStart
+}
+
+/**
+ * Indique si la création avec récurrence serait refusée pour la date choisie (1re occurrence),
+ * à cause d’un SubscriptionRecurringSlot actif qui chevauche (élève ou enseignant) — aligné backend.
+ */
+function recurringTimeBlocked(
+  dateStr: string,
+  startHHmm: string,
+  durationMin: number,
+  studentId: number,
+  teacherId: number
+): boolean {
+  for (const slot of clubRecurringSlots.value) {
+    if (slot.status !== 'active') continue
+    if (!ymdInRange(dateStr, String(slot.start_date), String(slot.end_date))) continue
+    if (!isLessonLikeRecurringSlot(slot)) continue
+    if (!subscriptionRecurringSlotFiresOnDate(slot, dateStr)) continue
+    if (!localRangesOverlapOnDate(dateStr, startHHmm, durationMin, slot.start_time, slot.end_time)) continue
+
+    const sid = Number(slot.student_id)
+    const tid = Number(slot.teacher_id)
+    if (sid === studentId || tid === teacherId) {
+      return true
+    }
+  }
+  return false
+}
+
+function isTimeSlotAvailableForBooking(
+  date: string,
+  timeValue: string,
+  duration: number,
+  maxSlots: number,
+  editingLessonId: number | null | undefined
+): boolean {
+  const timeStart = new Date(`${date}T${timeValue}:00`)
+  const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+
+  let overlappingCount = 0
+  let teacherLessonOverlap = false
+  const formTeacherId = props.form.teacher_id != null ? Number(props.form.teacher_id) : null
+
+  for (const lesson of existingLessons.value) {
+    if (editingLessonId != null && lesson.id === editingLessonId) continue
+    if (lesson.status === 'cancelled') continue
+
+    const lessonStart = new Date(lesson.start_time)
+    let lessonEnd: Date
+    if (lesson.end_time) {
+      lessonEnd = new Date(lesson.end_time)
+    } else if (lesson.course_type?.duration_minutes) {
+      lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
+    } else {
+      lessonEnd = new Date(lessonStart.getTime() + 60 * 60000)
+    }
+
+    if (timeStart < lessonEnd && timeEnd > lessonStart) {
+      overlappingCount++
+      if (formTeacherId != null && getLessonTeacherId(lesson) === formTeacherId) {
+        teacherLessonOverlap = true
+      }
+    }
+  }
+
+  if (overlappingCount >= maxSlots) return false
+  if (formTeacherId != null && teacherLessonOverlap) return false
+
+  const sid = props.form.student_id != null ? Number(props.form.student_id) : null
+  const tid = formTeacherId
+  if (
+    appliesRecurringUiBlock.value &&
+    sid != null &&
+    !Number.isNaN(sid) &&
+    tid != null &&
+    !Number.isNaN(tid) &&
+    recurringTimeBlocked(date, timeValue, duration, sid, tid)
+  ) {
+    return false
+  }
+
+  return true
+}
+
 /** Nombre max de cours simultanés sur la plage (défini par le créneau). Utilise openSlots si le slot n'a pas max_slots. */
 function getSlotMaxSlots(slot: OpenSlot | null | undefined): number {
   if (!slot) return 1
@@ -1171,44 +1346,12 @@ const availableTimes = computed(() => {
       
       // Filtrer les heures qui sont déjà complètes (max_slots du créneau = nombre de cours simultanés possibles)
       const maxSlots = getSlotMaxSlots(slot)
-      
-      const available = allTimes.filter(time => {
-        // Vérifier combien de cours se chevauchent avec cette heure
-        const timeStart = new Date(`${date}T${time.value}:00`)
-        const timeEnd = new Date(timeStart.getTime() + duration * 60000)
-        
-        let overlappingCount = 0
-        
-        for (const lesson of existingLessons.value) {
-          // Exclure le cours en cours d'édition
-          if (props.editingLesson && lesson.id === props.editingLesson.id) {
-            continue
-          }
-          
-          if (lesson.status === 'cancelled') continue
-          
-          const lessonStart = new Date(lesson.start_time)
-          let lessonEnd: Date
-          
-          // Calculer la fin du cours existant
-          if (lesson.end_time) {
-            lessonEnd = new Date(lesson.end_time)
-          } else if (lesson.course_type?.duration_minutes) {
-            lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
-          } else {
-            lessonEnd = new Date(lessonStart.getTime() + 60 * 60000) // 60 min par défaut
-          }
-          
-          // Vérifier le chevauchement
-          if (timeStart < lessonEnd && timeEnd > lessonStart) {
-            overlappingCount++
-          }
-        }
-        
-        // L'heure est disponible si le nombre de cours qui se chevauchent est strictement inférieur à max_slots
-        return overlappingCount < maxSlots
-      })
-      
+      const editId = props.editingLesson?.id ?? null
+
+      const available = allTimes.filter(time =>
+        isTimeSlotAvailableForBooking(date, time.value, duration, maxSlots, editId)
+      )
+
       return available
     }
     // Sinon, retourner toutes les heures possibles
@@ -1250,44 +1393,29 @@ const availableTimes = computed(() => {
   const maxSlots = getSlotMaxSlots(slot)
   
   const available = allTimes.filter(time => {
-    // Vérifier combien de cours se chevauchent avec cette heure
-    const timeStart = new Date(`${date}T${time.value}:00`)
-    const timeEnd = new Date(timeStart.getTime() + duration * 60000)
-    
-    let overlappingCount = 0
-    
-    for (const lesson of existingLessons.value) {
-      if (lesson.status === 'cancelled') continue
-      
-      const lessonStart = new Date(lesson.start_time)
-      let lessonEnd: Date
-      
-      // Calculer la fin du cours existant
-      if (lesson.end_time) {
-        lessonEnd = new Date(lesson.end_time)
-      } else if (lesson.course_type?.duration_minutes) {
-        lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
-      } else {
-        lessonEnd = new Date(lessonStart.getTime() + 60 * 60000) // 60 min par défaut
+    const ok = isTimeSlotAvailableForBooking(date, time.value, duration, maxSlots, null)
+    if (!ok) {
+      let overlappingCount = 0
+      const timeStart = new Date(`${date}T${time.value}:00`)
+      const timeEnd = new Date(timeStart.getTime() + duration * 60000)
+      for (const lesson of existingLessons.value) {
+        if (lesson.status === 'cancelled') continue
+        const lessonStart = new Date(lesson.start_time)
+        let lessonEnd: Date
+        if (lesson.end_time) {
+          lessonEnd = new Date(lesson.end_time)
+        } else if (lesson.course_type?.duration_minutes) {
+          lessonEnd = new Date(lessonStart.getTime() + lesson.course_type.duration_minutes * 60000)
+        } else {
+          lessonEnd = new Date(lessonStart.getTime() + 60 * 60000)
+        }
+        if (timeStart < lessonEnd && timeEnd > lessonStart) overlappingCount++
       }
-      
-      // Vérifier le chevauchement : le nouveau cours chevauche si :
-      // - Il commence avant la fin du cours existant ET
-      // - - Il se termine après le début du cours existant
-      if (timeStart < lessonEnd && timeEnd > lessonStart) {
-        overlappingCount++
-      }
+      console.log(
+        `🚫 [availableTimes] Plage ${time.value} indisponible (cours ${overlappingCount}/${maxSlots}, enseignant ou récurrence abonnement) — masquée du select`
+      )
     }
-    
-    // L'heure est disponible UNIQUEMENT si le nombre de cours qui se chevauchent est STRICTEMENT inférieur à max_slots
-    // Si overlappingCount >= maxSlots, la plage est complète et sera supprimée du select
-    const isAvailable = overlappingCount < maxSlots
-    
-    if (!isAvailable) {
-      console.log(`🚫 [availableTimes] Plage ${time.value} complète (${overlappingCount}/${maxSlots} cours) - supprimée du select`)
-    }
-    
-    return isAvailable
+    return ok
   })
 
   // Inclure l'heure déjà saisie (ex. clic sur plage 10:40) si elle est dans le créneau et sans conflit,
@@ -1298,16 +1426,7 @@ const availableTimes = computed(() => {
     const inSlot = formMinutes >= slotStartMinutes && formMinutes + duration <= slotEndMinutes
     const alreadyInList = available.some(t => t.value === formTime || t.value.substring(0, 5) === formTime)
     if (inSlot && !alreadyInList) {
-      const timeStart = new Date(`${date}T${formTime}:00`)
-      const timeEnd = new Date(timeStart.getTime() + duration * 60000)
-      let overlappingCount = 0
-      for (const lesson of existingLessons.value) {
-        if (lesson.status === 'cancelled') continue
-        const lessonStart = new Date(lesson.start_time)
-        const lessonEnd = lesson.end_time ? new Date(lesson.end_time) : new Date(lessonStart.getTime() + (lesson.course_type?.duration_minutes || 60) * 60000)
-        if (timeStart < lessonEnd && timeEnd > lessonStart) overlappingCount++
-      }
-      if (overlappingCount < maxSlots) {
+      if (isTimeSlotAvailableForBooking(date, formTime, duration, maxSlots, null)) {
         available.push({ value: formTime, label: formTime, minutes: formMinutes })
         available.sort((a, b) => a.minutes - b.minutes)
       }
@@ -1322,8 +1441,9 @@ const availableTimes = computed(() => {
 // Heure de la plage demandée à l'ouverture (clic sur "Créer un cours" sur une plage), pour l'afficher en "(complet)" si elle est pleine.
 const requestedTimeFromSlot = ref<string | null>(null)
 
-watch(() => props.show, (isOpen) => {
+watch(() => props.show, async (isOpen) => {
   if (isOpen) {
+    await loadClubRecurringSlots()
     // Priorité à la prop explicitement passée par le parent (évite toute course avec les watchers)
     const requested = (props.requestedTime ?? props.form.time) ? String(props.requestedTime ?? props.form.time).substring(0, 5) : ''
     if (requested && /^\d{1,2}:\d{2}$/.test(requested)) {
