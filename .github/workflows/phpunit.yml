@@ -1,0 +1,38 @@
+name: PHPUnit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  phpunit-recurring:
+    name: Tests validation récurrence
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, fileinfo, json, tokenizer, pdo, pdo_sqlite, sqlite3
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare SQLite test database
+        run: mkdir -p database && touch database/testing.sqlite
+
+      - name: Run recurring validation tests
+        run: composer test:recurring
