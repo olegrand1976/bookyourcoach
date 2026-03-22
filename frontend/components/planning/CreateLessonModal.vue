@@ -1146,21 +1146,27 @@ function isTimeInAvailableList(list: { value: string }[], formTime: string | nul
   return !!findMatchingTimeOption(list, formTime)
 }
 
-/** Même jour calendaire local que la date du planning (évite fuites / chevauchements fantômes sur les bords UTC). */
+/** YYYY-MM-DD strict (même convention que <input type="date"> / form.date). */
+const PLANNING_YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Même jour calendaire **local navigateur** que la date du planning.
+ * Ne pas utiliser le préfixe de chaîne ISO : avant « T », c’est le jour UTC, pas le jour local
+ * (ex. 25T23:00Z → 26 locale), ce qui faussait capacité / dispos enseignant-élève.
+ */
 function lessonIsOnPlanningDate(lesson: any, planningDateYmd: string): boolean {
   if (!lesson?.start_time || !planningDateYmd) return false
+  const target = String(planningDateYmd).trim().substring(0, 10)
+  if (!PLANNING_YMD_RE.test(target)) return false
+
   const raw = lesson.start_time
-  const s = typeof raw === 'string' ? raw : String(raw)
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const day = s.substring(0, 10)
-    if (day === planningDateYmd) return true
-  }
-  const d = new Date(raw)
+  const d = raw instanceof Date ? new Date(raw.getTime()) : new Date(raw as string | number)
   if (Number.isNaN(d.getTime())) return false
+
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}` === planningDateYmd
+  return `${y}-${m}-${day}` === target
 }
 
 /**
