@@ -541,6 +541,21 @@ class LessonController extends Controller
                 );
 
                 if (!$recurringValidation['valid']) {
+                    Log::warning('[LessonController] POST /lessons — validation récurrence refusée (voir logs [RecurringAvailability])', [
+                        'teacher_id' => (int) $validated['teacher_id'],
+                        'student_id' => (int) $validated['student_id'],
+                        'start_time_input' => $validated['start_time'] ?? null,
+                        'parsed' => [
+                            'start_date' => $startDateStr,
+                            'day_of_week' => $dayOfWeek,
+                            'start_time' => $startTimeStr,
+                            'end_time' => $endTimeStr,
+                            'recurring_interval' => $recurringIntervalForRecurrence,
+                        ],
+                        'conflicts_count' => count($recurringValidation['conflicts']),
+                        'hint' => 'Mettre RECURRING_VALIDATION_LOG_CONFLICTS=true (.env) pour journaliser chaque conflit ([RecurringAvailability] dans les logs).',
+                    ]);
+
                     return response()->json([
                         'success' => false,
                         'message' => $recurringValidation['message'],

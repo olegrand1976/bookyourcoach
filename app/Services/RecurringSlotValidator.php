@@ -17,6 +17,25 @@ class RecurringSlotValidator
      */
     const VALIDATION_WEEKS = 26;
 
+    private function shouldLogRecurringConflicts(): bool
+    {
+        return (bool) config('bookyourcoach.log_recurring_validation_conflicts', true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logRecurringConflict(string $reason, array $context): void
+    {
+        if (!$this->shouldLogRecurringConflicts()) {
+            return;
+        }
+
+        Log::warning('[RecurringAvailability] conflit', array_merge([
+            'reason' => $reason,
+        ], $context));
+    }
+
     /**
      * Valider qu'un créneau récurrent est disponible pour les 6 prochains mois
      *
@@ -144,7 +163,8 @@ class RecurringSlotValidator
                 $occurrenceDate,
                 $startTime,
                 $endTime,
-                $excludeLessonId
+                $excludeLessonId,
+                $k
             );
             if ($teacherConflict) {
                 $conflicts[] = [
@@ -159,7 +179,8 @@ class RecurringSlotValidator
                 $occurrenceDate,
                 $startTime,
                 $endTime,
-                $excludeLessonId
+                $excludeLessonId,
+                $k
             );
             if ($studentConflict) {
                 $conflicts[] = [
@@ -175,6 +196,29 @@ class RecurringSlotValidator
             'conflicts_count' => count($conflicts),
             'conflicts' => array_slice($conflicts, 0, 5)
         ]);
+
+        if (!$valid && $this->shouldLogRecurringConflicts()) {
+            $byType = [];
+            foreach ($conflicts as $c) {
+                $t = (string) ($c['type'] ?? 'unknown');
+                $byType[$t] = ($byType[$t] ?? 0) + 1;
+            }
+            Log::warning('[RecurringAvailability] résumé échec validation', [
+                'teacher_id' => $teacherId,
+                'student_id' => $studentId,
+                'proposed_local' => [
+                    'start_date' => $startDate->format('Y-m-d'),
+                    'day_of_week' => $dayOfWeek,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                    'recurring_interval_weeks' => $recurringInterval,
+                ],
+                'app_timezone' => config('app.timezone'),
+                'exclude_lesson_id' => $excludeLessonId,
+                'counts_by_conflict_type' => $byType,
+                'unique_dates' => array_values(array_unique(array_map(fn (array $c) => $c['date'] ?? '', $conflicts))),
+            ]);
+        }
 
         return [
             'valid' => $valid,
@@ -274,7 +318,8 @@ class RecurringSlotValidator
         Carbon $date,
         string $startTime,
         string $endTime,
-        ?int $excludeLessonId = null
+        ?int $excludeLessonId = null,
+        int $weekIndex = 0
     ): ?string {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
@@ -287,9 +332,27 @@ class RecurringSlotValidator
             $lessonQuery->where('id', '!=', $excludeLessonId);
         }
 
-        $conflictingLesson = $lessonQuery->exists();
+        $conflictLesson = $lessonQuery->first([
+            'id', 'start_time', 'end_time', 'teacher_id', 'club_id', 'status', 'course_type_id',
+        ]);
 
-        if ($conflictingLesson) {
+        if ($conflictLesson) {
+            $this->logRecurringConflict('student_lesson_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'student_id' => $studentId,
+                'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                'conflicting_lesson_id' => $conflictLesson->id,
+                'conflicting_lesson' => [
+                    'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
+                    'end_time' => $conflictLesson->end_time?->format('Y-m-d H:i:s'),
+                    'teacher_id' => $conflictLesson->teacher_id,
+                    'club_id' => $conflictLesson->club_id,
+                    'status' => $conflictLesson->status,
+                    'course_type_id' => $conflictLesson->course_type_id,
+                ],
+            ]);
+
             return "Élève déjà occupé (cours)";
         }
 
@@ -302,6 +365,26 @@ class RecurringSlotValidator
 
         foreach ($recurringCandidates as $slot) {
             if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                $this->logRecurringConflict('student_subscription_recurring_overlap', [
+                    'week_loop_index' => $weekIndex,
+                    'occurrence_date' => $date->format('Y-m-d'),
+                    'student_id' => $studentId,
+                    'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                    'subscription_recurring_slot_id' => $slot->id,
+                    'recurring_slot' => [
+                        'teacher_id' => $slot->teacher_id,
+                        'open_slot_id' => $slot->open_slot_id,
+                        'subscription_instance_id' => $slot->subscription_instance_id,
+                        'day_of_week' => $slot->day_of_week,
+                        'start_time' => (string) $slot->start_time,
+                        'end_time' => (string) $slot->end_time,
+                        'recurring_interval' => $slot->recurring_interval,
+                        'start_date' => $slot->start_date?->format('Y-m-d'),
+                        'end_date' => $slot->end_date?->format('Y-m-d'),
+                        'status' => $slot->status,
+                    ],
+                ]);
+
                 return "Élève déjà réservé (récurrence)";
             }
         }
@@ -395,7 +478,8 @@ class RecurringSlotValidator
         Carbon $date,
         string $startTime,
         string $endTime,
-        ?int $excludeLessonId = null
+        ?int $excludeLessonId = null,
+        int $weekIndex = 0
     ): ?string {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
@@ -409,9 +493,27 @@ class RecurringSlotValidator
             $lessonQuery->where('id', '!=', $excludeLessonId);
         }
 
-        $conflictingLesson = $lessonQuery->exists();
+        $conflictLesson = $lessonQuery->first([
+            'id', 'start_time', 'end_time', 'student_id', 'club_id', 'status', 'course_type_id',
+        ]);
 
-        if ($conflictingLesson) {
+        if ($conflictLesson) {
+            $this->logRecurringConflict('teacher_lesson_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'teacher_id' => $teacherId,
+                'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                'conflicting_lesson_id' => $conflictLesson->id,
+                'conflicting_lesson' => [
+                    'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
+                    'end_time' => $conflictLesson->end_time?->format('Y-m-d H:i:s'),
+                    'student_id' => $conflictLesson->student_id,
+                    'club_id' => $conflictLesson->club_id,
+                    'status' => $conflictLesson->status,
+                    'course_type_id' => $conflictLesson->course_type_id,
+                ],
+            ]);
+
             return "Enseignant déjà occupé";
         }
 
@@ -425,6 +527,26 @@ class RecurringSlotValidator
 
         foreach ($teacherRecurringCandidates as $slot) {
             if ($this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                $this->logRecurringConflict('teacher_subscription_recurring_overlap', [
+                    'week_loop_index' => $weekIndex,
+                    'occurrence_date' => $date->format('Y-m-d'),
+                    'teacher_id' => $teacherId,
+                    'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                    'subscription_recurring_slot_id' => $slot->id,
+                    'recurring_slot' => [
+                        'student_id' => $slot->student_id,
+                        'open_slot_id' => $slot->open_slot_id,
+                        'subscription_instance_id' => $slot->subscription_instance_id,
+                        'day_of_week' => $slot->day_of_week,
+                        'start_time' => (string) $slot->start_time,
+                        'end_time' => (string) $slot->end_time,
+                        'recurring_interval' => $slot->recurring_interval,
+                        'start_date' => $slot->start_date?->format('Y-m-d'),
+                        'end_date' => $slot->end_date?->format('Y-m-d'),
+                        'status' => $slot->status,
+                    ],
+                ]);
+
                 return "Enseignant déjà réservé (récurrence)";
             }
         }
