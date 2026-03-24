@@ -20,8 +20,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Cas prod : cours stockés en UTC, validation récurrence avec heures « club » en Europe/Paris.
- * L'ancien whereDate + whereTime sur colonnes UTC provoquait des faux conflits (bords de jour / composantes horaires).
+ * Cas prod : cours stockés en UTC, validation récurrence avec heures club en Europe/Paris.
  */
 class RecurringSlotValidatorLessonOverlapTest extends TestCase
 {
@@ -99,7 +98,6 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
     {
         $courseType = CourseType::factory()->create(['club_id' => $this->club->id]);
 
-        // Mercredi 25 mars 2026 (CET) : cours existant 16:20–16:40 Paris = 15:20–15:40 UTC
         Lesson::create([
             'club_id' => $this->club->id,
             'student_id' => $this->student->id,
@@ -124,7 +122,7 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
             1
         );
 
-        $this->assertTrue($result['valid'], 'Pas de chevauchement réel : cours se termine à 16:40 Paris, nouveau à 16:40 Paris. Message: ' . ($result['message'] ?? ''));
+        $this->assertTrue($result['valid'], 'Pas de chevauchement réel. Message: ' . ($result['message'] ?? ''));
         $this->assertSame([], $result['conflicts']);
     }
 
@@ -197,10 +195,6 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
         $this->assertSame((int) $lesson->id, (int) ($mar25[0]['lesson_id'] ?? 0));
     }
 
-    /**
-     * Cours matérialisé sans lien élève en base (student_id null) + récurrence active :
-     * enseignant voit le cours, élève voit la récurrence — doit fusionner en un seul recurring_duplicate.
-     */
     #[Test]
     public function teacher_lesson_and_student_recurring_same_pair_merge_to_single_recurring_duplicate(): void
     {
@@ -234,8 +228,7 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
             'status' => 'active',
         ]);
 
-        // 17:00–17:20 Europe/Paris (CET) → 16:00–16:20 UTC le 25/03/2026
-        $lesson = Lesson::create([
+        $lesson = $lesson = Lesson::create([
             'club_id' => $this->club->id,
             'student_id' => null,
             'teacher_id' => $this->teacher->id,
@@ -262,9 +255,9 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
 
         $this->assertFalse($result['valid']);
         $mar25 = array_values(array_filter($result['conflicts'], fn ($c) => ($c['date'] ?? '') === '2026-03-25'));
-        $this->assertCount(1, $mar25, 'Un seul conflit le 25/03 (pas enseignant + élève séparés)');
+        $this->assertCount(1, $mar25, 'Un seul conflit le 25/03');
         $this->assertSame('recurring_duplicate', $mar25[0]['type'] ?? '');
         $this->assertSame((int) $recurring->id, (int) ($mar25[0]['recurring_slot_id'] ?? 0));
-        $this->assertSame((int) $lesson->id, (int) ($mar25[0]['lesson_id'] ?? 0));
+        $this->assertSame((int) $lesson->id, (int) ($mar25[0]["lesson_id"] ?? 0));
     }
 }

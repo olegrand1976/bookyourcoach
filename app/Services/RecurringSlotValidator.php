@@ -403,8 +403,11 @@ class RecurringSlotValidator
                 continue;
             }
 
-            // Colonne student_id souvent null si élève uniquement sur pivot lesson_student
-            if (! $this->lessonInvolvesStudent((int) $lessonId, $studentId)) {
+            // Même élève (colonne ou pivot), ou cours matérialisé sans aucun lien élève (legacy / génération incomplète)
+            // — dans ce dernier cas on ne fusionne que si la récurrence côté autre branche correspond au couple demandé.
+            $involvesStudent = $this->lessonInvolvesStudent((int) $lessonId, $studentId);
+            $orphanNoStudentLinkage = $this->lessonHasNoStudentLinkage((int) $lessonId);
+            if (! $involvesStudent && ! $orphanNoStudentLinkage) {
                 continue;
             }
 
@@ -444,6 +447,19 @@ class RecurringSlotValidator
         }
 
         return $lesson->students()->where('students.id', $studentId)->exists();
+    }
+
+    /**
+     * Cours sans student_id et sans ligne pivot lesson_student (données incomplètes ou ancien flux).
+     */
+    private function lessonHasNoStudentLinkage(int $lessonId): bool
+    {
+        $lesson = Lesson::query()->select(['id', 'student_id'])->find($lessonId);
+        if ($lesson === null || $lesson->student_id !== null) {
+            return false;
+        }
+
+        return ! $lesson->students()->exists();
     }
 
     /**

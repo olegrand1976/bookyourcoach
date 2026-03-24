@@ -110,9 +110,11 @@ class SubscriptionRecurringSlot extends Model
     public function scopeActiveOnDate($query, $date)
     {
         $d = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
+        // whereDate : évite les faux négatifs SQLite quand la colonne date est stockée en « Y-m-d H:i:s »
+        // et $d en « Y-m-d » (comparaison lexicographique « 2026-03-25 00:00:00 » <= « 2026-03-25 » fausse).
         return $query->where('status', 'active')
-            ->where('start_date', '<=', $d)
-            ->where('end_date', '>=', $d);
+            ->whereDate('start_date', '<=', $d)
+            ->whereDate('end_date', '>=', $d);
     }
 
     /**
@@ -156,9 +158,15 @@ class SubscriptionRecurringSlot extends Model
         }
 
         if ($driver === 'sqlite') {
+            // julianday('1970-01-01 ' || time) est fragile avec les TIME Laravel/SQLite en requêtes Eloquent
+            // (sélection vide alors que les mêmes colonnes passent en SQL brut). On dérive la durée en secondes.
+            $table = $query->getModel()->getTable();
+
             return $query->whereRaw(
-                "(julianday('1970-01-01 ' || end_time) - julianday('1970-01-01 ' || start_time)) * 86400 > 0
-                 AND (julianday('1970-01-01 ' || end_time) - julianday('1970-01-01 ' || start_time)) * 86400 <= ?",
+                "((substr({$table}.end_time, 1, 2) * 3600 + substr({$table}.end_time, 4, 2) * 60 + substr({$table}.end_time, 7, 2))
+                 - (substr({$table}.start_time, 1, 2) * 3600 + substr({$table}.start_time, 4, 2) * 60 + substr({$table}.start_time, 7, 2))) > 0
+                 AND ((substr({$table}.end_time, 1, 2) * 3600 + substr({$table}.end_time, 4, 2) * 60 + substr({$table}.end_time, 7, 2))
+                 - (substr({$table}.start_time, 1, 2) * 3600 + substr({$table}.start_time, 4, 2) * 60 + substr({$table}.start_time, 7, 2))) <= ?",
                 [$maxSeconds]
             );
         }
