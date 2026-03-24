@@ -282,8 +282,12 @@ function getSlotsByDay(dayOfWeek: number): OpenSlot[] {
 
 function handleSlotClick(slot: OpenSlot) {
   emit('select-slot', slot)
-  // Fermer automatiquement le dropdown après sélection
-  isOpen.value = false
+  // Ne pas fermer le panneau : les actions Modifier / Supprimer sont dans la zone dépliée ;
+  // les refermer provoquait la « disparition » des boutons après sélection d’un créneau.
+  // Sur très petit écran, replier libère de la place une fois le créneau choisi.
+  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+    isOpen.value = false
+  }
 }
 </script>
 

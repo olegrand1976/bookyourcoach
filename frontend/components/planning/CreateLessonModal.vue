@@ -401,6 +401,7 @@
                   v-model.number="form.recurring_interval"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
+                  <option :value="0">Une seule séance (pas de récurrence automatique)</option>
                   <option :value="1">Chaque semaine</option>
                   <option :value="2">Toutes les 2 semaines</option>
                   <option :value="3">Toutes les 3 semaines</option>
@@ -412,8 +413,13 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span v-if="!editingLesson">
-                      <strong>Exemple :</strong> Si vous créez un cours le {{ formatExampleDate() }} avec "{{ getRecurringIntervalLabel() }}", 
-                      les prochains cours seront automatiquement créés {{ getNextDatesExample() }}.
+                      <template v-if="form.recurring_interval === 0">
+                        <strong>Une seule séance :</strong> un seul cours est créé à la date choisie ; l’abonnement peut être déduit sans générer de cours aux semaines suivantes ni dupliquer une série déjà planifiée.
+                      </template>
+                      <template v-else>
+                        <strong>Exemple :</strong> Si vous créez un cours le {{ formatExampleDate() }} avec "{{ getRecurringIntervalLabel() }}", 
+                        les prochains cours seront automatiquement créés {{ getNextDatesExample() }}.
+                      </template>
                     </span>
                     <span v-else>
                       <strong>Attention :</strong> Tous les cours futurs planifiés seront supprimés et recréés avec le nouvel intervalle de récurrence "{{ getRecurringIntervalLabel() }}".
@@ -521,6 +527,13 @@
 import { computed, watch, ref, nextTick } from 'vue'
 import Autocomplete from '~/components/Autocomplete.vue'
 import SlotConflictModal from '~/components/planning/SlotConflictModal.vue'
+import {
+  ymdInRange,
+  subscriptionRecurringSlotFiresOnDate,
+  recurringSlotWindowMinutes,
+  isLessonLikeRecurringSlot,
+  localRangesOverlapOnDate,
+} from '~/utils/subscriptionRecurringSlot'
 
 interface OpenSlot {
   id: number
@@ -548,7 +561,7 @@ interface LessonForm {
   est_legacy: boolean | null
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: boolean | null
-  // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+  // 0 = une seule séance ; 1+ = récurrence automatique (semaines)
   recurring_interval: number
   // Portée de la mise à jour (pour les récurrences)
   update_scope?: 'single' | 'all_future'
@@ -1207,70 +1220,6 @@ const appliesRecurringUiBlock = computed(() => {
 function getLessonTeacherId(lesson: any): number | null {
   const id = lesson?.teacher_id ?? lesson?.teacher?.id
   return id != null && id !== '' ? Number(id) : null
-}
-
-function parseYmd(ymd: string): Date {
-  const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10))
-  return new Date(y, m - 1, d)
-}
-
-function ymdInRange(d: string, start: string, end: string): boolean {
-  const ds = d.substring(0, 10)
-  const a = (start || '').substring(0, 10)
-  const b = (end || '').substring(0, 10)
-  return a <= ds && ds <= b
-}
-
-/** Même logique que RecurringSlotValidator::subscriptionRecurringSlotFiresOnDate (Carbon). */
-function subscriptionRecurringSlotFiresOnDate(slot: any, occurrenceDateStr: string): boolean {
-  const interval = Math.max(1, Math.min(52, Number(slot.recurring_interval) || 1))
-  const occurrence = parseYmd(occurrenceDateStr)
-  const slotEnd = parseYmd(String(slot.end_date || '').substring(0, 10))
-  const anchorBase = parseYmd(String(slot.start_date || '').substring(0, 10))
-
-  if (occurrence.getDay() !== Number(slot.day_of_week)) return false
-  if (occurrence < anchorBase || occurrence > slotEnd) return false
-
-  const anchor = new Date(anchorBase)
-  while (anchor.getDay() !== Number(slot.day_of_week)) {
-    anchor.setDate(anchor.getDate() + 1)
-  }
-  if (occurrence < anchor) return false
-
-  const daysBetween = Math.round((occurrence.getTime() - anchor.getTime()) / 86400000)
-  if (daysBetween < 0 || daysBetween % 7 !== 0) return false
-  const weekIndex = daysBetween / 7
-  return weekIndex % interval === 0
-}
-
-function recurringSlotWindowMinutes(start: string, end: string): number {
-  const sm = timeToMinutes(String(start).substring(0, 5))
-  const em = timeToMinutes(String(end).substring(0, 5))
-  if (em <= sm) return em + 24 * 60 - sm
-  return em - sm
-}
-
-/** SubscriptionRecurringSlot::MAX_LESSON_LIKE_WINDOW_MINUTES */
-function isLessonLikeRecurringSlot(slot: { start_time: string; end_time: string }): boolean {
-  const w = recurringSlotWindowMinutes(slot.start_time, slot.end_time)
-  return w > 0 && w <= 120
-}
-
-function localRangesOverlapOnDate(
-  dateStr: string,
-  proposedStartHHmm: string,
-  durationMinutes: number,
-  slotStartRaw: string,
-  slotEndRaw: string
-): boolean {
-  const proposedStart = new Date(`${dateStr}T${proposedStartHHmm}:00`)
-  const proposedEnd = new Date(proposedStart.getTime() + durationMinutes * 60000)
-  const slotStart = new Date(`${dateStr}T${String(slotStartRaw).substring(0, 5)}:00`)
-  let slotEnd = new Date(`${dateStr}T${String(slotEndRaw).substring(0, 5)}:00`)
-  if (slotEnd <= slotStart) {
-    slotEnd = new Date(slotEnd.getTime() + 86400000)
-  }
-  return proposedStart < slotEnd && proposedEnd > slotStart
 }
 
 /**
@@ -1939,8 +1888,9 @@ function formatExampleDate(): string {
 
 // Fonction pour obtenir le label de l'intervalle de récurrence
 function getRecurringIntervalLabel(): string {
-  const interval = props.form.recurring_interval || 1
+  const interval = props.form.recurring_interval ?? 1
   switch (interval) {
+    case 0: return 'Une seule séance'
     case 1: return 'Chaque semaine'
     case 2: return 'Toutes les 2 semaines'
     case 3: return 'Toutes les 3 semaines'
@@ -1952,7 +1902,10 @@ function getRecurringIntervalLabel(): string {
 // Fonction pour obtenir l'exemple des prochaines dates
 function getNextDatesExample(): string {
   if (!props.form.date) return 'aux dates correspondantes'
-  
+  if (props.form.recurring_interval === 0) {
+    return '(aucune date supplémentaire automatique)'
+  }
+
   const interval = props.form.recurring_interval || 1
   const startDate = new Date(props.form.date + 'T00:00:00')
   

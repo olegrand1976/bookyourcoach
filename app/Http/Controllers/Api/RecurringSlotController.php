@@ -36,22 +36,71 @@ class RecurringSlotController extends Controller
                 ], 404);
             }
 
+            $validated = $request->validate([
+                'status' => 'nullable|string|in:active,cancelled,expired,paused',
+                'teacher_id' => 'nullable|integer|exists:teachers,id',
+                'student_id' => 'nullable|integer|exists:students,id',
+                'search' => 'nullable|string|max:200',
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date',
+            ]);
+
             // Récupérer les créneaux récurrents via les subscription_instances du club
-            $recurringSlots = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($query) use ($club) {
-                    $query->whereHas('subscription', function ($q) use ($club) {
-                        $q->where('club_id', $club->id);
-                    });
-                })
+            $query = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($q) use ($club) {
+                $q->whereHas('subscription', function ($sub) use ($club) {
+                    $sub->where('club_id', $club->id);
+                });
+            })
                 ->with([
                     'subscriptionInstance.subscription.template',
                     'subscriptionInstance.students.user',
                     'teacher.user',
                     'student.user',
-                    'openSlot'
+                    'openSlot',
                 ])
                 ->orderBy('day_of_week')
-                ->orderBy('start_time')
-                ->get();
+                ->orderBy('start_time');
+
+            if (! empty($validated['status'])) {
+                $query->where('status', $validated['status']);
+            }
+            if (! empty($validated['teacher_id'])) {
+                $query->where('teacher_id', (int) $validated['teacher_id']);
+            }
+            if (! empty($validated['student_id'])) {
+                $query->where('student_id', (int) $validated['student_id']);
+            }
+
+            // Jour : 0 = dimanche — ne pas utiliser filled() (empty(0) === true en PHP)
+            if ($request->query->has('day_of_week') && $request->query('day_of_week') !== '' && $request->query('day_of_week') !== null) {
+                $dow = (int) $request->query('day_of_week');
+                if ($dow >= 0 && $dow <= 6) {
+                    $query->where('day_of_week', $dow);
+                }
+            }
+
+            if (! empty($validated['date_from'])) {
+                $query->whereDate('end_date', '>=', $validated['date_from']);
+            }
+            if (! empty($validated['date_to'])) {
+                $query->whereDate('start_date', '<=', $validated['date_to']);
+            }
+
+            if (! empty($validated['search'])) {
+                $term = '%'.addcslashes($validated['search'], '%_\\').'%';
+                $query->where(function ($q) use ($term) {
+                    $q->whereHas('student.user', fn ($u) => $u->where('name', 'like', $term))
+                        ->orWhereHas('teacher.user', fn ($u) => $u->where('name', 'like', $term))
+                        ->orWhereHas('subscriptionInstance.students.user', fn ($u) => $u->where('name', 'like', $term))
+                        ->orWhereHas('subscriptionInstance.subscription', fn ($s) => $s->where('subscription_number', 'like', $term))
+                        ->orWhereHas('subscriptionInstance.subscription.template', function ($t) use ($term) {
+                            $t->where('name', 'like', $term)
+                                ->orWhere('model_number', 'like', $term);
+                        });
+                });
+            }
+
+            $recurringSlots = $query->get();
 
             return response()->json([
                 'success' => true,

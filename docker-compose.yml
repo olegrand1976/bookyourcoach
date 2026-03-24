@@ -20,6 +20,13 @@ services:
     volumes:
       # Volumes en écriture pour Laravel
       - app_storage:/var/www/html/storage
+      # ⚠️ Ce volume persiste packages.php / services.php. Un « rm » sur l'hôte ne le vide pas.
+      # Fix dans le conteneur : rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+      # Puis composer install --no-scripts (le vendor vient de l'IMAGE, pas du dossier hôte).
+      # Option dev : monter vendor + lock depuis l'hôte (décommenter) après « composer install » local.
+      # - ./vendor:/var/www/html/vendor
+      # - ./composer.json:/var/www/html/composer.json:ro
+      # - ./composer.lock:/var/www/html/composer.lock:ro
       - app_bootstrap_cache:/var/www/html/bootstrap/cache
       # Fichiers de configuration en lecture seule
       - ./cert.pem:/var/www/html/cert.pem:ro

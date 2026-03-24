@@ -65,6 +65,16 @@ Le projet inclut des scripts pour faciliter le développement :
 ./scripts/test-all.sh docker
 ```
 
+**PHPUnit (SQLite)** : si l’hôte n’a pas `pdo_sqlite`, utiliser le service Compose `php-test` (profil `test`) :
+
+```bash
+docker compose --profile test build php-test
+composer test:docker                    # docker-compose.yml
+composer test:docker:local              # docker-compose.local.yml
+composer test:recurring:docker          # sous-ensemble récurrence
+composer test:recurring:docker:local
+```
+
 ### Maintenance Docker
 ```bash
 # Démarrer les services

@@ -23,6 +23,14 @@ class RecurrenceCreationService
      */
     public function createRecurrenceAndGenerateLessons(Lesson $lesson, int $recurringInterval): void
     {
+        if ($recurringInterval < 1) {
+            Log::info('RecurrenceCreationService: recurring_interval < 1, aucune récurrence ni génération de cours futurs', [
+                'lesson_id' => $lesson->id,
+            ]);
+
+            return;
+        }
+
         $recurringInterval = max(1, min(52, $recurringInterval));
 
         try {

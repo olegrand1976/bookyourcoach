@@ -214,27 +214,32 @@ class LessonController extends Controller
             // Si date_from ET date_to sont fournis, ne pas limiter (on filtre par période)
             // Sinon, appliquer une limite par défaut
             $hasDateRange = $request->has('date_from') && $request->has('date_to');
-            $offset = max($request->get('offset', 0), 0); // Support de la pagination
-            
+            $offset = max((int) $request->get('offset', 0), 0); // Support de la pagination
+
+            // Toujours définir $limit pour le bloc pagination JSON (évite undefined variable → 500 + CORS opaque)
+            $limit = min(max((int) $request->get('limit', 50), 1), 500);
+            $dateRangeCap = 10000;
+
             // Compter le total avant pagination (pour l'historique complet)
             $total = $query->count();
-            
+
             // ✅ Tri DESC (du plus récent au plus ancien) pour l'historique, ASC pour les cours à venir
             $orderDirection = $request->get('order', 'asc'); // 'asc' par défaut, 'desc' pour l'historique
             $lessonsQuery = $query->orderBy('start_time', $orderDirection);
-            
+
             // Appliquer offset et limit seulement si nécessaire
             if ($hasDateRange) {
-                // Pas de limite si on a une plage de dates complète (filtrage par période uniquement)
-                // Si offset est demandé, on l'applique quand même (pour la pagination)
-                if ($offset > 0) {
-                    // Pour éviter les problèmes avec offset sans limit, on applique une limite très élevée
-                    $lessonsQuery->offset($offset)->limit(10000);
+                if ($request->has('limit')) {
+                    $limit = min(max((int) $request->get('limit'), 1), $dateRangeCap);
+                } else {
+                    $limit = min($total > 0 ? $total : 1, $dateRangeCap);
                 }
-                // Sinon, pas de limite ni d'offset, on récupère tout
+                // Pas de limite SQL si on a une plage de dates complète (sauf offset / cap interne)
+                if ($offset > 0) {
+                    $lessonsQuery->offset($offset)->limit($dateRangeCap);
+                }
             } else {
-                // Limite par défaut si pas de plage de dates
-                $limit = min($request->get('limit', 50), 500); // Par défaut 50 cours max, max 500 pour l'historique
+                $limit = min(max((int) $request->get('limit', 50), 1), 500);
                 $lessonsQuery->offset($offset)->limit($limit);
             }
             
@@ -246,15 +251,16 @@ class LessonController extends Controller
                 'data' => $lessons
             ];
             
-            // Ajouter les informations de pagination si offset est utilisé
+            // Ajouter les informations de pagination si offset ou limit explicite
             if ($request->has('offset') || $request->has('limit')) {
+                $perPage = max($limit, 1);
                 $response['pagination'] = [
                     'total' => $total,
-                    'per_page' => $limit,
-                    'current_page' => floor($offset / $limit) + 1,
-                    'last_page' => ceil($total / $limit),
-                    'from' => $offset + 1,
-                    'to' => min($offset + $limit, $total)
+                    'per_page' => $perPage,
+                    'current_page' => (int) floor($offset / $perPage) + 1,
+                    'last_page' => (int) max(1, (int) ceil($total / $perPage)),
+                    'from' => $total > 0 ? $offset + 1 : 0,
+                    'to' => min($offset + $perPage, $total),
                 ];
             }
             
@@ -495,12 +501,14 @@ class LessonController extends Controller
 
             // 🔒 Règle : déduction abonnement ou récurrence → exiger un abonnement actif (sinon bloquer la création)
             $deductFromSubscription = filter_var($request->input('deduct_from_subscription', true), FILTER_VALIDATE_BOOLEAN);
-            $recurringInterval = max(0, min(52, (int) $request->input('recurring_interval', 0))); // 0 = pas de récurrence
-            // Intervalle effectif pour la récurrence : si déduction + élève mais request envoie 0, on considère 1 (hebdo)
-            $recurringIntervalForRecurrence = $recurringInterval >= 1
-                ? $recurringInterval
-                : ($deductFromSubscription && !empty($validated['student_id']) ? 1 : 0);
-            $recurringIntervalForRecurrence = max(0, min(52, $recurringIntervalForRecurrence));
+            // recurring_interval : 0 = une seule séance (déduction possible sans créneau récurrent ni validation 26 sem.)
+            // Si le champ est absent du JSON → rétrocompat : hebdo (1) quand déduction + élève (ancien comportement).
+            if ($request->has('recurring_interval')) {
+                $recurringInterval = max(0, min(52, (int) $request->input('recurring_interval')));
+            } else {
+                $recurringInterval = ($deductFromSubscription && !empty($validated['student_id'])) ? 1 : 0;
+            }
+            $recurringIntervalForRecurrence = max(0, min(52, $recurringInterval));
 
             if (!empty($validated['student_id']) && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1)) {
                 $clubId = $validated['club_id'] ?? null;
@@ -543,6 +551,13 @@ class LessonController extends Controller
                 );
 
                 if (!$recurringValidation['valid']) {
+                    $duplicateRecurringIds = array_values(array_unique(array_filter(array_map(
+                        static fn (array $c) => ($c['type'] ?? '') === 'recurring_duplicate'
+                            ? (int) ($c['recurring_slot_id'] ?? 0)
+                            : 0,
+                        $recurringValidation['conflicts']
+                    ))));
+
                     Log::warning('[LessonController] POST /lessons — validation récurrence refusée (voir logs [RecurringAvailability])', [
                         'teacher_id' => (int) $validated['teacher_id'],
                         'student_id' => (int) $validated['student_id'],
@@ -555,6 +570,7 @@ class LessonController extends Controller
                             'recurring_interval' => $recurringIntervalForRecurrence,
                         ],
                         'conflicts_count' => count($recurringValidation['conflicts']),
+                        'duplicate_recurring_slot_ids' => $duplicateRecurringIds,
                         'hint' => 'Mettre RECURRING_VALIDATION_LOG_CONFLICTS=true (.env) pour journaliser chaque conflit ([RecurringAvailability] dans les logs).',
                     ]);
 
@@ -562,6 +578,7 @@ class LessonController extends Controller
                         'success' => false,
                         'message' => $recurringValidation['message'],
                         'hint' => $recurringValidation['hint'] ?? null,
+                        'duplicate_recurring_slot_ids' => $duplicateRecurringIds !== [] ? $duplicateRecurringIds : null,
                         'errors' => [
                             'recurring' => array_map(function (array $c) {
                                 return ($c['date'] ?? '') . ' : ' . ($c['message'] ?? '');
@@ -594,8 +611,7 @@ class LessonController extends Controller
                 'should_dispatch' => $shouldDispatchJob,
             ]);
             if ($shouldDispatchJob) {
-                $interval = $recurringIntervalForRecurrence >= 1 ? $recurringIntervalForRecurrence : 1;
-                ProcessLessonPostCreationJob::dispatch($lesson, $interval);
+                ProcessLessonPostCreationJob::dispatch($lesson, $recurringIntervalForRecurrence);
                 Log::info("⚡ [LessonController] Job dispatché pour le cours {$lesson->id}", [
                     'deduct_from_subscription' => $deductFromSubscription,
                     'recurring_interval' => $recurringInterval,

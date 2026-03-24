@@ -68,15 +68,23 @@
             "@php artisan test tests/Unit/Models/LessonTest.php tests/Feature/Api/StudentLessonCancellationTest.php tests/Feature/Api/ClubCancellationCertificateTest.php"
         ],
         "test:recurring": [
-            "@php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php"
+            "@php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Services/RecurringSlotValidatorSiblingParallelTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php"
         ],
         "test:docker": [
             "Composer\\Config::disableProcessTimeout",
             "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test'"
         ],
+        "test:docker:local": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose -f docker-compose.local.yml --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test'"
+        ],
         "test:recurring:docker": [
             "Composer\\Config::disableProcessTimeout",
-            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php'"
+            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Services/RecurringSlotValidatorSiblingParallelTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php'"
+        ],
+        "test:recurring:docker:local": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose -f docker-compose.local.yml --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test tests/Unit/Services/RecurringSlotValidatorLessonOverlapTest.php tests/Unit/Services/RecurringSlotValidatorRecurringIntervalTest.php tests/Unit/Services/RecurringSlotValidatorSiblingParallelTest.php tests/Unit/Models/SubscriptionRecurringSlotTest.php'"
         ]
     },
     "extra": {

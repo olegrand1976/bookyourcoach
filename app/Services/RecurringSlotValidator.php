@@ -93,7 +93,11 @@ class RecurringSlotValidator
                 $teacherId,
                 $occurrenceDate,
                 $openSlot->start_time,
-                $openSlot->end_time
+                $openSlot->end_time,
+                null,
+                $week,
+                null,
+                $studentId
             );
             if ($teacherConflict !== null) {
                 $conflicts[] = [
@@ -172,7 +176,8 @@ class RecurringSlotValidator
                 $endTime,
                 $excludeLessonId,
                 $k,
-                $clubId
+                $clubId,
+                $studentId
             );
 
             $studentConflict = $this->checkStudentAvailability(
@@ -184,6 +189,38 @@ class RecurringSlotValidator
                 $k,
                 $clubId
             );
+
+            // Même cours (lesson_id) bloque enseignant et élève : un seul message (évite doublon bruyant le 1er jour)
+            if ($teacherConflict !== null && $studentConflict !== null) {
+                $tLid = $teacherConflict['lesson_id'] ?? null;
+                $sLid = $studentConflict['lesson_id'] ?? null;
+                if ($tLid !== null && $sLid !== null && (int) $tLid === (int) $sLid) {
+                    $conflicts[] = [
+                        'type' => 'lesson_overlap',
+                        'date' => $occurrenceDate->format('Y-m-d'),
+                        'message' => 'Un cours existe déjà à ce créneau pour cet enseignant et cet élève.',
+                        'lesson_id' => (int) $tLid,
+                        'recurring_slot_id' => null,
+                        'lesson_teacher_id' => $teacherConflict['lesson_teacher_id'] ?? null,
+                        'lesson_student_id' => $studentConflict['lesson_student_id'] ?? null,
+                    ];
+                    continue;
+                }
+            }
+
+            // Cours déjà planifié (Lesson) côté prof + récurrence côté élève (ou l’inverse) : même réservation, un seul message
+            $mergedLessonRecurring = $this->mergeLessonConflictWithRecurringConflict(
+                $teacherConflict,
+                $studentConflict,
+                $teacherId,
+                $studentId
+            );
+            if ($mergedLessonRecurring !== null) {
+                $conflicts[] = array_merge($mergedLessonRecurring, [
+                    'date' => $occurrenceDate->format('Y-m-d'),
+                ]);
+                continue;
+            }
 
             $teacherRid = $teacherConflict !== null ? ($teacherConflict['recurring_slot_id'] ?? null) : null;
             $studentRid = $studentConflict !== null ? ($studentConflict['recurring_slot_id'] ?? null) : null;
@@ -210,6 +247,7 @@ class RecurringSlotValidator
                     'slot_student_id' => (int) $duplicateSlotRow->student_id,
                     'slot_teacher_id' => (int) $duplicateSlotRow->teacher_id,
                     'subscription_instance_id' => (int) $duplicateSlotRow->subscription_instance_id,
+                    'recurring_slot' => $this->recurringSlotDiagnostic($duplicateSlotRow),
                 ];
                 continue;
             }
@@ -243,7 +281,7 @@ class RecurringSlotValidator
                 }
             }
             if ($hasDuplicateRecurring) {
-                $hint = 'Une réservation récurrente identique (même élève, même enseignant et même horaire) existe déjà pour ce club. Deux élèves différents sur le même abonnement peuvent avoir cours au même moment avec des enseignants différents. Supprimez ou modifiez le créneau récurrent existant, ou créez un cours sans récurrence.';
+                $hint = 'Une réservation récurrente identique (même élève, même enseignant et même horaire) existe déjà pour ce club — voir « recurring_slot » dans la réponse (noms et horaires réels en base). Ce blocage vise l’entrée « créneau récurrent », pas seulement une carte sur le planning : la ligne peut exister sans cours encore généré pour cette date. Deux élèves différents sur le même abonnement peuvent avoir cours au même moment avec des enseignants différents. Libérez ou modifiez le créneau récurrent (Menu Club → Créneaux récurrents), ou « Une seule séance » / sans déduction d’abonnement pour éviter une deuxième série.';
             }
         }
 
@@ -327,6 +365,128 @@ class RecurringSlotValidator
                 });
             }
         });
+    }
+
+    /**
+     * Quand la validation trouve un cours (Lesson) pour le prof et une récurrence pour l’élève (ou l’inverse)
+     * pour le même couple demandé, c’est la même réservation (ex. cours généré depuis subscription_recurring_slots) :
+     * on fusionne en un seul recurring_duplicate au lieu de « enseignant occupé » + « élève réservé ».
+     *
+     * @param  array<string, mixed>|null  $teacherConflict
+     * @param  array<string, mixed>|null  $studentConflict
+     * @return array<string, mixed>|null  payload sans clé date
+     */
+    private function mergeLessonConflictWithRecurringConflict(
+        ?array $teacherConflict,
+        ?array $studentConflict,
+        int $teacherId,
+        int $studentId
+    ): ?array {
+        if ($teacherConflict === null || $studentConflict === null) {
+            return null;
+        }
+
+        $pairs = [
+            [$teacherConflict, $studentConflict],
+            [$studentConflict, $teacherConflict],
+        ];
+
+        foreach ($pairs as [$lessonSide, $recurringSide]) {
+            $lessonId = $lessonSide['lesson_id'] ?? null;
+            $recurringSlotId = $recurringSide['recurring_slot_id'] ?? null;
+            if ($lessonId === null || $recurringSlotId === null) {
+                continue;
+            }
+
+            $lTeach = $lessonSide['lesson_teacher_id'] ?? null;
+            if ((int) $lTeach !== $teacherId) {
+                continue;
+            }
+
+            // Colonne student_id souvent null si élève uniquement sur pivot lesson_student
+            if (! $this->lessonInvolvesStudent((int) $lessonId, $studentId)) {
+                continue;
+            }
+
+            $slot = SubscriptionRecurringSlot::query()->find((int) $recurringSlotId);
+            if ($slot === null
+                || (int) $slot->teacher_id !== $teacherId
+                || (int) $slot->student_id !== $studentId) {
+                continue;
+            }
+
+            return [
+                'type' => 'recurring_duplicate',
+                'message' => 'Créneau récurrent déjà enregistré pour cet élève et cet enseignant à cet horaire (cours déjà planifié pour cette date).',
+                'recurring_slot_id' => (int) $recurringSlotId,
+                'lesson_id' => (int) $lessonId,
+                'slot_student_id' => (int) $slot->student_id,
+                'slot_teacher_id' => (int) $slot->teacher_id,
+                'subscription_instance_id' => (int) $slot->subscription_instance_id,
+                'recurring_slot' => $this->recurringSlotDiagnostic($slot),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * L’élève est-il bien sur ce cours (colonne ou pivot) ?
+     */
+    private function lessonInvolvesStudent(int $lessonId, int $studentId): bool
+    {
+        $lesson = Lesson::query()->select(['id', 'student_id'])->find($lessonId);
+        if ($lesson === null) {
+            return false;
+        }
+        if ($lesson->student_id !== null) {
+            return (int) $lesson->student_id === $studentId;
+        }
+
+        return $lesson->students()->where('students.id', $studentId)->exists();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function recurringSlotDiagnostic(SubscriptionRecurringSlot $slot): array
+    {
+        $slot->loadMissing(['teacher.user', 'student.user']);
+
+        return [
+            'id' => (int) $slot->id,
+            'teacher_id' => (int) $slot->teacher_id,
+            'student_id' => (int) $slot->student_id,
+            'teacher_name' => $slot->teacher?->user?->name,
+            'student_name' => $slot->student?->user?->name,
+            'day_of_week' => (int) $slot->day_of_week,
+            'start_time' => (string) $slot->start_time,
+            'end_time' => (string) $slot->end_time,
+            'recurring_interval_weeks' => max(1, (int) ($slot->recurring_interval ?? 1)),
+            'start_date' => $slot->start_date?->format('Y-m-d'),
+            'end_date' => $slot->end_date?->format('Y-m-d'),
+            'status' => (string) $slot->status,
+            'subscription_instance_id' => (int) $slot->subscription_instance_id,
+        ];
+    }
+
+    /**
+     * Résout l’élève « principal » d’un cours pour les payloads (colonne ou pivot).
+     */
+    private function resolveLessonStudentIdForPayload(Lesson $lesson, ?int $preferStudentId = null): ?int
+    {
+        if ($lesson->student_id !== null) {
+            return (int) $lesson->student_id;
+        }
+        $ids = $lesson->students()->pluck('students.id')->map(fn ($v) => (int) $v)->values()->all();
+        if ($preferStudentId !== null && in_array($preferStudentId, $ids, true)) {
+            return $preferStudentId;
+        }
+        if (count($ids) === 1) {
+            return $ids[0];
+        }
+
+        return null;
     }
 
     /**
@@ -448,10 +608,11 @@ class RecurringSlotValidator
         }
 
         $conflictLesson = $lessonQuery->first([
-            'id', 'start_time', 'end_time', 'teacher_id', 'club_id', 'status', 'course_type_id',
+            'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
         ]);
 
         if ($conflictLesson) {
+            $resolvedLessonStudentId = $this->resolveLessonStudentIdForPayload($conflictLesson, $studentId);
             $this->logRecurringConflict('student_lesson_overlap', [
                 'week_loop_index' => $weekIndex,
                 'occurrence_date' => $date->format('Y-m-d'),
@@ -462,6 +623,7 @@ class RecurringSlotValidator
                     'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
                     'end_time' => $conflictLesson->end_time?->format('Y-m-d H:i:s'),
                     'teacher_id' => $conflictLesson->teacher_id,
+                    'lesson_student_id_resolved' => $resolvedLessonStudentId,
                     'club_id' => $conflictLesson->club_id,
                     'status' => $conflictLesson->status,
                     'course_type_id' => $conflictLesson->course_type_id,
@@ -473,7 +635,7 @@ class RecurringSlotValidator
                 'lesson_id' => (int) $conflictLesson->id,
                 'recurring_slot_id' => null,
                 'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
-                'lesson_student_id' => $conflictLesson->student_id !== null ? (int) $conflictLesson->student_id : null,
+                'lesson_student_id' => $resolvedLessonStudentId,
             ];
         }
 
@@ -605,7 +767,8 @@ class RecurringSlotValidator
         string $endTime,
         ?int $excludeLessonId = null,
         int $weekIndex = 0,
-        ?int $clubId = null
+        ?int $clubId = null,
+        ?int $contextStudentIdForLesson = null
     ): ?array {
         [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
 
@@ -624,10 +787,11 @@ class RecurringSlotValidator
         }
 
         $conflictLesson = $lessonQuery->first([
-            'id', 'start_time', 'end_time', 'student_id', 'club_id', 'status', 'course_type_id',
+            'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
         ]);
 
         if ($conflictLesson) {
+            $resolvedLessonStudentId = $this->resolveLessonStudentIdForPayload($conflictLesson, $contextStudentIdForLesson);
             $this->logRecurringConflict('teacher_lesson_overlap', [
                 'week_loop_index' => $weekIndex,
                 'occurrence_date' => $date->format('Y-m-d'),
@@ -638,6 +802,7 @@ class RecurringSlotValidator
                     'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
                     'end_time' => $conflictLesson->end_time?->format('Y-m-d H:i:s'),
                     'student_id' => $conflictLesson->student_id,
+                    'lesson_student_id_resolved' => $resolvedLessonStudentId,
                     'club_id' => $conflictLesson->club_id,
                     'status' => $conflictLesson->status,
                     'course_type_id' => $conflictLesson->course_type_id,
@@ -649,7 +814,7 @@ class RecurringSlotValidator
                 'lesson_id' => (int) $conflictLesson->id,
                 'recurring_slot_id' => null,
                 'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
-                'lesson_student_id' => $conflictLesson->student_id !== null ? (int) $conflictLesson->student_id : null,
+                'lesson_student_id' => $resolvedLessonStudentId,
             ];
         }
 

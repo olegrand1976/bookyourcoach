@@ -180,6 +180,10 @@ class ProcessLessonPostCreationJob implements ShouldQueue
      */
     private function createRecurringSlotIfSubscription(): void
     {
+        if ($this->recurringInterval < 1) {
+            return;
+        }
+
         if (!$this->lesson->student_id || !$this->lesson->teacher_id || !$this->lesson->course_type_id) {
             return;
         }

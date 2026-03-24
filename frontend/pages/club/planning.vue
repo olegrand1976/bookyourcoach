@@ -120,13 +120,22 @@
                     • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
                   </span>
                 </h2>
-                <p class="text-sm text-gray-500 mt-1">
+                <p class="text-sm text-gray-500 mt-1 space-y-0.5">
                   <span v-if="!selectedSlot" class="text-blue-600 font-medium">
                     ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
                   </span>
-                  <span v-else class="font-bold" :class="filteredLessons.length > 0 ? 'text-green-600' : 'text-orange-600'">
-                    {{ filteredLessons.length }} cours {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
-                  </span>
+                  <template v-else>
+                    <span class="font-bold block" :class="lessonsForPlanningGrid.length > 0 ? 'text-green-600' : 'text-orange-600'">
+                      {{ lessonsForPlanningGrid.length }} ligne(s) affichée(s)
+                      {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
+                      <span v-if="recurringPlanningPlaceholders.length" class="font-semibold text-violet-700">
+                        ({{ filteredLessons.length }} cours + {{ recurringPlanningPlaceholders.length }} série(s) abo. sans cours ce jour)
+                      </span>
+                    </span>
+                    <span v-if="selectedSlot && selectedDate" class="block text-xs text-gray-500">
+                      Icône ⇄ dans un cercle = réservation récurrente (abonnement). Nettoyage : menu <NuxtLink to="/club/recurring-slots" class="text-violet-700 underline font-medium">Créneaux récurrents</NuxtLink>.
+                    </span>
+                  </template>
                 </p>
               </div>
               <div class="flex gap-2">
@@ -193,8 +202,8 @@
             </div>
           </div>
 
-          <!-- Grille des cours (groupés par plage horaire) -->
-          <div v-if="filteredLessons.length > 0" class="space-y-4">
+          <!-- Grille des cours (groupés par plage horaire) + réservations récurrentes sans cours matérialisé -->
+          <div v-if="lessonsForPlanningGrid.length > 0" class="space-y-4">
             <!-- Pour chaque plage horaire -->
             <div 
               v-for="timeSlot in lessonsGroupedByTimeSlot" 
@@ -234,11 +243,29 @@
                     @click="openLessonModal(lesson)">
                     
                     <!-- Type de cours et statut -->
-                    <div class="flex items-start justify-between mb-2">
-                      <h4 class="font-semibold text-gray-900 text-sm leading-tight">
-                        {{ lesson.course_type?.name || 'Cours' }}
-                      </h4>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ml-2"
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                      <div class="flex items-start gap-1.5 min-w-0 flex-1">
+                        <span
+                          v-if="planningLessonTiedToRecurring(lesson)"
+                          class="shrink-0 mt-0.5 text-violet-600"
+                          title="Série récurrente (abonnement) — gérer dans Créneaux récurrents"
+                        >
+                          <!-- Icône : double flèche ⇄ dans un cercle (récurrence) -->
+                          <svg class="w-[17px] h-[17px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M7.5 12h9" />
+                            <path d="M10 9L7.5 12 10 15" />
+                            <path d="M14 9l2.5 3-2.5 3" />
+                          </svg>
+                        </span>
+                        <h4 class="font-semibold text-gray-900 text-sm leading-tight min-w-0">
+                          {{ lesson.course_type?.name || 'Cours' }}
+                          <span v-if="lesson.is_recurring_placeholder" class="block text-xs font-normal text-violet-600 mt-0.5">
+                            Série abonnement #{{ lesson.recurring_slot_id }} — pas encore de cours généré ce jour
+                          </span>
+                        </h4>
+                      </div>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
                             :class="getStatusBadgeClass(lesson.status)">
                         {{ getStatusLabel(lesson.status) }}
                       </span>
@@ -275,32 +302,60 @@
                     </div>
                     
                     <!-- Prix et boutons d'action -->
-                    <div class="flex items-center justify-between pt-2 border-t border-gray-100 relative z-10">
-                      <span v-if="lesson.price" class="text-sm font-semibold text-gray-700">
-                        {{ formatPrice(lesson.price) }} €
-                      </span>
-                      <span v-else class="text-xs text-gray-400">-</span>
-                      <div class="flex items-center gap-1 relative z-20">
+                    <div class="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 relative z-10 min-w-0">
+                      <div class="min-w-0 flex-1 truncate">
+                        <span v-if="lesson.is_recurring_placeholder" class="text-xs text-violet-700 font-medium">—</span>
+                        <span v-else-if="lesson.price" class="text-sm font-semibold text-gray-700">
+                          {{ formatPrice(lesson.price) }} €
+                        </span>
+                        <span v-else class="text-xs text-gray-400">-</span>
+                      </div>
+                      <div v-if="!lesson.is_recurring_placeholder" class="flex shrink-0 items-center gap-1 relative z-20">
                         <button
                           @click.stop.prevent="openEditLessonModal(lesson)"
-                          class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1 relative z-30 cursor-pointer"
+                          class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors inline-flex items-center gap-1 cursor-pointer"
                           title="Modifier"
                           type="button">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                           Modifier
                         </button>
                         <button
                           @click.stop.prevent="confirmAndDeleteLesson(lesson)"
-                          class="px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 relative z-30 cursor-pointer"
+                          class="px-2 py-1 text-xs rounded transition-colors inline-flex items-center gap-1 cursor-pointer"
                           :class="lesson.status === 'cancelled' ? 'bg-red-800 text-white hover:bg-red-900' : 'bg-red-600 text-white hover:bg-red-700'"
                           :title="lesson.status === 'cancelled' ? 'Supprimer définitivement ce cours annulé' : 'Supprimer'"
                           type="button">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
+                          Supprimer
                         </button>
+                      </div>
+                      <div
+                        v-else
+                        class="flex shrink-0 items-center gap-1 relative z-20 flex-wrap justify-end"
+                      >
+                        <button
+                          type="button"
+                          class="px-2 py-1 text-xs rounded transition-colors inline-flex items-center gap-1 cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Libérer cette série (annule la réservation récurrente)"
+                          :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
+                          @click.stop.prevent="confirmAndReleaseRecurringPlaceholder(lesson)"
+                        >
+                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
+                        </button>
+                        <NuxtLink
+                          to="/club/recurring-slots"
+                          class="text-xs font-medium text-violet-700 hover:text-violet-900 underline px-2 py-1"
+                          @click.stop
+                        >
+                          Liste récurrences
+                        </NuxtLink>
                       </div>
                     </div>
                   </div>
@@ -558,19 +613,50 @@
             </div>
 
             <!-- Boutons d'action -->
-            <div class="flex justify-between gap-3 mt-6 pt-4 border-t">
-              <button 
-                @click="confirmAndDeleteLesson(selectedLesson)"
-                :disabled="saving"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
-                <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Supprimer
-              </button>
-              <button 
+            <div class="flex flex-wrap items-center gap-3 mt-6 pt-4 border-t">
+              <template v-if="!selectedLesson.is_recurring_placeholder">
+                <button
+                  type="button"
+                  @click="openEditLessonFromDetails()"
+                  :disabled="saving"
+                  class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2">
+                  <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  @click="confirmAndDeleteLesson(selectedLesson)"
+                  :disabled="saving"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2">
+                  <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Supprimer
+                </button>
+              </template>
+              <div v-else class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+                  :disabled="saving || releasingRecurringSlotId === selectedLesson.recurring_slot_id"
+                  @click="handleReleaseRecurringFromModal(selectedLesson)"
+                >
+                  <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Libérer la série
+                </button>
+                <span class="text-xs text-violet-700">
+                  ou
+                  <NuxtLink to="/club/recurring-slots" class="underline font-medium" @click="closeLessonModal">liste des récurrences</NuxtLink>
+                </span>
+              </div>
+              <button
+                type="button"
                 @click="closeLessonModal"
-                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors sm:ml-auto">
                 Fermer
               </button>
             </div>
@@ -829,6 +915,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
+import {
+  ymdInRange,
+  subscriptionRecurringSlotFiresOnDate,
+  isLessonLikeRecurringSlot,
+} from '~/utils/subscriptionRecurringSlot'
 
 const route = useRoute()
 const router = useRouter()
@@ -923,6 +1014,9 @@ interface Lesson {
   course_type?: CourseType
   location?: any
   notes?: string
+  /** Entrée virtuelle : réservation récurrente sans cours matérialisé ce jour */
+  is_recurring_placeholder?: boolean
+  recurring_slot_id?: number
 }
 
 // State
@@ -931,6 +1025,10 @@ const error = ref<string | null>(null)
 const clubDisciplines = ref<ClubDiscipline[]>([])
 const openSlots = ref<OpenSlot[]>([])
 const lessons = ref<Lesson[]>([])
+/** Créneaux récurrents (abonnements) — pour afficher les réservations sans ligne `lessons` */
+const clubRecurringSlots = ref<any[]>([])
+/** Libération API en cours (évite double clic) */
+const releasingRecurringSlotId = ref<number | null>(null)
 const showSlotModal = ref(false)
 const editingSlot = ref<OpenSlot | null>(null)
 const saving = ref(false)
@@ -1083,12 +1181,124 @@ const filteredLessons = computed(() => {
   })
 })
 
+function lessonMaterializesRecurringOnDate(lesson: any, slot: any, dateStr: string): boolean {
+  if (lesson.is_recurring_placeholder) return false
+  if (lesson.status === 'cancelled') return false
+  const ls = new Date(lesson.start_time)
+  const y = ls.getFullYear()
+  const m = String(ls.getMonth() + 1).padStart(2, '0')
+  const d = String(ls.getDate()).padStart(2, '0')
+  if (`${y}-${m}-${d}` !== dateStr) return false
+  const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
+  const sid = Number(lesson.student_id ?? lesson.students?.[0]?.id)
+  if (tid !== Number(slot.teacher_id) || sid !== Number(slot.student_id)) return false
+  const le = new Date(lesson.end_time)
+  const rs = new Date(`${dateStr}T${String(slot.start_time).substring(0, 5)}:00`)
+  let re = new Date(`${dateStr}T${String(slot.end_time).substring(0, 5)}:00`)
+  if (re <= rs) re = new Date(re.getTime() + 86400000)
+  return ls < re && le > rs
+}
+
+/** Cours réel qui chevauche une série d’abonnement (même jour, élève, prof) → icône récurrence sur la carte */
+function planningLessonTiedToRecurring(lesson: Lesson): boolean {
+  if (lesson.is_recurring_placeholder) return true
+  if (lesson.status === 'cancelled') return false
+  const ls = new Date(lesson.start_time)
+  const y = ls.getFullYear()
+  const m = String(ls.getMonth() + 1).padStart(2, '0')
+  const d = String(ls.getDate()).padStart(2, '0')
+  const dateStr = `${y}-${m}-${d}`
+  const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
+  const sid = Number(lesson.student_id ?? lesson.students?.[0]?.id)
+  if (!tid || !sid) return false
+  const le = new Date(lesson.end_time)
+  for (const rs of clubRecurringSlots.value) {
+    if (rs.status !== 'active') continue
+    if (!isLessonLikeRecurringSlot(rs)) continue
+    if (!ymdInRange(dateStr, String(rs.start_date), String(rs.end_date))) continue
+    if (!subscriptionRecurringSlotFiresOnDate(rs, dateStr)) continue
+    if (Number(rs.teacher_id) !== tid || Number(rs.student_id) !== sid) continue
+    const rsStart = new Date(`${dateStr}T${String(rs.start_time).substring(0, 5)}:00`)
+    let rsEnd = new Date(`${dateStr}T${String(rs.end_time).substring(0, 5)}:00`)
+    if (rsEnd <= rsStart) rsEnd = new Date(rsEnd.getTime() + 86400000)
+    if (ls < rsEnd && le > rsStart) return true
+  }
+  return false
+}
+
+function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
+  const sh = String(rs.start_time).substring(0, 5)
+  const eh = String(rs.end_time).substring(0, 5)
+  const start_time = `${dateStr}T${sh}:00`
+  const end_time = `${dateStr}T${eh}:00`
+  const templateLabel = rs.subscription_instance?.subscription?.template?.name
+  const tmpl = rs.subscription_instance?.subscription?.template
+  const priceNum = tmpl != null && typeof tmpl.price === 'number' ? tmpl.price : undefined
+  return {
+    id: -(10_000_000 + Number(rs.id)),
+    club_id: 0,
+    student_id: rs.student_id,
+    teacher_id: rs.teacher_id,
+    course_type_id: 0,
+    location_id: 0,
+    start_time,
+    end_time,
+    status: 'recurring_series',
+    price: priceNum ?? 0,
+    is_recurring_placeholder: true,
+    recurring_slot_id: Number(rs.id),
+    student: rs.student,
+    teacher: rs.teacher,
+    course_type: {
+      id: 0,
+      name: templateLabel ? `Abonnement · ${templateLabel}` : 'Réservation récurrente (abonnement)',
+      description: null,
+      discipline_id: null,
+      is_individual: true,
+      max_participants: 1,
+      is_active: true,
+    },
+  }
+}
+
+/**
+ * Toutes les séries actives du club qui tombent ce jour dans la plage horaire du créneau ouvert sélectionné
+ * (pas de filtre open_slot / discipline : vue complète pour repérer doublons et nettoyer).
+ */
+const recurringPlanningPlaceholders = computed((): Lesson[] => {
+  if (!selectedSlot.value || !selectedDate.value) return []
+  const d = selectedDate.value
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const slot = selectedSlot.value
+  const slotStart = formatTime(slot.start_time)
+  const slotEnd = formatTime(slot.end_time)
+  const out: Lesson[] = []
+  for (const rs of clubRecurringSlots.value) {
+    if (rs.status !== 'active') continue
+    if (!ymdInRange(dateStr, String(rs.start_date), String(rs.end_date))) continue
+    if (Number(rs.day_of_week) !== slot.day_of_week) continue
+    if (!isLessonLikeRecurringSlot(rs)) continue
+    if (!subscriptionRecurringSlotFiresOnDate(rs, dateStr)) continue
+    const rsStart = formatTime(rs.start_time)
+    if (!(rsStart >= slotStart && rsStart < slotEnd)) continue
+    const hasLesson = filteredLessons.value.some((l) => lessonMaterializesRecurringOnDate(l, rs, dateStr))
+    if (hasLesson) continue
+    out.push(buildRecurringPlaceholder(rs, dateStr))
+  }
+  return out
+})
+
+const lessonsForPlanningGrid = computed((): Lesson[] => [
+  ...filteredLessons.value,
+  ...recurringPlanningPlaceholders.value,
+])
+
 // Cours groupés par plage horaire pour affichage en grille
 const lessonsGroupedByTimeSlot = computed(() => {
   // Grouper les cours par heure de début
   const groups: Record<string, any[]> = {}
   
-  filteredLessons.value.forEach(lesson => {
+  lessonsForPlanningGrid.value.forEach(lesson => {
     const date = new Date(lesson.start_time)
     const hours = String(date.getHours()).padStart(2, '0')
     const minutes = String(date.getMinutes()).padStart(2, '0')
@@ -1608,6 +1818,65 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
   }
 }
 
+async function loadClubRecurringSlots() {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get('/club/recurring-slots')
+    if (response.data?.success) {
+      clubRecurringSlots.value = Array.isArray(response.data.data) ? response.data.data : []
+    } else {
+      clubRecurringSlots.value = []
+    }
+  } catch (err) {
+    console.warn('[Planning] Chargement créneaux récurrents:', err)
+    clubRecurringSlots.value = []
+  }
+}
+
+/**
+ * Libère une série depuis une carte « pas encore de cours généré » (POST /club/recurring-slots/{id}/release).
+ * @returns true si la série a été libérée avec succès
+ */
+async function confirmAndReleaseRecurringPlaceholder(lesson: Lesson): Promise<boolean> {
+  if (!lesson.is_recurring_placeholder || lesson.recurring_slot_id == null) {
+    return false
+  }
+  const id = Number(lesson.recurring_slot_id)
+  const studentLabel = getLessonStudents(lesson)
+  const teacherLabel = lesson.teacher?.user?.name || 'Coach'
+  const msg = `Libérer la réservation récurrente #${id} ?\n\n${studentLabel} — ${teacherLabel}\n\nLa série sera annulée (comme dans Créneaux récurrents → Libérer). Les cours déjà créés ne sont pas supprimés automatiquement.`
+  if (!confirm(msg)) {
+    return false
+  }
+  releasingRecurringSlotId.value = id
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/recurring-slots/${id}/release`, {
+      reason: 'Libération depuis le planning club'
+    })
+    if (response.data?.success) {
+      success('Série récurrente libérée')
+      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      return true
+    }
+    showError(response.data?.message || 'Erreur lors de la libération', 'Libération')
+    return false
+  } catch (err: any) {
+    const m = err.response?.data?.message || err.message || 'Erreur lors de la libération'
+    showError(m, 'Libération')
+    return false
+  } finally {
+    releasingRecurringSlotId.value = null
+  }
+}
+
+async function handleReleaseRecurringFromModal(lesson: Lesson) {
+  const ok = await confirmAndReleaseRecurringPlaceholder(lesson)
+  if (ok) {
+    closeLessonModal()
+  }
+}
+
 // Charger les cours avec certificat médical en attente (bloc CM à valider)
 async function loadPendingCertificates() {
   try {
@@ -2104,6 +2373,10 @@ function closeCreateLessonModal() {
 
 // Ouvrir la modale d'édition d'un cours
 async function openEditLessonModal(lesson: Lesson) {
+  if (lesson.is_recurring_placeholder) {
+    navigateTo('/club/recurring-slots')
+    return
+  }
   editingLesson.value = lesson
   
   console.log('📝 [openEditLessonModal] Chargement des données du cours:', {
@@ -2356,8 +2629,10 @@ async function createLesson() {
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
       // Déduction d'abonnement (par défaut true)
       deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
-      // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.) — toujours envoyé quand déduction abo
-      recurring_interval: Math.max(1, Math.min(52, Number(lessonForm.value.recurring_interval) || 1))
+      // 0 = une seule séance (déduction abo possible sans récurrence / sans validation 26 sem.)
+      recurring_interval: Math.max(0, Math.min(52, Number.isFinite(Number(lessonForm.value.recurring_interval))
+        ? Number(lessonForm.value.recurring_interval)
+        : 1))
     }
     
     console.log('📤 Création du cours avec payload:', payload)
@@ -2368,8 +2643,8 @@ async function createLesson() {
       console.log('✅ Cours créé:', response.data.data)
       success('Cours créé avec succès', 'Succès')
       
-      // Recharger les cours pour inclure le nouveau cours
-      await loadLessons()
+      // Recharger les cours et les récurrences (affichage séries / placeholders)
+      await Promise.all([loadLessons(), loadClubRecurringSlots()])
       
       // Conserver la date sélectionnée dans "Cours programmés" si elle existe
       // et correspond au jour du créneau sélectionné
@@ -2418,7 +2693,23 @@ async function createLesson() {
         if (typeSet.length) {
           errorMessage += '\nTypes : ' + typeSet.join(', ')
         }
-        errorMessage += '\n\nCréez le cours sans récurrence ou choisissez un autre créneau/horaire.'
+        const dupIds = data.duplicate_recurring_slot_ids
+        if (Array.isArray(dupIds) && dupIds.length) {
+          errorMessage += '\n\nRéf. créneau récurrent : #' + dupIds.join(', #')
+          errorMessage += '\n→ Menu Club → Créneaux récurrents pour modifier ou libérer la réservation.'
+        }
+        const withDiag = data.conflicts.find((c: { recurring_slot?: Record<string, unknown> }) => c.recurring_slot && typeof c.recurring_slot === 'object') as { recurring_slot?: Record<string, unknown> } | undefined
+        if (withDiag?.recurring_slot) {
+          const d = withDiag.recurring_slot
+          const t0 = typeof d.start_time === 'string' ? d.start_time.slice(0, 5) : String(d.start_time ?? '')
+          const t1 = typeof d.end_time === 'string' ? d.end_time.slice(0, 5) : String(d.end_time ?? '')
+          errorMessage += '\n\n— Détail enregistrement récurrent #' + String(d.id ?? '') + ' : '
+            + (d.teacher_name != null ? String(d.teacher_name) : 'enseignant #' + String(d.teacher_id ?? ''))
+            + ' + '
+            + (d.student_name != null ? String(d.student_name) : 'élève #' + String(d.student_id ?? ''))
+            + ', créneau ' + t0 + '–' + t1 + ' — si ce n’est pas votre intention, libérez ce créneau récurrent.'
+        }
+        errorMessage += '\n\nPour une séance ponctuelle sans dupliquer la série : choisissez « Une seule séance » ou désactivez la déduction d’abonnement. Sinon, changez le jour ou l’horaire.'
       } else if (data.errors?.recurring?.length) {
         const recurringErrors = Array.isArray(data.errors.recurring) ? data.errors.recurring : [data.errors.recurring]
         errorMessage += '\n' + recurringErrors.slice(0, 5).join('\n')
@@ -2588,7 +2879,7 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
       }
     }
     
-    await loadLessons()
+    await Promise.all([loadLessons(), loadClubRecurringSlots()])
     closeEditLessonModal()
     
     // Réinitialiser les variables
@@ -2740,6 +3031,10 @@ async function updateLesson() {
 
 // Gestion de la modale de cours
 function openLessonModal(lesson: Lesson) {
+  if (lesson.is_recurring_placeholder) {
+    navigateTo('/club/recurring-slots')
+    return
+  }
   selectedLesson.value = lesson
   showLessonModal.value = true
 }
@@ -2747,6 +3042,17 @@ function openLessonModal(lesson: Lesson) {
 function closeLessonModal() {
   showLessonModal.value = false
   selectedLesson.value = null
+}
+
+/** Ferme la modale détails puis ouvre l’édition (évite selectedLesson null avant openEditLessonModal). */
+function openEditLessonFromDetails() {
+  const lesson = selectedLesson.value
+  if (!lesson || lesson.is_recurring_placeholder) return
+  showLessonModal.value = false
+  selectedLesson.value = null
+  void nextTick(() => {
+    void openEditLessonModal(lesson)
+  })
 }
 
 function handleViewLessonFromHistory(lesson: any) {
@@ -2778,8 +3084,7 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
     
     if (response.data.success) {
       success('Statut du cours mis à jour avec succès', 'Succès')
-      // Recharger les cours
-      await loadLessons()
+      await Promise.all([loadLessons(), loadClubRecurringSlots()])
       closeLessonModal()
     } else {
       showError(response.data.message || 'Erreur lors de la mise à jour du statut', 'Erreur')
@@ -2830,6 +3135,7 @@ async function openCreateLessonModalForTimeSlot(timeSlot: string) {
 // Fonction pour confirmer et supprimer un cours depuis les cartes
 // Nouvelle méthode : ouvrir la modale de confirmation au lieu de confirm() natif
 async function confirmAndDeleteLesson(lesson: Lesson) {
+  if (lesson.is_recurring_placeholder) return
   console.log('🗑️ [confirmAndDeleteLesson] Demande de suppression pour cours ID:', lesson.id)
   
   // Vérifier si le cours a des séances futures liées à un abonnement
@@ -3012,9 +3318,7 @@ async function executeDeleteLesson(lessonId: number, scope: 'single' | 'all_futu
       const scopeLabel = scope === 'single' ? 'Cours' : `Cours et ${response.data.processed_count - 1} séance(s) future(s)`
       
       success(`${scopeLabel} ${actionLabel} avec succès`)
-      
-      // Recharger les cours
-      await loadLessons()
+      await Promise.all([loadLessons(), loadClubRecurringSlots()])
     } else {
       showError(response.data.message || 'Erreur lors de la suppression')
     }
@@ -3066,7 +3370,8 @@ function getStatusLabel(status: string): string {
     'confirmed': '✓ Confirmé',
     'pending': '⏳ En attente',
     'cancelled': '✗ Annulé',
-    'completed': '✓ Terminé'
+    'completed': '✓ Terminé',
+    'recurring_series': '📅 Série abonnement',
   }
   return labels[status] || status
 }
@@ -3076,12 +3381,16 @@ function getStatusBadgeClass(status: string): string {
     'confirmed': 'bg-green-100 text-green-800',
     'pending': 'bg-yellow-100 text-yellow-800',
     'cancelled': 'bg-red-100 text-red-800',
-    'completed': 'bg-gray-100 text-gray-600'
+    'completed': 'bg-gray-100 text-gray-600',
+    'recurring_series': 'bg-violet-100 text-violet-900',
   }
   return classes[status] || 'bg-blue-100 text-blue-800'
 }
 
 function getLessonBorderClass(lesson: Lesson): string {
+  if (lesson.is_recurring_placeholder) {
+    return 'border-violet-400 bg-violet-50'
+  }
   const classes: Record<string, string> = {
     'confirmed': 'border-green-300 bg-green-50',
     'pending': 'border-yellow-300 bg-yellow-50',
@@ -3411,6 +3720,7 @@ function getLessonStudents(lesson: Lesson | null): string {
 // Fonction pour vérifier si un cours a un abonnement actif
 function hasActiveSubscription(lesson: Lesson | null): boolean {
   if (!lesson) return false
+  if (lesson.is_recurring_placeholder) return true
   
   // Vérifier l'élève principal
   if (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) {
@@ -3484,6 +3794,7 @@ onMounted(async () => {
     loadClubDisciplines(),
     loadOpenSlots(),
     loadLessons(),
+    loadClubRecurringSlots(),
     loadTeachers(),
     loadStudents(),
     loadCourseTypes()

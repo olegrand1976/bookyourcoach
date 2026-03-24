@@ -34,8 +34,27 @@ return Application::configure(basePath: dirname(__DIR__))
             if (! $request->is('api/*')) {
                 return $response;
             }
-            $cors = app(\Fruitcake\Cors\CorsService::class);
-            $cors->setOptions(config('cors', []));
-            return $cors->addActualRequestHeaders($response, $request);
+            try {
+                if (class_exists(\Fruitcake\Cors\CorsService::class)) {
+                    $cors = app(\Fruitcake\Cors\CorsService::class);
+                    $cors->setOptions(config('cors', []));
+
+                    return $cors->addActualRequestHeaders($response, $request);
+                }
+            } catch (\Throwable) {
+                // Fallback ci-dessous
+            }
+
+            $origin = $request->headers->get('Origin');
+            $allowed = array_values(array_filter((array) config('cors.allowed_origins', [])));
+            if ($origin && in_array($origin, $allowed, true)) {
+                $response->headers->set('Access-Control-Allow-Origin', $origin);
+                if (config('cors.supports_credentials')) {
+                    $response->headers->set('Access-Control-Allow-Credentials', 'true');
+                }
+                $response->headers->set('Vary', 'Origin', false);
+            }
+
+            return $response;
         });
     })->create();
