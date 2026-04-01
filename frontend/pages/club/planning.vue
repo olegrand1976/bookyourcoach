@@ -689,6 +689,15 @@
         @submit="createLesson"
       />
 
+      <LessonScheduleConflictModal
+        :show="showScheduleConflictModal"
+        :payload="scheduleConflictPayload"
+        @close="closeScheduleConflictModal"
+        @edit-lesson="onScheduleConflictEditLesson"
+        @cancel-lesson="onScheduleConflictCancelLesson"
+        @release-recurring="onScheduleConflictReleaseRecurring"
+      />
+
       <!-- Modale de confirmation pour la portée de la modification -->
       <div v-if="showUpdateScopeModal" class="fixed inset-0 z-[60] overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4 py-12">
@@ -925,6 +934,8 @@ const route = useRoute()
 const router = useRouter()
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
+import LessonScheduleConflictModal from '~/components/planning/LessonScheduleConflictModal.vue'
+import type { ScheduleConflictPayload } from '~/components/planning/LessonScheduleConflictModal.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 
 // Composable pour les toasts
@@ -1037,6 +1048,9 @@ const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
 /** Heure demandée à l'ouverture (clic sur une plage) — transmise à la modale pour éviter toute course avec les watchers. */
 const createLessonRequestedTime = ref<string | null>(null)
+/** Conflit 422 à la création (récurrence / disponibilités) — détail + actions */
+const showScheduleConflictModal = ref(false)
+const scheduleConflictPayload = ref<ScheduleConflictPayload | null>(null)
 const showHistoryModal = ref(false)
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
@@ -1060,8 +1074,8 @@ const lessonForm = ref({
   est_legacy: false as boolean | null, // Par défaut DCL (false)
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: true as boolean | null,
-  // Intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
-  recurring_interval: 1,
+  // 0 = une seule séance (défaut planning club : pas de validation 26 sem. ni série auto) ; 1+ = récurrence
+  recurring_interval: 0,
   // Portée de la mise à jour (pour les récurrences)
   update_scope: 'single' as 'single' | 'all_future'
 })
@@ -1870,6 +1884,60 @@ async function confirmAndReleaseRecurringPlaceholder(lesson: Lesson): Promise<bo
   }
 }
 
+function closeScheduleConflictModal() {
+  showScheduleConflictModal.value = false
+  scheduleConflictPayload.value = null
+}
+
+/** Charge le cours puis ouvre la même modale d’édition que depuis le planning */
+async function onScheduleConflictEditLesson(lessonId: number) {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.get(`/lessons/${lessonId}`)
+    if (!response.data?.success || !response.data.data) {
+      showError(response.data?.message || 'Impossible de charger ce cours', 'Erreur')
+      return
+    }
+    closeScheduleConflictModal()
+    await openEditLessonModal(response.data.data as Lesson)
+  } catch (e: any) {
+    showError(e.response?.data?.message || 'Impossible de charger ce cours', 'Erreur')
+  }
+}
+
+async function onScheduleConflictCancelLesson(lessonId: number) {
+  closeScheduleConflictModal()
+  await executeDeleteLesson(lessonId, 'single', 'cancel', 'Annulation depuis résolution de conflit planning')
+}
+
+async function onScheduleConflictReleaseRecurring(slotId: number) {
+  if (
+    !confirm(
+      `Libérer la réservation récurrente #${slotId} ?\n\nLes cours déjà générés ne sont pas supprimés automatiquement.`
+    )
+  ) {
+    return
+  }
+  releasingRecurringSlotId.value = slotId
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/recurring-slots/${slotId}/release`, {
+      reason: 'Libération depuis résolution de conflit planning'
+    })
+    if (response.data?.success) {
+      success('Créneau récurrent libéré')
+      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      closeScheduleConflictModal()
+    } else {
+      showError(response.data?.message || 'Erreur lors de la libération', 'Libération')
+    }
+  } catch (err: any) {
+    showError(err.response?.data?.message || err.message || 'Erreur lors de la libération', 'Libération')
+  } finally {
+    releasingRecurringSlotId.value = null
+  }
+}
+
 async function handleReleaseRecurringFromModal(lesson: Lesson) {
   const ok = await confirmAndReleaseRecurringPlaceholder(lesson)
   if (ok) {
@@ -2309,7 +2377,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       notes: '',
       est_legacy: false,
       deduct_from_subscription: true,
-      recurring_interval: 1,
+      recurring_interval: 0,
       update_scope: 'single'
     }
   } else {
@@ -2326,7 +2394,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       notes: '',
       est_legacy: false,
       deduct_from_subscription: true,
-      recurring_interval: 1,
+      recurring_interval: 0,
       update_scope: 'single'
     }
   }
@@ -2359,7 +2427,7 @@ function closeCreateLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
-    recurring_interval: 1,
+    recurring_interval: 0,
     update_scope: 'single'
   }
   
@@ -2510,7 +2578,7 @@ function closeEditLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
-    recurring_interval: 1,
+    recurring_interval: 0,
     update_scope: 'single'
   }
 }
@@ -2632,7 +2700,7 @@ async function createLesson() {
       // 0 = une seule séance (déduction abo possible sans récurrence / sans validation 26 sem.)
       recurring_interval: Math.max(0, Math.min(52, Number.isFinite(Number(lessonForm.value.recurring_interval))
         ? Number(lessonForm.value.recurring_interval)
-        : 1))
+        : 0))
     }
     
     console.log('📤 Création du cours avec payload:', payload)
@@ -2731,8 +2799,23 @@ async function createLesson() {
     } else if (err.message) {
       errorMessage = err.message
     }
-    
-    showError(errorMessage, 'Erreur de création')
+
+    const httpStatus = err.response?.status
+    const conflictList = data?.conflicts
+    if (httpStatus === 422 && Array.isArray(conflictList) && conflictList.length > 0) {
+      scheduleConflictPayload.value = {
+        message: typeof data?.message === 'string' ? data.message : errorMessage,
+        hint: typeof data?.hint === 'string' ? data.hint : null,
+        conflicts: conflictList as Record<string, unknown>[]
+      }
+      showScheduleConflictModal.value = true
+      warning(
+        'Conflit de planification : corrigez la cause dans la fenêtre, puis réessayez la création.',
+        'Conflit'
+      )
+    } else {
+      showError(errorMessage, 'Erreur de création')
+    }
   } finally {
     saving.value = false
   }

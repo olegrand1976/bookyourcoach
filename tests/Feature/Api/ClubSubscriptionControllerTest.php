@@ -304,6 +304,35 @@ class ClubSubscriptionControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_returns_pagination_when_listing_subscriptions(): void
+    {
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+
+        Subscription::factory()->count(3)->create([
+            'club_id' => $club->id,
+        ]);
+
+        $response = $this->getJson('/api/club/subscriptions?per_page=2&page=1');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'data',
+                'pagination' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total',
+                ],
+            ]);
+
+        $this->assertSame(3, $response->json('pagination.total'));
+        $this->assertSame(2, $response->json('pagination.per_page'));
+        $this->assertCount(2, $response->json('data'));
+    }
+
+    #[Test]
     public function it_requires_club_role_to_access_subscriptions()
     {
         // Arrange

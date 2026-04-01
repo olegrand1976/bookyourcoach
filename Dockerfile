@@ -66,6 +66,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Copier les fichiers de l'application
 COPY --chown=www-data:www-data . .
 
+# Pas de certificat client dans l’image par défaut (local en HTTP). Évite un dossier cert.pem parasite.
+RUN rm -rf /var/www/html/cert.pem
+
 # Installer les dépendances PHP
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 

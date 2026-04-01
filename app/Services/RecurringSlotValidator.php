@@ -282,6 +282,8 @@ class RecurringSlotValidator
             }
             if ($hasDuplicateRecurring) {
                 $hint = 'Une réservation récurrente identique (même élève, même enseignant et même horaire) existe déjà pour ce club — voir « recurring_slot » dans la réponse (noms et horaires réels en base). Ce blocage vise l’entrée « créneau récurrent », pas seulement une carte sur le planning : la ligne peut exister sans cours encore généré pour cette date. Deux élèves différents sur le même abonnement peuvent avoir cours au même moment avec des enseignants différents. Libérez ou modifiez le créneau récurrent (Menu Club → Créneaux récurrents), ou « Une seule séance » / sans déduction d’abonnement pour éviter une deuxième série.';
+            } else {
+                $hint = 'Cette vérification teste chaque occurrence sur 26 semaines : le planning ou « Créneaux récurrents » peut ne pas montrer le même périmètre. Un enseignant « occupé » à 11h peut être un cours affiché en 10h40–11h00 (fin = début de votre créneau). Les créneaux récurrents listent surtout les réservations abonnement, pas tous les cours déjà générés. Pour une seule date sans série : « Une seule séance » dans la modale.';
             }
         }
 
@@ -315,7 +317,7 @@ class RecurringSlotValidator
 
         return [
             'valid' => $valid,
-            'conflicts' => $conflicts,
+            'conflicts' => array_map(fn (array $c) => $this->enrichConflictForApi($c), $conflicts),
             'message' => $valid
                 ? 'Créneau disponible pour les 6 prochains mois'
                 : 'Conflits détectés sur ' . count($conflicts) . ' occurrence(s)',
@@ -484,6 +486,66 @@ class RecurringSlotValidator
             'status' => (string) $slot->status,
             'subscription_instance_id' => (int) $slot->subscription_instance_id,
         ];
+    }
+
+    /**
+     * Détails d’un cours bloquant pour l’API / le frontend (fuseau app).
+     *
+     * @return array<string, mixed>
+     */
+    private function lessonDiagnostic(Lesson $lesson): array
+    {
+        $lesson->loadMissing(['teacher.user', 'student.user', 'students.user']);
+
+        $studentName = $lesson->student?->user?->name;
+        $primaryStudentId = $lesson->student_id !== null ? (int) $lesson->student_id : null;
+        if ($studentName === null && $lesson->relationLoaded('students') && $lesson->students->isNotEmpty()) {
+            $first = $lesson->students->first();
+            $studentName = $first?->user?->name;
+            if ($primaryStudentId === null && $first !== null) {
+                $primaryStudentId = (int) $first->id;
+            }
+        }
+
+        $tz = config('app.timezone');
+
+        return [
+            'id' => (int) $lesson->id,
+            'start_time' => $lesson->start_time?->copy()->timezone($tz)->format('Y-m-d H:i'),
+            'end_time' => $lesson->end_time?->copy()->timezone($tz)->format('Y-m-d H:i'),
+            'teacher_id' => (int) $lesson->teacher_id,
+            'student_id' => $primaryStudentId,
+            'teacher_name' => $lesson->teacher?->user?->name,
+            'student_name' => $studentName,
+            'status' => (string) $lesson->status,
+        ];
+    }
+
+    /**
+     * Ajoute blocking_lesson / blocking_recurring_slot pour affichage et actions côté client.
+     *
+     * @param  array<string, mixed>  $conflict
+     * @return array<string, mixed>
+     */
+    private function enrichConflictForApi(array $conflict): array
+    {
+        if (! empty($conflict['lesson_id'])) {
+            $lesson = Lesson::query()->find((int) $conflict['lesson_id']);
+            if ($lesson !== null) {
+                $conflict['blocking_lesson'] = $this->lessonDiagnostic($lesson);
+            }
+        }
+
+        if (! empty($conflict['recurring_slot']) && is_array($conflict['recurring_slot'])) {
+            $conflict['blocking_recurring_slot'] = $conflict['recurring_slot'];
+        } elseif (! empty($conflict['recurring_slot_id'])) {
+            $slot = SubscriptionRecurringSlot::query()->find((int) $conflict['recurring_slot_id']);
+            if ($slot !== null) {
+                $conflict['blocking_recurring_slot'] = $this->recurringSlotDiagnostic($slot);
+            }
+        }
+
+        return $conflict;
     }
 
     /**

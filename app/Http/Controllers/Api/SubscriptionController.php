@@ -55,31 +55,71 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
+            $perPage = (int) $request->query('per_page', 20);
+            $perPage = max(1, min(100, $perPage > 0 ? $perPage : 20));
+            $page = max(1, (int) $request->query('page', 1));
+
             // Vérifier si les tables nécessaires existent
             if (!Schema::hasTable('subscriptions')) {
                 Log::warning('Table subscriptions n\'existe pas. Migrations non exécutées.');
                 return response()->json([
                     'success' => true,
-                    'data' => []
+                    'data' => [],
+                    'pagination' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => $perPage,
+                        'total' => 0,
+                    ],
                 ]);
             }
 
-            // Si pas d'abonnements, retourner un tableau vide directement
-            // Utiliser scopeForClub qui gère automatiquement le cas où club_id n'existe pas
             try {
                 $subscriptionQuery = $scope === 'trashed'
                     ? Subscription::onlyTrashed()->forClub($club->id)
                     : Subscription::forClub($club->id);
 
-                $subscriptionCount = (clone $subscriptionQuery)->count();
-                if ($subscriptionCount === 0) {
-                    return response()->json([
-                        'success' => true,
-                        'data' => []
-                    ]);
+                $search = trim((string) $request->query('search', ''));
+                if ($search !== '') {
+                    $like = '%' . addcslashes($search, '%_\\') . '%';
+                    $subscriptionQuery->where(function ($outer) use ($like) {
+                        $outer->whereHas('instances.students', function ($q) use ($like) {
+                            $q->where(function ($w) use ($like) {
+                                $w->where('students.first_name', 'like', $like)
+                                    ->orWhere('students.last_name', 'like', $like);
+                            });
+                        })->orWhereHas('instances.students.user', function ($q) use ($like) {
+                            $q->where('users.name', 'like', $like)
+                                ->orWhere('users.first_name', 'like', $like)
+                                ->orWhere('users.last_name', 'like', $like)
+                                ->orWhere('users.email', 'like', $like);
+                        });
+                    });
                 }
 
-                $subscriptions = $subscriptionQuery
+                $usageStatus = $request->query('usage_status', 'all');
+                if ($scope === 'active' && in_array($usageStatus, ['normal', 'warning', 'urgent'], true)) {
+                    $pctExpr = '(subscription_instances.lessons_used * 100.0 / NULLIF((SELECT st.total_available_lessons FROM subscriptions s2 INNER JOIN subscription_templates st ON st.id = s2.subscription_template_id WHERE s2.id = subscription_instances.subscription_id LIMIT 1), 0))';
+                    $subscriptionQuery->whereHas('instances', function ($iq) use ($usageStatus, $pctExpr) {
+                        $iq->where('subscription_instances.status', 'active');
+                        if ($usageStatus === 'urgent') {
+                            $iq->whereRaw("{$pctExpr} >= 90");
+                        } elseif ($usageStatus === 'warning') {
+                            $iq->whereRaw("{$pctExpr} >= 70")->whereRaw("{$pctExpr} < 90");
+                        } else {
+                            $iq->whereRaw("{$pctExpr} < 70");
+                        }
+                    });
+                }
+
+                $instanceIdFilter = (int) $request->query('instance_id', 0);
+                if ($instanceIdFilter > 0) {
+                    $subscriptionQuery->whereHas('instances', function ($q) use ($instanceIdFilter) {
+                        $q->where('subscription_instances.id', $instanceIdFilter);
+                    });
+                }
+
+                $paginator = $subscriptionQuery
                     ->with([
                         'template' => function ($query) {
                             $query->with('courseTypes');
@@ -88,38 +128,42 @@ class SubscriptionController extends Controller
                             $query->with(['students' => function ($q) {
                                 $q->with('user');
                             }]);
-                        }
+                        },
                     ])
                     ->orderBy($scope === 'trashed' ? 'deleted_at' : 'created_at', 'desc')
-                    ->get();
+                    ->paginate($perPage, ['*'], 'page', $page);
+
+                $subscriptions = $paginator->getCollection();
             } catch (\Exception $e) {
                 Log::error('Erreur lors de la récupération des abonnements (query): ' . $e->getMessage(), [
                     'club_id' => $club->id,
                     'user_id' => Auth::id(),
-                    'trace' => $e->getTraceAsString()
+                    'trace' => $e->getTraceAsString(),
                 ]);
-                // Retourner un tableau vide en cas d'erreur
+
                 return response()->json([
                     'success' => true,
-                    'data' => []
+                    'data' => [],
+                    'pagination' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => $perPage,
+                        'total' => 0,
+                    ],
                 ]);
             }
-            
-            if ($scope === 'active') {
-                // 🔧 Lier automatiquement les cours non liés aux abonnements actifs
-                // Utiliser l'ordre chronologique : les abonnements les plus anciens sont utilisés en premier
-                $allStudentIds = [];
-                foreach ($subscriptions as $subscription) {
-                    if ($subscription->instances && $subscription->instances->count() > 0) {
-                        foreach ($subscription->instances as $instance) {
-                            if ($instance->status === 'active') {
-                                $allStudentIds = array_merge($allStudentIds, $instance->students->pluck('id')->toArray());
-                            }
-                        }
-                    }
-                }
 
-                $allStudentIds = array_unique($allStudentIds);
+            if ($scope === 'active') {
+                // 🔧 Lier automatiquement les cours non liés — élèves de toutes les instances actives du club (pas seulement la page courante)
+                $allStudentIds = DB::table('subscription_instance_students as sis')
+                    ->join('subscription_instances as si', 'si.id', '=', 'sis.subscription_instance_id')
+                    ->join('subscriptions as sub', 'sub.id', '=', 'si.subscription_id')
+                    ->where('sub.club_id', $club->id)
+                    ->where('si.status', 'active')
+                    ->whereNull('sub.deleted_at')
+                    ->distinct()
+                    ->pluck('sis.student_id')
+                    ->all();
 
                 // Pour chaque élève, trouver ses cours non liés et les lier au bon abonnement
                 foreach ($allStudentIds as $studentId) {
@@ -223,7 +267,13 @@ class SubscriptionController extends Controller
                 
                 return response()->json([
                     'success' => true,
-                    'data' => $serializedData
+                    'data' => $serializedData,
+                    'pagination' => [
+                        'current_page' => $paginator->currentPage(),
+                        'last_page' => $paginator->lastPage(),
+                        'per_page' => $paginator->perPage(),
+                        'total' => $paginator->total(),
+                    ],
                 ]);
             } catch (\Exception $e) {
                 Log::error('Erreur lors de la sérialisation des abonnements: ' . $e->getMessage(), [
@@ -232,7 +282,13 @@ class SubscriptionController extends Controller
                 // Retourner un tableau vide en cas d'erreur de sérialisation
                 return response()->json([
                     'success' => true,
-                    'data' => []
+                    'data' => [],
+                    'pagination' => [
+                        'current_page' => $paginator->currentPage(),
+                        'last_page' => $paginator->lastPage(),
+                        'per_page' => $paginator->perPage(),
+                        'total' => $paginator->total(),
+                    ],
                 ]);
             }
 
@@ -247,7 +303,13 @@ class SubscriptionController extends Controller
             // pour ne pas casser l'interface utilisateur
             return response()->json([
                 'success' => true,
-                'data' => []
+                'data' => [],
+                'pagination' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 20,
+                    'total' => 0,
+                ],
             ]);
         }
     }

@@ -141,6 +141,40 @@
         </div>
       </div>
 
+      <!-- Pagination (haut) -->
+      <div
+        v-if="subscriptionsPagination.total > 0"
+        class="bg-white rounded-lg shadow-sm px-4 py-3 mb-6 flex flex-wrap items-center justify-between gap-3"
+      >
+        <p class="text-sm text-gray-600">
+          Affichage de <span class="font-medium">{{ subscriptionListFrom }}</span>
+          à <span class="font-medium">{{ subscriptionListTo }}</span>
+          sur <span class="font-medium">{{ subscriptionsPagination.total }}</span>
+          abonnement(s)
+        </p>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-45 disabled:cursor-not-allowed"
+            :disabled="subscriptionsPagination.current_page <= 1 || subscriptionsLoading"
+            @click="goToSubscriptionsPage(subscriptionsPagination.current_page - 1)"
+          >
+            Précédent
+          </button>
+          <span class="text-sm text-gray-700 tabular-nums px-2">
+            Page {{ subscriptionsPagination.current_page }} / {{ subscriptionsPagination.last_page }}
+          </span>
+          <button
+            type="button"
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-45 disabled:cursor-not-allowed"
+            :disabled="subscriptionsPagination.current_page >= subscriptionsPagination.last_page || subscriptionsLoading"
+            @click="goToSubscriptionsPage(subscriptionsPagination.current_page + 1)"
+          >
+            Suivant
+          </button>
+        </div>
+      </div>
+
       <!-- Vue CARTES -->
       <div v-if="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div 
@@ -402,7 +436,7 @@
       </div>
 
       <!-- Message si aucun abonnement -->
-      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0 && subscriptionScope === 'active'" class="bg-white rounded-lg shadow-sm p-12 text-center">
+      <div v-if="subscriptionsPagination.total === 0 && subscriptionScope === 'active' && !hasSubscriptionFilters" class="bg-white rounded-lg shadow-sm p-12 text-center">
         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
         </svg>
@@ -428,7 +462,16 @@
           </button>
         </div>
       </div>
-      <div v-if="filteredSubscriptions.length === 0 && subscriptions.length === 0 && subscriptionScope === 'trashed'" class="bg-white rounded-lg shadow-sm p-12 text-center">
+      <div v-if="subscriptionsPagination.total === 0 && subscriptionScope === 'active' && hasSubscriptionFilters" class="bg-white rounded-lg shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun résultat</h3>
+        <p class="text-gray-600">
+          Aucun abonnement ne correspond à votre recherche ou aux filtres sélectionnés.
+        </p>
+      </div>
+      <div v-if="subscriptionsPagination.total === 0 && subscriptionScope === 'trashed' && !hasSubscriptionFilters" class="bg-white rounded-lg shadow-sm p-12 text-center">
         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14m-1 0l-1 12H7L6 8m3 0V5a1 1 0 011-1h4a1 1 0 011 1v3"></path>
         </svg>
@@ -436,6 +479,49 @@
         <p class="text-gray-600">
           Aucun abonnement soft-supprimé n'est disponible pour restauration.
         </p>
+      </div>
+      <div v-if="subscriptionsPagination.total === 0 && subscriptionScope === 'trashed' && hasSubscriptionFilters" class="bg-white rounded-lg shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun résultat</h3>
+        <p class="text-gray-600">
+          Aucun abonnement dans la corbeille ne correspond à votre recherche.
+        </p>
+      </div>
+
+      <!-- Pagination bas de liste -->
+      <div
+        v-if="subscriptionsPagination.total > 0"
+        class="bg-white rounded-lg shadow-sm px-4 py-3 mt-6 flex flex-wrap items-center justify-between gap-3"
+      >
+        <p class="text-sm text-gray-600">
+          Affichage de <span class="font-medium">{{ subscriptionListFrom }}</span>
+          à <span class="font-medium">{{ subscriptionListTo }}</span>
+          sur <span class="font-medium">{{ subscriptionsPagination.total }}</span>
+          abonnement(s)
+        </p>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-45 disabled:cursor-not-allowed"
+            :disabled="subscriptionsPagination.current_page <= 1 || subscriptionsLoading"
+            @click="goToSubscriptionsPage(subscriptionsPagination.current_page - 1)"
+          >
+            Précédent
+          </button>
+          <span class="text-sm text-gray-700 tabular-nums px-2">
+            Page {{ subscriptionsPagination.current_page }} / {{ subscriptionsPagination.last_page }}
+          </span>
+          <button
+            type="button"
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-45 disabled:cursor-not-allowed"
+            :disabled="subscriptionsPagination.current_page >= subscriptionsPagination.last_page || subscriptionsLoading"
+            @click="goToSubscriptionsPage(subscriptionsPagination.current_page + 1)"
+          >
+            Suivant
+          </button>
+        </div>
       </div>
     </div>
 
@@ -976,7 +1062,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useNuxtApp } from '#app'
 import { useRoute } from 'vue-router'
 import { useToast } from '~/composables/useToast'
@@ -1002,6 +1088,15 @@ const searchQuery = ref('')
 const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
 const viewMode = ref('card')
 const subscriptionScope = ref('active')
+const subscriptionsPage = ref(1)
+const subscriptionsPerPage = ref(20)
+const subscriptionsPagination = ref({
+  current_page: 1,
+  last_page: 1,
+  per_page: 20,
+  total: 0
+})
+const subscriptionsLoading = ref(false)
 
 // Modals
 const showCreateModal = ref(false)
@@ -1083,31 +1178,104 @@ const isFormValid = computed(() => {
 // Méthodes
 const loadSubscriptions = async () => {
   console.log('📦 [SUBSCRIPTIONS] loadSubscriptions appelé')
+  subscriptionsLoading.value = true
   try {
     const { $api } = useNuxtApp()
-    console.log('📦 [SUBSCRIPTIONS] $api disponible:', !!$api)
-    console.log('📦 [SUBSCRIPTIONS] Appel API vers /club/subscriptions')
-    const response = await $api.get('/club/subscriptions', {
-      params: {
-        scope: subscriptionScope.value
+    const params = {
+      scope: subscriptionScope.value,
+      page: subscriptionsPage.value,
+      per_page: subscriptionsPerPage.value
+    }
+    const q = searchQuery.value.trim()
+    if (q) {
+      params.search = q
+    }
+    if (subscriptionScope.value === 'active' && statusFilter.value !== 'all') {
+      params.usage_status = statusFilter.value
+    }
+    const instanceParam = route.query.instance
+    if (instanceParam) {
+      const iid = Number(instanceParam)
+      if (Number.isFinite(iid) && iid > 0) {
+        params.instance_id = iid
       }
-    })
-    console.log('📦 [SUBSCRIPTIONS] Réponse API reçue:', response)
-    console.log('📦 [SUBSCRIPTIONS] Réponse API data:', response.data)
+    }
+    const response = await $api.get('/club/subscriptions', { params })
     if (response.data.success) {
       subscriptions.value = response.data.data || []
-      console.log('📦 [SUBSCRIPTIONS] Abonnements chargés:', subscriptions.value.length)
-      console.log('📦 [SUBSCRIPTIONS] Détails:', subscriptions.value)
+      const p = response.data.pagination
+      if (p && typeof p === 'object') {
+        subscriptionsPagination.value = {
+          current_page: Number(p.current_page) || 1,
+          last_page: Math.max(1, Number(p.last_page) || 1),
+          per_page: Number(p.per_page) || subscriptionsPerPage.value,
+          total: Number(p.total) || 0
+        }
+        subscriptionsPage.value = subscriptionsPagination.value.current_page
+      } else {
+        subscriptionsPagination.value = {
+          current_page: 1,
+          last_page: 1,
+          per_page: subscriptionsPerPage.value,
+          total: subscriptions.value.length
+        }
+      }
     } else {
-      console.error('📦 [SUBSCRIPTIONS] Réponse non réussie:', response.data)
       subscriptions.value = []
+      subscriptionsPagination.value = {
+        current_page: 1,
+        last_page: 1,
+        per_page: subscriptionsPerPage.value,
+        total: 0
+      }
     }
   } catch (error) {
     console.error('📦 [SUBSCRIPTIONS] Erreur lors du chargement des abonnements:', error)
-    console.error('📦 [SUBSCRIPTIONS] Erreur complète:', error.response?.data || error.message)
     subscriptions.value = []
-    // Ne pas afficher d'alert pour ne pas bloquer l'interface
+    subscriptionsPagination.value = {
+      current_page: 1,
+      last_page: 1,
+      per_page: subscriptionsPerPage.value,
+      total: 0
+    }
+  } finally {
+    subscriptionsLoading.value = false
   }
+}
+
+const subscriptionListFrom = computed(() => {
+  const p = subscriptionsPagination.value
+  if (!p.total) {
+    return 0
+  }
+  return (p.current_page - 1) * p.per_page + 1
+})
+
+const subscriptionListTo = computed(() => {
+  const p = subscriptionsPagination.value
+  if (!p.total) {
+    return 0
+  }
+  return Math.min(p.current_page * p.per_page, p.total)
+})
+
+const hasSubscriptionFilters = computed(() => {
+  const q = searchQuery.value.trim()
+  if (q) {
+    return true
+  }
+  return subscriptionScope.value === 'active' && statusFilter.value !== 'all'
+})
+
+async function goToSubscriptionsPage(page) {
+  const p = subscriptionsPagination.value
+  const last = Math.max(1, p.last_page || 1)
+  const next = Math.min(Math.max(1, page), last)
+  if (next === subscriptionsPage.value) {
+    return
+  }
+  subscriptionsPage.value = next
+  await loadSubscriptions()
 }
 
 const loadDisciplines = async () => {
@@ -1151,6 +1319,7 @@ const closeAssignModal = () => {
 }
 
 const handleSubscriptionAssigned = () => {
+  subscriptionsPage.value = 1
   loadSubscriptions()
 }
 
@@ -1251,6 +1420,7 @@ const setViewMode = (mode) => {
 const setSubscriptionScope = async (scope) => {
   if (subscriptionScope.value === scope) return
   subscriptionScope.value = scope
+  subscriptionsPage.value = 1
   await loadSubscriptions()
 }
 
@@ -1339,11 +1509,10 @@ const getMostUrgentInstance = (subscription) => {
   return mostUrgent
 }
 
-// Filtrer les abonnements par nom/prénom d'élève ET statut d'utilisation
+// Recherche, filtre d'usage et pagination sont gérés par l'API. Ici : optionnellement restreindre à l'instance (?instance=) et trier l'affichage de la page courante.
 const filteredSubscriptions = computed(() => {
   let filtered = subscriptions.value
 
-  // Depuis le dashboard "Ouvrir l'abonnement" : n'afficher que l'abonnement contenant l'instance ciblée
   const instanceIdParam = route.query.instance
   if (instanceIdParam) {
     const instanceId = Number(instanceIdParam)
@@ -1354,99 +1523,7 @@ const filteredSubscriptions = computed(() => {
       if (found) filtered = [found]
     }
   }
-  
-  console.log('🔍 [DEBUG TRI] Abonnements bruts reçus:', filtered.length)
-  console.log('🔍 [DEBUG TRI] Abonnements bruts:', filtered)
-  
-  // 1. Filtrer par statut d'utilisation (couleur)
-  if (subscriptionScope.value === 'active' && statusFilter.value !== 'all') {
-    filtered = filtered.filter(subscription => {
-      if (!subscription.instances || subscription.instances.length === 0) {
-        return false
-      }
-      // Un abonnement est inclus si AU MOINS UNE de ses instances correspond au filtre
-      return subscription.instances.some(instance => {
-        if (instance.status !== 'active') return false
-        const instanceStatus = getInstanceStatus(instance, subscription.template)
-        return instanceStatus === statusFilter.value
-      })
-    })
-  }
-  
-  // Fonction helper pour normaliser les chaînes (supprimer les accents)
-  const normalizeString = (str) => {
-    if (!str) return ''
-    return str
-      .toLowerCase()
-      .normalize('NFD') // Décompose les caractères accentués
-      .replace(/[\u0300-\u036f]/g, '') // Supprime les diacritiques (accents)
-  }
-  
-  // 2. Filtrer par recherche de nom/prénom
-  if (searchQuery.value.trim()) {
-    const query = normalizeString(searchQuery.value.trim())
-    
-    filtered = filtered.filter(subscription => {
-      // Vérifier dans toutes les instances et leurs élèves
-      if (!subscription.instances || subscription.instances.length === 0) {
-        return false
-      }
-      
-      return subscription.instances.some(instance => {
-        if (!instance.students || instance.students.length === 0) {
-          return false
-        }
-        
-        return instance.students.some(student => {
-          // Utiliser la même logique que getInstanceStudentNames pour extraire tous les noms possibles
-          const searchableNames = []
-          
-          // Priorité 1: Nom complet de l'utilisateur (si l'élève a un compte)
-          if (student.user && student.user.name) {
-            searchableNames.push(normalizeString(student.user.name))
-          }
-          
-          // Priorité 2: first_name et last_name de l'utilisateur
-          if (student.user) {
-            const userFirstName = normalizeString(student.user.first_name || '')
-            const userLastName = normalizeString(student.user.last_name || '')
-            const userFullName = `${userFirstName} ${userLastName}`.trim()
-            if (userFullName) {
-              searchableNames.push(userFullName)
-            }
-            if (userFirstName) searchableNames.push(userFirstName)
-            if (userLastName) searchableNames.push(userLastName)
-          }
-          
-          // Priorité 3: first_name et last_name de l'élève (dans la table students)
-          const firstName = normalizeString(student.first_name || '')
-          const lastName = normalizeString(student.last_name || '')
-          const fullName = `${firstName} ${lastName}`.trim()
-          if (fullName) {
-            searchableNames.push(fullName)
-          }
-          if (firstName) searchableNames.push(firstName)
-          if (lastName) searchableNames.push(lastName)
-          
-          // Priorité 4: Nom direct de l'élève (si disponible)
-          if (student.name) {
-            searchableNames.push(normalizeString(student.name))
-          }
-          
-          // Priorité 5: Email de l'utilisateur (si disponible)
-          if (student.user && student.user.email) {
-            searchableNames.push(normalizeString(student.user.email))
-          }
-          
-          // Rechercher dans tous les noms extraits (normalisés)
-          return searchableNames.some(name => name.includes(query))
-        })
-      })
-    })
-  }
-  
-  console.log('🔍 [DEBUG TRI] Après filtrage:', filtered.length)
-  
+
   if (subscriptionScope.value === 'trashed') {
     return [...filtered].sort((a, b) => {
       const deletedAtA = a.deleted_at ? new Date(a.deleted_at).getTime() : 0
@@ -1888,6 +1965,7 @@ const deleteSubscription = async (subscriptionId) => {
     if (response.data.success) {
       showSuccess(response.data.message || 'Abonnement placé dans la corbeille avec succès')
       closeDeleteModal()
+      subscriptionsPage.value = 1
       await loadSubscriptions()
     } else {
       showError(response.data.message || 'Erreur lors de la suppression')
@@ -1914,6 +1992,7 @@ const restoreSubscription = async (subscriptionId) => {
 
     if (response.data.success) {
       showSuccess(response.data.message || 'Abonnement restauré avec succès')
+      subscriptionsPage.value = 1
       await loadSubscriptions()
       return
     }
@@ -1962,6 +2041,39 @@ const openModalForInstanceId = async (instanceIdParam) => {
   }
 }
 
+let searchDebounceTimer = null
+watch(searchQuery, () => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = setTimeout(() => {
+    subscriptionsPage.value = 1
+    loadSubscriptions()
+  }, 400)
+})
+
+watch(statusFilter, () => {
+  subscriptionsPage.value = 1
+  loadSubscriptions()
+})
+
+watch(
+  () => route.query.instance,
+  async (newVal, oldVal) => {
+    if (String(newVal ?? '') === String(oldVal ?? '')) {
+      return
+    }
+    openedModalForInstanceId.value = null
+    subscriptionsPage.value = 1
+    await loadSubscriptions()
+    if (newVal) {
+      openedModalForInstanceId.value = newVal
+      await nextTick()
+      await openModalForInstanceId(newVal)
+    }
+  }
+)
+
 onMounted(async () => {
   if (import.meta.client && typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(SUBSCRIPTIONS_VIEW_KEY)
@@ -1985,17 +2097,5 @@ onMounted(async () => {
     console.error('🚀 [SUBSCRIPTIONS] Erreur lors du chargement initial:', error)
   }
 })
-
-// Quand on arrive sur la page avec ?instance= en navigation client, ouvrir la modale une fois les abonnements chargés
-watch(
-  () => [route.query.instance, subscriptions.value.length],
-  async ([instanceParam, len]) => {
-    if (!instanceParam || len === 0 || openedModalForInstanceId.value === instanceParam) return
-    openedModalForInstanceId.value = instanceParam
-    await nextTick()
-    await openModalForInstanceId(instanceParam)
-  },
-  { immediate: false }
-)
 </script>
 

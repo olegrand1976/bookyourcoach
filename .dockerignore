@@ -1,5 +1,8 @@
 # Fichiers et dossiers à ignorer lors du build Docker
 
+# Évite de copier un cert.pem erroné à la racine (ex. dossier vide) dans l’image.
+cert.pem
+
 # Dépendances (éviter de copier dans le contexte Docker)
 node_modules/
 **/node_modules/

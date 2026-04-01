@@ -93,7 +93,7 @@
                 :key="s.id"
                 :value="String(s.id)"
               >
-                {{ s.user?.name || `Élève #${s.id}` }}
+                {{ formatStudentFilterLabel(s) }}
               </option>
             </select>
           </div>
@@ -519,15 +519,35 @@ function getStatusLabel(status) {
   return labels[status] || status
 }
 
+/**
+ * Libellé pour le select : l'API GET /club/students renvoie un objet plat (name, first_name, student_first_name…), sans user imbriqué.
+ */
+function formatStudentFilterLabel(s) {
+  if (!s) return ''
+  const top = typeof s.name === 'string' ? s.name.trim() : ''
+  if (top) return top
+  if (s.user?.name && String(s.user.name).trim()) return String(s.user.name).trim()
+  const fromUserCols = [s.first_name, s.last_name].filter(Boolean).join(' ').trim()
+  if (fromUserCols) return fromUserCols
+  const fromStudentCols = [s.student_first_name, s.student_last_name].filter(Boolean).join(' ').trim()
+  if (fromStudentCols) return fromStudentCols
+  const fromNestedUser = [s.user?.first_name, s.user?.last_name].filter(Boolean).join(' ').trim()
+  if (fromNestedUser) return fromNestedUser
+  return `Élève #${s.id ?? '?'}`
+}
+
 function getStudentName(slot) {
-  if (slot.student?.user?.name) {
-    return slot.student.user.name
+  const st = slot.student
+  if (st) {
+    if (st.user?.name) return st.user.name
+    const fl = [st.first_name, st.last_name].filter(Boolean).join(' ').trim()
+    if (fl) return fl
   }
-  if (slot.subscription_instance?.students && slot.subscription_instance.students.length > 0) {
+  if (slot.subscription_instance?.students?.length) {
     const firstStudent = slot.subscription_instance.students[0]
-    if (firstStudent?.user?.name) {
-      return firstStudent.user.name
-    }
+    if (firstStudent?.user?.name) return firstStudent.user.name
+    const fl = [firstStudent?.first_name, firstStudent?.last_name].filter(Boolean).join(' ').trim()
+    if (fl) return fl
   }
   return 'Non défini'
 }

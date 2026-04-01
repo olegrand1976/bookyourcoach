@@ -393,10 +393,13 @@
                 </p>
               </div>
               <div v-if="((!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future'))" class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
                   Fréquence de récurrence
                   <span class="text-xs font-normal text-gray-500 ml-2">{{ editingLesson ? '(pour tous les cours futurs)' : '(pour les cours réguliers)' }}</span>
                 </label>
+                <p v-if="!editingLesson" class="text-xs text-gray-600 mb-2">
+                  Par défaut : <strong>une seule séance</strong> (déduction d’abonnement possible). Choisissez « Chaque semaine » ou un autre intervalle uniquement pour générer la série sur les semaines suivantes (validation sur 26 semaines).
+                </p>
                 <select 
                   v-model.number="form.recurring_interval"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
@@ -407,6 +410,17 @@
                   <option :value="3">Toutes les 3 semaines</option>
                   <option :value="4">Toutes les 4 semaines</option>
                 </select>
+                <div
+                  v-if="!editingLesson && form.recurring_interval >= 1"
+                  class="mt-2 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-950"
+                >
+                  <p class="text-xs font-medium mb-1">Pourquoi le planning peut différer du refus « conflit »</p>
+                  <ul class="text-xs list-disc list-inside space-y-1 text-amber-900">
+                    <li>La série est validée sur <strong>26 semaines</strong> ; l’écran « Cours programmés » ne montre pas forcément toute cette période d’un coup.</li>
+                    <li>Un enseignant peut être bloqué sans carte « à 11h00 » : par ex. un cours <strong>10h40–11h00</strong> (il se termine quand le vôtre commence).</li>
+                    <li>La page <strong>Créneaux récurrents</strong> liste les réservations liées aux abonnements, pas l’ensemble des cours déjà générés ni tous les chevauchements possibles.</li>
+                  </ul>
+                </div>
                 <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p class="text-xs text-blue-800 flex items-start gap-2">
                     <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

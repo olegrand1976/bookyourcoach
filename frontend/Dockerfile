@@ -11,6 +11,17 @@ RUN apk add --no-cache libc6-compat
 # Définir le répertoire de travail
 WORKDIR /app
 
+# Stage: développement local (docker-compose.local.yml, hot reload)
+FROM base AS development
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ENV NODE_ENV=development
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=3000
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+
 # Stage 2: Dépendances de production
 FROM base AS deps
 

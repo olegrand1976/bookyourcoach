@@ -21,6 +21,8 @@ docker compose -f docker-compose.local.yml up -d
 docker compose -f docker-compose.local.yml ps
 ```
 
+> **Démarrage en cours (frontend)** — Après `up -d`, le conteneur Nuxt lance Vite en mode développement. Pendant **quelques secondes à une minute** (premier lancement ou après un `build`), l’URL http://localhost:3000 peut répondre **503** ou charger lentement : c’est attendu, pas une panne. Attendez les messages `✔ Vite client built` / `✔ Vite server built` dans les logs (`logs -f frontend`), puis rechargez la page.
+
 ## 📧 Configuration MailHog
 
 ### Option 1 : Utiliser le service MailHog intégré (recommandé pour docker-compose.local.yml)
@@ -88,6 +90,7 @@ Si vous avez déjà un container MailHog (ex: `fid-connect-mailhog-1`), vous pou
 | Code backend | Lecture seule (`:ro`) | Écriture (hot-reload) |
 | Code frontend | Production buildé | Mode développement |
 | MailHog | Container externe | Service intégré |
+| Certificat `cert.pem` | Montage optionnel côté hôte | Aucun (non requis en HTTP local) |
 | Usage | Production/test prod | Développement local |
 
 ## 📝 Notes importantes
@@ -96,6 +99,8 @@ Si vous avez déjà un container MailHog (ex: `fid-connect-mailhog-1`), vous pou
 2. **Hot-reload** : Les modifications de code sont automatiquement reflétées
 3. **Volumes** : Les données persistent dans des volumes Docker nommés
 4. **Réseau** : Tous les services sont sur le réseau `app-network`
+5. **Frontend** : délai possible et **503** au premier chargement — voir l’encadré *Démarrage en cours* après le démarrage rapide
+6. **Certificat PEM** : en local, aucun `cert.pem` n’est monté dans le backend (HTTP sur le port 8080). En production / `docker-compose.yml`, le montage du PEM reste prévu si besoin.
 
 ## 🛠️ Commandes utiles
 
@@ -119,6 +124,12 @@ docker compose -f docker-compose.local.yml down -v
 ```
 
 ## ⚠️ Dépannage
+
+### Frontend : erreur 503 ou page blanche juste après le démarrage
+
+1. **Comportement normal** : voir l’encadré *Démarrage en cours (frontend)* au-dessus du chapitre MailHog.
+2. Vérifiez les logs : `docker compose -f docker-compose.local.yml logs -f frontend` jusqu’à ce que Nuxt affiche une URL locale (ex. `Local: http://0.0.0.0:3000/`).
+3. Test rapide : `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/` — attendez un **200** avant de conclure à un problème.
 
 ### Port déjà utilisé
 Si un port est déjà utilisé, arrêtez le container qui l'utilise :
