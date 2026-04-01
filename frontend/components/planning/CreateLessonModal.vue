@@ -417,8 +417,9 @@
                   <p class="text-xs font-medium mb-1">Pourquoi le planning peut différer du refus « conflit »</p>
                   <ul class="text-xs list-disc list-inside space-y-1 text-amber-900">
                     <li>La série est validée sur <strong>26 semaines</strong> ; l’écran « Cours programmés » ne montre pas forcément toute cette période d’un coup.</li>
-                    <li>Un enseignant peut être bloqué sans carte « à 11h00 » : par ex. un cours <strong>10h40–11h00</strong> (il se termine quand le vôtre commence).</li>
+                    <li>Deux cours <strong>consécutifs</strong> (ex. 10h40–11h00 puis 11h00–11h20) ne sont <strong>pas</strong> un conflit dans l’app : le chevauchement est détecté seulement si les intervalles se croisent vraiment (ex. un cours <strong>10h45–11h15</strong> bloque 11h00–11h20). Sans carte « pile à 11h00 », le refus peut aussi venir d’une autre semaine dans les 26 ou d’une récurrence abonnement.</li>
                     <li>La page <strong>Créneaux récurrents</strong> liste les réservations liées aux abonnements, pas l’ensemble des cours déjà générés ni tous les chevauchements possibles.</li>
+                    <li>Un message « enseignant ou élève déjà réservé (récurrence) » peut concerner <strong>un autre élève</strong> avec le même prof sur la même plage (vous ne voyez pas « votre » ligne pourtant le créneau est pris).</li>
                   </ul>
                 </div>
                 <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1225,10 +1226,14 @@ async function loadClubRecurringSlots() {
   }
 }
 
+/**
+ * Masquer les heures en conflit avec les récurrences abonnement uniquement quand une série est demandée.
+ * Le backend (LessonController) n’exécute validateRecurringAvailabilityWithoutOpenSlot que si recurring_interval >= 1 ;
+ * avec « une seule séance » + déduction, filtrer ici créait des faux indisponibles (ex. 11h bloquée alors que l’API accepte).
+ */
 const appliesRecurringUiBlock = computed(() => {
   if (props.editingLesson) return false
-  const f = props.form
-  return f.deduct_from_subscription === true || (f.recurring_interval ?? 0) >= 1
+  return (props.form.recurring_interval ?? 0) >= 1
 })
 
 function getLessonTeacherId(lesson: any): number | null {

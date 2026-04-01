@@ -283,7 +283,7 @@ class RecurringSlotValidator
             if ($hasDuplicateRecurring) {
                 $hint = 'Une réservation récurrente identique (même élève, même enseignant et même horaire) existe déjà pour ce club — voir « recurring_slot » dans la réponse (noms et horaires réels en base). Ce blocage vise l’entrée « créneau récurrent », pas seulement une carte sur le planning : la ligne peut exister sans cours encore généré pour cette date. Deux élèves différents sur le même abonnement peuvent avoir cours au même moment avec des enseignants différents. Libérez ou modifiez le créneau récurrent (Menu Club → Créneaux récurrents), ou « Une seule séance » / sans déduction d’abonnement pour éviter une deuxième série.';
             } else {
-                $hint = 'Cette vérification teste chaque occurrence sur 26 semaines : le planning ou « Créneaux récurrents » peut ne pas montrer le même périmètre. Un enseignant « occupé » à 11h peut être un cours affiché en 10h40–11h00 (fin = début de votre créneau). Les créneaux récurrents listent surtout les réservations abonnement, pas tous les cours déjà générés. Pour une seule date sans série : « Une seule séance » dans la modale.';
+                $hint = 'Cette vérification teste chaque occurrence sur 26 semaines : le planning ou « Créneaux récurrents » peut ne pas montrer le même périmètre. Un refus « déjà réservé (récurrence) » peut venir d’une ligne abonnement avec un autre élève sur le même enseignant et la même plage, ou d’un cours déjà généré sur une autre semaine. Les cours consécutifs (fin = début exact) ne sont pas traités comme chevauchement. Pour une seule date sans validation 26 sem. : « Une seule séance » dans la modale.';
             }
         }
 

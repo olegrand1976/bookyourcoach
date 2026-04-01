@@ -15,6 +15,16 @@ export function ymdInRange(d: string, start: string, end: string): boolean {
   return a <= ds && ds <= b
 }
 
+/**
+ * Écart en jours calendaires entre deux dates locales (minuit → minuit en UTC date parts),
+ * aligné sur Carbon startOfDay / diffInDays — évite les erreurs autour des changements d’heure (ms / 86400000).
+ */
+export function calendarDaysBetweenLocal(from: Date, to: Date): number {
+  const t1 = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())
+  const t2 = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate())
+  return Math.round((t2 - t1) / 86400000)
+}
+
 export function subscriptionRecurringSlotFiresOnDate(slot: any, occurrenceDateStr: string): boolean {
   const interval = Math.max(1, Math.min(52, Number(slot.recurring_interval) || 1))
   const occurrence = parseYmd(occurrenceDateStr)
@@ -30,7 +40,7 @@ export function subscriptionRecurringSlotFiresOnDate(slot: any, occurrenceDateSt
   }
   if (occurrence < anchor) return false
 
-  const daysBetween = Math.round((occurrence.getTime() - anchor.getTime()) / 86400000)
+  const daysBetween = calendarDaysBetweenLocal(anchor, occurrence)
   if (daysBetween < 0 || daysBetween % 7 !== 0) return false
   const weekIndex = daysBetween / 7
   return weekIndex % interval === 0
