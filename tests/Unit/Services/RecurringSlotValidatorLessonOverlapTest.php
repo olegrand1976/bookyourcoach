@@ -137,8 +137,8 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => '2026-03-25 15:30:00',
-            'end_time' => '2026-03-25 15:50:00',
+            'start_time' => '2026-03-25 16:45:00',
+            'end_time' => '2026-03-25 17:05:00',
             'status' => 'confirmed',
             'price' => 18,
         ]);
@@ -169,8 +169,8 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => '2026-03-25 16:00:00',
-            'end_time' => '2026-03-25 16:20:00',
+            'start_time' => '2026-03-25 17:00:00',
+            'end_time' => '2026-03-25 17:20:00',
             'status' => 'confirmed',
             'price' => 18,
         ]);
@@ -228,14 +228,14 @@ class RecurringSlotValidatorLessonOverlapTest extends TestCase
             'status' => 'active',
         ]);
 
-        $lesson = $lesson = Lesson::create([
+        $lesson = Lesson::create([
             'club_id' => $this->club->id,
             'student_id' => null,
             'teacher_id' => $this->teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => '2026-03-25 16:00:00',
-            'end_time' => '2026-03-25 16:20:00',
+            'start_time' => '2026-03-25 17:00:00',
+            'end_time' => '2026-03-25 17:20:00',
             'status' => 'confirmed',
             'price' => 18,
         ]);

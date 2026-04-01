@@ -44,7 +44,11 @@
               <p class="font-medium text-gray-900">Cours planifié</p>
               <ul class="mt-1 space-y-0.5 text-gray-700 text-xs sm:text-sm">
                 <li><span class="text-gray-500">N° cours</span> {{ group.blockingLesson.id }}</li>
-                <li><span class="text-gray-500">Période</span> {{ group.blockingLesson.start_time }} → {{ group.blockingLesson.end_time }}</li>
+                <li>
+                  <span class="text-gray-500">Période</span>
+                  {{ group.blockingLesson.start_time }} → {{ group.blockingLesson.end_time }}
+                  <span class="text-gray-400">(heure locale club)</span>
+                </li>
                 <li v-if="group.blockingLesson.teacher_name">
                   <span class="text-gray-500">Enseignant</span> {{ group.blockingLesson.teacher_name }}
                 </li>

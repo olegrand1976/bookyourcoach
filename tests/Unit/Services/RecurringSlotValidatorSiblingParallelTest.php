@@ -228,15 +228,15 @@ class RecurringSlotValidatorSiblingParallelTest extends TestCase
 
         $courseType = CourseType::factory()->create(['club_id' => $this->club->id]);
 
-        // Autre élève, même prof, chevauchement 17:00–17:20 Europe/Paris → 16:00–16:20 UTC (CET)
+        // Autre élève, même prof : cours réel 17:00–17:20 (chevauche la proposition, même fenêtre)
         $blockingLesson = Lesson::create([
             'club_id' => $this->club->id,
             'student_id' => $this->studentA->id,
             'teacher_id' => $this->teacherB->id,
             'course_type_id' => $courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => '2026-03-25 16:00:00',
-            'end_time' => '2026-03-25 16:20:00',
+            'start_time' => '2026-03-25 17:00:00',
+            'end_time' => '2026-03-25 17:20:00',
             'status' => 'confirmed',
             'price' => 18,
         ]);

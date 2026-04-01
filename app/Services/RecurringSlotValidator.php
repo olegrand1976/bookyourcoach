@@ -345,11 +345,6 @@ class RecurringSlotValidator
     }
 
     /**
-     * Fenêtre d'une occurrence en fuseau app → bornes UTC pour comparaison SQL sur lessons (datetimes stockés en UTC).
-     *
-     * @return array{0: string, 1: string} [startUtc, endUtc] format Y-m-d H:i:s
-     */
-    /**
      * Limite les SubscriptionRecurringSlot au club du cours (via subscription → club).
      */
     private function scopeRecurringSlotsToClub(Builder $query, ?int $clubId): Builder
@@ -595,7 +590,14 @@ class RecurringSlotValidator
         return $base;
     }
 
-    private function occurrenceUtcBounds(Carbon $occurrenceDate, string $startTime, string $endTime): array
+    /**
+     * Fenêtre d’occurrence en heure locale application pour comparaison SQL sur lessons.
+     * Les colonnes start_time / end_time sont des datetimes « muraux » sans offset (même convention que Carbon::parse côté API),
+     * pas des instants UTC. Utiliser des bornes UTC ici faussait le chevauchement (ex. 11h–11h20 affichées comme conflit avec 9h–9h20).
+     *
+     * @return array{0: string, 1: string} [start, end] format Y-m-d H:i:s dans app.timezone
+     */
+    private function occurrenceAppWallBounds(Carbon $occurrenceDate, string $startTime, string $endTime): array
     {
         $tz = config('app.timezone');
         $dateStr = $occurrenceDate->format('Y-m-d');
@@ -609,8 +611,8 @@ class RecurringSlotValidator
         }
 
         return [
-            $localStart->utc()->format('Y-m-d H:i:s'),
-            $localEnd->utc()->format('Y-m-d H:i:s'),
+            $localStart->format('Y-m-d H:i:s'),
+            $localEnd->format('Y-m-d H:i:s'),
         ];
     }
 
@@ -664,12 +666,12 @@ class RecurringSlotValidator
         int $weekIndex = 0,
         ?int $clubId = null
     ): ?array {
-        [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
+        [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
 
         $lessonQuery = Lesson::query()
             ->whereIn('status', ['pending', 'confirmed'])
-            ->where('start_time', '<', $endUtc)
-            ->where('end_time', '>', $startUtc)
+            ->where('start_time', '<', $winEnd)
+            ->where('end_time', '>', $winStart)
             ->where(function ($q) use ($studentId) {
                 $q->where('student_id', $studentId)
                     ->orWhereHas('students', function ($sq) use ($studentId) {
@@ -695,7 +697,7 @@ class RecurringSlotValidator
                 'week_loop_index' => $weekIndex,
                 'occurrence_date' => $date->format('Y-m-d'),
                 'student_id' => $studentId,
-                'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                'proposed_app_wall_window' => ['start' => $winStart, 'end' => $winEnd],
                 'conflicting_lesson_id' => $conflictLesson->id,
                 'conflicting_lesson' => [
                     'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
@@ -733,7 +735,7 @@ class RecurringSlotValidator
                     'week_loop_index' => $weekIndex,
                     'occurrence_date' => $date->format('Y-m-d'),
                     'student_id' => $studentId,
-                    'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                    'proposed_app_wall_window' => ['start' => $winStart, 'end' => $winEnd],
                     'subscription_recurring_slot_id' => $slot->id,
                     'recurring_slot' => [
                         'teacher_id' => $slot->teacher_id,
@@ -803,11 +805,11 @@ class RecurringSlotValidator
         // Compter les cours dont l'intervalle chevauche la fenêtre du créneau ouvert (date + heures en fuseau app → UTC)
         $slotStart = $this->normalizeTimeToHis($openSlot->start_time);
         $slotEnd = $this->normalizeTimeToHis($openSlot->end_time);
-        [$windowStartUtc, $windowEndUtc] = $this->occurrenceUtcBounds($date, $slotStart, $slotEnd);
+        [$windowStart, $windowEnd] = $this->occurrenceAppWallBounds($date, $slotStart, $slotEnd);
 
         $existingLessonsCount = Lesson::where('club_id', $openSlot->club_id)
-            ->where('start_time', '<', $windowEndUtc)
-            ->where('end_time', '>', $windowStartUtc)
+            ->where('start_time', '<', $windowEnd)
+            ->where('end_time', '>', $windowStart)
             ->whereIn('status', ['pending', 'confirmed'])
             ->count();
 
@@ -848,12 +850,12 @@ class RecurringSlotValidator
         ?int $clubId = null,
         ?int $contextStudentIdForLesson = null
     ): ?array {
-        [$startUtc, $endUtc] = $this->occurrenceUtcBounds($date, $startTime, $endTime);
+        [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
 
-        // Vérifier les cours existants (chevauchement d'intervalles réels en UTC, pas whereDate/whereTime)
+        // Vérifier les cours existants (chevauchement d’intervalles en heure locale app, comme les colonnes SQL)
         $lessonQuery = Lesson::where('teacher_id', $teacherId)
-            ->where('start_time', '<', $endUtc)
-            ->where('end_time', '>', $startUtc)
+            ->where('start_time', '<', $winEnd)
+            ->where('end_time', '>', $winStart)
             ->whereIn('status', ['pending', 'confirmed']);
 
         if ($clubId !== null) {
@@ -874,7 +876,7 @@ class RecurringSlotValidator
                 'week_loop_index' => $weekIndex,
                 'occurrence_date' => $date->format('Y-m-d'),
                 'teacher_id' => $teacherId,
-                'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                'proposed_app_wall_window' => ['start' => $winStart, 'end' => $winEnd],
                 'conflicting_lesson_id' => $conflictLesson->id,
                 'conflicting_lesson' => [
                     'start_time' => $conflictLesson->start_time?->format('Y-m-d H:i:s'),
@@ -913,7 +915,7 @@ class RecurringSlotValidator
                     'week_loop_index' => $weekIndex,
                     'occurrence_date' => $date->format('Y-m-d'),
                     'teacher_id' => $teacherId,
-                    'proposed_utc_window' => ['start' => $startUtc, 'end' => $endUtc],
+                    'proposed_app_wall_window' => ['start' => $winStart, 'end' => $winEnd],
                     'subscription_recurring_slot_id' => $slot->id,
                     'recurring_slot' => [
                         'student_id' => $slot->student_id,
