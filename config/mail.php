@@ -49,6 +49,22 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        /*
+        | MailHog (capture SMTP locale). Utilisé automatiquement en APP_ENV=local
+        | sauf si MAIL_USE_MAILHOG=false (voir AppServiceProvider).
+        */
+        'mailhog' => [
+            'transport' => 'smtp',
+            'scheme' => null,
+            'url' => null,
+            'host' => env('MAIL_MAILHOG_HOST', '127.0.0.1'),
+            'port' => (int) env('MAIL_MAILHOG_PORT', 1025),
+            'username' => null,
+            'password' => null,
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
         'ses' => [
             'transport' => 'ses',
         ],

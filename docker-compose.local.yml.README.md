@@ -29,19 +29,14 @@ docker compose -f docker-compose.local.yml ps
 
 Le service `mailhog` dans ce fichier créera un nouveau container MailHog.
 
-**Configuration dans `.env.local` :**
-```env
-MAIL_MAILER=smtp
-MAIL_HOST=mailhog
-MAIL_PORT=1025
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
-MAIL_ENCRYPTION=null
-```
+**Comportement Laravel (depuis le code versionné) :** avec `APP_ENV=local`, l’application **utilise automatiquement MailHog** (mailer `mailhog`), même si `.env.local` contient encore des variables SMTP type Mailjet. Aucune ligne `MAIL_HOST=mailhog` n’est obligatoire.
+
+- Désactiver ce forçage : `MAIL_USE_MAILHOG=false` dans `.env.local`.
+- Le compose définit `MAIL_MAILHOG_HOST=mailhog` et `MAIL_MAILHOG_PORT=1025` pour le conteneur backend ; le backend dépend du service `mailhog`.
 
 **Accès :**
 - Interface web : http://localhost:8035
-- SMTP : `mailhog:1025` (depuis le réseau Docker)
+- SMTP : `mailhog:1025` (réseau Docker) ou `localhost:1025` (hôte, si le port est publié)
 
 ### Option 2 : Utiliser un container MailHog existant
 

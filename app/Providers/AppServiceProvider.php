@@ -33,11 +33,30 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Log::info('AppServiceProvider booted successfully.');
+
+        $this->configureLocalMailhog();
         
         // Enregistrer l'observer pour mettre à jour automatiquement lessons_used
         Lesson::observe(LessonObserver::class);
         
         // Enregistrer l'observer pour gérer automatiquement les récurrences
         \App\Models\SubscriptionInstance::observe(\App\Observers\SubscriptionInstanceObserver::class);
+    }
+
+    /**
+     * En local, envoyer les mails vers MailHog (pas Mailjet / SMTP prod copié dans .env).
+     * Désactiver : MAIL_USE_MAILHOG=false. Hôte Docker : MAIL_MAILHOG_HOST=mailhog (compose).
+     */
+    private function configureLocalMailhog(): void
+    {
+        if (! $this->app->environment('local')) {
+            return;
+        }
+
+        if (! filter_var(env('MAIL_USE_MAILHOG', 'true'), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        config(['mail.default' => 'mailhog']);
     }
 }
