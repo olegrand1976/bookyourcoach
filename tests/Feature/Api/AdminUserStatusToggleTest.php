@@ -41,7 +41,7 @@ class AdminUserStatusToggleTest extends TestCase
             'Accept' => 'application/json',
             'Content-Type' => 'application/json'
         ])->putJson("/api/admin/users/{$user->id}/status", [
-            'is_active' => false
+            'status' => 'inactive',
         ]);
 
         $response->assertStatus(200)
@@ -50,9 +50,9 @@ class AdminUserStatusToggleTest extends TestCase
                     'message' => 'Statut utilisateur mis à jour'
                 ]);
 
-        // Vérifier que l'utilisateur est bien désactivé
         $user->refresh();
         $this->assertFalse($user->is_active);
+        $this->assertEquals('inactive', $user->status);
     }
 
     public function test_admin_can_toggle_user_status_to_active()
@@ -68,7 +68,7 @@ class AdminUserStatusToggleTest extends TestCase
             'Accept' => 'application/json',
             'Content-Type' => 'application/json'
         ])->putJson("/api/admin/users/{$user->id}/status", [
-            'is_active' => true
+            'status' => 'active',
         ]);
 
         $response->assertStatus(200)
@@ -77,9 +77,9 @@ class AdminUserStatusToggleTest extends TestCase
                     'message' => 'Statut utilisateur mis à jour'
                 ]);
 
-        // Vérifier que l'utilisateur est bien activé
         $user->refresh();
         $this->assertTrue($user->is_active);
+        $this->assertEquals('active', $user->status);
     }
 
     public function test_non_admin_cannot_toggle_user_status()
@@ -94,12 +94,13 @@ class AdminUserStatusToggleTest extends TestCase
             'Accept' => 'application/json',
             'Content-Type' => 'application/json'
         ])->putJson("/api/admin/users/{$targetUser->id}/status", [
-            'is_active' => false
+            'status' => 'inactive',
         ]);
 
         $response->assertStatus(403)
                 ->assertJson([
-                    'message' => 'Access denied - Admin rights required'
+                    'message' => 'Unauthorized',
+                    'error' => 'Access denied. Admin role required.',
                 ]);
     }
 
@@ -108,12 +109,12 @@ class AdminUserStatusToggleTest extends TestCase
         $user = User::factory()->create(['role' => 'student']);
 
         $response = $this->putJson("/api/admin/users/{$user->id}/status", [
-            'is_active' => false
+            'status' => 'inactive',
         ]);
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Missing token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 
@@ -126,12 +127,12 @@ class AdminUserStatusToggleTest extends TestCase
             'Accept' => 'application/json',
             'Content-Type' => 'application/json'
         ])->putJson("/api/admin/users/{$user->id}/status", [
-            'is_active' => false
+            'status' => 'inactive',
         ]);
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Invalid token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 
@@ -142,7 +143,7 @@ class AdminUserStatusToggleTest extends TestCase
             'Accept' => 'application/json',
             'Content-Type' => 'application/json'
         ])->putJson('/api/admin/users/99999/status', [
-            'is_active' => false
+            'status' => 'inactive',
         ]);
 
         $response->assertStatus(404);
@@ -158,8 +159,7 @@ class AdminUserStatusToggleTest extends TestCase
             'Content-Type' => 'application/json'
         ])->putJson("/api/admin/users/{$user->id}/status", []);
 
-        // La route devrait retourner une erreur de validation
         $response->assertStatus(422)
-                ->assertJsonValidationErrors('is_active');
+                ->assertJsonValidationErrors('status');
     }
 }

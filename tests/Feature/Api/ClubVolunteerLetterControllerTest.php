@@ -27,12 +27,14 @@ class ClubVolunteerLetterControllerTest extends TestCase
         $user = $this->actingAsClub();
         $club = Club::find($user->club_id);
         
-        // Remplir les informations légales
         $club->update([
+            'company_number' => 'BE0123456789',
             'legal_representative_name' => 'John Doe',
             'legal_representative_role' => 'Directeur',
             'insurance_rc_company' => 'Assureur XYZ',
             'insurance_rc_policy_number' => 'POL-123',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => '10€ par jour',
         ]);
 
         $teacher = Teacher::factory()->create();
@@ -63,7 +65,7 @@ class ClubVolunteerLetterControllerTest extends TestCase
                  ]);
 
         Queue::assertPushed(\App\Jobs\SendVolunteerLetterJob::class, function ($job) use ($club, $teacher) {
-            return $job->clubId === $club->id && $job->teacherId === $teacher->id;
+            return $job->getClubId() === $club->id && $job->getTeacherId() === $teacher->id;
         });
     }
 
@@ -105,8 +107,13 @@ class ClubVolunteerLetterControllerTest extends TestCase
         $club = Club::find($user->club_id);
         
         $club->update([
+            'company_number' => 'BE0123456789',
             'legal_representative_name' => 'John Doe',
+            'legal_representative_role' => 'Directeur',
             'insurance_rc_company' => 'Assureur XYZ',
+            'insurance_rc_policy_number' => 'POL-111',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => '10€ par jour',
         ]);
 
         $otherClub = Club::factory()->create();
@@ -135,8 +142,13 @@ class ClubVolunteerLetterControllerTest extends TestCase
         $club = Club::find($user->club_id);
         
         $club->update([
+            'company_number' => 'BE0123456789',
             'legal_representative_name' => 'John Doe',
+            'legal_representative_role' => 'Directeur',
             'insurance_rc_company' => 'Assureur XYZ',
+            'insurance_rc_policy_number' => 'POL-222',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => '10€ par jour',
         ]);
 
         $teacherUser = User::factory()->create([
@@ -171,8 +183,13 @@ class ClubVolunteerLetterControllerTest extends TestCase
         $club = Club::find($user->club_id);
         
         $club->update([
+            'company_number' => 'BE0123456789',
             'legal_representative_name' => 'John Doe',
+            'legal_representative_role' => 'Directeur',
             'insurance_rc_company' => 'Assureur XYZ',
+            'insurance_rc_policy_number' => 'POL-789',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => '10€ par jour',
         ]);
 
         $teacher1 = Teacher::factory()->create();

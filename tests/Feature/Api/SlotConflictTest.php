@@ -205,6 +205,7 @@ class SlotConflictTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
             'start_time' => '2025-12-08 09:00:00',
+            'end_time' => '2025-12-08 10:00:00',
             'status' => 'confirmed',
         ]);
         $lesson1->subscriptionInstances()->attach($subscriptionInstance->id);
@@ -214,6 +215,7 @@ class SlotConflictTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
             'start_time' => '2025-12-15 09:00:00', // Une semaine après
+            'end_time' => '2025-12-15 10:00:00',
             'status' => 'confirmed',
         ]);
         $lesson2->subscriptionInstances()->attach($subscriptionInstance->id);
@@ -223,6 +225,7 @@ class SlotConflictTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
             'start_time' => '2025-12-22 09:00:00', // Deux semaines après
+            'end_time' => '2025-12-22 10:00:00',
             'status' => 'confirmed',
         ]);
         $lesson3->subscriptionInstances()->attach($subscriptionInstance->id);
@@ -271,31 +274,35 @@ class SlotConflictTest extends TestCase
         $subscriptionInstance->students()->attach($this->student->id);
 
         // Créer un cours passé (déjà fait)
+        $slotStart = Carbon::parse('next wednesday')->setTime(10, 0, 0);
+        $slotEnd = $slotStart->copy()->addHour();
+
         $pastLesson = Lesson::factory()->create([
             'club_id' => $this->club->id,
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
-            'start_time' => now()->subWeek(),
+            'start_time' => $slotStart->copy()->subWeeks(2),
+            'end_time' => $slotStart->copy()->subWeeks(2)->addHour(),
             'status' => 'completed',
         ]);
         $pastLesson->subscriptionInstances()->attach($subscriptionInstance->id);
 
-        // Créer le cours actuel
         $currentLesson = Lesson::factory()->create([
             'club_id' => $this->club->id,
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
-            'start_time' => now()->addDay(),
+            'start_time' => $slotStart->copy(),
+            'end_time' => $slotEnd->copy(),
             'status' => 'confirmed',
         ]);
         $currentLesson->subscriptionInstances()->attach($subscriptionInstance->id);
 
-        // Créer un cours futur
         $futureLesson = Lesson::factory()->create([
             'club_id' => $this->club->id,
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
-            'start_time' => now()->addWeeks(2),
+            'start_time' => $slotStart->copy()->addWeek(),
+            'end_time' => $slotEnd->copy()->addWeek(),
             'status' => 'confirmed',
         ]);
         $futureLesson->subscriptionInstances()->attach($subscriptionInstance->id);

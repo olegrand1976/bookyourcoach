@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
  * @OA\Tag(
@@ -328,13 +329,21 @@ class AdminDashboardController extends Controller
                 ], 400);
             }
 
-            $targetUser->update(['status' => $request->status]);
+            $status = $request->input('status');
+            $targetUser->status = $status;
+            $targetUser->is_active = $status === 'active';
+            $targetUser->save();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Statut utilisateur mis à jour',
                 'data' => $targetUser
             ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur non trouvé',
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

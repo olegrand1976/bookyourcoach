@@ -4,6 +4,7 @@ namespace Tests\Unit\Console\Commands;
 
 use App\Models\SubscriptionInstance;
 use App\Models\Subscription;
+use App\Models\SubscriptionTemplate;
 use App\Models\Lesson;
 use App\Models\Student;
 use App\Models\Teacher;
@@ -110,13 +111,20 @@ class ConsumePastLessonsCommandTest extends TestCase
             'club_id' => $this->club->id,
         ]);
 
-        // Créer un abonnement
-        $this->subscription = Subscription::create([
+        $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Test',
+            'model_number' => 'MODEL-CONSUME-PAST-TEST',
             'total_lessons' => 10,
             'free_lessons' => 0,
             'price' => 200.00,
+            'validity_months' => 3,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $this->subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
             'is_active' => true,
         ]);
 
@@ -463,7 +471,8 @@ class ConsumePastLessonsCommandTest extends TestCase
     #[Test]
     public function it_updates_status_when_subscription_becomes_full(): void
     {
-        // Utiliser presque tous les cours
+        // Utiliser presque tous les cours (manual_lessons_used aligne le recalcul sur la base manuelle)
+        $this->subscriptionInstance->manual_lessons_used = 9;
         $this->subscriptionInstance->lessons_used = 9;
         $this->subscriptionInstance->save();
 

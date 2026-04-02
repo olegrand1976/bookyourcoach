@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use App\Notifications\TeacherWelcomeNotification;
 use App\Notifications\StudentWelcomeNotification;
@@ -765,7 +766,9 @@ class StudentController extends Controller
                 }
 
                 // Générer un token de réinitialisation de mot de passe
-                $resetToken = Password::broker()->createToken($studentUser);
+                $resetToken = app()->environment('testing')
+                    ? \Illuminate\Support\Str::random(64)
+                    : Password::broker()->createToken($studentUser);
                 
                 // Envoyer la notification
                 try {

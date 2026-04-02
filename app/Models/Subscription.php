@@ -253,15 +253,10 @@ class Subscription extends Model
         $now = Carbon::now();
         $yearMonth = $now->format('ym'); // Format AAMM (ex: 2501)
         
-        $hasClubIdColumn = \Illuminate\Support\Facades\Schema::hasColumn((new static)->getTable(), 'club_id');
-        
-        // Inclure withTrashed() pour ne jamais réutiliser un numéro déjà pris (y compris soft-deleted)
+        // Inclure withTrashed() pour ne jamais réutiliser un numéro déjà pris (y compris soft-deleted).
+        // Incrément global : la colonne subscription_number est unique au niveau table (tous clubs).
         $query = static::withTrashed()->where('subscription_number', 'like', $yearMonth . '-%');
-        
-        if ($hasClubIdColumn && $clubId) {
-            $query->where('club_id', $clubId);
-        }
-        
+
         $lastSubscription = $query->orderBy('subscription_number', 'desc')->first();
         
         if ($lastSubscription && $lastSubscription->subscription_number) {

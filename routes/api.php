@@ -110,6 +110,7 @@ Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(functio
     Route::put('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'update']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     Route::get('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'index']);
+    Route::post('/lesson-replacements/bulk', [App\Http\Controllers\Api\LessonReplacementController::class, 'storeBulk']);
     Route::post('/lesson-replacements', [App\Http\Controllers\Api\LessonReplacementController::class, 'store']);
     Route::post('/lesson-replacements/{id}/respond', [App\Http\Controllers\Api\LessonReplacementController::class, 'respond']);
     Route::delete('/lesson-replacements/{id}', [App\Http\Controllers\Api\LessonReplacementController::class, 'cancel']);

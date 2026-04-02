@@ -2,10 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\Notification;
-use App\Models\User;
+use App\Mail\TeacherLessonReplacementInvitationMail;
+use App\Mail\TeacherLessonReplacementOutcomeMail;
+use App\Models\Club;
+use App\Models\Lesson;
 use App\Models\LessonReplacement;
+use App\Models\Notification;
+use App\Models\Teacher;
+use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
@@ -117,8 +124,140 @@ class NotificationService
                 }
             }
 
+            $this->sendReplacementOutcomeEmailToRequester($replacement, true);
+
         } catch (\Exception $e) {
             Log::error('❌ Erreur création notification acceptation: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Email to the substitute teacher (TO) with club admins in CC — single or bulk lessons.
+     *
+     * @param  Collection<int, \App\Models\Lesson>  $lessons
+     */
+    public function mailClubAdminsReplacementRequestDigest(
+        Club $club,
+        Teacher $originalTeacher,
+        Teacher $replacementTeacher,
+        string $reason,
+        ?string $notes,
+        Collection $lessons
+    ): void {
+        try {
+            foreach ($lessons as $lesson) {
+                if ($lesson instanceof Lesson) {
+                    $lesson->loadMissing(['courseType', 'student.user']);
+                }
+            }
+
+            $replacementUser = $replacementTeacher->user;
+            if (! $replacementUser || ! $replacementUser->email
+                || ! filter_var($replacementUser->email, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('❌ Email invitation remplacement : enseignant remplaçant sans email valide', [
+                    'club_id' => $club->id,
+                    'replacement_teacher_id' => $replacementTeacher->id,
+                ]);
+
+                return;
+            }
+
+            $ccEmails = $this->clubAdminEmails($club);
+            $dashboardUrl = rtrim((string) config('app.frontend_url', ''), '/').'/teacher/dashboard';
+
+            Mail::to($replacementUser->email)->send(new TeacherLessonReplacementInvitationMail(
+                $club,
+                $originalTeacher,
+                $replacementTeacher,
+                $reason,
+                $notes,
+                $lessons,
+                $ccEmails,
+                $dashboardUrl,
+            ));
+
+            Log::info('✅ Email invitation remplacement envoyé au remplaçant (CC responsables club)', [
+                'club_id' => $club->id,
+                'to' => $replacementUser->email,
+                'cc_count' => count($ccEmails),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur envoi email invitation remplacement: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function clubAdminEmails(Club $club): array
+    {
+        return $club->users()
+            ->wherePivot('is_admin', true)
+            ->get()
+            ->pluck('email')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Email to the requesting teacher (TO) with club admins in CC.
+     */
+    private function sendReplacementOutcomeEmailToRequester(LessonReplacement $replacement, bool $accepted): void
+    {
+        try {
+            $replacement->loadMissing([
+                'lesson.club',
+                'lesson.courseType',
+                'lesson.student.user',
+                'originalTeacher.user',
+                'replacementTeacher.user',
+            ]);
+
+            $lesson = $replacement->lesson;
+            $club = $lesson?->club;
+            $originalTeacher = $replacement->originalTeacher;
+            $replacementTeacher = $replacement->replacementTeacher;
+
+            if (! $originalTeacher?->user?->email
+                || ! filter_var($originalTeacher->user->email, FILTER_VALIDATE_EMAIL)) {
+                Log::warning('❌ Email réponse remplacement : demandeur sans email valide', [
+                    'replacement_id' => $replacement->id,
+                ]);
+
+                return;
+            }
+
+            if (! $club) {
+                Log::warning('❌ Email réponse remplacement : cours sans club', [
+                    'replacement_id' => $replacement->id,
+                    'lesson_id' => $lesson?->id,
+                ]);
+
+                return;
+            }
+
+            $lesson->loadMissing(['courseType', 'student.user']);
+            $ccEmails = $this->clubAdminEmails($club);
+
+            Mail::to($originalTeacher->user->email)->send(new TeacherLessonReplacementOutcomeMail(
+                $club,
+                $lesson,
+                $originalTeacher,
+                $replacementTeacher,
+                $accepted,
+                $ccEmails,
+            ));
+
+            Log::info('✅ Email réponse remplacement envoyé au demandeur (CC responsables club)', [
+                'replacement_id' => $replacement->id,
+                'accepted' => $accepted,
+                'to' => $originalTeacher->user->email,
+                'cc_count' => count($ccEmails),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Erreur envoi email réponse remplacement: ' . $e->getMessage());
         }
     }
 
@@ -128,6 +267,14 @@ class NotificationService
     public function notifyReplacementRejected(LessonReplacement $replacement): void
     {
         try {
+            $replacement->loadMissing([
+                'lesson.club',
+                'lesson.courseType',
+                'lesson.student.user',
+                'originalTeacher.user',
+                'replacementTeacher.user',
+            ]);
+
             $replacementTeacher = $replacement->replacementTeacher;
             $originalTeacher = $replacement->originalTeacher;
             $lesson = $replacement->lesson;
@@ -159,6 +306,8 @@ class NotificationService
                 'replacement_id' => $replacement->id,
                 'to_user' => $originalTeacher->user->email
             ]);
+
+            $this->sendReplacementOutcomeEmailToRequester($replacement, false);
 
         } catch (\Exception $e) {
             Log::error('❌ Erreur création notification refus: ' . $e->getMessage());

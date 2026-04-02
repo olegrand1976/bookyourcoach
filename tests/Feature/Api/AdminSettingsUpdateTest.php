@@ -55,9 +55,12 @@ class AdminSettingsUpdateTest extends TestCase
 
         // Vérifier que les paramètres ont été sauvegardés
         foreach ($settingsData['settings'] as $setting) {
+            $expectedValue = is_bool($setting['value'])
+                ? ($setting['value'] ? 'true' : 'false')
+                : (string) $setting['value'];
             $this->assertDatabaseHas('app_settings', [
                 'key' => $setting['key'],
-                'value' => $setting['value'],
+                'value' => $expectedValue,
                 'is_active' => true
             ]);
         }
@@ -71,9 +74,9 @@ class AdminSettingsUpdateTest extends TestCase
                 ['key' => 'booking.max_booking_days', 'value' => '30'],
                 ['key' => 'booking.cancellation_hours', 'value' => '24'],
                 ['key' => 'booking.default_lesson_duration', 'value' => '60'],
-                ['key' => 'booking.auto_confirm_bookings', 'value' => 'true'],
-                ['key' => 'booking.send_reminder_emails', 'value' => 'true'],
-                ['key' => 'booking.allow_student_cancellation', 'value' => 'true']
+                ['key' => 'booking.auto_confirm_bookings', 'value' => true],
+                ['key' => 'booking.send_reminder_emails', 'value' => true],
+                ['key' => 'booking.allow_student_cancellation', 'value' => true]
             ]
         ];
 
@@ -91,9 +94,12 @@ class AdminSettingsUpdateTest extends TestCase
 
         // Vérifier que les paramètres ont été sauvegardés
         foreach ($settingsData['settings'] as $setting) {
+            $expectedValue = is_bool($setting['value'])
+                ? ($setting['value'] ? 'true' : 'false')
+                : (string) $setting['value'];
             $this->assertDatabaseHas('app_settings', [
                 'key' => $setting['key'],
-                'value' => $setting['value'],
+                'value' => $expectedValue,
                 'is_active' => true
             ]);
         }
@@ -116,7 +122,8 @@ class AdminSettingsUpdateTest extends TestCase
 
         $response->assertStatus(403)
                 ->assertJson([
-                    'message' => 'Access denied - Admin rights required'
+                    'message' => 'Unauthorized',
+                    'error' => 'Access denied. Admin role required.',
                 ]);
     }
 
@@ -153,7 +160,7 @@ class AdminSettingsUpdateTest extends TestCase
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Missing token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 
@@ -171,7 +178,7 @@ class AdminSettingsUpdateTest extends TestCase
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Invalid token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 

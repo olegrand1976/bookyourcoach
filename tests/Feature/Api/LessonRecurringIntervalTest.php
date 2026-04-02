@@ -312,7 +312,7 @@ class LessonRecurringIntervalTest extends TestCase
     {
         $startTime = Carbon::now()->next(Carbon::MONDAY)->setTime(10, 0);
         
-        // Test avec recurring_interval = 0 (invalide)
+        // recurring_interval = 0 est accepté (pas de récurrence) ; tester une valeur < min autorisé quand récurrence
         $response = $this->postJson('/api/lessons', [
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
@@ -321,7 +321,7 @@ class LessonRecurringIntervalTest extends TestCase
             'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
-            'recurring_interval' => 0, // Invalide
+            'recurring_interval' => -1,
         ]);
 
         $response->assertStatus(422);

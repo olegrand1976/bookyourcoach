@@ -462,6 +462,8 @@ class TeacherTest extends TestCase
                 'teacher_id' => $this->teacher->id,
                 'club_id' => $this->club->id,
                 'is_active' => true,
+                'start_date' => now()->toDateString(),
+                'hourly_rate' => 35.00,
             ]);
 
             $foundContract = $this->teacher->getContractForClub($this->club->id);

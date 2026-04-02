@@ -39,7 +39,7 @@ class AdminSettingsFormTest extends TestCase
         $response->assertStatus(200)
                 ->assertJson([
                     'platform_name' => 'activibe',
-                    'logo_url' => '/logo-activibe.svg',
+                    'logo_url' => '/logo.svg',
                     'contact_email' => 'contact@activibe.fr',
                     'contact_phone' => '+33 1 23 45 67 89',
                     'timezone' => 'Europe/Brussels',
@@ -96,9 +96,9 @@ class AdminSettingsFormTest extends TestCase
                 ['key' => 'booking.max_booking_days', 'value' => '60'],
                 ['key' => 'booking.cancellation_hours', 'value' => '48'],
                 ['key' => 'booking.default_lesson_duration', 'value' => '90'],
-                ['key' => 'booking.auto_confirm_bookings', 'value' => 'false'],
-                ['key' => 'booking.send_reminder_emails', 'value' => 'true'],
-                ['key' => 'booking.allow_student_cancellation', 'value' => 'false']
+                ['key' => 'booking.auto_confirm_bookings', 'value' => false],
+                ['key' => 'booking.send_reminder_emails', 'value' => true],
+                ['key' => 'booking.allow_student_cancellation', 'value' => false]
             ]
         ];
 
@@ -134,8 +134,8 @@ class AdminSettingsFormTest extends TestCase
                 ['key' => 'payment.vat_rate', 'value' => '20'],
                 ['key' => 'payment.default_currency', 'value' => 'USD'],
                 ['key' => 'payment.payout_delay_days', 'value' => '14'],
-                ['key' => 'payment.stripe_enabled', 'value' => 'false'],
-                ['key' => 'payment.auto_payout', 'value' => 'true']
+                ['key' => 'payment.stripe_enabled', 'value' => false],
+                ['key' => 'payment.auto_payout', 'value' => true]
             ]
         ];
 
@@ -274,7 +274,7 @@ class AdminSettingsFormTest extends TestCase
         $getResponse->assertStatus(200)
                    ->assertJson([
                        'platform_name' => 'activibe',
-                       'logo_url' => '/logo-activibe.svg'
+                       'logo_url' => '/logo.svg'
                    ]);
 
         // 2. Modifier les paramètres
@@ -316,11 +316,8 @@ class AdminSettingsFormTest extends TestCase
         ]);
     }
 
-    public function test_logo_url_is_not_editable_via_form()
+    public function test_logo_url_can_be_persisted_via_settings_form()
     {
-        // Le logo_url ne devrait pas être modifiable via le formulaire
-        // car il est maintenant fixe (/logo-activibe.svg)
-        
         $formData = [
             'settings' => [
                 ['key' => 'general.logo_url', 'value' => '/custom-logo.svg']
@@ -335,7 +332,6 @@ class AdminSettingsFormTest extends TestCase
 
         $response->assertStatus(200);
 
-        // Vérifier que le logo_url par défaut est toujours retourné
         $getResponse = $this->withHeaders([
             'Authorization' => 'Bearer ' . $this->token,
             'Accept' => 'application/json'
@@ -343,7 +339,7 @@ class AdminSettingsFormTest extends TestCase
 
         $getResponse->assertStatus(200)
                    ->assertJson([
-                       'logo_url' => '/logo-activibe.svg'
+                       'logo_url' => '/custom-logo.svg'
                    ]);
     }
 }

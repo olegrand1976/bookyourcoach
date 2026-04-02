@@ -32,6 +32,7 @@ class SubscriptionTest extends TestCase
 
     private Club $club;
     private Subscription $subscription;
+    private SubscriptionTemplate $template;
     private Discipline $discipline;
     private CourseType $courseType;
 
@@ -72,15 +73,20 @@ class SubscriptionTest extends TestCase
             'discipline_id' => $this->discipline->id,
         ]);
 
-        // Créer un abonnement
-        // Note: validity_months n'existe pas dans la table subscriptions, seulement dans le template
-        $this->subscription = Subscription::create([
+        $this->template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Test',
+            'model_number' => 'MODEL-SUBSCRIPTION-TEST-DEFAULT',
             'total_lessons' => 10,
             'free_lessons' => 2,
             'price' => 200.00,
-            'description' => 'Description de test',
+            'validity_months' => 12,
+            'is_active' => true,
+        ]);
+        $this->template->courseTypes()->attach($this->courseType->id);
+
+        $this->subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $this->template->id,
             'is_active' => true,
         ]);
     }
@@ -176,36 +182,33 @@ class SubscriptionTest extends TestCase
     #[Test]
     public function it_has_template_relationship(): void
     {
-        // Par défaut, l'abonnement créé n'a pas de template
-        $this->assertNull($this->subscription->template);
-
-        // Vérifier si la colonne subscription_template_id existe
         $hasTemplateColumn = \Illuminate\Support\Facades\Schema::hasColumn('subscriptions', 'subscription_template_id');
-        
-        if ($hasTemplateColumn) {
-            // Créer un template et l'associer
-            $template = SubscriptionTemplate::create([
-                'club_id' => $this->club->id,
-                'model_number' => 'MODEL-TEST-001',
-                'total_lessons' => 15,
-                'free_lessons' => 3,
-                'price' => 250.00,
-                'validity_months' => 6,
-                'is_active' => true,
-            ]);
 
-            $subscriptionWithTemplate = Subscription::create([
-                'club_id' => $this->club->id,
-                'subscription_template_id' => $template->id,
-                'name' => 'Abonnement avec Template',
-                'is_active' => true,
-            ]);
-
-            $this->assertInstanceOf(SubscriptionTemplate::class, $subscriptionWithTemplate->template);
-            $this->assertEquals($template->id, $subscriptionWithTemplate->template->id);
-        } else {
+        if (!$hasTemplateColumn) {
             $this->markTestSkipped('La colonne subscription_template_id n\'existe pas dans la table subscriptions');
         }
+
+        $this->assertInstanceOf(SubscriptionTemplate::class, $this->subscription->template);
+        $this->assertEquals($this->template->id, $this->subscription->template->id);
+
+        $otherTemplate = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'MODEL-TEST-TEMPLATE-REL-' . uniqid(),
+            'total_lessons' => 15,
+            'free_lessons' => 3,
+            'price' => 250.00,
+            'validity_months' => 6,
+            'is_active' => true,
+        ]);
+
+        $subscriptionWithTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $otherTemplate->id,
+            'is_active' => true,
+        ]);
+
+        $this->assertInstanceOf(SubscriptionTemplate::class, $subscriptionWithTemplate->template);
+        $this->assertEquals($otherTemplate->id, $subscriptionWithTemplate->template->id);
     }
 
     /**
@@ -262,16 +265,10 @@ class SubscriptionTest extends TestCase
     #[Test]
     public function it_has_course_types_relationship(): void
     {
-        // Attacher la discipline à l'abonnement
-        // Note: subscription_course_types utilise discipline_id, pas course_type_id
-        $this->subscription->courseTypes()->attach($this->discipline->id);
-
         $courseTypes = $this->subscription->courseTypes;
 
         $this->assertGreaterThan(0, $courseTypes->count());
-        // Note: La relation retourne des CourseType via discipline_id, donc on vérifie que la discipline est liée
-        // Utiliser un alias pour éviter l'ambiguïté de colonne
-        $this->assertTrue($this->subscription->courseTypes()->where('course_types.discipline_id', $this->discipline->id)->exists());
+        $this->assertTrue($this->subscription->courseTypes()->where('course_types.id', $this->courseType->id)->exists());
     }
 
     /**
@@ -302,10 +299,9 @@ class SubscriptionTest extends TestCase
 
         $number = Subscription::generateSubscriptionNumber($this->club->id);
 
-        // Vérifier le format : AAMM-XXX
+        // Vérifier le format : AAMM-XXX (l'incrément dépend des abonnements déjà créés dans le test, ex. setUp)
         $this->assertMatchesRegularExpression('/^\d{4}-\d{3}$/', $number);
         $this->assertStringStartsWith($expectedYearMonth, $number);
-        $this->assertStringEndsWith('-001', $number); // Premier abonnement du mois
     }
 
     /**
@@ -334,14 +330,21 @@ class SubscriptionTest extends TestCase
         }
 
         $number1 = Subscription::generateSubscriptionNumber($this->club->id);
-        
-        // Créer un abonnement avec ce numéro
+
+        $t1 = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'MODEL-INC-1-' . uniqid(),
+            'total_lessons' => 10,
+            'free_lessons' => 0,
+            'price' => 200.00,
+            'validity_months' => 12,
+            'is_active' => true,
+        ]);
+
         $subscription1 = Subscription::create([
             'club_id' => $this->club->id,
             'subscription_number' => $number1,
-            'name' => 'Abonnement 1',
-            'total_lessons' => 10,
-            'price' => 200.00,
+            'subscription_template_id' => $t1->id,
             'is_active' => true,
         ]);
 
@@ -378,11 +381,19 @@ class SubscriptionTest extends TestCase
         $hasColumn = \Illuminate\Support\Facades\Schema::hasColumn('subscriptions', 'subscription_number');
         
         if ($hasColumn) {
+            $t = SubscriptionTemplate::create([
+                'club_id' => $this->club->id,
+                'model_number' => 'MODEL-AUTO-NUM-' . uniqid(),
+                'total_lessons' => 10,
+                'free_lessons' => 0,
+                'price' => 100.00,
+                'validity_months' => 12,
+                'is_active' => true,
+            ]);
+
             $subscription = Subscription::create([
                 'club_id' => $this->club->id,
-                'name' => 'Abonnement Auto',
-                'total_lessons' => 10,
-                'price' => 200.00,
+                'subscription_template_id' => $t->id,
                 'is_active' => true,
             ]);
 
@@ -394,19 +405,7 @@ class SubscriptionTest extends TestCase
     }
 
     /**
-     * Test : Accesseur total_available_lessons sans template
-     * 
-     * BUT : Vérifier que total_available_lessons retourne total_lessons + free_lessons en mode legacy
-     * 
-     * ENTRÉE : 
-     * - Un abonnement sans template
-     * - total_lessons = 10
-     * - free_lessons = 2
-     * 
-     * SORTIE ATTENDUE : total_available_lessons = 12
-     * 
-     * POURQUOI : En mode legacy (sans template), total_available_lessons doit être calculé
-     *            à partir des colonnes directes de l'abonnement.
+     * Test : Accesseur total_available_lessons via template (schéma actuel)
      */
     #[Test]
     public function it_calculates_total_available_lessons_without_template(): void
@@ -458,15 +457,7 @@ class SubscriptionTest extends TestCase
     }
 
     /**
-     * Test : Accesseur price sans template
-     * 
-     * BUT : Vérifier que price retourne la valeur directe en mode legacy
-     * 
-     * ENTRÉE : Un abonnement sans template avec price = 200.00
-     * 
-     * SORTIE ATTENDUE : price = 200.00
-     * 
-     * POURQUOI : En mode legacy, le prix est stocké directement dans l'abonnement.
+     * Test : Accesseur price via template
      */
     #[Test]
     public function it_returns_price_without_template(): void
@@ -598,12 +589,19 @@ class SubscriptionTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Créer un abonnement pour le deuxième club
+        $t2 = SubscriptionTemplate::create([
+            'club_id' => $club2->id,
+            'model_number' => 'MODEL-CLUB2-' . uniqid(),
+            'total_lessons' => 5,
+            'free_lessons' => 0,
+            'price' => 100.00,
+            'validity_months' => 12,
+            'is_active' => true,
+        ]);
+
         $subscription2 = Subscription::create([
             'club_id' => $club2->id,
-            'name' => 'Abonnement Club 2',
-            'total_lessons' => 5,
-            'price' => 100.00,
+            'subscription_template_id' => $t2->id,
             'is_active' => true,
         ]);
 
@@ -664,6 +662,7 @@ class SubscriptionTest extends TestCase
         ]);
 
         $this->assertInstanceOf(Subscription::class, $subscription);
-        $this->assertEquals('Abonnement Safe', $subscription->name);
+        // Colonne name absente : createSafe retire les attributs legacy
+        $this->assertNotNull($subscription->id);
     }
 }

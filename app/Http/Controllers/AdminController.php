@@ -752,7 +752,7 @@ class AdminController extends BaseController
                         'group' => $type
                     ],
                     [
-                        'value' => is_array($value) ? json_encode($value) : (string)$value,
+                        'value' => $this->serializeAppSettingValue($value),
                         'type' => $this->getValueType($value)
                     ]
                 );
@@ -812,7 +812,7 @@ class AdminController extends BaseController
                         'group' => $type
                     ],
                     [
-                        'value' => is_array($value) ? json_encode($value) : (string)$value,
+                        'value' => $this->serializeAppSettingValue($value),
                         'type' => $this->getValueType($value)
                     ]
                 );
@@ -1042,6 +1042,18 @@ class AdminController extends BaseController
     /**
      * Get value type for database storage
      */
+    private function serializeAppSettingValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_array($value)) {
+            return json_encode($value);
+        }
+
+        return (string) $value;
+    }
+
     private function getValueType($value)
     {
         if (is_bool($value)) {

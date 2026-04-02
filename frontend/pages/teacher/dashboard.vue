@@ -417,6 +417,71 @@
               >
                 Mois à venir
               </button>
+              <button
+                type="button"
+                @click="toggleBulkReplacementMode"
+                :class="[
+                  'min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors border-2',
+                  bulkReplacementMode
+                    ? 'border-orange-500 bg-orange-50 text-orange-800'
+                    : 'border-transparent bg-amber-100 text-amber-900 hover:bg-amber-200'
+                ]"
+              >
+                {{ bulkReplacementMode ? 'Quitter la sélection' : 'Demande groupée' }}
+              </button>
+            </div>
+          </div>
+          <div
+            v-if="bulkReplacementMode"
+            class="px-4 sm:px-6 pb-4 pt-2 border-t border-gray-100 flex flex-col gap-3"
+          >
+            <p class="text-sm text-gray-600">
+              Cochez des cours ou choisissez une plage de dates (un seul remplaçant pour tous). Les cours sans club ne peuvent pas être inclus.
+            </p>
+            <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Date début</label>
+                <input
+                  v-model="bulkDateFrom"
+                  type="date"
+                  class="min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-sm w-full sm:w-auto"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Date fin</label>
+                <input
+                  v-model="bulkDateTo"
+                  type="date"
+                  class="min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg text-sm w-full sm:w-auto"
+                >
+              </div>
+              <button
+                type="button"
+                class="min-h-[44px] px-4 py-2 text-sm font-medium rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200"
+                @click="selectLessonsInDateRange"
+              >
+                Sélectionner les cours sur la période
+              </button>
+              <button
+                type="button"
+                class="min-h-[44px] px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                @click="clearBulkSelection"
+              >
+                Effacer la sélection
+              </button>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <span v-if="selectedLessonIds.length" class="text-sm font-medium text-gray-800">
+                {{ selectedLessonIds.length }} cours sélectionné(s)
+              </span>
+              <button
+                type="button"
+                class="min-h-[44px] px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-orange-500 to-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:from-orange-600 hover:to-red-700"
+                :disabled="!selectedLessonIds.length"
+                @click="showBulkReplacementModal = true"
+              >
+                Envoyer la demande groupée
+              </button>
             </div>
           </div>
         </div>
@@ -440,6 +505,12 @@
               <table class="min-w-[700px] sm:min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
+                    <th
+                      v-if="bulkReplacementMode"
+                      class="px-2 py-3 w-12 text-left text-xs font-medium text-gray-500 uppercase"
+                    >
+                      Sel.
+                    </th>
                     <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Club</th>
                     <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Heure</th>
                     <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type de cours</th>
@@ -451,6 +522,20 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-for="lesson in dayLessons" :key="lesson.id" class="hover:bg-gray-50">
+                    <td v-if="bulkReplacementMode" class="px-2 py-3 sm:py-4 align-middle">
+                      <input
+                        v-if="canSelectForBulkReplacement(lesson)"
+                        type="checkbox"
+                        class="h-5 w-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                        :checked="selectedLessonIds.includes(lesson.id)"
+                        @change="toggleLessonSelection(lesson.id)"
+                      >
+                      <span
+                        v-else
+                        class="text-xs text-gray-400"
+                        title="Non éligible (passé, sans club ou remplacement en cours)"
+                      >—</span>
+                    </td>
                     <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div class="text-sm font-medium text-gray-900">
                         {{ lesson.club?.name || 'N/A' }}
@@ -539,7 +624,7 @@
                           👁️ Voir
                         </button>
                         <button
-                          v-if="!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id))"
+                          v-if="!bulkReplacementMode && (!getReplacementForLesson(lesson.id) || (getReplacementForLesson(lesson.id) && !isOriginalTeacherForReplacement(getReplacementForLesson(lesson.id)) && !hasPendingReplacementReceived(lesson.id)))"
                           @click="openReplacementRequest(lesson)"
                           class="min-h-[44px] inline-flex items-center justify-center px-3 py-2 text-orange-600 hover:text-orange-900 hover:bg-orange-50 rounded-lg transition-colors"
                         >
@@ -584,6 +669,14 @@
         @close="showReplacementModal = false"
         @success="handleReplacementSuccess"
       />
+
+      <BulkReplacementRequestModal
+        :show="showBulkReplacementModal"
+        :lessons="selectedLessonsForBulk"
+        :available-teachers="availableTeachers"
+        @close="showBulkReplacementModal = false"
+        @success="handleBulkReplacementSuccess"
+      />
     </div>
   </div>
 </template>
@@ -592,6 +685,7 @@
 import { ref, onMounted, computed } from 'vue'
 import LessonDetailsModal from '~/components/teacher/LessonDetailsModal.vue'
 import ReplacementRequestModal from '~/components/teacher/ReplacementRequestModal.vue'
+import BulkReplacementRequestModal from '~/components/teacher/BulkReplacementRequestModal.vue'
 import NotificationBell from '~/components/NotificationBell.vue'
 
 definePageMeta({
@@ -615,6 +709,12 @@ const monthlyEarnings = ref(0)
 const dashboardStats = ref<any>(null)
 const selectedPeriod = ref<string>('7days') // Par défaut: 7 jours à venir
 const revenues = ref<any>(null)
+
+const bulkReplacementMode = ref(false)
+const selectedLessonIds = ref<number[]>([])
+const bulkDateFrom = ref('')
+const bulkDateTo = ref('')
+const showBulkReplacementModal = ref(false)
 
 // Computed
 const todayLessons = computed(() => {
@@ -690,6 +790,11 @@ const pendingReplacementsSent = computed(() => {
 const uniqueClubs = computed(() => {
   const clubsSet = lessons.value.map(l => l.club?.id).filter(Boolean)
   return [...new Set(clubsSet)]
+})
+
+const selectedLessonsForBulk = computed(() => {
+  const idSet = new Set(selectedLessonIds.value)
+  return filteredLessons.value.filter(l => idSet.has(l.id))
 })
 
 // Methods
@@ -848,6 +953,70 @@ async function respondToReplacement(replacementId: number, action: 'accept' | 'r
 }
 
 async function handleReplacementSuccess() {
+  const toast = useToast()
+  toast.success('Demande envoyée. Le remplaçant et les responsables du club sont notifiés par e-mail.')
+  await loadData()
+}
+
+function toggleBulkReplacementMode() {
+  bulkReplacementMode.value = !bulkReplacementMode.value
+  if (!bulkReplacementMode.value) {
+    selectedLessonIds.value = []
+    showBulkReplacementModal.value = false
+  } else {
+    initBulkDateRange()
+  }
+}
+
+function initBulkDateRange() {
+  const list = filteredLessons.value.filter(l => canSelectForBulkReplacement(l))
+  if (!list.length) {
+    const t = new Date()
+    bulkDateFrom.value = t.toISOString().split('T')[0]
+    bulkDateTo.value = t.toISOString().split('T')[0]
+    return
+  }
+  const times = list.map(l => new Date(l.start_time).getTime())
+  const minD = new Date(Math.min(...times))
+  const maxD = new Date(Math.max(...times))
+  bulkDateFrom.value = minD.toISOString().split('T')[0]
+  bulkDateTo.value = maxD.toISOString().split('T')[0]
+}
+
+function selectLessonsInDateRange() {
+  if (!bulkDateFrom.value || !bulkDateTo.value) {
+    return
+  }
+  const fromT = new Date(bulkDateFrom.value + 'T00:00:00').getTime()
+  const toT = new Date(bulkDateTo.value + 'T23:59:59.999').getTime()
+  const ids = filteredLessons.value
+    .filter(l => canSelectForBulkReplacement(l))
+    .filter(l => {
+      const t = new Date(l.start_time).getTime()
+      return t >= fromT && t <= toT
+    })
+    .map(l => l.id)
+  selectedLessonIds.value = ids
+}
+
+function clearBulkSelection() {
+  selectedLessonIds.value = []
+}
+
+function toggleLessonSelection(lessonId: number) {
+  const idx = selectedLessonIds.value.indexOf(lessonId)
+  if (idx >= 0) {
+    selectedLessonIds.value.splice(idx, 1)
+  } else {
+    selectedLessonIds.value.push(lessonId)
+  }
+}
+
+async function handleBulkReplacementSuccess() {
+  selectedLessonIds.value = []
+  bulkReplacementMode.value = false
+  const toast = useToast()
+  toast.success('Demandes de remplacement envoyées')
   await loadData()
 }
 
@@ -1007,6 +1176,25 @@ function calculateDuration(startTime: string, endTime: string): number {
 // Fonction pour obtenir le remplacement d'un cours
 function getReplacementForLesson(lessonId: number) {
   return allReplacements.value.find(r => r.lesson_id === lessonId)
+}
+
+function canSelectForBulkReplacement(lesson: any): boolean {
+  const clubId = lesson.club_id ?? lesson.club?.id
+  if (clubId == null) {
+    return false
+  }
+  const startMs = lesson.start_time ? new Date(lesson.start_time).getTime() : 0
+  if (startMs < Date.now() - 60 * 1000) {
+    return false
+  }
+  if (hasPendingReplacementReceived(lesson.id)) {
+    return false
+  }
+  const r = getReplacementForLesson(lesson.id)
+  if (r && r.status === 'pending' && isOriginalTeacherForReplacement(r)) {
+    return false
+  }
+  return true
 }
 
 // Fonction pour vérifier si on a reçu une demande de remplacement en attente pour ce cours

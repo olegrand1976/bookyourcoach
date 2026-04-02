@@ -4,6 +4,7 @@ namespace Tests\Unit\Models;
 
 use App\Models\SubscriptionInstance;
 use App\Models\Subscription;
+use App\Models\SubscriptionTemplate;
 use App\Models\Lesson;
 use App\Models\Student;
 use App\Models\Teacher;
@@ -115,13 +116,20 @@ class SubscriptionInstanceTest extends TestCase
             'club_id' => $this->club->id,
         ]);
 
-        // Créer un abonnement
-        $this->subscription = Subscription::create([
+        $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Test',
+            'model_number' => 'MODEL-SUB-INSTANCE-TEST',
             'total_lessons' => 10,
             'free_lessons' => 0,
             'price' => 200.00,
+            'validity_months' => 3,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $this->subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
             'is_active' => true,
         ]);
 
@@ -136,10 +144,6 @@ class SubscriptionInstanceTest extends TestCase
 
         // Lier l'élève à l'abonnement
         $this->subscriptionInstance->students()->attach($this->student->id);
-
-        // Lier la discipline à l'abonnement (nécessaire pour consumeLesson)
-        // La relation courseTypes() utilise discipline_id dans subscription_course_types
-        $this->subscription->courseTypes()->attach($this->courseType->discipline_id);
     }
 
     /**
@@ -370,7 +374,8 @@ class SubscriptionInstanceTest extends TestCase
     #[Test]
     public function recalculateLessonsUsed_adds_lessons_to_manual_value(): void
     {
-        // Définir une valeur manuelle initiale
+        // Définir une valeur manuelle initiale (manual_lessons_used pilote le recalcul)
+        $this->subscriptionInstance->manual_lessons_used = 5;
         $this->subscriptionInstance->lessons_used = 5;
         $this->subscriptionInstance->save();
 
@@ -605,11 +610,17 @@ class SubscriptionInstanceTest extends TestCase
     #[Test]
     public function consumeLesson_throws_exception_for_wrong_course_type(): void
     {
-        // Créer un autre type de cours
+        $otherDiscipline = Discipline::create([
+            'name' => 'Autre discipline',
+            'slug' => 'autre-discipline',
+            'is_active' => true,
+        ]);
+
         $otherCourseType = CourseType::create([
             'name' => 'Autre Cours',
             'duration_minutes' => 60,
             'price' => 50.00,
+            'discipline_id' => $otherDiscipline->id,
         ]);
 
         $lesson = Lesson::create([
@@ -726,13 +737,20 @@ class SubscriptionInstanceTest extends TestCase
         // Pour l'instant, on teste simplement que la méthode existe et peut être appelée
         // Un test complet nécessiterait de créer un SubscriptionTemplate avec des courseTypes
         
-        // Créer un deuxième abonnement plus récent
-        $newerSubscription = Subscription::create([
+        $newerTemplate = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Plus Récent',
+            'model_number' => 'MODEL-SUB-INSTANCE-NEWER',
             'total_lessons' => 10,
             'free_lessons' => 0,
             'price' => 200.00,
+            'validity_months' => 3,
+            'is_active' => true,
+        ]);
+        $newerTemplate->courseTypes()->attach($this->courseType->id);
+
+        $newerSubscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $newerTemplate->id,
             'is_active' => true,
         ]);
 
@@ -745,13 +763,6 @@ class SubscriptionInstanceTest extends TestCase
         ]);
 
         $newerInstance->students()->attach($this->student->id);
-
-        // Lier la discipline aux deux abonnements
-        // Note: La discipline est déjà liée au premier abonnement dans setUp()
-        // On vérifie d'abord si elle n'est pas déjà attachée pour éviter la contrainte unique
-        if (!$newerSubscription->courseTypes()->where('subscription_course_types.discipline_id', $this->courseType->discipline_id)->exists()) {
-            $newerSubscription->courseTypes()->attach($this->courseType->discipline_id);
-        }
 
         // Trouver l'abonnement actif
         // Note: Cette méthode cherche dans subscription.template.courseTypes qui n'existe pas dans nos tests

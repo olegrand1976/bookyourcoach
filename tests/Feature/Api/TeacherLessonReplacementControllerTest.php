@@ -2,19 +2,23 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
-use App\Models\Teacher;
-use App\Models\Lesson;
+use App\Mail\TeacherLessonReplacementInvitationMail;
+use App\Mail\TeacherLessonReplacementOutcomeMail;
+use App\Models\Club;
 use App\Models\CourseType;
+use App\Models\Lesson;
+use App\Models\LessonReplacement;
 use App\Models\Location;
 use App\Models\Student;
-use App\Models\LessonReplacement;
-use App\Models\Club;
-use Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPUnit\Framework\Attributes\Test;
+use App\Models\Teacher;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 class TeacherLessonReplacementControllerTest extends TestCase
 {
@@ -653,6 +657,369 @@ class TeacherLessonReplacementControllerTest extends TestCase
 
         // Assert
         $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function it_validates_bulk_replacement_request_data()
+    {
+        $user = $this->actingAsTeacher();
+
+        $response = $this->postJson('/api/teacher/lesson-replacements/bulk', []);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['lesson_ids', 'replacement_teacher_id', 'reason']);
+    }
+
+    #[Test]
+    public function it_can_create_bulk_replacement_requests()
+    {
+        Mail::fake();
+
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        $club = Club::factory()->create();
+        $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $otherTeacher = Teacher::factory()->create();
+        $otherTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $admin = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        DB::table('club_user')->insert([
+            'club_id' => $club->id,
+            'user_id' => $admin->id,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $base = Carbon::now()->addDays(5);
+
+        $lesson1 = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $club->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $base->copy()->setTime(10, 0),
+            'end_time' => $base->copy()->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $lesson2 = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $club->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $base->copy()->addDay()->setTime(14, 0),
+            'end_time' => $base->copy()->addDay()->setTime(15, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->postJson('/api/teacher/lesson-replacements/bulk', [
+            'lesson_ids' => [$lesson1->id, $lesson2->id],
+            'replacement_teacher_id' => $otherTeacher->id,
+            'reason' => 'Congés',
+            'notes' => 'Merci',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('lesson_replacements', [
+            'lesson_id' => $lesson1->id,
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('lesson_replacements', [
+            'lesson_id' => $lesson2->id,
+            'status' => 'pending',
+        ]);
+
+        Mail::assertSent(TeacherLessonReplacementInvitationMail::class, function (TeacherLessonReplacementInvitationMail $mail) use ($otherTeacher, $admin) {
+            return $mail->lessons->count() === 2
+                && $mail->hasTo($otherTeacher->user->email)
+                && $mail->hasCc($admin->email);
+        });
+    }
+
+    #[Test]
+    public function it_rejects_bulk_when_lessons_from_different_clubs()
+    {
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        $clubA = Club::factory()->create();
+        $clubB = Club::factory()->create();
+        $teacher->clubs()->attach($clubA->id, ['is_active' => true, 'joined_at' => now()]);
+        $teacher->clubs()->attach($clubB->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $otherTeacher = Teacher::factory()->create();
+        $otherTeacher->clubs()->attach($clubA->id, ['is_active' => true, 'joined_at' => now()]);
+        $otherTeacher->clubs()->attach($clubB->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $base = Carbon::now()->addDays(4);
+
+        $lessonA = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $clubA->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $base->copy()->setTime(10, 0),
+            'end_time' => $base->copy()->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $lessonB = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $clubB->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $base->copy()->addDay()->setTime(10, 0),
+            'end_time' => $base->copy()->addDay()->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->postJson('/api/teacher/lesson-replacements/bulk', [
+            'lesson_ids' => [$lessonA->id, $lessonB->id],
+            'replacement_teacher_id' => $otherTeacher->id,
+            'reason' => 'Test',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonFragment(['success' => false]);
+    }
+
+    #[Test]
+    public function it_rejects_bulk_when_replacement_teacher_not_in_club()
+    {
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        $club = Club::factory()->create();
+        $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $outsider = Teacher::factory()->create();
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $base = Carbon::now()->addDays(4);
+
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $club->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $base->copy()->setTime(10, 0),
+            'end_time' => $base->copy()->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->postJson('/api/teacher/lesson-replacements/bulk', [
+            'lesson_ids' => [$lesson->id],
+            'replacement_teacher_id' => $outsider->id,
+            'reason' => 'Test',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJson([
+                'success' => false,
+                'message' => 'L\'enseignant remplaçant doit être affilié au même club que les cours sélectionnés.',
+            ]);
+    }
+
+    #[Test]
+    public function it_sends_request_email_to_club_admins_on_single_store_when_lesson_has_club()
+    {
+        Mail::fake();
+
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+        $club = Club::factory()->create();
+        $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $otherTeacher = Teacher::factory()->create();
+        $otherTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $admin = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        DB::table('club_user')->insert([
+            'club_id' => $club->id,
+            'user_id' => $admin->id,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'club_id' => $club->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->addDays(3)->setTime(10, 0),
+            'end_time' => Carbon::now()->addDays(3)->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $this->postJson('/api/teacher/lesson-replacements', [
+            'lesson_id' => $lesson->id,
+            'replacement_teacher_id' => $otherTeacher->id,
+            'reason' => 'Motif email',
+        ])->assertStatus(201);
+
+        $replacement = LessonReplacement::with('lesson')->latest('id')->first();
+        $this->assertNotNull($replacement);
+        $this->assertSame($club->id, (int) $replacement->lesson->club_id, 'Le cours doit conserver club_id pour déclencher l’email');
+
+        Mail::assertSent(TeacherLessonReplacementInvitationMail::class, function (TeacherLessonReplacementInvitationMail $mail) use ($otherTeacher, $admin) {
+            return $mail->lessons->count() === 1
+                && $mail->reason === 'Motif email'
+                && $mail->hasTo($otherTeacher->user->email)
+                && $mail->hasCc($admin->email);
+        });
+    }
+
+    #[Test]
+    public function it_sends_acceptance_email_to_club_admins_when_lesson_has_club()
+    {
+        Mail::fake();
+
+        $originalTeacherUser = User::factory()->create([
+            'role' => 'teacher',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $originalTeacher = Teacher::factory()->create(['user_id' => $originalTeacherUser->id]);
+
+        $club = Club::factory()->create();
+        $originalTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $user = $this->actingAsTeacher();
+        $replacementTeacher = $user->teacher;
+        $replacementTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $admin = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        DB::table('club_user')->insert([
+            'club_id' => $club->id,
+            'user_id' => $admin->id,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $student = Student::factory()->create();
+
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $originalTeacher->id,
+            'club_id' => $club->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->addDays(3),
+            'status' => 'confirmed',
+        ]);
+
+        $replacement = LessonReplacement::factory()->create([
+            'lesson_id' => $lesson->id,
+            'original_teacher_id' => $originalTeacher->id,
+            'replacement_teacher_id' => $replacementTeacher->id,
+            'status' => 'pending',
+        ]);
+
+        $this->postJson("/api/teacher/lesson-replacements/{$replacement->id}/respond", [
+            'action' => 'accept',
+        ])->assertStatus(200);
+
+        Mail::assertSent(TeacherLessonReplacementOutcomeMail::class, function (TeacherLessonReplacementOutcomeMail $mail) use ($originalTeacherUser, $admin) {
+            return $mail->accepted === true
+                && $mail->hasTo($originalTeacherUser->email)
+                && $mail->hasCc($admin->email);
+        });
+    }
+
+    #[Test]
+    public function it_sends_outcome_email_to_requester_on_reject_with_club_cc()
+    {
+        Mail::fake();
+
+        $originalTeacherUser = User::factory()->create([
+            'role' => 'teacher',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $originalTeacher = Teacher::factory()->create(['user_id' => $originalTeacherUser->id]);
+
+        $club = Club::factory()->create();
+        $originalTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $user = $this->actingAsTeacher();
+        $replacementTeacher = $user->teacher;
+        $replacementTeacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $admin = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        DB::table('club_user')->insert([
+            'club_id' => $club->id,
+            'user_id' => $admin->id,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $originalTeacher->id,
+            'club_id' => $club->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->addDays(3),
+            'status' => 'confirmed',
+        ]);
+
+        $replacement = LessonReplacement::factory()->create([
+            'lesson_id' => $lesson->id,
+            'original_teacher_id' => $originalTeacher->id,
+            'replacement_teacher_id' => $replacementTeacher->id,
+            'status' => 'pending',
+        ]);
+
+        $this->postJson("/api/teacher/lesson-replacements/{$replacement->id}/respond", [
+            'action' => 'reject',
+        ])->assertStatus(200);
+
+        Mail::assertSent(TeacherLessonReplacementOutcomeMail::class, function (TeacherLessonReplacementOutcomeMail $mail) use ($originalTeacherUser, $admin) {
+            return $mail->accepted === false
+                && $mail->hasTo($originalTeacherUser->email)
+                && $mail->hasCc($admin->email);
+        });
     }
 }
 

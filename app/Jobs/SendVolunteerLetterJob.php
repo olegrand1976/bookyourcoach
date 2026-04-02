@@ -36,6 +36,16 @@ class SendVolunteerLetterJob implements ShouldQueue
         $this->sentByUserId = $sentByUserId;
     }
 
+    public function getClubId(): int
+    {
+        return (int) $this->clubId;
+    }
+
+    public function getTeacherId(): int
+    {
+        return (int) $this->teacherId;
+    }
+
     /**
      * Execute the job.
      */

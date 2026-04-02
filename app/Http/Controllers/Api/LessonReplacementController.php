@@ -3,23 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\LessonReplacement;
+use App\Http\Requests\StoreBulkLessonReplacementRequest;
+use App\Models\Club;
 use App\Models\Lesson;
+use App\Models\LessonReplacement;
 use App\Models\Teacher;
+use App\Services\LessonReplacementRequestService;
 use App\Services\NotificationService;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class LessonReplacementController extends Controller
 {
-    protected $notificationService;
-
-    public function __construct(NotificationService $notificationService)
-    {
-        $this->notificationService = $notificationService;
-    }
+    public function __construct(
+        protected NotificationService $notificationService,
+        protected LessonReplacementRequestService $replacementRequestService
+    ) {}
 
     /**
      * Liste des demandes de remplacement pour l'enseignant connecté
@@ -33,39 +34,37 @@ class LessonReplacementController extends Controller
             if (!$teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Profil enseignant introuvable'
+                    'message' => 'Profil enseignant introuvable',
                 ], 404);
             }
 
-            // Récupérer les demandes où on est le remplaçant potentiel
-            // ou où on est le professeur d'origine
             $replacements = LessonReplacement::with([
                 'lesson.student.user',
-                'lesson.courseType',  // ✅ Correction: courseType au lieu de course_type
+                'lesson.courseType',
                 'lesson.club',
                 'originalTeacher.user',
-                'replacementTeacher.user'
+                'replacementTeacher.user',
             ])
-            ->where(function($query) use ($teacher) {
-                $query->where('original_teacher_id', $teacher->id)
-                      ->orWhere('replacement_teacher_id', $teacher->id);
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+                ->where(function ($query) use ($teacher) {
+                    $query->where('original_teacher_id', $teacher->id)
+                        ->orWhere('replacement_teacher_id', $teacher->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $replacements
+                'data' => $replacements,
             ]);
-
         } catch (\Exception $e) {
-            Log::error('❌ [LessonReplacement] Erreur lors de la récupération des remplacements: ' . $e->getMessage());
-            Log::error('❌ [LessonReplacement] Stack trace: ' . $e->getTraceAsString());
+            Log::error('❌ [LessonReplacement] Erreur lors de la récupération des remplacements: '.$e->getMessage());
+            Log::error('❌ [LessonReplacement] Stack trace: '.$e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des remplacements',
                 'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
             ], 500);
         }
     }
@@ -80,7 +79,7 @@ class LessonReplacementController extends Controller
                 'lesson_id' => 'required|exists:lessons,id',
                 'replacement_teacher_id' => 'required|exists:teachers,id',
                 'reason' => 'required|string|max:500',
-                'notes' => 'nullable|string|max:1000'
+                'notes' => 'nullable|string|max:1000',
             ]);
 
             $user = $request->user();
@@ -89,109 +88,165 @@ class LessonReplacementController extends Controller
             if (!$teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Profil enseignant introuvable'
+                    'message' => 'Profil enseignant introuvable',
                 ], 404);
             }
 
-            // Vérifier qu'on ne se sélectionne pas soi-même comme remplaçant
-            if ($validated['replacement_teacher_id'] == $teacher->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Vous ne pouvez pas vous sélectionner comme remplaçant'
-                ], 400);
-            }
-
-            // Vérifier que le cours appartient bien à cet enseignant
-            $lesson = Lesson::findOrFail($validated['lesson_id']);
-            
-            if ($lesson->teacher_id !== $teacher->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Ce cours ne vous appartient pas'
-                ], 403);
-            }
-
-            // Vérifier que le cours n'est pas dans le passé
-            if (Carbon::parse($lesson->start_time)->isPast()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Impossible de demander un remplacement pour un cours passé'
-                ], 400);
-            }
-
-            // Vérifier qu'il n'existe pas déjà une demande en attente pour ce cours
-            $existingReplacement = LessonReplacement::where('lesson_id', $validated['lesson_id'])
-                ->where('status', 'pending')
-                ->first();
-
-            if ($existingReplacement) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Une demande de remplacement est déjà en attente pour ce cours'
-                ], 400);
-            }
-
-            // Vérifier la disponibilité du prof de remplacement
             $replacementTeacher = Teacher::findOrFail($validated['replacement_teacher_id']);
-            
-            $hasConflict = Lesson::where('teacher_id', $replacementTeacher->id)
-                ->where('status', '!=', 'cancelled')
-                ->where(function($query) use ($lesson) {
-                    $query->whereBetween('start_time', [$lesson->start_time, $lesson->end_time])
-                          ->orWhereBetween('end_time', [$lesson->start_time, $lesson->end_time])
-                          ->orWhere(function($q) use ($lesson) {
-                              $q->where('start_time', '<=', $lesson->start_time)
-                                ->where('end_time', '>=', $lesson->end_time);
-                          });
-                })
-                ->exists();
+            $lesson = Lesson::findOrFail($validated['lesson_id']);
 
-            if ($hasConflict) {
+            $error = $this->replacementRequestService->validateLessonForReplacement($teacher, $lesson, $replacementTeacher);
+            if ($error !== null) {
+                $status = str_contains($error, 'ne vous appartient pas') ? 403 : 400;
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Le professeur de remplacement n\'est pas disponible à cet horaire'
-                ], 400);
+                    'message' => $error,
+                ], $status);
             }
 
-            // Créer la demande
             $replacement = LessonReplacement::create([
                 'lesson_id' => $validated['lesson_id'],
                 'original_teacher_id' => $teacher->id,
                 'replacement_teacher_id' => $validated['replacement_teacher_id'],
                 'reason' => $validated['reason'],
                 'notes' => $validated['notes'] ?? null,
-                'status' => 'pending'
+                'status' => 'pending',
             ]);
 
-            // Charger les relations
             $replacement->load([
                 'lesson.student.user',
                 'lesson.courseType',
                 'lesson.club',
                 'originalTeacher.user',
-                'replacementTeacher.user'
+                'replacementTeacher.user',
             ]);
 
-            // Envoyer une notification au professeur de remplacement
             $this->notificationService->notifyReplacementRequest($replacement);
+
+            if ($replacement->lesson->club_id) {
+                $club = Club::find($replacement->lesson->club_id);
+                if ($club) {
+                    $this->notificationService->mailClubAdminsReplacementRequestDigest(
+                        $club,
+                        $replacement->originalTeacher,
+                        $replacement->replacementTeacher,
+                        $replacement->reason,
+                        $replacement->notes,
+                        collect([$replacement->lesson])
+                    );
+                }
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Demande de remplacement créée avec succès',
-                'data' => $replacement
+                'data' => $replacement,
             ], 201);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la création de la demande de remplacement: ' . $e->getMessage());
+            Log::error('Erreur lors de la création de la demande de remplacement: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la création de la demande'
+                'message' => 'Erreur lors de la création de la demande',
+            ], 500);
+        }
+    }
+
+    /**
+     * Créer plusieurs demandes de remplacement (même remplaçant, même club).
+     */
+    public function storeBulk(StoreBulkLessonReplacementRequest $request)
+    {
+        try {
+            $teacher = $request->user()->teacher;
+
+            if (!$teacher) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profil enseignant introuvable',
+                ], 404);
+            }
+
+            $validated = $request->validated();
+
+            $result = $this->replacementRequestService->validateBulkLessons(
+                $teacher,
+                $validated['lesson_ids'],
+                (int) $validated['replacement_teacher_id']
+            );
+
+            if ($result['error'] !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['error'],
+                ], 400);
+            }
+
+            /** @var \Illuminate\Support\Collection<int, Lesson> $lessons */
+            $lessons = $result['lessons'];
+            $replacementTeacher = $result['replacementTeacher'];
+            $club = Club::findOrFail((int) $result['clubId']);
+
+            $created = DB::transaction(function () use ($lessons, $teacher, $replacementTeacher, $validated) {
+                $rows = [];
+                foreach ($lessons as $lesson) {
+                    $rows[] = LessonReplacement::create([
+                        'lesson_id' => $lesson->id,
+                        'original_teacher_id' => $teacher->id,
+                        'replacement_teacher_id' => $replacementTeacher->id,
+                        'reason' => $validated['reason'],
+                        'notes' => $validated['notes'] ?? null,
+                        'status' => 'pending',
+                    ]);
+                }
+
+                return $rows;
+            });
+
+            foreach ($created as $replacement) {
+                $replacement->load([
+                    'lesson.student.user',
+                    'lesson.courseType',
+                    'lesson.club',
+                    'originalTeacher.user',
+                    'replacementTeacher.user',
+                ]);
+                $this->notificationService->notifyReplacementRequest($replacement);
+            }
+
+            $this->notificationService->mailClubAdminsReplacementRequestDigest(
+                $club,
+                $teacher,
+                $replacementTeacher,
+                $validated['reason'],
+                $validated['notes'] ?? null,
+                $lessons
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => count($created).' demande(s) de remplacement créée(s) avec succès',
+                'data' => $created,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la création groupée de demandes de remplacement: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création des demandes',
             ], 500);
         }
     }
@@ -203,7 +258,7 @@ class LessonReplacementController extends Controller
     {
         try {
             $validated = $request->validate([
-                'action' => 'required|in:accept,reject'
+                'action' => 'required|in:accept,reject',
             ]);
 
             $user = $request->user();
@@ -212,29 +267,27 @@ class LessonReplacementController extends Controller
             if (!$teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Profil enseignant introuvable'
+                    'message' => 'Profil enseignant introuvable',
                 ], 404);
             }
 
             $replacement = LessonReplacement::with([
                 'lesson',
                 'originalTeacher.user',
-                'replacementTeacher.user'
+                'replacementTeacher.user',
             ])->findOrFail($id);
 
-            // Vérifier que c'est bien le prof de remplacement qui répond
             if ($replacement->replacement_teacher_id !== $teacher->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vous n\'êtes pas autorisé à répondre à cette demande'
+                    'message' => 'Vous n\'êtes pas autorisé à répondre à cette demande',
                 ], 403);
             }
 
-            // Vérifier que la demande est en attente
             if ($replacement->status !== 'pending') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cette demande a déjà été traitée'
+                    'message' => 'Cette demande a déjà été traitée',
                 ], 400);
             }
 
@@ -242,24 +295,21 @@ class LessonReplacementController extends Controller
 
             try {
                 if ($validated['action'] === 'accept') {
-                    // Accepter le remplacement
                     $replacement->status = 'accepted';
                     $replacement->responded_at = now();
                     $replacement->save();
 
-                    // Transférer automatiquement le cours vers le remplaçant
                     $lesson = $replacement->lesson;
                     $originalTeacherId = $lesson->teacher_id;
                     $lesson->teacher_id = $replacement->replacement_teacher_id;
                     $lesson->save();
 
-                    // Vérifier que le transfert a bien été effectué
                     $lesson->refresh();
                     if ($lesson->teacher_id !== $replacement->replacement_teacher_id) {
                         Log::error('❌ [LessonReplacement] Échec du transfert du cours', [
                             'lesson_id' => $lesson->id,
                             'expected_teacher_id' => $replacement->replacement_teacher_id,
-                            'actual_teacher_id' => $lesson->teacher_id
+                            'actual_teacher_id' => $lesson->teacher_id,
                         ]);
                         throw new \Exception('Échec du transfert du cours vers le remplaçant');
                     }
@@ -268,56 +318,51 @@ class LessonReplacementController extends Controller
                         'lesson_id' => $lesson->id,
                         'original_teacher_id' => $originalTeacherId,
                         'new_teacher_id' => $replacement->replacement_teacher_id,
-                        'replacement_id' => $replacement->id
+                        'replacement_id' => $replacement->id,
                     ]);
 
                     DB::commit();
 
-                    // Notifier le professeur d'origine et le club
-                    $replacement->load(['lesson.club', 'lesson.teacher.user', 'originalTeacher.user', 'replacementTeacher.user']);
+                    $replacement->load(['lesson.club', 'lesson.teacher.user', 'lesson.courseType', 'originalTeacher.user', 'replacementTeacher.user']);
                     $this->notificationService->notifyReplacementAccepted($replacement);
 
                     return response()->json([
                         'success' => true,
                         'message' => 'Remplacement accepté avec succès. Le cours a été transféré automatiquement.',
-                        'data' => $replacement
-                    ]);
-
-                } else {
-                    // Refuser le remplacement
-                    $replacement->status = 'rejected';
-                    $replacement->responded_at = now();
-                    $replacement->save();
-
-                    DB::commit();
-
-                    // Notifier le professeur d'origine
-                    $replacement->load(['originalTeacher.user', 'replacementTeacher.user']);
-                    $this->notificationService->notifyReplacementRejected($replacement);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Remplacement refusé',
-                        'data' => $replacement
+                        'data' => $replacement,
                     ]);
                 }
 
+                $replacement->status = 'rejected';
+                $replacement->responded_at = now();
+                $replacement->save();
+
+                DB::commit();
+
+                $replacement->load(['originalTeacher.user', 'replacementTeacher.user']);
+                $this->notificationService->notifyReplacementRejected($replacement);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Remplacement refusé',
+                    'data' => $replacement,
+                ]);
             } catch (\Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Erreur lors de la réponse à la demande de remplacement: ' . $e->getMessage());
+            Log::error('Erreur lors de la réponse à la demande de remplacement: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors du traitement de la réponse'
+                'message' => 'Erreur lors du traitement de la réponse',
             ], 500);
         }
     }
@@ -334,25 +379,23 @@ class LessonReplacementController extends Controller
             if (!$teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Profil enseignant introuvable'
+                    'message' => 'Profil enseignant introuvable',
                 ], 404);
             }
 
             $replacement = LessonReplacement::findOrFail($id);
 
-            // Vérifier que c'est bien le prof d'origine qui annule
             if ($replacement->original_teacher_id !== $teacher->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vous n\'êtes pas autorisé à annuler cette demande'
+                    'message' => 'Vous n\'êtes pas autorisé à annuler cette demande',
                 ], 403);
             }
 
-            // On ne peut annuler qu'une demande en attente
             if ($replacement->status !== 'pending') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Impossible d\'annuler une demande déjà traitée'
+                    'message' => 'Impossible d\'annuler une demande déjà traitée',
                 ], 400);
             }
 
@@ -361,14 +404,14 @@ class LessonReplacementController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Demande de remplacement annulée'
+                'message' => 'Demande de remplacement annulée',
             ]);
-
         } catch (\Exception $e) {
-            Log::error('Erreur lors de l\'annulation de la demande: ' . $e->getMessage());
+            Log::error('Erreur lors de l\'annulation de la demande: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'annulation'
+                'message' => 'Erreur lors de l\'annulation',
             ], 500);
         }
     }
