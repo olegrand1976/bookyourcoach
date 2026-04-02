@@ -183,6 +183,11 @@ class Club extends Model
         return $this->students()->wherePivot('is_active', true);
     }
 
+    public function communicationLogs()
+    {
+        return $this->hasMany(ClubCommunicationLog::class);
+    }
+
     public function activityType()
     {
         return $this->belongsTo(ActivityType::class);
