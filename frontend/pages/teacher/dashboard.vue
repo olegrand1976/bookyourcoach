@@ -150,8 +150,8 @@
                   :key="replacement.id"
                   class="bg-white rounded-lg p-4 shadow-sm"
                 >
-                  <div class="flex items-center justify-between">
-                    <div>
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0 flex-1">
                       <p class="font-medium text-gray-900">
                         Vous avez demandé à {{ replacement.replacement_teacher?.user?.name }} de vous remplacer
                       </p>
@@ -166,10 +166,17 @@
                       </p>
                       <p class="text-sm text-gray-500">Raison: {{ replacement.reason }}</p>
                     </div>
-                    <div class="flex items-center">
+                    <div class="flex flex-shrink-0 flex-wrap items-center gap-2">
                       <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
                         ⏳ En attente
                       </span>
+                      <button
+                        type="button"
+                        class="inline-flex items-center rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-200"
+                        @click="cancelReplacementRequest(replacement.id)"
+                      >
+                        Supprimer la demande
+                      </button>
                     </div>
                   </div>
                 </div>

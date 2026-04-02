@@ -111,6 +111,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { formatTeacherOptionLabel } from '~/utils/teacherDisplay'
 
 const props = defineProps<{
   show: boolean
@@ -141,23 +142,6 @@ watch(() => props.show, (isShown) => {
     error.value = ''
   }
 })
-
-/** Libellé liste déroulante : évite "- []" quand specialties est un tableau vide (truthy en JS). */
-function formatTeacherOptionLabel(teacher: any): string {
-  const name = teacher?.user?.name || teacher?.name || 'Enseignant'
-  const spec = formatSpecialties(teacher?.specialties)
-  return spec ? `${name} — ${spec}` : name
-}
-
-function formatSpecialties(raw: unknown): string {
-  if (raw == null || raw === '') return ''
-  if (Array.isArray(raw)) {
-    const parts = raw.map((x) => String(x).trim()).filter(Boolean)
-    return parts.length ? parts.join(', ') : ''
-  }
-  if (typeof raw === 'string') return raw.trim()
-  return String(raw)
-}
 
 async function handleSubmit() {
   if (!props.lesson) return

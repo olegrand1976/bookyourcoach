@@ -374,6 +374,44 @@ class TeacherLessonReplacementControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_allows_replacement_when_substitute_lesson_ends_when_requested_lesson_starts()
+    {
+        $user = $this->actingAsTeacher();
+        $teacher = $user->teacher;
+
+        $replacementTeacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $day = Carbon::now()->addDays(3)->setTime(0, 0);
+
+        $lesson = Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $day->copy()->setTime(10, 0),
+            'end_time' => $day->copy()->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        // Cours du remplaçant : se termine exactement au début du cours à remplacer → pas de chevauchement
+        Lesson::factory()->create([
+            'teacher_id' => $replacementTeacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $day->copy()->setTime(9, 0),
+            'end_time' => $day->copy()->setTime(10, 0),
+            'status' => 'confirmed',
+        ]);
+
+        $this->postJson('/api/teacher/lesson-replacements', [
+            'lesson_id' => $lesson->id,
+            'replacement_teacher_id' => $replacementTeacher->id,
+            'reason' => 'Test créneaux adjacents',
+        ])->assertStatus(201);
+    }
+
+    #[Test]
     public function it_can_accept_replacement_request()
     {
         // Arrange

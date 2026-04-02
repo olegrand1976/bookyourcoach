@@ -45,18 +45,21 @@ class LessonReplacementRequestService
         return null;
     }
 
+    /**
+     * True si le remplaçant a déjà un cours non annulé qui chevauche [start, end] (même jour inclus).
+     * Utilise un chevauchement strict : fin d'un cours = début du suivant → pas de conflit.
+     */
     public function replacementTeacherHasConflict(Teacher $replacementTeacher, Lesson $lesson): bool
     {
-        return Lesson::where('teacher_id', $replacementTeacher->id)
+        $start = Carbon::parse($lesson->start_time);
+        $end = Carbon::parse($lesson->end_time);
+
+        return Lesson::query()
+            ->where('teacher_id', $replacementTeacher->id)
+            ->where('id', '!=', $lesson->id)
             ->where('status', '!=', 'cancelled')
-            ->where(function ($query) use ($lesson) {
-                $query->whereBetween('start_time', [$lesson->start_time, $lesson->end_time])
-                    ->orWhereBetween('end_time', [$lesson->start_time, $lesson->end_time])
-                    ->orWhere(function ($q) use ($lesson) {
-                        $q->where('start_time', '<=', $lesson->start_time)
-                            ->where('end_time', '>=', $lesson->end_time);
-                    });
-            })
+            ->where('start_time', '<', $end)
+            ->where('end_time', '>', $start)
             ->exists();
     }
 

@@ -38,10 +38,7 @@
                 :key="teacher.id"
                 :value="teacher.id"
               >
-                {{ teacher.user?.name || teacher.name }}
-                <template v-if="teacher.specialties">
-                  - {{ teacher.specialties }}
-                </template>
+                {{ formatTeacherOptionLabel(teacher) }}
               </option>
             </select>
           </div>
@@ -108,6 +105,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { formatTeacherOptionLabel } from '~/utils/teacherDisplay'
 
 const props = defineProps<{
   show: boolean
