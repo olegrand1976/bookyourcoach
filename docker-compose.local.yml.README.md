@@ -32,7 +32,7 @@ Le service `mailhog` dans ce fichier créera un nouveau container MailHog.
 **Comportement Laravel (depuis le code versionné) :** avec `APP_ENV=local`, l’application **utilise automatiquement MailHog** (mailer `mailhog`), même si `.env.local` contient encore des variables SMTP type Mailjet. Aucune ligne `MAIL_HOST=mailhog` n’est obligatoire.
 
 - Désactiver ce forçage : `MAIL_USE_MAILHOG=false` dans `.env.local`.
-- Le compose définit `MAIL_MAILHOG_HOST=mailhog` et `MAIL_MAILHOG_PORT=1025` pour le conteneur backend ; le backend dépend du service `mailhog`.
+- Ajoutez côté service **backend** : `MAIL_USE_MAILHOG=true` (obligatoire si `APP_ENV` n’est pas `local`, ex. `.env` copié de la prod), plus `MAIL_MAILHOG_HOST=mailhog` et `MAIL_MAILHOG_PORT=1025`. Le backend doit dépendre du service `mailhog`.
 
 **Accès :**
 - Interface web : http://localhost:8035

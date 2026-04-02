@@ -44,19 +44,62 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * En local, envoyer les mails vers MailHog (pas Mailjet / SMTP prod copié dans .env).
-     * Désactiver : MAIL_USE_MAILHOG=false. Hôte Docker : MAIL_MAILHOG_HOST=mailhog (compose).
+     * MailHog en dev : évite d’envoyer via Mailjet / SMTP prod présents dans .env.
+     *
+     * - MAIL_USE_MAILHOG=true (recommandé dans docker-compose) : forcé même si APP_ENV=production.
+     * - Sinon : activé seulement si APP_ENV vaut local ou development.
+     * - MAIL_USE_MAILHOG=false : désactivé.
+     *
+     * Utilise getenv/$_SERVER en priorité : avec config:cache, env() ne voit plus les variables
+     * injectées par Docker (MAIL_MAILHOG_HOST=mailhog, etc.).
      */
     private function configureLocalMailhog(): void
     {
-        if (! $this->app->environment('local')) {
+        $flag = $this->runningEnvString('MAIL_USE_MAILHOG');
+
+        if ($flag !== null && $flag !== '') {
+            if (! filter_var($flag, FILTER_VALIDATE_BOOLEAN)) {
+                return;
+            }
+            $useMailhog = true;
+        } else {
+            $useMailhog = $this->app->environment(['local', 'development']);
+        }
+
+        if (! $useMailhog) {
             return;
         }
 
-        if (! filter_var(env('MAIL_USE_MAILHOG', 'true'), FILTER_VALIDATE_BOOLEAN)) {
-            return;
+        $host = $this->runningEnvString('MAIL_MAILHOG_HOST') ?: '127.0.0.1';
+        $port = (int) ($this->runningEnvString('MAIL_MAILHOG_PORT') ?: '1025');
+
+        config([
+            'mail.default' => 'mailhog',
+            'mail.mailers.mailhog.host' => $host,
+            'mail.mailers.mailhog.port' => $port,
+        ]);
+    }
+
+    /**
+     * Valeur d’environnement au runtime (Docker, php-fpm, CLI) — pas seulement .env non caché.
+     */
+    private function runningEnvString(string $key): ?string
+    {
+        $v = getenv($key);
+        if ($v !== false && $v !== '') {
+            return $v;
+        }
+        if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+            return (string) $_SERVER[$key];
+        }
+        if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+            return (string) $_ENV[$key];
+        }
+        $fromEnv = env($key);
+        if ($fromEnv !== null && $fromEnv !== '') {
+            return $fromEnv;
         }
 
-        config(['mail.default' => 'mailhog']);
+        return null;
     }
 }
