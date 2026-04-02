@@ -29,6 +29,7 @@ class TeacherLessonReplacementOutcomeMail extends Mailable
         public Teacher $replacementTeacher,
         public bool $accepted,
         public array $clubAdminCcEmails = [],
+        public string $teacherDashboardUrl = '',
     ) {}
 
     public function envelope(): Envelope
@@ -63,6 +64,7 @@ class TeacherLessonReplacementOutcomeMail extends Mailable
                 'accepted' => $this->accepted,
                 'originalTeacherName' => $this->originalTeacher->user?->name ?? 'Enseignant',
                 'replacementTeacherName' => $this->replacementTeacher->user?->name ?? 'Remplaçant',
+                'teacherDashboardUrl' => $this->teacherDashboardUrl,
             ],
         );
     }

@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Lesson;
+use App\Models\User;
+use App\Support\FrontendUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -42,6 +44,10 @@ class LessonReminderNotification extends Notification implements ShouldQueue
         // Obtenir le lieu de manière sécurisée
         $locationName = $this->lesson->location?->name ?? 'À définir';
 
+        $afterLogin = $notifiable->role === User::ROLE_TEACHER
+            ? '/teacher/dashboard'
+            : '/student/dashboard';
+
         return (new MailMessage)
             ->subject('Rappel de cours - activibe')
             ->greeting("Bonjour {$firstName},")
@@ -51,7 +57,7 @@ class LessonReminderNotification extends Notification implements ShouldQueue
             ->line("**Durée** : {$this->lesson->duration} minutes")
             ->line("**Lieu** : {$locationName}")
             ->line("**Enseignant** : {$teacherName}")
-            ->action('Voir les détails', url("/api/lessons/{$this->lesson->id}"))
+            ->action('Voir les détails', FrontendUrl::login($afterLogin))
             ->line('À bientôt !');
     }
 

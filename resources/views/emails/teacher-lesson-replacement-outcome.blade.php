@@ -10,6 +10,7 @@
         .content { background: #f9fafb; padding: 20px; border-radius: 10px; border: 1px solid #e5e7eb; }
         .footer { margin-top: 24px; font-size: 12px; color: #6b7280; text-align: center; }
         .muted { color: #6b7280; font-size: 13px; }
+        .cta { margin: 20px 0; padding: 14px 18px; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -41,6 +42,9 @@
             @endif
         </p>
         <p><strong>Type :</strong> {{ $lesson->courseType?->name ?? '—' }}</p>
+        @if(!empty($teacherDashboardUrl))
+            <p style="margin-top:20px;"><a class="cta" href="{{ $teacherDashboardUrl }}">Ouvrir mon espace enseignant</a></p>
+        @endif
         <p class="muted" style="margin-top:20px;">Le responsable du club est mis en copie de ce message.</p>
     </div>
     <div class="footer">

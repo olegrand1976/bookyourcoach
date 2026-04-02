@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Support\FrontendUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -31,7 +32,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
             ->line("**Cours** : {$this->payment->lesson->courseType->name}")
             ->line("**Date du cours** : {$this->payment->lesson->start_time->format('d/m/Y à H:i')}")
             ->line("**Transaction** : {$this->payment->stripe_payment_intent_id}")
-            ->action('Voir mes cours', url('/api/lessons'))
+            ->action('Voir mes cours', FrontendUrl::login('/student/dashboard'))
             ->line('Merci pour votre confiance !');
     }
 

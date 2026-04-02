@@ -2,12 +2,11 @@
 
 namespace App\Notifications;
 
-use App\Models\User;
+use App\Support\FrontendUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Password;
 
 class TeacherWelcomeNotification extends Notification implements ShouldQueue
 {
@@ -29,9 +28,9 @@ class TeacherWelcomeNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $resetUrl = $this->resetToken 
-            ? url(config('app.frontend_url') . '/reset-password?token=' . $this->resetToken . '&email=' . urlencode($notifiable->email))
-            : url(config('app.frontend_url') . '/login');
+        $resetUrl = $this->resetToken
+            ? FrontendUrl::resetPassword($this->resetToken, (string) $notifiable->email)
+            : FrontendUrl::login('/teacher/dashboard');
 
         return (new MailMessage)
             ->subject('Bienvenue dans ' . $this->clubName . ' - activibe')

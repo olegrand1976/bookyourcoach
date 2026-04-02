@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Lesson;
+use App\Models\User;
+use App\Support\FrontendUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -31,6 +33,10 @@ class LessonBookedNotification extends Notification implements ShouldQueue
             ?? $this->lesson->student?->user?->name
             ?? 'Élève';
 
+        $afterLogin = $notifiable->role === User::ROLE_TEACHER
+            ? '/teacher/dashboard'
+            : '/student/dashboard';
+
         return (new MailMessage)
             ->subject('Nouvelle réservation de cours - activibe')
             ->greeting("Bonjour {$firstName},")
@@ -39,7 +45,7 @@ class LessonBookedNotification extends Notification implements ShouldQueue
             ->line("**Date** : {$dateStr}")
             ->line("**Lieu** : {$locationName}")
             ->line("**Élève** : {$studentName}")
-            ->action('Voir les détails', url("/api/lessons/{$this->lesson->id}"))
+            ->action('Voir les détails', FrontendUrl::login($afterLogin))
             ->line('Merci d\'utiliser activibe !');
     }
 

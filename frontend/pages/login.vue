@@ -376,8 +376,10 @@
 </template>
 
 <script setup>
+import { getSafeRedirectPath } from '~/utils/safeRedirect'
+
 const authStore = useAuthStore()
-const router = useRouter()
+const route = useRoute()
 
 // Fonction toast simple
 const showToast = (message, type = 'info') => {
@@ -446,6 +448,12 @@ const handleLogin = async () => {
 
     showToast('Connexion réussie', 'success')
 
+    const fromQuery = getSafeRedirectPath(route.query.redirect)
+    if (fromQuery) {
+      await navigateTo(fromQuery)
+      return
+    }
+
     // Rediriger selon le rôle (admin en priorité)
     if (authStore.isAdmin) {
       await navigateTo('/admin')
@@ -487,18 +495,27 @@ const handleLogin = async () => {
 
 // Rediriger si déjà connecté (admin en priorité)
 watchEffect(() => {
-  if (authStore.isAuthenticated) {
-    if (authStore.isAdmin) {
-      navigateTo('/admin')
-    } else if (authStore.isTeacher) {
-      navigateTo('/teacher/dashboard')
-    } else if (authStore.isClub) {
-      navigateTo('/club/dashboard')
-    } else if (authStore.isStudent) {
-      navigateTo('/student/dashboard')
-    } else {
-      navigateTo('/dashboard')
-    }
+  if (!authStore.isAuthenticated) {
+    return
+  }
+  if (route.path !== '/login') {
+    return
+  }
+  const fromQuery = getSafeRedirectPath(route.query.redirect)
+  if (fromQuery) {
+    navigateTo(fromQuery)
+    return
+  }
+  if (authStore.isAdmin) {
+    navigateTo('/admin')
+  } else if (authStore.isTeacher) {
+    navigateTo('/teacher/dashboard')
+  } else if (authStore.isClub) {
+    navigateTo('/club/dashboard')
+  } else if (authStore.isStudent) {
+    navigateTo('/student/dashboard')
+  } else {
+    navigateTo('/dashboard')
   }
 })
 

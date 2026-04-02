@@ -1,4 +1,5 @@
 import { useAuthStore } from '~/stores/auth'
+import { getSafeRedirectPath } from '~/utils/safeRedirect'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   console.log('🔍 Middleware global - Route:', to.path)
@@ -32,6 +33,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       })
       if (!authStore.isAuthenticated) {
         console.log('❌ Non authentifié côté client, redirection vers /login')
+        const target = to.fullPath || to.path
+        const safe = getSafeRedirectPath(target)
+        if (safe) {
+          return navigateTo({ path: '/login', query: { redirect: safe } })
+        }
         return navigateTo('/login')
       }
       if (to.path.startsWith('/teacher/') && !authStore.canActAsTeacher) {

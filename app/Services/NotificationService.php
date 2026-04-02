@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\TeacherLessonReplacementInvitationMail;
+use App\Support\FrontendUrl;
 use App\Mail\TeacherLessonReplacementOutcomeMail;
 use App\Models\Club;
 use App\Models\Lesson;
@@ -163,7 +164,7 @@ class NotificationService
             }
 
             $ccEmails = $this->clubAdminEmails($club);
-            $dashboardUrl = rtrim((string) config('app.frontend_url', ''), '/').'/teacher/dashboard';
+            $dashboardUrl = FrontendUrl::login('/teacher/dashboard');
 
             Mail::to($replacementUser->email)->send(new TeacherLessonReplacementInvitationMail(
                 $club,
@@ -248,6 +249,7 @@ class NotificationService
                 $replacementTeacher,
                 $accepted,
                 $ccEmails,
+                FrontendUrl::login('/teacher/dashboard'),
             ));
 
             Log::info('✅ Email réponse remplacement envoyé au demandeur (CC responsables club)', [

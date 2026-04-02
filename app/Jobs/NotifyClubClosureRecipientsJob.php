@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Club;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Support\FrontendUrl;
 use App\Notifications\ClubClosureNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -58,14 +59,20 @@ class NotifyClubClosureRecipientsJob implements ShouldQueue
         $uniqueUsers = $users->filter(fn ($u) => $u instanceof User)->unique('id');
 
         $dateLabel = \Carbon\Carbon::parse($this->dateYmd)->translatedFormat('l j F Y');
-        $baseUrl = rtrim((string) config('app.frontend_url'), '/');
-        $planningUrl = $baseUrl ? "{$baseUrl}/club/planning" : null;
         $clubBcc = $club->email ? trim((string) $club->email) : null;
 
         foreach ($uniqueUsers as $user) {
             if (!$user->email) {
                 continue;
             }
+            $afterLogin = match ($user->role) {
+                User::ROLE_CLUB => '/club/planning',
+                User::ROLE_TEACHER => '/teacher/dashboard',
+                User::ROLE_STUDENT => '/student/dashboard',
+                default => '/dashboard',
+            };
+            $planningUrl = FrontendUrl::login($afterLogin);
+
             $user->notify(new ClubClosureNotification(
                 $club->name,
                 $dateLabel,

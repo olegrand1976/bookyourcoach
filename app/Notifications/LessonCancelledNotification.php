@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Lesson;
+use App\Support\FrontendUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -38,7 +39,7 @@ class LessonCancelledNotification extends Notification implements ShouldQueue
 
         return $message
             ->line('Si un paiement a été effectué, il sera remboursé sous 3-5 jours ouvrables.')
-            ->action('Réserver un autre cours', url('/api/course-types'))
+            ->action('Réserver un autre cours', FrontendUrl::login('/student/dashboard'))
             ->line('Nous nous excusons pour la gêne occasionnée.');
     }
 
