@@ -267,6 +267,8 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/volunteer-letters/history', [\App\Http\Controllers\Api\VolunteerLetterController::class, 'history']);
     // Communications générales (email enseignants / élèves)
     Route::get('/communications/recipient-counts', [\App\Http\Controllers\Api\ClubCommunicationController::class, 'recipientCounts']);
+    Route::get('/communications/contacts', [\App\Http\Controllers\Api\ClubCommunicationController::class, 'contacts']);
+    Route::get('/communications/history', [\App\Http\Controllers\Api\ClubCommunicationController::class, 'history']);
     Route::post('/communications/send', [\App\Http\Controllers\Api\ClubCommunicationController::class, 'send']);
     // Gestion des types de cours pour les créneaux
     Route::put('/open-slots/{id}/course-types', [ClubOpenSlotController::class, 'updateCourseTypes']);

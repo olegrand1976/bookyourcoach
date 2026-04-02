@@ -11,12 +11,25 @@ class ClubCommunicationLog extends Model
         'club_id',
         'sent_by_user_id',
         'audience',
+        'selection_mode',
+        'selected_teacher_ids',
+        'selected_student_ids',
         'subject',
         'body',
         'recipient_count',
         'sent_count',
         'failed_count',
+        'teacher_recipient_count',
+        'student_recipient_count',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'selected_teacher_ids' => 'array',
+            'selected_student_ids' => 'array',
+        ];
+    }
 
     public function club(): BelongsTo
     {
