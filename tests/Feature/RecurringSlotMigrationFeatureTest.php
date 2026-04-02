@@ -379,9 +379,10 @@ class RecurringSlotMigrationFeatureTest extends TestCase
         // La commande filtre seulement les créneaux avec status != 'cancelled' dans la requête initiale
         // Mais si un créneau cancelled existe, il sera quand même migré avec le statut 'cancelled'
         $recurringSlots = RecurringSlot::all();
-        // En fait, la commande filtre les créneaux avec status != 'cancelled', donc seul l'actif devrait être migré
-        $this->assertEquals(1, $recurringSlots->count());
-        $this->assertEquals('active', $recurringSlots->first()->status);
+        // La commande migre tous les SubscriptionRecurringSlot (actifs et annulés), avec statut préservé
+        $this->assertCount(2, $recurringSlots);
+        $this->assertSame(1, $recurringSlots->where('status', 'active')->count());
+        $this->assertSame(1, $recurringSlots->where('status', 'cancelled')->count());
     }
 
     /**

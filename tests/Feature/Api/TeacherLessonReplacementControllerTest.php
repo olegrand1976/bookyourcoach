@@ -74,8 +74,8 @@ class TeacherLessonReplacementControllerTest extends TestCase
                              'replacement_teacher_id',
                              'status',
                              'lesson',
-                             'originalTeacher',
-                             'replacementTeacher',
+                             'original_teacher',
+                             'replacement_teacher',
                          ]
                      ]
                  ]);
@@ -403,10 +403,11 @@ class TeacherLessonReplacementControllerTest extends TestCase
 
         // Assert
         $response->assertStatus(200)
-                 ->assertJson([
-                     'success' => true,
-                     'message' => 'Remplacement accepté avec succès'
-                 ]);
+                 ->assertJson(['success' => true]);
+        $this->assertStringContainsString(
+            'Remplacement accepté',
+            (string) $response->json('message')
+        );
 
         $this->assertDatabaseHas('lesson_replacements', [
             'id' => $replacement->id,

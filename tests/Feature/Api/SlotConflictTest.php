@@ -33,7 +33,8 @@ class SlotConflictTest extends TestCase
         parent::setUp();
         $this->actingAsClub();
         $this->club = \App\Models\Club::find(Auth::user()->club_id);
-        $this->teacher = Teacher::factory()->create(['club_id' => $this->club->id]);
+        $this->teacher = Teacher::factory()->create();
+        $this->teacher->clubs()->attach($this->club->id, ['is_active' => true, 'joined_at' => now()]);
         $this->student = Student::factory()->create(['club_id' => $this->club->id]);
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
@@ -160,6 +161,7 @@ class SlotConflictTest extends TestCase
 
         $response = $this->postJson("/api/lessons/{$lesson->id}/cancel-with-future", [
             'cancel_scope' => 'single',
+            'action' => 'cancel',
             'reason' => 'Test annulation',
         ]);
 
@@ -167,7 +169,7 @@ class SlotConflictTest extends TestCase
         $response->assertJson([
             'success' => true,
             'data' => [
-                'cancelled_count' => 1,
+                'processed_count' => 1,
             ],
         ]);
 
@@ -228,6 +230,7 @@ class SlotConflictTest extends TestCase
         // Annuler le premier cours avec tous les cours futurs
         $response = $this->postJson("/api/lessons/{$lesson1->id}/cancel-with-future", [
             'cancel_scope' => 'all_future',
+            'action' => 'cancel',
             'reason' => 'Annulation cascade',
         ]);
 
@@ -235,7 +238,7 @@ class SlotConflictTest extends TestCase
         $response->assertJson([
             'success' => true,
             'data' => [
-                'cancelled_count' => 3,
+                'processed_count' => 3,
             ],
         ]);
 
@@ -300,6 +303,7 @@ class SlotConflictTest extends TestCase
         // Annuler le cours actuel avec tous les futurs
         $response = $this->postJson("/api/lessons/{$currentLesson->id}/cancel-with-future", [
             'cancel_scope' => 'all_future',
+            'action' => 'cancel',
         ]);
 
         $response->assertStatus(200);
@@ -335,6 +339,7 @@ class SlotConflictTest extends TestCase
     {
         $response = $this->postJson("/api/lessons/99999/cancel-with-future", [
             'cancel_scope' => 'single',
+            'action' => 'cancel',
         ]);
 
         $response->assertStatus(404);
@@ -343,7 +348,8 @@ class SlotConflictTest extends TestCase
     /** @test */
     public function slot_occupants_filters_by_teacher_when_provided()
     {
-        $teacher2 = Teacher::factory()->create(['club_id' => $this->club->id]);
+        $teacher2 = Teacher::factory()->create();
+        $teacher2->clubs()->attach($this->club->id, ['is_active' => true, 'joined_at' => now()]);
 
         // Cours du premier enseignant
         Lesson::factory()->create([

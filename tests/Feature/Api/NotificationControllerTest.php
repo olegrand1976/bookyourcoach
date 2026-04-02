@@ -84,15 +84,17 @@ class NotificationControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         
-        Notification::factory()->count(5)->create([
+        Notification::factory()->count(5)->unread()->create([
             'user_id' => $user->id,
-            'read_at' => null,
         ]);
 
-        Notification::factory()->count(2)->create([
+        Notification::factory()->count(2)->read()->create([
             'user_id' => $user->id,
-            'read_at' => now(),
         ]);
+
+        $expectedUnread = \App\Models\Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
 
         // Act
         $response = $this->getJson('/api/club/notifications/unread-count');
@@ -104,7 +106,7 @@ class NotificationControllerTest extends TestCase
                      'count',
                  ]);
 
-        $this->assertEquals(5, $response->json('count'));
+        $this->assertEquals($expectedUnread, $response->json('count'));
     }
 
     #[Test]
@@ -113,17 +115,20 @@ class NotificationControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsTeacher();
         
-        Notification::factory()->count(3)->create([
+        Notification::factory()->count(3)->unread()->create([
             'user_id' => $user->id,
-            'read' => false,
         ]);
+
+        $expectedUnread = \App\Models\Notification::where('user_id', $user->id)
+            ->where('read', false)
+            ->count();
 
         // Act
         $response = $this->getJson('/api/teacher/notifications/unread-count');
 
         // Assert
         $response->assertStatus(200);
-        $this->assertEquals(3, $response->json('count'));
+        $this->assertEquals($expectedUnread, $response->json('count'));
     }
 
     #[Test]

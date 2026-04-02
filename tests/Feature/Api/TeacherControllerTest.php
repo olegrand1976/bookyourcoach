@@ -467,13 +467,33 @@ class TeacherControllerTest extends TestCase
             'joined_at' => now()
         ]);
 
-        // Créer des étudiants dans les clubs
+        // Étudiants : l'API liste ceux qui ont au moins un cours avec cet enseignant
         $student1 = Student::factory()->create(['club_id' => $club1->id]);
         $student2 = Student::factory()->create(['club_id' => $club2->id]);
         
-        // Étudiant dans un autre club (ne doit pas apparaître)
+        // Étudiant dans un autre club (ne doit pas apparaître — aucun cours avec ce prof)
         $otherClub = Club::factory()->create();
         $student3 = Student::factory()->create(['club_id' => $otherClub->id]);
+
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student1->id,
+            'club_id' => $club1->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->addDay(),
+        ]);
+        Lesson::factory()->create([
+            'teacher_id' => $teacher->id,
+            'student_id' => $student2->id,
+            'club_id' => $club2->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::now()->addDays(2),
+        ]);
 
         // Act
         $response = $this->getJson('/api/teacher/students');

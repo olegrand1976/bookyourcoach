@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
 use App\Models\Lesson;
 use App\Models\Teacher;
 use App\Models\Student;
@@ -12,26 +11,36 @@ use Tests\TestCase;
 
 class LessonControllerTest extends TestCase
 {
+    private function teacherAttachedToClub(\App\Models\Club $club): Teacher
+    {
+        $teacher = Teacher::factory()->create();
+        $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        return $teacher;
+    }
+
     /** @test */
     public function it_can_list_lessons()
     {
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
         Lesson::factory()->count(3)->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
+            'status' => 'confirmed',
         ]);
-        
+
         // Act
         $response = $this->getJson('/api/lessons');
-        
+
         // Assert
         $response->assertStatus(200)
                  ->assertJsonStructure([
@@ -57,12 +66,12 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $student = Student::factory()->create();
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
         $lessonData = [
             'teacher_id' => $teacher->id,
             'student_id' => $student->id,
@@ -74,10 +83,10 @@ class LessonControllerTest extends TestCase
             'price' => 45.00,
             'notes' => 'Cours de test',
         ];
-        
+
         // Act
         $response = $this->postJson('/api/lessons', $lessonData);
-        
+
         // Assert
         $response->assertStatus(201)
                  ->assertJsonStructure([
@@ -95,7 +104,7 @@ class LessonControllerTest extends TestCase
                          'price',
                      ]
                  ]);
-        
+
         $this->assertDatabaseHas('lessons', [
             'teacher_id' => $teacher->id,
             'student_id' => $student->id,
@@ -110,10 +119,10 @@ class LessonControllerTest extends TestCase
     {
         // Arrange
         $this->actingAsClub();
-        
+
         // Act - Envoyer des données vides
         $response = $this->postJson('/api/lessons', []);
-        
+
         // Assert
         $response->assertStatus(422)
                  ->assertJsonValidationErrors([
@@ -129,10 +138,10 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
+
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
         $lessonData = [
             'teacher_id' => 99999, // ID inexistant
             'course_type_id' => $courseType->id,
@@ -140,10 +149,10 @@ class LessonControllerTest extends TestCase
             'start_time' => '2025-10-15 10:00:00',
             'duration' => 60,
         ];
-        
+
         // Act
         $response = $this->postJson('/api/lessons', $lessonData);
-        
+
         // Assert
         $response->assertStatus(422)
                  ->assertJsonValidationErrors(['teacher_id']);
@@ -155,20 +164,22 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
         $lesson = Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
+            'status' => 'confirmed',
         ]);
-        
+
         // Act
         $response = $this->getJson("/api/lessons/{$lesson->id}");
-        
+
         // Assert
         $response->assertStatus(200)
                  ->assertJsonStructure([
@@ -195,34 +206,35 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
         $lesson = Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'status' => 'pending',
             'price' => 30.00,
         ]);
-        
+
         $updateData = [
             'status' => 'confirmed',
             'price' => 45.00,
             'notes' => 'Cours confirmé',
         ];
-        
+
         // Act
         $response = $this->putJson("/api/lessons/{$lesson->id}", $updateData);
-        
+
         // Assert
         $response->assertStatus(200)
                  ->assertJsonFragment([
                      'success' => true,
                  ]);
-        
+
         $this->assertDatabaseHas('lessons', [
             'id' => $lesson->id,
             'status' => 'confirmed',
@@ -237,26 +249,31 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
+
+        // Passé + confirmé → suppression définitive (pas simple annulation pending/futur)
         $lesson = Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
+            'start_time' => now()->subDays(2),
+            'end_time' => now()->subDays(2)->addHour(),
+            'status' => 'confirmed',
         ]);
-        
+
         // Act
         $response = $this->deleteJson("/api/lessons/{$lesson->id}");
-        
+
         // Assert
         $response->assertStatus(200)
                  ->assertJsonFragment([
                      'success' => true,
                  ]);
-        
+
         $this->assertDatabaseMissing('lessons', [
             'id' => $lesson->id,
         ]);
@@ -267,7 +284,7 @@ class LessonControllerTest extends TestCase
     {
         // Act
         $response = $this->getJson('/api/lessons');
-        
+
         // Assert
         $response->assertStatus(401);
     }
@@ -278,25 +295,25 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
-        $courseType = CourseType::factory()->create();
+
+        $teacher = $this->teacherAttachedToClub($club);
+        $courseType = CourseType::factory()->withDuration(90)->create();
         $location = Location::factory()->create();
-        
+
         $lessonData = [
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'start_time' => '2025-10-15 10:00:00',
-            'duration' => 90, // 1h30
+            'duration' => 90,
         ];
-        
+
         // Act
         $response = $this->postJson('/api/lessons', $lessonData);
-        
+
         // Assert
         $response->assertStatus(201);
-        
+
         $lesson = Lesson::latest()->first();
         $this->assertEquals('2025-10-15 11:30:00', $lesson->end_time);
     }
@@ -307,39 +324,43 @@ class LessonControllerTest extends TestCase
         // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
-        
-        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+
+        $teacher = $this->teacherAttachedToClub($club);
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
-        
-        // Créer des leçons à différentes dates
+
         Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'start_time' => '2025-10-15 10:00:00',
+            'status' => 'confirmed',
         ]);
-        
+
         Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'start_time' => '2025-10-20 14:00:00',
+            'status' => 'confirmed',
         ]);
-        
+
         Lesson::factory()->create([
+            'club_id' => $club->id,
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'start_time' => '2025-10-25 16:00:00',
+            'status' => 'confirmed',
         ]);
-        
+
         // Act
         $response = $this->getJson('/api/lessons?date_from=2025-10-14&date_to=2025-10-21');
-        
+
         // Assert
         $response->assertStatus(200);
         $this->assertCount(2, $response->json('data'));
     }
 }
-

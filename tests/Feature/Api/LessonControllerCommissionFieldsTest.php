@@ -13,6 +13,7 @@ use App\Models\Club;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Carbon\Carbon;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Tests d'intégration pour les champs de commission dans LessonController
@@ -75,7 +76,10 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'is_available' => true,
         ]);
 
-        $this->teacher->clubs()->attach($this->club->id);
+        $this->teacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
 
         // Créer un élève
         $studentUser = User::create([
@@ -130,7 +134,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'est_legacy' => false, // DCL
@@ -177,7 +181,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'est_legacy' => true, // NDCL
@@ -213,7 +217,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'est_legacy' => 'invalid', // Doit être boolean
@@ -244,7 +248,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'date_paiement' => 'invalid-date', // Doit être une date valide
@@ -276,7 +280,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'montant' => 'invalid', // Doit être un nombre
@@ -290,7 +294,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             'montant' => -10, // Doit être positif
@@ -321,7 +325,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'student_id' => $this->student->id,
             'course_type_id' => $this->courseType->id,
             'location_id' => $this->location->id,
-            'start_time' => $startTime->toISOString(),
+            'start_time' => $startTime->format('Y-m-d H:i:s'),
             'duration' => 60,
             'price' => 50.00,
             // Pas de champs de commission

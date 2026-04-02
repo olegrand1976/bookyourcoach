@@ -11,36 +11,32 @@ class CourseTypeFactory extends Factory
 
     public function definition()
     {
+        // Default 60 min for all names so tests can POST duration: 60 without mismatch.
+        // Use ->withDuration(n) when another length is required.
         $courseTypes = [
             'Dressage' => [
                 'description' => 'Cours de dressage pour améliorer la technique et la précision',
-                'duration_minutes' => 60,
-                'price' => 45.00
+                'price' => 45.00,
             ],
             'Obstacle' => [
                 'description' => 'Cours de saut d\'obstacles pour développer la technique de saut',
-                'duration_minutes' => 60,
-                'price' => 50.00
+                'price' => 50.00,
             ],
             'Cross' => [
                 'description' => 'Cours de cross-country en terrain varié',
-                'duration_minutes' => 75,
-                'price' => 55.00
+                'price' => 55.00,
             ],
             'Préparation Compétition' => [
                 'description' => 'Préparation spécialisée pour les compétitions équestres',
-                'duration_minutes' => 90,
-                'price' => 70.00
+                'price' => 70.00,
             ],
             'Cours Débutant' => [
                 'description' => 'Cours d\'initiation pour les cavaliers débutants',
-                'duration_minutes' => 45,
-                'price' => 35.00
+                'price' => 35.00,
             ],
             'Perfectionnement' => [
                 'description' => 'Cours de perfectionnement pour cavaliers confirmés',
-                'duration_minutes' => 60,
-                'price' => 60.00
+                'price' => 60.00,
             ],
         ];
 
@@ -50,7 +46,7 @@ class CourseTypeFactory extends Factory
         return [
             'name' => $courseType,
             'description' => $details['description'],
-            'duration_minutes' => $details['duration_minutes'],
+            'duration_minutes' => 60,
             'price' => $details['price'],
         ];
     }

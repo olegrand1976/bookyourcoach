@@ -371,6 +371,12 @@ class SubscriptionInstanceUpdateTest extends TestCase
      */
     public function test_recalculate_lessons_used_counts_only_past_lessons()
     {
+        // Partir d'un compteur neutre : recalculateLessonsUsed() conserve manual + cours consommés
+        $this->instance->update([
+            'lessons_used' => 0,
+            'manual_lessons_used' => null,
+        ]);
+
         // Créer des cours passés et futurs
         $pastLesson1 = Lesson::create([
             'student_id' => $this->student->id,
@@ -419,9 +425,7 @@ class SubscriptionInstanceUpdateTest extends TestCase
         $this->instance->recalculateLessonsUsed();
         $this->instance->refresh();
 
-        // Seuls les 2 cours passés doivent être comptabilisés (pas le cours futur)
-        // La logique actuelle de recalculateLessonsUsed() ne préserve pas la valeur manuelle
-        // quand des cours sont attachés, donc lessons_used = 2 (seulement les cours passés)
+        // Seuls les 2 cours passés consommés comptent (pas le cours futur)
         $this->assertEquals(2, $this->instance->lessons_used);
     }
 

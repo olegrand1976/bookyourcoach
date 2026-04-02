@@ -50,6 +50,7 @@ class LessonCreationFlowTest extends TestCase
         $this->student = Student::factory()->create();
         $this->courseType = CourseType::factory()->create([
             'name' => 'Équitation',
+            'duration_minutes' => 60,
         ]);
 
         // Créer un créneau ouvert : Lundi 09:00-18:00

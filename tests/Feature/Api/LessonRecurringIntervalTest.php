@@ -45,8 +45,12 @@ class LessonRecurringIntervalTest extends TestCase
         $user = $this->actingAsClub();
         $this->club = Club::find($user->club_id);
         
-        // Créer les entités nécessaires
-        $this->teacher = Teacher::factory()->create(['club_id' => $this->club->id]);
+        // Enseignant rattaché au club via le pivot (requis par la plupart des flux API club)
+        $this->teacher = Teacher::factory()->create();
+        $this->teacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
         $this->student = Student::factory()->create(['club_id' => $this->club->id]);
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
@@ -240,6 +244,7 @@ class LessonRecurringIntervalTest extends TestCase
             'status' => 'confirmed',
             'price' => 50.00,
         ]);
+        $this->subscriptionInstance->lessons()->syncWithoutDetaching([$lesson->id]);
 
         // Créer un créneau récurrent avec intervalle = 1
         $recurringSlot = SubscriptionRecurringSlot::create([
@@ -255,9 +260,9 @@ class LessonRecurringIntervalTest extends TestCase
             'status' => 'active',
         ]);
 
-        // Créer quelques cours futurs
+        // Créer quelques cours futurs (liés à l'instance pour la branche update_scope all_future)
         for ($i = 1; $i <= 3; $i++) {
-            Lesson::create([
+            $future = Lesson::create([
                 'club_id' => $this->club->id,
                 'teacher_id' => $this->teacher->id,
                 'student_id' => $this->student->id,
@@ -268,6 +273,7 @@ class LessonRecurringIntervalTest extends TestCase
                 'status' => 'confirmed',
                 'price' => 50.00,
             ]);
+            $this->subscriptionInstance->lessons()->syncWithoutDetaching([$future->id]);
         }
 
         $initialFutureLessonsCount = Lesson::where('teacher_id', $this->teacher->id)
@@ -289,9 +295,6 @@ class LessonRecurringIntervalTest extends TestCase
         ]);
 
         $response->assertStatus(200);
-
-        // Attendre que le job asynchrone soit traité
-        $this->artisan('queue:work', ['--once' => true, '--tries' => 1]);
 
         // Vérifier que le créneau récurrent a été mis à jour avec le nouvel intervalle
         $recurringSlot->refresh();
