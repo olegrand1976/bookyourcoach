@@ -170,6 +170,14 @@ class LessonRecurringIntervalTest extends TestCase
             ->first();
         $this->assertNotNull($recurringSlot);
         $this->assertEquals(2, $recurringSlot->recurring_interval);
+
+        // Le premier cours futur (J+2 semaines) doit être généré immédiatement
+        $firstFutureDate = $startTime->copy()->addWeeks(2)->format('Y-m-d H:i:s');
+        $this->assertDatabaseHas('lessons', [
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'start_time' => $firstFutureDate,
+        ]);
     }
 
     /**

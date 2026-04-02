@@ -82,18 +82,31 @@ class RecurrenceCreationService
             $recurringStartDate = Carbon::parse($lesson->start_time)->startOfDay();
             $recurringEndDate = $recurringStartDate->copy()->addWeeks(26);
 
-            $existingRecurring = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
+            $existingRecurringCandidates = SubscriptionRecurringSlot::where('subscription_instance_id', $activeSubscription->id)
                 ->where('student_id', $lesson->student_id)
                 ->where('teacher_id', $lesson->teacher_id)
                 ->where('day_of_week', $dayOfWeek)
                 ->where('start_time', $timeStart)
+                ->where('recurring_interval', $recurringInterval)
                 ->where('status', 'active')
                 ->where('start_date', '<=', $recurringEndDate)
                 ->where('end_date', '>=', $recurringStartDate)
-                ->first();
+                ->get();
+
+            // Doublon "exact" = même cadence ET même phase d'occurrence
+            $existingRecurring = $existingRecurringCandidates->first(function (SubscriptionRecurringSlot $slot) use ($recurringStartDate) {
+                return $this->subscriptionRecurringSlotFiresOnDate($slot, $recurringStartDate);
+            });
 
             if ($existingRecurring) {
-                Log::info("Récurrence déjà existante pour ce créneau", ['recurring_slot_id' => $existingRecurring->id]);
+                Log::info("Récurrence déjà existante pour ce créneau : génération des cours manquants", [
+                    'recurring_slot_id' => $existingRecurring->id,
+                    'lesson_id' => $lesson->id,
+                    'recurring_interval' => $recurringInterval,
+                ]);
+
+                $this->setReason($lesson, null);
+                $this->generateFutureLessons($existingRecurring, $lessonDate = Carbon::parse($lesson->start_time), $recurringInterval, $lesson);
                 return;
             }
 
@@ -139,25 +152,8 @@ class RecurrenceCreationService
                 'recurring_interval' => $recurringInterval,
             ]);
 
-            $legacyService = new LegacyRecurringSlotService();
             $lessonDate = Carbon::parse($lesson->start_time);
-            $startDate = $lessonDate->copy()->addWeeks($recurringInterval);
-
-            try {
-                $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
-                Log::info("RecurrenceCreationService: cours générés depuis créneau récurrent", [
-                    'recurring_slot_id' => $recurringSlot->id,
-                    'generated' => $stats['generated'],
-                    'skipped' => $stats['skipped'],
-                    'errors' => $stats['errors'],
-                ]);
-            } catch (\Exception $e) {
-                Log::error("Erreur génération cours récurrents: " . $e->getMessage(), [
-                    'recurring_slot_id' => $recurringSlot->id,
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                $this->setReason($lesson, 'Récurrence créée mais erreur lors de la génération des cours suivants : ' . $e->getMessage());
-            }
+            $this->generateFutureLessons($recurringSlot, $lessonDate, $recurringInterval, $lesson);
         } catch (\Exception $e) {
             Log::error("RecurrenceCreationService: " . $e->getMessage(), [
                 'lesson_id' => $lesson->id,
@@ -173,6 +169,75 @@ class RecurrenceCreationService
             $lesson->updateQuietly(['recurrence_skipped_reason' => $reason]);
         } catch (\Throwable $e) {
             Log::warning("Impossible d'enregistrer recurrence_skipped_reason: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Même logique d'ancrage que le validator / legacy service.
+     */
+    private function subscriptionRecurringSlotFiresOnDate(SubscriptionRecurringSlot $slot, Carbon $occurrenceDate): bool
+    {
+        $interval = max(1, (int) ($slot->recurring_interval ?? 1));
+        $occurrence = $occurrenceDate->copy()->startOfDay();
+        $slotEnd = Carbon::parse($slot->end_date)->endOfDay();
+        $anchorBase = Carbon::parse($slot->start_date)->startOfDay();
+
+        if ($occurrence->lt($anchorBase) || $occurrence->gt($slotEnd)) {
+            return false;
+        }
+        if ((int) $occurrence->dayOfWeek !== (int) $slot->day_of_week) {
+            return false;
+        }
+
+        $anchor = $anchorBase->copy();
+        while ($anchor->dayOfWeek !== (int) $slot->day_of_week) {
+            $anchor->addDay();
+        }
+        if ($occurrence->lt($anchor)) {
+            return false;
+        }
+
+        $daysBetween = $anchor->diffInDays($occurrence, false);
+        if ($daysBetween < 0 || ($daysBetween % 7) !== 0) {
+            return false;
+        }
+
+        $weekIndex = (int) ($daysBetween / 7);
+
+        return ($weekIndex % $interval) === 0;
+    }
+
+    private function generateFutureLessons(
+        SubscriptionRecurringSlot $recurringSlot,
+        Carbon $lessonDate,
+        int $recurringInterval,
+        Lesson $lesson
+    ): void {
+        $legacyService = new LegacyRecurringSlotService();
+        $startDate = $lessonDate->copy()->addWeeks($recurringInterval);
+
+        try {
+            $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
+            Log::info("RecurrenceCreationService: cours générés depuis créneau récurrent", [
+                'recurring_slot_id' => $recurringSlot->id,
+                'start_generation_date' => $startDate->format('Y-m-d'),
+                'generated' => $stats['generated'],
+                'skipped' => $stats['skipped'],
+                'errors' => $stats['errors'],
+            ]);
+
+            if (($stats['generated'] ?? 0) <= 0 && ($stats['errors'] ?? 0) <= 0) {
+                $this->setReason(
+                    $lesson,
+                    'Récurrence créée mais aucun cours futur n’a pu être généré automatiquement. Vérifiez les conflits ou cours déjà existants sur les dates cibles.'
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur génération cours récurrents: " . $e->getMessage(), [
+                'recurring_slot_id' => $recurringSlot->id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->setReason($lesson, 'Récurrence créée mais erreur lors de la génération des cours suivants : ' . $e->getMessage());
         }
     }
 }

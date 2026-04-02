@@ -303,19 +303,22 @@
                             <path d="M14 9l2.5 3-2.5 3" />
                           </svg>
                         </span>
+                        <span
+                          v-if="planningLessonIsUniqueSuperposedOnRecurring(lesson)"
+                          class="shrink-0 mt-0.5 text-amber-600"
+                          title="Cours unique ponctuel sur une place issue d'une récurrence. La série reste active, sans bloc carte dédiée."
+                        >
+                          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12 3.5l2.6 5.2 5.7.8-4.1 4 1 5.6L12 16.9 6.8 19.1l1-5.6-4.1-4 5.7-.8L12 3.5z" />
+                          </svg>
+                        </span>
                         <h4 class="font-semibold text-gray-900 text-sm leading-tight min-w-0">
                           {{ lesson.course_type?.name || 'Cours' }}
                           <span
-                            v-if="lesson.is_recurring_placeholder && lesson.is_superposed_under"
-                            class="block text-xs font-normal text-violet-700 mt-0.5"
-                          >
-                            Réservation récurrente #{{ lesson.recurring_slot_id }} (arrière-plan) — un cours ponctuel est affiché au-dessus
-                          </span>
-                          <span
-                            v-else-if="lesson.is_recurring_placeholder"
+                            v-if="lesson.is_recurring_placeholder"
                             class="block text-xs font-normal text-violet-600 mt-0.5"
                           >
-                            Série abonnement #{{ lesson.recurring_slot_id }} — pas encore de cours généré ce jour
+                            Série abonnement #{{ lesson.recurring_slot_id }} — aucun cours positionné ce jour
                           </span>
                           <span
                             v-if="lesson.is_recurring_placeholder && isPlaceholderFromCancelledLesson(lesson)"
@@ -323,11 +326,8 @@
                           >
                             Séance du jour annulée : créneau libre pour ajouter un cours ponctuel
                           </span>
-                          <span
-                            v-if="planningLessonIsUniqueSuperposedOnRecurring(lesson)"
-                            class="block text-xs font-semibold text-cyan-800 mt-1"
-                          >
-                            Cours unique · superposé sur la réservation récurrente (même horaire)
+                          <span v-if="lesson.is_recurring_placeholder" class="block text-xs font-semibold text-emerald-700 mt-1">
+                            Emplacement disponible pour réservation ponctuelle.
                           </span>
                         </h4>
                       </div>
@@ -1023,6 +1023,15 @@ import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
+const nuxtApp = useNuxtApp()
+
+function getApiClient() {
+  const api = (nuxtApp as any)?.$api
+  if (!api) {
+    throw new Error("Client API indisponible ($api). Vérifiez le plugin frontend/plugins/api.client.ts.")
+  }
+  return api
+}
 
 definePageMeta({
   middleware: ['auth']
@@ -1113,9 +1122,6 @@ interface Lesson {
   recurring_slot_id?: number
   /** Lien pivot si le cours a été généré depuis un créneau récurrent (API) */
   lesson_recurring_slot?: { id?: number; recurring_slot_id?: number } | null
-  /** Placeholder affiché sous un cours ponctuel au même horaire (superposition) */
-  is_superposed_under?: boolean
-  superposed_lesson_id?: number
 }
 
 // State
@@ -1407,7 +1413,6 @@ function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
       max_participants: 1,
       is_active: true,
     },
-    is_superposed_under: false,
   }
 }
 
@@ -1463,16 +1468,7 @@ const recurringPlanningPlaceholders = computed((): Lesson[] => {
     const covering = filteredLessons.value.find((l) =>
       lessonMaterializesRecurringOnDate(l, rs, dateStr)
     )
-    if (covering) {
-      if (lessonIsGeneratedFromRecurringSlot(covering)) {
-        continue
-      }
-      const ph = buildRecurringPlaceholder(rs, dateStr)
-      ph.is_superposed_under = true
-      ph.superposed_lesson_id = covering.id
-      out.push(ph)
-      continue
-    }
+    if (covering) continue
     out.push(buildRecurringPlaceholder(rs, dateStr))
   }
   return out
@@ -1506,14 +1502,6 @@ const lessonsGroupedByTimeSlot = computed(() => {
     .map(time => ({
       time,
       lessons: groups[time]      .sort((a, b) => {
-        const rank = (x: Lesson) => {
-          if (x.is_superposed_under) return 0
-          if (planningLessonIsUniqueSuperposedOnRecurring(x)) return 1
-          return 2
-        }
-        const ra = rank(a)
-        const rb = rank(b)
-        if (ra !== rb) return ra - rb
         const teacherA = a.teacher?.user?.name || ''
         const teacherB = b.teacher?.user?.name || ''
         const normalizeName = (name: string) => {
@@ -1662,7 +1650,7 @@ async function loadClubDisciplines() {
     loading.value = true
     error.value = null
     
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const config = useRuntimeConfig()
     
     console.log('🔍 Début du chargement des disciplines...')
@@ -1835,7 +1823,7 @@ function findNearestSlot(): OpenSlot | null {
 // Charger les créneaux horaires
 async function loadOpenSlots() {
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     console.log('🔄 [Planning] Chargement des créneaux horaires...')
     
     const response = await $api.get('/club/open-slots')
@@ -1921,7 +1909,7 @@ const loadedLessonsRange = ref<{ start: Date | null, end: Date | null }>({ start
 // Charger les cours réels
 async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     // Charger les cours sur une plage plus large pour couvrir toutes les semaines navigables
     const today = new Date()
     const startDate = customStartDate || new Date(today)
@@ -2020,7 +2008,7 @@ async function loadClosureDays(
   mergeWithExisting = false
 ) {
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const today = new Date()
     const startDate = customStartDate ? new Date(customStartDate) : new Date(today)
     if (!customStartDate) {
@@ -2072,7 +2060,7 @@ async function onClosureToggle(ev: Event) {
   closureSaving.value = true
   const previous = !wantClosed
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const response = await $api.post('/club/closure-days', { date: ymd, closed: wantClosed })
     if (response.data?.success) {
       if (wantClosed) {
@@ -2100,7 +2088,7 @@ async function onClosureToggle(ev: Event) {
 
 async function loadClubRecurringSlots() {
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const response = await $api.get('/club/recurring-slots')
     if (response.data?.success) {
       clubRecurringSlots.value = Array.isArray(response.data.data) ? response.data.data : []
@@ -2130,7 +2118,7 @@ async function confirmAndReleaseRecurringPlaceholder(lesson: Lesson): Promise<bo
   }
   releasingRecurringSlotId.value = id
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const response = await $api.post(`/club/recurring-slots/${id}/release`, {
       reason: 'Libération depuis le planning club'
     })
@@ -2158,7 +2146,7 @@ function closeScheduleConflictModal() {
 /** Charge le cours puis ouvre la même modale d’édition que depuis le planning */
 async function onScheduleConflictEditLesson(lessonId: number) {
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const response = await $api.get(`/lessons/${lessonId}`)
     if (!response.data?.success || !response.data.data) {
       showError(response.data?.message || 'Impossible de charger ce cours', 'Erreur')
@@ -2186,7 +2174,7 @@ async function onScheduleConflictReleaseRecurring(slotId: number) {
   }
   releasingRecurringSlotId.value = slotId
   try {
-    const { $api } = useNuxtApp()
+    const $api = getApiClient()
     const response = await $api.post(`/club/recurring-slots/${slotId}/release`, {
       reason: 'Libération depuis résolution de conflit planning'
     })
@@ -3749,13 +3737,7 @@ function getLessonBorderClass(lesson: Lesson): string {
     if (isPlaceholderFromCancelledLesson(lesson)) {
       return 'border-amber-400 bg-amber-50'
     }
-    if (lesson.is_superposed_under) {
-      return 'border-violet-400 border-dashed bg-violet-50/90'
-    }
     return 'border-violet-400 bg-violet-50'
-  }
-  if (planningLessonIsUniqueSuperposedOnRecurring(lesson)) {
-    return 'border-cyan-500 bg-cyan-50/60 ring-2 ring-cyan-200/80'
   }
   if (
     isSelectedDateClosure.value &&

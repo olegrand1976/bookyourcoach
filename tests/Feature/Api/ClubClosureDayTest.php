@@ -21,6 +21,42 @@ use Tests\TestCase;
 
 class ClubClosureDayTest extends TestCase
 {
+    private function createSubscriptionInstanceForCourseType($club, Student $student, CourseType $courseType): SubscriptionInstance
+    {
+        $subscriptionData = [
+            'club_id' => $club->id,
+            'name' => 'Abonnement closure counters',
+            'total_lessons' => 20,
+            'price' => 150.00,
+            'is_active' => true,
+        ];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('subscriptions', 'validity_months')) {
+            $subscriptionData['validity_months'] = 12;
+        }
+        $sub = Subscription::create($subscriptionData);
+        if (!$courseType->discipline_id) {
+            $courseType->discipline_id = Discipline::factory()->create()->id;
+            $courseType->save();
+        }
+        DB::table('subscription_course_types')->insert([
+            'subscription_id' => $sub->id,
+            'discipline_id' => $courseType->discipline_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $sub->id,
+            'started_at' => Carbon::now()->subMonth(),
+            'lessons_used' => 0,
+            'manual_lessons_used' => 0,
+            'status' => 'active',
+        ]);
+        $instance->students()->attach($student->id);
+
+        return $instance;
+    }
+
     private function seedSubscriptionForClub($club, Student $student, CourseType $courseType): SubscriptionInstance
     {
         $subscriptionData = [
@@ -175,5 +211,73 @@ class ClubClosureDayTest extends TestCase
         $this->assertDatabaseMissing('subscription_lessons', [
             'lesson_id' => $lesson->id,
         ]);
+    }
+
+    #[Test]
+    public function closing_day_recalculates_lessons_used_with_past_present_future_split(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00'));
+        try {
+            $user = $this->actingAsClub();
+            $club = $user->getFirstClub();
+            $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+            $student = Student::factory()->create();
+            $courseType = CourseType::factory()->create();
+            $location = Location::factory()->create();
+            $instance = $this->createSubscriptionInstanceForCourseType($club, $student, $courseType);
+
+            $closureDay = '2026-07-10';
+
+            $pastOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $closureDay . ' 09:00:00',
+                'end_time' => $closureDay . ' 09:20:00',
+            ]);
+            $presentOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $closureDay . ' 12:00:00',
+                'end_time' => $closureDay . ' 12:20:00',
+            ]);
+            $futureOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $closureDay . ' 18:00:00',
+                'end_time' => $closureDay . ' 18:20:00',
+            ]);
+            $pastOutsideClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => '2026-07-03 10:00:00',
+                'end_time' => '2026-07-03 10:20:00',
+            ]);
+
+            $instance->lessons()->attach([
+                $pastOnClosure->id,
+                $presentOnClosure->id,
+                $futureOnClosure->id,
+                $pastOutsideClosure->id,
+            ]);
+            $instance->recalculateLessonsUsed();
+            $instance->refresh();
+            $this->assertSame(3, (int) $instance->lessons_used, 'Avant fermeture: passé+présent comptent, futur non.');
+
+            $response = $this->postJson('/api/club/closure-days', [
+                'date' => $closureDay,
+                'closed' => true,
+            ]);
+            $response->assertStatus(200)->assertJson(['success' => true]);
+
+            $this->assertDatabaseMissing('subscription_lessons', ['subscription_instance_id' => $instance->id, 'lesson_id' => $pastOnClosure->id]);
+            $this->assertDatabaseMissing('subscription_lessons', ['subscription_instance_id' => $instance->id, 'lesson_id' => $presentOnClosure->id]);
+            $this->assertDatabaseMissing('subscription_lessons', ['subscription_instance_id' => $instance->id, 'lesson_id' => $futureOnClosure->id]);
+            $this->assertDatabaseHas('subscription_lessons', ['subscription_instance_id' => $instance->id, 'lesson_id' => $pastOutsideClosure->id]);
+
+            $instance->refresh();
+            $this->assertSame(1, (int) $instance->lessons_used, 'Après fermeture: seule la séance passée hors jour de congés reste comptée.');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }
