@@ -24,13 +24,22 @@
             <td class="px-3 py-2 whitespace-nowrap text-gray-600">
               {{ formatDate(row.created_at) }}
             </td>
-            <td class="px-3 py-2 font-medium text-gray-900 max-w-[12rem] truncate" :title="row.subject">
+            <td
+              class="px-3 py-2 font-medium text-gray-900 max-w-[12rem] truncate cursor-help"
+              :title="row.subject"
+            >
               {{ row.subject }}
             </td>
-            <td class="px-3 py-2 text-gray-600 max-w-[14rem]">
-              <span class="line-clamp-2" :title="row.body_preview">{{ row.body_preview }}</span>
+            <td
+              class="px-3 py-2 text-gray-600 max-w-[14rem] cursor-help"
+              :title="previewTooltip(row.body_preview)"
+            >
+              <span class="line-clamp-2 pointer-events-none">{{ row.body_preview }}</span>
             </td>
-            <td class="px-3 py-2 text-gray-600 max-w-[10rem] truncate">
+            <td
+              class="px-3 py-2 text-gray-600 max-w-[10rem] truncate cursor-help"
+              :title="(row.sent_by?.name || row.sent_by?.email || '—') ?? ''"
+            >
               {{ row.sent_by?.name || row.sent_by?.email || '—' }}
             </td>
             <td class="px-3 py-2 text-right tabular-nums text-gray-700">
@@ -43,8 +52,11 @@
             </td>
             <td class="px-3 py-2 text-gray-600 text-xs">
               <span class="block">{{ modeLabel(row.selection_mode) }}</span>
-              <span v-if="row.teacher_recipient_count != null || row.student_recipient_count != null" class="text-gray-500">
-                P&nbsp;: {{ row.teacher_recipient_count ?? '—' }} · É&nbsp;: {{ row.student_recipient_count ?? '—' }}
+              <span
+                v-if="row.teacher_recipient_count != null || row.student_recipient_count != null"
+                class="text-gray-500"
+              >
+                En.&nbsp;: {{ row.teacher_recipient_count ?? '—' }} - Él.&nbsp;: {{ row.student_recipient_count ?? '—' }}
               </span>
             </td>
           </tr>
@@ -99,5 +111,13 @@ function modeLabel(mode: string): string {
     return 'Tout le groupe'
   }
   return mode || '—'
+}
+
+/** Infobulle navigateur : texte lisible (retours ligne conservés côté attribut title). */
+function previewTooltip(text: string | undefined | null): string {
+  if (text == null || text === '') {
+    return 'Aucun aperçu'
+  }
+  return text.replace(/\s+/g, ' ').trim()
 }
 </script>
