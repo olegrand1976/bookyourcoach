@@ -53,7 +53,7 @@ class ClubCommunicationService
     {
         $teachers = $club->activeTeachers()
             ->with('user')
-            ->orderBy('id')
+            ->orderBy('teachers.id')
             ->get()
             ->map(function ($teacher) {
                 $email = $teacher->user?->email;
@@ -73,7 +73,7 @@ class ClubCommunicationService
 
         $students = $club->activeStudents()
             ->with('user')
-            ->orderBy('id')
+            ->orderBy('students.id')
             ->get()
             ->map(function ($student) {
                 $email = $student->user?->email;
@@ -132,7 +132,7 @@ class ClubCommunicationService
             $emailOrder = [];
 
             if (in_array($audience, ['teachers', 'both'], true)) {
-                $club->activeTeachers()->with('user')->orderBy('id')->get()->each(function ($teacher) use (&$teacherSlots, &$emailOrder) {
+                $club->activeTeachers()->with('user')->orderBy('teachers.id')->get()->each(function ($teacher) use (&$teacherSlots, &$emailOrder) {
                     $email = $teacher->user?->email;
                     if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                         $teacherSlots++;
@@ -142,7 +142,7 @@ class ClubCommunicationService
             }
 
             if (in_array($audience, ['students', 'both'], true)) {
-                $club->activeStudents()->with('user')->orderBy('id')->get()->each(function ($student) use (&$studentSlots, &$emailOrder) {
+                $club->activeStudents()->with('user')->orderBy('students.id')->get()->each(function ($student) use (&$studentSlots, &$emailOrder) {
                     $email = $student->user?->email;
                     if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                         $studentSlots++;
@@ -185,7 +185,7 @@ class ClubCommunicationService
             $club->activeTeachers()
                 ->whereIn('teachers.id', $teacherIds)
                 ->with('user')
-                ->orderBy('id')
+                ->orderBy('teachers.id')
                 ->get()
                 ->each(function ($teacher) use (&$teacherSlots, &$emailOrder, &$loggedTeacherIds) {
                     $email = $teacher->user?->email;
@@ -201,7 +201,7 @@ class ClubCommunicationService
             $club->activeStudents()
                 ->whereIn('students.id', $studentIds)
                 ->with('user')
-                ->orderBy('id')
+                ->orderBy('students.id')
                 ->get()
                 ->each(function ($student) use (&$studentSlots, &$emailOrder, &$loggedStudentIds) {
                     $email = $student->user?->email;
@@ -246,7 +246,7 @@ class ClubCommunicationService
         $found = $club->teachers()
             ->wherePivot('is_active', true)
             ->whereKey($teacherIds)
-            ->pluck('id')
+            ->pluck('teachers.id')
             ->map(fn ($id) => (int) $id)
             ->sort()
             ->values()
@@ -272,7 +272,7 @@ class ClubCommunicationService
         $found = $club->students()
             ->wherePivot('is_active', true)
             ->whereKey($studentIds)
-            ->pluck('id')
+            ->pluck('students.id')
             ->map(fn ($id) => (int) $id)
             ->sort()
             ->values()
