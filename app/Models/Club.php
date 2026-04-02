@@ -274,6 +274,14 @@ class Club extends Model
         return $this->hasManyThrough(CourseAssignment::class, CourseSlot::class);
     }
 
+    /**
+     * Jours marqués comme fermeture / congés (planning club).
+     */
+    public function closureDays()
+    {
+        return $this->hasMany(ClubClosureDay::class);
+    }
+
     // Scopes
     public function scopeActive($query)
     {

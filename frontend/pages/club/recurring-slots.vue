@@ -170,101 +170,126 @@
         </NuxtLink>
       </div>
 
-      <!-- Liste des créneaux récurrents -->
-      <div v-else class="space-y-4">
-        <div
-          v-for="slot in recurringSlots"
-          :key="slot.id"
-          class="bg-white rounded-lg shadow-sm p-6"
-        >
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <!-- Jour et heure -->
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span class="text-2xl">{{ getDayEmoji(slot.day_of_week) }}</span>
-                </div>
-                <div>
-                  <h3 class="text-lg font-semibold text-gray-900">
-                    {{ getDayName(slot.day_of_week) }}
-                  </h3>
-                  <p class="text-sm text-gray-600">
-                    {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Informations -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label class="text-xs font-medium text-gray-500 uppercase">Élève</label>
-                  <p class="text-sm font-semibold text-gray-900">
-                    {{ getStudentName(slot) }}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs font-medium text-gray-500 uppercase">Enseignant</label>
-                  <p class="text-sm font-semibold text-gray-900">
-                    {{ slot.teacher?.user?.name || 'Non défini' }}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs font-medium text-gray-500 uppercase">Abonnement</label>
-                  <p class="text-sm font-semibold text-gray-900">
-                    {{ getSubscriptionName(slot) }}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs font-medium text-gray-500 uppercase">Période</label>
-                  <p class="text-sm font-semibold text-gray-900">
-                    {{ formatDate(slot.start_date) }} → {{ formatDate(slot.end_date) }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Statut -->
-              <div class="mt-4">
-                <span
-                  :class="getStatusClass(slot.status)"
-                  class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium"
-                >
-                  {{ getStatusLabel(slot.status) }}
-                </span>
-              </div>
-
-              <!-- Notes -->
-              <div v-if="slot.notes" class="mt-4 p-3 bg-gray-50 rounded-lg">
-                <p class="text-xs text-gray-600">{{ slot.notes }}</p>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="ml-4 flex flex-col gap-2">
-              <button
-                v-if="slot.status === 'active'"
-                :disabled="processing"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 text-sm"
-                @click="releaseSlot(slot.id)"
+      <!-- Liste tabulaire des créneaux récurrents -->
+      <div
+        v-else
+        class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+      >
+        <div class="overflow-x-auto">
+          <table class="min-w-[960px] w-full text-sm text-left">
+            <thead class="text-xs font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th scope="col" class="px-3 py-3 whitespace-nowrap">
+                  Jour
+                </th>
+                <th scope="col" class="px-3 py-3 whitespace-nowrap">
+                  Horaire
+                </th>
+                <th scope="col" class="px-3 py-3">
+                  Fréq.
+                </th>
+                <th scope="col" class="px-3 py-3 min-w-[8rem]">
+                  Élève
+                </th>
+                <th scope="col" class="px-3 py-3 min-w-[8rem]">
+                  Enseignant
+                </th>
+                <th scope="col" class="px-3 py-3 min-w-[7rem]">
+                  Abonnement
+                </th>
+                <th scope="col" class="px-3 py-3 whitespace-nowrap">
+                  Période
+                </th>
+                <th scope="col" class="px-3 py-3 whitespace-nowrap">
+                  Statut
+                </th>
+                <th scope="col" class="px-3 py-3 max-w-[10rem]">
+                  Notes
+                </th>
+                <th scope="col" class="px-3 py-3 text-right whitespace-nowrap">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr
+                v-for="slot in recurringSlots"
+                :key="slot.id"
+                class="hover:bg-violet-50/40 align-top"
               >
-                Libérer
-              </button>
-              <button
-                v-if="slot.status === 'cancelled'"
-                :disabled="processing"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm"
-                @click="reactivateSlot(slot.id)"
-              >
-                Réactiver
-              </button>
-              <button
-                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                @click="viewDetails(slot.id)"
-              >
-                Détails
-              </button>
-            </div>
-          </div>
+                <td class="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                  {{ getDayName(slot.day_of_week) }}
+                </td>
+                <td class="px-3 py-2.5 tabular-nums text-gray-800 whitespace-nowrap">
+                  {{ formatTime(slot.start_time) }} – {{ formatTime(slot.end_time) }}
+                </td>
+                <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap">
+                  {{ getIntervalLabel(slot) }}
+                </td>
+                <td class="px-3 py-2.5 text-gray-900">
+                  {{ getStudentName(slot) }}
+                </td>
+                <td class="px-3 py-2.5 text-gray-900">
+                  {{ slot.teacher?.user?.name || 'Non défini' }}
+                </td>
+                <td class="px-3 py-2.5 text-gray-800">
+                  {{ getSubscriptionName(slot) }}
+                </td>
+                <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap tabular-nums text-xs sm:text-sm">
+                  {{ formatDate(slot.start_date) }} → {{ formatDate(slot.end_date) }}
+                </td>
+                <td class="px-3 py-2.5">
+                  <span
+                    :class="getStatusClass(slot.status)"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  >
+                    {{ getStatusLabel(slot.status) }}
+                  </span>
+                </td>
+                <td class="px-3 py-2.5 text-gray-600 text-xs max-w-[10rem]">
+                  <span
+                    v-if="slot.notes"
+                    class="line-clamp-2"
+                    :title="slot.notes"
+                  >{{ slot.notes }}</span>
+                  <span v-else class="text-gray-400">—</span>
+                </td>
+                <td class="px-3 py-2.5 text-right">
+                  <div class="inline-flex flex-wrap items-center justify-end gap-1">
+                    <button
+                      v-if="slot.status === 'active'"
+                      type="button"
+                      :disabled="processing"
+                      class="px-2.5 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-medium disabled:opacity-50"
+                      @click="releaseSlot(slot.id)"
+                    >
+                      Libérer
+                    </button>
+                    <button
+                      v-if="slot.status === 'cancelled'"
+                      type="button"
+                      :disabled="processing"
+                      class="px-2.5 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-medium disabled:opacity-50"
+                      @click="reactivateSlot(slot.id)"
+                    >
+                      Réactiver
+                    </button>
+                    <button
+                      type="button"
+                      class="px-2.5 py-1 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-xs font-medium"
+                      @click="viewDetails(slot.id)"
+                    >
+                      Détails
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <p class="px-3 py-2 text-xs text-gray-500 border-t border-gray-100 bg-gray-50/80">
+          {{ recurringSlots.length }} créneau(x) affiché(s)
+        </p>
       </div>
     </div>
   </div>
@@ -480,9 +505,10 @@ function getDayName(dayOfWeek) {
   return days[dayOfWeek] || 'Inconnu'
 }
 
-function getDayEmoji(dayOfWeek) {
-  const emojis = ['☀️', '📅', '📅', '📅', '📅', '📅', '🎉']
-  return emojis[dayOfWeek] || '📅'
+function getIntervalLabel(slot) {
+  const n = Math.max(1, Math.min(52, parseInt(String(slot?.recurring_interval ?? 1), 10) || 1))
+  if (n === 1) return '1 sem.'
+  return `${n} sem.`
 }
 
 function formatTime(time) {

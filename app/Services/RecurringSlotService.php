@@ -171,6 +171,17 @@ class RecurringSlotService
         );
         $endTime = $startTime->copy()->addMinutes($recurringSlot->duration_minutes);
 
+        $closureDateYmd = $startTime->copy()->timezone(config('app.timezone'))->format('Y-m-d');
+        if (\App\Models\ClubClosureDay::clubIsClosedOn((int) $recurringSlot->club_id, $closureDateYmd)) {
+            Log::info('Lesson non générée : jour de fermeture club (récurrence)', [
+                'recurring_slot_id' => $recurringSlot->id,
+                'club_id' => $recurringSlot->club_id,
+                'date' => $closureDateYmd,
+            ]);
+
+            return null;
+        }
+
         // Récupérer un lieu par défaut
         $locationId = $this->getDefaultLocationId($recurringSlot);
 

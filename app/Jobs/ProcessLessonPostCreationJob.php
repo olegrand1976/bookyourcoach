@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use App\Notifications\LessonBookedNotification;
+use App\Services\ClubClosureDayService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -89,6 +90,16 @@ class ProcessLessonPostCreationJob implements ShouldQueue
     {
         try {
             if (!$this->lesson->course_type_id) {
+                return;
+            }
+
+            $closureService = app(ClubClosureDayService::class);
+            if ($closureService->shouldSkipSubscriptionConsumption($this->lesson)) {
+                Log::info("⏭️ Cours {$this->lesson->id} sur jour de fermeture club : pas de consommation d'abonnement", [
+                    'lesson_id' => $this->lesson->id,
+                    'club_id' => $this->lesson->club_id,
+                ]);
+
                 return;
             }
 

@@ -272,6 +272,10 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/recurring-slots/{id}', [\App\Http\Controllers\Api\RecurringSlotController::class, 'show']);
     Route::post('/recurring-slots/{id}/release', [\App\Http\Controllers\Api\RecurringSlotController::class, 'release']);
     Route::post('/recurring-slots/{id}/reactivate', [\App\Http\Controllers\Api\RecurringSlotController::class, 'reactivate']);
+
+    // Jours de fermeture / congés (planning)
+    Route::get('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'index']);
+    Route::post('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'upsert']);
     
     // Planning avancé (suggestions, statistiques, vérifications)
     Route::post('/planning/suggest-optimal-slot', [App\Http\Controllers\Api\ClubPlanningController::class, 'suggestOptimalSlot']);

@@ -268,6 +268,17 @@ class LegacyRecurringSlotService
             return null;
         }
 
+        $closureDateYmd = $startTime->copy()->timezone(config('app.timezone'))->format('Y-m-d');
+        if (\App\Models\ClubClosureDay::clubIsClosedOn((int) $lastLesson->club_id, $closureDateYmd)) {
+            Log::info('Lesson non générée : jour de fermeture club (legacy récurrence)', [
+                'recurring_slot_id' => $recurringSlot->id,
+                'club_id' => $lastLesson->club_id,
+                'date' => $closureDateYmd,
+            ]);
+
+            return null;
+        }
+
         // Créer la nouvelle lesson
         $lesson = Lesson::create([
             'club_id' => $lastLesson->club_id,

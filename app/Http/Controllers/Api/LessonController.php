@@ -116,7 +116,8 @@ class LessonController extends Controller
                     'club:id,name,email,phone',
                     'subscriptionInstances' => function ($query) {
                         $query->with(['subscription.template']);
-                    }
+                    },
+                    'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
                 ]);
 
             // Filtrage selon le rôle de l'utilisateur
