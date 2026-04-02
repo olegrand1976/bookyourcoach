@@ -170,7 +170,7 @@ class ClubOpenSlotControllerTest extends TestCase
         $response->assertStatus(200)
                  ->assertJsonFragment([
                      'success' => true,
-                     'message' => 'Créneau ouvert mis à jour avec succès',
+                     'message' => 'Créneau mis à jour avec succès',
                  ]);
         
         $this->assertDatabaseHas('club_open_slots', [
@@ -198,7 +198,7 @@ class ClubOpenSlotControllerTest extends TestCase
         $response->assertStatus(200)
                  ->assertJsonFragment([
                      'success' => true,
-                     'message' => 'Créneau ouvert supprimé avec succès',
+                     'message' => 'Créneau supprimé avec succès',
                  ]);
         
         $this->assertDatabaseMissing('club_open_slots', [
@@ -246,8 +246,8 @@ class ClubOpenSlotControllerTest extends TestCase
             'max_capacity' => 10,
         ]);
         
-        // Assert
-        $response->assertStatus(404);
+        // Assert (isolation club : interdit plutôt que fuite d’information 404)
+        $response->assertStatus(403);
     }
 
     /** @test */
@@ -266,7 +266,7 @@ class ClubOpenSlotControllerTest extends TestCase
         $response = $this->deleteJson("/api/club/open-slots/{$otherSlot->id}");
         
         // Assert
-        $response->assertStatus(404);
+        $response->assertStatus(403);
     }
 
     /** @test */

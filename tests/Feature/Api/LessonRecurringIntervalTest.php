@@ -55,32 +55,27 @@ class LessonRecurringIntervalTest extends TestCase
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
         
-        // Créer un template d'abonnement et lier le type de cours (requis pour findActiveSubscriptionForLesson)
+        // Template + abonnement conformes au schéma actuel (findActiveSubscriptionForLesson)
         $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Test',
             'model_number' => 'TEST001',
             'total_lessons' => 20,
-            'duration_days' => 365,
+            'validity_months' => 12,
             'price' => 200.00,
+            'is_active' => true,
         ]);
         $template->courseTypes()->attach($this->courseType->id);
 
-        // Créer un abonnement
         $subscription = Subscription::create([
             'club_id' => $this->club->id,
-            'template_id' => $template->id,
-            'name' => 'Abonnement Test',
-            'model_number' => 'TEST001',
-            'total_lessons' => 20,
-            'duration_days' => 365,
-            'price' => 200.00,
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'SUB-TEST-REC-' . uniqid(),
         ]);
 
-        // Créer une instance d'abonnement active (relation students via pivot pour findActiveSubscriptionForLesson)
         $this->subscriptionInstance = SubscriptionInstance::create([
             'subscription_id' => $subscription->id,
             'status' => 'active',
+            'lessons_used' => 0,
             'started_at' => Carbon::now()->subDays(30),
             'expires_at' => Carbon::now()->addDays(335),
         ]);

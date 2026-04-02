@@ -95,11 +95,13 @@ class DisciplineController extends Controller
     public function show(string $id): JsonResponse
     {
         try {
-            $discipline = Discipline::findOrFail($id);
+            $discipline = Discipline::with([
+                'courseTypes' => fn ($q) => $q->where('is_active', true)->orderBy('name'),
+            ])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
-                'data' => $discipline
+                'data' => $discipline,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([

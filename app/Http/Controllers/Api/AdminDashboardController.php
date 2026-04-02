@@ -239,11 +239,27 @@ class AdminDashboardController extends Controller
                 });
             }
 
-            $users = $query->orderBy('created_at', 'desc')->get();
+            if ($request->filled('postal_code')) {
+                $query->where('postal_code', $request->postal_code);
+            }
+
+            $query->orderBy('created_at', 'desc');
+
+            $perPage = (int) $request->input('per_page', 50);
+            $perPage = min(max(1, $perPage), 100);
+            $page = max(1, (int) $request->input('page', 1));
+
+            $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
-                'data' => $users
+                'data' => $paginator->items(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
             ]);
         } catch (\Exception $e) {
             return response()->json([

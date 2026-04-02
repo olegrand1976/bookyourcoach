@@ -79,9 +79,10 @@ class LessonControllerTest extends TestCase
             'location_id' => $location->id,
             'start_time' => '2025-10-15 10:00:00',
             'duration' => 60,
-            'status' => 'confirmed',
             'price' => 45.00,
             'notes' => 'Cours de test',
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ];
 
         // Act

@@ -97,20 +97,15 @@ class AuthControllerTest extends TestCase
 
         $response = $this->postJson('/api/auth/register', $userData);
 
-        $response->assertStatus(201)
-            ->assertJsonStructure([
-                'user' => [
-                    'id',
-                    'email',
-                ],
-            ]);
+        // L'email est unique sur toute la table users (Rule::unique)
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
 
-        // Vérifier que les deux utilisateurs existent avec le même email mais des rôles différents
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
             'role' => 'student',
         ]);
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseMissing('users', [
             'email' => 'john@example.com',
             'role' => 'teacher',
         ]);
@@ -155,7 +150,8 @@ class AuthControllerTest extends TestCase
                     'name',
                     'email',
                 ],
-                'token'
+                'access_token',
+                'token_type',
             ]);
     }
 
@@ -198,7 +194,7 @@ class AuthControllerTest extends TestCase
         ])->postJson('/api/auth/logout');
 
         $response->assertStatus(200)
-            ->assertJson(['message' => 'Logout successful']);
+            ->assertJson(['message' => 'Logged out']);
     }
 
     #[Test]

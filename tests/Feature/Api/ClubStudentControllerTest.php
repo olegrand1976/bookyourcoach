@@ -10,6 +10,7 @@ use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 
 class ClubStudentControllerTest extends TestCase
@@ -161,18 +162,20 @@ class ClubStudentControllerTest extends TestCase
     public function it_can_resend_student_invitation()
     {
         // Arrange
-        $user = $this->actingAsClub();
-        $club = Club::find($user->club_id);
+        $clubUser = $this->actingAsClub();
+        $club = Club::find($clubUser->club_id);
+
+        Mail::fake();
 
         // Créer un utilisateur pour l'élève (nécessaire pour l'invitation)
-        $user = User::factory()->create([
+        $studentUser = User::factory()->create([
             'role' => 'student',
             'email' => 'student@example.com',
         ]);
         
         $student = Student::factory()->create([
             'club_id' => $club->id,
-            'user_id' => $user->id,
+            'user_id' => $studentUser->id,
         ]);
         
         DB::table('club_students')->insert([
@@ -195,7 +198,7 @@ class ClubStudentControllerTest extends TestCase
                      'success' => true,
                  ]);
 
-        Notification::assertSentTo($user, \App\Notifications\StudentWelcomeNotification::class);
+        Notification::assertSentTo($studentUser, \App\Notifications\StudentWelcomeNotification::class);
     }
 
     #[Test]

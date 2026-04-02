@@ -42,11 +42,15 @@ class ClubVolunteerLetterControllerTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        // Créer un plafond de défraiement
-        VolunteerExpenseLimit::factory()->create([
-            'year' => now()->year,
-            'amount' => 45.50,
-        ]);
+        VolunteerExpenseLimit::updateOrCreate(
+            ['year' => now()->year],
+            [
+                'daily_amount' => 10,
+                'yearly_amount' => 45.50,
+                'yearly_special_categories' => null,
+                'yearly_health_sector' => null,
+            ]
+        );
 
         // Act
         $response = $this->postJson("/api/club/volunteer-letters/send/{$teacher->id}");
@@ -137,7 +141,7 @@ class ClubVolunteerLetterControllerTest extends TestCase
 
         $teacherUser = User::factory()->create([
             'role' => 'teacher',
-            'email' => null, // Pas d'email
+            'email' => '',
         ]);
         
         $teacher = Teacher::factory()->create(['user_id' => $teacherUser->id]);
@@ -185,10 +189,15 @@ class ClubVolunteerLetterControllerTest extends TestCase
             'joined_at' => now(),
         ]);
 
-        VolunteerExpenseLimit::factory()->create([
-            'year' => now()->year,
-            'amount' => 45.50,
-        ]);
+        VolunteerExpenseLimit::updateOrCreate(
+            ['year' => now()->year],
+            [
+                'daily_amount' => 10,
+                'yearly_amount' => 45.50,
+                'yearly_special_categories' => null,
+                'yearly_health_sector' => null,
+            ]
+        );
 
         // Act
         $response = $this->postJson('/api/club/volunteer-letters/send-all');
@@ -223,13 +232,16 @@ class ClubVolunteerLetterControllerTest extends TestCase
         $teacher = Teacher::factory()->create();
         $teacher->clubs()->attach($club->id, ['is_active' => true]);
 
-        VolunteerLetterSend::factory()->count(5)->create([
-            'club_id' => $club->id,
-            'teacher_id' => $teacher->id,
-            'sent_by_user_id' => $user->id,
-            'status' => 'sent',
-            'sent_at' => now(),
-        ]);
+        for ($i = 0; $i < 5; $i++) {
+            VolunteerLetterSend::create([
+                'club_id' => $club->id,
+                'teacher_id' => $teacher->id,
+                'sent_by_user_id' => $user->id,
+                'recipient_email' => $teacher->user->email,
+                'status' => 'sent',
+                'sent_at' => now(),
+            ]);
+        }
 
         // Act
         $response = $this->getJson('/api/club/volunteer-letters/history');

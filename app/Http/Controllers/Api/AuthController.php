@@ -171,7 +171,7 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'user' => $user,
                 'club' => $request->role === 'club' ? $club : null,
-            ]);
+            ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             

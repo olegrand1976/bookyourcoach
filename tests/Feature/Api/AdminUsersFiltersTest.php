@@ -81,8 +81,8 @@ class AdminUsersFiltersTest extends TestCase
     public function test_admin_can_filter_users_by_status()
     {
         // Créer des utilisateurs avec différents statuts
-        User::factory()->create(['role' => 'student', 'is_active' => true]);
-        User::factory()->create(['role' => 'student', 'is_active' => false]);
+        User::factory()->create(['role' => 'student', 'status' => 'active']);
+        User::factory()->create(['role' => 'student', 'status' => 'inactive']);
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer ' . $this->token,
@@ -95,9 +95,9 @@ class AdminUsersFiltersTest extends TestCase
         // Devrait inclure l'admin (actif) + 1 étudiant actif = 2
         $this->assertGreaterThanOrEqual(2, count($users));
         
-        // Vérifier que tous les utilisateurs retournés sont actifs
+        // Vérifier que tous les utilisateurs retournés ont le statut demandé
         foreach ($users as $user) {
-            $this->assertTrue($user['is_active']);
+            $this->assertEquals('active', $user['status']);
         }
     }
 
@@ -201,7 +201,8 @@ class AdminUsersFiltersTest extends TestCase
 
         $response->assertStatus(403)
                 ->assertJson([
-                    'message' => 'Access denied - Admin rights required'
+                    'message' => 'Unauthorized',
+                    'error' => 'Access denied. Admin role required.',
                 ]);
     }
 
@@ -211,7 +212,7 @@ class AdminUsersFiltersTest extends TestCase
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Missing token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 
@@ -224,7 +225,7 @@ class AdminUsersFiltersTest extends TestCase
 
         $response->assertStatus(401)
                 ->assertJson([
-                    'message' => 'Invalid token'
+                    'message' => 'Unauthenticated.',
                 ]);
     }
 

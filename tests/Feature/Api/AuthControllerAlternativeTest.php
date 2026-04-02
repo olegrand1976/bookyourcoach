@@ -101,20 +101,14 @@ class AuthControllerAlternativeTest extends TestCase
 
         $response = $this->postJson('/api/auth/register', $userData);
 
-        $response->assertStatus(201)
-            ->assertJsonStructure([
-                'user' => [
-                    'id',
-                    'email',
-                ],
-            ]);
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
 
-        // Vérifier que les deux utilisateurs existent avec le même email mais des rôles différents
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
             'role' => 'student',
         ]);
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseMissing('users', [
             'email' => 'john@example.com',
             'role' => 'teacher',
         ]);
@@ -159,7 +153,8 @@ class AuthControllerAlternativeTest extends TestCase
                     'name',
                     'email',
                 ],
-                'token'
+                'access_token',
+                'token_type',
             ])
             ->assertJson([
                 'user' => [
@@ -185,7 +180,7 @@ class AuthControllerAlternativeTest extends TestCase
 
         $response->assertStatus(401)
             ->assertJson([
-                'message' => 'Invalid credentials'
+                'message' => 'Invalid login details'
             ]);
     }
 
@@ -201,7 +196,7 @@ class AuthControllerAlternativeTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson([
-                'message' => 'Logout successful'
+                'message' => 'Logged out'
             ]);
     }
 
@@ -238,7 +233,7 @@ class AuthControllerAlternativeTest extends TestCase
 
         $response->assertStatus(401)
             ->assertJson([
-                'error' => 'Unauthenticated'
+                'message' => 'Unauthenticated.',
             ]);
     }
 

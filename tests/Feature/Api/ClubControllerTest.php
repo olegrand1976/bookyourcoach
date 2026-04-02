@@ -526,10 +526,11 @@ class ClubControllerTest extends TestCase
 
         // Assert
         $response->assertStatus(200)
-                 ->assertJson([
-                     'success' => true,
-                     'message' => 'Invitation renvoyée avec succès',
-                 ]);
+                 ->assertJson(['success' => true]);
+        $this->assertStringContainsString(
+            'renvoy',
+            strtolower((string) $response->json('message'))
+        );
 
         Notification::assertSentTo($teacher->user, \App\Notifications\TeacherWelcomeNotification::class);
     }

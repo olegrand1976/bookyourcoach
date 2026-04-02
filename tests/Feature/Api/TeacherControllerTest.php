@@ -613,6 +613,7 @@ class TeacherControllerTest extends TestCase
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
             'start_time' => Carbon::now()->addDays(1)->setTime(10, 0),
+            'status' => 'confirmed',
         ]);
 
         // Créer des cours pour un autre teacher (ne doivent pas apparaître)
@@ -667,8 +668,9 @@ class TeacherControllerTest extends TestCase
             'location_id' => $location->id,
             'start_time' => Carbon::now()->addDays(1)->format('Y-m-d H:i:s'),
             'duration' => 60, // Doit correspondre à courseType->duration_minutes
-            'status' => 'confirmed',
             'price' => 45.00,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ];
 
         // Act

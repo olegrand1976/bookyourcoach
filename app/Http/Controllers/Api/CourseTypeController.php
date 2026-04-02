@@ -62,7 +62,14 @@ class CourseTypeController extends Controller
                 // ✅ CORRECTION : Utiliser le champ JSON disciplines au lieu de la relation
                 // car les données sont stockées dans clubs.disciplines (JSON) et non dans club_disciplines
                 $clubDisciplineIds = $club->disciplines ?? [];
-                
+                if (is_string($clubDisciplineIds)) {
+                    $decoded = json_decode($clubDisciplineIds, true);
+                    $clubDisciplineIds = is_array($decoded) ? $decoded : [];
+                }
+                if (! is_array($clubDisciplineIds)) {
+                    $clubDisciplineIds = [];
+                }
+
                 // Si le club n'a pas de disciplines, retourner les types génériques uniquement
                 if (empty($clubDisciplineIds)) {
                     $courseTypes = CourseType::where('is_active', true)

@@ -192,7 +192,7 @@ class ClubSubscriptionControllerTest extends TestCase
                      'success' => true,
                  ]);
 
-        $this->assertDatabaseMissing('subscriptions', [
+        $this->assertSoftDeleted('subscriptions', [
             'id' => $subscription->id,
         ]);
     }

@@ -16,7 +16,7 @@ class CourseTypeControllerTest extends TestCase
         // Arrange
         $this->actingAsClub();
         
-        CourseType::factory()->count(5)->create();
+        CourseType::factory()->count(5)->create(['discipline_id' => null]);
         
         // Act
         $response = $this->getJson('/api/course-types');
@@ -30,7 +30,7 @@ class CourseTypeControllerTest extends TestCase
                              'id',
                              'name',
                              'description',
-                             'duration',
+                             'duration_minutes',
                              'price',
                          ]
                      ]
@@ -53,7 +53,7 @@ class CourseTypeControllerTest extends TestCase
     public function it_can_be_accessed_by_club_user()
     {
         // Arrange
-        CourseType::factory()->count(3)->create();
+        CourseType::factory()->count(3)->create(['discipline_id' => null]);
         
         // Act - Test avec club
         $this->actingAsClub();
@@ -70,11 +70,12 @@ class CourseTypeControllerTest extends TestCase
         // Arrange
         $this->actingAsClub();
         
-        $courseType = CourseType::factory()->create([
+        CourseType::factory()->create([
             'name' => 'Dressage',
             'description' => 'Cours de dressage classique',
-            'duration' => 60,
+            'duration_minutes' => 60,
             'price' => 45.00,
+            'discipline_id' => null,
         ]);
         
         // Act
@@ -85,7 +86,7 @@ class CourseTypeControllerTest extends TestCase
                  ->assertJsonFragment([
                      'name' => 'Dressage',
                      'description' => 'Cours de dressage classique',
-                     'duration' => 60,
+                     'duration_minutes' => 60,
                  ]);
     }
 }

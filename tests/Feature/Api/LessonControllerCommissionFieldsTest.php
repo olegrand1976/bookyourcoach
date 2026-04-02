@@ -95,11 +95,14 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'user_id' => $studentUser->id,
         ]);
 
+        $discipline = \App\Models\Discipline::factory()->create();
+
         // Créer un type de cours
         $this->courseType = CourseType::create([
             'name' => 'Cours Test',
             'duration_minutes' => 60,
             'price' => 50.00,
+            'discipline_id' => $discipline->id,
         ]);
 
         // Créer une location
@@ -140,6 +143,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'est_legacy' => false, // DCL
             'date_paiement' => '2025-11-15',
             'montant' => 50.00,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(201);
@@ -187,6 +192,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'est_legacy' => true, // NDCL
             'date_paiement' => '2025-11-15',
             'montant' => 50.00,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(201);
@@ -221,6 +228,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'duration' => 60,
             'price' => 50.00,
             'est_legacy' => 'invalid', // Doit être boolean
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(422);
@@ -252,6 +261,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'duration' => 60,
             'price' => 50.00,
             'date_paiement' => 'invalid-date', // Doit être une date valide
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(422);
@@ -284,6 +295,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'duration' => 60,
             'price' => 50.00,
             'montant' => 'invalid', // Doit être un nombre
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(422);
@@ -298,6 +311,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'duration' => 60,
             'price' => 50.00,
             'montant' => -10, // Doit être positif
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(422);
@@ -329,6 +344,8 @@ class LessonControllerCommissionFieldsTest extends TestCase
             'duration' => 60,
             'price' => 50.00,
             // Pas de champs de commission
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
         ]);
 
         $response->assertStatus(201);

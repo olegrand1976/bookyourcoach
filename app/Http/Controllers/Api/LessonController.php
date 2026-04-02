@@ -2635,8 +2635,15 @@ class LessonController extends Controller
                         ->where('lessons.start_time', '>', $lessonStartDateTime)
                         ->where('lessons.id', '!=', $lesson->id)
                         // 🔒 VÉRIFICATION IMPORTANTE : Même créneau (même jour, même plage horaire, même élève, même club)
-                        // Vérifier le jour de la semaine (MySQL DAYOFWEEK : 1=Dimanche, 7=Samedi)
-                        ->whereRaw('DAYOFWEEK(lessons.start_time) = ?', [$lessonDayOfWeekMySQL])
+                        // Jour de la semaine : MySQL DAYOFWEEK (1=dim) vs SQLite strftime('%w') (0=dim, aligné Carbon)
+                        ->when(
+                            DB::connection()->getDriverName() === 'sqlite',
+                            fn ($q) => $q->whereRaw(
+                                "CAST(strftime('%w', lessons.start_time) AS INTEGER) = ?",
+                                [$lessonDayOfWeekCarbon]
+                            ),
+                            fn ($q) => $q->whereRaw('DAYOFWEEK(lessons.start_time) = ?', [$lessonDayOfWeekMySQL])
+                        )
                         // Vérifier la même plage horaire (même heure de début et fin)
                         ->whereRaw('TIME(lessons.start_time) = ?', [$lessonStartTime])
                         ->whereRaw('TIME(lessons.end_time) = ?', [$lessonEndTime])
