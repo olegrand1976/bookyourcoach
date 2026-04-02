@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 class ClubCommunicationService
@@ -381,22 +382,31 @@ class ClubCommunicationService
             ->with(['sentBy:id,name,email'])
             ->orderByDesc('created_at');
 
-        if ($scope === 'teachers') {
-            $query->where(function ($q) {
-                $q->where('teacher_recipient_count', '>', 0)
-                    ->orWhere(function ($q2) {
-                        $q2->whereNull('teacher_recipient_count')
-                            ->whereIn('audience', ['teachers', 'both']);
-                    });
-            });
+        $hasPerRoleColumns = Schema::hasColumn('club_communication_logs', 'teacher_recipient_count')
+            && Schema::hasColumn('club_communication_logs', 'student_recipient_count');
+
+        if ($hasPerRoleColumns) {
+            if ($scope === 'teachers') {
+                $query->where(function ($q) {
+                    $q->where('teacher_recipient_count', '>', 0)
+                        ->orWhere(function ($q2) {
+                            $q2->whereNull('teacher_recipient_count')
+                                ->whereIn('audience', ['teachers', 'both']);
+                        });
+                });
+            } else {
+                $query->where(function ($q) {
+                    $q->where('student_recipient_count', '>', 0)
+                        ->orWhere(function ($q2) {
+                            $q2->whereNull('student_recipient_count')
+                                ->whereIn('audience', ['students', 'both']);
+                        });
+                });
+            }
+        } elseif ($scope === 'teachers') {
+            $query->whereIn('audience', ['teachers', 'both']);
         } else {
-            $query->where(function ($q) {
-                $q->where('student_recipient_count', '>', 0)
-                    ->orWhere(function ($q2) {
-                        $q2->whereNull('student_recipient_count')
-                            ->whereIn('audience', ['students', 'both']);
-                    });
-            });
+            $query->whereIn('audience', ['students', 'both']);
         }
 
         return $query->paginate($perPage);
