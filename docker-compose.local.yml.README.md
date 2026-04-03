@@ -36,7 +36,7 @@ Le service `mailhog` dans ce fichier créera un nouveau container MailHog.
 
 **Accès :**
 - Interface web : http://localhost:8035
-- SMTP : `mailhog:1025` (réseau Docker) ou `localhost:1025` (hôte, si le port est publié)
+- SMTP : `mailhog:1025` (réseau Docker, conteneur **backend** — inchangé) ou `localhost:11025` depuis la machine hôte (Laravel hors Docker), car **1025** sur l’hôte est souvent déjà pris par un autre service.
 
 ### Option 2 : Utiliser un container MailHog existant
 
@@ -74,7 +74,7 @@ Si vous avez déjà un container MailHog (ex: `fid-connect-mailhog-1`), vous pou
 | Frontend | `activibe-frontend-local` | 3000 | Application Nuxt.js |
 | MySQL | `activibe-mysql-local` | 3308 | Base de données |
 | Neo4j | `activibe-neo4j-local` | 7474, 7687 | Graph database |
-| MailHog | `activibe-mailhog-local` | 8035 (web), 1025 (SMTP) | Capture d'emails |
+| MailHog | `activibe-mailhog-local` | 8035 (web), **11025→1025** (SMTP hôte) | Capture d'emails |
 | phpMyAdmin | `activibe-phpmyadmin-local` | 8082 | Administration MySQL |
 
 ## 🔄 Différences avec docker-compose.yml
@@ -133,10 +133,12 @@ docker ps | grep <port>
 docker stop <container_id>
 ```
 
+**`Bind for 0.0.0.0:1025 failed`** : un autre service (autre MailHog, SMTP, etc.) occupe déjà **1025** sur l’hôte. Le compose mappe désormais **11025:1025** : le backend dans Docker utilise toujours `mailhog:1025` ; depuis l’hôte uniquement, pointez `localhost:11025` si vous lancez Laravel en dehors des conteneurs.
+
 ### MailHog ne reçoit pas les emails
 1. Vérifiez que MailHog est démarré : `docker compose -f docker-compose.local.yml ps mailhog`
-2. Vérifiez la configuration dans `.env.local` : `MAIL_HOST=mailhog`, `MAIL_PORT=1025`
-3. Testez la connexion depuis le backend : `docker compose -f docker-compose.local.yml exec backend nc -zv mailhog 1025`
+2. Backend **dans Docker** : `MAIL_MAILHOG_HOST=mailhog`, `MAIL_MAILHOG_PORT=1025` (réseau interne). Pas besoin d’exposer 1025 sur l’hôte pour l’API dans le conteneur.
+3. Testez depuis le backend : `docker compose -f docker-compose.local.yml exec backend nc -zv mailhog 1025`
 
 ### Base de données non accessible
 1. Vérifiez que MySQL est démarré : `docker compose -f docker-compose.local.yml ps mysql-local`
