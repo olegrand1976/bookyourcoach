@@ -263,33 +263,88 @@
               <span class="font-medium">Jour fermé</span>
               <span>— pas de déduction abonnement pour les nouveaux cours créés ce jour. La grille est en lecture seule pour les créations.</span>
             </div>
+
+            <!-- Filtre disponibilité : pleine largeur sur mobile -->
+            <div
+              v-if="selectedSlot && lessonsForPlanningGrid.length > 0"
+              class="mt-3 flex flex-col gap-2">
+              <label
+                class="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 sm:py-2 text-sm text-gray-800 w-full max-w-full">
+                <input
+                  v-model="showOnlyAvailablePlages"
+                  type="checkbox"
+                  class="mt-0.5 sm:mt-0 h-4 w-4 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span class="leading-snug min-w-0">
+                  <span class="font-medium text-emerald-900">Afficher uniquement les plages encore disponibles</span>
+                  <span class="block text-xs text-gray-600 mt-1">
+                    Places parallèles libres, récurrence sans cours ce jour, ou place libérée après annulation.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <!-- Grille ou liste des cours (groupés par plage horaire) + réservations récurrentes sans cours matérialisé -->
           <div v-if="lessonsForPlanningGrid.length > 0" class="space-y-4">
+            <div
+              v-if="displayedTimeSlots.length === 0"
+              class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-8 text-center text-amber-950">
+              <p class="font-semibold">Aucune plage ne correspond au filtre.</p>
+              <p class="text-sm mt-2 text-amber-900/90">
+                Décochez « afficher uniquement les plages encore disponibles » pour afficher toutes les lignes.
+              </p>
+            </div>
+            <template v-else>
             <!-- Pour chaque plage horaire — vue cartes -->
             <template v-if="planningLessonsDisplayMode === 'cards'">
             <div 
-              v-for="timeSlot in lessonsGroupedByTimeSlot" 
+              v-for="timeSlot in displayedTimeSlots" 
               :key="'card-' + timeSlot.time"
-              class="border border-gray-200 rounded-lg overflow-hidden">
+              class="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+              :class="timeSlot.availability.free > 0 ? 'ring-1 ring-emerald-200/90' : ''">
               
               <!-- En-tête de la plage horaire -->
-              <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span class="text-white font-semibold text-lg">{{ timeSlot.time }}</span>
-                  <span class="text-blue-200 text-sm">({{ timeSlot.lessons.length }} cours)</span>
+              <div
+                class="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2.5 sm:px-4 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                :class="timeSlotHeaderAccentClass(timeSlot.availability)">
+                <div class="flex flex-col gap-2 min-w-0 sm:flex-1">
+                  <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <svg class="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-white font-semibold text-base sm:text-lg">{{ timeSlot.time }}</span>
+                    <span class="text-blue-100/95 text-xs sm:text-sm">
+                      ({{ timeSlot.lessons.length }} affiché{{ timeSlot.lessons.length > 1 ? 's' : '' }} ·
+                      {{ timeSlot.availability.occupied }}/{{ timeSlot.availability.maxSlots }} voie{{ timeSlot.availability.maxSlots > 1 ? 's' : '' }})
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span
+                      v-if="timeSlot.availability.free > 0"
+                      class="inline-flex items-center rounded-md bg-emerald-500/25 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-white/30">
+                      {{ timeSlot.availability.free }} place{{ timeSlot.availability.free > 1 ? 's' : '' }} libre{{ timeSlot.availability.free > 1 ? 's' : '' }}
+                    </span>
+                    <span
+                      v-if="timeSlot.availability.hasCancelledPlaceholder"
+                      class="inline-flex items-center rounded-md bg-amber-400/35 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25">
+                      Récurrence · séance annulée → place récupérable
+                    </span>
+                    <span
+                      v-else-if="timeSlot.availability.hasRecurringPlaceholder"
+                      class="inline-flex items-center rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-blue-50 ring-1 ring-white/20">
+                      Récurrence sans cours ce jour
+                    </span>
+                  </div>
                 </div>
                 <button
                   v-if="selectedSlot && selectedDate"
+                  type="button"
                   @click.stop="openCreateLessonModalForTimeSlot(timeSlot.time)"
                   :disabled="isSelectedDateClosure"
-                  class="px-3 py-1.5 text-sm bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:pointer-events-none"
+                  class="w-full sm:w-auto shrink-0 justify-center px-3 py-2 sm:py-1.5 text-sm bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:pointer-events-none"
                   title="Créer un cours à cette heure">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                   </svg>
                   Créer un cours
@@ -307,7 +362,9 @@
                       getLessonBorderClass(lesson),
                       isSelectedDateClosure && lesson.status !== 'cancelled'
                         ? 'opacity-55 grayscale pointer-events-none cursor-not-allowed'
-                        : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]',
+                        : lesson.is_recurring_placeholder
+                          ? 'cursor-default hover:shadow-md'
+                          : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]',
                     ]"
                     :style="getLessonCardStyle(lesson)"
                     @click="openLessonModal(lesson)">
@@ -338,22 +395,21 @@
                           </svg>
                         </span>
                         <h4 class="font-semibold text-gray-900 text-sm leading-tight min-w-0">
-                          {{ lesson.course_type?.name || 'Cours' }}
-                          <span
-                            v-if="lesson.is_recurring_placeholder"
-                            class="block text-xs font-normal text-violet-600 mt-0.5"
-                          >
-                            Série abonnement #{{ lesson.recurring_slot_id }} — aucun cours positionné ce jour
-                          </span>
-                          <span
-                            v-if="lesson.is_recurring_placeholder && isPlaceholderFromCancelledLesson(lesson)"
-                            class="block text-xs font-semibold text-amber-700 mt-1"
-                          >
-                            Séance du jour annulée : créneau libre pour ajouter un cours ponctuel
-                          </span>
-                          <span v-if="lesson.is_recurring_placeholder" class="block text-xs font-semibold text-emerald-700 mt-1">
-                            Emplacement disponible pour réservation ponctuelle.
-                          </span>
+                          <template v-if="lesson.is_recurring_placeholder">
+                            <span class="block">{{ lesson.course_type?.name || 'Réservation récurrente (abonnement)' }}</span>
+                            <p class="mt-1.5 mb-0 text-xs font-normal text-gray-600 leading-snug">
+                              {{ recurringPlaceholderSummaryLine(lesson) }}
+                            </p>
+                            <p
+                              v-if="isPlaceholderFromCancelledLesson(lesson)"
+                              class="mt-1.5 mb-0 text-xs font-medium text-amber-800 leading-snug"
+                            >
+                              Séance annulée : cet emplacement peut accueillir un cours ponctuel.
+                            </p>
+                          </template>
+                          <template v-else>
+                            {{ lesson.course_type?.name || 'Cours' }}
+                          </template>
                         </h4>
                       </div>
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
@@ -487,25 +543,50 @@
             <!-- Vue liste : mêmes plages horaires, tableau dense + actions identiques aux cartes -->
             <template v-else>
               <div
-                v-for="timeSlot in lessonsGroupedByTimeSlot"
+                v-for="timeSlot in displayedTimeSlots"
                 :key="'list-' + timeSlot.time"
-                class="border border-gray-200 rounded-lg overflow-hidden">
-                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="text-white font-semibold text-lg">{{ timeSlot.time }}</span>
-                    <span class="text-blue-200 text-sm">({{ timeSlot.lessons.length }} cours)</span>
+                class="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+                :class="timeSlot.availability.free > 0 ? 'ring-1 ring-emerald-200/90' : ''">
+                <div
+                  class="bg-gradient-to-r from-blue-600 to-blue-700 px-3 py-2.5 sm:px-4 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                  :class="timeSlotHeaderAccentClass(timeSlot.availability)">
+                  <div class="flex flex-col gap-2 min-w-0 sm:flex-1">
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <svg class="w-5 h-5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span class="text-white font-semibold text-base sm:text-lg">{{ timeSlot.time }}</span>
+                      <span class="text-blue-100/95 text-xs sm:text-sm">
+                        ({{ timeSlot.lessons.length }} affiché{{ timeSlot.lessons.length > 1 ? 's' : '' }} ·
+                        {{ timeSlot.availability.occupied }}/{{ timeSlot.availability.maxSlots }} voie{{ timeSlot.availability.maxSlots > 1 ? 's' : '' }})
+                      </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span
+                        v-if="timeSlot.availability.free > 0"
+                        class="inline-flex items-center rounded-md bg-emerald-500/25 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-white/30">
+                        {{ timeSlot.availability.free }} place{{ timeSlot.availability.free > 1 ? 's' : '' }} libre{{ timeSlot.availability.free > 1 ? 's' : '' }}
+                      </span>
+                      <span
+                        v-if="timeSlot.availability.hasCancelledPlaceholder"
+                        class="inline-flex items-center rounded-md bg-amber-400/35 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-white/25">
+                        Récurrence · séance annulée → place récupérable
+                      </span>
+                      <span
+                        v-else-if="timeSlot.availability.hasRecurringPlaceholder"
+                        class="inline-flex items-center rounded-md bg-white/15 px-2 py-0.5 text-xs font-medium text-blue-50 ring-1 ring-white/20">
+                        Récurrence sans cours ce jour
+                      </span>
+                    </div>
                   </div>
                   <button
                     v-if="selectedSlot && selectedDate"
                     type="button"
                     @click.stop="openCreateLessonModalForTimeSlot(timeSlot.time)"
                     :disabled="isSelectedDateClosure"
-                    class="px-3 py-1.5 text-sm bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:pointer-events-none"
+                    class="w-full sm:w-auto shrink-0 justify-center px-3 py-2 sm:py-1.5 text-sm bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium shadow-sm disabled:opacity-50 disabled:pointer-events-none"
                     title="Créer un cours à cette heure">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     Créer un cours
@@ -529,7 +610,7 @@
                         :key="'row-' + lesson.id"
                         class="border-t border-gray-200 transition-colors"
                         :class="[
-                          lesson.is_recurring_placeholder ? 'bg-violet-50/40' : 'bg-white hover:bg-blue-50/40',
+                          planningLessonRowHighlightClass(lesson) || (lesson.is_recurring_placeholder ? '' : 'bg-white hover:bg-blue-50/40'),
                           isSelectedDateClosure && lesson.status !== 'cancelled'
                             ? 'opacity-55 pointer-events-none'
                             : '',
@@ -561,27 +642,27 @@
                               </svg>
                             </span>
                             <div class="min-w-0">
-                              <div class="font-medium text-gray-900">
-                                {{ lesson.course_type?.name || 'Cours' }}
-                              </div>
-                              <div
-                                v-if="lesson.is_recurring_placeholder"
-                                class="text-xs text-violet-600 mt-0.5">
-                                Série abonnement #{{ lesson.recurring_slot_id }} — aucun cours ce jour
-                              </div>
-                              <div
-                                v-if="lesson.is_recurring_placeholder && isPlaceholderFromCancelledLesson(lesson)"
-                                class="text-xs text-amber-700 mt-0.5 font-medium">
-                                Séance annulée : place libre pour un ponctuel
-                              </div>
-                              <div
-                                v-if="lesson.is_recurring_placeholder"
-                                class="text-xs text-emerald-700 mt-0.5">
-                                Emplacement disponible pour réservation ponctuelle
-                              </div>
-                              <div v-if="!lesson.is_recurring_placeholder && lesson.price" class="text-xs text-gray-500 mt-0.5">
-                                {{ formatPrice(lesson.price) }} €
-                              </div>
+                              <template v-if="lesson.is_recurring_placeholder">
+                                <div class="font-medium text-gray-900">
+                                  {{ lesson.course_type?.name || 'Réservation récurrente (abonnement)' }}
+                                </div>
+                                <p class="mt-1 mb-0 text-xs text-gray-600 leading-snug">
+                                  {{ recurringPlaceholderSummaryLine(lesson) }}
+                                </p>
+                                <p
+                                  v-if="isPlaceholderFromCancelledLesson(lesson)"
+                                  class="mt-1 mb-0 text-xs font-medium text-amber-800 leading-snug">
+                                  Séance annulée : emplacement utilisable pour un cours ponctuel.
+                                </p>
+                              </template>
+                              <template v-else>
+                                <div class="font-medium text-gray-900">
+                                  {{ lesson.course_type?.name || 'Cours' }}
+                                </div>
+                                <div v-if="lesson.price" class="text-xs text-gray-500 mt-0.5">
+                                  {{ formatPrice(lesson.price) }} €
+                                </div>
+                              </template>
                             </div>
                           </div>
                         </td>
@@ -655,6 +736,7 @@
                   </table>
                 </div>
               </div>
+            </template>
             </template>
           </div>
 
@@ -1348,6 +1430,8 @@ const releasingRecurringSlotId = ref<number | null>(null)
 const materializingRecurringSlotId = ref<number | null>(null)
 /** Affichage des cours programmés : grille de cartes ou tableau par plage horaire */
 const planningLessonsDisplayMode = ref<'cards' | 'list'>('cards')
+/** Ne garder que les plages horaires avec place(s) libre(s) et/ou série sans cours / annulation */
+const showOnlyAvailablePlages = ref(false)
 const showSlotModal = ref(false)
 const editingSlot = ref<OpenSlot | null>(null)
 const saving = ref(false)
@@ -1659,6 +1743,12 @@ function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
   })
 }
 
+/** Texte condensé pour les placeholders récurrents (carte + liste), une seule lecture au lieu de plusieurs lignes colorées. */
+function recurringPlaceholderSummaryLine(lesson: Lesson): string {
+  const id = lesson.recurring_slot_id ?? '—'
+  return `Série n°${id} — aucun cours ce jour — créneau libre pour réservation ponctuelle.`
+}
+
 /**
  * Toutes les séries actives du club qui tombent ce jour dans la plage horaire du créneau ouvert sélectionné
  * (pas de filtre open_slot / discipline : vue complète pour repérer doublons et nettoyer).
@@ -1715,7 +1805,7 @@ const lessonsGroupedByTimeSlot = computed(() => {
     .sort()
     .map(time => ({
       time,
-      lessons: groups[time]      .sort((a, b) => {
+      lessons: groups[time].sort((a, b) => {
         const teacherA = a.teacher?.user?.name || ''
         const teacherB = b.teacher?.user?.name || ''
         const normalizeName = (name: string) => {
@@ -1728,6 +1818,82 @@ const lessonsGroupedByTimeSlot = computed(() => {
       })
     }))
 })
+
+/** Capacité parallèle du créneau ouvert sélectionné (couloirs / lignes d’eau). */
+const maxParallelSlotsForPlanning = computed(() =>
+  Math.max(1, Number(selectedSlot.value?.max_slots) || 1)
+)
+
+/** Occupe une « voie » : cours actif ou placeholder récurrent ; les cours annulés ne comptent pas. */
+function countOccupiedParallelLanes(lessons: Lesson[]): number {
+  let n = 0
+  for (const l of lessons) {
+    if (l.is_recurring_placeholder) {
+      n += 1
+    } else if (l.status === 'cancelled') {
+      continue
+    } else {
+      n += 1
+    }
+  }
+  return n
+}
+
+type TimeSlotAvailabilityMeta = {
+  maxSlots: number
+  occupied: number
+  free: number
+  hasRecurringPlaceholder: boolean
+  hasCancelledPlaceholder: boolean
+}
+
+function timeSlotAvailabilityMeta(lessons: Lesson[], maxSlots: number): TimeSlotAvailabilityMeta {
+  const occupied = countOccupiedParallelLanes(lessons)
+  const free = Math.max(0, maxSlots - occupied)
+  const hasRecurringPlaceholder = lessons.some((l) => l.is_recurring_placeholder)
+  const hasCancelledPlaceholder = lessons.some(
+    (l) => l.is_recurring_placeholder && isPlaceholderFromCancelledLesson(l)
+  )
+  return { maxSlots, occupied, free, hasRecurringPlaceholder, hasCancelledPlaceholder }
+}
+
+function timeSlotHasRemainingAvailability(lessons: Lesson[], maxSlots: number): boolean {
+  const a = timeSlotAvailabilityMeta(lessons, maxSlots)
+  return a.free > 0 || a.hasRecurringPlaceholder
+}
+
+/** Plages affichées (filtrées ou non) + métadonnées de disponibilité pour l’en-tête. */
+const displayedTimeSlots = computed(() => {
+  const maxSlots = maxParallelSlotsForPlanning.value
+  const base = lessonsGroupedByTimeSlot.value
+  const filtered = showOnlyAvailablePlages.value
+    ? base.filter((ts) => timeSlotHasRemainingAvailability(ts.lessons, maxSlots))
+    : base
+  return filtered.map((ts) => ({
+    ...ts,
+    availability: timeSlotAvailabilityMeta(ts.lessons, maxSlots),
+  }))
+})
+
+function timeSlotHeaderAccentClass(a: TimeSlotAvailabilityMeta): string {
+  if (a.hasCancelledPlaceholder) {
+    return 'border-l-4 border-l-amber-400'
+  }
+  if (a.free > 0 || a.hasRecurringPlaceholder) {
+    return 'border-l-4 border-l-emerald-400'
+  }
+  return 'border-l-4 border-l-white/25'
+}
+
+function planningLessonRowHighlightClass(lesson: Lesson): string {
+  if (!lesson.is_recurring_placeholder) {
+    return ''
+  }
+  if (isPlaceholderFromCancelledLesson(lesson)) {
+    return 'bg-amber-50 ring-1 ring-inset ring-amber-400/70'
+  }
+  return 'bg-emerald-50 ring-1 ring-inset ring-emerald-400/80'
+}
 
 // Types de cours filtrés - Utilise les courseTypes du créneau sélectionné
 // au lieu de filtrer la liste globale (relation directe créneau → types)
@@ -3958,7 +4124,7 @@ function getStatusLabel(status: string): string {
     'pending': '⏳ En attente',
     'cancelled': '✗ Annulé',
     'completed': '✓ Terminé',
-    'recurring_series': '📅 Série abonnement',
+    'recurring_series': '📅 Série',
   }
   return labels[status] || status
 }
@@ -3977,9 +4143,9 @@ function getStatusBadgeClass(status: string): string {
 function getLessonBorderClass(lesson: Lesson): string {
   if (lesson.is_recurring_placeholder) {
     if (isPlaceholderFromCancelledLesson(lesson)) {
-      return 'border-amber-400 bg-amber-50'
+      return 'border-amber-500 bg-amber-50 ring-2 ring-amber-400/90 ring-offset-1 shadow-md'
     }
-    return 'border-violet-400 bg-violet-50'
+    return 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/80 ring-offset-1 shadow-sm'
   }
   if (
     isSelectedDateClosure.value &&
@@ -3998,6 +4164,9 @@ function getLessonBorderClass(lesson: Lesson): string {
 }
 
 function getLessonCardStyle(lesson: Lesson): Record<string, string> {
+  if (lesson.is_recurring_placeholder) {
+    return {}
+  }
   // Récupérer la couleur de l'enseignant si disponible
   let teacherColor = lesson.teacher?.color || null
   
