@@ -352,12 +352,12 @@
               </div>
               
               <!-- Grille des cours pour cette plage horaire -->
-              <div class="p-3 bg-gray-50">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div class="p-3 bg-gray-50 min-w-0 overflow-x-hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 min-w-0">
                   <div 
                     v-for="lesson in timeSlot.lessons" 
                     :key="lesson.id"
-                    class="border-2 rounded-lg p-3 transition-all bg-white"
+                    class="border-2 rounded-lg p-3 transition-all bg-white min-w-0 max-w-full flex flex-col overflow-hidden"
                     :class="[
                       getLessonBorderClass(lesson),
                       isSelectedDateClosure && lesson.status !== 'cancelled'
@@ -449,15 +449,16 @@
                     </div>
                     
                     <!-- Prix et boutons d'action -->
-                    <div class="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 relative z-10 min-w-0">
+                    <div
+                      v-if="!lesson.is_recurring_placeholder"
+                      class="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 relative z-10 min-w-0 w-full mt-auto">
                       <div class="min-w-0 flex-1 truncate">
-                        <span v-if="lesson.is_recurring_placeholder" class="sr-only">placeholder</span>
-                        <span v-else-if="lesson.price" class="text-sm font-semibold text-gray-700">
+                        <span v-if="lesson.price" class="text-sm font-semibold text-gray-700">
                           {{ formatPrice(lesson.price) }} €
                         </span>
                         <span v-else class="text-xs text-gray-400">-</span>
                       </div>
-                      <div v-if="!lesson.is_recurring_placeholder" class="flex shrink-0 items-center gap-1 relative z-20">
+                      <div class="flex shrink-0 items-center gap-1 relative z-20">
                         <button
                           @click.stop.prevent="openEditLessonModal(lesson)"
                           class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors inline-flex items-center gap-1 cursor-pointer"
@@ -480,51 +481,53 @@
                           Supprimer
                         </button>
                       </div>
-                      <div
-                        v-else
-                        class="flex shrink-0 flex-col items-end gap-1.5 relative z-20"
-                      >
-                        <div class="flex items-center gap-1 flex-wrap justify-end">
-                        <button
-                          type="button"
-                          class="px-2 py-1 text-xs rounded transition-colors inline-flex items-center gap-1 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          :disabled="isSelectedDateClosure || materializingRecurringSlotId === lesson.recurring_slot_id"
-                          :title="isSelectedDateClosure ? 'Jour fermé' : 'Créer le cours de la série à cette date (comme la génération automatique)'"
-                          @click.stop.prevent="materializeRecurringPlaceholderLesson(lesson)"
-                        >
-                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          {{ materializingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Réactiver le cours prévu' }}
-                        </button>
-                        <button
-                          type="button"
-                          class="px-2 py-1 text-xs rounded transition-colors inline-flex items-center gap-1 cursor-pointer bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          :disabled="isSelectedDateClosure"
-                          :title="isSelectedDateClosure ? 'Jour fermé : création désactivée' : 'Créer un cours sur cette plage horaire'"
-                          @click.stop.prevent="openCreateLessonFromRecurringPlaceholder(lesson)"
-                        >
-                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                          </svg>
-                          Ajouter un cours ici
-                        </button>
-                        <button
-                          type="button"
-                          class="px-2 py-1 text-xs rounded transition-colors inline-flex items-center gap-1 cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Libérer cette série (annule la réservation récurrente)"
-                          :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
-                          @click.stop.prevent="confirmAndReleaseRecurringPlaceholder(lesson)"
-                        >
-                          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
-                        </button>
+                    </div>
+                    <div
+                      v-else
+                      class="pt-2 mt-auto border-t border-gray-100 relative z-10 w-full min-w-0 max-w-full flex flex-col gap-2">
+                      <span class="sr-only">placeholder récurrence</span>
+                      <div class="flex flex-col gap-1.5 w-full min-w-0 max-w-full">
+                        <div class="flex flex-col gap-1 w-full min-w-0 sm:flex-row sm:flex-wrap sm:gap-1">
+                          <button
+                            type="button"
+                            class="w-full sm:flex-1 sm:min-w-0 justify-center px-2 py-1.5 text-xs rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            :disabled="isSelectedDateClosure || materializingRecurringSlotId === lesson.recurring_slot_id"
+                            :title="isSelectedDateClosure ? 'Jour fermé' : 'Créer le cours de la série à cette date (comme la génération automatique)'"
+                            @click.stop.prevent="materializeRecurringPlaceholderLesson(lesson)"
+                          >
+                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span class="text-center leading-tight">{{ materializingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Réactiver le cours prévu' }}</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="w-full sm:flex-1 sm:min-w-0 justify-center px-2 py-1.5 text-xs rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            :disabled="isSelectedDateClosure"
+                            :title="isSelectedDateClosure ? 'Jour fermé : création désactivée' : 'Créer un cours sur cette plage horaire'"
+                            @click.stop.prevent="openCreateLessonFromRecurringPlaceholder(lesson)"
+                          >
+                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="text-center leading-tight">Ajouter un cours ici</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="w-full sm:flex-1 sm:min-w-[5.5rem] justify-center px-2 py-1.5 text-xs rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Libérer cette série (annule la réservation récurrente)"
+                            :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
+                            @click.stop.prevent="confirmAndReleaseRecurringPlaceholder(lesson)"
+                          >
+                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
+                          </button>
                         </div>
                         <NuxtLink
                           to="/club/recurring-slots"
-                          class="w-full inline-flex items-center justify-center gap-1 px-2 py-1 text-xs rounded border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-colors"
+                          class="w-full max-w-full min-w-0 box-border inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-colors text-center leading-tight"
                           @click.stop
                         >
                           <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,7 +604,7 @@
                         <th scope="col" class="px-3 py-2 font-semibold min-w-[8rem]">Élève</th>
                         <th scope="col" class="px-3 py-2 font-semibold min-w-[8rem]">Coach</th>
                         <th scope="col" class="px-3 py-2 font-semibold whitespace-nowrap">Statut</th>
-                        <th scope="col" class="px-3 py-2 font-semibold text-right min-w-[12rem]">Actions</th>
+                        <th scope="col" class="px-2 sm:px-3 py-2 font-semibold text-right min-w-0 w-[11rem] sm:w-48">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -683,7 +686,7 @@
                             {{ getStatusLabel(lesson.status) }}
                           </span>
                         </td>
-                        <td class="px-3 py-2 align-top text-right" @click.stop>
+                        <td class="px-2 sm:px-3 py-2 align-top min-w-0 max-w-[min(100vw,12rem)] sm:max-w-none" @click.stop>
                           <div v-if="!lesson.is_recurring_placeholder" class="flex flex-wrap justify-end gap-1">
                             <button
                               type="button"
@@ -699,26 +702,26 @@
                               Supprimer
                             </button>
                           </div>
-                          <div v-else class="flex flex-col items-end gap-1.5">
-                            <div class="flex flex-wrap justify-end gap-1">
+                          <div v-else class="flex flex-col gap-1.5 w-full min-w-0 max-w-full">
+                            <div class="flex flex-col gap-1 w-full min-w-0 sm:flex-row sm:flex-wrap sm:justify-end">
                               <button
                                 type="button"
-                                class="px-2 py-1 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                class="w-full sm:w-auto justify-center px-2 py-1.5 text-xs rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1"
                                 :disabled="isSelectedDateClosure || materializingRecurringSlotId === lesson.recurring_slot_id"
                                 :title="isSelectedDateClosure ? 'Jour fermé' : 'Créer le cours de la série à cette date'"
                                 @click="materializeRecurringPlaceholderLesson(lesson)">
-                                {{ materializingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Réactiver le cours prévu' }}
+                                <span class="text-center leading-tight">{{ materializingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Réactiver le cours prévu' }}</span>
                               </button>
                               <button
                                 type="button"
-                                class="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                class="w-full sm:w-auto justify-center px-2 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                                 :disabled="isSelectedDateClosure"
                                 @click="openCreateLessonFromRecurringPlaceholder(lesson)">
                                 + cours ici
                               </button>
                               <button
                                 type="button"
-                                class="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                                class="w-full sm:w-auto justify-center px-2 py-1.5 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                                 :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
                                 @click="confirmAndReleaseRecurringPlaceholder(lesson)">
                                 {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
@@ -726,7 +729,7 @@
                             </div>
                             <NuxtLink
                               to="/club/recurring-slots"
-                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100">
+                              class="w-full max-w-full box-border inline-flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 text-center leading-tight">
                               Liste récurrences
                             </NuxtLink>
                           </div>
@@ -1611,6 +1614,10 @@ const hasStandaloneLessonsOnSelectedClosureDay = computed(() => {
   )
 })
 
+/**
+ * Le cours « matérialise » l’occurrence du créneau récurrent ce jour-là (donc pas de carte placeholder).
+ * Même élève + chevauchement horaire : inclut le remplacement ponctuel d’enseignant sur la séance.
+ */
 function lessonMaterializesRecurringOnDate(lesson: any, slot: any, dateStr: string): boolean {
   if (lesson.is_recurring_placeholder) return false
   if (lesson.status === 'cancelled') return false
@@ -1619,9 +1626,8 @@ function lessonMaterializesRecurringOnDate(lesson: any, slot: any, dateStr: stri
   const m = String(ls.getMonth() + 1).padStart(2, '0')
   const d = String(ls.getDate()).padStart(2, '0')
   if (`${y}-${m}-${d}` !== dateStr) return false
-  const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
   const sid = Number(lesson.student_id ?? lesson.students?.[0]?.id)
-  if (tid !== Number(slot.teacher_id) || sid !== Number(slot.student_id)) return false
+  if (sid !== Number(slot.student_id)) return false
   const le = new Date(lesson.end_time)
   const rs = new Date(`${dateStr}T${String(slot.start_time).substring(0, 5)}:00`)
   let re = new Date(`${dateStr}T${String(slot.end_time).substring(0, 5)}:00`)
@@ -1649,18 +1655,23 @@ function planningLessonOverlapsRecurringSeries(lesson: Lesson): boolean {
   const dateStr = `${y}-${m}-${d}`
   const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
   const sid = Number(lesson.student_id ?? lesson.students?.[0]?.id)
-  if (!tid || !sid) return false
+  if (!sid) return false
   const le = new Date(lesson.end_time)
   for (const rs of clubRecurringSlots.value) {
     if (rs.status !== 'active') continue
     if (!isLessonLikeRecurringSlot(rs)) continue
     if (!ymdInRange(dateStr, String(rs.start_date), String(rs.end_date))) continue
     if (!subscriptionRecurringSlotFiresOnDate(rs, dateStr)) continue
-    if (Number(rs.teacher_id) !== tid || Number(rs.student_id) !== sid) continue
+    if (Number(rs.student_id) !== sid) continue
     const rsStart = new Date(`${dateStr}T${String(rs.start_time).substring(0, 5)}:00`)
     let rsEnd = new Date(`${dateStr}T${String(rs.end_time).substring(0, 5)}:00`)
     if (rsEnd <= rsStart) rsEnd = new Date(rsEnd.getTime() + 86400000)
-    if (ls < rsEnd && le > rsStart) return true
+    if (!(ls < rsEnd && le > rsStart)) continue
+    const lr = (lesson as any).lesson_recurring_slot
+    const pivotRid = lr?.recurring_slot_id ?? lr?.subscription_recurring_slot_id
+    if (pivotRid != null && Number(pivotRid) === Number(rs.id)) return true
+    if (tid && Number(rs.teacher_id) === tid) return true
+    if (tid) return true
   }
   return false
 }
