@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MaterializeRecurringSlotLessonRequest;
+use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
-use App\Models\SubscriptionInstance;
+use App\Services\LegacyRecurringSlotService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -252,6 +255,74 @@ class RecurringSlotController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la réactivation du créneau',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Génère (ou renvoie) le cours confirmé pour une date d’occurrence de la série (planning club).
+     */
+    public function materializeLesson(MaterializeRecurringSlotLessonRequest $request, int $id): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            $club = $user->getFirstClub();
+            if (! $club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé',
+                ], 404);
+            }
+
+            $validated = $request->validated();
+            $occurrence = Carbon::createFromFormat('Y-m-d', $validated['date'], config('app.timezone'))->startOfDay();
+
+            $recurringSlot = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($query) use ($club) {
+                $query->whereHas('subscription', function ($q) use ($club) {
+                    $q->where('club_id', $club->id);
+                });
+            })->findOrFail($id);
+
+            $service = new LegacyRecurringSlotService;
+            $result = $service->materializeLessonForSingleDate($recurringSlot, $occurrence);
+
+            if (! $result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Impossible de générer le cours.',
+                ], 422);
+            }
+
+            $lesson = Lesson::with([
+                'teacher.user',
+                'student.user',
+                'courseType',
+                'location',
+                'subscriptionInstances.subscription.template',
+            ])->findOrFail($result['lesson']->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => ($result['already_existed'] ?? false)
+                    ? 'Cours déjà présent à cette date.'
+                    : 'Cours généré pour cette séance.',
+                'data' => [
+                    'lesson' => $lesson,
+                    'already_existed' => (bool) ($result['already_existed'] ?? false),
+                ],
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Créneau récurrent non trouvé',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur materializeLesson recurring slot: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la génération du cours',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

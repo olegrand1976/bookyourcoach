@@ -621,7 +621,7 @@ class RecurringSlotValidator
      * en suivant la même logique que LegacyRecurringSlotService::generateDatesForRecurringSlot
      * (ancrage sur start_date + jour de la semaine, puis une occurrence tous les recurring_interval semaines).
      */
-    private function subscriptionRecurringSlotFiresOnDate(SubscriptionRecurringSlot $slot, Carbon $occurrenceDate): bool
+    public function subscriptionRecurringSlotFiresOnDate(SubscriptionRecurringSlot $slot, Carbon $occurrenceDate): bool
     {
         $interval = max(1, (int) ($slot->recurring_interval ?? 1));
         $occurrence = $occurrenceDate->copy()->startOfDay();

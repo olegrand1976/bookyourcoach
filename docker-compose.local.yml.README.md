@@ -144,3 +144,16 @@ docker stop <container_id>
 1. Vérifiez que MySQL est démarré : `docker compose -f docker-compose.local.yml ps mysql-local`
 2. Vérifiez la configuration dans `.env.local` : `DB_HOST=mysql-local`, `DB_PORT=3306`
 3. Testez la connexion : `docker compose -f docker-compose.local.yml exec backend mysql -h mysql-local -u activibe_user -pactivibe_password book_your_coach_local`
+
+### Backend `unhealthy` / frontend bloqué en `Created` (en attente du backend)
+
+Le frontend attend `backend` **healthy**. Si le healthcheck échoue, vérifiez :
+
+1. **`APP_KEY`** : dans `.env.local`, `APP_KEY=` ne doit pas être vide (`php artisan key:generate --show` sur l’hôte). Sinon l’entrypoint du backend **quitte** avec un message explicite.
+2. **Erreur `CollisionServiceProvider` not found** : le volume `app_bootstrap_cache` peut contenir un `packages.php` / `services.php` générés avec **`composer install` incluant les dev** (Collision, etc.). L’image Docker installe **`--no-dev`** : Laravel ne peut pas charger ces classes. L’entrypoint supprime d’abord les `*.php` du cache **sans** passer par Artisan, puis relance `package:discover`. En dernier recours : `docker volume rm <nom>_app_bootstrap_cache` puis `up -d`.
+3. **Healthcheck** : le compose utilise `GET /up` (route Laravel légère). `/api/health` doit aussi répondre **200** une fois le cache cohérent.
+4. **Logs** : `docker compose -f docker-compose.local.yml exec backend tail -n 80 storage/logs/laravel.log`
+
+### Neo4j : `The client is unauthorized due to authentication failure`
+
+Le mot de passe effectif est celui enregistré **la première fois** que le volume `neo4j_data` a été créé. Si `NEO4J_AUTH=neo4j/secret_password` dans le compose ne correspond pas à ce qui est dans le volume, alignez `NEO4J_PASSWORD` (et URI utilisateur) dans `.env.local`, **ou** supprimez le volume Neo4j pour repartir à zéro : `docker compose -f docker-compose.local.yml down` puis `docker volume rm …neo4j_data…` (voir `docker volume ls`), puis `up -d` (perte des données graphe locales).

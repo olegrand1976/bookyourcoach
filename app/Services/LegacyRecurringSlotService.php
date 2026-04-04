@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ClubClosureDay;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
@@ -369,6 +370,105 @@ class LegacyRecurringSlotService
         }
 
         return $totalStats;
+    }
+
+    /**
+     * Crée (ou retourne) la lesson pour une occurrence précise d’un SubscriptionRecurringSlot (planning club).
+     *
+     * @return array{success: bool, lesson: ?Lesson, already_existed: bool, message: ?string}
+     */
+    public function materializeLessonForSingleDate(SubscriptionRecurringSlot $recurringSlot, Carbon $occurrenceDate): array
+    {
+        $recurringSlot->loadMissing(['subscriptionInstance.subscription', 'student', 'teacher']);
+
+        if ($recurringSlot->status !== 'active') {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Ce créneau récurrent n’est pas actif.',
+            ];
+        }
+
+        $validator = new RecurringSlotValidator;
+        if (! $validator->subscriptionRecurringSlotFiresOnDate($recurringSlot, $occurrenceDate)) {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Cette date ne correspond pas à une occurrence de la série.',
+            ];
+        }
+
+        $dayStart = $occurrenceDate->copy()->startOfDay();
+        $timeRaw = $recurringSlot->start_time instanceof Carbon
+            ? $recurringSlot->start_time->format('H:i:s')
+            : (string) $recurringSlot->start_time;
+        $startTime = Carbon::parse($dayStart->format('Y-m-d').' '.substr($timeRaw, 0, 8), config('app.timezone'));
+
+        $existingLesson = Lesson::where('student_id', $recurringSlot->student_id)
+            ->where('teacher_id', $recurringSlot->teacher_id)
+            ->where('start_time', $startTime)
+            ->first();
+
+        if ($existingLesson) {
+            return [
+                'success' => true,
+                'lesson' => $existingLesson,
+                'already_existed' => true,
+                'message' => null,
+            ];
+        }
+
+        $clubId = (int) ($recurringSlot->subscriptionInstance?->subscription?->club_id ?? 0);
+        if ($clubId > 0 && ClubClosureDay::clubIsClosedOn($clubId, $dayStart->format('Y-m-d'))) {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Impossible de créer un cours un jour de fermeture du club.',
+            ];
+        }
+
+        $reference = $this->findLastLessonForRecurringSlot($recurringSlot)
+            ?? Lesson::where('student_id', $recurringSlot->student_id)
+                ->where('teacher_id', $recurringSlot->teacher_id)
+                ->orderBy('start_time', 'desc')
+                ->first();
+
+        if (! $reference) {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Aucun cours de référence pour cette série. Utilisez « Ajouter un cours ici » ou créez un cours une première fois.',
+            ];
+        }
+
+        $subscriptionInstance = $recurringSlot->subscriptionInstance;
+        $isSubscriptionActive = $subscriptionInstance && $subscriptionInstance->status === 'active';
+
+        $lesson = $this->createLessonFromRecurringSlot(
+            $recurringSlot,
+            $dayStart,
+            $isSubscriptionActive ? $subscriptionInstance : null
+        );
+
+        if (! $lesson) {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Impossible de générer le cours (conflit ou contrainte). Réessayez ou créez le cours manuellement.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'lesson' => $lesson,
+            'already_existed' => false,
+            'message' => null,
+        ];
     }
 }
 
