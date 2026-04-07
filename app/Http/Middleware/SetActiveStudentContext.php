@@ -19,16 +19,22 @@ class SetActiveStudentContext
         $user = $request->user();
         
         if ($user && $user->role === 'student' && $user->student) {
-            // Récupérer l'ID de l'étudiant actif depuis la session
-            $activeStudentId = session('active_student_id', $user->student->id);
-            
+            // Aligné sur DashboardController::getActiveStudent : priorité au paramètre requête (query / body), puis session.
+            $param = $request->query('active_student_id') ?? $request->input('active_student_id');
+            if ($param !== null && $param !== '' && $param !== 'all') {
+                $activeStudentId = (int) $param;
+            } else {
+                $activeStudentId = (int) session('active_student_id', $user->student->id);
+            }
+
             // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
             $linkedStudents = $user->getLinkedStudents();
-            $isLinked = $linkedStudents->contains('id', $activeStudentId) 
-                     || $user->student->id === $activeStudentId;
-            
+            $linkedIds = $linkedStudents->pluck('id')->map(fn ($id) => (int) $id);
+            $isLinked = $linkedIds->contains((int) $activeStudentId)
+                     || (int) $user->student->id === (int) $activeStudentId;
+
             if ($isLinked) {
-                // Injecter dans la requête pour utilisation dans les contrôleurs
+                session(['active_student_id' => $activeStudentId]);
                 $request->merge(['active_student_id' => $activeStudentId]);
             } else {
                 // Réinitialiser au compte principal si le compte actif n'est plus valide

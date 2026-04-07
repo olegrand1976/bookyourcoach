@@ -15,8 +15,11 @@ use App\Models\Location;
 use App\Models\Club;
 use App\Models\SubscriptionInstance;
 use App\Notifications\LessonCancellationConfirmationNotification;
+use App\Notifications\LessonCancellationSubscriptionParticipantMismatchNotification;
 use App\Notifications\LessonCancelledByStudentStakeholderNotification;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -44,8 +47,10 @@ class DashboardController extends Controller
         }
 
         $linkedStudents = $user->getLinkedStudents();
-        $isLinked = $linkedStudents->contains('id', (int) $activeStudentId)
-                 || $user->student->id === (int) $activeStudentId;
+        $targetId = (int) $activeStudentId;
+        $linkedIds = $linkedStudents->pluck('id')->map(fn ($sid) => (int) $sid);
+        $isLinked = $linkedIds->contains($targetId)
+                 || (int) $user->student->id === $targetId;
 
         if (!$isLinked) {
             return $user->student;
@@ -291,7 +296,7 @@ class DashboardController extends Controller
 
         $lesson = Lesson::where('id', $id)
             ->forParticipantStudents([$studentId])
-            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user', 'students.user', 'subscriptionInstances.subscription.template'])
+            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user', 'students.user', 'subscriptionInstances.students', 'subscriptionInstances.subscription.template'])
             ->firstOrFail();
 
         $cancellationDeadlineHours = $this->resolveCancellationDeadlineHours($lesson, $studentId);
@@ -371,6 +376,18 @@ class DashboardController extends Controller
         }
 
         $certificateStatus = ($isLateCancel && $cancellationReason === 'medical' && $certificatePath) ? 'pending' : null;
+
+        $cancellingStudentId = (int) $student->id;
+        $linkedInstanceIds = DB::table('subscription_lessons')
+            ->where('lesson_id', $lesson->id)
+            ->pluck('subscription_instance_id');
+        $mismatchSubscriptionInstances = SubscriptionInstance::query()
+            ->whereIn('id', $linkedInstanceIds)
+            ->with('students')
+            ->get()
+            ->filter(fn (SubscriptionInstance $instance) => ! $instance->students->pluck('id')->map(fn ($id) => (int) $id)->contains($cancellingStudentId))
+            ->values();
+
         $updateData = [
             'status' => 'cancelled',
             'notes' => ($lesson->notes ? $lesson->notes . "\n\n" : '') . $notePart,
@@ -407,6 +424,14 @@ class DashboardController extends Controller
                 Log::warning("Erreur lors de la libération de l'abonnement: " . $e->getMessage());
             }
         }
+
+        $lesson->refresh();
+        $lesson->loadMissing(['courseType', 'club', 'student.user', 'students.user']);
+        $this->notifyClubSubscriptionParticipantMismatch(
+            $lesson,
+            $student,
+            $mismatchSubscriptionInstances
+        );
 
         $reasonFreeText = trim((string) $reasonText);
 
@@ -501,6 +526,54 @@ class DashboardController extends Controller
             return (int) $club->default_cancellation_deadline_hours;
         }
         return null;
+    }
+
+    /**
+     * Alerte les responsables du club si l'élève qui annule participe au cours mais n'était pas rattaché
+     * à l'instance d'abonnement liée (données incohérentes). Les instances sont capturées avant le détachement
+     * déclenché par LessonObserver à l'annulation.
+     *
+     * @param  Collection<int, SubscriptionInstance>  $instancesMissingStudent
+     */
+    private function notifyClubSubscriptionParticipantMismatch(Lesson $lesson, Student $cancellingStudent, Collection $instancesMissingStudent): void
+    {
+        if ($instancesMissingStudent->isEmpty()) {
+            return;
+        }
+
+        Log::warning('Annulation élève : participant absent des bénéficiaires de l\'instance d\'abonnement liée au cours', [
+            'lesson_id' => $lesson->id,
+            'cancelling_student_id' => $cancellingStudent->id,
+            'subscription_instance_ids' => $instancesMissingStudent->pluck('id')->all(),
+        ]);
+
+        $club = $lesson->club ?? $lesson->club()->first();
+        if (! $club) {
+            return;
+        }
+
+        $stakeholders = $club->stakeholderUsers()->filter(function (User $user) {
+            return $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL);
+        });
+
+        if ($stakeholders->isEmpty()) {
+            return;
+        }
+
+        try {
+            Notification::send(
+                $stakeholders->unique('id')->values(),
+                new LessonCancellationSubscriptionParticipantMismatchNotification(
+                    $lesson,
+                    $cancellingStudent->loadMissing('user'),
+                    $instancesMissingStudent
+                )
+            );
+        } catch (\Exception $e) {
+            Log::error('Erreur envoi e-mail incohérence abonnement / annulation: '.$e->getMessage(), [
+                'lesson_id' => $lesson->id,
+            ]);
+        }
     }
 
     /**
