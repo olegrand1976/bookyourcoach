@@ -25,10 +25,7 @@ class LessonBookingNotificationService
             $teacherUserId = $lesson->teacher?->user_id;
             $studentUserId = $lesson->student?->user_id;
 
-            $stakeholders = $club->stakeholderUsers()->filter(function ($user) use ($teacherUserId, $studentUserId) {
-                if (! $user->email || ! filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-                    return false;
-                }
+            $stakeholders = $club->stakeholderUsersNotifiableByMail()->filter(function ($user) use ($teacherUserId, $studentUserId) {
                 if ($teacherUserId && (int) $user->id === (int) $teacherUserId) {
                     return false;
                 }

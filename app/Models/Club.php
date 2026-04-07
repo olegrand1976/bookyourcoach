@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -168,14 +169,32 @@ class Club extends Model
     }
 
     /**
+     * Responsables du club dont l’adresse e-mail est utilisable par le canal mail Laravel.
+     *
+     * @return SupportCollection<int, User>
+     */
+    public function stakeholderUsersNotifiableByMail(): SupportCollection
+    {
+        return SupportCollection::make(
+            $this->stakeholderUsers()
+                ->filter(function (User $user) {
+                    $email = trim((string) $user->email);
+
+                    return $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL);
+                })
+                ->values()
+                ->all()
+        );
+    }
+
+    /**
      * @return list<string>
      */
     public function stakeholderEmails(): array
     {
-        return $this->stakeholderUsers()
+        return $this->stakeholderUsersNotifiableByMail()
             ->pluck('email')
             ->map(fn ($e) => trim((string) $e))
-            ->filter(fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL))
             ->unique()
             ->values()
             ->all();

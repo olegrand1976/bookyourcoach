@@ -552,9 +552,7 @@ class DashboardController extends Controller
             return;
         }
 
-        $stakeholders = $club->stakeholderUsers()->filter(function (User $user) {
-            return $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL);
-        });
+        $stakeholders = $club->stakeholderUsersNotifiableByMail();
 
         if ($stakeholders->isEmpty()) {
             return;

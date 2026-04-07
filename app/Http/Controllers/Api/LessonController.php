@@ -1488,9 +1488,7 @@ class LessonController extends Controller
 
             $club = $first?->club;
             if ($club) {
-                $stakeholders = $club->stakeholderUsers()->filter(function ($user) {
-                    return $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL);
-                });
+                $stakeholders = $club->stakeholderUsersNotifiableByMail();
 
                 if ($stakeholders->isNotEmpty()) {
                     Notification::send(
