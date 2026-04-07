@@ -64,6 +64,23 @@
           <p class="text-sm md:text-base text-gray-700">Consultez vos revenus et statistiques financières</p>
         </NuxtLink>
 
+        <!-- Journal d’activité - Notes / vocal -->
+        <NuxtLink to="/journal-activite"
+          class="group bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-transparent hover:border-teal-300 rounded-xl shadow-lg p-4 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+          <div class="flex items-center mb-3 md:mb-4">
+            <div class="p-2 md:p-3 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg shadow-md flex-shrink-0">
+              <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <div class="ml-3 md:ml-4">
+              <h3 class="text-base md:text-lg font-semibold text-gray-900">Journal d’activité</h3>
+              <p class="text-xs md:text-sm text-gray-600">Notes rapides & vocal</p>
+            </div>
+          </div>
+          <p class="text-sm md:text-base text-gray-700">Ajoutez des notes de cours au clavier ou en dictée</p>
+        </NuxtLink>
+
         <!-- QR Code - Violet/Rose (Premium) -->
         <NuxtLink to="/teacher/qr-code" 
           class="group bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-transparent hover:border-purple-300 rounded-xl shadow-lg p-4 md:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">

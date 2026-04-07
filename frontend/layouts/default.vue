@@ -60,6 +60,12 @@
                     <span>Mes Revenus</span>
                   </NuxtLink>
 
+                  <NuxtLink v-if="canActAsTeacher && !isAdmin" to="/journal-activite" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>📝</span>
+                    <span>Journal d’activité</span>
+                  </NuxtLink>
+
                   <NuxtLink v-if="isStudent" to="/student/dashboard" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>👨‍🎓</span>

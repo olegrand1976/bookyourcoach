@@ -90,6 +90,10 @@ export default defineNuxtConfig({
         }
     },
 
+    routeRules: {
+        '/journal-activité': { redirect: '/journal-activite' },
+    },
+
     nitro: {
         compatibilityDate: '2026-03-18',
         devProxy: {
