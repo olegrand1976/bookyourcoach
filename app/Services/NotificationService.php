@@ -13,7 +13,6 @@ use App\Models\Notification;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -135,7 +134,7 @@ class NotificationService
     }
 
     /**
-     * Email to the substitute teacher (TO) with club admins in CC — single or bulk lessons.
+     * Email to the substitute teacher (TO) with club stakeholders in CC — single or bulk lessons.
      *
      * @param  Collection<int, \App\Models\Lesson>  $lessons
      */
@@ -165,7 +164,7 @@ class NotificationService
                 return;
             }
 
-            $ccEmails = $this->clubAdminEmails($club);
+            $ccEmails = $this->clubStakeholderEmails($club);
             $dashboardUrl = FrontendUrl::login('/teacher/dashboard');
 
             Mail::to($replacementUser->email)->send(new TeacherLessonReplacementInvitationMail(
@@ -192,41 +191,9 @@ class NotificationService
     /**
      * @return list<string>
      */
-    private function clubAdminEmails(Club $club): array
-    {
-        return $club->users()
-            ->wherePivot('is_admin', true)
-            ->get()
-            ->pluck('email')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Owners, managers, admins and pivot is_admin — used for replacement reminder CC (aligned with student cancellation stakeholders).
-     *
-     * @return list<string>
-     */
     private function clubStakeholderEmails(Club $club): array
     {
-        $userIds = DB::table('club_user')
-            ->where('club_id', $club->id)
-            ->where(function ($query) {
-                $query->whereIn('role', ['owner', 'manager', 'admin'])->orWhere('is_admin', true);
-            })
-            ->pluck('user_id');
-
-        return User::query()
-            ->whereIn('id', $userIds)
-            ->get()
-            ->pluck('email')
-            ->map(fn ($e) => trim((string) $e))
-            ->filter(fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL))
-            ->unique()
-            ->values()
-            ->all();
+        return $club->stakeholderEmails();
     }
 
     /**
@@ -312,7 +279,7 @@ class NotificationService
     }
 
     /**
-     * Email to the requesting teacher (TO) with club admins in CC.
+     * Email to the requesting teacher (TO) with club stakeholders in CC.
      */
     private function sendReplacementOutcomeEmailToRequester(LessonReplacement $replacement, bool $accepted): void
     {
@@ -349,7 +316,7 @@ class NotificationService
             }
 
             $lesson->loadMissing(['courseType', 'student.user']);
-            $ccEmails = $this->clubAdminEmails($club);
+            $ccEmails = $this->clubStakeholderEmails($club);
 
             Mail::to($originalTeacher->user->email)->send(new TeacherLessonReplacementOutcomeMail(
                 $club,

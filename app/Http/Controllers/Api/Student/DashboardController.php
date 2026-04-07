@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Student;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Resources\StudentLessonCalendarResource;
 use App\Models\Lesson;
 use App\Models\User;
 use App\Models\Teacher;
@@ -224,7 +225,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $bookings
+            'data' => StudentLessonCalendarResource::collection($bookings),
         ]);
     }
 
@@ -674,7 +675,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $lessons
+            'data' => StudentLessonCalendarResource::collection($lessons),
         ]);
     }
 

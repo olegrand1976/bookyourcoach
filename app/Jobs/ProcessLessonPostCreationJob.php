@@ -6,6 +6,7 @@ use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use App\Notifications\LessonBookedNotification;
 use App\Services\ClubClosureDayService;
+use App\Services\LessonBookingNotificationService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -219,6 +220,8 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             if ($this->lesson->student && $this->lesson->student->user) {
                 $this->lesson->student->user->notify(new LessonBookedNotification($this->lesson));
             }
+
+            app(LessonBookingNotificationService::class)->notifyClubStakeholdersOfNewBooking($this->lesson);
 
             Log::info("✅ Notifications envoyées pour le cours {$this->lesson->id}");
         } catch (\Exception $e) {

@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @OA\Schema(
@@ -146,6 +148,37 @@ class Club extends Model
         return $this->belongsToMany(User::class, 'club_user')
             ->withPivot('role', 'is_admin', 'joined_at')
             ->withTimestamps();
+    }
+
+    /**
+     * Stakeholders for e-mail CC / club information (owner, manager, admin roles or pivot is_admin).
+     *
+     * @return Collection<int, User>
+     */
+    public function stakeholderUsers(): Collection
+    {
+        $userIds = DB::table('club_user')
+            ->where('club_id', $this->id)
+            ->where(function ($query) {
+                $query->whereIn('role', ['owner', 'manager', 'admin'])->orWhere('is_admin', true);
+            })
+            ->pluck('user_id');
+
+        return User::query()->whereIn('id', $userIds)->get();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function stakeholderEmails(): array
+    {
+        return $this->stakeholderUsers()
+            ->pluck('email')
+            ->map(fn ($e) => trim((string) $e))
+            ->filter(fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function admins()

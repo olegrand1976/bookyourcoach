@@ -307,19 +307,17 @@
                 <label class="block text-sm font-medium text-gray-500 mb-1">Notes</label>
                 <p class="text-sm text-gray-700">{{ selectedLesson.notes }}</p>
               </div>
+
+              <p
+                v-if="selectedLesson.club?.id"
+                class="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg p-3"
+              >
+                La suppression ou l’annulation définitive d’un cours géré par le club ne peut pas être faite depuis cet espace — contactez le responsable du club.
+              </p>
             </div>
 
-            <!-- Boutons d'action -->
-            <div class="flex flex-col-reverse sm:flex-row justify-between gap-3 mt-6 pt-4 border-t">
-              <button 
-                @click="deleteLesson(selectedLesson.id)"
-                :disabled="saving"
-                class="min-h-[44px] px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 font-medium">
-                <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Supprimer
-              </button>
+            <!-- Suppression réservée au club (pas depuis le planning enseignant) -->
+            <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-4 border-t">
               <button 
                 @click="closeLessonModal"
                 class="min-h-[44px] px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
@@ -681,29 +679,6 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
   } catch (err: any) {
     console.error('Erreur mise à jour cours:', err)
     alert('Erreur lors de la mise à jour du statut')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function deleteLesson(lessonId: number) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours ?')) return
-  
-  try {
-    saving.value = true
-    const { $api } = useNuxtApp()
-    
-    const response = await $api.delete(`/teacher/lessons/${lessonId}`)
-    
-    if (response.data.success) {
-      await loadLessons()
-      closeLessonModal()
-    } else {
-      alert('Erreur lors de la suppression')
-    }
-  } catch (err: any) {
-    console.error('Erreur suppression cours:', err)
-    alert('Erreur lors de la suppression')
   } finally {
     saving.value = false
   }

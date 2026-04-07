@@ -11,6 +11,7 @@ use App\Models\SubscriptionRecurringSlot;
 use App\Models\ClubOpenSlot;
 use App\Notifications\LessonBookedNotification;
 use App\Notifications\LessonCancelledNotification;
+use App\Services\LessonBookingNotificationService;
 use App\Jobs\SendLessonReminderJob;
 use App\Jobs\ProcessLessonPostCreationJob;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
@@ -636,6 +638,10 @@ class LessonController extends Controller
                 'location',
                 'club'
             ]);
+
+            if (! $shouldDispatchJob) {
+                $this->sendBookingNotifications($lesson);
+            }
 
             return response()->json([
                 'success' => true,
@@ -1268,6 +1274,14 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
+
+            if ($user->role === 'teacher') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La suppression d\'un cours depuis le planning enseignant n\'est pas autorisée. Contactez le responsable du club.',
+                ], 403);
+            }
+
             // Club avec cancel_scope (modale planning) → déléguer à cancelWithFuture pour gérer single/all_future
             if ($user->role === 'club' && $request->input('cancel_scope')) {
                 return $this->cancelWithFuture($request, $id);
@@ -1404,6 +1418,8 @@ class LessonController extends Controller
             if ($lesson->student && $lesson->student->user && $lesson->student->user->id !== Auth::id()) {
                 $lesson->student->user->notify(new LessonBookedNotification($lesson));
             }
+
+            app(LessonBookingNotificationService::class)->notifyClubStakeholdersOfNewBooking($lesson);
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création de la leçon
             Log::error("Erreur lors de l'envoi des notifications de réservation: " . $e->getMessage());
@@ -1425,7 +1441,7 @@ class LessonController extends Controller
         try {
             $lessons = Lesson::query()
                 ->whereIn('id', $lessonIds)
-                ->with(['student.user', 'teacher.user'])
+                ->with(['student.user', 'teacher.user', 'club'])
                 ->get();
 
             if ($lessons->isEmpty()) {
@@ -1454,12 +1470,24 @@ class LessonController extends Controller
                 ));
             }
 
-            $cancelledBy->notify(new LessonCancelledNotification(
-                $lessonIds,
-                $reason,
-                $cancelledBy->id,
-                LessonCancelledNotification::RECIPIENT_CLUB_MANAGER
-            ));
+            $club = $first?->club;
+            if ($club) {
+                $stakeholders = $club->stakeholderUsers()->filter(function ($user) {
+                    return $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL);
+                });
+
+                if ($stakeholders->isNotEmpty()) {
+                    Notification::send(
+                        $stakeholders->unique('id')->values(),
+                        new LessonCancelledNotification(
+                            $lessonIds,
+                            $reason,
+                            $cancelledBy->id,
+                            LessonCancelledNotification::RECIPIENT_CLUB_MANAGER
+                        )
+                    );
+                }
+            }
         } catch (\Throwable $e) {
             Log::error('Erreur envoi e-mails annulation planning club: '.$e->getMessage(), [
                 'lesson_ids' => $lessonIds,
