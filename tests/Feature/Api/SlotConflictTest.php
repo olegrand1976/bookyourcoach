@@ -15,7 +15,9 @@ use App\Models\ClubOpenSlot;
 use App\Models\Subscription;
 use App\Models\SubscriptionInstance;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Carbon\Carbon;
+use App\Notifications\LessonCancelledNotification;
 
 class SlotConflictTest extends TestCase
 {
@@ -150,6 +152,8 @@ class SlotConflictTest extends TestCase
     /** @test */
     public function it_can_cancel_single_lesson()
     {
+        Notification::fake();
+
         $lesson = Lesson::factory()->create([
             'club_id' => $this->club->id,
             'teacher_id' => $this->teacher->id,
@@ -176,11 +180,31 @@ class SlotConflictTest extends TestCase
         $lesson->refresh();
         $this->assertEquals('cancelled', $lesson->status);
         $this->assertStringContainsString('Test annulation', $lesson->notes);
+
+        Notification::assertSentTimes(LessonCancelledNotification::class, 3);
+        Notification::assertSentTo(
+            $this->student->user,
+            LessonCancelledNotification::class,
+            fn (LessonCancelledNotification $n) => $n->recipientRole === LessonCancelledNotification::RECIPIENT_STUDENT
+                && $n->lessonIds === [$lesson->id]
+        );
+        Notification::assertSentTo(
+            $this->teacher->user,
+            LessonCancelledNotification::class,
+            fn (LessonCancelledNotification $n) => $n->recipientRole === LessonCancelledNotification::RECIPIENT_TEACHER
+        );
+        Notification::assertSentTo(
+            Auth::user(),
+            LessonCancelledNotification::class,
+            fn (LessonCancelledNotification $n) => $n->recipientRole === LessonCancelledNotification::RECIPIENT_CLUB_MANAGER
+        );
     }
 
     /** @test */
     public function it_can_cancel_lesson_with_all_future_lessons()
     {
+        Notification::fake();
+
         // Créer un abonnement
         $subscription = Subscription::create([
             'club_id' => $this->club->id,
@@ -253,6 +277,20 @@ class SlotConflictTest extends TestCase
         $this->assertEquals('cancelled', $lesson1->status);
         $this->assertEquals('cancelled', $lesson2->status);
         $this->assertEquals('cancelled', $lesson3->status);
+
+        Notification::assertSentTimes(LessonCancelledNotification::class, 3);
+        $expectedIds = [$lesson1->id, $lesson2->id, $lesson3->id];
+        sort($expectedIds);
+        Notification::assertSentTo(
+            $this->student->user,
+            LessonCancelledNotification::class,
+            function (LessonCancelledNotification $n) use ($expectedIds) {
+                $got = $n->lessonIds;
+                sort($got);
+
+                return $n->recipientRole === LessonCancelledNotification::RECIPIENT_STUDENT && $got === $expectedIds;
+            }
+        );
     }
 
     /** @test */

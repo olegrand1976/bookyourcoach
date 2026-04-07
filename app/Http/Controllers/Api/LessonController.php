@@ -1411,22 +1411,60 @@ class LessonController extends Controller
     }
 
     /**
-     * Envoie les notifications d'annulation
+     * E-mails personnalisés (élève, enseignant, responsable club) après annulation depuis le planning club.
+     *
+     * @param  array<int>  $lessonIds
      */
-    private function sendCancellationNotifications(Lesson $lesson, string $reason = ''): void
+    private function sendClubPlanningCancellationNotifications(array $lessonIds, string $reason, User $cancelledBy): void
     {
+        $lessonIds = array_values(array_unique(array_filter($lessonIds)));
+        if ($lessonIds === []) {
+            return;
+        }
+
         try {
-            // Notifier l'enseignant
-            if ($lesson->teacher && $lesson->teacher->user) {
-                $lesson->teacher->user->notify(new LessonCancelledNotification($lesson, $reason));
+            $lessons = Lesson::query()
+                ->whereIn('id', $lessonIds)
+                ->with(['student.user', 'teacher.user'])
+                ->get();
+
+            if ($lessons->isEmpty()) {
+                return;
             }
 
-            // Notifier l'élève
-            if ($lesson->student && $lesson->student->user) {
-                $lesson->student->user->notify(new LessonCancelledNotification($lesson, $reason));
+            $first = $lessons->first();
+            $studentUser = $first?->student?->user;
+            $teacherUser = $first?->teacher?->user;
+
+            if ($studentUser) {
+                $studentUser->notify(new LessonCancelledNotification(
+                    $lessonIds,
+                    $reason,
+                    $cancelledBy->id,
+                    LessonCancelledNotification::RECIPIENT_STUDENT
+                ));
             }
-        } catch (\Exception $e) {
-            Log::error("Erreur lors de l'envoi des notifications d'annulation: " . $e->getMessage());
+
+            if ($teacherUser) {
+                $teacherUser->notify(new LessonCancelledNotification(
+                    $lessonIds,
+                    $reason,
+                    $cancelledBy->id,
+                    LessonCancelledNotification::RECIPIENT_TEACHER
+                ));
+            }
+
+            $cancelledBy->notify(new LessonCancelledNotification(
+                $lessonIds,
+                $reason,
+                $cancelledBy->id,
+                LessonCancelledNotification::RECIPIENT_CLUB_MANAGER
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Erreur envoi e-mails annulation planning club: '.$e->getMessage(), [
+                'lesson_ids' => $lessonIds,
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
     }
 
@@ -2595,13 +2633,18 @@ class LessonController extends Controller
                     $processedLessons[] = $lessonId; // Utiliser l'ID sauvegardé
                 } else {
                     // Annuler (même si déjà annulé, on peut le réannuler/mettre à jour les notes)
+                    $wasAlreadyCancelled = $lesson->status === 'cancelled';
                     $lesson->status = 'cancelled';
                     $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . "[Annulé] " . $reason;
                     $lesson->save();
-                    
+
                     // Libérer l'abonnement si lié
                     $this->releaseSubscriptionLesson($lesson);
-                    
+
+                    if (! $wasAlreadyCancelled) {
+                        $this->sendClubPlanningCancellationNotifications([$lesson->id], $reason, $user);
+                    }
+
                     $processedCount = 1;
                     $processedLessons[] = $lesson->id;
                 }
@@ -2670,7 +2713,9 @@ class LessonController extends Controller
                     $futureLessons = $futureLessonsQuery->get();
                     $lessonsToProcess = array_merge($lessonsToProcess, $futureLessons->all());
                 }
-                
+
+                $newlyCancelledLessonIds = [];
+
                 // Traiter tous les cours (actuel + futurs)
                 foreach ($lessonsToProcess as $lessonToProcess) {
                     if ($action === 'delete') {
@@ -2710,11 +2755,20 @@ class LessonController extends Controller
                             $lessonToProcess->save();
                             // Libérer l'abonnement uniquement si le cours n'était pas déjà annulé
                             $this->releaseSubscriptionLesson($lessonToProcess);
+                            $newlyCancelledLessonIds[] = $lessonToProcess->id;
                         }
-                        
+
                         $processedCount++;
                         $processedLessons[] = $lessonToProcess->id;
                     }
+                }
+
+                if ($action === 'cancel' && count($newlyCancelledLessonIds) > 0) {
+                    $this->sendClubPlanningCancellationNotifications(
+                        array_values(array_unique($newlyCancelledLessonIds)),
+                        $reason,
+                        $user
+                    );
                 }
             }
 
