@@ -14,8 +14,7 @@ use App\Models\Location;
 use App\Models\Club;
 use App\Models\SubscriptionInstance;
 use App\Notifications\LessonCancellationConfirmationNotification;
-use App\Notifications\LessonCancelledByStudentClubNotification;
-use App\Notifications\LessonCancelledByStudentNotification;
+use App\Notifications\LessonCancelledByStudentStakeholderNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -408,31 +407,38 @@ class DashboardController extends Controller
             }
         }
 
-        $reasonForNotification = $reasonText ?: ($cancellationReason === 'medical' ? 'Raison médicale' : 'Autre raison');
+        $reasonFreeText = trim((string) $reasonText);
+
         try {
+            $stakeholderUsers = collect();
             if ($lesson->teacher && $lesson->teacher->user) {
-                $lesson->teacher->user->notify(
-                    new LessonCancelledByStudentNotification($lesson, $reasonForNotification, $user->student)
-                );
+                $stakeholderUsers->push($lesson->teacher->user);
             }
             if ($lesson->club) {
-                $clubManagers = \Illuminate\Support\Facades\DB::table('club_user')
+                $clubManagerIds = \Illuminate\Support\Facades\DB::table('club_user')
                     ->where('club_id', $lesson->club->id)
                     ->where(function ($query) {
                         $query->whereIn('role', ['owner', 'manager', 'admin'])->orWhere('is_admin', true);
                     })
                     ->pluck('user_id');
-                foreach (User::whereIn('id', $clubManagers)->get() as $manager) {
-                    $manager->notify(new LessonCancelledByStudentClubNotification(
-                        $lesson,
-                        $reasonForNotification,
+                $stakeholderUsers = $stakeholderUsers->merge(User::whereIn('id', $clubManagerIds)->get());
+            }
+
+            if ($stakeholderUsers->isNotEmpty()) {
+                $lessonForMail = $lesson->fresh(['teacher.user', 'courseType', 'location', 'club']);
+                Notification::send(
+                    $stakeholderUsers->unique('id')->values(),
+                    new LessonCancelledByStudentStakeholderNotification(
+                        $lessonForMail,
                         $user->student,
                         $isLateCancel,
                         (bool) $certificatePath,
                         $countInSubscription,
-                        $cancellationDeadlineHours
-                    ));
-                }
+                        $cancellationDeadlineHours,
+                        $reasonFreeText,
+                        $isLateCancel ? ($cancellationReason ?: null) : null,
+                    )
+                );
             }
         } catch (\Exception $e) {
             Log::error("Erreur envoi notifications annulation: " . $e->getMessage(), ['lesson_id' => $lesson->id]);
@@ -445,7 +451,8 @@ class DashboardController extends Controller
                     $lesson->fresh(),
                     $countInSubscription,
                     $certificateStatus,
-                    $cancellationDeadlineHours
+                    $cancellationDeadlineHours,
+                    $reasonFreeText
                 ));
             }
         } catch (\Exception $e) {

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\TeacherLessonReplacementInvitationMail;
 use App\Support\FrontendUrl;
 use App\Mail\TeacherLessonReplacementOutcomeMail;
+use App\Mail\TeacherLessonReplacementReminderMail;
 use App\Models\Club;
 use App\Models\Lesson;
 use App\Models\LessonReplacement;
@@ -12,6 +13,7 @@ use App\Models\Notification;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -200,6 +202,113 @@ class NotificationService
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Owners, managers, admins and pivot is_admin — used for replacement reminder CC (aligned with student cancellation stakeholders).
+     *
+     * @return list<string>
+     */
+    private function clubStakeholderEmails(Club $club): array
+    {
+        $userIds = DB::table('club_user')
+            ->where('club_id', $club->id)
+            ->where(function ($query) {
+                $query->whereIn('role', ['owner', 'manager', 'admin'])->orWhere('is_admin', true);
+            })
+            ->pluck('user_id');
+
+        return User::query()
+            ->whereIn('id', $userIds)
+            ->get()
+            ->pluck('email')
+            ->map(fn ($e) => trim((string) $e))
+            ->filter(fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Remind the substitute (TO) with original teacher + club stakeholders (CC). Idempotent via reminder_*_sent_at on the replacement row.
+     *
+     * @param  '48h'|'24h'  $tier
+     */
+    public function sendLessonReplacementPendingReminder(LessonReplacement $replacement, string $tier): void
+    {
+        if (! in_array($tier, ['48h', '24h'], true)) {
+            throw new \InvalidArgumentException('tier must be 48h or 24h');
+        }
+
+        $replacement->loadMissing([
+            'lesson.club',
+            'lesson.courseType',
+            'lesson.student.user',
+            'originalTeacher.user',
+            'replacementTeacher.user',
+        ]);
+
+        $lesson = $replacement->lesson;
+        $club = $lesson?->club;
+        $replacementTeacher = $replacement->replacementTeacher;
+        $originalTeacher = $replacement->originalTeacher;
+
+        if ($replacement->status !== 'pending' || ! $lesson || ! $club || ! $replacementTeacher || ! $originalTeacher) {
+            return;
+        }
+
+        $toEmail = $replacementTeacher->user?->email;
+        if (! $toEmail || ! filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            Log::warning('❌ Relance remplacement : enseignant remplaçant sans e-mail valide', [
+                'replacement_id' => $replacement->id,
+                'tier' => $tier,
+            ]);
+
+            return;
+        }
+
+        $cc = $this->clubStakeholderEmails($club);
+        $originalEmail = $originalTeacher->user?->email;
+        if ($originalEmail && filter_var($originalEmail, FILTER_VALIDATE_EMAIL)) {
+            $cc[] = $originalEmail;
+        }
+
+        $toNorm = strtolower(trim($toEmail));
+        $cc = collect($cc)
+            ->map(fn ($e) => trim((string) $e))
+            ->filter(fn ($e) => $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL))
+            ->filter(fn ($e) => strtolower($e) !== $toNorm)
+            ->unique()
+            ->values()
+            ->all();
+
+        $dashboardUrl = FrontendUrl::login('/teacher/dashboard');
+
+        Mail::to($toEmail)->send(new TeacherLessonReplacementReminderMail(
+            $club,
+            $lesson,
+            $originalTeacher,
+            $replacementTeacher,
+            $replacement->reason,
+            $replacement->notes,
+            $tier,
+            $cc,
+            $dashboardUrl,
+        ));
+
+        if ($tier === '48h') {
+            $replacement->reminder_48h_sent_at = now();
+        } else {
+            $replacement->reminder_24h_sent_at = now();
+        }
+        $replacement->save();
+
+        Log::info('✅ Relance automatique demande de remplacement envoyée', [
+            'replacement_id' => $replacement->id,
+            'tier' => $tier,
+            'to' => $toEmail,
+            'cc_count' => count($cc),
+        ]);
     }
 
     /**

@@ -17,7 +17,8 @@ class LessonCancellationConfirmationNotification extends Notification implements
         public Lesson $lesson,
         public bool $countInSubscription,
         public ?string $certificateStatus = null,
-        public int $cancellationDeadlineHours = 8
+        public int $cancellationDeadlineHours = 8,
+        public string $reasonFreeText = '',
     ) {}
 
     public function via(object $notifiable): array
@@ -38,6 +39,11 @@ class LessonCancellationConfirmationNotification extends Notification implements
             ->line("**Cours:** {$courseTypeName}")
             ->line("**Date et heure:** {$lessonDate}")
             ->line("**Lieu:** {$locationName}");
+
+        $trimmed = trim($this->reasonFreeText);
+        if ($trimmed !== '') {
+            $message->line("**Message transmis au club et à l'enseignant :** {$trimmed}");
+        }
 
         if ($this->countInSubscription) {
             $message->line("Ce cours sera compté dans votre abonnement (annulation à moins de {$this->cancellationDeadlineHours} h sans certificat médical accepté).");
@@ -63,6 +69,7 @@ class LessonCancellationConfirmationNotification extends Notification implements
             'start_time' => $this->lesson->start_time,
             'count_in_subscription' => $this->countInSubscription,
             'certificate_status' => $this->certificateStatus,
+            'reason_free_text' => $this->reasonFreeText,
         ];
     }
 }

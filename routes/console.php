@@ -66,3 +66,11 @@ Schedule::command('subscriptions:consume-past-lessons')
     ->onFailure(function () {
         \Log::error('Échec de la consommation automatique des cours passés');
     });
+
+// Relances e-mail (48 h et 24 h avant le cours) pour les demandes de remplacement en attente
+Schedule::command('lesson-replacements:send-pending-reminders')
+    ->hourly()
+    ->timezone('Europe/Brussels')
+    ->onFailure(function () {
+        \Log::error('Échec des relances automatiques demandes de remplacement');
+    });

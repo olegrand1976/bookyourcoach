@@ -24,6 +24,8 @@ class LessonReplacement extends Model
     protected $casts = [
         'requested_at' => 'datetime',
         'responded_at' => 'datetime',
+        'reminder_48h_sent_at' => 'datetime',
+        'reminder_24h_sent_at' => 'datetime',
     ];
 
     /**
