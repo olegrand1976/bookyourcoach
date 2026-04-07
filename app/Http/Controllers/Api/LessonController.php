@@ -1441,7 +1441,7 @@ class LessonController extends Controller
         try {
             $lessons = Lesson::query()
                 ->whereIn('id', $lessonIds)
-                ->with(['student.user', 'teacher.user', 'club'])
+                ->with(['student.user', 'students.user', 'teacher.user', 'club'])
                 ->get();
 
             if ($lessons->isEmpty()) {
@@ -1449,10 +1449,26 @@ class LessonController extends Controller
             }
 
             $first = $lessons->first();
-            $studentUser = $first?->student?->user;
             $teacherUser = $first?->teacher?->user;
 
-            if ($studentUser) {
+            $studentUsersToNotify = collect();
+            foreach ($lessons as $lesson) {
+                if ($lesson->student_id && $lesson->student?->user) {
+                    $studentUsersToNotify->push($lesson->student->user);
+                }
+                foreach ($lesson->students as $lessonStudent) {
+                    if ($lessonStudent->user) {
+                        $studentUsersToNotify->push($lessonStudent->user);
+                    }
+                }
+            }
+            $studentUsersToNotify = $studentUsersToNotify
+                ->unique('id')
+                ->filter(function (User $u) {
+                    return $u->email && filter_var($u->email, FILTER_VALIDATE_EMAIL);
+                });
+
+            foreach ($studentUsersToNotify as $studentUser) {
                 $studentUser->notify(new LessonCancelledNotification(
                     $lessonIds,
                     $reason,

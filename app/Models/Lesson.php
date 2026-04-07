@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -122,6 +123,27 @@ class Lesson extends Model
         return $this->belongsToMany(Student::class, 'lesson_student')
                     ->withPivot(['status', 'price', 'notes'])
                     ->withTimestamps();
+    }
+
+    /**
+     * Cours où l'un des élèves donnés est soit l'élève principal (student_id), soit rattaché via lesson_student.
+     *
+     * @param  Builder  $query
+     * @param  array<int>  $studentIds
+     */
+    public function scopeForParticipantStudents(Builder $query, array $studentIds): Builder
+    {
+        $studentIds = array_values(array_unique(array_filter(array_map('intval', $studentIds))));
+        if ($studentIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $q) use ($studentIds) {
+            $q->whereIn('student_id', $studentIds)
+                ->orWhereHas('students', function (Builder $sq) use ($studentIds) {
+                    $sq->whereIn('students.id', $studentIds);
+                });
+        });
     }
 
     /**

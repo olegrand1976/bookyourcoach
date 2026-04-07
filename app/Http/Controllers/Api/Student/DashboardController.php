@@ -215,7 +215,7 @@ class DashboardController extends Controller
         }
 
         $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
-            ->whereIn('student_id', $studentIds);
+            ->forParticipantStudents($studentIds);
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
@@ -290,11 +290,11 @@ class DashboardController extends Controller
         $studentId = $student->id;
 
         $lesson = Lesson::where('id', $id)
-            ->where('student_id', $studentId)
-            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user', 'subscriptionInstances.subscription.template'])
+            ->forParticipantStudents([$studentId])
+            ->with(['teacher.user', 'club', 'courseType', 'location', 'student.user', 'students.user', 'subscriptionInstances.subscription.template'])
             ->firstOrFail();
 
-        $cancellationDeadlineHours = $this->resolveCancellationDeadlineHours($lesson);
+        $cancellationDeadlineHours = $this->resolveCancellationDeadlineHours($lesson, $studentId);
         if ($cancellationDeadlineHours === null) {
             $cancellationDeadlineHours = 8;
         }
@@ -431,7 +431,7 @@ class DashboardController extends Controller
                     $stakeholderUsers->unique('id')->values(),
                     new LessonCancelledByStudentStakeholderNotification(
                         $lessonForMail,
-                        $user->student,
+                        $student,
                         $isLateCancel,
                         (bool) $certificatePath,
                         $countInSubscription,
@@ -446,7 +446,7 @@ class DashboardController extends Controller
         }
 
         try {
-            $studentUser = $lesson->student?->user ?? $user;
+            $studentUser = $student->user ?? $user;
             if ($studentUser) {
                 $studentUser->notify(new LessonCancellationConfirmationNotification(
                     $lesson->fresh(),
@@ -470,7 +470,7 @@ class DashboardController extends Controller
     /**
      * Résout le délai d'annulation en heures (template > défaut club > 8).
      */
-    private function resolveCancellationDeadlineHours(Lesson $lesson): ?int
+    private function resolveCancellationDeadlineHours(Lesson $lesson, ?int $cancellingStudentId = null): ?int
     {
         $template = null;
         $instance = $lesson->subscriptionInstances->first();
@@ -482,9 +482,10 @@ class DashboardController extends Controller
                 $template = $sub->template()->first();
             }
         }
-        if (!$template && $lesson->student_id && $lesson->course_type_id && $lesson->club_id) {
+        $subscriptionLookupStudentId = $cancellingStudentId ?? $lesson->student_id;
+        if (!$template && $subscriptionLookupStudentId && $lesson->course_type_id && $lesson->club_id) {
             $activeInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
-                (int) $lesson->student_id,
+                (int) $subscriptionLookupStudentId,
                 (int) $lesson->course_type_id,
                 (int) $lesson->club_id
             );
@@ -513,7 +514,7 @@ class DashboardController extends Controller
         }
 
         $lesson = Lesson::where('id', $id)
-            ->where('student_id', $student->id)
+            ->forParticipantStudents([$student->id])
             ->firstOrFail();
 
         if ($lesson->status !== 'cancelled') {
@@ -668,7 +669,7 @@ class DashboardController extends Controller
 
         // Historique : cours terminés et annulés
         $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
-            ->whereIn('student_id', $studentIds)
+            ->forParticipantStudents($studentIds)
             ->whereIn('status', ['completed', 'cancelled'])
             ->orderBy('start_time', 'desc')
             ->get();

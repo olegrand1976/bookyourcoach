@@ -201,6 +201,46 @@ class SlotConflictTest extends TestCase
     }
 
     /** @test */
+    public function it_notifies_each_participating_student_user_when_club_cancels(): void
+    {
+        Notification::fake();
+
+        $studentB = Student::factory()->create(['club_id' => $this->club->id]);
+
+        $lesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'start_time' => '2025-12-08 09:00:00',
+            'end_time' => '2025-12-08 10:00:00',
+            'status' => 'confirmed',
+        ]);
+        $lesson->students()->syncWithoutDetaching([$studentB->id]);
+
+        $response = $this->postJson("/api/lessons/{$lesson->id}/cancel-with-future", [
+            'cancel_scope' => 'single',
+            'action' => 'cancel',
+            'reason' => 'Annulation club — plusieurs élèves',
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        Notification::assertSentTimes(LessonCancelledNotification::class, 4);
+        Notification::assertSentTo(
+            $this->student->user,
+            LessonCancelledNotification::class,
+            fn (LessonCancelledNotification $n) => $n->recipientRole === LessonCancelledNotification::RECIPIENT_STUDENT
+                && $n->lessonIds === [$lesson->id]
+        );
+        Notification::assertSentTo(
+            $studentB->user,
+            LessonCancelledNotification::class,
+            fn (LessonCancelledNotification $n) => $n->recipientRole === LessonCancelledNotification::RECIPIENT_STUDENT
+                && $n->lessonIds === [$lesson->id]
+        );
+    }
+
+    /** @test */
     public function it_can_cancel_lesson_with_all_future_lessons()
     {
         Notification::fake();
