@@ -64,11 +64,21 @@ class StudentLessonCalendarResource extends JsonResource
             'student' => ($lesson->relationLoaded('student') && $lesson->student)
                 ? [
                     'id' => $lesson->student->id,
+                    'name' => $lesson->student->name,
                     'user' => [
                         'name' => $lesson->student->user?->name,
                     ],
                 ]
                 : null,
+            'participants' => ($lesson->relationLoaded('students') && $lesson->students)
+                ? $lesson->students->map(fn ($student) => [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'user' => [
+                        'name' => $student->user?->name,
+                    ],
+                ])->values()->all()
+                : [],
             'cancellation_reason' => $lesson->cancellation_reason,
             'cancellation_count_in_subscription' => $lesson->cancellation_count_in_subscription,
             'cancellation_certificate_status' => $lesson->cancellation_certificate_status,

@@ -50,7 +50,7 @@ class StudentSubscriptionController extends Controller
             $student = $mainStudent;
             $activeStudentId = $request->query('active_student_id') ?? $request->input('active_student_id');
             if ($activeStudentId !== null && $activeStudentId !== '') {
-                $linkedIds = $user->getLinkedStudents()->pluck('id')->push($mainStudent->id)->unique()->values()->all();
+                $linkedIds = $user->getHouseholdStudentIds();
                 if (in_array((int) $activeStudentId, $linkedIds, true)) {
                     $student = Student::findOrFail((int) $activeStudentId);
                 }
@@ -136,8 +136,7 @@ class StudentSubscriptionController extends Controller
             }
 
             $param = $request->query('active_student_id') ?? $request->input('active_student_id');
-            $linkedStudents = $user->getLinkedStudents();
-            $linkedIds = collect([$user->student->id])->merge($linkedStudents->pluck('id'))->unique()->values()->all();
+            $linkedIds = $user->getHouseholdStudentIds();
 
             $studentIds = $linkedIds;
             if ($param !== 'all' && $param !== null && $param !== '') {
@@ -219,7 +218,7 @@ class StudentSubscriptionController extends Controller
             // Utiliser l'élève actif (compte famille) si fourni et autorisé, sinon l'élève principal
             $student = $mainStudent;
             if (!empty($validated['active_student_id'])) {
-                $linkedIds = $user->getLinkedStudents()->pluck('id')->push($mainStudent->id)->unique()->values()->all();
+                $linkedIds = $user->getHouseholdStudentIds();
                 if (in_array((int) $validated['active_student_id'], $linkedIds, true)) {
                     $student = Student::findOrFail($validated['active_student_id']);
                 }

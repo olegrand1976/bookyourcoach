@@ -9,6 +9,9 @@ use App\Models\Lesson;
 use App\Models\CourseType;
 use App\Models\Location;
 use App\Models\Club;
+use App\Models\Subscription;
+use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionTemplate;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -531,6 +534,112 @@ class StudentDashboardControllerTest extends TestCase
         $history = $response->json('data');
         $this->assertCount(5, $history);
         $this->assertEquals('completed', $history[0]['status']);
+    }
+
+    #[Test]
+    public function bookings_with_active_student_all_merge_lessons_for_all_student_profiles_sharing_user_id(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'student',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $studentA = Student::factory()->create([
+            'user_id' => $user->id,
+            'first_name' => 'Alice',
+            'last_name' => 'Household',
+        ]);
+        $studentB = Student::factory()->create([
+            'user_id' => $user->id,
+            'first_name' => 'Bob',
+            'last_name' => 'Household',
+        ]);
+
+        Sanctum::actingAs($user);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        Lesson::factory()->create([
+            'student_id' => $studentA->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(2),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+        Lesson::factory()->create([
+            'student_id' => $studentB->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(3),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        $response = $this->getJson('/api/student/bookings?active_student_id=all');
+        $response->assertStatus(200);
+        $this->assertCount(2, $response->json('data'));
+    }
+
+    #[Test]
+    public function bookings_merge_lessons_for_subscription_co_beneficiaries_without_family_link(): void
+    {
+        $club = Club::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $template = SubscriptionTemplate::factory()->create(['club_id' => $club->id]);
+        $template->courseTypes()->sync([$courseType->id]);
+
+        $user = User::factory()->create([
+            'role' => 'student',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $studentOlivier = Student::factory()->create(['user_id' => $user->id]);
+        $studentAmelia = Student::factory()->create([
+            'user_id' => null,
+            'first_name' => 'Amelia',
+            'last_name' => 'CoBenef',
+        ]);
+
+        $subscription = Subscription::factory()->forClub($club)->withTemplate($template)->create();
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now(),
+            'expires_at' => Carbon::now()->addMonths(6),
+            'status' => 'active',
+        ]);
+        $instance->students()->attach([$studentOlivier->id, $studentAmelia->id]);
+
+        Sanctum::actingAs($user);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $teacher = Teacher::factory()->create();
+        $location = Location::factory()->create();
+
+        Lesson::factory()->create([
+            'student_id' => $studentOlivier->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(2),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+        Lesson::factory()->create([
+            'student_id' => $studentAmelia->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(3),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        $response = $this->getJson('/api/student/bookings?active_student_id=all');
+        $response->assertStatus(200);
+        $this->assertCount(2, $response->json('data'));
     }
 
     #[Test]

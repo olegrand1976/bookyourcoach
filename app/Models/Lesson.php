@@ -126,7 +126,13 @@ class Lesson extends Model
     }
 
     /**
-     * Cours où l'un des élèves donnés est soit l'élève principal (student_id), soit rattaché via lesson_student.
+     * Cours où l'un des élèves donnés est :
+     * - l'élève principal (student_id),
+     * - rattaché via lesson_student,
+     * - ou bénéficiaire d'une instance d'abonnement liée au cours.
+     *
+     * Ce 3e critère couvre les cas d'abonnement familial où les données historiques
+     * n'ont pas correctement rempli lesson_student.
      *
      * @param  Builder  $query
      * @param  array<int>  $studentIds
@@ -141,6 +147,9 @@ class Lesson extends Model
         return $query->where(function (Builder $q) use ($studentIds) {
             $q->whereIn('student_id', $studentIds)
                 ->orWhereHas('students', function (Builder $sq) use ($studentIds) {
+                    $sq->whereIn('students.id', $studentIds);
+                })
+                ->orWhereHas('subscriptionInstances.students', function (Builder $sq) use ($studentIds) {
                     $sq->whereIn('students.id', $studentIds);
                 });
         });

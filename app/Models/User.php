@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use App\Notifications\ResetPasswordNotification;
 use Laravel\Sanctum\HasApiTokens;
@@ -197,6 +198,15 @@ class User extends Authenticatable
     }
 
     /**
+     * All student profiles attached to this user (same email / compte parent).
+     * hasOne(student) is not sufficient when several rows share the same user_id.
+     */
+    public function students()
+    {
+        return $this->hasMany(Student::class);
+    }
+
+    /**
      * Get the profile for this user.
      */
     public function profile()
@@ -258,15 +268,104 @@ class User extends Authenticatable
     /**
      * Get all linked students for this user.
      * Méthode pour récupérer les étudiants liés via le compte student.
-     * 
-     * @return \Illuminate\Database\Eloquent\Collection
+     * Agrège les liens famille pour chaque profil élève ayant ce user_id (plusieurs abonnés / fiches).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Student>
      */
     public function getLinkedStudents()
     {
-        if (!$this->student) {
+        if ($this->role !== self::ROLE_STUDENT) {
             return collect();
         }
-        return $this->student->getAllLinkedStudents();
+
+        $profiles = Student::query()->where('user_id', $this->id)->get();
+        if ($profiles->isEmpty()) {
+            return collect();
+        }
+
+        $linked = collect();
+        foreach ($profiles as $student) {
+            $linked = $linked->merge($student->getAllLinkedStudents());
+        }
+
+        return $linked->unique('id')->values();
+    }
+
+    /**
+     * Max bénéficiaires sur une instance pour étendre le foyer via l'abonnement (évite fuites si pivot mal configurée).
+     */
+    private const HOUSEHOLD_SUBSCRIPTION_INSTANCE_MAX_STUDENTS = 24;
+
+    /**
+     * IDs de tous les élèves « du foyer » :
+     * - profils students avec ce user_id ;
+     * - élèves liés student_family_links ;
+     * - co-bénéficiaires sur les mêmes instances d'abonnement (abonnement familial sans lien famille explicite).
+     *
+     * @return array<int>
+     */
+    public function getHouseholdStudentIds(): array
+    {
+        if ($this->role !== self::ROLE_STUDENT) {
+            return [];
+        }
+
+        $profiles = Student::query()->where('user_id', $this->id)->get();
+        if ($profiles->isEmpty()) {
+            return [];
+        }
+
+        $all = $profiles->pluck('id')->map(fn ($id) => (int) $id);
+        foreach ($profiles as $student) {
+            $all = $all->merge($student->getAllLinkedStudents()->pluck('id')->map(fn ($id) => (int) $id));
+        }
+
+        $seedIds = $all->unique()->values()->all();
+        if ($seedIds !== []) {
+            $all = $this->mergeCoBeneficiaryStudentIdsFromSharedSubscriptions($all, $seedIds);
+        }
+
+        return $all->unique()->sort()->values()->all();
+    }
+
+    /**
+     * Ajoute les élèves présents sur les mêmes subscription_instances que les IDs de départ (ex. pack familial).
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $all
+     * @param  array<int>  $seedIds
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    private function mergeCoBeneficiaryStudentIdsFromSharedSubscriptions(\Illuminate\Support\Collection $all, array $seedIds): \Illuminate\Support\Collection
+    {
+        $instanceIds = DB::table('subscription_instance_students')
+            ->whereIn('student_id', $seedIds)
+            ->distinct()
+            ->pluck('subscription_instance_id');
+
+        if ($instanceIds->isEmpty()) {
+            return $all;
+        }
+
+        $max = self::HOUSEHOLD_SUBSCRIPTION_INSTANCE_MAX_STUDENTS;
+        $eligibleInstanceIds = collect();
+        foreach ($instanceIds as $instanceId) {
+            $count = (int) DB::table('subscription_instance_students')
+                ->where('subscription_instance_id', $instanceId)
+                ->count();
+            if ($count <= $max) {
+                $eligibleInstanceIds->push($instanceId);
+            }
+        }
+
+        if ($eligibleInstanceIds->isEmpty()) {
+            return $all;
+        }
+
+        $coIds = DB::table('subscription_instance_students')
+            ->whereIn('subscription_instance_id', $eligibleInstanceIds->all())
+            ->pluck('student_id');
+
+        return $all->merge($coIds->map(fn ($id) => (int) $id));
     }
 
     /**

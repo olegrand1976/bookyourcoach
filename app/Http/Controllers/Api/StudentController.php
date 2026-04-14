@@ -30,26 +30,31 @@ class StudentController extends Controller
     protected function getActiveStudent(Request $request)
     {
         $user = $request->user();
-        
-        if (!$user || !$user->student) {
+
+        $householdIds = $user ? $user->getHouseholdStudentIds() : [];
+        if (! $user || $householdIds === []) {
             return null;
         }
 
+        $defaultStudentId = $user->student?->id ?? $householdIds[0];
+
         // Récupérer l'ID de l'étudiant actif depuis la requête (injecté par le middleware)
-        $activeStudentId = $request->input('active_student_id', $user->student->id);
-        
-        // Vérifier que l'étudiant est bien lié au compte ou est le compte principal
-        $linkedStudents = $user->getLinkedStudents();
-        $isLinked = $linkedStudents->contains('id', $activeStudentId) 
-                 || $user->student->id === $activeStudentId;
-        
-        if (!$isLinked) {
-            // Si l'étudiant n'est plus lié, retourner le compte principal
-            return $user->student;
+        $activeStudentId = $request->input('active_student_id', $defaultStudentId);
+
+        // Vérifier que l'étudiant appartient au foyer (même user_id + liens famille)
+        $isLinked = $activeStudentId === 'all'
+            || in_array((int) $activeStudentId, $householdIds, true);
+
+        if (! $isLinked) {
+            return $user->student ?? Student::with('user')->find($defaultStudentId);
+        }
+
+        if ($activeStudentId === 'all' || $activeStudentId === '' || $activeStudentId === null) {
+            return $user->student ?? Student::with('user')->find($defaultStudentId);
         }
 
         // Récupérer et retourner l'étudiant actif
-        return Student::with('user')->find($activeStudentId) ?? $user->student;
+        return Student::with('user')->find((int) $activeStudentId) ?? ($user->student ?? Student::with('user')->find($defaultStudentId));
     }
 
     public function dashboard()
@@ -1669,30 +1674,28 @@ class StudentController extends Controller
         try {
             $user = Auth::user();
             
-            if (!$user->student) {
+            $householdIds = $user->getHouseholdStudentIds();
+            if ($householdIds === []) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil étudiant introuvable'
                 ], 404);
             }
 
-            // Récupérer tous les comptes étudiants liés
-            $linkedStudents = $user->getLinkedStudents();
-            
-            // Inclure le compte principal dans la liste
-            $allAccounts = collect([$user->student])->merge($linkedStudents)->unique('id');
-            
+            $canonicalPrimaryId = (int) Student::query()->where('user_id', $user->id)->orderBy('id')->value('id');
+            $allAccounts = Student::with('user')->whereIn('id', $householdIds)->orderBy('id')->get();
+
             // Formater les données
-            $formatted = $allAccounts->map(function ($student) use ($user) {
-                $isActive = session('active_student_id', $user->student->id) === $student->id;
-                
+            $formatted = $allAccounts->map(function ($student) use ($user, $canonicalPrimaryId) {
+                $isActive = session('active_student_id', $user->student?->id ?? $canonicalPrimaryId) === $student->id;
+
                 return [
                     'id' => $student->id,
                     'name' => $student->name,
                     'email' => $student->user?->email ?? null,
                     'user_id' => $student->user_id,
                     'is_active' => $isActive,
-                    'is_primary' => $student->id === $user->student->id,
+                    'is_primary' => (int) $student->id === $canonicalPrimaryId,
                 ];
             });
 
@@ -1721,8 +1724,8 @@ class StudentController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user->student) {
+
+            if ($user->getHouseholdStudentIds() === []) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Profil étudiant introuvable'
@@ -1731,13 +1734,11 @@ class StudentController extends Controller
 
             // Vérifier que l'étudiant demandé existe
             $targetStudent = Student::with('user')->findOrFail($studentId);
-            
-            // Vérifier que l'étudiant est bien lié au compte actuel ou est le compte principal
-            $linkedStudents = $user->getLinkedStudents();
-            $isLinked = $linkedStudents->contains('id', $studentId) 
-                     || $user->student->id === $studentId;
-            
-            if (!$isLinked) {
+
+            // Vérifier que l'étudiant appartient au foyer (même user_id + liens famille)
+            $isLinked = in_array((int) $studentId, $user->getHouseholdStudentIds(), true);
+
+            if (! $isLinked) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vous n\'avez pas accès à ce compte étudiant'

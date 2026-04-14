@@ -533,6 +533,13 @@ const getEventHeight = (event) => {
 
 // Chargement des données (vue globale ou un élève selon le store)
 const studentScopeStore = useStudentScopeStore()
+const resolveParticipantNames = (lesson) => {
+  const names = (lesson.participants || [])
+    .map(p => p?.user?.name || p?.name)
+    .filter(Boolean)
+  return Array.from(new Set(names))
+}
+
 const loadCalendarEvents = async () => {
   try {
     isLoading.value = true
@@ -541,8 +548,13 @@ const loadCalendarEvents = async () => {
     if (response.data.success) {
       const lessons = response.data.data || []
       const scopeLabel = studentScopeStore.apiScopeParam === 'all' ? (lesson) => {
-        const name = lesson.student?.user?.name || lesson.student?.name
-        return name ? `${lesson.course_type?.name || lesson.courseType?.name || 'Cours'} (${name})` : (lesson.course_type?.name || lesson.courseType?.name || 'Cours')
+        const participants = resolveParticipantNames(lesson)
+        const fallbackName = lesson.student?.user?.name || lesson.student?.name
+        const courseName = lesson.course_type?.name || lesson.courseType?.name || 'Cours'
+        if (participants.length > 0) {
+          return `${courseName} (${participants.join(', ')})`
+        }
+        return fallbackName ? `${courseName} (${fallbackName})` : courseName
       } : (lesson) => lesson.course_type?.name || lesson.courseType?.name || 'Cours'
       events.value = lessons
         .filter(lesson => lesson.start_time)

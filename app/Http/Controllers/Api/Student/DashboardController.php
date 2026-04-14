@@ -36,27 +36,28 @@ class DashboardController extends Controller
     protected function getActiveStudent(Request $request)
     {
         $user = $request->user();
-        
-        if (!$user || !$user->student) {
+
+        $householdIds = $user ? $user->getHouseholdStudentIds() : [];
+        if (! $user || $householdIds === []) {
             return null;
         }
 
-        $activeStudentId = $request->input('active_student_id', $user->student->id);
+        $defaultStudentId = $user->student?->id ?? ($householdIds[0] ?? null);
+        if ($defaultStudentId === null) {
+            return null;
+        }
+
+        $activeStudentId = $request->input('active_student_id', $defaultStudentId);
         if ($activeStudentId === 'all' || $activeStudentId === null || $activeStudentId === '') {
-            return $user->student;
+            return $user->student ?? Student::with('user')->find($defaultStudentId);
         }
 
-        $linkedStudents = $user->getLinkedStudents();
         $targetId = (int) $activeStudentId;
-        $linkedIds = $linkedStudents->pluck('id')->map(fn ($sid) => (int) $sid);
-        $isLinked = $linkedIds->contains($targetId)
-                 || (int) $user->student->id === $targetId;
-
-        if (!$isLinked) {
-            return $user->student;
+        if (! in_array($targetId, $householdIds, true)) {
+            return $user->student ?? Student::with('user')->find($defaultStudentId);
         }
 
-        return Student::with('user')->find($activeStudentId) ?? $user->student;
+        return Student::with('user')->find($activeStudentId) ?? ($user->student ?? Student::with('user')->find($defaultStudentId));
     }
 
     /**
@@ -69,11 +70,15 @@ class DashboardController extends Controller
     protected function getActiveStudentIds(Request $request): array
     {
         $user = $request->user();
-        if (!$user || !$user->student) {
+        if (! $user) {
             return [];
         }
 
-        $linkedIds = collect([$user->student->id])->merge($user->getLinkedStudents()->pluck('id'))->unique()->values()->all();
+        $linkedIds = $user->getHouseholdStudentIds();
+        if ($linkedIds === []) {
+            return [];
+        }
+
         // Priorité au paramètre de requête (choix frontend vue globale / un élève)
         $param = $request->query('active_student_id') ?? $request->input('active_student_id');
 
@@ -86,7 +91,8 @@ class DashboardController extends Controller
             return [$id];
         }
 
-        $fromSession = session('active_student_id', $user->student->id);
+        $defaultSessionStudent = $user->student?->id ?? ($linkedIds[0] ?? null);
+        $fromSession = session('active_student_id', $defaultSessionStudent);
         if (in_array((int) $fromSession, $linkedIds, true)) {
             return [(int) $fromSession];
         }
@@ -204,7 +210,7 @@ class DashboardController extends Controller
     public function getBookings(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->student) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
@@ -219,7 +225,7 @@ class DashboardController extends Controller
             ], 404);
         }
 
-        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
+        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user', 'students.user'])
             ->forParticipantStudents($studentIds);
 
         if ($request->has('status')) {
@@ -723,7 +729,7 @@ class DashboardController extends Controller
     public function getLessonHistory(Request $request)
     {
         $user = $request->user();
-        if (!$user || !$user->student) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'Profil étudiant non trouvé'
@@ -739,7 +745,7 @@ class DashboardController extends Controller
         }
 
         // Historique : cours terminés et annulés
-        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user'])
+        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user', 'students.user'])
             ->forParticipantStudents($studentIds)
             ->whereIn('status', ['completed', 'cancelled'])
             ->orderBy('start_time', 'desc')

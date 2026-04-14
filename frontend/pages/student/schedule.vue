@@ -129,8 +129,12 @@ const studentScopeStore = useStudentScopeStore()
 const selectedLesson = ref(null)
 const calendarKey = ref(0)
 
-onMounted(() => {
-  studentScopeStore.loadLinkedAccounts()
+onMounted(async () => {
+  await studentScopeStore.loadLinkedAccounts()
+  // Sur la page planning, on démarre toujours en vue globale
+  // pour afficher immédiatement les cours des deux élèves d'un abonnement familial.
+  studentScopeStore.setGlobalView()
+  calendarKey.value++
 })
 
 // Vérifier que l'utilisateur peut agir comme étudiant
