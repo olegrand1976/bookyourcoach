@@ -37,8 +37,9 @@ class LessonCancelledByStudentStakeholderNotification extends Notification imple
     public function toMail(object $notifiable): MailMessage
     {
         $this->lesson->loadMissing(['courseType', 'location', 'teacher.user']);
+        $this->student->loadMissing('user');
 
-        $studentName = $this->student->user->name ?? 'Un élève';
+        $studentName = $this->resolveStudentDisplayName();
         $courseTypeName = $this->lesson->courseType->name ?? 'Cours';
         $lessonDate = Carbon::parse($this->lesson->start_time)->format('d/m/Y à H:i');
         $locationName = $this->lesson->location->name ?? 'Non spécifié';
@@ -101,5 +102,24 @@ class LessonCancelledByStudentStakeholderNotification extends Notification imple
             'has_certificate' => $this->hasCertificate,
             'count_in_subscription' => $this->countInSubscription,
         ];
+    }
+
+    /**
+     * Resolve a clear student name for stakeholder emails.
+     * Falls back to Student accessor (first_name + last_name) and finally a stable label with ID.
+     */
+    private function resolveStudentDisplayName(): string
+    {
+        $fromUser = trim((string) ($this->student->user?->name ?? ''));
+        if ($fromUser !== '') {
+            return $fromUser;
+        }
+
+        $fromStudent = trim((string) ($this->student->name ?? ''));
+        if ($fromStudent !== '') {
+            return $fromStudent;
+        }
+
+        return "Élève #{$this->student->id}";
     }
 }
