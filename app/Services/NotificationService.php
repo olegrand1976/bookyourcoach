@@ -165,7 +165,7 @@ class NotificationService
             }
 
             $ccEmails = $this->clubStakeholderEmails($club);
-            $dashboardUrl = FrontendUrl::login('/teacher/dashboard');
+            $dashboardUrl = FrontendUrl::login('/teacher/dashboard#pending-replacements');
 
             Mail::to($replacementUser->email)->send(new TeacherLessonReplacementInvitationMail(
                 $club,
@@ -249,7 +249,7 @@ class NotificationService
             ->values()
             ->all();
 
-        $dashboardUrl = FrontendUrl::login('/teacher/dashboard');
+        $dashboardUrl = FrontendUrl::login('/teacher/dashboard#pending-replacements');
 
         Mail::to($toEmail)->send(new TeacherLessonReplacementReminderMail(
             $club,

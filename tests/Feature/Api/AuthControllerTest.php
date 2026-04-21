@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Teacher;
 use App\Models\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -231,5 +232,42 @@ class AuthControllerTest extends TestCase
 
         $response = $this->postJson('/api/auth/logout');
         $response->assertStatus(401);
+    }
+
+    #[Test]
+    public function it_includes_teacher_in_login_response_for_teacher_user(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_TEACHER,
+            'password' => Hash::make('password123'),
+        ]);
+        $teacher = Teacher::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('user.teacher.id', $teacher->id);
+    }
+
+    #[Test]
+    public function it_includes_teacher_in_auth_user_response_for_teacher(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_TEACHER,
+            'password' => Hash::make('password123'),
+        ]);
+        $teacher = Teacher::factory()->create(['user_id' => $user->id]);
+
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+        ])->getJson('/api/auth/user');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('user.teacher.id', $teacher->id);
     }
 }

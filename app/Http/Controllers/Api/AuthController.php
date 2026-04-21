@@ -200,6 +200,10 @@ class AuthController extends Controller
         // Auth::attempt() a déjà trouvé le bon utilisateur grâce au mot de passe
         $user = Auth::user();
 
+        if ($user->role === User::ROLE_TEACHER) {
+            $user->load('teacher');
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

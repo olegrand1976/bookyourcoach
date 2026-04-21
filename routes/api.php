@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\TeacherController;
@@ -31,8 +32,13 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', function (Request $request) {
+            $user = $request->user();
+            if ($user->role === User::ROLE_TEACHER) {
+                $user->load('teacher');
+            }
+
             return response()->json([
-                'user' => $request->user(),
+                'user' => $user,
             ]);
         });
         Route::get('/debug-user', function (Request $request) {

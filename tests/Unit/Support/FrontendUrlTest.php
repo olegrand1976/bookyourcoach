@@ -22,6 +22,10 @@ class FrontendUrlTest extends TestCase
     {
         $this->assertSame('/student/dashboard', FrontendUrl::sanitizeRedirectPath('/student/dashboard'));
         $this->assertSame('/club/planning?x=1', FrontendUrl::sanitizeRedirectPath('/club/planning?x=1'));
+        $this->assertSame(
+            '/teacher/dashboard#pending-replacements',
+            FrontendUrl::sanitizeRedirectPath('/teacher/dashboard#pending-replacements')
+        );
     }
 
     #[Test]
@@ -33,6 +37,10 @@ class FrontendUrlTest extends TestCase
         $this->assertSame(
             'https://app.example.com/login?redirect=%2Fteacher%2Fdashboard',
             FrontendUrl::login('/teacher/dashboard')
+        );
+        $this->assertSame(
+            'https://app.example.com/login?redirect='.rawurlencode('/teacher/dashboard#pending-replacements'),
+            FrontendUrl::login('/teacher/dashboard#pending-replacements')
         );
     }
 }

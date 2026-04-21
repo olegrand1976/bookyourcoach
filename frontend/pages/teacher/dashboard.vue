@@ -187,7 +187,11 @@
       </div>
 
       <!-- Notifications de remplacement -->
-      <div v-if="pendingReplacementsReceived.length > 0" class="mb-8">
+      <div
+        v-if="pendingReplacementsReceived.length > 0"
+        id="pending-replacements"
+        class="mb-8 scroll-mt-20"
+      >
         <div class="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-6">
           <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -689,7 +693,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import LessonDetailsModal from '~/components/teacher/LessonDetailsModal.vue'
 import ReplacementRequestModal from '~/components/teacher/ReplacementRequestModal.vue'
 import BulkReplacementRequestModal from '~/components/teacher/BulkReplacementRequestModal.vue'
@@ -700,7 +704,14 @@ definePageMeta({
 })
 
 const authStore = useAuthStore()
+const route = useRoute()
 const { $api } = useNuxtApp()
+
+/** Teachers table PK — must not use user.id (see lesson replacement filters). */
+const currentTeacherId = computed((): number | null => {
+  const id = authStore.user?.teacher?.id
+  return id != null ? Number(id) : null
+})
 
 // State
 const loading = ref(true)
@@ -778,19 +789,25 @@ const selectedClubName = computed(() => {
 
 // Demandes REÇUES (où je suis le remplaçant potentiel) - en attente de MA réponse
 const pendingReplacementsReceived = computed(() => {
-  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
-  return allReplacements.value.filter(r => 
-    r.status === 'pending' && 
-    r.replacement_teacher_id === teacherId
+  const teacherId = currentTeacherId.value
+  if (teacherId == null) {
+    return []
+  }
+  return allReplacements.value.filter(r =>
+    r.status === 'pending' &&
+    Number(r.replacement_teacher_id) === teacherId
   )
 })
 
 // Demandes ENVOYÉES (où je suis le demandeur) - en attente de réponse
 const pendingReplacementsSent = computed(() => {
-  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
-  return allReplacements.value.filter(r => 
-    r.status === 'pending' && 
-    r.original_teacher_id === teacherId
+  const teacherId = currentTeacherId.value
+  if (teacherId == null) {
+    return []
+  }
+  return allReplacements.value.filter(r =>
+    r.status === 'pending' &&
+    Number(r.original_teacher_id) === teacherId
   )
 })
 
@@ -804,9 +821,29 @@ const selectedLessonsForBulk = computed(() => {
   return filteredLessons.value.filter(l => idSet.has(l.id))
 })
 
+function scrollToPendingReplacementsIfNeeded() {
+  if (typeof document === 'undefined') {
+    return
+  }
+  const hash = (route.hash || '').replace(/^#/, '')
+  const section = route.query.section
+  if (hash !== 'pending-replacements' && section !== 'pending-replacements') {
+    return
+  }
+  nextTick(() => {
+    document.getElementById('pending-replacements')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+watch(
+  () => [route.hash, route.query.section] as const,
+  () => scrollToPendingReplacementsIfNeeded()
+)
+
 // Methods
 onMounted(async () => {
   await loadData()
+  scrollToPendingReplacementsIfNeeded()
 })
 
 async function loadData() {
@@ -821,6 +858,9 @@ async function loadData() {
       })
       if (dashboardResponse.data.success && dashboardResponse.data.data) {
         const data = dashboardResponse.data.data
+        if (data.teacher?.id && authStore.user) {
+          authStore.user = { ...authStore.user, teacher: data.teacher }
+        }
         dashboardStats.value = data.stats
         monthlyEarnings.value = data.stats?.monthly_earnings || 0
         revenues.value = data.stats?.revenues || null
@@ -924,9 +964,9 @@ function getClubAddress(club: any): string {
 // Fonction pour vérifier si on est l'enseignant d'origine pour ce remplacement
 function isOriginalTeacherForReplacement(replacement: any): boolean {
   if (!replacement) return false
-  const teacherId = authStore.user?.teacher?.id
-  if (!teacherId) return false
-  return replacement.original_teacher_id === teacherId
+  const teacherId = currentTeacherId.value
+  if (teacherId == null) return false
+  return Number(replacement.original_teacher_id) === teacherId
 }
 
 function openLessonDetails(lesson: any) {
@@ -1206,22 +1246,28 @@ function canSelectForBulkReplacement(lesson: any): boolean {
 
 // Fonction pour vérifier si on a reçu une demande de remplacement en attente pour ce cours
 function hasPendingReplacementReceived(lessonId: number): boolean {
-  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
-  const replacement = allReplacements.value.find(r => 
-    r.lesson_id === lessonId && 
-    r.status === 'pending' && 
-    r.replacement_teacher_id === teacherId
+  const teacherId = currentTeacherId.value
+  if (teacherId == null) {
+    return false
+  }
+  const replacement = allReplacements.value.find(r =>
+    r.lesson_id === lessonId &&
+    r.status === 'pending' &&
+    Number(r.replacement_teacher_id) === teacherId
   )
   return !!replacement
 }
 
 // Fonction pour accepter un remplacement directement depuis la table
 async function acceptReplacementForLesson(lessonId: number) {
-  const teacherId = authStore.user?.teacher?.id || authStore.user?.id
-  const replacement = allReplacements.value.find(r => 
-    r.lesson_id === lessonId && 
-    r.status === 'pending' && 
-    r.replacement_teacher_id === teacherId
+  const teacherId = currentTeacherId.value
+  if (teacherId == null) {
+    return
+  }
+  const replacement = allReplacements.value.find(r =>
+    r.lesson_id === lessonId &&
+    r.status === 'pending' &&
+    Number(r.replacement_teacher_id) === teacherId
   )
   
   if (replacement) {

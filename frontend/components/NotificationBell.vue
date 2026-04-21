@@ -63,7 +63,7 @@
             <div
               v-for="notification in notifications"
               :key="notification.id"
-              @click="markAsRead(notification)"
+              @click="onNotificationClick(notification)"
               class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
               :class="{ 'bg-blue-50': !notification.read }"
             >
@@ -178,6 +178,14 @@ async function markAsRead(notification: any) {
     unreadCount.value = Math.max(0, unreadCount.value - 1)
   } catch (error) {
     console.error('❌ Erreur marquage notification:', error)
+  }
+}
+
+async function onNotificationClick(notification: any) {
+  await markAsRead(notification)
+  if (notification.type === 'replacement_request') {
+    showPanel.value = false
+    await navigateTo({ path: '/teacher/dashboard', hash: '#pending-replacements' })
   }
 }
 
