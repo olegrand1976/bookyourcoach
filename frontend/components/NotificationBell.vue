@@ -64,6 +64,11 @@
               v-for="notification in notifications"
               :key="notification.id"
               @click="onNotificationClick(notification)"
+              @keydown.enter.prevent="onNotificationClick(notification)"
+              @keydown.space.prevent="onNotificationClick(notification)"
+              tabindex="0"
+              role="button"
+              :aria-label="`Ouvrir notification: ${notification.title}`"
               class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
               :class="{ 'bg-blue-50': !notification.read }"
             >
@@ -183,10 +188,17 @@ async function markAsRead(notification: any) {
 
 async function onNotificationClick(notification: any) {
   await markAsRead(notification)
+  const target = notificationNavigationTarget(notification)
+  if (!target) return
+  showPanel.value = false
+  await navigateTo(target)
+}
+
+function notificationNavigationTarget(notification: any) {
   if (notification.type === 'replacement_request') {
-    showPanel.value = false
-    await navigateTo({ path: '/teacher/dashboard', hash: '#pending-replacements' })
+    return { path: '/teacher/dashboard', hash: '#pending-replacements' as const }
   }
+  return null
 }
 
 async function markAllAsRead() {

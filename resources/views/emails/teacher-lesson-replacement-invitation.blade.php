@@ -25,8 +25,9 @@
         <p>Bonjour {{ $replacementTeacherName }},</p>
         <p><strong>{{ $originalTeacherName }}</strong> vous demande de le ou la remplacer sur le ou les cours ci-dessous.</p>
         <p class="muted">Merci de vous connecter à votre <strong>espace enseignant</strong> pour <strong>accepter</strong> ou <strong>refuser</strong> cette demande (section remplacements / notifications).</p>
+        <p class="muted"><strong>Action attendue :</strong> ouvrez le tableau de bord puis traitez la demande dans le bloc orange "demandes de remplacement à traiter".</p>
         @if(!empty($teacherDashboardUrl))
-            <p><a class="cta" href="{{ $teacherDashboardUrl }}">Ouvrir mon espace enseignant</a></p>
+            <p><a class="cta" href="{{ $teacherDashboardUrl }}">Traiter la demande de remplacement</a></p>
         @endif
         <p><strong>Motif indiqué par le demandeur :</strong> {{ $reason }}</p>
         @if(!empty($notes))
