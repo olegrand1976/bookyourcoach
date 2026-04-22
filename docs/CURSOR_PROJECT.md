@@ -16,6 +16,10 @@ Ce document sert de **point d’entrée** pour les règles d’assistance au cod
 - **Authentification** : `docs/AUTH_SOLUTION.md` — stratégie **différenciée** local (token, pas de cookies) vs production (Sanctum SPA, cookies). Ne pas « uniformiser » sans lire ce document.
 - **Sanctum production** : `docs/PRODUCTION_SANCTUM_CONFIG.md`
 - **Tests** : commande Cursor `test` → `./scripts/test-all.sh` ; `phpunit` → `./scripts/run-phpunit.sh` (voir `.cursor/commands/`)
+- **Tests Docker SQLite** : service `php-test` (profil `test`) disponible dans `docker-compose.yml` **et** `docker-compose.local.yml`. Utiliser en priorité :
+  - `composer test:docker`
+  - `composer test:docker:local`
+  - ou `docker compose --profile test run --rm php-test ...`
 
 ## Index des règles Cursor (résumé)
 
@@ -24,6 +28,7 @@ Ce document sert de **point d’entrée** pour les règles d’assistance au cod
 - `Multi-Tenant-Data-Isolation.mdc` — isolation par `club_id` sur le code PHP API.
 - `API-Design-System-Contracts.mdc` — format `{ success, data, message }`, FormRequests, Resources.
 - `Planning-Recurrence-Logic.mdc` — récurrences validées sur 26 semaines.
+- `Testing-Docker-SQLite.mdc` — exécuter les tests dans le runner Docker `php-test` (SQLite) pour éviter les dépendances locales manquantes.
 
 ## Plans et docs produit
 

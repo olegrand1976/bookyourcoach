@@ -1,0 +1,29 @@
+# Docker Testing with SQLite
+
+Pour garantir des tests exécutables sans dépendance PHP locale (ex. `pdo_sqlite` manquant), utiliser le runner Docker `php-test`.
+
+## Règle
+
+- Pour les tests backend Laravel, privilégier:
+  - `composer test:docker`
+  - `composer test:docker:local`
+- Éviter de dépendre d'un PHP hôte non contrôlé pour `php artisan test`.
+
+## Stack concernée
+
+- `docker-compose.yml` : service `php-test` (profil `test`)
+- `docker-compose.local.yml` : service `php-test` (profil `test`)
+- Image build: `docker/php-test/Dockerfile` (inclut `pdo_sqlite`)
+
+## Commandes de référence
+
+```bash
+composer test:docker
+composer test:docker:local
+docker compose --profile test run --rm php-test sh -c "mkdir -p database && touch database/testing.sqlite && php artisan test"
+```
+
+## Attendu pour les agents
+
+- Si les tests échouent localement avec `could not find driver` (sqlite), relancer via `php-test`.
+- Documenter les commandes Docker de test dans les PR/notes de changement lorsqu'un fix dépend du runner SQLite.
