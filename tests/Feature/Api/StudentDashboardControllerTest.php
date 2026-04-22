@@ -274,6 +274,15 @@ class StudentDashboardControllerTest extends TestCase
             'location_id' => $location->id,
         ]);
 
+        Lesson::factory()->create([
+            'student_id' => $student->id,
+            'status' => 'cancelled',
+            'start_time' => Carbon::now()->addDays(4),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
         // Act
         $response = $this->getJson('/api/student/bookings');
 
@@ -293,6 +302,7 @@ class StudentDashboardControllerTest extends TestCase
 
         $bookings = $response->json('data');
         $this->assertCount(5, $bookings);
+        $this->assertNotContains('cancelled', array_column($bookings, 'status'));
     }
 
     #[Test]
@@ -332,6 +342,80 @@ class StudentDashboardControllerTest extends TestCase
         $bookings = $response->json('data');
         $this->assertCount(3, $bookings);
         $this->assertEquals('confirmed', $bookings[0]['status']);
+    }
+
+    #[Test]
+    public function it_can_include_cancelled_bookings_when_requested(): void
+    {
+        $user = $this->actingAsStudent();
+        $student = $user->student;
+
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        Lesson::factory()->create([
+            'student_id' => $student->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(1),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        Lesson::factory()->count(2)->create([
+            'student_id' => $student->id,
+            'status' => 'cancelled',
+            'start_time' => Carbon::now()->addDays(2),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        $response = $this->getJson('/api/student/bookings?include_cancelled=true');
+
+        $response->assertStatus(200);
+        $bookings = $response->json('data');
+
+        $this->assertCount(3, $bookings);
+        $this->assertContains('cancelled', array_column($bookings, 'status'));
+    }
+
+    #[Test]
+    public function it_can_get_only_cancelled_bookings_with_status_filter(): void
+    {
+        $user = $this->actingAsStudent();
+        $student = $user->student;
+
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        Lesson::factory()->create([
+            'student_id' => $student->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(1),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        Lesson::factory()->count(2)->create([
+            'student_id' => $student->id,
+            'status' => 'cancelled',
+            'start_time' => Carbon::now()->addDays(2),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+
+        $response = $this->getJson('/api/student/bookings?status=cancelled');
+
+        $response->assertStatus(200);
+        $bookings = $response->json('data');
+
+        $this->assertCount(2, $bookings);
+        $this->assertTrue(collect($bookings)->every(fn ($booking) => $booking['status'] === 'cancelled'));
     }
 
     #[Test]

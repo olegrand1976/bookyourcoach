@@ -254,7 +254,8 @@ const filteredBookings = computed(() => {
 // Methods
 const loadBookings = async () => {
   try {
-    bookings.value = await loadBookingsData()
+    // In history/bookings view, include cancelled lessons explicitly.
+    bookings.value = await loadBookingsData({ includeCancelled: true })
   } catch (err) {
     console.error('Error loading bookings:', err)
   }

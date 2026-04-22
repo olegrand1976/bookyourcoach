@@ -543,7 +543,10 @@ const resolveParticipantNames = (lesson) => {
 const loadCalendarEvents = async () => {
   try {
     isLoading.value = true
-    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const params = {
+      active_student_id: studentScopeStore.apiScopeParam,
+      include_cancelled: false
+    }
     const response = await $api.get('/student/bookings', { params })
     if (response.data.success) {
       const lessons = response.data.data || []
@@ -557,7 +560,8 @@ const loadCalendarEvents = async () => {
         return fallbackName ? `${courseName} (${fallbackName})` : courseName
       } : (lesson) => lesson.course_type?.name || lesson.courseType?.name || 'Cours'
       events.value = lessons
-        .filter(lesson => lesson.start_time)
+        // Defensive frontend guard: cancelled lessons must not appear in main calendar.
+        .filter(lesson => lesson.start_time && lesson.status !== 'cancelled')
         .map(lesson => ({
           id: lesson.id,
           title: scopeLabel(lesson),

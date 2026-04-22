@@ -65,12 +65,13 @@ export const useStudentData = () => {
   /**
    * Charger les réservations
    */
-  const loadBookings = async () => {
+  const loadBookings = async (options?: { includeCancelled?: boolean }) => {
     try {
       loading.value = true
       error.value = null
-      
-      const response = await $api.get('/student/bookings')
+
+      const params = options?.includeCancelled ? { include_cancelled: true } : undefined
+      const response = await $api.get('/student/bookings', { params })
       
       if (response.data.success) {
         return response.data.data || []

@@ -230,6 +230,9 @@ class DashboardController extends Controller
 
         if ($request->has('status')) {
             $query->where('status', $request->status);
+        } elseif (! $request->boolean('include_cancelled', false)) {
+            // Planning student: hide cancelled lessons by default.
+            $query->where('status', '!=', 'cancelled');
         }
 
         $bookings = $query->orderBy('start_time', 'desc')->get();

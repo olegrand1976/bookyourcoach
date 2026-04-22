@@ -157,7 +157,25 @@ describe('useStudentData Composable', () => {
       const result = await loadBookings()
 
       // Assert
-      expect(mockApi.get).toHaveBeenCalledWith('/student/bookings')
+      expect(mockApi.get).toHaveBeenCalledWith('/student/bookings', { params: undefined })
+      expect(result).toEqual(mockBookings.data)
+    })
+
+    it('devrait inclure les annulations quand demandé', async () => {
+      // Arrange
+      const mockBookings = {
+        success: true,
+        data: [{ id: 3, status: 'cancelled', lesson: { id: 12 } }]
+      }
+      mockApi.get.mockResolvedValue({ data: mockBookings })
+
+      const { loadBookings } = useStudentData()
+
+      // Act
+      const result = await loadBookings({ includeCancelled: true })
+
+      // Assert
+      expect(mockApi.get).toHaveBeenCalledWith('/student/bookings', { params: { include_cancelled: true } })
       expect(result).toEqual(mockBookings.data)
     })
 
