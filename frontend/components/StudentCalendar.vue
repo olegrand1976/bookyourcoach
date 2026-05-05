@@ -4,6 +4,15 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 border-b border-gray-200">
       <h2 class="text-lg sm:text-xl font-semibold text-gray-900">Mon Calendrier</h2>
       <div class="flex flex-wrap items-center gap-2">
+        <label class="inline-flex items-center gap-2 mr-2 text-sm text-gray-700 select-none">
+          <input
+            v-model="showCancelled"
+            type="checkbox"
+            class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            @change="loadCalendarEvents"
+          >
+          Afficher les cours annulés
+        </label>
         <button @click="toggleView('month')" 
           :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
             currentView === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']">
@@ -311,6 +320,7 @@ const currentDate = ref(new Date())
 const events = ref([])
 const selectedEvent = ref(null)
 const isLoading = ref(false)
+const showCancelled = ref(false)
 
 // Masquer le bouton Semaine sur mobile (largeur < 768px)
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
@@ -545,7 +555,7 @@ const loadCalendarEvents = async () => {
     isLoading.value = true
     const params = {
       active_student_id: studentScopeStore.apiScopeParam,
-      include_cancelled: false
+      include_cancelled: showCancelled.value
     }
     const response = await $api.get('/student/bookings', { params })
     if (response.data.success) {
@@ -560,8 +570,11 @@ const loadCalendarEvents = async () => {
         return fallbackName ? `${courseName} (${fallbackName})` : courseName
       } : (lesson) => lesson.course_type?.name || lesson.courseType?.name || 'Cours'
       events.value = lessons
-        // Defensive frontend guard: cancelled lessons must not appear in main calendar.
-        .filter(lesson => lesson.start_time && lesson.status !== 'cancelled')
+        .filter(lesson => {
+          if (!lesson.start_time) return false
+          if (!showCancelled.value && lesson.status === 'cancelled') return false
+          return true
+        })
         .map(lesson => ({
           id: lesson.id,
           title: scopeLabel(lesson),

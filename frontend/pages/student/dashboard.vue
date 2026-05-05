@@ -428,7 +428,7 @@ const loadUpcomingLessons = async () => {
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending', 'cancelled'].includes(lesson.status)
+          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending'].includes(lesson.status)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(a.start_time)
@@ -472,7 +472,7 @@ const loadUpcomingLessons = async () => {
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending', 'cancelled'].includes(lesson.status)
+          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending'].includes(lesson.status)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(a.start_time)
