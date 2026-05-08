@@ -4,6 +4,10 @@ import { useAuthStore } from '~/stores/auth'
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
 
+  const apiBase = config.public.apiBase || ''
+  const isLocalApi =
+    apiBase.includes('localhost') || apiBase.includes('127.0.0.1')
+
   const normalizeToken = (value?: string | null) => {
     if (!value || typeof value !== 'string') return null
     if (value.includes('|')) return value
@@ -15,19 +19,23 @@ export default defineNuxtPlugin(() => {
   }
 
   const api = axios.create({
-    baseURL: config.public.apiBase,
+    baseURL: apiBase,
+    // Sanctum SPA (production) : cookie de session ; en local rester à false (voir docs/AUTH_SOLUTION.md)
+    withCredentials: !isLocalApi,
     headers: {
-      'Accept': 'application/json'
-    }
+      Accept: 'application/json',
+      ...(!isLocalApi ? { 'X-Requested-With': 'XMLHttpRequest' as const } : {}),
+    },
   })
 
-  // Intercepteur : token + Content-Type uniquement pour le JSON (jamais pour FormData)
+  // Intercepteur : token + Content-Type JSON sauf FormData / méthodes sans corps
   api.interceptors.request.use((config) => {
     const isFormData = config.data && typeof FormData !== 'undefined' && (
       config.data instanceof FormData ||
       (typeof config.data.constructor !== 'undefined' && config.data.constructor.name === 'FormData')
     )
-    if (!isFormData) {
+    const method = (config.method || 'get').toLowerCase()
+    if (!isFormData && !['get', 'head'].includes(method)) {
       config.headers['Content-Type'] = 'application/json'
     }
     // FormData : ne pas toucher à Content-Type, le navigateur enverra multipart/form-data; boundary=...

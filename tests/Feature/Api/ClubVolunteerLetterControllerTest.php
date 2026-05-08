@@ -327,5 +327,99 @@ class ClubVolunteerLetterControllerTest extends TestCase
         // Assert
         $response->assertStatus(403);
     }
+
+    #[Test]
+    public function admin_can_download_volunteer_letter_pdf(): void
+    {
+        $this->actingAsAdmin();
+
+        $club = Club::factory()->create([
+            'company_number' => 'BE0123456789',
+            'legal_representative_name' => 'Jane Doe',
+            'legal_representative_role' => 'Directeur',
+            'insurance_rc_company' => 'Assureur XYZ',
+            'insurance_rc_policy_number' => 'POL-ADM-1',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => '10€ par jour',
+        ]);
+
+        $teacher = Teacher::factory()->create();
+        $teacher->clubs()->attach($club->id, [
+            'is_active' => true,
+            'contract_type' => 'volunteer',
+            'joined_at' => now(),
+        ]);
+
+        VolunteerExpenseLimit::updateOrCreate(
+            ['year' => now()->year],
+            [
+                'daily_amount' => 10,
+                'yearly_amount' => 45.50,
+                'yearly_special_categories' => null,
+                'yearly_health_sector' => null,
+            ]
+        );
+
+        $response = $this->get("/api/club/volunteer-letters/pdf/{$teacher->id}");
+
+        $response->assertOk();
+        $contentType = strtolower($response->headers->get('Content-Type', ''));
+        $this->assertTrue(
+            str_contains($contentType, 'pdf') || str_contains($contentType, 'octet-stream'),
+            'Content-Type attendu PDF, reçu: '.$contentType
+        );
+        $disp = strtolower($response->headers->get('Content-Disposition', ''));
+        $this->assertStringContainsString('attachment', $disp);
+        $this->assertStringContainsString('.pdf', $disp);
+    }
+
+    #[Test]
+    public function club_admin_can_download_volunteer_pdf_with_bearer_token(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'club',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+
+        $club = Club::factory()->create([
+            'company_number' => 'BE0999999999',
+            'legal_representative_name' => 'Club Lead',
+            'legal_representative_role' => 'Directeur',
+            'insurance_rc_company' => 'Assureur',
+            'insurance_rc_policy_number' => 'POL-BEARER',
+            'expense_reimbursement_type' => 'forfait',
+            'expense_reimbursement_details' => 'NA',
+        ]);
+
+        DB::table('club_user')->insert([
+            'user_id' => $user->id,
+            'club_id' => $club->id,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $token = $user->createToken('api-test')->plainTextToken;
+
+        $teacher = Teacher::factory()->create();
+        $teacher->clubs()->attach($club->id, [
+            'is_active' => true,
+            'contract_type' => 'volunteer',
+            'joined_at' => now(),
+        ]);
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'Accept' => 'application/pdf',
+        ])->get("/api/club/volunteer-letters/pdf/{$teacher->id}");
+
+        $response->assertOk();
+        $disp = strtolower($response->headers->get('Content-Disposition', ''));
+        $this->assertStringContainsString('attachment', $disp);
+        $this->assertStringContainsString('.pdf', $disp);
+    }
 }
 

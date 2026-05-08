@@ -10,14 +10,13 @@ class ClubMiddleware
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
      * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
     public function handle(Request $request, Closure $next)
     {
         $user = $request->user();
-        
+
         \Log::info('ClubMiddleware - Vérification accès', [
             'path' => $request->path(),
             'method' => $request->method(),
@@ -26,31 +25,32 @@ class ClubMiddleware
             'user_email' => optional($user)->email,
             'user_role' => optional($user)->role,
             'has_bearer' => (bool) $request->bearerToken(),
-            'bearer_preview' => $request->bearerToken() ? substr($request->bearerToken(), 0, 10) . '...' : null,
+            'bearer_preview' => $request->bearerToken() ? substr($request->bearerToken(), 0, 10).'...' : null,
         ]);
-        
+
         // Si l'utilisateur n'est pas authentifié, retourner 401
-        if (!$user) {
+        if (! $user) {
             \Log::warning('ClubMiddleware - Accès refusé (401) - Non authentifié', [
                 'has_bearer' => (bool) $request->bearerToken(),
                 'path' => $request->path(),
                 'method' => $request->method(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthenticated',
-                'error' => 'Missing token'
+                'error' => 'Missing token',
             ], 401);
         }
 
-        // Si l'utilisateur est authentifié et a le rôle club, autoriser l'accès
-        if ($user->role === 'club') {
+        // Comptes club : accès API préfixe club. Admins plateforme aussi (même règle que le middleware Nuxt sur /club/*).
+        if ($user->role === 'club' || $user->role === 'admin') {
             \Log::info('ClubMiddleware - Accès autorisé', [
                 'user_id' => $user->id,
                 'user_email' => $user->email,
                 'path' => $request->path(),
             ]);
+
             return $next($request);
         }
 
@@ -68,9 +68,9 @@ class ClubMiddleware
         return response()->json([
             'success' => false,
             'message' => 'Unauthorized',
-            'error' => 'Accès non autorisé. Rôle club requis.',
+            'error' => 'Accès non autorisé. Rôle club ou administrateur plateforme requis.',
             'required_role' => 'club',
-            'user_role' => $user->role
+            'user_role' => $user->role,
         ], 403);
     }
 }

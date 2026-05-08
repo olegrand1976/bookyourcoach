@@ -2,11 +2,10 @@
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use App\Models\User;
-use Tests\CreatesApplication;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Laravel\Sanctum\Sanctum;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -22,7 +21,7 @@ abstract class TestCase extends BaseTestCase
 
         if (extension_loaded('pdo_sqlite')) {
             $databasePath = database_path('testing.sqlite');
-            if (!file_exists($databasePath)) {
+            if (! file_exists($databasePath)) {
                 touch($databasePath);
             }
             config(['database.default' => 'sqlite']);
@@ -34,7 +33,7 @@ abstract class TestCase extends BaseTestCase
             ]]);
         } else {
             config(['database.default' => 'mysql']);
-            $testDb = env('DB_DATABASE_TEST', (env('DB_DATABASE', 'bookyourcoach')) . '_test');
+            $testDb = env('DB_DATABASE_TEST', (env('DB_DATABASE', 'bookyourcoach')).'_test');
             config(['database.connections.mysql.database' => $testDb]);
             $this->app->forgetInstance(\Illuminate\Database\DatabaseManager::class);
         }
@@ -53,10 +52,11 @@ abstract class TestCase extends BaseTestCase
 
         // Créer un token Sanctum pour l'admin
         $token = $admin->createToken('test-token')->plainTextToken;
-        
-        // Définir l'en-tête Authorization pour le middleware admin
+
+        Sanctum::actingAs($admin);
+
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'Accept' => 'application/json',
         ]);
 
@@ -75,7 +75,7 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         $club = \App\Models\Club::factory()->create();
-        
+
         // Créer l'entrée dans club_user (table correcte)
         \Illuminate\Support\Facades\DB::table('club_user')->insert([
             'user_id' => $user->id,
@@ -86,12 +86,12 @@ abstract class TestCase extends BaseTestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        
+
         // Ajouter une propriété dynamique pour accéder au club facilement dans les tests
         $user->club_id = $club->id;
 
         Sanctum::actingAs($user);
-        
+
         $this->withHeaders([
             'Accept' => 'application/json',
         ]);
@@ -115,7 +115,7 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         Sanctum::actingAs($user);
-        
+
         $this->withHeaders([
             'Accept' => 'application/json',
         ]);
@@ -139,7 +139,7 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         Sanctum::actingAs($user);
-        
+
         $this->withHeaders([
             'Accept' => 'application/json',
         ]);

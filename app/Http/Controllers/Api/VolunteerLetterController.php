@@ -3,17 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendVolunteerLetterJob;
 use App\Models\Club;
 use App\Models\Teacher;
 use App\Models\VolunteerLetterSend;
-use App\Mail\VolunteerLetterMail;
-use App\Jobs\SendVolunteerLetterJob;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class VolunteerLetterController extends Controller
 {
@@ -23,71 +22,47 @@ class VolunteerLetterController extends Controller
     public function sendToTeacher(Request $request, $teacherId)
     {
         try {
+            $resolved = $this->volunteerTeacherAndClubForLetter($request, (int) $teacherId);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved;
+            }
+            /** @var Club $club */
+            $club = $resolved['club'];
+            /** @var Teacher $teacher */
+            $teacher = $resolved['teacher'];
             $user = $request->user();
-            
-            // Récupérer le club de l'utilisateur
-            $clubUser = DB::table('club_user')
-                ->where('user_id', $user->id)
-                ->where('is_admin', true)
-                ->first();
-            
-            if (!$clubUser) {
+
+            if (! $teacher->user || ! $teacher->user->email) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vous devez être administrateur d\'un club'
-                ], 403);
-            }
-            
-            $club = Club::with(['teachers'])->find($clubUser->club_id);
-            
-            if (!$club) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Club introuvable'
-                ], 404);
-            }
-            
-            // Vérifier que l'enseignant appartient au club
-            $teacher = $club->teachers()->with('user')->find($teacherId);
-            
-            if (!$teacher) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Enseignant introuvable ou non affilié à votre club'
-                ], 404);
-            }
-            
-            if (!$teacher->user || !$teacher->user->email) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'L\'enseignant n\'a pas d\'adresse email'
+                    'message' => 'L\'enseignant n\'a pas d\'adresse email',
                 ], 400);
             }
-            
+
             // Vérifier les informations légales du club
-            if (!$this->checkClubLegalInfo($club)) {
+            if (! $this->checkClubLegalInfo($club)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Les informations légales du club sont incomplètes'
+                    'message' => 'Les informations légales du club sont incomplètes',
                 ], 400);
             }
-            
+
             // Dispatcher le job pour l'envoi asynchrone
             // En mode synchrone (testing/console), le job s'exécute immédiatement
             // Il faut capturer les exceptions pour éviter un 500
             try {
                 SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
-                
+
                 Log::info('Job d\'envoi de lettre ajouté à la queue', [
                     'club_id' => $club->id,
                     'teacher_id' => $teacher->id,
                     'teacher_name' => $teacher->user->name,
-                    'email' => $teacher->user->email
+                    'email' => $teacher->user->email,
                 ]);
-                
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'La lettre à ' . $teacher->user->name . ' sera envoyée sous peu.'
+                    'message' => 'La lettre à '.$teacher->user->name.' sera envoyée sous peu.',
                 ]);
             } catch (\Exception $jobException) {
                 // Si le job échoue immédiatement (mode synchrone), logger et retourner un message d'erreur
@@ -95,24 +70,24 @@ class VolunteerLetterController extends Controller
                     'club_id' => $club->id,
                     'teacher_id' => $teacher->id,
                     'error' => $jobException->getMessage(),
-                    'trace' => $jobException->getTraceAsString()
+                    'trace' => $jobException->getTraceAsString(),
                 ]);
-                
+
                 // Vérifier si c'est une erreur de vue
                 if (str_contains($jobException->getMessage(), 'View') || str_contains($jobException->getMessage(), 'not found')) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Erreur lors de la génération du PDF. La vue de la lettre est introuvable. Veuillez contacter le support technique.',
-                        'error' => 'Vue PDF introuvable'
+                        'error' => 'Vue PDF introuvable',
                     ], 500);
                 }
-                
+
                 // Vérifier si c'est une erreur d'envoi d'email
                 if (str_contains($jobException->getMessage(), 'Connection') || str_contains($jobException->getMessage(), 'mailhog') || str_contains($jobException->getMessage(), 'SMTP')) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Erreur lors de l\'envoi de l\'email. Veuillez vérifier la configuration MailHog.',
-                        'error' => 'Erreur de connexion email'
+                        'error' => 'Erreur de connexion email',
                     ], 500);
                 }
 
@@ -121,31 +96,31 @@ class VolunteerLetterController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'Erreur de permissions sur le serveur : le dossier storage n\'est pas accessible en écriture. Veuillez exécuter sur le serveur : chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache',
-                        'error' => 'Permission denied (storage)'
+                        'error' => 'Permission denied (storage)',
                     ], 500);
                 }
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Erreur lors de l\'envoi de la lettre: ' . $jobException->getMessage(),
-                    'error' => $jobException->getMessage()
+                    'message' => 'Erreur lors de l\'envoi de la lettre: '.$jobException->getMessage(),
+                    'error' => $jobException->getMessage(),
                 ], 500);
             }
-            
+
         } catch (\Exception $e) {
-            Log::error('Erreur envoi lettre individuelle: ' . $e->getMessage(), [
+            Log::error('Erreur envoi lettre individuelle: '.$e->getMessage(), [
                 'teacher_id' => $teacherId,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'envoi de la lettre',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Envoyer les lettres à tous les enseignants du club
      */
@@ -153,81 +128,82 @@ class VolunteerLetterController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Récupérer le club de l'utilisateur
             $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
                 ->where('is_admin', true)
                 ->first();
-            
-            if (!$clubUser) {
+
+            if (! $clubUser) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vous devez être administrateur d\'un club'
+                    'message' => 'Vous devez être administrateur d\'un club',
                 ], 403);
             }
-            
+
             $club = Club::with(['teachers.user'])->find($clubUser->club_id);
-            
-            if (!$club) {
+
+            if (! $club) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Club introuvable'
+                    'message' => 'Club introuvable',
                 ], 404);
             }
-            
+
             // Vérifier les informations légales du club
-            if (!$this->checkClubLegalInfo($club)) {
+            if (! $this->checkClubLegalInfo($club)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Les informations légales du club sont incomplètes'
+                    'message' => 'Les informations légales du club sont incomplètes',
                 ], 400);
             }
-            
+
             $teachers = $club->teachers()->with('user')->get();
-            
+
             if ($teachers->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Aucun enseignant affilié à votre club'
+                    'message' => 'Aucun enseignant affilié à votre club',
                 ], 404);
             }
-            
+
             $queued = 0;
             $skipped = 0;
             $details = [];
-            
+
             // Dispatcher un job pour chaque enseignant
             foreach ($teachers as $teacher) {
                 // Vérifier que l'enseignant a un email
-                if (!$teacher->user || !$teacher->user->email) {
+                if (! $teacher->user || ! $teacher->user->email) {
                     $skipped++;
                     $details[] = [
                         'teacher' => $teacher->user->name ?? 'Inconnu',
                         'status' => 'skipped',
-                        'message' => 'Pas d\'adresse email'
+                        'message' => 'Pas d\'adresse email',
                     ];
+
                     continue;
                 }
-                
+
                 // Dispatcher le job
                 SendVolunteerLetterJob::dispatch($club->id, $teacher->id, $user->id);
                 $queued++;
-                
+
                 $details[] = [
                     'teacher' => $teacher->user->name,
                     'email' => $teacher->user->email,
                     'status' => 'queued',
-                    'message' => 'Ajouté à la file d\'attente'
+                    'message' => 'Ajouté à la file d\'attente',
                 ];
             }
-            
+
             Log::info('Jobs d\'envoi de lettres ajoutés à la queue', [
                 'club_id' => $club->id,
                 'queued' => $queued,
-                'skipped' => $skipped
+                'skipped' => $skipped,
             ]);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => "{$queued} lettre(s) en cours d'envoi. Vous serez notifié une fois l'envoi terminé.",
@@ -235,23 +211,23 @@ class VolunteerLetterController extends Controller
                     'total' => $teachers->count(),
                     'queued' => $queued,
                     'skipped' => $skipped,
-                    'details' => $details
-                ]
+                    'details' => $details,
+                ],
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Erreur envoi lettres en masse: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Erreur envoi lettres en masse: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de l\'envoi des lettres',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Obtenir l'historique des envois
      */
@@ -259,26 +235,26 @@ class VolunteerLetterController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Récupérer le club de l'utilisateur
             $clubUser = DB::table('club_user')
                 ->where('user_id', $user->id)
                 ->where('is_admin', true)
                 ->first();
-            
-            if (!$clubUser) {
+
+            if (! $clubUser) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vous devez être administrateur d\'un club'
+                    'message' => 'Vous devez être administrateur d\'un club',
                 ], 403);
             }
-            
+
             $sends = VolunteerLetterSend::where('club_id', $clubUser->club_id)
                 ->with(['teacher.user', 'sentBy'])
                 ->orderBy('created_at', 'desc')
                 ->limit(500) // Augmenté pour un historique complet
                 ->get();
-            
+
             // Formatter les données pour le frontend
             $history = $sends->map(function ($send) {
                 return [
@@ -288,66 +264,52 @@ class VolunteerLetterController extends Controller
                     'status' => $send->status,
                     'sent_at' => $send->sent_at ?? $send->created_at,
                     'sent_by_name' => $send->sentBy->name ?? 'N/A',
-                    'error_message' => $send->error_message
+                    'error_message' => $send->error_message,
                 ];
             });
-            
+
             return response()->json([
                 'success' => true,
-                'history' => $history
+                'history' => $history,
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Erreur récupération historique: ' . $e->getMessage());
-            
+            Log::error('Erreur récupération historique: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération de l\'historique',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Télécharger le PDF de la lettre pour un enseignant
      */
     public function downloadPdf(Request $request, $teacherId)
     {
         try {
-            $user = $request->user();
-
-            $clubUser = DB::table('club_user')
-                ->where('user_id', $user->id)
-                ->where('is_admin', true)
-                ->first();
-
-            if (!$clubUser) {
-                return response()->json(['success' => false, 'message' => 'Vous devez être administrateur d\'un club'], 403);
+            $resolved = $this->volunteerTeacherAndClubForLetter($request, (int) $teacherId);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved;
             }
+            $club = $resolved['club'];
+            $teacher = $resolved['teacher'];
 
-            $club = Club::with(['teachers'])->find($clubUser->club_id);
-            if (!$club) {
-                return response()->json(['success' => false, 'message' => 'Club introuvable'], 404);
-            }
-
-            $teacher = $club->teachers()->with('user')->find($teacherId);
-            if (!$teacher || !$teacher->user) {
-                return response()->json(['success' => false, 'message' => 'Enseignant introuvable ou non affilié à votre club'], 404);
-            }
-
-            if (!$this->checkClubLegalInfo($club)) {
+            if (! $this->checkClubLegalInfo($club)) {
                 return response()->json(['success' => false, 'message' => 'Les informations légales du club sont incomplètes'], 400);
             }
 
             $pdfPath = $this->generatePDF($club, $teacher);
-            $filename = 'Note_Information_Volontaire_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $teacher->user->name) . '.pdf';
+            $filename = 'Note_Information_Volontaire_'.preg_replace('/[^a-zA-Z0-9_-]/', '_', $teacher->user->name).'.pdf';
 
             return response()->file($pdfPath, [
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
                 'Content-Type' => 'application/pdf',
             ])->deleteFileAfterSend(true);
         } catch (\Exception $e) {
-            Log::error('Erreur téléchargement PDF lettre volontariat: ' . $e->getMessage(), [
+            Log::error('Erreur téléchargement PDF lettre volontariat: '.$e->getMessage(), [
                 'teacher_id' => $teacherId,
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -361,9 +323,98 @@ class VolunteerLetterController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la génération du PDF: ' . $e->getMessage(),
+                'message' => 'Erreur lors de la génération du PDF: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Vérifier que les informations légales sont complètes
+     */
+    /**
+     * Résout club + enseignant pour la lettre volontaire : compte club (pivot club_user) ou admin plateforme
+     * (résolution du club via affiliation de l’enseignant).
+     *
+     * @return JsonResponse|array{club:Club,teacher:Teacher}
+     */
+    private function volunteerTeacherAndClubForLetter(Request $request, int $teacherId): JsonResponse|array
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Non authentifié',
+            ], 401);
+        }
+
+        $teacher = Teacher::with(['user', 'clubs'])->find($teacherId);
+        if (! $teacher || ! $teacher->user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Enseignant introuvable ou sans profil utilisateur',
+            ], 404);
+        }
+
+        if ($user->role === 'admin') {
+            $club = $teacher->clubs()->first();
+            if (! $club && $teacher->club_id) {
+                $club = Club::find($teacher->club_id);
+            }
+            if (! $club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de déterminer le club de cet enseignant',
+                ], 404);
+            }
+
+            $affiliated = $club->teachers()->where('teachers.id', $teacher->id)->exists()
+                || ((int) ($teacher->club_id ?? 0) === (int) $club->id);
+            if (! $affiliated) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant introuvable ou non affilié au club résolu',
+                ], 404);
+            }
+
+            return ['club' => $club, 'teacher' => $teacher];
+        }
+
+        if ($user->role === 'club') {
+            $clubUser = DB::table('club_user')
+                ->where('user_id', $user->id)
+                ->where('is_admin', true)
+                ->first();
+
+            if (! $clubUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous devez être administrateur d\'un club',
+                ], 403);
+            }
+
+            $club = Club::find($clubUser->club_id);
+            if (! $club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club introuvable',
+                ], 404);
+            }
+
+            $teacherInClub = $club->teachers()->with('user')->find($teacherId);
+            if (! $teacherInClub || ! $teacherInClub->user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Enseignant introuvable ou non affilié à votre club',
+                ], 404);
+            }
+
+            return ['club' => $club, 'teacher' => $teacherInClub];
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Accès réservé aux administrateurs club ou plateforme',
+        ], 403);
     }
 
     /**
@@ -378,18 +429,18 @@ class VolunteerLetterController extends Controller
             'legal_representative_role',
             'insurance_rc_company',
             'insurance_rc_policy_number',
-            'expense_reimbursement_type'
+            'expense_reimbursement_type',
         ];
-        
+
         foreach ($required as $field) {
             if (empty($club->$field)) {
                 return false;
             }
         }
-        
+
         return true;
     }
-    
+
     /**
      * Générer le PDF de la lettre
      */
@@ -398,9 +449,9 @@ class VolunteerLetterController extends Controller
         // Générer la vue HTML
         $html = view('pdf.volunteer-letter', [
             'club' => $club,
-            'teacher' => $teacher
+            'teacher' => $teacher,
         ])->render();
-        
+
         // Générer le PDF
         $pdf = Pdf::loadHTML($html)
             ->setPaper('a4', 'portrait')
@@ -408,18 +459,18 @@ class VolunteerLetterController extends Controller
             ->setOption('margin-bottom', 10)
             ->setOption('margin-left', 10)
             ->setOption('margin-right', 10);
-        
+
         // Sauvegarder temporairement
-        $fileName = 'volunteer_letter_' . $club->id . '_' . $teacher->id . '_' . time() . '.pdf';
-        $pdfPath = storage_path('app/temp/' . $fileName);
-        
+        $fileName = 'volunteer_letter_'.$club->id.'_'.$teacher->id.'_'.time().'.pdf';
+        $pdfPath = storage_path('app/temp/'.$fileName);
+
         // Créer le dossier temp s'il n'existe pas
-        if (!file_exists(storage_path('app/temp'))) {
+        if (! file_exists(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
-        
+
         $pdf->save($pdfPath);
-        
+
         return $pdfPath;
     }
 }

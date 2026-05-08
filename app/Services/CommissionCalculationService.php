@@ -2,18 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use Carbon\Carbon;
 
 /**
  * Service de calcul des commissions enseignants
- * 
+ *
  * Ce service gère le calcul des commissions pour deux types d'abonnements :
  * - DCL (est_legacy = false) : Déclaré - Modèle standard et pérenne
  * - NDCL (est_legacy = true ou null) : Non Déclaré - Ancien modèle legacy ou cours non flaggés
- * 
+ *
  * RÈGLE IMPORTANTE : Les cours/abonnements non flaggés (est_legacy = null) sont traités comme NDCL.
- * 
+ *
  * Les règles de calcul sont différentes pour chaque type et peuvent être facilement
  * modifiées ou supprimées (pour NDCL) sans affecter le reste du code.
  */
@@ -28,7 +29,7 @@ class CommissionCalculationService
     /**
      * Taux de commission pour NDCL (Non Déclaré - legacy)
      * 1.00 = 100% de commission (le montant complet)
-     * 
+     *
      * Note : Identique au DCL. Cette méthode peut être supprimée
      *        lorsque tous les abonnements NDCL seront expirés.
      */
@@ -36,10 +37,10 @@ class CommissionCalculationService
 
     /**
      * Calculer la commission pour un abonnement DCL (Déclaré - standard)
-     * 
+     *
      * RÈGLE DCL : Commission = montant × taux_dcl
-     * 
-     * @param float $montant Montant de base de l'abonnement
+     *
+     * @param  float  $montant  Montant de base de l'abonnement
      * @return float Montant de la commission
      */
     private function calculateDclCommission(float $montant): float
@@ -49,13 +50,13 @@ class CommissionCalculationService
 
     /**
      * Calculer la commission pour un abonnement NDCL (Non Déclaré - legacy)
-     * 
+     *
      * RÈGLE NDCL : Commission = montant × taux_ndcl
-     * 
+     *
      * Note : Cette méthode peut être supprimée facilement lorsque tous les
      *        abonnements NDCL seront expirés.
-     * 
-     * @param float $montant Montant de base de l'abonnement
+     *
+     * @param  float  $montant  Montant de base de l'abonnement
      * @return float Montant de la commission
      */
     private function calculateNdclCommission(float $montant): float
@@ -65,15 +66,16 @@ class CommissionCalculationService
 
     /**
      * Calculer la commission pour un abonnement selon son type
-     * 
-     * @param SubscriptionInstance $subscriptionInstance Instance d'abonnement
+     *
+     * @param  SubscriptionInstance  $subscriptionInstance  Instance d'abonnement
      * @return float Montant de la commission calculée
+     *
      * @throws \InvalidArgumentException Si le montant est manquant ou invalide
      */
     public function calculateCommission(SubscriptionInstance $subscriptionInstance): float
     {
         // Vérifier que le montant est disponible
-        if (!$subscriptionInstance->montant || $subscriptionInstance->montant <= 0) {
+        if (! $subscriptionInstance->montant || $subscriptionInstance->montant <= 0) {
             throw new \InvalidArgumentException(
                 "Le montant de l'abonnement {$subscriptionInstance->id} est manquant ou invalide."
             );
@@ -94,14 +96,16 @@ class CommissionCalculationService
 
     /**
      * Générer un rapport de paie pour une période donnée
-     * 
+     *
      * Inclut :
-     * - Les abonnements (SubscriptionInstance) payés durant la période
-     * - Les cours individuels (Lesson) payés durant la période (non liés à un abonnement)
-     * 
-     * @param int $year Année (ex: 2025)
-     * @param int $month Mois (1-12)
-     * @param int|null $clubId ID du club pour filtrer (optionnel, null = tous les clubs)
+     * - Les paiements d'abonnement sans cours déjà reliés dans la période (SubscriptionInstance avec
+     *   date_paiement dans le mois, sans ligne subscription_lessons) — ex. paiement avant consommation
+     * - Tous les cours (Lesson) retenus dans le mois : hors abonnement et cours issus d'un abonnement,
+     *   attribués à l'enseignant du cours (montant ou price, sinon prorata du montant du carnet payé).
+     *
+     * @param  int  $year  Année (ex: 2025)
+     * @param  int  $month  Mois (1-12)
+     * @param  int|null  $clubId  ID du club pour filtrer (optionnel, null = tous les clubs)
      * @return array Rapport structuré par enseignant avec DCL/NDCL
      */
     public function generatePayrollReport(int $year, int $month, ?int $clubId = null): array
@@ -123,10 +127,14 @@ class CommissionCalculationService
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
-            $subscriptionQuery->whereHas('subscription', function($q) use ($clubId) {
+            $subscriptionQuery->whereHas('subscription', function ($q) use ($clubId) {
                 $q->where('club_id', $clubId);
             });
         }
+
+        // Une fois au moins un cours consommé (pivot subscription_lessons), tout le montant passe par
+        // les lignes cours ; sinon une double compta apparaît (paiement + séances au prorata).
+        $subscriptionQuery->whereDoesntHave('lessons');
 
         $subscriptionInstances = $subscriptionQuery->get();
 
@@ -135,8 +143,9 @@ class CommissionCalculationService
             // Déterminer l'enseignant (priorité : teacher_id direct, sinon via les cours)
             $teacherId = $this->determineTeacherId($instance);
 
-            if (!$teacherId) {
+            if (! $teacherId) {
                 \Log::warning("Abonnement {$instance->id} sans enseignant assigné, ignoré dans le rapport de paie");
+
                 continue;
             }
 
@@ -157,63 +166,65 @@ class CommissionCalculationService
 
                 // Arrondir les totaux
                 $report[$teacherId]['total_commissions_dcl'] = round(
-                    $report[$teacherId]['total_commissions_dcl'], 
+                    $report[$teacherId]['total_commissions_dcl'],
                     2
                 );
                 $report[$teacherId]['total_commissions_ndcl'] = round(
-                    $report[$teacherId]['total_commissions_ndcl'], 
+                    $report[$teacherId]['total_commissions_ndcl'],
                     2
                 );
             } catch (\InvalidArgumentException $e) {
-                \Log::error("Erreur lors du calcul de commission pour l'abonnement {$instance->id}: " . $e->getMessage());
+                \Log::error("Erreur lors du calcul de commission pour l'abonnement {$instance->id}: ".$e->getMessage());
+
                 continue;
             }
         }
 
-        // ===== PARTIE 2 : COURS INDIVIDUELS =====
-        // Collecter tous les cours individuels à payer ou payés durant la période (non liés à un abonnement)
-        // Un cours individuel est un cours qui n'a pas d'entrée dans la table subscription_lessons
-        // Utiliser montant OU price (si montant est null ou 0)
-        // RÈGLE : 
+        // ===== PARTIE 2 : COURS (tous les cours retenus, y compris consommés sur un carnet abonnement) =====
+        // Utiliser montant OU price, ou à défaut valeur au prorata du montant de l’instance payée /
+        // nombre de séances du carnet pour les lignes reliées à un abonnement.
+        // RÈGLE :
         // - Si date_paiement est définie et dans la période : cours déjà payé dans cette période
         // - Si date_paiement est null et start_time dans la période : cours à payer dans cette période
         // Note : date_paiement sert à marquer un cours comme payé (étape future du développement)
-        $lessonQuery = \App\Models\Lesson::whereNotNull('teacher_id')
-            ->whereIn('status', ['confirmed', 'completed']) // Seulement les cours confirmés ou complétés
-            ->whereDoesntHave('subscriptionInstances') // Exclure les cours liés à un abonnement via subscription_lessons
-            ->where(function($query) use ($startDate, $endDate) {
+        $lessonQuery = Lesson::whereNotNull('teacher_id')
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->where(function ($query) use ($startDate, $endDate) {
                 // Soit date_paiement est dans la période (cours payé ou reporté), soit start_time est dans la période (cours à payer)
                 // Exclure les cours marqués comme non payés (notes contient [NON PAYÉ])
-                $query->where(function($q) use ($startDate, $endDate) {
+                $query->where(function ($q) use ($startDate, $endDate) {
                     // Cas 1 : date_paiement est définie et dans la période (cours déjà payé ou reporté dans cette période)
                     $q->whereNotNull('date_paiement')
-                      ->whereBetween('date_paiement', [$startDate, $endDate])
-                      ->where(function($subQ) {
-                          // Exclure les cours marqués comme non payés
-                          $subQ->whereNull('notes')
-                               ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
-                      });
-                })->orWhere(function($q) use ($startDate, $endDate) {
+                        ->whereBetween('date_paiement', [$startDate, $endDate])
+                        ->where(function ($subQ) {
+                            // Exclure les cours marqués comme non payés
+                            $subQ->whereNull('notes')
+                                ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
+                        });
+                })->orWhere(function ($q) use ($startDate, $endDate) {
                     // Cas 2 : date_paiement est null et start_time dans la période (cours à payer dans cette période)
                     // Exclure les cours marqués comme non payés
                     $q->whereNull('date_paiement')
-                      ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
-                      ->where(function($subQ) {
-                          $subQ->whereNull('notes')
-                               ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
-                      });
+                        ->whereBetween('start_time', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
+                        ->where(function ($subQ) {
+                            $subQ->whereNull('notes')
+                                ->orWhere('notes', 'not like', '%[NON PAYÉ]%');
+                        });
                 });
             })
-            ->where(function($query) {
-                // Soit montant est défini et > 0, soit price est défini et > 0
-                $query->where(function($q) {
+            ->where(function ($query) {
+                $query->where(function ($q) {
                     $q->whereNotNull('montant')->where('montant', '>', 0);
-                })->orWhere(function($q) {
-                    $q->whereNull('montant')->orWhere('montant', '<=', 0);
-                    $q->whereNotNull('price')->where('price', '>', 0);
-                });
+                })
+                    ->orWhere(function ($q) {
+                        $q->whereNull('montant')->orWhere('montant', '<=', 0);
+                        $q->whereNotNull('price')->where('price', '>', 0);
+                    })
+                    ->orWhereHas('subscriptionInstances', function ($q) {
+                        $q->whereNotNull('montant')->where('montant', '>', 0);
+                    });
             })
-            ->with(['teacher.user', 'club']);
+            ->with(['teacher.user', 'club', 'subscriptionInstances.subscription.template']);
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
@@ -222,12 +233,13 @@ class CommissionCalculationService
 
         $lessons = $lessonQuery->get();
 
-        // Boucle & Ventilation : Itérer sur chaque cours individuel
+        // Boucle sur chaque cours retenu
         foreach ($lessons as $lesson) {
             $teacherId = $lesson->teacher_id;
 
-            if (!$teacherId) {
+            if (! $teacherId) {
                 \Log::warning("Cours {$lesson->id} sans enseignant assigné, ignoré dans le rapport de paie");
+
                 continue;
             }
 
@@ -236,35 +248,35 @@ class CommissionCalculationService
 
             // Calculer la commission selon le type (DCL ou NDCL)
             try {
-                // Utiliser montant si disponible, sinon price
-                $amount = $lesson->montant ?? $lesson->price ?? 0;
-                
+                $amount = $this->resolveLessonCommissionBaseAmount($lesson);
+
                 if ($amount <= 0) {
-                    \Log::warning("Cours {$lesson->id} sans montant, ignoré");
+                    \Log::warning("Cours {$lesson->id} sans base de commission (montant, price ou prorata abonnement), ignoré");
+
                     continue;
                 }
 
-                // Calculer la commission selon le type
-                // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
-                if ($lesson->est_legacy === false) {
-                    $commission = $amount * self::DCL_COMMISSION_RATE;
-                    $report[$teacherId]['total_commissions_dcl'] += $commission;
+                $commission = $amount;
+                // RÈGLE : est_legacy sur le cours prioritaire pour les lignes cours ; sinon hériter de l’instance d’abonnement
+                // est_legacy === false → DCL, sinon (true ou null) → NDCL
+                if ($this->lessonCountsAsDcl($lesson)) {
+                    $report[$teacherId]['total_commissions_dcl'] += $commission * self::DCL_COMMISSION_RATE;
                 } else {
-                    $commission = $amount * self::NDCL_COMMISSION_RATE;
-                    $report[$teacherId]['total_commissions_ndcl'] += $commission;
+                    $report[$teacherId]['total_commissions_ndcl'] += $commission * self::NDCL_COMMISSION_RATE;
                 }
 
                 // Arrondir les totaux
                 $report[$teacherId]['total_commissions_dcl'] = round(
-                    $report[$teacherId]['total_commissions_dcl'], 
+                    $report[$teacherId]['total_commissions_dcl'],
                     2
                 );
                 $report[$teacherId]['total_commissions_ndcl'] = round(
-                    $report[$teacherId]['total_commissions_ndcl'], 
+                    $report[$teacherId]['total_commissions_ndcl'],
                     2
                 );
             } catch (\Exception $e) {
-                \Log::error("Erreur lors du calcul de commission pour le cours {$lesson->id}: " . $e->getMessage());
+                \Log::error("Erreur lors du calcul de commission pour le cours {$lesson->id}: ".$e->getMessage());
+
                 continue;
             }
         }
@@ -282,18 +294,18 @@ class CommissionCalculationService
 
     /**
      * Initialiser l'entrée pour un enseignant dans le rapport
-     * 
-     * @param array $report Référence au tableau de rapport
-     * @param int $teacherId ID de l'enseignant
+     *
+     * @param  array  $report  Référence au tableau de rapport
+     * @param  int  $teacherId  ID de l'enseignant
      */
     private function initializeTeacherEntry(array &$report, int $teacherId): void
     {
-        if (!isset($report[$teacherId])) {
+        if (! isset($report[$teacherId])) {
             $teacher = \App\Models\Teacher::with('user')->find($teacherId);
             $report[$teacherId] = [
                 'enseignant_id' => $teacherId,
-                'nom_enseignant' => $teacher && $teacher->user 
-                    ? trim(($teacher->user->first_name ?? '') . ' ' . ($teacher->user->last_name ?? ''))
+                'nom_enseignant' => $teacher && $teacher->user
+                    ? trim(($teacher->user->first_name ?? '').' '.($teacher->user->last_name ?? ''))
                     : "Enseignant #{$teacherId}",
                 'total_commissions_dcl' => 0.00,   // DCL = Déclaré (Type 1)
                 'total_commissions_ndcl' => 0.00,  // NDCL = Non Déclaré (Type 2)
@@ -304,12 +316,12 @@ class CommissionCalculationService
 
     /**
      * Déterminer l'ID de l'enseignant pour un abonnement
-     * 
+     *
      * Priorité :
      * 1. teacher_id direct sur l'abonnement
      * 2. Enseignant du premier cours lié à l'abonnement
-     * 
-     * @param SubscriptionInstance $instance Instance d'abonnement
+     *
+     * @param  SubscriptionInstance  $instance  Instance d'abonnement
      * @return int|null ID de l'enseignant ou null si aucun trouvé
      */
     private function determineTeacherId(SubscriptionInstance $instance): ?int
@@ -329,8 +341,84 @@ class CommissionCalculationService
     }
 
     /**
+     * Base monétaire pour une ligne cours (montant, prix catalogue, ou valeur au prorata du carnet abonnement).
+     */
+    private function resolveLessonCommissionBaseAmount(Lesson $lesson): float
+    {
+        if ($lesson->montant !== null && (float) $lesson->montant > 0.0) {
+            return round((float) $lesson->montant, 2);
+        }
+
+        if ($lesson->price !== null && (float) $lesson->price > 0.0) {
+            return round((float) $lesson->price, 2);
+        }
+
+        if (! $lesson->relationLoaded('subscriptionInstances')) {
+            $lesson->load('subscriptionInstances.subscription.template');
+        }
+
+        foreach ($lesson->subscriptionInstances as $instance) {
+            $prorated = $this->calculateSubscriptionLessonProRataAmount($instance);
+            if ($prorated > 0.0) {
+                return $prorated;
+            }
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * montant du carnet / nombre de séances payantes (template), minimum 1 pour éviter division par zéro.
+     */
+    private function calculateSubscriptionLessonProRataAmount(SubscriptionInstance $instance): float
+    {
+        $packAmount = $instance->montant !== null ? (float) $instance->montant : 0.0;
+        if ($packAmount <= 0.0) {
+            return 0.0;
+        }
+
+        $instance->loadMissing('subscription.template');
+
+        $subscription = $instance->subscription;
+        if (! $subscription) {
+            return round($packAmount, 2);
+        }
+
+        $slots = (int) ($subscription->total_available_lessons ?? 0);
+        if ($slots < 1) {
+            $slots = 1;
+        }
+
+        return round($packAmount / $slots, 2);
+    }
+
+    /**
+     * DCL si le cours est explicitement déclaré ; sinon hériter du type de l’instance d’abonnement liée.
+     */
+    private function lessonCountsAsDcl(Lesson $lesson): bool
+    {
+        if ($lesson->est_legacy === false) {
+            return true;
+        }
+        if ($lesson->est_legacy === true) {
+            return false;
+        }
+
+        if (! $lesson->relationLoaded('subscriptionInstances')) {
+            $lesson->load('subscriptionInstances');
+        }
+
+        $instance = $lesson->subscriptionInstances->first();
+        if ($instance !== null) {
+            return $instance->est_legacy === false;
+        }
+
+        return false;
+    }
+
+    /**
      * Obtenir les taux de commission (pour affichage/debug)
-     * 
+     *
      * @return array Taux de commission par type (DCL/NDCL)
      */
     public function getCommissionRates(): array
@@ -343,8 +431,8 @@ class CommissionCalculationService
 
     /**
      * Obtenir les périodes disponibles pour les rapports
-     * 
-     * @param int|null $clubId ID du club pour filtrer (optionnel)
+     *
+     * @param  int|null  $clubId  ID du club pour filtrer (optionnel)
      * @return array Liste des périodes avec des données
      */
     public function getAvailableReportPeriods(?int $clubId = null): array
@@ -357,7 +445,7 @@ class CommissionCalculationService
             ->where('montant', '>', 0);
 
         if ($clubId !== null) {
-            $subscriptionQuery->whereHas('subscription', function($q) use ($clubId) {
+            $subscriptionQuery->whereHas('subscription', function ($q) use ($clubId) {
                 $q->where('club_id', $clubId);
             });
         }
@@ -368,14 +456,14 @@ class CommissionCalculationService
 
         // Chercher dans les cours individuels
         // RÈGLE : Inclure les cours avec date_paiement OU les cours sans date_paiement (basés sur start_time)
-        $baseLessonQuery = function($clubId) {
+        $baseLessonQuery = function ($clubId) {
             $query = \App\Models\Lesson::whereDoesntHave('subscriptionInstances')
                 ->whereIn('status', ['confirmed', 'completed'])
-                ->where(function($q) {
+                ->where(function ($q) {
                     // Soit montant est défini et > 0, soit price est défini et > 0
-                    $q->where(function($subQ) {
+                    $q->where(function ($subQ) {
                         $subQ->whereNotNull('montant')->where('montant', '>', 0);
-                    })->orWhere(function($subQ) {
+                    })->orWhere(function ($subQ) {
                         $subQ->whereNull('montant')->orWhere('montant', '<=', 0);
                         $subQ->whereNotNull('price')->where('price', '>', 0);
                     });
@@ -407,7 +495,7 @@ class CommissionCalculationService
 
         // Combiner avec les dates d'abonnements et dédupliquer
         $allDates = $subscriptionDates->concat($lessonDates)->unique(function ($item) {
-            return $item->year . '-' . $item->month;
+            return $item->year.'-'.$item->month;
         });
 
         foreach ($allDates as $date) {
@@ -422,10 +510,10 @@ class CommissionCalculationService
             if ($a['year'] !== $b['year']) {
                 return $b['year'] - $a['year'];
             }
+
             return $b['month'] - $a['month'];
         });
 
         return $periods;
     }
 }
-

@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Club;
 use App\Models\CourseType;
 use App\Models\Location;
+use App\Models\SubscriptionTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
@@ -267,17 +268,16 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
     }
 
     /**
-     * Test : Exclusion des cours liés à un abonnement
-     * 
-     * BUT : Vérifier que les cours liés à un abonnement ne sont pas comptés deux fois
-     * 
-     * ENTRÉE : 
-     * - prof_alpha : 1 abonnement (100€) + 1 cours lié à cet abonnement (50€)
-     * 
+     * Test : Cours liés à un abonnement (pas de double comptage avec le paiement global)
+     *
+     * Les instances avec au moins un cours relié ne génèrent plus de ligne paiement unique sur
+     * date_paiement : la valeur est portée par les séances, sur le montant/seance ou le prorata carnet.
+     *
+     * ENTRÉE :
+     * - prof_alpha : 1 abonnement DCL (montant 100€ sur le carnet) + 1 cours relié (montant 50€)
+     *
      * SORTIE ATTENDUE :
-     * - prof_alpha : total_commissions_dcl=100€ (seulement l'abonnement, pas le cours)
-     * 
-     * POURQUOI : Un cours lié à un abonnement ne doit pas être compté comme cours individuel
+     * - prof_alpha : 50€ via la ligne cours uniquement (pas 100€ paiement + cours)
      */
     #[Test]
     public function test_excludes_lessons_linked_to_subscriptions(): void
@@ -318,11 +318,136 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
         $this->assertArrayHasKey($this->teacherAlpha->id, $report);
         $alphaData = $report[$this->teacherAlpha->id];
         
-        // Seul l'abonnement doit être compté, pas le cours individuel (car il est lié)
-        $this->assertEquals(100.00, $alphaData['total_commissions_dcl'], 
-            'prof_alpha total_commissions_dcl doit être 100.00 € (seulement l\'abonnement)');
-        $this->assertEquals(0.00, $alphaData['total_commissions_ndcl'], 
+        // Ligne unique : commission sur le cours consommé (ici le montant séance fait foi)
+        $this->assertEquals(50.00, $alphaData['total_commissions_dcl'],
+            'prof_alpha total_commissions_dcl doit être 50.00 € (séance liée au carnet)');
+        $this->assertEquals(0.00, $alphaData['total_commissions_ndcl'],
             'prof_alpha total_commissions_ndcl doit être 0.00 €');
+    }
+
+    /**
+     * Séance reliée sans montant catalogue : valeur au prorata du paiement carnet pour l’enseignant du cours.
+     */
+    #[Test]
+    public function test_linked_lesson_without_price_uses_subscription_pro_rata(): void
+    {
+        // Modèle catalogue (nombre de séances) : requis pour le prorata en base « template » réelle.
+        $template = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'TST-PRO-001',
+            'total_lessons' => 10,
+            'free_lessons' => 0,
+            'price' => 100.00,
+            'validity_months' => 12,
+            'is_active' => true,
+        ]);
+
+        $subscriptionWithTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+        ]);
+
+        $subscriptionInstance = SubscriptionInstance::create([
+            'subscription_id' => $subscriptionWithTemplate->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'montant' => 100.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-10',
+            'started_at' => '2025-11-10',
+            'status' => 'active',
+        ]);
+
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherBeta->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-15 10:00:00'),
+            'end_time' => Carbon::parse('2025-11-15 11:00:00'),
+            'price' => 0,
+            'montant' => 0,
+            'est_legacy' => false,
+            'date_paiement' => null,
+            'status' => 'confirmed',
+        ]);
+
+        $subscriptionInstance->lessons()->attach($lesson->id);
+
+        $report = $this->service->generatePayrollReport(2025, 11);
+
+        $this->assertArrayNotHasKey($this->teacherAlpha->id, $report);
+
+        $this->assertArrayHasKey($this->teacherBeta->id, $report);
+        $beta = $report[$this->teacherBeta->id];
+        $this->assertEquals(10.00, $beta['total_commissions_dcl'], 'Pro-rata 100€ / 10 séances = 10€ pour l’enseignant du cours');
+        $this->assertEquals(0.00, $beta['total_commissions_ndcl']);
+    }
+
+    /**
+     * Plusieurs séances reliées au même carnet : chaque intervenant perçoit le prorata sur sa ligne cours.
+     */
+    #[Test]
+    public function test_two_linked_lessons_two_teachers_each_get_pro_rata_share(): void
+    {
+        $template = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'TST-PRO-002',
+            'total_lessons' => 10,
+            'free_lessons' => 0,
+            'price' => 100.00,
+            'validity_months' => 12,
+            'is_active' => true,
+        ]);
+
+        $subscriptionWithTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+        ]);
+
+        $subscriptionInstance = SubscriptionInstance::create([
+            'subscription_id' => $subscriptionWithTemplate->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'montant' => 100.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-03',
+            'started_at' => '2025-11-03',
+            'status' => 'active',
+        ]);
+
+        $lessonBeta = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherBeta->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-05 10:00:00'),
+            'end_time' => Carbon::parse('2025-11-05 11:00:00'),
+            'price' => 0,
+            'montant' => 0,
+            'est_legacy' => false,
+            'date_paiement' => null,
+            'status' => 'confirmed',
+        ]);
+
+        $lessonAlpha = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-18 10:00:00'),
+            'end_time' => Carbon::parse('2025-11-18 11:00:00'),
+            'price' => 0,
+            'montant' => 0,
+            'est_legacy' => false,
+            'date_paiement' => null,
+            'status' => 'completed',
+        ]);
+
+        $subscriptionInstance->lessons()->attach([$lessonBeta->id, $lessonAlpha->id]);
+
+        $report = $this->service->generatePayrollReport(2025, 11);
+
+        $this->assertEquals(10.00, $report[$this->teacherBeta->id]['total_commissions_dcl']);
+        $this->assertEquals(10.00, $report[$this->teacherAlpha->id]['total_commissions_dcl']);
     }
 
     /**
