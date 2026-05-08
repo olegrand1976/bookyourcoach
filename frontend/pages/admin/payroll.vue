@@ -145,16 +145,16 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     </button>
-                    <a
-                      :href="getExportUrl(report.year, report.month)"
-                      @click.stop
+                    <button
+                      type="button"
+                      @click.stop="exportCsv(report.year, report.month)"
                       class="text-green-600 hover:text-green-900"
                       title="Exporter en CSV"
                     >
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                    </a>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -262,7 +262,6 @@ definePageMeta({
 })
 
 const { $api } = useNuxtApp()
-const authStore = useAuthStore()
 
 // State
 const loading = ref(true)
@@ -329,6 +328,47 @@ const loadReportDetails = async (year, month) => {
   }
 }
 
+/** Export CSV : ne pas utiliser href direct (sans Authorization Bearer), utiliser Axios comme les autres appels auth. */
+const exportCsv = async (year, month) => {
+  try {
+    const response = await $api.get(`/admin/payroll/export/${year}/${month}/csv`, { responseType: 'blob' })
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
+    if (!blob || blob.size === 0) {
+      window.alert('Export CSV vide ou incorrect.')
+      return
+    }
+
+    let filename = `rapport_paie_${month}_${year}.csv`
+    const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition']
+    if (disposition && typeof disposition === 'string') {
+      const m = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)"?/i)
+      if (m?.[1]) {
+        filename = decodeURIComponent(m[1].trim())
+      }
+    }
+
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Export CSV:', err)
+    let msg = err.response?.data?.message || err.message || 'Erreur lors de l\'export CSV'
+    if (err.response?.data instanceof Blob) {
+      try {
+        const txt = await err.response.data.text()
+        const parsed = JSON.parse(txt)
+        if (parsed?.message) msg = parsed.message
+      } catch (_) { /* garder msg par défaut */ }
+    }
+    window.alert(msg)
+  }
+}
+
 const generateReport = async () => {
   generating.value = true
   
@@ -373,12 +413,6 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   }).format(date)
-}
-
-const getExportUrl = (year, month) => {
-  const config = useRuntimeConfig()
-  const apiBase = config.public.apiBase || '/api'
-  return `${apiBase}/admin/payroll/export/${year}/${month}/csv`
 }
 
 // Lifecycle
