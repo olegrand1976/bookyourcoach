@@ -252,6 +252,8 @@ class CommissionCalculationServiceTest extends TestCase
 
         $this->assertEquals(0.0, $alphaData['total_heures_cours'] ?? null, 'sans séance chronométriée, VH = 0');
         $this->assertEquals(0.0, $betaData['total_heures_cours'] ?? null, 'sans séance chronométriée, VH = 0');
+        $this->assertSame(0, (int) ($alphaData['total_duree_cours_minutes'] ?? -1));
+        $this->assertSame(0, (int) ($betaData['total_duree_cours_minutes'] ?? -1));
     }
 
     public function test_generate_payroll_report_with_lines_matches_aggregate_totals(): void

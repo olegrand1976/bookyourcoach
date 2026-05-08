@@ -140,6 +140,8 @@ class CommissionCalculationService
         // Structure de données pour agréger les résultats par enseignant
         $report = [];
         $linesByTeacher = [];
+        /** Cumul précis en minutes (sans arrondi par séance) avant conversion VH. */
+        $lessonMinutesByTeacher = [];
 
         // ===== PARTIE 1 : ABONNEMENTS =====
         // Collecter tous les abonnements payés durant la période
@@ -209,6 +211,7 @@ class CommissionCalculationService
                     'sort_date' => $paymentDate ? $paymentDate->format('Y-m-d') : '0000-00-00',
                     'sort_time' => '00:00:00',
                     'date_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
+                    'duree_minutes' => null,
                     'hours' => null,
                     'hours_display' => '—',
                     'segment' => $segment,
@@ -325,12 +328,9 @@ class CommissionCalculationService
                     2
                 );
 
-                $hours = $this->lessonDurationHours($lesson);
-                if ($hours !== null && $hours > 0.0) {
-                    $report[$teacherId]['total_heures_cours'] = round(
-                        ($report[$teacherId]['total_heures_cours'] ?? 0.0) + $hours,
-                        2
-                    );
+                $durationMinutes = $this->lessonScheduledDurationMinutes($lesson);
+                if ($durationMinutes !== null && $durationMinutes > 0) {
+                    $lessonMinutesByTeacher[$teacherId] = ($lessonMinutesByTeacher[$teacherId] ?? 0) + $durationMinutes;
                 }
 
                 $segment = $this->lessonCountsAsDcl($lesson) ? 'DCL' : 'NDCL';
@@ -345,13 +345,15 @@ class CommissionCalculationService
                     $linesByTeacher[$teacherId] = [];
                 }
                 $start = $lesson->start_time;
+                $vhLine = $durationMinutes !== null ? $durationMinutes / 60.0 : null;
                 $linesByTeacher[$teacherId][] = [
                     'kind' => 'lesson',
                     'sort_date' => $start ? $start->format('Y-m-d') : '0000-00-00',
                     'sort_time' => $start ? $start->format('H:i:s') : '00:00:00',
                     'date_display' => $start ? $start->format('d/m/Y') : '—',
-                    'hours' => $hours,
-                    'hours_display' => $hours !== null ? number_format($hours, 2, ',', ' ').' h' : '—',
+                    'duree_minutes' => $durationMinutes,
+                    'hours' => $vhLine,
+                    'hours_display' => $this->formatLessonDurationLineDisplay($durationMinutes),
                     'segment' => $segment,
                     'label' => implode(' — ', $labelParts),
                     'reference' => 'L-'.$lesson->id,
@@ -367,6 +369,15 @@ class CommissionCalculationService
             }
         }
 
+        // VH = somme minutes ÷ 60 (évite l’erreur 6×0,33 h ≠ 2 h pour des séances de 20 min).
+        foreach ($lessonMinutesByTeacher as $tid => $totalMin) {
+            if (! isset($report[$tid])) {
+                continue;
+            }
+            $report[$tid]['total_duree_cours_minutes'] = (int) $totalMin;
+            $report[$tid]['total_heures_cours'] = $totalMin > 0 ? round($totalMin / 60, 2) : 0.0;
+        }
+
         // Calculer le total à payer pour chaque enseignant
         foreach ($report as $teacherId => &$data) {
             $data['total_a_payer'] = round(
@@ -374,6 +385,7 @@ class CommissionCalculationService
                 2
             );
             $data['total_heures_cours'] = round($data['total_heures_cours'] ?? 0.0, 2);
+            $data['total_duree_cours_minutes'] = (int) ($data['total_duree_cours_minutes'] ?? 0);
         }
         unset($data);
 
@@ -414,6 +426,7 @@ class CommissionCalculationService
                 'total_a_payer' => 0.00,
                 // Sum of lesson durations (start→end) for lines counted in report; excludes prepayment carnet sans séance.
                 'total_heures_cours' => 0.00,
+                'total_duree_cours_minutes' => 0,
             ];
         }
     }
@@ -482,20 +495,31 @@ class CommissionCalculationService
     }
 
     /**
-     * Durée réelle du cours en heures (start_time → end_time), ou null si inconnue.
+     * Durée prévue séance en minutes discrètes (début → fin), aucun arrondi intermédiaire.
+     * Le VH agrégé est toujours (somme minutes) / 60 pour éviter le biais × séances courtes (ex. 20 min).
      */
-    private function lessonDurationHours(Lesson $lesson): ?float
+    private function lessonScheduledDurationMinutes(Lesson $lesson): ?int
     {
         if (! $lesson->start_time || ! $lesson->end_time) {
             return null;
         }
 
-        $minutes = $lesson->start_time->diffInMinutes($lesson->end_time);
-        if ($minutes <= 0) {
-            return null;
+        $minutes = (int) $lesson->start_time->diffInMinutes($lesson->end_time);
+
+        return $minutes > 0 ? $minutes : null;
+    }
+
+    private function formatLessonDurationLineDisplay(?int $minutes): string
+    {
+        if ($minutes === null || $minutes <= 0) {
+            return '—';
         }
 
-        return round($minutes / 60, 2);
+        return sprintf(
+            '%d min (%s h)',
+            $minutes,
+            number_format(round($minutes / 60.0, 12), 2, ',', ' ')
+        );
     }
 
     /**
@@ -531,16 +555,19 @@ class CommissionCalculationService
     private function resolveLessonPayrollAmountWithBasis(Lesson $lesson): array
     {
         $hourlyRate = $this->resolveEffectiveHourlyRateForLesson($lesson);
-        $hours = $this->lessonDurationHours($lesson);
+        $minutes = $this->lessonScheduledDurationMinutes($lesson);
 
-        if ($hourlyRate !== null && $hourlyRate > 0.0 && $hours !== null && $hours > 0.0) {
+        if ($hourlyRate !== null && $hourlyRate > 0.0 && $minutes !== null && $minutes > 0) {
+            // €/h × (minutes réelles ÷ 60) — pas d’arrondi « durée » avant multiplication
+            $amount = round($hourlyRate * ($minutes / 60.0), 2);
+
             return [
-                'amount' => round($hours * $hourlyRate, 2),
+                'amount' => $amount,
                 'basis' => 'hourly_profile',
                 'basis_label' => sprintf(
-                    'Tarif horaire (%.2f €/h × %.2f h)',
+                    'Tarif horaire (%.2f €/h × %d min)',
                     $hourlyRate,
-                    $hours
+                    $minutes,
                 ),
                 'notification' => null,
             ];

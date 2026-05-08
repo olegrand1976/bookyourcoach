@@ -862,5 +862,31 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
         $this->assertNotNull($lessonRow);
         $this->assertNotEmpty($lessonRow['notification'] ?? '');
     }
+
+    #[Test]
+    public function test_vh_aggregate_sums_minutes_so_twenty_minute_sequences_align(): void
+    {
+        foreach (range(1, 6) as $i) {
+            Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacherAlpha->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::parse('2025-11-'.$i.' 10:00:00'),
+                'end_time' => Carbon::parse('2025-11-'.$i.' 10:20:00'),
+                'price' => 11.00,
+                'montant' => 11.00,
+                'est_legacy' => false,
+                'date_paiement' => '2025-11-'.$i,
+                'status' => 'confirmed',
+            ]);
+        }
+
+        $report = $this->service->generatePayrollReport(2025, 11);
+        $row = $report[$this->teacherAlpha->id];
+
+        $this->assertSame(120, $row['total_duree_cours_minutes'] ?? null, '6 × 20 min = 120 min');
+        $this->assertEquals(2.00, $row['total_heures_cours'], 'Σ min ÷ 60 = exactement 2 h (pas 6 × 0,33 h)');
+    }
 }
 

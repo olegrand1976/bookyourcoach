@@ -265,7 +265,8 @@ class PayrollController extends Controller
                 fputcsv($handle, [
                     'ID Enseignant',
                     'Nom Enseignant',
-                    'Heures cours (cumul VH)',
+                    'Minutes cours (cumul)',
+                    'Heures cours (VH = Σ min ÷ 60)',
                     'Commissions DCL (€)',
                     'Commissions NDCL (€)',
                     'Total à Payer (€)',
@@ -276,10 +277,12 @@ class PayrollController extends Controller
                     $dcl = $data['total_commissions_dcl'] ?? 0;
                     $ndcl = $data['total_commissions_ndcl'] ?? 0;
                     $vh = isset($data['total_heures_cours']) ? (float) $data['total_heures_cours'] : 0.0;
+                    $minutes = (int) ($data['total_duree_cours_minutes'] ?? 0);
 
                     fputcsv($handle, [
                         $data['enseignant_id'],
                         $data['nom_enseignant'],
+                        (string) $minutes,
                         number_format($vh, 2, ',', ' '),
                         number_format($dcl, 2, ',', ' '),
                         number_format($ndcl, 2, ',', ' '),
@@ -339,6 +342,7 @@ class PayrollController extends Controller
                     ?? [];
 
                 $vh = round((float) ($row['total_heures_cours'] ?? 0), 2);
+                $totalMinTeacher = (int) ($row['total_duree_cours_minutes'] ?? 0);
                 $teachersOrdered[] = [
                     'id' => $tid,
                     'name' => $row['nom_enseignant'],
@@ -347,6 +351,8 @@ class PayrollController extends Controller
                     'total' => $row['total_a_payer'] ?? 0,
                     'total_heures_cours' => $vh,
                     'total_heures_cours_display' => number_format($vh, 2, ',', ' ').' h',
+                    'total_duree_cours_minutes' => $totalMinTeacher,
+                    'total_duree_cours_display' => $totalMinTeacher > 0 ? $totalMinTeacher.' min cumul séances' : '—',
                     'lines' => $lineRows,
                 ];
             }
@@ -400,23 +406,27 @@ class PayrollController extends Controller
         $totalDcl = 0;
         $totalNdcl = 0;
         $totalAPayer = 0;
-        $totalHeuresCours = 0.0;
+        $totalMinutesCours = 0;
 
         foreach ($report as $data) {
             $totalDcl += $data['total_commissions_dcl'] ?? 0;
             $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
-            $totalHeuresCours += (float) ($data['total_heures_cours'] ?? 0);
+            $totalMinutesCours += (int) ($data['total_duree_cours_minutes'] ?? 0);
         }
+
+        $totalHeuresCoursFromMinutes = $totalMinutesCours > 0 ? round($totalMinutesCours / 60.0, 2) : 0.0;
 
         return [
             'nombre_enseignants' => count($report),
             'total_commissions_dcl' => round($totalDcl, 2),
             'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
-            'total_heures_cours' => round($totalHeuresCours, 2),
-            'total_heures_cours_display' => round($totalHeuresCours, 2) >= 0.01
-                ? number_format(round($totalHeuresCours, 2), 2, ',', ' ').' h'
+            'total_duree_cours_minutes' => $totalMinutesCours,
+            'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (toutes séances)' : '0 min',
+            'total_heures_cours' => $totalHeuresCoursFromMinutes,
+            'total_heures_cours_display' => $totalHeuresCoursFromMinutes >= 0.01
+                ? number_format($totalHeuresCoursFromMinutes, 2, ',', ' ').' h (= '.$totalMinutesCours.' min)'
                 : '0 h',
         ];
     }

@@ -174,6 +174,9 @@
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">VH cours cumulées</p>
                 <p class="text-2xl font-bold text-gray-900">{{ formatLessonHours(selectedReport.statistics?.total_heures_cours ?? 0) }}</p>
+                <p v-if="selectedReport.statistics?.total_duree_cours_display" class="text-xs text-gray-500 mt-1">
+                  {{ selectedReport.statistics.total_duree_cours_display }}
+                </p>
               </div>
             </div>
           </div>
@@ -258,7 +261,7 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours cumulées</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cumulées</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -271,7 +274,8 @@
                   {{ data.nom_enseignant }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
-                  {{ formatLessonHours(data.total_heures_cours ?? 0) }}
+                  <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
+                  <span class="text-gray-500 text-xs">{{ formatLessonHours(data.total_heures_cours ?? 0) }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}

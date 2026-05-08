@@ -101,13 +101,15 @@
     <table class="summary">
         <tr>
             <th>Enseignants</th>
-            <th class="num">VH total (cumul cours)</th>
+            <th class="num">Σ minutes séances</th>
+            <th class="num">VH (= Σ min ÷ 60)</th>
             <th class="num">Total DCL (€)</th>
             <th class="num">Total NDCL (€)</th>
             <th class="num">Total à payer (€)</th>
         </tr>
         <tr>
             <td>{{ $statistics['nombre_enseignants'] ?? count($teachers) }}</td>
+            <td class="num"><strong>{{ $statistics['total_duree_cours_display'] ?? '0 min' }}</strong></td>
             <td class="num"><strong>{{ $statistics['total_heures_cours_display'] ?? '0 h' }}</strong></td>
             <td class="num">{{ number_format($statistics['total_commissions_dcl'] ?? 0, 2, ',', ' ') }}</td>
             <td class="num">{{ number_format($statistics['total_commissions_ndcl'] ?? 0, 2, ',', ' ') }}</td>
@@ -121,7 +123,8 @@
             <thead>
                 <tr>
                     <th>Intervenant</th>
-                    <th class="amount">VH cours (somme séances chronométriées)</th>
+                    <th class="amount">Σ minutes</th>
+                    <th class="amount">VH</th>
                     <th class="amount">Total € (DCL + NDCL)</th>
                 </tr>
             </thead>
@@ -129,6 +132,7 @@
                 @foreach ($teachers as $t)
                     <tr>
                         <td>{{ $t['name'] }} — ID {{ $t['id'] }}</td>
+                        <td class="amount">{{ $t['total_duree_cours_minutes'] ?? 0 }} min</td>
                         <td class="amount">{{ $t['total_heures_cours_display'] }}</td>
                         <td class="amount">{{ number_format($t['total'], 2, ',', ' ') }}</td>
                     </tr>
@@ -142,7 +146,7 @@
             <div class="teacher-title">
                 Détail lignes — {{ $t['name'] }} (ID {{ $t['id'] }})
                 <span style="font-size: 9pt; font-weight: normal;">
-                    · VH cumul sur la période : {{ $t['total_heures_cours_display'] }}
+                    · Σ {{ $t['total_duree_cours_minutes'] ?? 0 }} min ⇒ VH {{ $t['total_heures_cours_display'] }}
                 </span>
             </div>
             <table class="lines">
@@ -153,7 +157,7 @@
                         <th>Ligne</th>
                         <th>Base utilisée</th>
                         <th>Segment</th>
-                        <th class="amount">Heures (ligne)</th>
+                        <th class="amount">Durée (ligne)</th>
                         <th class="amount">Montant (€)</th>
                         <th>Note</th>
                     </tr>
@@ -177,7 +181,7 @@
                     @endforelse
                     <tr class="subtotal-row">
                         <td colspan="5">Sous-total enseignant</td>
-                        <td class="amount">{{ $t['total_heures_cours_display'] }}</td>
+                        <td class="amount">{{ $t['total_duree_cours_minutes'] ?? 0 }} min ({{ $t['total_heures_cours_display'] }})</td>
                         <td class="amount">{{ number_format($t['total'], 2, ',', ' ') }}</td>
                         <td>—</td>
                     </tr>
@@ -190,10 +194,11 @@
     @endforeach
 
     <div class="footnote">
-        <strong>VH (volume horaire cours) :</strong> cumul des durées séance lorsque début et fin sont renseignés sur chaque
-        cours inclus dans cette paie ; les paiements carnet sans séance liée n’ajoutent pas d’heures. La colonne « Heures »
-        par ligne reprend cette même chronologie ; le sous-total enseignant rappelle le cumul VH identique au tableau récap ci-dessus.
-        Les montants par ligne suivent la règle métier décrite précédemment (tarif horaire prioritaire puis secours montant/prorata).
+        <strong>VH et minutes :</strong> le cumul officiel ajoute les <strong>minutes</strong> de chaque séance (différence
+        début / fin puis conversion <strong>VH = Σ minutes ÷ 60</strong> à la fin), sans arrondir séance par séance en « heures
+        décimales » avant somme — ce qui garantit que des créneaux réguliers (ex.&nbsp;: 20&nbsp;min) ne produisent pas de VH
+        erronées (type 6&nbsp;×&nbsp;0,33&nbsp;h ≠ 2&nbsp;h). Les paiements carnet sans séance comptabilisée n’ajoutent pas
+        de minutes. Les montants par ligne suivent la règle métier décrite précédemment (tarif horaire sur minutes réelles, puis secours montant/prorata).
     </div>
 </body>
 </html>
