@@ -89,9 +89,10 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
             'role' => 'teacher',
         ]);
 
+        // Pas de tarif horaire par défaut pour préserver les scénarios montant / prorata (tarif facultatif jusqu’à saisi).
         $this->teacherAlpha = Teacher::create([
             'user_id' => $userAlpha->id,
-            'hourly_rate' => 50.00,
+            'hourly_rate' => null,
             'is_available' => true,
         ]);
 
@@ -107,7 +108,7 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
 
         $this->teacherBeta = Teacher::create([
             'user_id' => $userBeta->id,
-            'hourly_rate' => 50.00,
+            'hourly_rate' => null,
             'is_available' => true,
         ]);
 
@@ -204,6 +205,9 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
             'prof_beta total_commissions_ndcl doit être 0.00 €');
         $this->assertEquals(75.00, $betaData['total_a_payer'], 
             'prof_beta total_a_payer doit être 75.00 €');
+
+        $this->assertEquals(1.0, round($alphaData['total_heures_cours'] ?? 0, 2));
+        $this->assertEquals(1.0, round($betaData['total_heures_cours'] ?? 0, 2));
     }
 
     /**
@@ -265,6 +269,8 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
             'prof_alpha total_commissions_ndcl doit être 80.00 €');
         $this->assertEquals(130.00, $alphaData['total_a_payer'], 
             'prof_alpha total_a_payer doit être 130.00 € (50 + 80)');
+
+        $this->assertEquals(2.0, round($alphaData['total_heures_cours'] ?? 0, 2), '2 séances d’1 h');
     }
 
     /**
@@ -758,6 +764,103 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
             'prof_alpha total_commissions_ndcl doit être 80.00 € (cours individuel NDCL)');
         $this->assertEquals(230.00, $alphaData['total_a_payer'], 
             'prof_alpha total_a_payer doit être 230.00 € (150 + 80)');
+
+        // Abonnement sans séance → 0 h ; deux cours chronométriés d’1 h.
+        $this->assertEquals(2.0, round($alphaData['total_heures_cours'] ?? 0, 2));
+    }
+
+    /**
+     * Avec tarif horaire renseigné sur le profil enseignant, la ligne cours suit durée × tarif et non uniquement montant cours.
+     */
+    #[Test]
+    public function test_lesson_payroll_uses_teacher_hourly_rate_when_defined(): void
+    {
+        $this->teacherAlpha->update(['hourly_rate' => 40.00]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-15 09:30:00'),
+            'end_time' => Carbon::parse('2025-11-15 11:00:00'), // 1,5 h
+            'price' => 999.00,
+            'montant' => 999.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-15',
+            'status' => 'confirmed',
+        ]);
+
+        $report = $this->service->generatePayrollReport(2025, 11);
+
+        $this->assertEquals(60.00, $report[$this->teacherAlpha->id]['total_commissions_dcl'],
+            '1,5 h × 40 €/h = 60 € (prioritaire sur montant cours)');
+
+        $this->assertEquals(1.5, round($report[$this->teacherAlpha->id]['total_heures_cours'], 2));
+    }
+
+    /**
+     * Tarif défini dans le rattachement club prévaut sur le champ profil Teacher.
+     */
+    #[Test]
+    public function test_club_pivot_hourly_rate_overrides_teacher_hourly_rate(): void
+    {
+        $this->club->teachers()->attach($this->teacherAlpha->id, [
+            'hourly_rate' => 100.00,
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $this->teacherAlpha->update(['hourly_rate' => 25.00]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-10 08:00:00'),
+            'end_time' => Carbon::parse('2025-11-10 09:00:00'),
+            'price' => 80.00,
+            'montant' => 80.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-10',
+            'status' => 'confirmed',
+        ]);
+
+        $report = $this->service->generatePayrollReport(2025, 11);
+
+        $this->assertEquals(100.00, $report[$this->teacherAlpha->id]['total_commissions_dcl'],
+            '1 h × pivot 100 €/h doit primer sur les 25 €/h du profil');
+
+        $this->assertEquals(1.0, round($report[$this->teacherAlpha->id]['total_heures_cours'], 2));
+    }
+
+    /**
+     * Sans tarif horaire : notification présente pour expliquer l’usage montant/prix/prorata.
+     */
+    #[Test]
+    public function test_payroll_detail_line_has_notification_when_no_hourly_rate(): void
+    {
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-12 10:00:00'),
+            'end_time' => Carbon::parse('2025-11-12 11:00:00'),
+            'price' => 55.00,
+            'montant' => 55.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-12',
+            'status' => 'confirmed',
+        ]);
+
+        $bundle = $this->service->generatePayrollReportWithLines(2025, 11);
+
+        $rows = $bundle['lines_by_teacher'][$this->teacherAlpha->id] ?? [];
+        $lessonRow = collect($rows)->firstWhere('kind', 'lesson');
+        $this->assertNotNull($lessonRow);
+        $this->assertNotEmpty($lessonRow['notification'] ?? '');
     }
 }
 

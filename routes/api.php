@@ -103,6 +103,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::post('/generate', [App\Http\Controllers\Api\PayrollController::class, 'generate']);
         Route::get('/reports/{year}/{month}', [App\Http\Controllers\Api\PayrollController::class, 'getReportDetails']);
         Route::get('/export/{year}/{month}/csv', [App\Http\Controllers\Api\PayrollController::class, 'exportCsv']);
+        Route::get('/export/{year}/{month}/pdf', [App\Http\Controllers\Api\PayrollController::class, 'exportPdf']);
     });
 });
 

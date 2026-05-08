@@ -364,19 +364,22 @@ class ClubPayrollController extends Controller
                 fputcsv($handle, [
                     'ID Enseignant',
                     'Nom Enseignant',
+                    'Heures cours (cumul VH)',
                     'Commissions DCL (€)',
                     'Commissions NDCL (€)',
-                    'Total à Payer (€)'
+                    'Total à Payer (€)',
                 ], ';');
 
                 // Données
                 foreach ($report as $teacherId => $data) {
                     $dcl = $data['total_commissions_dcl'] ?? 0;
                     $ndcl = $data['total_commissions_ndcl'] ?? 0;
-                    
+                    $vh = isset($data['total_heures_cours']) ? (float) $data['total_heures_cours'] : 0.0;
+
                     fputcsv($handle, [
                         $data['enseignant_id'],
                         $data['nom_enseignant'],
+                        number_format($vh, 2, ',', ' '),
                         number_format($dcl, 2, ',', ' '),
                         number_format($ndcl, 2, ',', ' '),
                         number_format($data['total_a_payer'], 2, ',', ' '),
@@ -841,11 +844,13 @@ class ClubPayrollController extends Controller
         $totalDcl = 0;
         $totalNdcl = 0;
         $totalAPayer = 0;
+        $totalHeuresCours = 0.0;
 
         foreach ($report as $data) {
             $totalDcl += $data['total_commissions_dcl'] ?? 0;
             $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
+            $totalHeuresCours += (float) ($data['total_heures_cours'] ?? 0);
         }
 
         // Calculer le report du mois suivant (négatif)
@@ -918,11 +923,15 @@ class ClubPayrollController extends Controller
         // Total payé = total à payer + report mois suivant (qui est négatif)
         $totalPaye = $totalAPayer + $reportMoisSuivant;
 
+        $vhRounded = round($totalHeuresCours, 2);
+
         return [
             'nombre_enseignants' => count($report),
             'total_commissions_dcl' => round($totalDcl, 2),
             'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
+            'total_heures_cours' => $vhRounded,
+            'total_heures_cours_display' => number_format($vhRounded, 2, ',', ' ').' h',
             'report_mois_suivant' => round($reportMoisSuivant, 2), // Négatif
             'total_paye' => round($totalPaye, 2),
         ];

@@ -35,7 +35,7 @@
     <!-- Reports List -->
     <div v-else class="space-y-6">
       <!-- Statistics Cards -->
-      <div v-if="selectedReport" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div v-if="selectedReport" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
         <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
           <div class="flex items-center">
             <div class="p-2 bg-blue-100 rounded-lg">
@@ -46,6 +46,20 @@
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">Enseignants</p>
               <p class="text-2xl font-bold text-gray-900">{{ selectedReport.statistics?.nombre_enseignants || 0 }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
+          <div class="flex items-center">
+            <div class="p-2 bg-teal-100 rounded-lg">
+              <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <p class="text-sm font-medium text-gray-600">VH cours cumulées</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatLessonHours(selectedReport.statistics?.total_heures_cours ?? 0) }}</p>
             </div>
           </div>
         </div>
@@ -104,6 +118,7 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
@@ -123,6 +138,9 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ report.teachers_count }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {{ formatLessonHours(report.statistics?.total_heures_cours ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -155,6 +173,16 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </button>
+                    <button
+                      type="button"
+                      @click.stop="exportPdf(report.year, report.month)"
+                      class="text-red-600 hover:text-red-900"
+                      title="PDF détaillé par enseignant (lignes, heures)"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -184,6 +212,7 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours cumulées</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -196,6 +225,9 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {{ data.nom_enseignant }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  {{ formatLessonHours(data.total_heures_cours ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -328,17 +360,20 @@ const loadReportDetails = async (year, month) => {
   }
 }
 
-/** Export CSV : ne pas utiliser href direct (sans Authorization Bearer), utiliser Axios comme les autres appels auth. */
-const exportCsv = async (year, month) => {
+/**
+ * Export fichier (CSV / PDF) via $api blob : évite les liens directs sans Bearer.
+ */
+const downloadPayrollExport = async (year, month, format, fallbackFilename) => {
+  const label = format === 'pdf' ? 'PDF' : 'CSV'
   try {
-    const response = await $api.get(`/admin/payroll/export/${year}/${month}/csv`, { responseType: 'blob' })
+    const response = await $api.get(`/admin/payroll/export/${year}/${month}/${format}`, { responseType: 'blob' })
     const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
     if (!blob || blob.size === 0) {
-      window.alert('Export CSV vide ou incorrect.')
+      window.alert(`Export ${label} vide ou incorrect.`)
       return
     }
 
-    let filename = `rapport_paie_${month}_${year}.csv`
+    let filename = fallbackFilename
     const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition']
     if (disposition && typeof disposition === 'string') {
       const m = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)"?/i)
@@ -356,18 +391,24 @@ const exportCsv = async (year, month) => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   } catch (err) {
-    console.error('Export CSV:', err)
-    let msg = err.response?.data?.message || err.message || 'Erreur lors de l\'export CSV'
+    console.error(`Export ${label}:`, err)
+    let msg = err.response?.data?.message || err.message || `Erreur lors de l'export ${label}`
     if (err.response?.data instanceof Blob) {
       try {
         const txt = await err.response.data.text()
         const parsed = JSON.parse(txt)
         if (parsed?.message) msg = parsed.message
-      } catch (_) { /* garder msg par défaut */ }
+      } catch (_) { /* keep default msg */ }
     }
     window.alert(msg)
   }
 }
+
+const exportCsv = (year, month) =>
+  downloadPayrollExport(year, month, 'csv', `rapport_paie_${month}_${year}.csv`)
+
+const exportPdf = (year, month) =>
+  downloadPayrollExport(year, month, 'pdf', `rapport_paie_detail_${year}_${String(month).padStart(2, '0')}.pdf`)
 
 const generateReport = async () => {
   generating.value = true
@@ -401,6 +442,13 @@ const formatCurrency = (amount) => {
     currency: 'EUR',
     minimumFractionDigits: 2
   }).format(amount)
+}
+
+/** VH : somme des durées cours (backend), affichée en heures décimales. */
+const formatLessonHours = (value) => {
+  const v = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
+  if (Number.isNaN(v)) return '—'
+  return `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`
 }
 
 const formatDate = (dateString) => {

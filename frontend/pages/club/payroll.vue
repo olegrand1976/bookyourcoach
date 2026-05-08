@@ -57,6 +57,7 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
                 <th v-if="hasNdclInReports" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
@@ -76,6 +77,9 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ report.teachers_count }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  {{ formatLessonHours(report.statistics?.total_heures_cours ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -145,7 +149,7 @@
         </div>
 
         <!-- Statistiques principales -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
           <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <div class="flex items-center">
               <div class="p-2 bg-blue-100 rounded-lg">
@@ -156,6 +160,20 @@
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">Nb Enseignants</p>
                 <p class="text-2xl font-bold text-gray-900">{{ selectedReport.statistics?.nombre_enseignants || 0 }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
+            <div class="flex items-center">
+              <div class="p-2 bg-teal-100 rounded-lg">
+                <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div class="ml-4">
+                <p class="text-sm font-medium text-gray-600">VH cours cumulées</p>
+                <p class="text-2xl font-bold text-gray-900">{{ formatLessonHours(selectedReport.statistics?.total_heures_cours ?? 0) }}</p>
               </div>
             </div>
           </div>
@@ -240,6 +258,7 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours cumulées</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -250,6 +269,9 @@
               <tr v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {{ data.nom_enseignant }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  {{ formatLessonHours(data.total_heures_cours ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -524,6 +546,13 @@ const generateReport = async () => {
   } finally {
     generating.value = false
   }
+}
+
+/** VH cumul cours (somme durées chronométriées sur les séances incluses au rapport). */
+const formatLessonHours = (value) => {
+  const v = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
+  if (Number.isNaN(v)) return '—'
+  return `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`
 }
 
 const formatCurrency = (amount) => {

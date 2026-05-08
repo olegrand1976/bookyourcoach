@@ -249,6 +249,34 @@ class CommissionCalculationServiceTest extends TestCase
 
         // Vérifier que seuls 2 enseignants sont dans le rapport
         $this->assertCount(2, $report, 'Le rapport doit contenir exactement 2 enseignants');
+
+        $this->assertEquals(0.0, $alphaData['total_heures_cours'] ?? null, 'sans séance chronométriée, VH = 0');
+        $this->assertEquals(0.0, $betaData['total_heures_cours'] ?? null, 'sans séance chronométriée, VH = 0');
+    }
+
+    public function test_generate_payroll_report_with_lines_matches_aggregate_totals(): void
+    {
+        SubscriptionInstance::create([
+            'subscription_id' => $this->subscription->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'montant' => 100.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-05',
+            'started_at' => '2025-11-05',
+            'status' => 'active',
+        ]);
+
+        $bundle = $this->service->generatePayrollReportWithLines(2025, 11);
+        $plain = $this->service->generatePayrollReport(2025, 11);
+
+        $this->assertEquals($plain, $bundle['report']);
+
+        $teacherId = $this->teacherAlpha->id;
+        $this->assertArrayHasKey($teacherId, $bundle['lines_by_teacher']);
+        $this->assertCount(1, $bundle['lines_by_teacher'][$teacherId]);
+        $line = $bundle['lines_by_teacher'][$teacherId][0];
+        $this->assertEquals(100.00, $line['amount']);
+        $this->assertEquals('subscription_prepayment', $line['kind']);
     }
 
     /**

@@ -17,6 +17,11 @@ use Carbon\Carbon;
  *
  * Les règles de calcul sont différentes pour chaque type et peuvent être facilement
  * modifiées ou supprimées (pour NDCL) sans affecter le reste du code.
+ *
+ * Lignes cours : lorsqu’un tarif horaire est défini (pivot club_teachers pour le club du
+ * cours si > 0, sinon champ teachers.hourly_rate) et que la durée séance est connue,
+ * montant paie = heures × tarif horaire ; sinon recours montant cours / prix / prorata avec
+ * notification sur la ligne détaillée.
  */
 class CommissionCalculationService
 {
@@ -110,12 +115,31 @@ class CommissionCalculationService
      */
     public function generatePayrollReport(int $year, int $month, ?int $clubId = null): array
     {
+        return $this->computePayrollReport($year, $month, $clubId)['report'];
+    }
+
+    /**
+     * Rapport agrégé + lignes détaillées pour export PDF / audit (jour, durée si connue, base, montant).
+     *
+     * @return array{report: array, lines_by_teacher: array<int, array<int, array<string, mixed>>>}
+     */
+    public function generatePayrollReportWithLines(int $year, int $month, ?int $clubId = null): array
+    {
+        return $this->computePayrollReport($year, $month, $clubId);
+    }
+
+    /**
+     * @return array{report: array, lines_by_teacher: array<int, array<int, array<string, mixed>>>}
+     */
+    private function computePayrollReport(int $year, int $month, ?int $clubId): array
+    {
         // Définir la période de recherche
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
         // Structure de données pour agréger les résultats par enseignant
         $report = [];
+        $linesByTeacher = [];
 
         // ===== PARTIE 1 : ABONNEMENTS =====
         // Collecter tous les abonnements payés durant la période
@@ -173,6 +197,28 @@ class CommissionCalculationService
                     $report[$teacherId]['total_commissions_ndcl'],
                     2
                 );
+
+                $paymentDate = $instance->date_paiement ? Carbon::parse($instance->date_paiement) : null;
+                $segment = $instance->est_legacy === false ? 'DCL' : 'NDCL';
+                $templateName = $instance->subscription?->name ?? 'Abonnement';
+                if (! isset($linesByTeacher[$teacherId])) {
+                    $linesByTeacher[$teacherId] = [];
+                }
+                $linesByTeacher[$teacherId][] = [
+                    'kind' => 'subscription_prepayment',
+                    'sort_date' => $paymentDate ? $paymentDate->format('Y-m-d') : '0000-00-00',
+                    'sort_time' => '00:00:00',
+                    'date_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
+                    'hours' => null,
+                    'hours_display' => '—',
+                    'segment' => $segment,
+                    'label' => 'Paiement abonnement (sans séance liée) — '.$templateName,
+                    'reference' => 'SI-'.$instance->id,
+                    'basis' => 'paiement_carnet',
+                    'basis_label' => 'Montant paiement carnet',
+                    'amount' => round($commission, 2),
+                    'notification' => 'Pas de séance : ligne au montant encaissé (tarif horaire hors périmètre).',
+                ];
             } catch (\InvalidArgumentException $e) {
                 \Log::error("Erreur lors du calcul de commission pour l'abonnement {$instance->id}: ".$e->getMessage());
 
@@ -224,7 +270,7 @@ class CommissionCalculationService
                         $q->whereNotNull('montant')->where('montant', '>', 0);
                     });
             })
-            ->with(['teacher.user', 'club', 'subscriptionInstances.subscription.template']);
+            ->with(['teacher.user', 'teacher.clubs', 'club', 'courseType', 'subscriptionInstances.subscription.template']);
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
@@ -248,7 +294,11 @@ class CommissionCalculationService
 
             // Calculer la commission selon le type (DCL ou NDCL)
             try {
-                $amount = $this->resolveLessonCommissionBaseAmount($lesson);
+                $payroll = $this->resolveLessonPayrollAmountWithBasis($lesson);
+                $amount = $payroll['amount'];
+                $basis = $payroll['basis'];
+                $basisLabel = $payroll['basis_label'];
+                $notification = $payroll['notification'];
 
                 if ($amount <= 0) {
                     \Log::warning("Cours {$lesson->id} sans base de commission (montant, price ou prorata abonnement), ignoré");
@@ -274,6 +324,42 @@ class CommissionCalculationService
                     $report[$teacherId]['total_commissions_ndcl'],
                     2
                 );
+
+                $hours = $this->lessonDurationHours($lesson);
+                if ($hours !== null && $hours > 0.0) {
+                    $report[$teacherId]['total_heures_cours'] = round(
+                        ($report[$teacherId]['total_heures_cours'] ?? 0.0) + $hours,
+                        2
+                    );
+                }
+
+                $segment = $this->lessonCountsAsDcl($lesson) ? 'DCL' : 'NDCL';
+                $labelParts = ['Cours #'.$lesson->id];
+                if ($lesson->club?->name) {
+                    $labelParts[] = $lesson->club->name;
+                }
+                if ($lesson->courseType?->name) {
+                    $labelParts[] = $lesson->courseType->name;
+                }
+                if (! isset($linesByTeacher[$teacherId])) {
+                    $linesByTeacher[$teacherId] = [];
+                }
+                $start = $lesson->start_time;
+                $linesByTeacher[$teacherId][] = [
+                    'kind' => 'lesson',
+                    'sort_date' => $start ? $start->format('Y-m-d') : '0000-00-00',
+                    'sort_time' => $start ? $start->format('H:i:s') : '00:00:00',
+                    'date_display' => $start ? $start->format('d/m/Y') : '—',
+                    'hours' => $hours,
+                    'hours_display' => $hours !== null ? number_format($hours, 2, ',', ' ').' h' : '—',
+                    'segment' => $segment,
+                    'label' => implode(' — ', $labelParts),
+                    'reference' => 'L-'.$lesson->id,
+                    'basis' => $basis,
+                    'basis_label' => $basisLabel,
+                    'amount' => round($commission, 2),
+                    'notification' => $notification,
+                ];
             } catch (\Exception $e) {
                 \Log::error("Erreur lors du calcul de commission pour le cours {$lesson->id}: ".$e->getMessage());
 
@@ -287,9 +373,25 @@ class CommissionCalculationService
                 $data['total_commissions_dcl'] + $data['total_commissions_ndcl'],
                 2
             );
+            $data['total_heures_cours'] = round($data['total_heures_cours'] ?? 0.0, 2);
+        }
+        unset($data);
+
+        foreach ($linesByTeacher as $tid => $rows) {
+            usort($linesByTeacher[$tid], function (array $a, array $b): int {
+                $c = strcmp($a['sort_date'], $b['sort_date']);
+                if ($c !== 0) {
+                    return $c;
+                }
+
+                return strcmp($a['sort_time'], $b['sort_time']);
+            });
         }
 
-        return $report;
+        return [
+            'report' => $report,
+            'lines_by_teacher' => $linesByTeacher,
+        ];
     }
 
     /**
@@ -310,6 +412,8 @@ class CommissionCalculationService
                 'total_commissions_dcl' => 0.00,   // DCL = Déclaré (Type 1)
                 'total_commissions_ndcl' => 0.00,  // NDCL = Non Déclaré (Type 2)
                 'total_a_payer' => 0.00,
+                // Sum of lesson durations (start→end) for lines counted in report; excludes prepayment carnet sans séance.
+                'total_heures_cours' => 0.00,
             ];
         }
     }
@@ -342,15 +446,17 @@ class CommissionCalculationService
 
     /**
      * Base monétaire pour une ligne cours (montant, prix catalogue, ou valeur au prorata du carnet abonnement).
+     *
+     * @return array{amount: float, basis: string}
      */
-    private function resolveLessonCommissionBaseAmount(Lesson $lesson): float
+    private function resolveLessonCommissionBaseAmountWithBasis(Lesson $lesson): array
     {
         if ($lesson->montant !== null && (float) $lesson->montant > 0.0) {
-            return round((float) $lesson->montant, 2);
+            return ['amount' => round((float) $lesson->montant, 2), 'basis' => 'montant'];
         }
 
         if ($lesson->price !== null && (float) $lesson->price > 0.0) {
-            return round((float) $lesson->price, 2);
+            return ['amount' => round((float) $lesson->price, 2), 'basis' => 'price'];
         }
 
         if (! $lesson->relationLoaded('subscriptionInstances')) {
@@ -360,11 +466,105 @@ class CommissionCalculationService
         foreach ($lesson->subscriptionInstances as $instance) {
             $prorated = $this->calculateSubscriptionLessonProRataAmount($instance);
             if ($prorated > 0.0) {
-                return $prorated;
+                return ['amount' => $prorated, 'basis' => 'prorata_abonnement'];
             }
         }
 
-        return 0.0;
+        return ['amount' => 0.0, 'basis' => 'none'];
+    }
+
+    /**
+     * Base monétaire pour une ligne cours (compatibilité).
+     */
+    private function resolveLessonCommissionBaseAmount(Lesson $lesson): float
+    {
+        return $this->resolveLessonCommissionBaseAmountWithBasis($lesson)['amount'];
+    }
+
+    /**
+     * Durée réelle du cours en heures (start_time → end_time), ou null si inconnue.
+     */
+    private function lessonDurationHours(Lesson $lesson): ?float
+    {
+        if (! $lesson->start_time || ! $lesson->end_time) {
+            return null;
+        }
+
+        $minutes = $lesson->start_time->diffInMinutes($lesson->end_time);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        return round($minutes / 60, 2);
+    }
+
+    /**
+     * Tarif horaire pour la paie séance : pivot club × enseignant (si défini et > 0), sinon champ profil Teacher.
+     */
+    private function resolveEffectiveHourlyRateForLesson(Lesson $lesson): ?float
+    {
+        $lesson->loadMissing(['teacher.clubs']);
+
+        $teacher = $lesson->teacher;
+        if (! $teacher) {
+            return null;
+        }
+
+        if ($lesson->club_id) {
+            $clubTeacher = $teacher->clubs->firstWhere('id', (int) $lesson->club_id);
+            $pivotRate = $clubTeacher?->pivot?->hourly_rate ?? null;
+            if ($pivotRate !== null && (float) $pivotRate > 0.0) {
+                return round((float) $pivotRate, 2);
+            }
+        }
+
+        $profileRate = $teacher->hourly_rate ?? null;
+
+        return $profileRate !== null && (float) $profileRate > 0.0 ? round((float) $profileRate, 2) : null;
+    }
+
+    /**
+     * Montant à payer pour un cours : priorité durée × tarif horaire effectif lorsque disponible.
+     *
+     * @return array{amount: float, basis: string, basis_label: string, notification: ?string}
+     */
+    private function resolveLessonPayrollAmountWithBasis(Lesson $lesson): array
+    {
+        $hourlyRate = $this->resolveEffectiveHourlyRateForLesson($lesson);
+        $hours = $this->lessonDurationHours($lesson);
+
+        if ($hourlyRate !== null && $hourlyRate > 0.0 && $hours !== null && $hours > 0.0) {
+            return [
+                'amount' => round($hours * $hourlyRate, 2),
+                'basis' => 'hourly_profile',
+                'basis_label' => sprintf(
+                    'Tarif horaire (%.2f €/h × %.2f h)',
+                    $hourlyRate,
+                    $hours
+                ),
+                'notification' => null,
+            ];
+        }
+
+        $fallback = $this->resolveLessonCommissionBaseAmountWithBasis($lesson);
+        $notification = null;
+        if ($hourlyRate === null || $hourlyRate <= 0.0) {
+            $notification = 'Aucun tarif horaire valide (rattachement club puis profil enseignant). Montant / prix cours ou prorata carnet utilisé.';
+        } else {
+            $notification = 'Tarif horaire enregistré mais durée séance introuvable (vérifiez début/fin du cours sur la réservation). Montant / prix ou prorata utilisé.';
+        }
+
+        return [
+            'amount' => $fallback['amount'],
+            'basis' => $fallback['basis'],
+            'basis_label' => match ($fallback['basis']) {
+                'montant' => 'Montant saisi sur le cours',
+                'price' => 'Prix catalogue',
+                'prorata_abonnement' => 'Prorata séance (carnet / nb séances)',
+                default => $fallback['basis'],
+            },
+            'notification' => $notification,
+        ];
     }
 
     /**

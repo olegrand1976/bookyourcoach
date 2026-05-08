@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\CommissionCalculationService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
@@ -264,19 +265,22 @@ class PayrollController extends Controller
                 fputcsv($handle, [
                     'ID Enseignant',
                     'Nom Enseignant',
+                    'Heures cours (cumul VH)',
                     'Commissions DCL (€)',
                     'Commissions NDCL (€)',
-                    'Total à Payer (€)'
+                    'Total à Payer (€)',
                 ], ';');
 
                 // Données
                 foreach ($report as $teacherId => $data) {
                     $dcl = $data['total_commissions_dcl'] ?? 0;
                     $ndcl = $data['total_commissions_ndcl'] ?? 0;
-                    
+                    $vh = isset($data['total_heures_cours']) ? (float) $data['total_heures_cours'] : 0.0;
+
                     fputcsv($handle, [
                         $data['enseignant_id'],
                         $data['nom_enseignant'],
+                        number_format($vh, 2, ',', ' '),
                         number_format($dcl, 2, ',', ' '),
                         number_format($ndcl, 2, ',', ' '),
                         number_format($data['total_a_payer'], 2, ',', ' '),
@@ -305,6 +309,87 @@ class PayrollController extends Controller
     }
 
     /**
+     * Exporter un rapport détaillé en PDF (lignes par jour, durée si connue, segment, montant).
+     *
+     * @return \Symfony\Component\HttpFoundation\Response|JsonResponse
+     */
+    public function exportPdf(Request $request, int $year, int $month)
+    {
+        try {
+            if ($year < 2020 || $year > 2100 || $month < 1 || $month > 12) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Période invalide',
+                ], 422);
+            }
+
+            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month);
+            $report = $bundle['report'];
+            $linesByTeacher = $bundle['lines_by_teacher'];
+            $stats = $this->calculateStats($report);
+
+            $periodStart = Carbon::create($year, $month, 1);
+            $tz = config('app.timezone', 'Europe/Paris');
+
+            $teachersOrdered = [];
+            foreach ($report as $teacherId => $row) {
+                $tid = (int) $teacherId;
+                $lineRows = $linesByTeacher[$tid]
+                    ?? $linesByTeacher[$teacherId]
+                    ?? [];
+
+                $vh = round((float) ($row['total_heures_cours'] ?? 0), 2);
+                $teachersOrdered[] = [
+                    'id' => $tid,
+                    'name' => $row['nom_enseignant'],
+                    'total_dcl' => $row['total_commissions_dcl'] ?? 0,
+                    'total_ndcl' => $row['total_commissions_ndcl'] ?? 0,
+                    'total' => $row['total_a_payer'] ?? 0,
+                    'total_heures_cours' => $vh,
+                    'total_heures_cours_display' => number_format($vh, 2, ',', ' ').' h',
+                    'lines' => $lineRows,
+                ];
+            }
+
+            usort($teachersOrdered, static function ($a, $b) {
+                return strcasecmp($a['name'] ?? '', $b['name'] ?? '');
+            });
+
+            $html = view('pdf.payroll-detail', [
+                'year' => $year,
+                'month' => $month,
+                'month_name' => $periodStart->locale('fr')->monthName,
+                'statistics' => $stats,
+                'teachers' => $teachersOrdered,
+                'generated_at' => now()->timezone($tz)->format('d/m/Y H:i'),
+            ])->render();
+
+            $pdf = Pdf::loadHTML($html)
+                ->setPaper('a4', 'landscape')
+                ->setOption('margin-top', 8)
+                ->setOption('margin-bottom', 8)
+                ->setOption('margin-left', 8)
+                ->setOption('margin-right', 8);
+
+            $filename = sprintf('rapport_paie_detail_%d_%02d.pdf', $year, $month);
+
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            Log::error("Erreur lors de l'export PDF paie", [
+                'error' => $e->getMessage(),
+                'year' => $year,
+                'month' => $month,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'export PDF',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Calculer les statistiques globales d'un rapport
      * 
      * @param array $report
@@ -315,11 +400,13 @@ class PayrollController extends Controller
         $totalDcl = 0;
         $totalNdcl = 0;
         $totalAPayer = 0;
+        $totalHeuresCours = 0.0;
 
         foreach ($report as $data) {
             $totalDcl += $data['total_commissions_dcl'] ?? 0;
             $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
+            $totalHeuresCours += (float) ($data['total_heures_cours'] ?? 0);
         }
 
         return [
@@ -327,6 +414,10 @@ class PayrollController extends Controller
             'total_commissions_dcl' => round($totalDcl, 2),
             'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
+            'total_heures_cours' => round($totalHeuresCours, 2),
+            'total_heures_cours_display' => round($totalHeuresCours, 2) >= 0.01
+                ? number_format(round($totalHeuresCours, 2), 2, ',', ' ').' h'
+                : '0 h',
         ];
     }
 }
