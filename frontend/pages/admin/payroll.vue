@@ -284,6 +284,8 @@ const months = [
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ]
 
+const getApiPayload = (response) => response?.data ?? response
+
 // Methods
 const loadReports = async () => {
   loading.value = true
@@ -291,14 +293,15 @@ const loadReports = async () => {
   
   try {
     const response = await $api.get('/admin/payroll/reports')
-    if (response.success) {
-      reports.value = response.data
+    const payload = getApiPayload(response)
+    if (payload?.success) {
+      reports.value = payload.data || []
     } else {
-      error.value = response.message || 'Erreur lors du chargement des rapports'
+      error.value = payload?.message || 'Erreur lors du chargement des rapports'
     }
   } catch (err) {
     console.error('Erreur lors du chargement des rapports:', err)
-    error.value = err.response?.data?.message || 'Erreur lors du chargement des rapports'
+    error.value = err.response?.data?.message || err.message || 'Erreur lors du chargement des rapports'
   } finally {
     loading.value = false
   }
@@ -307,19 +310,22 @@ const loadReports = async () => {
 const loadReportDetails = async (year, month) => {
   try {
     const response = await $api.get(`/admin/payroll/reports/${year}/${month}`)
-    if (response.success) {
+    const payload = getApiPayload(response)
+    if (payload?.success && payload?.data) {
       selectedReport.value = {
         year,
         month,
-        month_name: response.data.period.month_name,
-        statistics: response.data.statistics,
-        teachers_count: Object.keys(response.data.report).length
+        month_name: payload.data.period.month_name,
+        statistics: payload.data.statistics,
+        teachers_count: Object.keys(payload.data.report).length
       }
-      selectedReportDetails.value = response.data
+      selectedReportDetails.value = payload.data
+    } else {
+      error.value = payload?.message || 'Erreur lors du chargement des détails'
     }
   } catch (err) {
     console.error('Erreur lors du chargement des détails:', err)
-    error.value = err.response?.data?.message || 'Erreur lors du chargement des détails'
+    error.value = err.response?.data?.message || err.message || 'Erreur lors du chargement des détails'
   }
 }
 
@@ -331,17 +337,19 @@ const generateReport = async () => {
       year: generateYear.value,
       month: generateMonth.value
     })
-    
-    if (response.success) {
+
+    const payload = getApiPayload(response)
+    if (payload?.success) {
+      error.value = null
       showGenerateModal.value = false
       await loadReports()
       await loadReportDetails(generateYear.value, generateMonth.value)
     } else {
-      error.value = response.message || 'Erreur lors de la génération'
+      error.value = payload?.message || 'Erreur lors de la génération'
     }
   } catch (err) {
     console.error('Erreur lors de la génération:', err)
-    error.value = err.response?.data?.message || 'Erreur lors de la génération'
+    error.value = err.response?.data?.message || err.message || 'Erreur lors de la génération'
   } finally {
     generating.value = false
   }
