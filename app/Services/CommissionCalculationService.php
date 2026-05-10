@@ -284,7 +284,7 @@ class CommissionCalculationService
                 'club',
                 'courseType',
                 'subscriptionInstances.subscription.template',
-            ], $includeLines ? ['student.user'] : []));
+            ], $includeLines ? ['student.user', 'students.user'] : []));
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
@@ -546,36 +546,26 @@ class CommissionCalculationService
 
     /**
      * Libellé élève(s) pour lignes paie / PDF / UI (évite N+1 : relations déjà eager-loadées).
+     *
+     * Important : ne pas exiger relationLoaded('students') — le rapport ne chargeait que student.user,
+     * donc les participants uniquement sur lesson_student étaient ignorés et la ligne paie n’affichait pas d’élève.
      */
     private function formatPayrollLessonStudentsLabel(Lesson $lesson): ?string
     {
-        $lesson->loadMissing(['student.user']);
+        $lesson->loadMissing(['student.user', 'students.user']);
 
         $names = [];
-        if ($lesson->relationLoaded('students') && $lesson->students->isNotEmpty()) {
-            foreach ($lesson->students as $student) {
-                $user = $student->user;
-                if (! $user) {
-                    continue;
-                }
-                $n = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
-                if ($n === '') {
-                    $n = $user->name ?? '';
-                }
-                if ($n !== '') {
-                    $names[] = $n;
-                }
+        foreach ($lesson->students as $student) {
+            $n = $this->formatPayrollSingleStudentDisplayName($student);
+            if ($n !== null && $n !== '') {
+                $names[] = $n;
             }
-            $names = array_values(array_unique($names));
         }
+        $names = array_values(array_unique($names));
 
-        if ($names === [] && $lesson->student?->user) {
-            $user = $lesson->student->user;
-            $n = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
-            if ($n === '') {
-                $n = $user->name ?? '';
-            }
-            if ($n !== '') {
+        if ($names === [] && $lesson->student) {
+            $n = $this->formatPayrollSingleStudentDisplayName($lesson->student);
+            if ($n !== null && $n !== '') {
                 $names[] = $n;
             }
         }
@@ -589,6 +579,33 @@ class CommissionCalculationService
         }
 
         return $names[0].' +'.(count($names) - 1);
+    }
+
+    /**
+     * Nom affichable pour la paie : User lié, sinon champs profil Student, sinon accessor name.
+     */
+    private function formatPayrollSingleStudentDisplayName(\App\Models\Student $student): ?string
+    {
+        $student->loadMissing('user');
+        $user = $student->user;
+        if ($user) {
+            $n = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+            if ($n === '') {
+                $n = $user->name ?? '';
+            }
+            if ($n !== '') {
+                return $n;
+            }
+        }
+
+        $fromProfile = trim(($student->first_name ?? '').' '.($student->last_name ?? ''));
+        if ($fromProfile !== '') {
+            return $fromProfile;
+        }
+
+        $fromAccessor = $student->name;
+
+        return $fromAccessor !== null && $fromAccessor !== '' ? $fromAccessor : null;
     }
 
     /**
