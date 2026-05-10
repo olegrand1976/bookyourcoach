@@ -331,7 +331,13 @@ class PayrollController extends Controller
             $linesByTeacher = $bundle['lines_by_teacher'];
             $stats = $this->calculateStats($report);
 
-            $periodStart = Carbon::create($year, $month, 1);
+            $periodStart = Carbon::create($year, $month, 1)->locale('fr');
+            $periodEnd = $periodStart->copy()->endOfMonth();
+            $periodRangeLabel = sprintf(
+                'Du %s au %s',
+                $periodStart->copy()->startOfMonth()->translatedFormat('j F Y'),
+                $periodEnd->translatedFormat('j F Y')
+            );
             $tz = config('app.timezone', 'Europe/Paris');
 
             $teachersOrdered = [];
@@ -364,7 +370,8 @@ class PayrollController extends Controller
             $html = view('pdf.payroll-detail', [
                 'year' => $year,
                 'month' => $month,
-                'month_name' => $periodStart->locale('fr')->monthName,
+                'month_name' => $periodStart->monthName,
+                'period_range_label' => $periodRangeLabel,
                 'statistics' => $stats,
                 'teachers' => $teachersOrdered,
                 'generated_at' => now()->timezone($tz)->format('d/m/Y H:i'),

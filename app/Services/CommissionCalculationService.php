@@ -208,9 +208,11 @@ class CommissionCalculationService
                 }
                 $linesByTeacher[$teacherId][] = [
                     'kind' => 'subscription_prepayment',
+                    'line_type_label' => 'Prépaiement carnet',
                     'sort_date' => $paymentDate ? $paymentDate->format('Y-m-d') : '0000-00-00',
                     'sort_time' => '00:00:00',
                     'date_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
+                    'datetime_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
                     'duree_minutes' => null,
                     'hours' => null,
                     'hours_display' => '—',
@@ -348,9 +350,11 @@ class CommissionCalculationService
                 $vhLine = $durationMinutes !== null ? $durationMinutes / 60.0 : null;
                 $linesByTeacher[$teacherId][] = [
                     'kind' => 'lesson',
+                    'line_type_label' => 'Cours',
                     'sort_date' => $start ? $start->format('Y-m-d') : '0000-00-00',
                     'sort_time' => $start ? $start->format('H:i:s') : '00:00:00',
                     'date_display' => $start ? $start->format('d/m/Y') : '—',
+                    'datetime_display' => $start ? $start->format('d/m/Y H:i') : '—',
                     'duree_minutes' => $durationMinutes,
                     'hours' => $vhLine,
                     'hours_display' => $this->formatLessonDurationLineDisplay($durationMinutes),
