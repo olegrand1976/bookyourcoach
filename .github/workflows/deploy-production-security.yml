@@ -560,15 +560,20 @@ jobs:
             log_info "🔍 Vérification de l'application..."
             sleep 3
             
-            # Test rapide pour vérifier que le service view est disponible
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="app('view'); echo 'OK';" 2>/dev/null | grep -q "OK"; then
-                log_info "✅ Service 'view' disponible"
+            # Smoke check (tinker souvent désactivé en prod — ne pas s'appuyer sur app('view') via tinker)
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan about --only=environment 2>/dev/null | grep -q "Environment"; then
+                log_info "✅ Application Laravel répond (artisan about)"
             else
-                log_warning "⚠️  Service 'view' non disponible - redémarrage du conteneur..."
+                log_warning "⚠️  artisan about a échoué — redémarrage du conteneur backend..."
                 docker compose -f "$COMPOSE_FILE" restart backend
-                sleep 5
+                sleep 8
+                wait_for_service "Backend" "http://localhost:8080" 45 || true
             fi
         fi
+
+        # Après migrations / caches / redémarrage éventuel : réattendre HTTP (évite connexion refusée avant les tests curl)
+        wait_for_service "Backend (post-init)" "http://localhost:8080" 60 || true
+        wait_for_service "Frontend (post-init)" "http://localhost:3000" 30 || true
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
@@ -578,7 +583,8 @@ jobs:
         log_step "🧪 Tests de connectivité et sécurité..."
         
         # Test du backend Laravel (port 8080) avec diagnostic détaillé
-        backend_response=$(curl -s -w "\n%{http_code}" http://localhost:8080 2>/dev/null)
+        # Important : avec set -e, curl en échec (ex. code 7 connexion refusée) dans une assignation arrête tout le script
+        backend_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 http://localhost:8080 2>/dev/null || printf '\n000')
         backend_http_code=$(echo "$backend_response" | tail -n 1)
         
         if [ "$backend_http_code" = "200" ] || [ "$backend_http_code" = "302" ] || [ "$backend_http_code" = "404" ]; then
@@ -608,7 +614,7 @@ jobs:
 
         # Test de sécurité des routes admin (seulement si le backend répond correctement)
         if [ "$backend_http_code" != "500" ] && [ -n "$backend_http_code" ]; then
-            admin_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+            admin_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null || printf '\n000')
             admin_http_code=$(echo "$admin_response" | tail -n 1)
             
             if [ "$admin_http_code" = "401" ]; then
@@ -618,7 +624,7 @@ jobs:
             fi
 
             # Test de sécurité des routes teacher
-            teacher_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+            teacher_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null || printf '\n000')
             teacher_http_code=$(echo "$teacher_response" | tail -n 1)
             
             if [ "$teacher_http_code" = "401" ]; then
@@ -995,15 +1001,20 @@ jobs:
             log_info "🔍 Vérification de l'application..."
             sleep 3
             
-            # Test rapide pour vérifier que le service view est disponible
-            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan tinker --execute="app('view'); echo 'OK';" 2>/dev/null | grep -q "OK"; then
-                log_info "✅ Service 'view' disponible"
+            # Smoke check (tinker souvent désactivé en prod — ne pas s'appuyer sur app('view') via tinker)
+            if docker compose -f "$COMPOSE_FILE" exec -T backend php artisan about --only=environment 2>/dev/null | grep -q "Environment"; then
+                log_info "✅ Application Laravel répond (artisan about)"
             else
-                log_warning "⚠️  Service 'view' non disponible - redémarrage du conteneur..."
+                log_warning "⚠️  artisan about a échoué — redémarrage du conteneur backend..."
                 docker compose -f "$COMPOSE_FILE" restart backend
-                sleep 5
+                sleep 8
+                wait_for_service "Backend" "http://localhost:8080" 45 || true
             fi
         fi
+
+        # Après migrations / caches / redémarrage éventuel : réattendre HTTP (évite connexion refusée avant les tests curl)
+        wait_for_service "Backend (post-init)" "http://localhost:8080" 60 || true
+        wait_for_service "Frontend (post-init)" "http://localhost:3000" 30 || true
 
         # Vérification de l'état des services
         log_step "🔍 Vérification de l'état des services..."
@@ -1013,7 +1024,8 @@ jobs:
         log_step "🧪 Tests de connectivité et sécurité..."
         
         # Test du backend Laravel (port 8080) avec diagnostic détaillé
-        backend_response=$(curl -s -w "\n%{http_code}" http://localhost:8080 2>/dev/null)
+        # Important : avec set -e, curl en échec (ex. code 7 connexion refusée) dans une assignation arrête tout le script
+        backend_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 http://localhost:8080 2>/dev/null || printf '\n000')
         backend_http_code=$(echo "$backend_response" | tail -n 1)
         
         if [ "$backend_http_code" = "200" ] || [ "$backend_http_code" = "302" ] || [ "$backend_http_code" = "404" ]; then
@@ -1043,7 +1055,7 @@ jobs:
 
         # Test de sécurité des routes admin (seulement si le backend répond correctement)
         if [ "$backend_http_code" != "500" ] && [ -n "$backend_http_code" ]; then
-            admin_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null)
+            admin_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard 2>/dev/null || printf '\n000')
             admin_http_code=$(echo "$admin_response" | tail -n 1)
             
             if [ "$admin_http_code" = "401" ]; then
@@ -1053,7 +1065,7 @@ jobs:
             fi
 
             # Test de sécurité des routes teacher
-            teacher_response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null)
+            teacher_response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 15 -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard 2>/dev/null || printf '\n000')
             teacher_http_code=$(echo "$teacher_response" | tail -n 1)
             
             if [ "$teacher_http_code" = "401" ]; then
