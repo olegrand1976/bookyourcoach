@@ -115,7 +115,7 @@ class CommissionCalculationService
      */
     public function generatePayrollReport(int $year, int $month, ?int $clubId = null): array
     {
-        return $this->computePayrollReport($year, $month, $clubId)['report'];
+        return $this->computePayrollReport($year, $month, $clubId, false)['report'];
     }
 
     /**
@@ -125,13 +125,13 @@ class CommissionCalculationService
      */
     public function generatePayrollReportWithLines(int $year, int $month, ?int $clubId = null): array
     {
-        return $this->computePayrollReport($year, $month, $clubId);
+        return $this->computePayrollReport($year, $month, $clubId, true);
     }
 
     /**
      * @return array{report: array, lines_by_teacher: array<int, array<int, array<string, mixed>>>}
      */
-    private function computePayrollReport(int $year, int $month, ?int $clubId): array
+    private function computePayrollReport(int $year, int $month, ?int $clubId, bool $includeLines = true): array
     {
         // Définir la période de recherche
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
@@ -200,31 +200,33 @@ class CommissionCalculationService
                     2
                 );
 
-                $paymentDate = $instance->date_paiement ? Carbon::parse($instance->date_paiement) : null;
-                $segment = $instance->est_legacy === false ? 'DCL' : 'NDCL';
-                $templateName = $instance->subscription?->name ?? 'Abonnement';
-                if (! isset($linesByTeacher[$teacherId])) {
-                    $linesByTeacher[$teacherId] = [];
+                if ($includeLines) {
+                    $paymentDate = $instance->date_paiement ? Carbon::parse($instance->date_paiement) : null;
+                    $segment = $instance->est_legacy === false ? 'DCL' : 'NDCL';
+                    $templateName = $instance->subscription?->name ?? 'Abonnement';
+                    if (! isset($linesByTeacher[$teacherId])) {
+                        $linesByTeacher[$teacherId] = [];
+                    }
+                    $linesByTeacher[$teacherId][] = [
+                        'kind' => 'subscription_prepayment',
+                        'line_type_label' => 'Prépaiement carnet',
+                        'sort_date' => $paymentDate ? $paymentDate->format('Y-m-d') : '0000-00-00',
+                        'sort_time' => '00:00:00',
+                        'date_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
+                        'datetime_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
+                        'duree_minutes' => null,
+                        'hours' => null,
+                        'hours_display' => '—',
+                        'segment' => $segment,
+                        'label' => 'Paiement abonnement (sans séance liée) — '.$templateName,
+                        'reference' => 'SI-'.$instance->id,
+                        'basis' => 'paiement_carnet',
+                        'basis_label' => 'Montant paiement carnet',
+                        'student_display' => null,
+                        'amount' => round($commission, 2),
+                        'notification' => 'Pas de séance : ligne au montant encaissé (tarif horaire hors périmètre).',
+                    ];
                 }
-                $linesByTeacher[$teacherId][] = [
-                    'kind' => 'subscription_prepayment',
-                    'line_type_label' => 'Prépaiement carnet',
-                    'sort_date' => $paymentDate ? $paymentDate->format('Y-m-d') : '0000-00-00',
-                    'sort_time' => '00:00:00',
-                    'date_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
-                    'datetime_display' => $paymentDate ? $paymentDate->format('d/m/Y') : '—',
-                    'duree_minutes' => null,
-                    'hours' => null,
-                    'hours_display' => '—',
-                    'segment' => $segment,
-                    'label' => 'Paiement abonnement (sans séance liée) — '.$templateName,
-                    'reference' => 'SI-'.$instance->id,
-                    'basis' => 'paiement_carnet',
-                    'basis_label' => 'Montant paiement carnet',
-                    'student_display' => null,
-                    'amount' => round($commission, 2),
-                    'notification' => 'Pas de séance : ligne au montant encaissé (tarif horaire hors périmètre).',
-                ];
             } catch (\InvalidArgumentException $e) {
                 \Log::error("Erreur lors du calcul de commission pour l'abonnement {$instance->id}: ".$e->getMessage());
 
@@ -276,15 +278,13 @@ class CommissionCalculationService
                         $q->whereNotNull('montant')->where('montant', '>', 0);
                     });
             })
-            ->with([
+            ->with(array_merge([
                 'teacher.user',
                 'teacher.clubs',
                 'club',
                 'courseType',
-                'student.user',
-                'students.user',
                 'subscriptionInstances.subscription.template',
-            ]);
+            ], $includeLines ? ['student.user'] : []));
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
@@ -345,41 +345,43 @@ class CommissionCalculationService
                 }
 
                 $segment = $this->lessonCountsAsDcl($lesson) ? 'DCL' : 'NDCL';
-                $studentDisplay = $this->formatPayrollLessonStudentsLabel($lesson);
-                $labelParts = ['Cours #'.$lesson->id];
-                if ($lesson->club?->name) {
-                    $labelParts[] = $lesson->club->name;
+                if ($includeLines) {
+                    $studentDisplay = $this->formatPayrollLessonStudentsLabel($lesson);
+                    $labelParts = ['Cours #'.$lesson->id];
+                    if ($lesson->club?->name) {
+                        $labelParts[] = $lesson->club->name;
+                    }
+                    if ($lesson->courseType?->name) {
+                        $labelParts[] = $lesson->courseType->name;
+                    }
+                    if ($studentDisplay !== null) {
+                        $labelParts[] = 'Élève : '.$studentDisplay;
+                    }
+                    if (! isset($linesByTeacher[$teacherId])) {
+                        $linesByTeacher[$teacherId] = [];
+                    }
+                    $start = $lesson->start_time;
+                    $vhLine = $durationMinutes !== null ? $durationMinutes / 60.0 : null;
+                    $linesByTeacher[$teacherId][] = [
+                        'kind' => 'lesson',
+                        'line_type_label' => 'Cours',
+                        'sort_date' => $start ? $start->format('Y-m-d') : '0000-00-00',
+                        'sort_time' => $start ? $start->format('H:i:s') : '00:00:00',
+                        'date_display' => $start ? $start->format('d/m/Y') : '—',
+                        'datetime_display' => $start ? $start->format('d/m/Y H:i') : '—',
+                        'duree_minutes' => $durationMinutes,
+                        'hours' => $vhLine,
+                        'hours_display' => $this->formatLessonDurationLineDisplay($durationMinutes),
+                        'segment' => $segment,
+                        'label' => implode(' — ', $labelParts),
+                        'reference' => 'L-'.$lesson->id,
+                        'basis' => $basis,
+                        'basis_label' => $basisLabel,
+                        'student_display' => $studentDisplay,
+                        'amount' => round($commission, 2),
+                        'notification' => $notification,
+                    ];
                 }
-                if ($lesson->courseType?->name) {
-                    $labelParts[] = $lesson->courseType->name;
-                }
-                if ($studentDisplay !== null) {
-                    $labelParts[] = 'Élève : '.$studentDisplay;
-                }
-                if (! isset($linesByTeacher[$teacherId])) {
-                    $linesByTeacher[$teacherId] = [];
-                }
-                $start = $lesson->start_time;
-                $vhLine = $durationMinutes !== null ? $durationMinutes / 60.0 : null;
-                $linesByTeacher[$teacherId][] = [
-                    'kind' => 'lesson',
-                    'line_type_label' => 'Cours',
-                    'sort_date' => $start ? $start->format('Y-m-d') : '0000-00-00',
-                    'sort_time' => $start ? $start->format('H:i:s') : '00:00:00',
-                    'date_display' => $start ? $start->format('d/m/Y') : '—',
-                    'datetime_display' => $start ? $start->format('d/m/Y H:i') : '—',
-                    'duree_minutes' => $durationMinutes,
-                    'hours' => $vhLine,
-                    'hours_display' => $this->formatLessonDurationLineDisplay($durationMinutes),
-                    'segment' => $segment,
-                    'label' => implode(' — ', $labelParts),
-                    'reference' => 'L-'.$lesson->id,
-                    'basis' => $basis,
-                    'basis_label' => $basisLabel,
-                    'student_display' => $studentDisplay,
-                    'amount' => round($commission, 2),
-                    'notification' => $notification,
-                ];
             } catch (\Exception $e) {
                 \Log::error("Erreur lors du calcul de commission pour le cours {$lesson->id}: ".$e->getMessage());
 
@@ -407,15 +409,17 @@ class CommissionCalculationService
         }
         unset($data);
 
-        foreach ($linesByTeacher as $tid => $rows) {
-            usort($linesByTeacher[$tid], function (array $a, array $b): int {
-                $c = strcmp($a['sort_date'], $b['sort_date']);
-                if ($c !== 0) {
-                    return $c;
-                }
+        if ($includeLines) {
+            foreach ($linesByTeacher as $tid => $rows) {
+                usort($linesByTeacher[$tid], function (array $a, array $b): int {
+                    $c = strcmp($a['sort_date'], $b['sort_date']);
+                    if ($c !== 0) {
+                        return $c;
+                    }
 
-                return strcmp($a['sort_time'], $b['sort_time']);
-            });
+                    return strcmp($a['sort_time'], $b['sort_time']);
+                });
+            }
         }
 
         return [
@@ -545,7 +549,7 @@ class CommissionCalculationService
      */
     private function formatPayrollLessonStudentsLabel(Lesson $lesson): ?string
     {
-        $lesson->loadMissing(['student.user', 'students.user']);
+        $lesson->loadMissing(['student.user']);
 
         $names = [];
         if ($lesson->relationLoaded('students') && $lesson->students->isNotEmpty()) {

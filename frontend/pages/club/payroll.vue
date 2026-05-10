@@ -291,14 +291,32 @@
                     <div class="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
+                        class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1 disabled:opacity-60"
+                        :disabled="payrollLinesLoading && expandedPayrollTeacherId === Number(teacherId)"
                         :aria-expanded="expandedPayrollTeacherId === Number(teacherId)"
                         @click="togglePayrollTeacherDetail(Number(teacherId))"
                       >
-                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          v-if="!(payrollLinesLoading && expandedPayrollTeacherId === Number(teacherId))"
+                          class="w-5 h-5 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
                         </svg>
-                        {{ expandedPayrollTeacherId === Number(teacherId) ? 'Masquer le détail' : 'Détail par jour' }}
+                        <span
+                          v-else
+                          class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"
+                          aria-hidden="true"
+                        />
+                        {{
+                          payrollLinesLoading && expandedPayrollTeacherId === Number(teacherId)
+                            ? 'Chargement…'
+                            : expandedPayrollTeacherId === Number(teacherId)
+                              ? 'Masquer le détail'
+                              : 'Détail par jour'
+                        }}
                       </button>
                       <button
                         type="button"
@@ -321,7 +339,17 @@
                         Détail sur la période — {{ data.nom_enseignant }}
                         <span class="font-normal text-gray-500">(regroupement par date, sous-totaux journaliers)</span>
                       </p>
-                      <template v-if="(payrollDaysByTeacher[Number(teacherId)] || []).length">
+                      <div
+                        v-if="payrollLinesLoading && expandedPayrollTeacherId === Number(teacherId)"
+                        class="flex items-center gap-3 py-6 text-sm text-gray-600"
+                      >
+                        <span
+                          class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"
+                          aria-hidden="true"
+                        />
+                        Chargement des séances et montants pour cette période…
+                      </div>
+                      <template v-else-if="(payrollDaysByTeacher[Number(teacherId)] || []).length">
                         <div
                           v-for="day in (payrollDaysByTeacher[Number(teacherId)] || [])"
                           :key="day.dateKey"
@@ -482,6 +510,9 @@ const reloadingYear = ref<number | null>(null)
 const reloadingMonth = ref<number | null>(null)
 /** Ligne du tableau paie dont le détail journalier est ouvert */
 const expandedPayrollTeacherId = ref<number | null>(null)
+const payrollLinesLoading = ref(false)
+/** Période (year-month) pour laquelle lines_by_teacher est à jour ; null si à recharger */
+const payrollLinesLoadedFor = ref<string | null>(null)
 
 // Generate form
 const currentDate = new Date()
@@ -555,6 +586,7 @@ const loadReportDetails = async (year, month) => {
     const data = response.data?.data || response.data || response
     if (data.report) {
       expandedPayrollTeacherId.value = null
+      payrollLinesLoadedFor.value = null
       selectedReport.value = {
         year,
         month,
@@ -565,12 +597,43 @@ const loadReportDetails = async (year, month) => {
       }
       selectedReportDetails.value = {
         ...data,
-        lines_by_teacher: data.lines_by_teacher ?? {},
+        lines_by_teacher: {},
       }
     }
   } catch (err) {
     console.error('❌ [PAYROLL] Erreur lors du chargement des détails:', err)
     error.value = err.response?.data?.message || err.message || 'Erreur lors du chargement des détails'
+  }
+}
+
+async function ensureClubPayrollLines(year: number, month: number) {
+  const periodKey = `${year}-${month}`
+  if (payrollLinesLoadedFor.value === periodKey) return
+
+  payrollLinesLoading.value = true
+  try {
+    const response = await $api.get(`/club/payroll/reports/${year}/${month}/lines`)
+    const payload = response.data?.data ?? response.data
+    const lines = payload?.lines_by_teacher ?? {}
+    if (
+      selectedReportDetails.value &&
+      selectedReport.value?.year === year &&
+      selectedReport.value?.month === month
+    ) {
+      selectedReportDetails.value = {
+        ...selectedReportDetails.value,
+        lines_by_teacher: lines,
+      }
+      payrollLinesLoadedFor.value = periodKey
+    }
+  } catch (err: any) {
+    console.error('❌ [PAYROLL] Erreur chargement lignes paie:', err)
+    const msg =
+      err.response?.data?.message || err.message || 'Impossible de charger le détail des séances'
+    showError(msg, 'Erreur')
+    throw err
+  } finally {
+    payrollLinesLoading.value = false
   }
 }
 
@@ -732,9 +795,19 @@ const payrollDaysByTeacher = computed(() => {
 
 const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 6 : 5))
 
-function togglePayrollTeacherDetail(teacherId: number) {
-  expandedPayrollTeacherId.value =
-    expandedPayrollTeacherId.value === teacherId ? null : teacherId
+async function togglePayrollTeacherDetail(teacherId: number) {
+  if (expandedPayrollTeacherId.value === teacherId) {
+    expandedPayrollTeacherId.value = null
+    return
+  }
+  expandedPayrollTeacherId.value = teacherId
+  const sr = selectedReport.value
+  if (!sr) return
+  try {
+    await ensureClubPayrollLines(sr.year, sr.month)
+  } catch {
+    expandedPayrollTeacherId.value = null
+  }
 }
 
 function payrollLineTimeDisplay(line: any): string {

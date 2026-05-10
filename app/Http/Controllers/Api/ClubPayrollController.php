@@ -285,16 +285,15 @@ class ClubPayrollController extends Controller
                 ], 422);
             }
 
-            // Rapport + lignes (même moteur que CSV / PDF admin) pour affichage détail club
-            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
-            $report = $bundle['report'];
+            // Agrégats seuls : évite JSON énorme + timeout proxy (502) sur gros mois.
+            // Les lignes jour par jour : GET .../reports/{year}/{month}/lines
+            $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
             $stats = $this->calculateStats($report, $year, $month, $clubId);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'report' => $report,
-                    'lines_by_teacher' => $bundle['lines_by_teacher'],
                     'statistics' => $stats,
                     'period' => [
                         'year' => $year,
@@ -316,6 +315,56 @@ class ClubPayrollController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la récupération du rapport',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Lignes de paie détaillées par enseignant (appel séparé pour limiter charge sur GET details).
+     */
+    public function getReportLines(Request $request, int $year, int $month): JsonResponse
+    {
+        try {
+            $clubId = $this->getClubId($request);
+
+            if (! $clubId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé à cet utilisateur',
+                ], 403);
+            }
+
+            if ($year < 2020 || $year > 2100 || $month < 1 || $month > 12) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Période invalide',
+                ], 422);
+            }
+
+            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'lines_by_teacher' => $bundle['lines_by_teacher'],
+                    'period' => [
+                        'year' => $year,
+                        'month' => $month,
+                        'month_name' => Carbon::create($year, $month, 1)->locale('fr')->monthName,
+                    ],
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la récupération des lignes de paie club', [
+                'error' => $e->getMessage(),
+                'year' => $year,
+                'month' => $month,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des lignes',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -801,8 +850,7 @@ class ClubPayrollController extends Controller
                     ->update(['montant' => null]);
             }
 
-            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
-            $report = $bundle['report'];
+            $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
             $stats = $this->calculateStats($report, $year, $month, $clubId);
 
             return response()->json([
@@ -810,7 +858,6 @@ class ClubPayrollController extends Controller
                 'message' => 'Rapport rechargé avec succès',
                 'data' => [
                     'report' => $report,
-                    'lines_by_teacher' => $bundle['lines_by_teacher'],
                     'statistics' => $stats,
                     'period' => [
                         'year' => $year,
