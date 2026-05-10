@@ -285,14 +285,16 @@ class ClubPayrollController extends Controller
                 ], 422);
             }
 
-            // Générer le rapport pour ce club uniquement
-            $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
+            // Rapport + lignes (même moteur que CSV / PDF admin) pour affichage détail club
+            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
+            $report = $bundle['report'];
             $stats = $this->calculateStats($report, $year, $month, $clubId);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'report' => $report,
+                    'lines_by_teacher' => $bundle['lines_by_teacher'],
                     'statistics' => $stats,
                     'period' => [
                         'year' => $year,
@@ -799,8 +801,8 @@ class ClubPayrollController extends Controller
                     ->update(['montant' => null]);
             }
 
-            // Régénérer le rapport
-            $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
+            $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
+            $report = $bundle['report'];
             $stats = $this->calculateStats($report, $year, $month, $clubId);
 
             return response()->json([
@@ -808,6 +810,7 @@ class ClubPayrollController extends Controller
                 'message' => 'Rapport rechargé avec succès',
                 'data' => [
                     'report' => $report,
+                    'lines_by_teacher' => $bundle['lines_by_teacher'],
                     'statistics' => $stats,
                     'period' => [
                         'year' => $year,

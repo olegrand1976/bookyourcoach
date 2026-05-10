@@ -269,36 +269,125 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {{ data.nom_enseignant }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
-                  <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
-                  <span class="text-gray-500 text-xs">{{ formatLessonHours(data.total_heures_cours ?? 0) }}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_dcl || 0) }}
-                </td>
-                <td v-if="hasNdclInReportDetails" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatCurrency(data.total_commissions_ndcl || 0) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                  {{ formatCurrency(data.total_a_payer) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    @click="openEditModal(parseInt(teacherId), data.nom_enseignant)"
-                    class="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
-                    title="Modifier les paiements"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Modifier
-                  </button>
-                </td>
-              </tr>
+              <template v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
+                <tr :class="expandedPayrollTeacherId === Number(teacherId) ? 'bg-indigo-50/40' : ''">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {{ data.nom_enseignant }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                    <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
+                    <span class="text-gray-500 text-xs">{{ formatLessonHours(data.total_heures_cours ?? 0) }}</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatCurrency(data.total_commissions_dcl || 0) }}
+                  </td>
+                  <td v-if="hasNdclInReportDetails" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatCurrency(data.total_commissions_ndcl || 0) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                    {{ formatCurrency(data.total_a_payer) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        class="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1"
+                        :aria-expanded="expandedPayrollTeacherId === Number(teacherId)"
+                        @click="togglePayrollTeacherDetail(Number(teacherId))"
+                      >
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                        </svg>
+                        {{ expandedPayrollTeacherId === Number(teacherId) ? 'Masquer le détail' : 'Détail par jour' }}
+                      </button>
+                      <button
+                        type="button"
+                        @click="openEditModal(parseInt(String(teacherId), 10), data.nom_enseignant)"
+                        class="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1"
+                        title="Modifier les paiements"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Modifier
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="expandedPayrollTeacherId === Number(teacherId)" class="bg-slate-50">
+                  <td :colspan="payrollDetailColspan" class="p-0 align-top border-t border-slate-200">
+                    <div class="px-4 py-5 sm:px-6 space-y-6">
+                      <p class="text-sm font-medium text-gray-700">
+                        Détail sur la période — {{ data.nom_enseignant }}
+                        <span class="font-normal text-gray-500">(regroupement par date, sous-totaux journaliers)</span>
+                      </p>
+                      <template v-if="(payrollDaysByTeacher[Number(teacherId)] || []).length">
+                        <div
+                          v-for="day in (payrollDaysByTeacher[Number(teacherId)] || [])"
+                          :key="day.dateKey"
+                          class="rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm"
+                        >
+                          <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 flex flex-wrap items-baseline justify-between gap-2">
+                            <span class="text-sm font-semibold text-gray-900">{{ day.displayDate }}</span>
+                            <span class="text-sm tabular-nums text-gray-700">
+                              Total jour :
+                              <strong>{{ day.totalMinutes }}</strong> min
+                              <span v-if="day.totalMinutes > 0" class="text-gray-500 font-normal">
+                                ({{ formatLessonHours(day.totalMinutes / 60) }})
+                              </span>
+                              ·
+                              <strong>{{ formatCurrency(day.totalAmount) }}</strong>
+                            </span>
+                          </div>
+                          <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-100 text-sm">
+                              <thead class="bg-gray-50/80">
+                                <tr>
+                                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-24">Heure</th>
+                                  <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cours / élève / ligne</th>
+                                  <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase w-24">Minutes</th>
+                                  <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase w-28">Montant (€)</th>
+                                </tr>
+                              </thead>
+                              <tbody class="divide-y divide-gray-100">
+                                <tr v-for="(line, idx) in day.lines" :key="idx" class="hover:bg-gray-50/50">
+                                  <td class="px-3 py-2 whitespace-nowrap text-gray-700 tabular-nums">
+                                    {{ payrollLineTimeDisplay(line) }}
+                                  </td>
+                                  <td class="px-3 py-2 text-gray-900">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                      <span
+                                        class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+                                        :class="line.kind === 'lesson' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-900'"
+                                      >
+                                        {{ line.line_type_label || (line.kind === 'lesson' ? 'Cours' : 'Autre') }}
+                                      </span>
+                                      <span class="text-xs text-gray-500">{{ line.segment }}</span>
+                                    </div>
+                                    <p class="mt-1 text-sm leading-snug">{{ line.label }}</p>
+                                    <p v-if="line.student_display && !String(line.label || '').includes('Élève :')" class="mt-0.5 text-xs text-gray-600">
+                                      Élève : {{ line.student_display }}
+                                    </p>
+                                  </td>
+                                  <td class="px-3 py-2 text-right tabular-nums text-gray-800">
+                                    {{ line.duree_minutes != null ? Number(line.duree_minutes) : '—' }}
+                                  </td>
+                                  <td class="px-3 py-2 text-right tabular-nums font-medium text-gray-900">
+                                    {{ formatCurrency(Number(line.amount ?? 0)) }}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </template>
+                      <p v-else class="text-sm text-gray-500 italic">
+                        Aucune ligne détaillée pour cet enseignant sur cette période.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -391,6 +480,8 @@ const selectedTeacherName = ref<string>('')
 const reloading = ref(false)
 const reloadingYear = ref<number | null>(null)
 const reloadingMonth = ref<number | null>(null)
+/** Ligne du tableau paie dont le détail journalier est ouvert */
+const expandedPayrollTeacherId = ref<number | null>(null)
 
 // Generate form
 const currentDate = new Date()
@@ -463,6 +554,7 @@ const loadReportDetails = async (year, month) => {
     
     const data = response.data?.data || response.data || response
     if (data.report) {
+      expandedPayrollTeacherId.value = null
       selectedReport.value = {
         year,
         month,
@@ -471,7 +563,10 @@ const loadReportDetails = async (year, month) => {
         statistics: data.statistics,
         teachers_count: Object.keys(data.report).length
       }
-      selectedReportDetails.value = data
+      selectedReportDetails.value = {
+        ...data,
+        lines_by_teacher: data.lines_by_teacher ?? {},
+      }
     }
   } catch (err) {
     console.error('❌ [PAYROLL] Erreur lors du chargement des détails:', err)
@@ -565,6 +660,94 @@ const formatCurrency = (amount) => {
     currency: 'EUR',
     minimumFractionDigits: 2
   }).format(amount)
+}
+
+function getPayrollLinesForTeacher(
+  linesByTeacher: Record<string, unknown[]> | undefined,
+  teacherId: number
+): unknown[] {
+  if (!linesByTeacher) return []
+  const raw = linesByTeacher[teacherId] ?? linesByTeacher[String(teacherId)]
+  return Array.isArray(raw) ? raw : []
+}
+
+function formatPayrollSortDateLabel(sortDate: string): string {
+  if (!sortDate || sortDate === '0000-00-00') return '—'
+  const parts = sortDate.split('-').map((x) => parseInt(x, 10))
+  const [y, m, d] = parts
+  if (!y || !m || !d) return sortDate
+  try {
+    return new Date(y, m - 1, d).toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  } catch {
+    return sortDate
+  }
+}
+
+function buildPayrollDayGroups(lines: any[]) {
+  const map = new Map<string, any[]>()
+  for (const line of lines) {
+    const k = line.sort_date || '0000-00-00'
+    if (!map.has(k)) map.set(k, [])
+    map.get(k)!.push(line)
+  }
+  const keys = [...map.keys()].sort()
+  return keys.map((dateKey) => {
+    const dayLines = map.get(dateKey)!
+    dayLines.sort((a, b) =>
+      String(a.sort_time || '').localeCompare(String(b.sort_time || ''))
+    )
+    const totalMinutes = dayLines.reduce(
+      (acc, l) => acc + (l.duree_minutes != null ? Number(l.duree_minutes) : 0),
+      0
+    )
+    const totalAmount = dayLines.reduce(
+      (acc, l) => acc + Number(l.amount ?? 0),
+      0
+    )
+    const displayDate =
+      dayLines[0]?.date_display || formatPayrollSortDateLabel(dateKey)
+    return { dateKey, displayDate, lines: dayLines, totalMinutes, totalAmount }
+  })
+}
+
+const payrollDaysByTeacher = computed(() => {
+  const details = selectedReportDetails.value as {
+    report?: Record<string, unknown>
+    lines_by_teacher?: Record<string, any[]>
+  } | null
+  if (!details?.report) return {} as Record<number, ReturnType<typeof buildPayrollDayGroups>>
+  const linesMap = details.lines_by_teacher
+  const out: Record<number, ReturnType<typeof buildPayrollDayGroups>> = {}
+  for (const key of Object.keys(details.report)) {
+    const id = Number(key)
+    out[id] = buildPayrollDayGroups(getPayrollLinesForTeacher(linesMap, id) as any[])
+  }
+  return out
+})
+
+const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 6 : 5))
+
+function togglePayrollTeacherDetail(teacherId: number) {
+  expandedPayrollTeacherId.value =
+    expandedPayrollTeacherId.value === teacherId ? null : teacherId
+}
+
+function payrollLineTimeDisplay(line: any): string {
+  if (line.kind !== 'lesson') return '—'
+  const t = line.sort_time
+  if (!t || t === '00:00:00') {
+    const dt = line.datetime_display
+    if (dt && String(dt).includes(' ')) {
+      return String(dt).split(' ')[1]?.slice(0, 5) || '—'
+    }
+    return '—'
+  }
+  return String(t).slice(0, 5)
 }
 
 const formatDate = (dateString) => {

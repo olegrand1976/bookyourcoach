@@ -221,6 +221,7 @@ class CommissionCalculationService
                     'reference' => 'SI-'.$instance->id,
                     'basis' => 'paiement_carnet',
                     'basis_label' => 'Montant paiement carnet',
+                    'student_display' => null,
                     'amount' => round($commission, 2),
                     'notification' => 'Pas de séance : ligne au montant encaissé (tarif horaire hors périmètre).',
                 ];
@@ -275,7 +276,15 @@ class CommissionCalculationService
                         $q->whereNotNull('montant')->where('montant', '>', 0);
                     });
             })
-            ->with(['teacher.user', 'teacher.clubs', 'club', 'courseType', 'subscriptionInstances.subscription.template']);
+            ->with([
+                'teacher.user',
+                'teacher.clubs',
+                'club',
+                'courseType',
+                'student.user',
+                'students.user',
+                'subscriptionInstances.subscription.template',
+            ]);
 
         // Filtrer par club si spécifié
         if ($clubId !== null) {
@@ -336,12 +345,16 @@ class CommissionCalculationService
                 }
 
                 $segment = $this->lessonCountsAsDcl($lesson) ? 'DCL' : 'NDCL';
+                $studentDisplay = $this->formatPayrollLessonStudentsLabel($lesson);
                 $labelParts = ['Cours #'.$lesson->id];
                 if ($lesson->club?->name) {
                     $labelParts[] = $lesson->club->name;
                 }
                 if ($lesson->courseType?->name) {
                     $labelParts[] = $lesson->courseType->name;
+                }
+                if ($studentDisplay !== null) {
+                    $labelParts[] = 'Élève : '.$studentDisplay;
                 }
                 if (! isset($linesByTeacher[$teacherId])) {
                     $linesByTeacher[$teacherId] = [];
@@ -363,6 +376,7 @@ class CommissionCalculationService
                     'reference' => 'L-'.$lesson->id,
                     'basis' => $basis,
                     'basis_label' => $basisLabel,
+                    'student_display' => $studentDisplay,
                     'amount' => round($commission, 2),
                     'notification' => $notification,
                 ];
@@ -524,6 +538,53 @@ class CommissionCalculationService
             $minutes,
             number_format(round($minutes / 60.0, 12), 2, ',', ' ')
         );
+    }
+
+    /**
+     * Libellé élève(s) pour lignes paie / PDF / UI (évite N+1 : relations déjà eager-loadées).
+     */
+    private function formatPayrollLessonStudentsLabel(Lesson $lesson): ?string
+    {
+        $lesson->loadMissing(['student.user', 'students.user']);
+
+        $names = [];
+        if ($lesson->relationLoaded('students') && $lesson->students->isNotEmpty()) {
+            foreach ($lesson->students as $student) {
+                $user = $student->user;
+                if (! $user) {
+                    continue;
+                }
+                $n = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+                if ($n === '') {
+                    $n = $user->name ?? '';
+                }
+                if ($n !== '') {
+                    $names[] = $n;
+                }
+            }
+            $names = array_values(array_unique($names));
+        }
+
+        if ($names === [] && $lesson->student?->user) {
+            $user = $lesson->student->user;
+            $n = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+            if ($n === '') {
+                $n = $user->name ?? '';
+            }
+            if ($n !== '') {
+                $names[] = $n;
+            }
+        }
+
+        if ($names === []) {
+            return null;
+        }
+
+        if (count($names) === 1) {
+            return $names[0];
+        }
+
+        return $names[0].' +'.(count($names) - 1);
     }
 
     /**
