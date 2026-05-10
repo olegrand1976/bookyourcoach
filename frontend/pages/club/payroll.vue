@@ -579,68 +579,58 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
+/**
+ * Export CSV via $api + blob : même auth que le reste (store + cookie auth-token),
+ * contrairement à fetch() avec useCookie('token') qui n’existe pas → 401 en prod.
+ */
 const exportCSV = async (year: number, month: number) => {
   try {
-    const config = useRuntimeConfig()
-    const apiBase = config.public.apiBase || '/api'
-    const token = useCookie('token')
-    
-    // Créer une URL avec le token d'authentification
-    const url = `${apiBase}/club/payroll/export/${year}/${month}/csv`
-    
-    console.log('📥 [PAYROLL] Export CSV:', { url, year, month })
-    
-    // Utiliser fetch pour télécharger le fichier avec authentification
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token.value}`,
-        'Accept': 'text/csv',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      credentials: 'include'
+    console.log('📥 [PAYROLL] Export CSV:', { year, month })
+    const response = await $api.get(`/club/payroll/export/${year}/${month}/csv`, {
+      responseType: 'blob',
     })
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ [PAYROLL] Erreur réponse:', { status: response.status, errorText })
-      throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur lors du téléchargement du CSV'}`)
+    const blob =
+      response.data instanceof Blob ? response.data : new Blob([response.data])
+    if (!blob || blob.size === 0) {
+      showError('Export CSV vide ou incorrect.', 'Erreur')
+      return
     }
-    
-    // Récupérer le blob
-    const blob = await response.blob()
-    
-    // Vérifier que c'est bien un CSV
-    if (!blob.type.includes('csv') && !blob.type.includes('text')) {
-      console.warn('⚠️ [PAYROLL] Type de fichier inattendu:', blob.type)
-    }
-    
-    // Créer un lien temporaire pour télécharger le fichier
-    const downloadUrl = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    
-    // Nom du fichier depuis les headers ou générer un nom par défaut
-    const contentDisposition = response.headers.get('Content-Disposition')
+
     let filename = `rapport_paie_${month}_${year}.csv`
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i)
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1].replace(/['"]/g, '')
+    const disposition =
+      response.headers?.['content-disposition'] ||
+      response.headers?.['Content-Disposition']
+    if (disposition && typeof disposition === 'string') {
+      const m = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)"?/i)
+      if (m?.[1]) {
+        filename = decodeURIComponent(m[1].trim())
       }
     }
-    
+
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
     link.download = filename
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    window.URL.revokeObjectURL(downloadUrl)
-    
-    console.log('✅ [PAYROLL] CSV téléchargé:', filename)
+    URL.revokeObjectURL(downloadUrl)
+
     showSuccess('Export CSV téléchargé avec succès', 'Succès')
   } catch (err: any) {
     console.error('❌ [PAYROLL] Erreur lors de l\'export CSV:', err)
-    showError(err.message || 'Erreur lors de l\'export CSV', 'Erreur')
+    let msg =
+      err.response?.data?.message || err.message || 'Erreur lors de l\'export CSV'
+    if (err.response?.data instanceof Blob) {
+      try {
+        const txt = await err.response.data.text()
+        const parsed = JSON.parse(txt)
+        if (parsed?.message) msg = parsed.message
+      } catch (_) {
+        /* garder msg par défaut */
+      }
+    }
+    showError(msg, 'Erreur')
   }
 }
 
