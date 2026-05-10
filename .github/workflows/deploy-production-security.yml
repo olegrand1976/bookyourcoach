@@ -1219,39 +1219,45 @@ jobs:
         # Tests de sécurité des routes
         echo "🔒 Tests de sécurité des routes..."
         
+        # Avec set -e : ssh/curl distants qui renvoient 7 (connexion) ne doivent pas faire échouer le job
+        curl_code() {
+          local url="$1"
+          ssh production-server "curl -s -S -w '\n%{http_code}' --connect-timeout 5 --max-time 20 -H 'Authorization: Bearer invalid_token' '${url}'" 2>/dev/null || printf '\n000'
+        }
+        
         # Test route admin avec token invalide
-        admin_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/admin/dashboard' 2>/dev/null)
-        admin_http_code=$(echo "$admin_response" | tail -c 4)
+        admin_response=$(curl_code "http://localhost:8080/api/admin/dashboard")
+        admin_http_code=$(echo "$admin_response" | tail -n 1 | tr -d '\r')
         
         if [ "$admin_http_code" = "401" ]; then
           echo "✅ Routes admin sécurisées (HTTP $admin_http_code)"
         else
-          echo "⚠️  Routes admin non sécurisées (HTTP $admin_http_code)"
+          echo "⚠️  Routes admin non sécurisées (HTTP ${admin_http_code:-unknown})"
         fi
         
         # Test route teacher avec token invalide
-        teacher_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/teacher/dashboard' 2>/dev/null)
-        teacher_http_code=$(echo "$teacher_response" | tail -c 4)
+        teacher_response=$(curl_code "http://localhost:8080/api/teacher/dashboard")
+        teacher_http_code=$(echo "$teacher_response" | tail -n 1 | tr -d '\r')
         
         if [ "$teacher_http_code" = "401" ]; then
           echo "✅ Routes teacher sécurisées (HTTP $teacher_http_code)"
         else
-          echo "⚠️  Routes teacher non sécurisées (HTTP $teacher_http_code)"
+          echo "⚠️  Routes teacher non sécurisées (HTTP ${teacher_http_code:-unknown})"
         fi
         
         # Test route student avec token invalide
-        student_response=$(ssh production-server 'curl -s -w "%{http_code}" -H "Authorization: Bearer invalid_token" http://localhost:8080/api/student/dashboard' 2>/dev/null)
-        student_http_code=$(echo "$student_response" | tail -c 4)
+        student_response=$(curl_code "http://localhost:8080/api/student/dashboard")
+        student_http_code=$(echo "$student_response" | tail -n 1 | tr -d '\r')
         
         if [ "$student_http_code" = "401" ]; then
           echo "✅ Routes student sécurisées (HTTP $student_http_code)"
         else
-          echo "⚠️  Routes student non sécurisées (HTTP $student_http_code)"
+          echo "⚠️  Routes student non sécurisées (HTTP ${student_http_code:-unknown})"
         fi
         
         # Test API fonctionnel
         echo "🧪 Test fonctionnel de l'API..."
-        if ssh production-server 'curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"'; then
+        if ssh production-server 'curl -s -S --connect-timeout 5 --max-time 20 -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@test.com\",\"password\":\"test\"}" | grep -q "Invalid credentials"' 2>/dev/null; then
           echo "✅ API fonctionnelle (endpoint login répond)"
         else
           echo "⚠️  API non fonctionnelle (endpoint login ne répond pas correctement)"
