@@ -72,11 +72,15 @@
         ],
         "test:docker": [
             "Composer\\Config::disableProcessTimeout",
-            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test'"
+            "docker compose --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/bin/phpunit || composer install --no-interaction) && php vendor/bin/phpunit'"
         ],
         "test:docker:local": [
             "Composer\\Config::disableProcessTimeout",
-            "docker compose -f docker-compose.local.yml --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/autoload.php || composer install --no-interaction) && php artisan test'"
+            "docker compose -f docker-compose.local.yml --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/bin/phpunit || composer install --no-interaction) && php vendor/bin/phpunit'"
+        ],
+        "test:family-deletion:docker:local": [
+            "Composer\\Config::disableProcessTimeout",
+            "docker compose -f docker-compose.local.yml --profile test run --rm php-test sh -c 'mkdir -p database && touch database/testing.sqlite && (test -f vendor/bin/phpunit || composer install --no-interaction) && php vendor/bin/phpunit --filter=FamilySubscriptionLessonDeletionTest'"
         ],
         "test:recurring:docker": [
             "Composer\\Config::disableProcessTimeout",

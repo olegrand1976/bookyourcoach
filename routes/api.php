@@ -297,8 +297,11 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/planning/statistics', [App\Http\Controllers\Api\ClubPlanningController::class, 'getStatistics']);
     Route::get('/planning/availability-by-week', [App\Http\Controllers\Api\ClubPlanningController::class, 'availabilityByWeek']);
     // Cours (suppression depuis le planning club)
+    Route::get('/lessons/{id}/deletion-preview', [App\Http\Controllers\Api\LessonController::class, 'deletionPreview']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     // Certificats médicaux en attente (liste pour le bloc planning)
+    Route::get('/lessons/cancelled', [App\Http\Controllers\Api\ClubCancelledLessonController::class, 'index']);
+    Route::post('/lessons/{id}/reactivate', [App\Http\Controllers\Api\ClubCancelledLessonController::class, 'reactivate']);
     Route::get('/lessons/pending-certificates', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'pendingCertificates']);
     // Validation / refus certificat médical (annulation élève)
     Route::get('/lessons/{id}/cancellation-certificate/download', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'download']);

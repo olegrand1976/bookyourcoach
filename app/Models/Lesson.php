@@ -62,11 +62,17 @@ class Lesson extends Model
         'cancellation_certificate_rejection_reason',
         'cancellation_certificate_resubmitted_at',
         'cancellation_certificate_submitted_by_student_id',
+        'cancelled_at',
+        'cancelled_by_user_id',
+        'cancelled_by_role',
+        'cancelled_subscription_instance_ids',
     ];
 
     protected $casts = [
         'start_time' => 'datetime',
         'end_time' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'cancelled_subscription_instance_ids' => 'array',
         'price' => 'decimal:2',
         'rating' => 'integer',
         'est_legacy' => 'boolean',
@@ -104,6 +110,11 @@ class Lesson extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function cancelledByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_user_id');
     }
 
     /**

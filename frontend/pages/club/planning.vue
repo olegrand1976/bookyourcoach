@@ -1159,9 +1159,52 @@
       <div 
         v-if="showDeleteScopeModal" 
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        @click.self="showDeleteScopeModal = false"
+        @click.self="closeDeleteModal"
       >
-        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+        <div class="bg-white rounded-lg max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+          <template v-if="deleteModalStep === 'select'">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">
+              Choisir les cours à {{ pendingDeleteAction === 'delete' ? 'supprimer' : 'annuler' }}
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+              Plusieurs séances seraient impactées. Cochez uniquement celles à traiter.
+            </p>
+            <div
+              v-if="siblingWarningsForDelete.length > 0"
+              class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-900"
+            >
+              <strong>Abonnement familial :</strong>
+              d'autres cours le même jour pour d'autres élèves (non cochés par défaut).
+            </div>
+            <ul class="space-y-2 mb-4 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              <li
+                v-for="item in affectedLessonsForDelete"
+                :key="item.id"
+                class="flex items-start gap-2 p-2 rounded hover:bg-gray-50"
+              >
+                <input
+                  :id="`del-lesson-${item.id}`"
+                  v-model="selectedDeletionLessonIds"
+                  type="checkbox"
+                  :value="item.id"
+                  class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label :for="`del-lesson-${item.id}`" class="text-sm cursor-pointer flex-1">
+                  <span class="font-medium text-gray-900">{{ item.student_name }}</span>
+                  <span class="text-gray-600"> — {{ formatDateFull(new Date(item.start_time)) }}</span>
+                  <span class="text-gray-500"> {{ formatLessonTime(item.start_time) }}</span>
+                  <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs" :class="getStatusBadgeClass(item.status)">{{ getStatusLabel(item.status) }}</span>
+                </label>
+              </li>
+            </ul>
+            <div class="flex justify-end gap-2 mb-4">
+              <button type="button" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50" @click="deleteModalStep = 'scope'">Retour</button>
+              <button type="button" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50" :disabled="selectedDeletionLessonIds.length === 0" @click="confirmSelectedDeletion">
+                Confirmer ({{ selectedDeletionLessonIds.length }})
+              </button>
+            </div>
+          </template>
+          <template v-else>
           <h3 class="text-xl font-bold text-gray-900 mb-4">
             Confirmer la suppression
           </h3>
@@ -1288,12 +1331,13 @@
           
           <div class="flex justify-end gap-2">
             <button
-              @click="showDeleteScopeModal = false"
+              @click="closeDeleteModal"
               class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Annuler
             </button>
           </div>
+          </template>
         </div>
       </div>
     </div>
@@ -1487,9 +1531,25 @@ const originalLessonTime = ref<{ date: string; time: string } | null>(null)
 
 // Variables pour la modale de confirmation de suppression
 const showDeleteScopeModal = ref(false)
+const deleteModalStep = ref<'scope' | 'select'>('scope')
 const futureLessonsCountForDelete = ref(0)
 const lessonToDelete = ref<Lesson | null>(null)
 const deleteReason = ref<string>('')
+const affectedLessonsForDelete = ref<Array<{
+  id: number
+  start_time: string
+  student_name: string
+  status: string
+}>>([])
+const siblingWarningsForDelete = ref<Array<{
+  id: number
+  start_time: string
+  student_name: string
+  status: string
+}>>([])
+const selectedDeletionLessonIds = ref<number[]>([])
+const pendingDeleteScope = ref<'single' | 'all_future'>('single')
+const pendingDeleteAction = ref<'cancel' | 'delete'>('delete')
 
 const slotForm = ref({
   day_of_week: 1,
@@ -3896,198 +3956,154 @@ async function openCreateLessonFromRecurringPlaceholder(lesson: Lesson) {
   await openCreateLessonModalForTimeSlot(`${hh}:${mm}`)
 }
 
-// Fonction pour confirmer et supprimer un cours depuis les cartes
-// Nouvelle méthode : ouvrir la modale de confirmation au lieu de confirm() natif
+function closeDeleteModal() {
+  showDeleteScopeModal.value = false
+  deleteModalStep.value = 'scope'
+  deleteReason.value = ''
+  lessonToDelete.value = null
+  affectedLessonsForDelete.value = []
+  siblingWarningsForDelete.value = []
+  selectedDeletionLessonIds.value = []
+  futureLessonsCountForDelete.value = 0
+}
+
+async function fetchDeletionPreview(
+  lessonId: number,
+  cancelScope: 'single' | 'all_future',
+  action: 'cancel' | 'delete'
+) {
+  const { $api } = useNuxtApp()
+  const response = await $api.get(`/club/lessons/${lessonId}/deletion-preview`, {
+    params: { cancel_scope: cancelScope, action },
+  })
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'Prévisualisation impossible')
+  }
+  return response.data.data
+}
+
 async function confirmAndDeleteLesson(lesson: Lesson) {
   if (lesson.is_recurring_placeholder) return
-  console.log('🗑️ [confirmAndDeleteLesson] Demande de suppression pour cours ID:', lesson.id)
-  
-  // Vérifier si le cours a des séances futures liées à un abonnement
+
+  deleteModalStep.value = 'scope'
+  affectedLessonsForDelete.value = []
+  siblingWarningsForDelete.value = []
+  selectedDeletionLessonIds.value = []
+
   await checkFutureLessonsForDelete(lesson)
-  
   showDeleteScopeModal.value = true
 }
 
-// Vérifier le nombre de cours futurs pour la suppression
 async function checkFutureLessonsForDelete(lesson: Lesson) {
-  console.log(`🚀 [checkFutureLessonsForDelete] DÉBUT - Cours ID: ${lesson.id}, start_time: ${lesson.start_time}`)
-  
+  futureLessonsCountForDelete.value = 0
+  siblingWarningsForDelete.value = []
+
   try {
     const { $api } = useNuxtApp()
-    
-    // Réinitialiser le compteur
-    futureLessonsCountForDelete.value = 0
-    
-    // Charger les détails complets du cours pour avoir les subscription_instances
-    console.log(`🔍 [checkFutureLessonsForDelete] Chargement des détails du cours ID ${lesson.id}`)
     const response = await $api.get(`/lessons/${lesson.id}`, {
-      params: {
-        include: 'subscription_instances'
-      }
+      params: { include: 'subscription_instances' },
     })
-    
-    console.log(`📥 [checkFutureLessonsForDelete] Réponse /lessons/${lesson.id}:`, response.data)
-    
-    if (response.data.success && response.data.data) {
-      const fullLesson = response.data.data
-      
-      console.log(`📋 [checkFutureLessonsForDelete] Cours chargé:`, {
-        id: fullLesson.id,
-        start_time: fullLesson.start_time,
-        subscription_instances_count: fullLesson.subscription_instances?.length || 0,
-        subscription_instances: fullLesson.subscription_instances
-      })
-      
-      // Mettre à jour lessonToDelete avec les données complètes (incluant subscription_instances)
-      lessonToDelete.value = fullLesson
-      
-      // Si le cours a des subscription_instances, vérifier les cours futurs
-      if (fullLesson.subscription_instances && fullLesson.subscription_instances.length > 0) {
-        const subscriptionInstance = fullLesson.subscription_instances[0]
-        
-        console.log(`✅ [checkFutureLessonsForDelete] Abonnement trouvé: ID ${subscriptionInstance.id}`, subscriptionInstance)
-        
-        const lessonDate = new Date(fullLesson.start_time || lesson.start_time)
-        const afterDate = lessonDate.toISOString().split('T')[0]
-        
-        try {
-            const includeCancelled = fullLesson.status === 'cancelled'
-            
-            // Extraire les caractéristiques du créneau pour filtrer les cours futurs
-            const lessonStartDateTime = new Date(fullLesson.start_time)
-            const lessonEndDateTime = new Date(fullLesson.end_time || fullLesson.start_time)
-            const lessonDayOfWeek = lessonStartDateTime.getDay()
-            const lessonDayOfWeekMySQL = lessonDayOfWeek === 0 ? 1 : (lessonDayOfWeek + 1)
-            
-            const lessonStartTime = String(lessonStartDateTime.getHours()).padStart(2, '0') + ':' +
-                                   String(lessonStartDateTime.getMinutes()).padStart(2, '0') + ':' +
-                                   String(lessonStartDateTime.getSeconds()).padStart(2, '0')
-            const lessonEndTime = String(lessonEndDateTime.getHours()).padStart(2, '0') + ':' +
-                                 String(lessonEndDateTime.getMinutes()).padStart(2, '0') + ':' +
-                                 String(lessonEndDateTime.getSeconds()).padStart(2, '0')
-            
-            const studentId = fullLesson.student_id || fullLesson.student?.id
-            const clubId = fullLesson.club_id || fullLesson.club?.id
-            
-            if (!studentId || !clubId) {
-              console.warn('⚠️ [checkFutureLessonsForDelete] student_id ou club_id manquant', {
-                student_id: studentId,
-                club_id: clubId
-              })
-              futureLessonsCountForDelete.value = 0
-              return
-            }
-            
-            console.log(`🔍 [checkFutureLessonsForDelete] Appel API future-lessons pour abonnement ${subscriptionInstance.id}`, {
-              after_date: afterDate,
-              includeCancelled: includeCancelled,
-              day_of_week: lessonDayOfWeekMySQL,
-              start_time: lessonStartTime,
-              student_id: studentId,
-              club_id: clubId
-            })
-            
-            const futureLessonsResponse = await $api.get(`/club/subscription-instances/${subscriptionInstance.id}/future-lessons`, {
-              params: {
-                after_date: afterDate,
-                include_cancelled: includeCancelled ? 'true' : 'false',
-                reference_lesson_time: lessonStartTime,
-                reference_lesson_end_time: lessonEndTime,
-                reference_student_id: studentId,
-                reference_club_id: clubId,
-                reference_day_of_week: lessonDayOfWeekMySQL
-              }
-            })
-            
-            console.log(`📥 [checkFutureLessonsForDelete] Réponse API future-lessons:`, futureLessonsResponse.data)
-          
-          if (futureLessonsResponse.data.success && futureLessonsResponse.data.data) {
-            const lessonStartDateTime = new Date(fullLesson.start_time)
-            
-            const futureLessons = futureLessonsResponse.data.data.lessons.filter((l: any) => {
-              const lessonTime = new Date(l.start_time)
-              const isAfterStartTime = lessonTime > lessonStartDateTime
-              const isNotCurrentLesson = l.id !== fullLesson.id
-              
-              if (fullLesson.status === 'cancelled') {
-                return isNotCurrentLesson && l.status === 'cancelled' && isAfterStartTime
-              } else {
-                return isNotCurrentLesson && l.status !== 'cancelled' && isAfterStartTime
-              }
-            })
-            
-            futureLessonsCountForDelete.value = futureLessons.length
-            console.log(`✅ [checkFutureLessonsForDelete] Cours futurs trouvés: ${futureLessons.length}`)
-          } else {
-            futureLessonsCountForDelete.value = 0
-            console.log('ℹ️ [checkFutureLessonsForDelete] Aucun cours futur trouvé')
-          }
-        } catch (apiError: any) {
-          console.error('❌ [checkFutureLessonsForDelete] Erreur API:', apiError)
-          futureLessonsCountForDelete.value = 0
-        }
-      } else {
-        futureLessonsCountForDelete.value = 0
-        console.log('ℹ️ Aucune instance d\'abonnement liée à ce cours')
-      }
-    } else {
-      futureLessonsCountForDelete.value = 0
-      console.log('ℹ️ Impossible de charger les détails du cours')
+
+    if (!response.data.success || !response.data.data) {
+      lessonToDelete.value = lesson
+      return
     }
-  } catch (err: any) {
-    console.error('❌ [checkFutureLessonsForDelete] ERREUR:', err)
+
+    lessonToDelete.value = response.data.data
+
+    if (!lessonToDelete.value.subscription_instances?.length) {
+      return
+    }
+
+    const preview = await fetchDeletionPreview(lesson.id, 'all_future', 'delete')
+    const affected = preview.affected_lessons || []
+    futureLessonsCountForDelete.value = Math.max(0, affected.length - 1)
+    siblingWarningsForDelete.value = preview.sibling_warnings || []
+  } catch {
     futureLessonsCountForDelete.value = 0
   }
 }
 
-// Confirmer suppression d'un seul cours
+async function prepareDelete(scope: 'single' | 'all_future', action: 'cancel' | 'delete') {
+  if (!lessonToDelete.value) return
+
+  try {
+    const preview = await fetchDeletionPreview(lessonToDelete.value.id, scope, action)
+    const affected = preview.affected_lessons || []
+
+    if (affected.length <= 1) {
+      const ids = affected.map((l: { id: number }) => l.id)
+      await executeDeleteLesson(lessonToDelete.value.id, scope, action, deleteReason.value, ids)
+      closeDeleteModal()
+      showLessonModal.value = false
+      return
+    }
+
+    affectedLessonsForDelete.value = affected
+    siblingWarningsForDelete.value = preview.sibling_warnings || []
+    selectedDeletionLessonIds.value = [lessonToDelete.value.id]
+    pendingDeleteScope.value = scope
+    pendingDeleteAction.value = action
+    deleteModalStep.value = 'select'
+  } catch (error: any) {
+    showError(error.response?.data?.message || error.message || 'Erreur lors de la prévisualisation')
+  }
+}
+
 async function confirmDeleteSingleLesson(action: 'cancel' | 'delete') {
-  if (!lessonToDelete.value) return
-  
-  await executeDeleteLesson(lessonToDelete.value.id, 'single', action, deleteReason.value)
-  showDeleteScopeModal.value = false
-  deleteReason.value = ''
-  lessonToDelete.value = null
-  showLessonModal.value = false
+  await prepareDelete('single', action)
 }
 
-// Confirmer suppression de tous les cours futurs
 async function confirmDeleteAllFutureLessons(action: 'cancel' | 'delete') {
-  if (!lessonToDelete.value) return
-  
-  await executeDeleteLesson(lessonToDelete.value.id, 'all_future', action, deleteReason.value)
-  showDeleteScopeModal.value = false
-  deleteReason.value = ''
-  lessonToDelete.value = null
+  await prepareDelete('all_future', action)
+}
+
+async function confirmSelectedDeletion() {
+  if (!lessonToDelete.value || selectedDeletionLessonIds.value.length === 0) return
+
+  await executeDeleteLesson(
+    lessonToDelete.value.id,
+    pendingDeleteScope.value,
+    pendingDeleteAction.value,
+    deleteReason.value,
+    selectedDeletionLessonIds.value
+  )
+  closeDeleteModal()
   showLessonModal.value = false
 }
 
-// Exécuter la suppression avec l'API
-async function executeDeleteLesson(lessonId: number, scope: 'single' | 'all_future', action: 'cancel' | 'delete', reason: string) {
+async function executeDeleteLesson(
+  lessonId: number,
+  scope: 'single' | 'all_future',
+  action: 'cancel' | 'delete',
+  reason: string,
+  lessonIds?: number[]
+) {
   try {
     const { $api } = useNuxtApp()
-    
-    console.log(`🗑️ [executeDeleteLesson] Exécution - ID: ${lessonId}, scope: ${scope}, action: ${action}`)
-    
-    const response = await $api.delete(`/club/lessons/${lessonId}`, {
-      data: {
-        cancel_scope: scope,
-        action: action,
-        reason: reason || (action === 'delete' ? 'Supprimé définitivement par le club' : 'Annulé par le club')
-      }
-    })
-    
+
+    const payload: Record<string, unknown> = {
+      cancel_scope: scope,
+      action,
+      reason: reason || (action === 'delete' ? 'Supprimé définitivement par le club' : 'Annulé par le club'),
+    }
+    if (lessonIds && lessonIds.length > 0) {
+      payload.lesson_ids = lessonIds
+    }
+
+    const response = await $api.delete(`/club/lessons/${lessonId}`, { data: payload })
+
     if (response.data.success) {
+      const processed = response.data.data?.processed_count ?? 1
       const actionLabel = action === 'delete' ? 'supprimé' : 'annulé'
-      const scopeLabel = scope === 'single' ? 'Cours' : `Cours et ${response.data.processed_count - 1} séance(s) future(s)`
-      
+      const scopeLabel = processed === 1 ? 'Cours' : `${processed} cours`
+
       success(`${scopeLabel} ${actionLabel} avec succès`)
       await Promise.all([loadLessons(), loadClubRecurringSlots()])
     } else {
       showError(response.data.message || 'Erreur lors de la suppression')
     }
   } catch (error: any) {
-    console.error('❌ [executeDeleteLesson] Erreur:', error)
     showError(error.response?.data?.message || 'Erreur lors de la suppression du cours')
   }
 }

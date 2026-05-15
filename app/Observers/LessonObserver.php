@@ -53,6 +53,15 @@ class LessonObserver
             $query->where('lesson_id', $lesson->id);
         })->get();
 
+        if (empty($lesson->cancelled_subscription_instance_ids) && $subscriptionInstances->isNotEmpty()) {
+            $lesson->cancelled_subscription_instance_ids = $subscriptionInstances
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+            $lesson->saveQuietly();
+        }
+
         foreach ($subscriptionInstances as $instance) {
             $instance->lessons()->detach($lesson->id);
 

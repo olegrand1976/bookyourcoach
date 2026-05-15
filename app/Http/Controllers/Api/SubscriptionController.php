@@ -119,6 +119,15 @@ class SubscriptionController extends Controller
                     });
                 }
 
+                $familyShared = $request->query('family_shared') === '1'
+                    || $request->query('min_students') === '2';
+                if ($familyShared && $scope === 'active') {
+                    $subscriptionQuery->whereHas('instances', function ($q) {
+                        $q->where('subscription_instances.status', 'active')
+                            ->has('students', '>=', 2);
+                    });
+                }
+
                 $paginator = $subscriptionQuery
                     ->with([
                         'template' => function ($query) {
@@ -218,6 +227,10 @@ class SubscriptionController extends Controller
                 foreach ($subscriptions as $subscription) {
                     if ($subscription->instances && $subscription->instances->count() > 0) {
                         foreach ($subscription->instances as $instance) {
+                            $instance->setAttribute(
+                                'is_family_shared',
+                                $instance->students && $instance->students->count() >= 2
+                            );
                             try {
                                 // Recalculer lessons_used pour ne compter que les cours passés
                                 $instance->recalculateLessonsUsed();
@@ -241,6 +254,14 @@ class SubscriptionController extends Controller
                 }
             } else {
                 foreach ($subscriptions as $subscription) {
+                    if ($subscription->instances) {
+                        foreach ($subscription->instances as $instance) {
+                            $instance->setAttribute(
+                                'is_family_shared',
+                                $instance->students && $instance->students->count() >= 2
+                            );
+                        }
+                    }
                     $subscription->subscription_students = $subscription->instances ?? collect([]);
                 }
             }

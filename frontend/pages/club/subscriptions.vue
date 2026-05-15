@@ -78,6 +78,17 @@
               <option value="urgent">🚨 Urgent (≥ 90%)</option>
             </select>
           </div>
+          <div v-if="subscriptionScope === 'active'" class="flex items-end">
+            <label class="flex items-center gap-2 cursor-pointer px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100">
+              <input
+                v-model="familySharedFilter"
+                type="checkbox"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                @change="onFamilyFilterChange"
+              />
+              <span class="text-sm text-gray-700 whitespace-nowrap">👥 Familial (2+ élèves)</span>
+            </label>
+          </div>
           <div class="flex items-center gap-1 border border-gray-300 rounded-lg p-1 bg-gray-50">
             <span class="text-sm font-medium text-gray-600 px-2">Données&nbsp;:</span>
             <button
@@ -1086,6 +1097,7 @@ const students = ref([])
 const selectedStudent = ref(null)
 const searchQuery = ref('')
 const statusFilter = ref('all') // Filtre par statut: all, normal, warning, urgent
+const familySharedFilter = ref(false)
 const viewMode = ref('card')
 const subscriptionScope = ref('active')
 const subscriptionsPage = ref(1)
@@ -1193,6 +1205,9 @@ const loadSubscriptions = async () => {
     if (subscriptionScope.value === 'active' && statusFilter.value !== 'all') {
       params.usage_status = statusFilter.value
     }
+    if (subscriptionScope.value === 'active' && familySharedFilter.value) {
+      params.family_shared = '1'
+    }
     const instanceParam = route.query.instance
     if (instanceParam) {
       const iid = Number(instanceParam)
@@ -1264,8 +1279,16 @@ const hasSubscriptionFilters = computed(() => {
   if (q) {
     return true
   }
-  return subscriptionScope.value === 'active' && statusFilter.value !== 'all'
+  if (subscriptionScope.value === 'active' && statusFilter.value !== 'all') {
+    return true
+  }
+  return subscriptionScope.value === 'active' && familySharedFilter.value
 })
+
+function onFamilyFilterChange() {
+  subscriptionsPage.value = 1
+  loadSubscriptions()
+}
 
 async function goToSubscriptionsPage(page) {
   const p = subscriptionsPagination.value

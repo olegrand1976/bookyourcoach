@@ -282,6 +282,17 @@
         </div>
       </div>
 
+      <!-- Cours annulés -->
+      <div class="mb-6">
+        <NuxtLink
+          to="/club/cancelled-lessons"
+          class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 hover:bg-slate-100 transition-colors"
+        >
+          <span>🚫</span>
+          <span>Cours annulés — consulter et réactiver</span>
+        </NuxtLink>
+      </div>
+
       <!-- Certificats médicaux à valider -->
       <div v-if="pendingCertificates.length > 0" class="mb-8">
         <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">

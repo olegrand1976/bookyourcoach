@@ -90,6 +90,12 @@
                     <span>Planning</span>
                   </NuxtLink>
 
+                  <NuxtLink v-if="isClub" to="/club/cancelled-lessons" @click="userMenuOpen = false"
+                    class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span>🚫</span>
+                    <span>Cours annulés</span>
+                  </NuxtLink>
+
               <NuxtLink v-if="isClub" to="/club/subscriptions" @click="userMenuOpen = false"
                 class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                 <span>📋</span>

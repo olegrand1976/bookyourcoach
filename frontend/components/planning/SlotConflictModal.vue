@@ -353,6 +353,7 @@ const confirmCancel = async () => {
     const { $api } = useNuxtApp()
     const response = await $api.post(`/lessons/${lessonToCancel.value.id}/cancel-with-future`, {
       cancel_scope: cancelScope.value,
+      action: 'cancel',
       reason: cancelReason.value || 'Libération du créneau'
     })
     

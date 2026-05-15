@@ -14,6 +14,7 @@ use App\Models\CourseType;
 use App\Models\Location;
 use App\Models\Club;
 use App\Models\SubscriptionInstance;
+use App\Services\LessonCancellationAudit;
 use App\Notifications\LessonCancellationConfirmationNotification;
 use App\Notifications\LessonCancellationSubscriptionParticipantMismatchNotification;
 use App\Notifications\LessonCancelledByStudentStakeholderNotification;
@@ -421,6 +422,11 @@ class DashboardController extends Controller
         if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_submitted_by_student_id')) {
             unset($updateData['cancellation_certificate_submitted_by_student_id']);
         }
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancelled_at')) {
+            $updateData = array_merge($updateData, LessonCancellationAudit::auditAttributes($lesson, $user, 'student'));
+        }
+
         $lesson->update($updateData);
 
         $shouldReleaseSubscription = $hasCancellationColumns ? !$countInSubscription : true;
