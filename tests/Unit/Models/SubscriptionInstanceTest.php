@@ -328,6 +328,118 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     /**
+     * Abonnement familial : compter uniquement les cours des bénéficiaires (instance),
+     * pas les lignes subscription_lessons pour un autre élève.
+     */
+    #[Test]
+    public function recalculateLessonsUsed_family_counts_only_beneficiary_lessons(): void
+    {
+        $userB = User::create([
+            'name' => 'Élève B',
+            'email' => 'studentb@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'student',
+        ]);
+        $studentB = Student::create([
+            'user_id' => $userB->id,
+            'club_id' => $this->club->id,
+        ]);
+
+        $userC = User::create([
+            'name' => 'Élève C hors abo',
+            'email' => 'studentc@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'student',
+        ]);
+        $studentC = Student::create([
+            'user_id' => $userC->id,
+            'club_id' => $this->club->id,
+        ]);
+
+        $this->subscriptionInstance->students()->attach($studentB->id);
+
+        $past = Carbon::now()->subDay();
+
+        $lessonA = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $past,
+            'end_time' => $past->copy()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $lessonB = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $studentB->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $past,
+            'end_time' => $past->copy()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $lessonForeign = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $studentC->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $past,
+            'end_time' => $past->copy()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->lessons()->attach([
+            $lessonA->id,
+            $lessonB->id,
+            $lessonForeign->id,
+        ]);
+
+        $this->subscriptionInstance->recalculateLessonsUsed();
+
+        $this->assertEquals(2, $this->subscriptionInstance->fresh()->lessons_used);
+    }
+
+    #[Test]
+    public function consumeLesson_rejects_lesson_for_student_not_on_instance(): void
+    {
+        $userC = User::create([
+            'name' => 'Élève isolé',
+            'email' => 'studentisolate@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'student',
+        ]);
+        $studentC = Student::create([
+            'user_id' => $userC->id,
+            'club_id' => $this->club->id,
+        ]);
+
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $studentC->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subHour(),
+            'end_time' => Carbon::now(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('ne fait pas partie');
+
+        $this->subscriptionInstance->consumeLesson($lesson);
+    }
+
+    /**
      * Test : Préservation des valeurs manuelles lors du recalcul sans cours
      * 
      * BUT : Vérifier que les valeurs manuelles de lessons_used sont préservées quand aucun cours n'est attaché

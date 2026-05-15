@@ -144,11 +144,36 @@ class SubscriptionInstance extends Model
 
     private function getConsumedLessonsCount(): int
     {
+        $subscriptionStudentIds = $this->students()->pluck('students.id')->map(fn ($id) => (int) $id)->all();
+
         $hasCountColumn = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
         $query = \Illuminate\Support\Facades\DB::table('subscription_lessons')
             ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
-            ->where('subscription_lessons.subscription_instance_id', $this->id)
-            ->where(function ($q) use ($hasCountColumn) {
+            ->where('subscription_lessons.subscription_instance_id', $this->id);
+
+        // Abonnement familial : ne compter que les cours dont au moins un participant est bénéficiaire de l'instance
+        if ($subscriptionStudentIds !== []) {
+            $query->where(function ($q) use ($subscriptionStudentIds) {
+                $q->whereIn('lessons.student_id', $subscriptionStudentIds)
+                    ->orWhereExists(function ($sub) use ($subscriptionStudentIds) {
+                        $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('lesson_student')
+                            ->whereColumn('lesson_student.lesson_id', 'lessons.id')
+                            ->whereIn('lesson_student.student_id', $subscriptionStudentIds);
+                    })
+                    // Données legacy : cours lié uniquement à cet abonnement sans élève renseigné
+                    ->orWhere(function ($q2) {
+                        $q2->whereNull('lessons.student_id')
+                            ->whereNotExists(function ($sub) {
+                                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                                    ->from('lesson_student')
+                                    ->whereColumn('lesson_student.lesson_id', 'lessons.id');
+                            });
+                    });
+            });
+        }
+
+        $query->where(function ($q) use ($hasCountColumn) {
                 $q->where(function ($q2) {
                     $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
                         ->where('lessons.start_time', '<=', Carbon::now());
@@ -160,7 +185,8 @@ class SubscriptionInstance extends Model
                     });
                 }
             });
-        return $query->count();
+
+        return (int) $query->count();
     }
 
     private function resolveManualLessonsUsed(?int $consumedLessons = null): int
@@ -365,26 +391,23 @@ class SubscriptionInstance extends Model
             throw new \Exception('Ce cours n\'est pas inclus dans cet abonnement');
         }
 
-        // Vérifier que l'élève fait partie de cet abonnement
-        $studentIds = $this->students()->pluck('students.id')->toArray();
-        // Vérifier aussi via lesson_student (many-to-many)
-        $lessonStudentIds = $lesson->students()->pluck('students.id')->toArray();
-        // Vérifier aussi via student_id du cours (pour compatibilité)
-        if ($lesson->student_id) {
-            $lessonStudentIds[] = $lesson->student_id;
+        // Vérifier que l'élève fait partie de cet abonnement (intersection participants du cours ∩ bénéficiaires de l'instance)
+        $subscriptionStudentIds = $this->students()->pluck('students.id')->map(fn ($id) => (int) $id)->all();
+        $lessonParticipantIds = array_values(array_unique(array_filter(array_map(
+            'intval',
+            array_merge(
+                $lesson->student_id ? [(int) $lesson->student_id] : [],
+                $lesson->students()->pluck('students.id')->all()
+            )
+        ))));
+
+        if ($lessonParticipantIds === []) {
+            throw new \Exception('Impossible de déterminer l\'élève participant pour ce cours');
         }
-        $allStudentIds = array_unique(array_merge($studentIds, $lessonStudentIds));
-        
-        // Vérifier si au moins un des élèves du cours est dans l'abonnement
-        $hasValidStudent = false;
-        foreach ($allStudentIds as $studentId) {
-            if (in_array($studentId, $studentIds)) {
-                $hasValidStudent = true;
-                break;
-            }
-        }
-        
-        if (!$hasValidStudent && !empty($studentIds)) {
+
+        $hasValidStudent = count(array_intersect($lessonParticipantIds, $subscriptionStudentIds)) > 0;
+
+        if (! $hasValidStudent && $subscriptionStudentIds !== []) {
             throw new \Exception('Cet élève ne fait pas partie de cet abonnement');
         }
 
