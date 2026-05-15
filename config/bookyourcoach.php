@@ -20,14 +20,14 @@ return [
     | Rapport veille : planning + analyse IA pour les responsables club
     |--------------------------------------------------------------------------
     |
-    | La commande club:send-daily-planning-insights envoie le lendemain (timezone)
-    | aux e-mails stakeholder (owner/manager/admin). Désactiver le schedule sans
-    | bloquer l’appel manuel de la commande.
+    | La commande club:send-daily-planning-insights envoie la veille le planning du
+    | lendemain (timezone) aux e-mails stakeholder (owner/manager/admin), par défaut
+    | à 8h. Désactiver le schedule sans bloquer l’appel manuel de la commande.
     |
     */
     'club_daily_planning_insight' => [
         'enabled' => env('CLUB_DAILY_PLANNING_INSIGHT_ENABLED', true),
-        'schedule_time' => env('CLUB_DAILY_PLANNING_INSIGHT_TIME', '19:00'),
+        'schedule_time' => env('CLUB_DAILY_PLANNING_INSIGHT_TIME', '08:00'),
         'timezone' => env('CLUB_DAILY_PLANNING_INSIGHT_TIMEZONE', 'Europe/Brussels'),
         'use_ai' => env('CLUB_DAILY_PLANNING_INSIGHT_USE_AI', true),
     ],

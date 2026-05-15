@@ -712,9 +712,12 @@ class LessonController extends Controller
                     'message' => $e->getMessage()
                 ], 422);
             }
-            // Vérifier si c'est une erreur de capacité de créneau
-            if (str_contains($e->getMessage(), 'complet') || str_contains($e->getMessage(), 'capacité')) {
-                Log::warning('Capacité de créneau atteinte:', [
+            // Créneau complet / capacité / double-booking enseignant (même plage horaire)
+            if (str_contains($e->getMessage(), 'complet')
+                || str_contains($e->getMessage(), 'capacité')
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
+                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')) {
+                Log::warning('Créneau ou disponibilité enseignant:', [
                     'message' => $e->getMessage(),
                     'request' => $request->all()
                 ]);
@@ -1288,6 +1291,38 @@ class LessonController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'déjà un cours programmé')) {
+                Log::warning('Conflit horaire élève (mise à jour cours)', [
+                    'lesson_id' => $id,
+                    'message' => $e->getMessage(),
+                    'request' => $request->all(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
+            if (str_contains($e->getMessage(), 'complet')
+                || str_contains($e->getMessage(), 'capacité')
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
+                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')) {
+                Log::warning('Créneau ou disponibilité enseignant (mise à jour cours)', [
+                    'lesson_id' => $id,
+                    'message' => $e->getMessage(),
+                    'request' => $request->all(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'errors' => [
+                        'start_time' => [$e->getMessage()],
+                    ],
+                ], 422);
+            }
+
             Log::error('Erreur lors de la mise à jour du cours', [
                 'lesson_id' => $id,
                 'user_id' => Auth::id(),
@@ -1730,6 +1765,61 @@ class LessonController extends Controller
     }
 
     /**
+     * Fin de cours pour contrôle de chevauchement (end_time > start_time attendu).
+     */
+    private function computeLessonEndForOverlap(Carbon $lessonStart, Lesson $lesson): Carbon
+    {
+        if ($lesson->end_time) {
+            return Carbon::parse($lesson->end_time);
+        }
+        $lesson->loadMissing('courseType');
+        if ($lesson->courseType && $lesson->courseType->duration_minutes) {
+            return $lessonStart->copy()->addMinutes((int) $lesson->courseType->duration_minutes);
+        }
+
+        return $lessonStart->copy()->addMinutes(60);
+    }
+
+    /**
+     * Règle métier : un même enseignant ne peut pas avoir deux cours qui se chevauchent le même jour (club).
+     * Doit s'appliquer même sans ClubOpenSlot (sinon contournement de la règle).
+     */
+    private function ensureTeacherHasNoOverlappingLesson(
+        string $startTime,
+        int $clubId,
+        int $teacherId,
+        int $durationMinutes,
+        ?int $excludeLessonId = null
+    ): void {
+        $newLessonStart = Carbon::parse($startTime);
+        $newLessonEnd = $newLessonStart->copy()->addMinutes(max(1, $durationMinutes));
+        $date = $newLessonStart->format('Y-m-d');
+
+        $query = Lesson::query()
+            ->where('club_id', $clubId)
+            ->where('teacher_id', $teacherId)
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('start_time', $date)
+            ->with('courseType');
+
+        if ($excludeLessonId !== null) {
+            $query->where('id', '!=', $excludeLessonId);
+        }
+
+        foreach ($query->get() as $lesson) {
+            $lessonStart = Carbon::parse($lesson->start_time);
+            $lessonEnd = $this->computeLessonEndForOverlap($lessonStart, $lesson);
+            if ($newLessonStart->lt($lessonEnd) && $newLessonEnd->gt($lessonStart)) {
+                $existingStart = $lessonStart->format('H:i');
+                throw new \Exception(
+                    "Impossible : cet enseignant a déjà un cours qui chevauche ce créneau (début à {$existingStart}). ".
+                    'Un enseignant ne peut pas encadrer deux cours en parallèle.'
+                );
+            }
+        }
+    }
+
+    /**
      * Vérifie que le créneau n'est pas complet avant de créer un cours
      * 
      * Vérifie deux choses :
@@ -1743,119 +1833,56 @@ class LessonController extends Controller
             $dayOfWeek = $startDateTime->dayOfWeek;
             $time = $startDateTime->format('H:i');
             $date = $startDateTime->format('Y-m-d');
-            
-            // Trouver le créneau ouvert correspondant
-            $openSlot = ClubOpenSlot::where('club_id', $clubId)
-                ->where('day_of_week', $dayOfWeek)
-                ->where('start_time', '<=', $time)
-                ->where('end_time', '>', $time)
-                ->first();
-            
-            if (!$openSlot) {
-                // Pas de créneau défini, on autorise (pour compatibilité)
-                return;
-            }
-            
-            // 1. Vérifier max_slots : Nombre total de cours simultanés qui se chevauchent avec le nouveau cours
-            // ⚠️ IMPORTANT : Vérifier uniquement les cours qui se chevauchent réellement, pas tous les cours dans la plage horaire
-            // Un cours se chevauche si : start_time < other_end_time && end_time > other_start_time
-            
-            // Calculer la fin du nouveau cours (on a besoin de la durée)
-            // La durée devrait être dans $validated, mais on peut aussi la récupérer depuis le CourseType
+
             $courseType = null;
             if (isset($validated['course_type_id'])) {
                 $courseType = \App\Models\CourseType::find($validated['course_type_id']);
             }
             $duration = $validated['duration'] ?? ($courseType ? $courseType->duration_minutes : 60);
+            $duration = max(1, (int) $duration);
+
+            $this->ensureTeacherHasNoOverlappingLesson($startTime, $clubId, $teacherId, $duration, null);
+
+            // Trouver le créneau ouvert correspondant (capacité / max_slots — optionnel)
+            $openSlot = ClubOpenSlot::where('club_id', $clubId)
+                ->where('day_of_week', $dayOfWeek)
+                ->where('start_time', '<=', $time)
+                ->where('end_time', '>', $time)
+                ->first();
+
+            if (! $openSlot) {
+                return;
+            }
+
             $newLessonEndTime = $startDateTime->copy()->addMinutes($duration);
-            
-            // Charger la relation courseType pour les cours existants
+
+            // 1. Vérifier max_slots : cours qui se chevauchent réellement avec le nouveau cours
             $existingLessons = Lesson::where('club_id', $clubId)
                 ->whereDate('start_time', $date)
-                ->where('status', '!=', 'cancelled') // Ignorer les cours annulés
-                ->with('courseType') // Charger la relation pour obtenir la durée
+                ->where('status', '!=', 'cancelled')
+                ->with('courseType')
                 ->get();
-            
-            // Compter les cours qui se chevauchent avec le nouveau cours
+
             $overlappingLessonsCount = 0;
             foreach ($existingLessons as $lesson) {
-                // Calculer la fin du cours existant
                 $lessonStart = Carbon::parse($lesson->start_time);
-                $lessonEnd = $lessonStart->copy();
-                
-                // Si le cours a une durée stockée, l'utiliser, sinon utiliser la durée du type de cours
-                if ($lesson->courseType && $lesson->courseType->duration_minutes) {
-                    $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
-                } else {
-                    // Fallback : utiliser end_time si disponible, sinon 60 minutes par défaut
-                    if ($lesson->end_time) {
-                        $lessonEnd = Carbon::parse($lesson->end_time);
-                    } else {
-                        $lessonEnd->addMinutes(60);
-                    }
-                }
-                
-                // Vérifier le chevauchement : le nouveau cours chevauche si :
-                // - Il commence avant la fin du cours existant ET
-                // - Il se termine après le début du cours existant
+                $lessonEnd = $this->computeLessonEndForOverlap($lessonStart, $lesson);
+
                 if ($startDateTime->lt($lessonEnd) && $newLessonEndTime->gt($lessonStart)) {
                     $overlappingLessonsCount++;
                 }
             }
-            
-            $maxSlots = $openSlot->max_slots ?? 1; // Par défaut 1 si non défini
-            
+
+            $maxSlots = $openSlot->max_slots ?? 1;
+
             if ($overlappingLessonsCount >= $maxSlots) {
                 throw new \Exception("Ce créneau est complet ({$overlappingLessonsCount}/{$maxSlots} plages simultanées). Impossible d'ajouter un nouveau cours.");
             }
-            
-            // 2. Vérifier qu'un enseignant n'a pas déjà un cours qui se chevauche avec le nouveau cours
-            // ⚠️ IMPORTANT : Un enseignant ne peut pas avoir plusieurs cours qui se chevauchent dans le temps
-            // même s'il a la capacité pour plusieurs élèves dans un seul cours
-            $newLessonStart = Carbon::parse($startTime);
-            $newLessonEnd = $newLessonStart->copy()->addMinutes($duration);
-            
-            $overlappingTeacherLessons = Lesson::where('club_id', $clubId)
-                ->where('teacher_id', $teacherId)
-                ->where('status', '!=', 'cancelled')
-                ->whereDate('start_time', $date)
-                ->get()
-                ->filter(function ($lesson) use ($newLessonStart, $newLessonEnd) {
-                    // Calculer la fin du cours existant
-                    $lessonStart = Carbon::parse($lesson->start_time);
-                    $lessonEnd = $lessonStart->copy();
-                    
-                    // Si le cours a une durée stockée, l'utiliser, sinon utiliser la durée du type de cours
-                    if ($lesson->courseType && $lesson->courseType->duration_minutes) {
-                        $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
-                    } else {
-                        // Fallback : utiliser end_time si disponible, sinon 60 minutes par défaut
-                        if ($lesson->end_time) {
-                            $lessonEnd = Carbon::parse($lesson->end_time);
-                        } else {
-                            $lessonEnd->addMinutes(60);
-                        }
-                    }
-                    
-                    // Vérifier le chevauchement : les cours se chevauchent si :
-                    // - Le nouveau cours commence avant la fin du cours existant ET
-                    // - Le nouveau cours se termine après le début du cours existant
-                    return $newLessonStart->lt($lessonEnd) && $newLessonEnd->gt($lessonStart);
-                });
-            
-            if ($overlappingTeacherLessons->count() > 0) {
-                $existingLesson = $overlappingTeacherLessons->first();
-                $existingStart = Carbon::parse($existingLesson->start_time)->format('H:i');
-                throw new \Exception("Cet enseignant a déjà un cours programmé qui se chevauche avec cette heure (début à {$existingStart}). Un enseignant ne peut pas avoir plusieurs cours simultanés.");
-            }
-            
-            // 3. Vérifier max_capacity : Nombre maximum d'élèves pour cet enseignant à l'heure exacte du cours
-            // ⚠️ IMPORTANT : Vérifier uniquement les cours qui commencent à la même heure (même start_time)
-            // et non pas tous les cours dans la plage horaire du créneau ouvert
-            // Utiliser une comparaison de datetime pour être compatible avec SQLite et MySQL
-            $startDateTime = Carbon::parse($date . ' ' . $time . ':00');
-            $endDateTime = $startDateTime->copy()->addMinute(); // +1 minute pour avoir la plage exacte
-            
+
+            // 2. Vérifier max_capacity : élèves pour l'enseignant à l'heure exacte de début du cours
+            $startDateTime = Carbon::parse($date.' '.$time.':00');
+            $endDateTime = $startDateTime->copy()->addMinute();
+
             $teacherLessonsAtThisTime = Lesson::where('club_id', $clubId)
                 ->where('teacher_id', $teacherId)
                 ->where('start_time', '>=', $startDateTime)
@@ -1886,10 +1913,11 @@ class LessonController extends Controller
             
         } catch (\Exception $e) {
             // Si c'est notre exception de capacité ou de chevauchement, la propager
-            if (str_contains($e->getMessage(), 'complet') || 
-                str_contains($e->getMessage(), 'capacité maximale') ||
-                str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche') ||
-                str_contains($e->getMessage(), 'plusieurs cours simultanés')) {
+            if (str_contains($e->getMessage(), 'complet')
+                || str_contains($e->getMessage(), 'capacité maximale')
+                || str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche')
+                || str_contains($e->getMessage(), 'plusieurs cours simultanés')
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')) {
                 throw $e;
             }
             // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
@@ -1916,92 +1944,47 @@ class LessonController extends Controller
             $dayOfWeek = $startDateTime->dayOfWeek;
             $time = $startDateTime->format('H:i');
             $date = $startDateTime->format('Y-m-d');
-            
-            // Trouver le créneau ouvert correspondant
+            $duration = max(1, (int) $duration);
+
+            $this->ensureTeacherHasNoOverlappingLesson($startTime, $clubId, $teacherId, $duration, $lessonId);
+
             $openSlot = ClubOpenSlot::where('club_id', $clubId)
                 ->where('day_of_week', $dayOfWeek)
                 ->where('start_time', '<=', $time)
                 ->where('end_time', '>', $time)
                 ->first();
-            
-            if (!$openSlot) {
-                // Pas de créneau défini, on autorise (pour compatibilité)
+
+            if (! $openSlot) {
                 return;
             }
-            
-            // Calculer la fin du cours mis à jour
+
             $newLessonEndTime = $startDateTime->copy()->addMinutes($duration);
-            
-            // Charger les cours existants en excluant le cours actuel
+
             $existingLessons = Lesson::where('club_id', $clubId)
-                ->where('id', '!=', $lessonId) // Exclure le cours actuel
+                ->where('id', '!=', $lessonId)
                 ->whereDate('start_time', $date)
                 ->where('status', '!=', 'cancelled')
                 ->with('courseType')
                 ->get();
-            
-            // Compter les cours qui se chevauchent avec le cours mis à jour
+
             $overlappingLessonsCount = 0;
             foreach ($existingLessons as $lesson) {
                 $lessonStart = Carbon::parse($lesson->start_time);
-                $lessonEnd = $lessonStart->copy();
-                
-                if ($lesson->courseType && $lesson->courseType->duration_minutes) {
-                    $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
-                } else {
-                    if ($lesson->end_time) {
-                        $lessonEnd = Carbon::parse($lesson->end_time);
-                    } else {
-                        $lessonEnd->addMinutes(60);
-                    }
-                }
-                
+                $lessonEnd = $this->computeLessonEndForOverlap($lessonStart, $lesson);
+
                 if ($startDateTime->lt($lessonEnd) && $newLessonEndTime->gt($lessonStart)) {
                     $overlappingLessonsCount++;
                 }
             }
-            
+
             $maxSlots = $openSlot->max_slots ?? 1;
-            
+
             if ($overlappingLessonsCount >= $maxSlots) {
                 throw new \Exception("Ce créneau est complet ({$overlappingLessonsCount}/{$maxSlots} plages simultanées). Impossible de modifier ce cours.");
             }
-            
-            // Vérifier qu'un enseignant n'a pas déjà un cours qui se chevauche (en excluant le cours actuel)
-            $newLessonStart = Carbon::parse($startTime);
-            $newLessonEnd = $newLessonStart->copy()->addMinutes($duration);
-            
-            $overlappingTeacherLessons = Lesson::where('club_id', $clubId)
-                ->where('teacher_id', $teacherId)
-                ->where('id', '!=', $lessonId) // Exclure le cours actuel
-                ->where('status', '!=', 'cancelled')
-                ->whereDate('start_time', $date)
-                ->get()
-                ->filter(function ($lesson) use ($newLessonStart, $newLessonEnd) {
-                    $lessonStart = Carbon::parse($lesson->start_time);
-                    $lessonEnd = $lessonStart->copy();
-                    
-                    if ($lesson->courseType && $lesson->courseType->duration_minutes) {
-                        $lessonEnd->addMinutes($lesson->courseType->duration_minutes);
-                    } else {
-                        if ($lesson->end_time) {
-                            $lessonEnd = Carbon::parse($lesson->end_time);
-                        } else {
-                            $lessonEnd->addMinutes(60);
-                        }
-                    }
-                    
-                    return $newLessonStart->lt($lessonEnd) && $newLessonEnd->gt($lessonStart);
-                });
-            
-            if ($overlappingTeacherLessons->count() > 0) {
-                $existingLesson = $overlappingTeacherLessons->first();
-                $existingStart = Carbon::parse($existingLesson->start_time)->format('H:i');
-                throw new \Exception("Cet enseignant a déjà un cours programmé qui se chevauche avec cette heure (début à {$existingStart}). Un enseignant ne peut pas avoir plusieurs cours simultanés.");
-            }
-            
-            // Vérifier max_capacity : Nombre maximum d'élèves pour cet enseignant à l'heure exacte du cours
-            $startDateTime = Carbon::parse($date . ' ' . $time . ':00');
+
+            // Vérifier max_capacity : élèves pour l'enseignant à l'heure exacte du cours
+            $startDateTime = Carbon::parse($date.' '.$time.':00');
             $endDateTime = $startDateTime->copy()->addMinute();
             
             $teacherLessonsAtThisTime = Lesson::where('club_id', $clubId)
@@ -2028,10 +2011,11 @@ class LessonController extends Controller
             }
             
         } catch (\Exception $e) {
-            if (str_contains($e->getMessage(), 'complet') || 
-                str_contains($e->getMessage(), 'capacité maximale') ||
-                str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche') ||
-                str_contains($e->getMessage(), 'plusieurs cours simultanés')) {
+            if (str_contains($e->getMessage(), 'complet')
+                || str_contains($e->getMessage(), 'capacité maximale')
+                || str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche')
+                || str_contains($e->getMessage(), 'plusieurs cours simultanés')
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')) {
                 throw $e;
             }
             Log::warning("Erreur lors de la vérification de capacité du créneau pour mise à jour: " . $e->getMessage());

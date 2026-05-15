@@ -318,6 +318,17 @@
                       ({{ timeSlot.lessons.length }} affiché{{ timeSlot.lessons.length > 1 ? 's' : '' }} ·
                       {{ timeSlot.availability.occupied }}/{{ timeSlot.availability.maxSlots }} voie{{ timeSlot.availability.maxSlots > 1 ? 's' : '' }})
                     </span>
+                    <span
+                      v-if="timeSlotHasTeacherParallelConflict(timeSlot.lessons)"
+                      class="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm"
+                      title="Conflit : le même enseignant a deux cours qui se chevauchent sur cette plage."
+                    >
+                      <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                        <rect x="6" y="10" width="12" height="4" rx="1" fill="currentColor" />
+                      </svg>
+                      Sens interdit
+                    </span>
                   </div>
                   <div class="flex flex-wrap items-center gap-1.5">
                     <span
@@ -360,6 +371,7 @@
                     class="border-2 rounded-lg p-3 transition-all bg-white min-w-0 max-w-full flex flex-col overflow-hidden"
                     :class="[
                       getLessonBorderClass(lesson),
+                      planningLessonHasTeacherParallelConflict(lesson) ? 'ring-2 ring-red-600 ring-offset-2' : '',
                       isSelectedDateClosure && lesson.status !== 'cancelled'
                         ? 'opacity-55 grayscale pointer-events-none cursor-not-allowed'
                         : lesson.is_recurring_placeholder
@@ -372,6 +384,16 @@
                     <!-- Type de cours et statut -->
                     <div class="flex items-start justify-between gap-2 mb-2">
                       <div class="flex items-start gap-1.5 min-w-0 flex-1">
+                        <span
+                          v-if="planningLessonHasTeacherParallelConflict(lesson)"
+                          class="shrink-0 mt-0.5 text-red-600"
+                          title="Sens interdit : ce coach a un autre cours en parallèle sur cette plage. Corrigez l’horaire ou changez d’enseignant."
+                        >
+                          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                            <rect x="6" y="10" width="12" height="4" rx="1" fill="currentColor" />
+                          </svg>
+                        </span>
                         <span
                           v-if="planningLessonOverlapsRecurringSeries(lesson)"
                           class="shrink-0 mt-0.5 text-violet-600"
@@ -576,6 +598,17 @@
                         ({{ timeSlot.lessons.length }} affiché{{ timeSlot.lessons.length > 1 ? 's' : '' }} ·
                         {{ timeSlot.availability.occupied }}/{{ timeSlot.availability.maxSlots }} voie{{ timeSlot.availability.maxSlots > 1 ? 's' : '' }})
                       </span>
+                      <span
+                        v-if="timeSlotHasTeacherParallelConflict(timeSlot.lessons)"
+                        class="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm"
+                        title="Conflit : le même enseignant a deux cours qui se chevauchent sur cette plage."
+                      >
+                        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                          <rect x="6" y="10" width="12" height="4" rx="1" fill="currentColor" />
+                        </svg>
+                        Sens interdit
+                      </span>
                     </div>
                     <div class="flex flex-wrap items-center gap-1.5">
                       <span
@@ -627,6 +660,7 @@
                         class="border-t border-gray-200 transition-colors"
                         :class="[
                           planningLessonRowHighlightClass(lesson) || (lesson.is_recurring_placeholder ? '' : 'bg-white hover:bg-blue-50/40'),
+                          planningLessonHasTeacherParallelConflict(lesson) ? 'border-l-4 border-l-red-600' : '',
                           isSelectedDateClosure && lesson.status !== 'cancelled'
                             ? 'opacity-55 pointer-events-none'
                             : '',
@@ -638,6 +672,16 @@
                         </td>
                         <td class="px-3 py-2 align-top">
                           <div class="flex items-start gap-1.5">
+                            <span
+                              v-if="planningLessonHasTeacherParallelConflict(lesson)"
+                              class="shrink-0 mt-0.5 text-red-600"
+                              title="Sens interdit : ce coach a un autre cours en parallèle sur cette plage. Corrigez l’horaire ou changez d’enseignant."
+                            >
+                              <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                                <rect x="6" y="10" width="12" height="4" rx="1" fill="currentColor" />
+                              </svg>
+                            </span>
                             <span
                               v-if="planningLessonOverlapsRecurringSeries(lesson)"
                               class="shrink-0 mt-0.5 text-violet-600"
@@ -1695,6 +1739,68 @@ const filteredLessons = computed(() => {
     return dayMatch && timeMatch && dateMatch
   })
 })
+
+/** Intervalle temps réel du cours (ms) pour détecter double-booking enseignant */
+function planningLessonIntervalEdgeMs(lesson: Lesson): { start: number; end: number } | null {
+  if (lesson.is_recurring_placeholder || lesson.status === 'cancelled') return null
+  if (!lesson.start_time) return null
+  const start = new Date(lesson.start_time as string).getTime()
+  if (Number.isNaN(start)) return null
+  let end: number
+  if (lesson.end_time) {
+    end = new Date(lesson.end_time as string).getTime()
+  } else {
+    const ct = lesson.course_type as { duration_minutes?: number } | undefined
+    const raw = (lesson as { duration?: number }).duration ?? ct?.duration_minutes ?? 60
+    const mins = Math.max(1, Number(raw) || 60)
+    end = start + mins * 60_000
+  }
+  if (!Number.isFinite(end) || end <= start) {
+    end = start + 60_000
+  }
+  return { start, end }
+}
+
+/** Même enseignant : deux cours dont les intervalles se chevauchent (affichage « sens interdit »). */
+const teacherParallelConflictLessonIds = computed(() => {
+  const bad = new Set<number>()
+  const list = filteredLessons.value.filter(
+    (l) => !l.is_recurring_placeholder && l.status !== 'cancelled' && l.id != null
+  )
+  const byTeacher = new Map<number, Lesson[]>()
+  for (const l of list) {
+    const tid = Number(l.teacher_id ?? l.teacher?.id)
+    if (!tid) continue
+    if (!byTeacher.has(tid)) byTeacher.set(tid, [])
+    byTeacher.get(tid)!.push(l)
+  }
+  for (const [, lessons] of byTeacher) {
+    if (lessons.length < 2) continue
+    const intervals = lessons
+      .map((les) => ({ les, iv: planningLessonIntervalEdgeMs(les) }))
+      .filter((x): x is { les: Lesson; iv: { start: number; end: number } } => x.iv != null)
+    for (let i = 0; i < intervals.length; i++) {
+      for (let j = i + 1; j < intervals.length; j++) {
+        const a = intervals[i].iv
+        const b = intervals[j].iv
+        if (a.start < b.end && a.end > b.start) {
+          bad.add(Number(intervals[i].les.id))
+          bad.add(Number(intervals[j].les.id))
+        }
+      }
+    }
+  }
+  return bad
+})
+
+function planningLessonHasTeacherParallelConflict(lesson: Lesson): boolean {
+  if (!lesson?.id || lesson.is_recurring_placeholder) return false
+  return teacherParallelConflictLessonIds.value.has(Number(lesson.id))
+}
+
+function timeSlotHasTeacherParallelConflict(lessons: Lesson[]): boolean {
+  return lessons.some((l) => planningLessonHasTeacherParallelConflict(l))
+}
 
 const selectedDateYmd = computed(() => {
   if (!selectedDate.value) return ''

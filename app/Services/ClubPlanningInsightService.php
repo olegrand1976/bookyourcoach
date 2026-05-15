@@ -6,6 +6,7 @@ use App\Models\Club;
 use App\Models\Lesson;
 use App\Models\Student;
 use App\Support\UnionFind;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -184,6 +185,7 @@ class ClubPlanningInsightService
 
             $lessonPayload[] = [
                 'id' => $lesson->id,
+                'teacher_id' => $lesson->teacher_id ? (int) $lesson->teacher_id : null,
                 'start_local' => $lesson->start_time?->timezone($timezone)->format('Y-m-d H:i'),
                 'end_local' => $lesson->end_time?->timezone($timezone)->format('Y-m-d H:i'),
                 'duration_minutes' => $durationMin,
@@ -201,6 +203,18 @@ class ClubPlanningInsightService
             ];
         }
 
+        $teacherParallelConflicts = $this->buildTeacherParallelConflictGroups($lessonPayload);
+        $conflictedLessonIds = [];
+        foreach ($teacherParallelConflicts as $cg) {
+            foreach ($cg['lessons'] as $ld) {
+                $conflictedLessonIds[(int) $ld['id']] = true;
+            }
+        }
+        foreach ($lessonPayload as &$lp) {
+            $lp['has_teacher_parallel_conflict'] = isset($conflictedLessonIds[(int) $lp['id']]);
+        }
+        unset($lp);
+
         return [
             'meta' => [
                 'club_id' => $club->id,
@@ -215,8 +229,161 @@ class ClubPlanningInsightService
                 'Groups merge: explicit family links, same normalized last name among participants,',
                 'or two or more participants sharing a subscription_instance_id on that day.',
             ]),
+            'teacher_parallel_conflicts' => $teacherParallelConflicts,
             'lessons' => $lessonPayload,
         ];
+    }
+
+    /**
+     * Same business rule as planning "sens interdit" : one teacher cannot overlap two lessons.
+     *
+     * @param  list<array<string, mixed>>  $lessonRows
+     * @return list<array{teacher_id: int, teacher: string, lessons: list<array<string, mixed>>}>
+     */
+    protected function buildTeacherParallelConflictGroups(array $lessonRows): array
+    {
+        $byTeacher = [];
+        foreach ($lessonRows as $row) {
+            $tid = isset($row['teacher_id']) ? (int) $row['teacher_id'] : null;
+            if (! $tid) {
+                continue;
+            }
+            $byTeacher[$tid][] = $row;
+        }
+
+        $groupsOut = [];
+        foreach ($byTeacher as $tid => $rows) {
+            $n = count($rows);
+            if ($n < 2) {
+                continue;
+            }
+            $idxs = range(0, $n - 1);
+            $uf = new UnionFind($idxs);
+            for ($i = 0; $i < $n; $i++) {
+                for ($j = $i + 1; $j < $n; $j++) {
+                    if ($this->lessonIntervalsOverlap($rows[$i], $rows[$j])) {
+                        $uf->union($i, $j);
+                    }
+                }
+            }
+            $clusters = [];
+            foreach ($idxs as $i) {
+                $root = $uf->find($i);
+                $clusters[$root][] = $i;
+            }
+            foreach ($clusters as $members) {
+                if (count($members) < 2) {
+                    continue;
+                }
+                $first = $rows[$members[0]];
+                $lessonDetails = [];
+                foreach ($members as $mi) {
+                    $lessonDetails[] = $this->conflictLessonSummary($rows[$mi]);
+                }
+                usort($lessonDetails, fn ($x, $y) => strcmp((string) ($x['start_local'] ?? ''), (string) ($y['start_local'] ?? '')));
+
+                $groupsOut[] = [
+                    'teacher_id' => $tid,
+                    'teacher' => (string) ($first['teacher'] ?? 'Enseignant #'.$tid),
+                    'lessons' => $lessonDetails,
+                ];
+            }
+        }
+
+        return $groupsOut;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{0: \Carbon\Carbon, 1: \Carbon\Carbon}|null
+     */
+    protected function lessonTimeBounds(array $row): ?array
+    {
+        $startRaw = $row['start_local'] ?? null;
+        if (! $startRaw) {
+            return null;
+        }
+        try {
+            $start = Carbon::parse((string) $startRaw);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $end = null;
+        if (! empty($row['end_local'])) {
+            try {
+                $end = Carbon::parse((string) $row['end_local']);
+            } catch (\Throwable) {
+                $end = null;
+            }
+        }
+        if ($end === null) {
+            $dur = max(1, (int) ($row['duration_minutes'] ?? 60));
+            $end = $start->copy()->addMinutes($dur);
+        }
+        if ($end->lte($start)) {
+            $end = $start->copy()->addMinutes(60);
+        }
+
+        return [$start, $end];
+    }
+
+    /**
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
+     */
+    protected function lessonIntervalsOverlap(array $a, array $b): bool
+    {
+        $ba = $this->lessonTimeBounds($a);
+        $bb = $this->lessonTimeBounds($b);
+        if (! $ba || ! $bb) {
+            return false;
+        }
+        [$s1, $e1] = $ba;
+        [$s2, $e2] = $bb;
+
+        return $s1->lt($e2) && $e1->gt($s2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>
+     */
+    protected function conflictLessonSummary(array $r): array
+    {
+        $names = collect($r['students'] ?? [])
+            ->pluck('name')
+            ->filter(fn ($n) => is_string($n) && trim($n) !== '')
+            ->map(fn ($n) => trim((string) $n))
+            ->values()
+            ->take(4)
+            ->all();
+        $studentCount = count($r['students'] ?? []);
+        $ellipsis = $studentCount > 4 ? '…' : '';
+        $studentsLabel = $names === [] ? '—' : implode(', ', $names).$ellipsis;
+
+        return [
+            'id' => $r['id'],
+            'start_local' => $r['start_local'],
+            'end_local' => $r['end_local'],
+            'time_label' => $this->formatTimeRangeLabel($r),
+            'course_type' => $r['course_type'] ?? '',
+            'students_summary' => $studentsLabel,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $r
+     */
+    protected function formatTimeRangeLabel(array $r): string
+    {
+        $bounds = $this->lessonTimeBounds($r);
+        if (! $bounds) {
+            return (string) ($r['start_local'] ?? '');
+        }
+        [$s, $e] = $bounds;
+
+        return $s->format('H:i').' – '.$e->format('H:i');
     }
 
     protected function normalizedLastName(?string $lastName): string

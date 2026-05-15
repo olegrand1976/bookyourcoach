@@ -25,8 +25,11 @@ class ClubDailyPlanningInsightMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $hasTeacherConflict = ! empty($this->payload['teacher_parallel_conflicts'] ?? []);
+        $prefix = $hasTeacherConflict ? '[Sens interdit — action requise] ' : '';
+
         return new Envelope(
-            subject: sprintf(
+            subject: $prefix.sprintf(
                 '[BookYourCoach] Planning du %s — %s',
                 $this->targetDateLabel,
                 $this->clubName

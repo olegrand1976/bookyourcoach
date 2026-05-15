@@ -170,12 +170,13 @@ PROMPT;
         }
 
         $prompt = <<<PROMPT
-Tu es un conseiller opérationnel pour un club sportif. On te fournit le planning JSON d'une journée (demain) : cours, prix, élèves, et des groupes "family_constraint_groups" d'élèves qui doivent rester PROCHES dans la journée (liens famille explicites, même nom normalisé parmi les présents, ou même instance d'abonnement partagée).
+Tu es un conseiller opérationnel pour un club sportif. On te fournit le planning JSON d'une journée (demain) : cours, prix, élèves, la clé "teacher_parallel_conflicts" (sens interdit : même enseignant, plages qui se chevauchent — erreur bloquante à corriger), et des groupes "family_constraint_groups" d'élèves qui doivent rester PROCHES dans la journée (liens famille explicites, même nom normalisé parmi les présents, ou même instance d'abonnement partagée).
 
 Tâches :
-1) Repère les incohérences ou fragilités ÉCONOMIQUES (revenu vs remplissage, cours presque vides, surcharge moniteur, durées/prix incohérents, déductions abonnement vs prix affiché, risques de no-show groupés, etc.) — uniquement à partir des données fournies.
-2) Propose des déplacements de cours (changement de créneau le même jour ou suggestion de fusion/split si pertinent) pour OPTIMISER, en respectant STRICTEMENT : ne jamais éloigner deux élèves du même groupe family_constraint_groups (même groupe_id) : leurs cours doivent rester dans une fenêtre courte le même jour (idéalement même bloc 2–3h ou créneaux contigus). Si une solution éloignerait des membres d'un groupe, rejette-la ou propose une alternative safe.
-3) Sois prudent : indique quand une suggestion nécessite validation humaine (conflit salle, dispo prof, niveau).
+1) Si "teacher_parallel_conflicts" n'est pas vide : signale-le en premier dans le résumé et dans economic_inconsistencies (severity high), sans en inventer d'autres que ceux fournis.
+2) Repère les incohérences ou fragilités ÉCONOMIQUES (revenu vs remplissage, cours presque vides, surcharge moniteur, durées/prix incohérents, déductions abonnement vs prix affiché, risques de no-show groupés, etc.) — uniquement à partir des données fournies.
+3) Propose des déplacements de cours (changement de créneau le même jour ou suggestion de fusion/split si pertinent) pour OPTIMISER, en respectant STRICTEMENT : ne jamais éloigner deux élèves du même groupe family_constraint_groups (même groupe_id) : leurs cours doivent rester dans une fenêtre courte le même jour (idéalement même bloc 2–3h ou créneaux contigus). Si une solution éloignerait des membres d'un groupe, rejette-la ou propose une alternative safe.
+4) Sois prudent : indique quand une suggestion nécessite validation humaine (conflit salle, dispo prof, niveau).
 
 Réponds en FRANÇAIS avec UN SEUL objet JSON valide (pas de markdown, pas de ```), forme :
 {
