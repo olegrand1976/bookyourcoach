@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ReactivateCancelledLessonRequest;
 use App\Http\Resources\CancelledLessonResource;
 use App\Models\Lesson;
+use App\Models\LessonActionLog;
+use App\Services\LessonActionLogService;
 use App\Services\LessonReactivationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +19,7 @@ class ClubCancelledLessonController extends Controller
 {
     public function __construct(
         private readonly LessonReactivationService $reactivationService,
+        private readonly LessonActionLogService $lessonActionLogService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -159,6 +162,20 @@ class ClubCancelledLessonController extends Controller
                 'message' => $result['message'] ?? 'Réactivation impossible',
                 'conflicts' => $result['conflicts'] ?? null,
             ], $status);
+        }
+
+        $reactivatedIds = $result['data']['reactivated_lesson_ids'] ?? [$lesson->id];
+        foreach ($reactivatedIds as $reactivatedId) {
+            $reactivatedLesson = Lesson::where('club_id', $club->id)->find($reactivatedId);
+            if ($reactivatedLesson) {
+                $this->lessonActionLogService->log(
+                    $reactivatedLesson,
+                    LessonActionLog::ACTION_REACTIVATED,
+                    $user,
+                    'club',
+                    meta: ['reason' => $validated['reason'] ?? null],
+                );
+            }
         }
 
         return response()->json([

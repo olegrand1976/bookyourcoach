@@ -7,7 +7,9 @@ use App\Models\Lesson;
 use App\Notifications\CertificateAcceptedNotification;
 use App\Notifications\CertificateRejectedNotification;
 use App\Notifications\CertificateRequestClosedNotification;
+use App\Models\LessonActionLog;
 use App\Services\CancellationCertificateReviewService;
+use App\Services\LessonActionLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ClubCancellationCertificateController extends Controller
 {
     public function __construct(
-        private CancellationCertificateReviewService $reviewService
+        private CancellationCertificateReviewService $reviewService,
+        private LessonActionLogService $lessonActionLogService,
     ) {}
 
     /**
@@ -68,6 +71,14 @@ class ClubCancellationCertificateController extends Controller
         $this->authorizeLessonForReview($request, $lesson);
 
         $this->reviewService->accept($lesson, $request->user());
+        $lesson->refresh();
+
+        $this->lessonActionLogService->log(
+            $lesson,
+            LessonActionLog::ACTION_CERTIFICATE_ACCEPTED,
+            $request->user(),
+            'club',
+        );
 
         try {
             if ($lesson->student?->user) {
@@ -110,6 +121,15 @@ class ClubCancellationCertificateController extends Controller
         $this->authorizeLessonForReview($request, $lesson);
 
         $this->reviewService->reject($lesson, $request->user(), $request->input('rejection_reason'));
+        $lesson->refresh();
+
+        $this->lessonActionLogService->log(
+            $lesson,
+            LessonActionLog::ACTION_CERTIFICATE_REJECTED,
+            $request->user(),
+            'club',
+            meta: ['rejection_reason' => $request->input('rejection_reason')],
+        );
 
         try {
             if ($lesson->student?->user) {
@@ -191,6 +211,15 @@ class ClubCancellationCertificateController extends Controller
 
         $closeReason = $request->input('close_reason');
         $this->reviewService->close($lesson, $request->user(), $closeReason);
+        $lesson->refresh();
+
+        $this->lessonActionLogService->log(
+            $lesson,
+            LessonActionLog::ACTION_CERTIFICATE_CLOSED,
+            $request->user(),
+            'club',
+            meta: ['close_reason' => $closeReason],
+        );
 
         try {
             if ($lesson->student?->user) {

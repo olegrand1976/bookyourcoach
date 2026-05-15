@@ -14,6 +14,8 @@ use App\Models\CourseType;
 use App\Models\Location;
 use App\Models\Club;
 use App\Models\SubscriptionInstance;
+use App\Models\LessonActionLog;
+use App\Services\LessonActionLogService;
 use App\Services\LessonCancellationAudit;
 use App\Notifications\LessonCancellationConfirmationNotification;
 use App\Notifications\LessonCancellationSubscriptionParticipantMismatchNotification;
@@ -428,6 +430,18 @@ class DashboardController extends Controller
         }
 
         $lesson->update($updateData);
+
+        app(LessonActionLogService::class)->log(
+            $lesson->fresh(),
+            LessonActionLog::ACTION_STUDENT_CANCELLED,
+            $user,
+            'student',
+            studentId: $studentId,
+            meta: [
+                'is_late_cancel' => $isLateCancel,
+                'cancellation_reason' => $cancellationReason,
+            ],
+        );
 
         $shouldReleaseSubscription = $hasCancellationColumns ? !$countInSubscription : true;
         if ($shouldReleaseSubscription) {

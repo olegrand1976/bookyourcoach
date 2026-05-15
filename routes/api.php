@@ -300,6 +300,7 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/lessons/{id}/deletion-preview', [App\Http\Controllers\Api\LessonController::class, 'deletionPreview']);
     Route::delete('/lessons/{id}', [App\Http\Controllers\Api\LessonController::class, 'destroy']);
     // Certificats médicaux en attente (liste pour le bloc planning)
+    Route::get('/lesson-action-logs', [App\Http\Controllers\Api\ClubLessonActionLogController::class, 'index']);
     Route::get('/lessons/cancelled', [App\Http\Controllers\Api\ClubCancelledLessonController::class, 'index']);
     Route::post('/lessons/{id}/reactivate', [App\Http\Controllers\Api\ClubCancelledLessonController::class, 'reactivate']);
     Route::get('/lessons/pending-certificates', [App\Http\Controllers\Api\ClubCancellationCertificateController::class, 'pendingCertificates']);

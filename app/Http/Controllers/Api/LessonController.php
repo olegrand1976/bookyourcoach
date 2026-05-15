@@ -11,9 +11,11 @@ use App\Models\SubscriptionRecurringSlot;
 use App\Models\ClubOpenSlot;
 use App\Notifications\LessonBookedNotification;
 use App\Notifications\LessonCancelledNotification;
+use App\Services\LessonActionLogService;
 use App\Services\LessonBookingNotificationService;
 use App\Services\LessonCancellationAudit;
 use App\Services\LessonDeletionService;
+use App\Models\LessonActionLog;
 use App\Jobs\SendLessonReminderJob;
 use App\Jobs\ProcessLessonPostCreationJob;
 use Illuminate\Http\Request;
@@ -34,7 +36,8 @@ use Carbon\Carbon;
 class LessonController extends Controller
 {
     public function __construct(
-        private readonly LessonDeletionService $lessonDeletionService
+        private readonly LessonDeletionService $lessonDeletionService,
+        private readonly LessonActionLogService $lessonActionLogService,
     ) {}
 
     /**
@@ -110,15 +113,15 @@ class LessonController extends Controller
                 ->with([
                     "teacher:{$teacherColumns}",
                     'teacher.user:id,name,email',
-                    'student:id,user_id,first_name,last_name',
-                    'student.user:id,name,email',
+                    'student:id,user_id,first_name,last_name,phone',
+                    'student.user:id,name,email,phone',
                     'student.subscriptionInstances' => function ($query) {
                         $query->where('status', 'active')
                               ->where('expires_at', '>=', now())
                               ->with(['subscription.template']);
                     },
-                    'students:id,user_id,first_name,last_name',
-                    'students.user:id,name,email',
+                    'students:id,user_id,first_name,last_name,phone',
+                    'students.user:id,name,email,phone',
                     'courseType:id,name',
                     'location:id,name',
                     'club:id,name,email,phone',
@@ -638,8 +641,8 @@ class LessonController extends Controller
                           ->where('expires_at', '>=', now())
                           ->with(['subscription.template']);
                 },
-                'students:id,user_id',
-                'students.user:id,name,email',
+                'students:id,user_id,first_name,last_name,phone',
+                'students.user:id,name,email,phone',
                 'courseType',
                 'location',
                 'club'
@@ -648,6 +651,13 @@ class LessonController extends Controller
             if (! $shouldDispatchJob) {
                 $this->sendBookingNotifications($lesson);
             }
+
+            $this->lessonActionLogService->log(
+                $lesson,
+                LessonActionLog::ACTION_CREATED,
+                $user,
+                $user->role,
+            );
 
             return response()->json([
                 'success' => true,
@@ -749,8 +759,8 @@ class LessonController extends Controller
                           ->where('expires_at', '>=', now())
                           ->with(['subscription.template']);
                 },
-                'students:id,user_id',
-                'students.user:id,name,email',
+                'students:id,user_id,first_name,last_name,phone',
+                'students.user:id,name,email,phone',
                 'courseType',
                 'location',
                 'club',
@@ -1211,6 +1221,17 @@ class LessonController extends Controller
                 $message .= ". {$updatedFutureLessonsCount} cours futur(s) ont également été mis à jour.";
             }
 
+            $this->lessonActionLogService->log(
+                $lesson,
+                LessonActionLog::ACTION_UPDATED,
+                $user,
+                $user->role,
+                meta: [
+                    'update_scope' => $updateScope ?? 'single',
+                    'updated_future_lessons_count' => $updatedFutureLessonsCount,
+                ],
+            );
+
             return response()->json([
                 'success' => true,
                 'data' => $lesson->fresh([
@@ -1221,8 +1242,8 @@ class LessonController extends Controller
                               ->where('expires_at', '>=', now())
                               ->with(['subscription.template']);
                     },
-                    'students:id,user_id',
-                    'students.user:id,name,email',
+                    'students:id,user_id,first_name,last_name,phone',
+                    'students.user:id,name,email,phone',
                     'courseType',
                     'location'
                 ]),
@@ -1330,8 +1351,20 @@ class LessonController extends Controller
                 LessonCancellationAudit::applyToLesson($lesson, $user, 'club', true);
                 $lesson->status = 'cancelled';
                 $lesson->save();
+                $this->lessonActionLogService->log(
+                    $lesson,
+                    LessonActionLog::ACTION_CANCELLED,
+                    $user,
+                    'club',
+                );
                 $message = 'Cours annulé avec succès';
             } else {
+                $this->lessonActionLogService->log(
+                    $lesson,
+                    LessonActionLog::ACTION_DELETED,
+                    $user,
+                    'club',
+                );
                 $lesson->delete();
                 $message = 'Cours supprimé avec succès';
             }
@@ -2466,8 +2499,18 @@ class LessonController extends Controller
                 'student.user',
                 'courseType',
                 'location',
-                'subscriptionInstances'
+                'subscriptionInstances.subscription.template',
             ]);
+
+            $this->lessonActionLogService->log(
+                $lesson,
+                $deductFromSubscription
+                    ? LessonActionLog::ACTION_SUBSCRIPTION_LINKED
+                    : LessonActionLog::ACTION_SUBSCRIPTION_UNLINKED,
+                $user,
+                'club',
+                subscriptionInstanceId: $this->lessonActionLogService->resolvePrimarySubscriptionInstanceId($lesson),
+            );
 
             return response()->json([
                 'success' => true,
@@ -2775,8 +2818,16 @@ class LessonController extends Controller
             $newlyCancelledLessonIds = [];
 
             foreach ($lessonsToProcess as $lessonToProcess) {
+                $isCascade = $lessonToProcess->id !== $lesson->id;
                 if ($action === 'delete') {
                     $lessonId = $lessonToProcess->id;
+                    $this->lessonActionLogService->log(
+                        $lessonToProcess,
+                        $isCascade ? LessonActionLog::ACTION_DELETED_CASCADE : LessonActionLog::ACTION_DELETED,
+                        $user,
+                        'club',
+                        meta: ['reason' => $reason, 'cancel_scope' => $cancelScope],
+                    );
                     $this->releaseSubscriptionLesson($lessonToProcess);
                     $lessonToProcess->delete();
                     $processedCount++;
@@ -2803,6 +2854,13 @@ class LessonController extends Controller
                         $lessonToProcess->save();
                         $this->releaseSubscriptionLesson($lessonToProcess);
                         $newlyCancelledLessonIds[] = $lessonToProcess->id;
+                        $this->lessonActionLogService->log(
+                            $lessonToProcess,
+                            $isCascade ? LessonActionLog::ACTION_CANCELLED_CASCADE : LessonActionLog::ACTION_CANCELLED,
+                            $user,
+                            'club',
+                            meta: ['reason' => $reason, 'cancel_scope' => $cancelScope],
+                        );
                     }
 
                     $processedCount++;

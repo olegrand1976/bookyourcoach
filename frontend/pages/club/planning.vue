@@ -441,6 +441,19 @@
                         📋
                       </span>
                     </div>
+                    <div
+                      v-if="getLessonStudentPhonesDisplay(lesson)"
+                      class="flex items-start gap-1 text-xs text-gray-600 mb-1 min-w-0"
+                    >
+                      <span class="shrink-0" aria-hidden="true">📞</span>
+                      <a
+                        v-if="getLessonStudentTelHref(lesson)"
+                        :href="getLessonStudentTelHref(lesson)!"
+                        class="truncate text-blue-700 hover:underline"
+                        @click.stop
+                      >{{ getLessonStudentPhonesDisplay(lesson) }}</a>
+                      <span v-else class="truncate">{{ getLessonStudentPhonesDisplay(lesson) }}</span>
+                    </div>
                     
                     <!-- Coach -->
                     <div class="flex items-center gap-1 text-xs text-gray-500 mb-2">
@@ -675,6 +688,19 @@
                             v-if="hasActiveSubscription(lesson)"
                             class="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700"
                             title="Abonnement actif">Abo</span>
+                          <div
+                            v-if="getLessonStudentPhonesDisplay(lesson)"
+                            class="mt-0.5 text-xs text-gray-600 flex items-center gap-1 min-w-0"
+                          >
+                            <span aria-hidden="true">📞</span>
+                            <a
+                              v-if="getLessonStudentTelHref(lesson)"
+                              :href="getLessonStudentTelHref(lesson)!"
+                              class="truncate text-blue-700 hover:underline"
+                              @click.stop
+                            >{{ getLessonStudentPhonesDisplay(lesson) }}</a>
+                            <span v-else class="truncate">{{ getLessonStudentPhonesDisplay(lesson) }}</span>
+                          </div>
                         </td>
                         <td class="px-3 py-2 align-top text-gray-600 truncate max-w-[10rem]">
                           {{ lesson.teacher?.user?.name || '—' }}
@@ -924,6 +950,18 @@
                   <label class="block text-sm font-medium text-gray-500 mb-1">Étudiant(s)</label>
                   <p class="text-base font-semibold text-gray-900">
                     {{ getLessonStudents(selectedLesson) }}
+                  </p>
+                  <p
+                    v-if="getLessonStudentPhonesDisplay(selectedLesson)"
+                    class="mt-1 text-sm text-gray-700 flex items-center gap-1.5 flex-wrap"
+                  >
+                    <span class="text-base leading-none" aria-hidden="true">📞</span>
+                    <a
+                      v-if="getLessonStudentTelHref(selectedLesson)"
+                      :href="getLessonStudentTelHref(selectedLesson)!"
+                      class="text-blue-700 hover:underline break-all"
+                    >{{ getLessonStudentPhonesDisplay(selectedLesson) }}</a>
+                    <span v-else class="break-all">{{ getLessonStudentPhonesDisplay(selectedLesson) }}</span>
                   </p>
                   <span 
                     v-if="hasActiveSubscription(selectedLesson)"
@@ -1442,15 +1480,19 @@ interface Lesson {
   }
   student?: {
     id: number
+    phone?: string | null
     user: {
       name: string
+      phone?: string | null
     }
     subscription_instances?: any[]
   }
   students?: Array<{
     id: number
+    phone?: string | null
     user: {
       name: string
+      phone?: string | null
     }
     subscription_instances?: any[]
   }>
@@ -4508,6 +4550,68 @@ function getLessonStudents(lesson: Lesson | null): string {
   }
   
   return studentNames.length > 0 ? studentNames.join(', ') : 'Aucun élève'
+}
+
+function normalizePhoneDisplay(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const t = String(value).trim()
+  return t !== '' ? t : null
+}
+
+/** Téléphone : API (student / students) ou liste club chargée */
+function resolvePhoneFromLessonStudentRecord(s: {
+  phone?: string | null
+  user?: { phone?: string | null }
+} | null | undefined): string | null {
+  if (!s) return null
+  return normalizePhoneDisplay(s.phone) ?? normalizePhoneDisplay(s.user?.phone)
+}
+
+function getLessonStudentPhonesDisplay(lesson: Lesson | null): string {
+  if (!lesson) return ''
+  const orderedUnique: string[] = []
+  const seen = new Set<string>()
+
+  const push = (p: string | null) => {
+    if (!p) return
+    if (seen.has(p)) return
+    seen.add(p)
+    orderedUnique.push(p)
+  }
+
+  push(resolvePhoneFromLessonStudentRecord(lesson.student))
+
+  if (lesson.students && Array.isArray(lesson.students)) {
+    for (const st of lesson.students) {
+      push(resolvePhoneFromLessonStudentRecord(st))
+    }
+  }
+
+  const ids: number[] = []
+  if (lesson.student_id) ids.push(lesson.student_id)
+  if (lesson.student?.id) ids.push(lesson.student.id)
+  if (lesson.students?.length) {
+    for (const st of lesson.students) {
+      if (st.id) ids.push(st.id)
+    }
+  }
+  for (const id of [...new Set(ids)]) {
+    const found = students.value.find((s: any) => s.id === id)
+    if (found) {
+      push(normalizePhoneDisplay(found.phone))
+    }
+  }
+
+  return orderedUnique.length > 0 ? orderedUnique.join(' · ') : ''
+}
+
+/** Lien tel: uniquement si un seul numéro */
+function getLessonStudentTelHref(lesson: Lesson | null): string | null {
+  const display = getLessonStudentPhonesDisplay(lesson)
+  if (!display || display.includes('·')) return null
+  const cleaned = display.replace(/\s/g, '')
+  if (cleaned.length < 8) return null
+  return `tel:${cleaned}`
 }
 
 // Fonction pour vérifier si un cours a un abonnement actif
