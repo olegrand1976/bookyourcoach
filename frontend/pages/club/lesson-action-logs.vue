@@ -1,4 +1,5 @@
 <template>
+  <!-- Si tu vois encore une erreur avec motion.div: rebuild l’image Docker frontend ou lance npm run dev depuis ce repo après git pull. -->
   <div class="min-h-screen bg-gray-50">
     <div class="bg-white border-b border-gray-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

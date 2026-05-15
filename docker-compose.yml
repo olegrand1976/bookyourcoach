@@ -49,7 +49,9 @@ services:
       start_period: 60s
 
   # =============================================================================
-  # Frontend Nuxt.js - PRODUCTION avec CODE LOCAL
+  # Frontend Nuxt.js - PRODUCTION (code copié dans l’image au build, pas de bind-mount)
+  # Après git pull sur ./frontend : reconstruire sinon le conteneur sert l’ancien bundle.
+  #   docker compose build --no-cache frontend && docker compose up -d frontend
   # =============================================================================
   frontend:
     build:
