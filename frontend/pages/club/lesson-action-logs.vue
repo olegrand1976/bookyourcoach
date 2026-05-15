@@ -250,9 +250,13 @@ type LogRow = {
 
 type StudentOption = {
   id: number
+  name?: string | null
+  email?: string | null
   user?: { name?: string }
-  first_name?: string
-  last_name?: string
+  first_name?: string | null
+  last_name?: string | null
+  student_first_name?: string | null
+  student_last_name?: string | null
 }
 
 const { $api } = useNuxtApp()
@@ -275,8 +279,22 @@ const filters = reactive({
   to: ''
 })
 
+/** Aligné sur ClubController::getStudents (objet plat, pas user.name) et students.vue getStudentName */
 function studentLabel(s: StudentOption): string {
-  return s.user?.name || [s.first_name, s.last_name].filter(Boolean).join(' ') || `Élève #${s.id}`
+  if (s.name && String(s.name).trim()) {
+    return String(s.name).trim()
+  }
+  if (s.user?.name && String(s.user.name).trim()) {
+    return String(s.user.name).trim()
+  }
+  const fromUser = [s.first_name, s.last_name].filter(Boolean).join(' ').trim()
+  if (fromUser) return fromUser
+  const fromStudent = [s.student_first_name, s.student_last_name].filter(Boolean).join(' ').trim()
+  if (fromStudent) return fromStudent
+  if (s.email && String(s.email).trim()) {
+    return String(s.email).trim()
+  }
+  return `Élève #${s.id}`
 }
 
 function formatDate(iso: string | null): string {
@@ -299,9 +317,32 @@ function actionBadgeClass(action: string): string {
 
 async function loadStudents() {
   try {
-    const res = await $api.get('/club/students', { params: { per_page: 500 } })
-    const data = res.data?.data ?? res.data
-    students.value = Array.isArray(data) ? data : (data?.students ?? data?.items ?? [])
+    const perPage = 1000
+    const baseParams = { per_page: perPage, page: 1, status: 'all' as const }
+    const res = await $api.get('/club/students', { params: baseParams })
+    if (!res.data?.success) {
+      students.value = []
+      return
+    }
+    let list: StudentOption[] = Array.isArray(res.data.data) ? res.data.data : []
+    const lastPage = res.data.pagination?.last_page ?? 1
+    if (lastPage > 1) {
+      const all = [...list]
+      for (let page = 2; page <= lastPage; page++) {
+        try {
+          const next = await $api.get('/club/students', {
+            params: { ...baseParams, page },
+          })
+          if (next.data?.success && Array.isArray(next.data.data)) {
+            all.push(...next.data.data)
+          }
+        } catch {
+          break
+        }
+      }
+      list = all
+    }
+    students.value = list
   } catch {
     students.value = []
   }
