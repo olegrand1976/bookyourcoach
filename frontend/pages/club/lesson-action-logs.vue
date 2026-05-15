@@ -1,58 +1,32 @@
 <template>
-  <motion.div
-    :initial="{ opacity: 0, y: 8 }"
-    :animate="{ opacity: 1, y: 0 }"
-    class="min-h-screen bg-gray-50"
-  >
-    <motion.div
-      :initial="{ opacity: 0, y: -8 }"
-      :animate="{ opacity: 1, y: 0 }"
-      :transition="{ delay: 0.05 }"
-      class="bg-white border-b border-gray-200"
-    >
-      <motion.div
-        :initial="{ opacity: 0 }"
-        :animate="{ opacity: 1 }"
-        :transition="{ delay: 0.1 }"
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
-      >
+  <div class="min-h-screen bg-gray-50">
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <motion.div
-            :initial="{ opacity: 0, x: -8 }"
-            :animate="{ opacity: 1, x: 0 }"
-            :transition="{ delay: 0.12 }"
-          >
+          <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">
               Journal des actions sur les cours
             </h1>
             <p class="mt-1 text-sm text-gray-600">
               Historique des créations, modifications, annulations et liaisons d'abonnement
             </p>
-          </motion.div>
-          <motion.div
-            :initial="{ opacity: 0, x: 8 }"
-            :animate="{ opacity: 1, x: 0 }"
-            :transition="{ delay: 0.14 }"
-          >
+          </div>
+          <div>
             <NuxtLink
               to="/club/planning"
               class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Retour au planning
             </NuxtLink>
-          </motion.div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <motion.div
-            :initial="{ opacity: 0, y: 8 }"
-            :animate="{ opacity: 1, y: 0 }"
-            :transition="{ delay: 0.15 }"
-          >
+          <div>
             <label for="filter-student" class="block text-sm font-medium text-gray-700 mb-1">
               Élève
             </label>
@@ -73,13 +47,9 @@
                 {{ studentLabel(s) }}
               </option>
             </select>
-          </motion.div>
+          </div>
 
-          <motion.div
-            :initial="{ opacity: 0, y: 8 }"
-            :animate="{ opacity: 1, y: 0 }"
-            :transition="{ delay: 0.17 }"
-          >
+          <div>
             <label for="filter-action" class="block text-sm font-medium text-gray-700 mb-1">
               Type d'action
             </label>
@@ -100,13 +70,9 @@
                 {{ t.label }}
               </option>
             </select>
-          </motion.div>
+          </div>
 
-          <motion.div
-            :initial="{ opacity: 0, y: 8 }"
-            :animate="{ opacity: 1, y: 0 }"
-            :transition="{ delay: 0.19 }"
-          >
+          <div>
             <label for="filter-from" class="block text-sm font-medium text-gray-700 mb-1">
               Du
             </label>
@@ -117,13 +83,9 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               @change="loadLogs(1)"
             >
-          </motion.div>
+          </div>
 
-          <motion.div
-            :initial="{ opacity: 0, y: 8 }"
-            :animate="{ opacity: 1, y: 0 }"
-            :transition="{ delay: 0.21 }"
-          >
+          <div>
             <label for="filter-to" class="block text-sm font-medium text-gray-700 mb-1">
               Au
             </label>
@@ -134,8 +96,8 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               @change="loadLogs(1)"
             >
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
 
         <div class="mt-4 flex flex-wrap gap-2">
           <button
@@ -145,36 +107,30 @@
           >
             Réinitialiser
           </button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
         {{ error }}
-      </motion.div>
+      </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <motion.div
+        <div
           v-if="loading"
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
           class="py-12 text-center text-sm text-gray-500"
         >
           Chargement du journal…
-        </motion.div>
+        </div>
 
-        <motion.p
+        <p
           v-else-if="logs.length === 0"
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
           class="py-12 text-center text-sm text-gray-500"
         >
           Aucune action enregistrée pour ces critères.
-        </motion.p>
+        </p>
 
-        <motion.div
+        <div
           v-else
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
           class="overflow-x-auto"
         >
           <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -236,19 +192,17 @@
               </tr>
             </tbody>
           </table>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <div
           v-if="pagination && pagination.last_page > 1"
-          :initial="{ opacity: 0 }"
-          :animate="{ opacity: 1 }"
           class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50"
         >
           <p class="text-sm text-gray-600">
             Page {{ pagination.current_page }} / {{ pagination.last_page }}
             ({{ pagination.total }} entrées)
           </p>
-          <motion.div class="flex gap-2">
+          <div class="flex gap-2">
             <button
               type="button"
               class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40"
@@ -265,16 +219,14 @@
             >
               Suivant
             </button>
-          </motion.div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
-  </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { motion } from 'motion-v'
-
 definePageMeta({
   layout: 'default',
   middleware: ['auth']
