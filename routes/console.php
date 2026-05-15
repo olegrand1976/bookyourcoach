@@ -74,3 +74,15 @@ Schedule::command('lesson-replacements:send-pending-reminders')
     ->onFailure(function () {
         \Log::error('Échec des relances automatiques demandes de remplacement');
     });
+
+// Veille : planning du lendemain + analyse IA (Gemini) pour optimisation et contraintes famille
+if (config('bookyourcoach.club_daily_planning_insight.enabled', true)) {
+    $insightTz = config('bookyourcoach.club_daily_planning_insight.timezone', 'Europe/Brussels');
+    $insightTime = config('bookyourcoach.club_daily_planning_insight.schedule_time', '19:00');
+    Schedule::command('club:send-daily-planning-insights')
+        ->dailyAt($insightTime)
+        ->timezone($insightTz)
+        ->onFailure(function () {
+            \Log::error('Échec de l\'envoi des rapports veille planning club');
+        });
+}

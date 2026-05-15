@@ -8,9 +8,11 @@ use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\Teacher;
+use App\Services\RecurringPlanningAdviceService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
@@ -599,6 +601,77 @@ class ClubPlanningController extends Controller
         }
 
         return $dates;
+    }
+
+    /**
+     * Prévisualisation / conseil : créneaux récurrents alternatifs validés sur 26 semaines (même prof + élève).
+     */
+    public function recurringAdvice(Request $request): JsonResponse
+    {
+        $club = Auth::user()->getFirstClub();
+        if (! $club) {
+            return response()->json(['success' => false, 'message' => 'Aucun club associé à cet utilisateur'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'teacher_id' => 'required|exists:teachers,id',
+            'student_id' => 'required|exists:students,id',
+            'start_time' => 'required|date',
+            'duration' => 'nullable|integer|min:15|max:240',
+            'end_time' => 'nullable|date',
+            'recurring_interval' => 'required|integer|min:1|max:52',
+            'course_type_id' => 'nullable|exists:course_types,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+
+        $teacherOk = DB::table('club_teachers')
+            ->where('club_id', $club->id)
+            ->where('teacher_id', $validated['teacher_id'])
+            ->exists();
+        if (! $teacherOk) {
+            return response()->json(['success' => false, 'message' => 'Enseignant non rattaché à ce club'], 422);
+        }
+
+        $studentOk = DB::table('club_students')
+            ->where('club_id', $club->id)
+            ->where('student_id', $validated['student_id'])
+            ->exists();
+        if (! $studentOk) {
+            return response()->json(['success' => false, 'message' => 'Élève non rattaché à ce club'], 422);
+        }
+
+        $start = Carbon::parse($validated['start_time']);
+        if (! empty($validated['end_time'])) {
+            $end = Carbon::parse($validated['end_time']);
+        } else {
+            $dur = (int) ($validated['duration'] ?? 60);
+            $end = $start->copy()->addMinutes($dur);
+        }
+
+        $service = app(RecurringPlanningAdviceService::class);
+        $data = $service->buildAdvice(
+            (int) $club->id,
+            (int) $validated['teacher_id'],
+            (int) $validated['student_id'],
+            $start,
+            $end,
+            (int) $validated['recurring_interval'],
+            null,
+            isset($validated['course_type_id']) ? (int) $validated['course_type_id'] : null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
     }
 }
 

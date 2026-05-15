@@ -1113,6 +1113,7 @@
         @edit-lesson="onScheduleConflictEditLesson"
         @cancel-lesson="onScheduleConflictCancelLesson"
         @release-recurring="onScheduleConflictReleaseRecurring"
+        @apply-planning-alternative="onApplyPlanningAlternative"
       />
 
       <!-- Modale de confirmation pour la portée de la modification -->
@@ -1396,7 +1397,7 @@ const router = useRouter()
 import DisciplinesList from '~/components/planning/DisciplinesList.vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
 import LessonScheduleConflictModal from '~/components/planning/LessonScheduleConflictModal.vue'
-import type { ScheduleConflictPayload } from '~/components/planning/LessonScheduleConflictModal.vue'
+import type { ScheduleConflictPayload, PlanningAdviceAlternative } from '~/components/planning/LessonScheduleConflictModal.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 
 // Composable pour les toasts
@@ -2664,6 +2665,32 @@ function closeScheduleConflictModal() {
   scheduleConflictPayload.value = null
 }
 
+function onApplyPlanningAlternative(alt: PlanningAdviceAlternative) {
+  const date = alt.first_occurrence_date
+  const timeRaw = alt.start_time
+    ? String(alt.start_time).length >= 5
+      ? String(alt.start_time).slice(0, 5)
+      : String(alt.start_time)
+    : ''
+  if (!date || !timeRaw) {
+    warning('Créneau suggéré incomplet.', 'Planning')
+    return
+  }
+  lessonForm.value.date = date
+  lessonForm.value.time = timeRaw
+  lessonForm.value.start_time = `${date}T${timeRaw}:00`
+  if (selectedDate.value) {
+    const d = new Date(`${date}T12:00:00`)
+    if (!Number.isNaN(d.getTime())) {
+      selectedDate.value = d
+      selectedDateInput.value = date
+    }
+  }
+  closeScheduleConflictModal()
+  showCreateLessonModal.value = true
+  success('Créneau suggéré appliqué. Vérifiez le formulaire puis créez le cours.', 'Planning')
+}
+
 /** Charge le cours puis ouvre la même modale d’édition que depuis le planning */
 async function onScheduleConflictEditLesson(lessonId: number) {
   try {
@@ -3581,7 +3608,11 @@ async function createLesson() {
       scheduleConflictPayload.value = {
         message: typeof data?.message === 'string' ? data.message : errorMessage,
         hint: typeof data?.hint === 'string' ? data.hint : null,
-        conflicts: conflictList as Record<string, unknown>[]
+        conflicts: conflictList as Record<string, unknown>[],
+        planning_advice:
+          data?.planning_advice && typeof data.planning_advice === 'object'
+            ? (data.planning_advice as Record<string, unknown>)
+            : null
       }
       showScheduleConflictModal.value = true
       warning(

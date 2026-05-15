@@ -158,6 +158,52 @@
             </div>
           </div>
 
+          <div
+            v-if="planningAdviceBlock"
+            class="rounded-lg border border-emerald-200 bg-emerald-50/90 p-4 space-y-3"
+          >
+            <h3 class="text-sm font-semibold text-emerald-900">
+              Créneaux alternatifs (même prof. & élève, 26 sem.)
+            </h3>
+            <p v-if="planningAdviceBlock.ai_summary" class="text-sm text-gray-800 whitespace-pre-line">
+              {{ planningAdviceBlock.ai_summary }}
+            </p>
+            <p
+              v-if="adviceMetaHint"
+              class="text-xs text-amber-900"
+            >
+              {{ adviceMetaHint }}
+            </p>
+            <ul v-if="adviceAlternatives.length" class="space-y-2">
+              <li
+                v-for="(alt, i) in adviceAlternatives"
+                :key="i"
+                class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white border border-emerald-100 p-3 text-sm"
+              >
+                <div class="min-w-0">
+                  <span class="font-medium text-gray-900">
+                    {{ alt.weekday_label }} {{ alt.first_occurrence_date }}
+                  </span>
+                  <span class="text-gray-700"> · {{ alt.start_time }}–{{ alt.end_time }}</span>
+                  <span v-if="alt.open_slot_label" class="block text-xs text-gray-500 mt-0.5">{{ alt.open_slot_label }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="shrink-0 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  @click="emit('apply-planning-alternative', alt)"
+                >
+                  Appliquer au formulaire
+                </button>
+              </li>
+            </ul>
+            <p
+              v-else-if="planningAdviceBlock && requestedAdviceInvalid"
+              class="text-xs text-gray-600"
+            >
+              Aucune alternative automatique trouvée dans les plages club actives avec ces critères — essayez une autre plage horaire ou un autre enseignant.
+            </p>
+          </div>
+
           <div v-if="orphanMessages.length" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             <p class="font-medium">Autres messages</p>
             <ul class="mt-1 list-inside list-disc text-xs">
@@ -187,6 +233,19 @@ export type ScheduleConflictPayload = {
   message: string
   hint?: string | null
   conflicts: Record<string, unknown>[]
+  /** Renseigné quand l'API POST /lessons renvoie planning_advice (conseil récurrence) */
+  planning_advice?: Record<string, unknown> | null
+}
+
+export type PlanningAdviceAlternative = {
+  day_of_week?: number
+  weekday_label?: string
+  start_time?: string
+  end_time?: string
+  first_occurrence_date?: string
+  open_slot_id?: number
+  open_slot_label?: string
+  heuristic_score?: number
 }
 
 const props = defineProps<{
@@ -199,7 +258,33 @@ const emit = defineEmits<{
   'edit-lesson': [lessonId: number]
   'cancel-lesson': [lessonId: number]
   'release-recurring': [slotId: number]
+  'apply-planning-alternative': [alt: PlanningAdviceAlternative]
 }>()
+
+const planningAdviceBlock = computed(() => {
+  const raw = props.payload?.planning_advice
+  if (!raw || typeof raw !== 'object') return null
+  return raw as Record<string, unknown>
+})
+
+const adviceAlternatives = computed((): PlanningAdviceAlternative[] => {
+  const alts = planningAdviceBlock.value?.alternatives
+  if (!Array.isArray(alts)) return []
+  return alts.filter(a => a && typeof a === 'object') as PlanningAdviceAlternative[]
+})
+
+const adviceMetaHint = computed((): string => {
+  const m = planningAdviceBlock.value?.meta
+  if (!m || typeof m !== 'object' || m === null) return ''
+  const h = (m as { hint?: unknown }).hint
+  return typeof h === 'string' && h.length > 0 ? h : ''
+})
+
+const requestedAdviceInvalid = computed((): boolean => {
+  const r = planningAdviceBlock.value?.requested
+  if (!r || typeof r !== 'object') return false
+  return (r as { valid?: boolean }).valid === false
+})
 
 const WEEKDAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 

@@ -586,7 +586,28 @@ class LessonController extends Controller
                         'hint' => 'Mettre RECURRING_VALIDATION_LOG_CONFLICTS=true (.env) pour journaliser chaque conflit ([RecurringAvailability] dans les logs).',
                     ]);
 
-                    return response()->json(array_filter([
+                    $planningAdvice = null;
+                    if (config('bookyourcoach.recurring_planning_advice.attach_on_validation_failure', true)
+                        && isset($validated['club_id'])) {
+                        try {
+                            $planningAdvice = app(\App\Services\RecurringPlanningAdviceService::class)->buildAdvice(
+                                (int) $validated['club_id'],
+                                (int) $validated['teacher_id'],
+                                (int) $validated['student_id'],
+                                $startCarbon,
+                                $endCarbon,
+                                $recurringIntervalForRecurrence,
+                                null,
+                                isset($validated['course_type_id']) ? (int) $validated['course_type_id'] : null,
+                            );
+                        } catch (\Throwable $e) {
+                            Log::warning('[LessonController] recurring planning advice failed', [
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
+                    $errorPayload = [
                         'success' => false,
                         'message' => $recurringValidation['message'],
                         'hint' => $recurringValidation['hint'] ?? null,
@@ -597,7 +618,12 @@ class LessonController extends Controller
                             }, $recurringValidation['conflicts']),
                         ],
                         'conflicts' => $recurringValidation['conflicts'],
-                    ], fn ($v) => $v !== null), 422);
+                    ];
+                    if ($planningAdvice !== null) {
+                        $errorPayload['planning_advice'] = $planningAdvice;
+                    }
+
+                    return response()->json(array_filter($errorPayload, fn ($v) => $v !== null), 422);
                 }
             }
 

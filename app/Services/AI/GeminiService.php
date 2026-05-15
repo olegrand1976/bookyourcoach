@@ -152,6 +152,101 @@ PROMPT;
     }
 
     /**
+     * Analyse économique et suggestions de déplacement pour le planning club (lendemain).
+     * Retourne un tableau décodé depuis JSON ou null si indisponible / parse impossible.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>|null
+     */
+    public function analyzeClubDailyPlanning(array $payload): ?array
+    {
+        if (! $this->isAvailable()) {
+            return null;
+        }
+
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            return null;
+        }
+
+        $prompt = <<<PROMPT
+Tu es un conseiller opérationnel pour un club sportif. On te fournit le planning JSON d'une journée (demain) : cours, prix, élèves, et des groupes "family_constraint_groups" d'élèves qui doivent rester PROCHES dans la journée (liens famille explicites, même nom normalisé parmi les présents, ou même instance d'abonnement partagée).
+
+Tâches :
+1) Repère les incohérences ou fragilités ÉCONOMIQUES (revenu vs remplissage, cours presque vides, surcharge moniteur, durées/prix incohérents, déductions abonnement vs prix affiché, risques de no-show groupés, etc.) — uniquement à partir des données fournies.
+2) Propose des déplacements de cours (changement de créneau le même jour ou suggestion de fusion/split si pertinent) pour OPTIMISER, en respectant STRICTEMENT : ne jamais éloigner deux élèves du même groupe family_constraint_groups (même groupe_id) : leurs cours doivent rester dans une fenêtre courte le même jour (idéalement même bloc 2–3h ou créneaux contigus). Si une solution éloignerait des membres d'un groupe, rejette-la ou propose une alternative safe.
+3) Sois prudent : indique quand une suggestion nécessite validation humaine (conflit salle, dispo prof, niveau).
+
+Réponds en FRANÇAIS avec UN SEUL objet JSON valide (pas de markdown, pas de ```), forme :
+{
+  "summary": "2-4 phrases",
+  "economic_inconsistencies": [
+    {
+      "severity": "high|medium|low",
+      "title": "string",
+      "description": "string",
+      "related_lesson_ids": [1,2]
+    }
+  ],
+  "move_suggestions": [
+    {
+      "lesson_id": 0,
+      "suggested_start_local": "YYYY-MM-DD HH:MM ou null si inconnu",
+      "suggested_end_local": "YYYY-MM-DD HH:MM ou null",
+      "rationale": "string",
+      "family_constraint_safe": true,
+      "human_role_required": ["club","teacher","parent"]
+    }
+  ],
+  "limitations": ["ce que tu ne peux pas vérifier sans plus de données"]
+}
+
+Données :
+{$json}
+PROMPT;
+
+        $response = $this->generateContent($prompt, [
+            'temperature' => 0.25,
+            'maxTokens' => 4096,
+        ]);
+
+        if (! $response) {
+            return null;
+        }
+
+        return $this->extractJsonFromResponse($response);
+    }
+
+    /**
+     * Court résumé pour le responsable club : conflit récurrence + créneaux alternatifs.
+     *
+     * @param  array<string, mixed>  $brief
+     */
+    public function summarizeRecurringPlanningAdvice(array $brief): ?string
+    {
+        if (! $this->isAvailable()) {
+            return null;
+        }
+
+        $json = json_encode($brief, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            return null;
+        }
+
+        $prompt = <<<PROMPT
+Tu t'adresses à un responsable de club sportif. En 2 à 4 phrases en français, explique pourquoi le créneau récurrent demandé est refusé (sur la base de l'échantillon de conflits) et comment utiliser les créneaux alternatifs proposés (même enseignant et même élève, autre jour ou heure dans une plage du club). Ne invente rien qui n'apparaît pas dans le JSON. Pas de markdown.
+
+JSON :
+{$json}
+PROMPT;
+
+        return $this->generateContent($prompt, [
+            'temperature' => 0.35,
+            'maxTokens' => 500,
+        ]);
+    }
+
+    /**
      * Vérifier si le service est disponible
      */
     public function isAvailable(): bool
