@@ -28,26 +28,32 @@
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label for="filter-student" class="block text-sm font-medium text-gray-700 mb-1">
-              Élève
-            </label>
-            <select
-              id="filter-student"
-              v-model="filters.student_id"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              @change="loadLogs(1)"
+            <Autocomplete
+              :model-value="studentFilterModel"
+              :items="students"
+              label="Élève"
+              placeholder="Rechercher un élève (nom, e-mail, n°)…"
+              class="[&_label]:mb-1"
+              :max-results="500"
+              :get-item-label="getStudentItemLabel"
+              :get-item-id="getStudentItemId"
+              :filter-function="filterStudentByQuery"
+              @update:model-value="onStudentFilterChange"
             >
-              <option value="">
-                Tous les élèves
-              </option>
-              <option
-                v-for="s in students"
-                :key="s.id"
-                :value="String(s.id)"
-              >
-                {{ studentLabel(s) }}
-              </option>
-            </select>
+              <template #item="{ item: s }">
+                <div>
+                  <div class="font-medium text-gray-900">
+                    {{ studentLabel(s) }}
+                  </div>
+                  <div
+                    v-if="s.email || s.user?.name"
+                    class="text-xs text-gray-500"
+                  >
+                    <span v-if="s.email">{{ s.email }}</span>
+                  </div>
+                </div>
+              </template>
+            </Autocomplete>
           </div>
 
           <div>
@@ -228,6 +234,8 @@
 </template>
 
 <script setup lang="ts">
+import Autocomplete from '~/components/Autocomplete.vue'
+
 definePageMeta({
   layout: 'default',
   middleware: ['auth']
@@ -280,6 +288,20 @@ const filters = reactive({
   to: ''
 })
 
+const studentFilterModel = computed(() => {
+  if (filters.student_id === '') return null
+  const n = Number.parseInt(filters.student_id, 10)
+  return Number.isFinite(n) ? n : null
+})
+
+function getStudentItemLabel(s: StudentOption): string {
+  return studentLabel(s)
+}
+
+function getStudentItemId(s: StudentOption): number {
+  return s.id
+}
+
 /** Aligné sur ClubController::getStudents (objet plat, pas user.name) et students.vue getStudentName */
 function studentLabel(s: StudentOption): string {
   if (s.name && String(s.name).trim()) {
@@ -296,6 +318,23 @@ function studentLabel(s: StudentOption): string {
     return String(s.email).trim()
   }
   return `Élève #${s.id}`
+}
+
+function filterStudentByQuery(s: StudentOption, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  if (studentLabel(s).toLowerCase().includes(q)) return true
+  if (s.email && String(s.email).toLowerCase().includes(q)) return true
+  if (s.user?.name && String(s.user.name).toLowerCase().includes(q)) return true
+  for (const part of [s.first_name, s.last_name, s.student_first_name, s.student_last_name]) {
+    if (part && String(part).toLowerCase().includes(q)) return true
+  }
+  return String(s.id) === q
+}
+
+function onStudentFilterChange(id: number | null) {
+  filters.student_id = id == null ? '' : String(id)
+  loadLogs(1)
 }
 
 function formatDate(iso: string | null): string {

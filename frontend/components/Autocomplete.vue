@@ -168,14 +168,16 @@ watch(selectedItem, (item) => {
 
 // Résultats filtrés
 const filteredResults = computed(() => {
-  if (!searchQuery.value || searchQuery.value.length < 2) {
-    // Si pas de recherche, afficher les premiers résultats jusqu'à maxResults
+  const raw = searchQuery.value ?? ''
+  const q = raw.trim()
+
+  // Liste initiale au focus / champ vide : premiers maxResults
+  if (!q) {
     return props.items.slice(0, props.maxResults)
   }
-  
-  // Avec recherche, filtrer et limiter à maxResults
+
   return props.items
-    .filter(item => filterFunctionFn.value(item, searchQuery.value))
+    .filter(item => filterFunctionFn.value(item, raw))
     .slice(0, props.maxResults)
 })
 
