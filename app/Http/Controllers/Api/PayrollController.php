@@ -390,6 +390,11 @@ class PayrollController extends Controller
 
                 $vh = round((float) ($row['total_heures_cours'] ?? 0), 2);
                 $totalMinTeacher = (int) ($row['total_duree_cours_minutes'] ?? 0);
+                $waitingMinTeacher = (int) ($row['total_duree_attente_minutes'] ?? 0);
+                $totalPrestedMin = $totalMinTeacher + $waitingMinTeacher;
+                $waitingSharePercent = $totalPrestedMin > 0
+                    ? round(($waitingMinTeacher / $totalPrestedMin) * 1000) / 10
+                    : ($waitingMinTeacher > 0 ? 100.0 : null);
                 $teachersOrdered[] = [
                     'id' => $tid,
                     'name' => $row['nom_enseignant'],
@@ -400,10 +405,12 @@ class PayrollController extends Controller
                     'total_heures_cours_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinTeacher),
                     'total_duree_cours_minutes' => $totalMinTeacher,
                     'total_duree_cours_display' => $totalMinTeacher > 0 ? $totalMinTeacher.' min cumul séances' : '—',
-                    'total_duree_attente_minutes' => (int) ($row['total_duree_attente_minutes'] ?? 0),
-                    'total_duree_attente_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel(
-                        (int) ($row['total_duree_attente_minutes'] ?? 0)
-                    ),
+                    'total_duree_attente_minutes' => $waitingMinTeacher,
+                    'total_duree_attente_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($waitingMinTeacher),
+                    'waiting_share_percent' => $waitingSharePercent,
+                    'waiting_share_display' => $waitingSharePercent !== null
+                        ? number_format($waitingSharePercent, 1, ',', ' ').' %'
+                        : '—',
                     'lines' => $lineRows,
                 ];
             }

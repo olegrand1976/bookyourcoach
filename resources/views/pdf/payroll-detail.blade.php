@@ -229,6 +229,7 @@
                     <th>Intervenant</th>
                     <th class="num">Σ minutes</th>
                     <th class="num">VH</th>
+                    <th class="num">% attente / presté</th>
                     <th class="num">DCL (€)</th>
                     <th class="num">NDCL (€)</th>
                     <th class="num">Total (€)</th>
@@ -241,6 +242,7 @@
                         <td>{{ $t['name'] }} — ID {{ $t['id'] }}</td>
                         <td class="num">{{ (int) ($t['total_duree_cours_minutes'] ?? 0) }}</td>
                         <td class="num">{{ $t['total_heures_cours_display'] }}</td>
+                        <td class="num">{{ $t['waiting_share_display'] ?? '—' }}</td>
                         <td class="num">{{ number_format($t['total_dcl'], 2, ',', ' ') }}</td>
                         <td class="num">{{ number_format($t['total_ndcl'], 2, ',', ' ') }}</td>
                         <td class="num">{{ number_format($t['total'], 2, ',', ' ') }}</td>

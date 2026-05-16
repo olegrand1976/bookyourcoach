@@ -224,6 +224,9 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cours</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Part de l’attente payée sur le temps total presté (cours + attente)">
+                  % attente / presté
+                </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -249,6 +252,17 @@
                     </span>
                   </template>
                   <span v-else class="text-gray-400">—</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm tabular-nums text-gray-900">
+                  <span
+                    :class="
+                      Number(data.total_duree_attente_minutes ?? 0) > 0
+                        ? 'font-medium text-emerald-800'
+                        : 'text-gray-400'
+                    "
+                  >
+                    {{ formatPayrollWaitingSharePercent(data) }}
+                  </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -314,6 +328,7 @@ import {
   filterReportsNotInFuture,
   isPayrollPeriodInFuture,
   maxAllowedPayrollMonthForYear,
+  formatPayrollWaitingSharePercent,
   sortPayrollReportTeachersEntries,
 } from '@/utils/payrollPeriod'
 

@@ -24,6 +24,7 @@ export type PayrollReportTeacherRow = {
   nom_enseignant?: string
   total_duree_cours_minutes?: number
   total_heures_cours?: number
+  total_duree_attente_minutes?: number
 }
 
 /** Minutes de cours prestées (VH) pour le tri du détail rapport. */
@@ -43,4 +44,48 @@ export function sortPayrollReportTeachersEntries<T extends PayrollReportTeacherR
     if (diff !== 0) return diff
     return String(a.nom_enseignant ?? '').localeCompare(String(b.nom_enseignant ?? ''), 'fr')
   })
+}
+
+export function payrollTeacherWaitingMinutes(row: PayrollReportTeacherRow): number {
+  const n = Number(row.total_duree_attente_minutes ?? 0)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+}
+
+/** Temps total presté = VH cours + attente payée. */
+export function payrollTeacherTotalPrestedMinutes(row: PayrollReportTeacherRow): number {
+  return payrollTeacherWorkedMinutes(row) + payrollTeacherWaitingMinutes(row)
+}
+
+/** Part attente / total presté (0–100), ou null si aucun temps presté. */
+export function payrollTeacherWaitingSharePercent(row: PayrollReportTeacherRow): number | null {
+  const total = payrollTeacherTotalPrestedMinutes(row)
+  const waiting = payrollTeacherWaitingMinutes(row)
+  if (total <= 0) return waiting > 0 ? 100 : null
+  if (waiting <= 0) return 0
+  return Math.round((waiting / total) * 1000) / 10
+}
+
+export function formatPayrollWaitingSharePercent(row: PayrollReportTeacherRow): string {
+  const pct = payrollTeacherWaitingSharePercent(row)
+  if (pct === null) return '—'
+  return formatPercentValue(pct)
+}
+
+function formatPercentValue(pct: number): string {
+  return `${pct.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} %`
+}
+
+export function waitingSharePercentFromMinutes(lessonMinutes: number, waitingMinutes: number): number | null {
+  const lesson = Math.max(0, Math.floor(lessonMinutes) || 0)
+  const waiting = Math.max(0, Math.floor(waitingMinutes) || 0)
+  const total = lesson + waiting
+  if (total <= 0) return waiting > 0 ? 100 : null
+  if (waiting <= 0) return 0
+  return Math.round((waiting / total) * 1000) / 10
+}
+
+export function formatDayWaitingSharePercent(lessonMinutes: number, waitingMinutes: number): string {
+  const pct = waitingSharePercentFromMinutes(lessonMinutes, waitingMinutes)
+  if (pct === null) return '—'
+  return formatPercentValue(pct)
 }

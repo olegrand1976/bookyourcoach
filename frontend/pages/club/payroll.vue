@@ -279,6 +279,9 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cours</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Part de l’attente payée sur le temps total presté (cours + attente)">
+                  % attente / presté
+                </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -303,6 +306,17 @@
                       </span>
                     </template>
                     <span v-else class="text-gray-400">—</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm tabular-nums text-gray-900">
+                    <span
+                      :class="
+                        Number(data.total_duree_attente_minutes ?? 0) > 0
+                          ? 'font-medium text-emerald-800'
+                          : 'text-gray-400'
+                      "
+                    >
+                      {{ formatPayrollWaitingSharePercent(data) }}
+                    </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -406,6 +420,13 @@
                                 · Attente payée :
                                 <strong>{{ day.waitingMinutes }}</strong> min
                                 ({{ formatMinutesAsFrenchHm(day.waitingMinutes) }})
+                              </span>
+                              <span
+                                v-if="day.totalMinutes > 0"
+                                class="block sm:inline sm:ml-2 text-slate-700"
+                              >
+                                · % attente / presté :
+                                <strong>{{ formatDayWaitingSharePercent(day.lessonMinutes, day.waitingMinutes) }}</strong>
                               </span>
                               <span class="block sm:inline sm:ml-2">
                                 · <strong>{{ formatCurrency(day.totalAmount) }}</strong>
@@ -542,6 +563,8 @@ import {
   filterReportsNotInFuture,
   isPayrollPeriodInFuture,
   maxAllowedPayrollMonthForYear,
+  formatDayWaitingSharePercent,
+  formatPayrollWaitingSharePercent,
   sortPayrollReportTeachersEntries,
 } from '@/utils/payrollPeriod'
 
@@ -886,7 +909,7 @@ const payrollDaysByTeacher = computed(() => {
   return out
 })
 
-const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 7 : 6))
+const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 8 : 7))
 
 async function togglePayrollTeacherDetail(teacherId: number) {
   if (expandedPayrollTeacherId.value === teacherId) {
