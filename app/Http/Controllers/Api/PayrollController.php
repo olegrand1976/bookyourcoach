@@ -359,6 +359,10 @@ class PayrollController extends Controller
                     'total_heures_cours_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinTeacher),
                     'total_duree_cours_minutes' => $totalMinTeacher,
                     'total_duree_cours_display' => $totalMinTeacher > 0 ? $totalMinTeacher.' min cumul séances' : '—',
+                    'total_duree_attente_minutes' => (int) ($row['total_duree_attente_minutes'] ?? 0),
+                    'total_duree_attente_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel(
+                        (int) ($row['total_duree_attente_minutes'] ?? 0)
+                    ),
                     'lines' => $lineRows,
                 ];
             }
@@ -414,16 +418,19 @@ class PayrollController extends Controller
         $totalNdcl = 0;
         $totalAPayer = 0;
         $totalMinutesCours = 0;
+        $totalMinutesAttente = 0;
 
         foreach ($report as $data) {
             $totalDcl += $data['total_commissions_dcl'] ?? 0;
             $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
             $totalMinutesCours += (int) ($data['total_duree_cours_minutes'] ?? 0);
+            $totalMinutesAttente += (int) ($data['total_duree_attente_minutes'] ?? 0);
         }
 
         $totalHeuresCoursFromMinutes = $totalMinutesCours > 0 ? round($totalMinutesCours / 60.0, 2) : 0.0;
         $vhHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesCours);
+        $attenteHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesAttente);
 
         return [
             'nombre_enseignants' => count($report),
@@ -431,7 +438,11 @@ class PayrollController extends Controller
             'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
             'total_duree_cours_minutes' => $totalMinutesCours,
-            'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (toutes séances)' : '0 min',
+            'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (séances)' : '0 min',
+            'total_duree_attente_minutes' => $totalMinutesAttente,
+            'total_duree_attente_display' => $totalMinutesAttente > 0
+                ? $attenteHuman.' (= '.$totalMinutesAttente.' min)'
+                : '0 h',
             'total_heures_cours' => $totalHeuresCoursFromMinutes,
             'total_heures_cours_display' => $totalHeuresCoursFromMinutes >= 0.01
                 ? $vhHuman.' (= '.$totalMinutesCours.' min)'

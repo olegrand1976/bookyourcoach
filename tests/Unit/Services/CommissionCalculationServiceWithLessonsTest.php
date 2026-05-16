@@ -985,7 +985,9 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
         // 30 € / 20 min = 1,5 €/min → 40 min = 60 €
         $this->assertEquals(60.0, $gapRow['amount']);
         $report = $bundle['report'][$this->teacherAlpha->id];
-        $this->assertSame(80, $report['total_duree_cours_minutes'], '20+40+20 min');
+        $this->assertSame(40, $report['total_duree_cours_minutes'], '2 séances de 20 min');
+        $this->assertSame(40, $report['total_duree_attente_minutes'], '40 min entre les deux cours');
+        $this->assertSame('0h40min', $report['total_duree_attente_display']);
     }
 }
 

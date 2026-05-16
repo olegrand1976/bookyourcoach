@@ -142,8 +142,10 @@ class CommissionCalculationService
         // Structure de données pour agréger les résultats par enseignant
         $report = [];
         $linesByTeacher = [];
-        /** Cumul précis en minutes (sans arrondi par séance) avant conversion VH. */
+        /** Minutes de séances (début→fin), hors attente entre cours. */
         $lessonMinutesByTeacher = [];
+        /** Minutes d’attente rémunérée entre deux cours (même jour). */
+        $waitingMinutesByTeacher = [];
 
         // ===== PARTIE 1 : ABONNEMENTS =====
         // Collecter tous les abonnements payés durant la période
@@ -399,18 +401,26 @@ class CommissionCalculationService
         $this->applyInterLessonGapCompensation(
             $lessons,
             $report,
-            $lessonMinutesByTeacher,
+            $waitingMinutesByTeacher,
             $linesByTeacher,
             $includeLines
         );
 
-        // VH = somme minutes ÷ 60 (évite l’erreur 6×0,33 h ≠ 2 h pour des séances de 20 min).
-        foreach ($lessonMinutesByTeacher as $tid => $totalMin) {
+        // VH cours = somme minutes séances uniquement (hors attente entre cours).
+        foreach ($lessonMinutesByTeacher as $tid => $lessonMin) {
             if (! isset($report[$tid])) {
                 continue;
             }
-            $report[$tid]['total_duree_cours_minutes'] = (int) $totalMin;
-            $report[$tid]['total_heures_cours'] = $totalMin > 0 ? round($totalMin / 60, 2) : 0.0;
+            $report[$tid]['total_duree_cours_minutes'] = (int) $lessonMin;
+            $report[$tid]['total_heures_cours'] = $lessonMin > 0 ? round($lessonMin / 60, 2) : 0.0;
+        }
+
+        foreach ($waitingMinutesByTeacher as $tid => $waitMin) {
+            if (! isset($report[$tid])) {
+                continue;
+            }
+            $report[$tid]['total_duree_attente_minutes'] = (int) $waitMin;
+            $report[$tid]['total_duree_attente_display'] = self::formatTotalMinutesAsFrenchHourLabel((int) $waitMin);
         }
 
         // Calculer le total à payer pour chaque enseignant
@@ -421,6 +431,10 @@ class CommissionCalculationService
             );
             $data['total_heures_cours'] = round($data['total_heures_cours'] ?? 0.0, 2);
             $data['total_duree_cours_minutes'] = (int) ($data['total_duree_cours_minutes'] ?? 0);
+            $data['total_duree_attente_minutes'] = (int) ($data['total_duree_attente_minutes'] ?? 0);
+            $data['total_duree_attente_display'] = self::formatTotalMinutesAsFrenchHourLabel(
+                (int) ($data['total_duree_attente_minutes'] ?? 0)
+            );
         }
         unset($data);
 
@@ -461,9 +475,11 @@ class CommissionCalculationService
                 'total_commissions_dcl' => 0.00,   // DCL = Déclaré (Type 1)
                 'total_commissions_ndcl' => 0.00,  // NDCL = Non Déclaré (Type 2)
                 'total_a_payer' => 0.00,
-                // Sum of lesson durations (start→end) for lines counted in report; excludes prepayment carnet sans séance.
+                // Sum of lesson durations (start→end); excludes prepayment carnet and inter-lesson waiting.
                 'total_heures_cours' => 0.00,
                 'total_duree_cours_minutes' => 0,
+                'total_duree_attente_minutes' => 0,
+                'total_duree_attente_display' => '0 h',
             ];
         }
     }
@@ -667,12 +683,13 @@ class CommissionCalculationService
      * au tarif horaire (ou équivalent) du cours suivant.
      *
      * @param  Collection<int, Lesson>  $lessons
+     * @param  array<int, int>  $waitingMinutesByTeacher
      * @param  array<int, array<int, array<string, mixed>>>  $linesByTeacher
      */
     private function applyInterLessonGapCompensation(
         Collection $lessons,
         array &$report,
-        array &$lessonMinutesByTeacher,
+        array &$waitingMinutesByTeacher,
         array &$linesByTeacher,
         bool $appendDetailLines
     ): void {
@@ -730,7 +747,7 @@ class CommissionCalculationService
                         2
                     );
 
-                    $lessonMinutesByTeacher[$tid] = ($lessonMinutesByTeacher[$tid] ?? 0) + $gapMin;
+                    $waitingMinutesByTeacher[$tid] = ($waitingMinutesByTeacher[$tid] ?? 0) + $gapMin;
 
                     if ($appendDetailLines) {
                         $segment = $segmentDcl ? 'DCL' : 'NDCL';

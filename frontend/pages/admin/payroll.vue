@@ -122,6 +122,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
@@ -144,6 +145,12 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_cours_minutes ?? 0) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  <template v-if="(report.statistics?.total_duree_attente_minutes ?? 0) > 0">
+                    {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_attente_minutes ?? 0) }}
+                  </template>
+                  <span v-else class="text-gray-400">—</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -215,7 +222,8 @@
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cumulées</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -232,6 +240,15 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
                   <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
                   <span class="text-gray-500 text-xs">{{ formatMinutesAsFrenchHm(Number(data.total_duree_cours_minutes ?? 0)) }}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  <template v-if="Number(data.total_duree_attente_minutes ?? 0) > 0">
+                    <span class="block">{{ Number(data.total_duree_attente_minutes) }} min</span>
+                    <span class="text-emerald-700 text-xs font-medium">
+                      {{ formatMinutesAsFrenchHm(Number(data.total_duree_attente_minutes)) }}
+                    </span>
+                  </template>
+                  <span v-else class="text-gray-400">—</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}

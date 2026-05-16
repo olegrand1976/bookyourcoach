@@ -906,12 +906,14 @@ class ClubPayrollController extends Controller
         $totalNdcl = 0;
         $totalAPayer = 0;
         $totalMinutesCours = 0;
+        $totalMinutesAttente = 0;
 
         foreach ($report as $data) {
             $totalDcl += $data['total_commissions_dcl'] ?? 0;
             $totalNdcl += $data['total_commissions_ndcl'] ?? 0;
             $totalAPayer += $data['total_a_payer'];
             $totalMinutesCours += (int) ($data['total_duree_cours_minutes'] ?? 0);
+            $totalMinutesAttente += (int) ($data['total_duree_attente_minutes'] ?? 0);
         }
 
         // Calculer le report du mois suivant (négatif)
@@ -986,6 +988,7 @@ class ClubPayrollController extends Controller
 
         $vhRounded = $totalMinutesCours > 0 ? round($totalMinutesCours / 60.0, 2) : 0.0;
         $vhHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesCours);
+        $attenteHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesAttente);
 
         return [
             'nombre_enseignants' => count($report),
@@ -993,7 +996,11 @@ class ClubPayrollController extends Controller
             'total_commissions_ndcl' => round($totalNdcl, 2),
             'total_a_payer' => round($totalAPayer, 2),
             'total_duree_cours_minutes' => $totalMinutesCours,
-            'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (toutes séances)' : '0 min',
+            'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (séances)' : '0 min',
+            'total_duree_attente_minutes' => $totalMinutesAttente,
+            'total_duree_attente_display' => $totalMinutesAttente > 0
+                ? $attenteHuman.' (= '.$totalMinutesAttente.' min)'
+                : '0 h',
             'total_heures_cours' => $vhRounded,
             'total_heures_cours_display' => $totalMinutesCours > 0
                 ? $vhHuman.' (= '.$totalMinutesCours.' min)'

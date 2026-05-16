@@ -58,6 +58,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Période</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignants</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VH cours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DCL (€)</th>
                 <th v-if="hasNdclInReports" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (€)</th>
@@ -80,6 +81,13 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
                   {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_cours_minutes ?? 0) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                  <template v-if="(report.statistics?.total_duree_attente_minutes ?? 0) > 0">
+                    {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_attente_minutes ?? 0) }}
+                    <span class="block text-xs text-gray-500">{{ report.statistics?.total_duree_attente_minutes }} min</span>
+                  </template>
+                  <span v-else class="text-gray-400">—</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -177,6 +185,14 @@
                 <p v-if="selectedReport.statistics?.total_duree_cours_display" class="text-xs text-gray-500 mt-1">
                   {{ selectedReport.statistics.total_duree_cours_display }}
                 </p>
+                <p
+                  v-if="(selectedReport.statistics?.total_duree_attente_minutes ?? 0) > 0"
+                  class="text-xs text-emerald-700 mt-1 font-medium"
+                >
+                  Attente payée :
+                  {{ formatMinutesAsFrenchHm(selectedReport.statistics?.total_duree_attente_minutes ?? 0) }}
+                  ({{ selectedReport.statistics?.total_duree_attente_minutes }} min)
+                </p>
               </div>
             </div>
           </div>
@@ -261,7 +277,8 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cumulées</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Σ min / VH cours</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attente payée</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions DCL (€)</th>
                 <th v-if="hasNdclInReportDetails" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions NDCL (€)</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total à Payer (€)</th>
@@ -277,6 +294,15 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
                     <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
                     <span class="text-gray-500 text-xs">{{ formatMinutesAsFrenchHm(Number(data.total_duree_cours_minutes ?? 0)) }}</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
+                    <template v-if="Number(data.total_duree_attente_minutes ?? 0) > 0">
+                      <span class="block">{{ Number(data.total_duree_attente_minutes) }} min</span>
+                      <span class="text-emerald-700 text-xs font-medium">
+                        {{ formatMinutesAsFrenchHm(Number(data.total_duree_attente_minutes)) }}
+                      </span>
+                    </template>
+                    <span v-else class="text-gray-400">—</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -339,6 +365,14 @@
                         Détail sur la période — {{ data.nom_enseignant }}
                         <span class="font-normal text-gray-500">(regroupement par date, sous-totaux journaliers)</span>
                       </p>
+                      <p
+                        v-if="Number(data.total_duree_attente_minutes ?? 0) > 0"
+                        class="text-sm text-emerald-800 -mt-4"
+                      >
+                        Attente payée sur la période :
+                        <strong class="tabular-nums">{{ Number(data.total_duree_attente_minutes) }} min</strong>
+                        ({{ formatMinutesAsFrenchHm(Number(data.total_duree_attente_minutes)) }})
+                      </p>
                       <div
                         v-if="payrollLinesLoading && expandedPayrollTeacherId === Number(teacherId)"
                         class="flex items-center gap-3 py-6 text-sm text-gray-600"
@@ -357,14 +391,25 @@
                         >
                           <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 flex flex-wrap items-baseline justify-between gap-2">
                             <span class="text-sm font-semibold text-gray-900">{{ day.displayDate }}</span>
-                            <span class="text-sm tabular-nums text-gray-700">
-                              Total jour :
-                              <strong>{{ day.totalMinutes }}</strong> min
-                              <span v-if="day.totalMinutes > 0" class="text-gray-500 font-normal">
-                                ({{ formatMinutesAsFrenchHm(day.totalMinutes) }})
+                            <span class="text-sm tabular-nums text-gray-700 text-right">
+                              <span class="block sm:inline">
+                                Cours :
+                                <strong>{{ day.lessonMinutes }}</strong> min
+                                <span v-if="day.lessonMinutes > 0" class="text-gray-500 font-normal">
+                                  ({{ formatMinutesAsFrenchHm(day.lessonMinutes) }})
+                                </span>
                               </span>
-                              ·
-                              <strong>{{ formatCurrency(day.totalAmount) }}</strong>
+                              <span
+                                v-if="day.waitingMinutes > 0"
+                                class="block sm:inline sm:ml-2 text-emerald-800"
+                              >
+                                · Attente payée :
+                                <strong>{{ day.waitingMinutes }}</strong> min
+                                ({{ formatMinutesAsFrenchHm(day.waitingMinutes) }})
+                              </span>
+                              <span class="block sm:inline sm:ml-2">
+                                · <strong>{{ formatCurrency(day.totalAmount) }}</strong>
+                              </span>
                             </span>
                           </div>
                           <div class="overflow-x-auto">
@@ -774,6 +819,12 @@ function formatPayrollSortDateLabel(sortDate: string): string {
   }
 }
 
+function payrollLineDurationMinutes(line: { duree_minutes?: unknown; kind?: string }): number {
+  if (line.duree_minutes == null) return 0
+  const n = Number(line.duree_minutes)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
 function buildPayrollDayGroups(lines: any[]) {
   const map = new Map<string, any[]>()
   for (const line of lines) {
@@ -787,17 +838,32 @@ function buildPayrollDayGroups(lines: any[]) {
     dayLines.sort((a, b) =>
       String(a.sort_time || '').localeCompare(String(b.sort_time || ''))
     )
-    const totalMinutes = dayLines.reduce(
-      (acc, l) => acc + (l.duree_minutes != null ? Number(l.duree_minutes) : 0),
-      0
-    )
+    let lessonMinutes = 0
+    let waitingMinutes = 0
+    for (const l of dayLines) {
+      const mins = payrollLineDurationMinutes(l)
+      if (l.kind === 'inter_lesson_gap') {
+        waitingMinutes += mins
+      } else if (l.kind === 'lesson') {
+        lessonMinutes += mins
+      }
+    }
+    const totalMinutes = lessonMinutes + waitingMinutes
     const totalAmount = dayLines.reduce(
       (acc, l) => acc + Number(l.amount ?? 0),
       0
     )
     const displayDate =
       dayLines[0]?.date_display || formatPayrollSortDateLabel(dateKey)
-    return { dateKey, displayDate, lines: dayLines, totalMinutes, totalAmount }
+    return {
+      dateKey,
+      displayDate,
+      lines: dayLines,
+      lessonMinutes,
+      waitingMinutes,
+      totalMinutes,
+      totalAmount,
+    }
   })
 }
 
@@ -816,7 +882,7 @@ const payrollDaysByTeacher = computed(() => {
   return out
 })
 
-const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 6 : 5))
+const payrollDetailColspan = computed(() => (hasNdclInReportDetails.value ? 7 : 6))
 
 async function togglePayrollTeacherDetail(teacherId: number) {
   if (expandedPayrollTeacherId.value === teacherId) {
