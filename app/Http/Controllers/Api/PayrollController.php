@@ -42,8 +42,15 @@ class PayrollController extends Controller
                 'month' => 'required|integer|min:1|max:12',
             ]);
 
-            $year = $request->input('year');
-            $month = $request->input('month');
+            $year = (int) $request->input('year');
+            $month = (int) $request->input('month');
+
+            if (CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible de générer un rapport pour une période future',
+                ], 422);
+            }
 
             // Générer le rapport
             $report = $this->commissionCalculationService->generatePayrollReport($year, $month);
@@ -114,6 +121,15 @@ class PayrollController extends Controller
 
             // Si une période spécifique est demandée, générer/récupérer ce rapport
             if ($year && $month) {
+                $year = (int) $year;
+                $month = (int) $month;
+                if (CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Impossible d\'afficher un rapport pour une période future',
+                    ], 422);
+                }
+
                 $report = $this->commissionCalculationService->generatePayrollReport($year, $month);
                 $stats = $this->calculateStats($report);
 
@@ -131,9 +147,13 @@ class PayrollController extends Controller
                 
                 foreach ($files as $file) {
                     if (preg_match('/payroll_(\d{4})_(\d{1,2})\.json/', $file, $matches)) {
-                        $fileYear = (int)$matches[1];
-                        $fileMonth = (int)$matches[2];
-                        
+                        $fileYear = (int) $matches[1];
+                        $fileMonth = (int) $matches[2];
+
+                        if (CommissionCalculationService::isPayrollPeriodInFuture($fileYear, $fileMonth)) {
+                            continue;
+                        }
+
                         $content = Storage::get($file);
                         $report = json_decode($content, true);
                         $stats = $this->calculateStats($report);
@@ -195,6 +215,13 @@ class PayrollController extends Controller
                 ], 422);
             }
 
+            if (CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'afficher un rapport pour une période future',
+                ], 422);
+            }
+
             // Générer le rapport
             $report = $this->commissionCalculationService->generatePayrollReport($year, $month);
             $stats = $this->calculateStats($report);
@@ -244,6 +271,13 @@ class PayrollController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Période invalide'
+                ], 422);
+            }
+
+            if (CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'exporter un rapport pour une période future',
                 ], 422);
             }
 
@@ -323,6 +357,13 @@ class PayrollController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Période invalide',
+                ], 422);
+            }
+
+            if (CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'exporter un rapport pour une période future',
                 ], 422);
             }
 

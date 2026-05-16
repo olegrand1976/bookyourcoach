@@ -509,7 +509,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Mois</label>
               <select v-model="generateMonth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option v-for="(month, index) in months" :key="index" :value="index + 1">{{ month }}</option>
+                <option v-for="opt in availableGenerateMonths" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
             </div>
           </div>
@@ -538,6 +538,11 @@
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast'
 import EditPaymentsModal from '@/components/payroll/EditPaymentsModal.vue'
+import {
+  filterReportsNotInFuture,
+  isPayrollPeriodInFuture,
+  maxAllowedPayrollMonthForYear,
+} from '@/utils/payrollPeriod'
 
 console.log('📊 [PAYROLL] Page chargée')
 
@@ -614,6 +619,8 @@ const loadReports = async () => {
       error.value = response.data?.message || response.message || 'Erreur lors du chargement des rapports'
     }
     
+    reports.value = filterReportsNotInFuture(reports.value)
+
     // Appliquer le filtre après le chargement
     filterReportsByYear()
   } catch (err) {
@@ -732,13 +739,9 @@ const generateReport = async () => {
   generating.value = true
   
   try {
-    // Vérifier que la période n'est pas dans le futur
-    const currentYear = new Date().getFullYear()
-    const currentMonth = new Date().getMonth() + 1
-    
-    if (generateYear.value > currentYear || (generateYear.value === currentYear && generateMonth.value > currentMonth)) {
+    if (isPayrollPeriodInFuture(generateYear.value, generateMonth.value)) {
       error.value = 'Impossible de générer un rapport pour une période future'
-      showError('Impossible de générer un rapport pour une période future', 'Erreur')
+      showError(error.value, 'Erreur')
       generating.value = false
       return
     }
@@ -999,13 +1002,28 @@ const availableReportYears = computed(() => {
   return Array.from(years).sort((a, b) => b - a) // Tri décroissant
 })
 
-// Fonction pour filtrer les rapports par année
-const filterReportsByYear = () => {
-  if (filterYear.value === null) {
-    filteredReports.value = reports.value
-  } else {
-    filteredReports.value = reports.value.filter(report => report.year === filterYear.value)
+const availableGenerateMonths = computed(() => {
+  const maxMonth = maxAllowedPayrollMonthForYear(generateYear.value)
+  return months.slice(0, maxMonth).map((label, index) => ({
+    value: index + 1,
+    label,
+  }))
+})
+
+watch(generateYear, () => {
+  const maxMonth = maxAllowedPayrollMonthForYear(generateYear.value)
+  if (maxMonth > 0 && generateMonth.value > maxMonth) {
+    generateMonth.value = maxMonth
   }
+})
+
+// Fonction pour filtrer les rapports par année (hors mois futurs)
+const filterReportsByYear = () => {
+  let list = filterReportsNotInFuture(reports.value)
+  if (filterYear.value !== null) {
+    list = list.filter((report) => report.year === filterYear.value)
+  }
+  filteredReports.value = list
 }
 
 const hasNdclInSelectedReport = computed(() => {

@@ -283,7 +283,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Mois</label>
               <select v-model="generateMonth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option v-for="(month, index) in months" :key="index" :value="index + 1">{{ month }}</option>
+                <option v-for="opt in availableGenerateMonths" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
             </div>
           </div>
@@ -310,6 +310,12 @@
 </template>
 
 <script setup>
+import {
+  filterReportsNotInFuture,
+  isPayrollPeriodInFuture,
+  maxAllowedPayrollMonthForYear,
+} from '@/utils/payrollPeriod'
+
 definePageMeta({
   middleware: ['auth', 'admin']
 })
@@ -347,7 +353,7 @@ const loadReports = async () => {
     const response = await $api.get('/admin/payroll/reports')
     const payload = getApiPayload(response)
     if (payload?.success) {
-      reports.value = payload.data || []
+      reports.value = filterReportsNotInFuture(payload.data || [])
     } else {
       error.value = payload?.message || 'Erreur lors du chargement des rapports'
     }
@@ -431,10 +437,31 @@ const exportCsv = (year, month) =>
 const exportPdf = (year, month) =>
   downloadPayrollExport(year, month, 'pdf', `rapport_paie_detail_${year}_${String(month).padStart(2, '0')}.pdf`)
 
+const availableGenerateMonths = computed(() => {
+  const maxMonth = maxAllowedPayrollMonthForYear(generateYear.value)
+  return months.slice(0, maxMonth).map((label, index) => ({
+    value: index + 1,
+    label,
+  }))
+})
+
+watch(generateYear, () => {
+  const maxMonth = maxAllowedPayrollMonthForYear(generateYear.value)
+  if (maxMonth > 0 && generateMonth.value > maxMonth) {
+    generateMonth.value = maxMonth
+  }
+})
+
 const generateReport = async () => {
   generating.value = true
   
   try {
+    if (isPayrollPeriodInFuture(generateYear.value, generateMonth.value)) {
+      error.value = 'Impossible de générer un rapport pour une période future'
+      generating.value = false
+      return
+    }
+
     const response = await $api.post('/admin/payroll/generate', {
       year: generateYear.value,
       month: generateMonth.value

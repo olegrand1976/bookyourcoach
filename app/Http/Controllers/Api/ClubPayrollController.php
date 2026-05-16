@@ -49,6 +49,21 @@ class ClubPayrollController extends Controller
     }
 
     /**
+     * Bloque toute action paie sur un mois postérieur au mois civil en cours.
+     */
+    private function rejectPayrollPeriodInFuture(int $year, int $month): ?JsonResponse
+    {
+        if (! CommissionCalculationService::isPayrollPeriodInFuture($year, $month)) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Impossible d\'afficher ou générer un rapport pour une période future',
+        ], 422);
+    }
+
+    /**
      * Générer un rapport de paie pour une période donnée
      * 
      * @param Request $request
@@ -71,18 +86,11 @@ class ClubPayrollController extends Controller
                 'month' => 'required|integer|min:1|max:12',
             ]);
 
-            $year = $request->input('year');
-            $month = $request->input('month');
-            
-            // Empêcher la génération de rapports dans le futur
-            $currentYear = (int) date('Y');
-            $currentMonth = (int) date('m');
-            
-            if ($year > $currentYear || ($year === $currentYear && $month > $currentMonth)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Impossible de générer un rapport pour une période future'
-                ], 422);
+            $year = (int) $request->input('year');
+            $month = (int) $request->input('month');
+
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
             }
 
             // Générer le rapport pour ce club uniquement
@@ -164,6 +172,12 @@ class ClubPayrollController extends Controller
 
             // Si une période spécifique est demandée, générer/récupérer ce rapport
             if ($year && $month) {
+                $year = (int) $year;
+                $month = (int) $month;
+                if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                    return $response;
+                }
+
                 $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
                 $stats = $this->calculateStats($report, $year, $month, $clubId);
 
@@ -199,7 +213,7 @@ class ClubPayrollController extends Controller
                             }
                         }
                         
-                        if (!$exists) {
+                        if (! $exists && ! CommissionCalculationService::isPayrollPeriodInFuture($fileYear, $fileMonth)) {
                             $generatedPeriods[$key] = [
                                 'year' => $fileYear,
                                 'month' => $fileMonth,
@@ -213,9 +227,13 @@ class ClubPayrollController extends Controller
                 
                 // Pour chaque période, régénérer le rapport avec les données actuelles
                 foreach ($allPeriods as $period) {
-                    $periodYear = $period['year'];
-                    $periodMonth = $period['month'];
-                    
+                    $periodYear = (int) $period['year'];
+                    $periodMonth = (int) $period['month'];
+
+                    if (CommissionCalculationService::isPayrollPeriodInFuture($periodYear, $periodMonth)) {
+                        continue;
+                    }
+
                     // Régénérer le rapport avec les données actuelles (pas depuis les fichiers JSON)
                     $report = $this->commissionCalculationService->generatePayrollReport($periodYear, $periodMonth, $clubId);
                     $stats = $this->calculateStats($report, $periodYear, $periodMonth, $clubId);
@@ -285,6 +303,10 @@ class ClubPayrollController extends Controller
                 ], 422);
             }
 
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
+            }
+
             // Agrégats seuls : évite JSON énorme + timeout proxy (502) sur gros mois.
             // Les lignes jour par jour : GET .../reports/{year}/{month}/lines
             $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
@@ -341,6 +363,10 @@ class ClubPayrollController extends Controller
                 ], 422);
             }
 
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
+            }
+
             $bundle = $this->commissionCalculationService->generatePayrollReportWithLines($year, $month, $clubId);
 
             return response()->json([
@@ -395,6 +421,10 @@ class ClubPayrollController extends Controller
                     'success' => false,
                     'message' => 'Période invalide'
                 ], 422);
+            }
+
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
             }
 
             $report = $this->commissionCalculationService->generatePayrollReport($year, $month, $clubId);
@@ -489,6 +519,10 @@ class ClubPayrollController extends Controller
                     'success' => false,
                     'message' => 'Période invalide'
                 ], 422);
+            }
+
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
             }
 
             $startDate = Carbon::create($year, $month, 1)->startOfMonth();
@@ -666,6 +700,17 @@ class ClubPayrollController extends Controller
                 ], 403);
             }
 
+            if ($year < 2020 || $year > 2100 || $month < 1 || $month > 12) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Période invalide',
+                ], 422);
+            }
+
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
+            }
+
             $request->validate([
                 'updates' => 'required|array',
                 'updates.*.id' => 'required|integer',
@@ -838,6 +883,10 @@ class ClubPayrollController extends Controller
                     'success' => false,
                     'message' => 'Aucun club associé à cet utilisateur'
                 ], 403);
+            }
+
+            if ($response = $this->rejectPayrollPeriodInFuture($year, $month)) {
+                return $response;
             }
 
             $request->validate([

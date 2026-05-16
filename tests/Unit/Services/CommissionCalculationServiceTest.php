@@ -382,5 +382,17 @@ class CommissionCalculationServiceTest extends TestCase
         // Le rapport ne doit pas contenir prof_alpha car son abonnement est annulé
         $this->assertArrayNotHasKey($this->teacherAlpha->id, $report);
     }
+
+    public function test_is_payroll_period_in_future_uses_current_month_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 5, 16, 12, 0, 0, 'Europe/Brussels'));
+
+        $this->assertFalse(CommissionCalculationService::isPayrollPeriodInFuture(2026, 5, 'Europe/Brussels'));
+        $this->assertFalse(CommissionCalculationService::isPayrollPeriodInFuture(2026, 4, 'Europe/Brussels'));
+        $this->assertTrue(CommissionCalculationService::isPayrollPeriodInFuture(2026, 6, 'Europe/Brussels'));
+        $this->assertTrue(CommissionCalculationService::isPayrollPeriodInFuture(2027, 1, 'Europe/Brussels'));
+
+        Carbon::setTestNow();
+    }
 }
 

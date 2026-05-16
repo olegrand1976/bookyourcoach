@@ -563,6 +563,22 @@ class CommissionCalculationService
     }
 
     /**
+     * Période strictement postérieure au mois civil en cours (fuseau club / app).
+     */
+    public static function isPayrollPeriodInFuture(int $year, int $month, ?string $timezone = null): bool
+    {
+        $tz = $timezone ?? (string) config(
+            'bookyourcoach.club_daily_planning_insight.timezone',
+            config('app.timezone')
+        );
+        $now = Carbon::now($tz);
+        $currentYear = (int) $now->year;
+        $currentMonth = (int) $now->month;
+
+        return $year > $currentYear || ($year === $currentYear && $month > $currentMonth);
+    }
+
+    /**
      * Affichage lisible des durées cumulées (ex. 160 min → « 2h40min », pas « 2,67 h »).
      */
     public static function formatTotalMinutesAsFrenchHourLabel(int $totalMinutes): string
@@ -1057,9 +1073,14 @@ class CommissionCalculationService
         });
 
         foreach ($allDates as $date) {
+            $year = (int) $date->year;
+            $month = (int) $date->month;
+            if (self::isPayrollPeriodInFuture($year, $month)) {
+                continue;
+            }
             $periods[] = [
-                'year' => (int) $date->year,
-                'month' => (int) $date->month,
+                'year' => $year,
+                'month' => $month,
             ];
         }
 
