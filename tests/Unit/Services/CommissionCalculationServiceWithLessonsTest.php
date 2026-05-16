@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Club;
 use App\Models\CourseType;
 use App\Models\Location;
+use App\Models\ClubClosureDay;
 use App\Models\SubscriptionTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Carbon\Carbon;
@@ -887,6 +888,104 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
 
         $this->assertSame(120, $row['total_duree_cours_minutes'] ?? null, '6 × 20 min = 120 min');
         $this->assertEquals(2.00, $row['total_heures_cours'], 'Σ min ÷ 60 = exactement 2 h (pas 6 × 0,33 h)');
+    }
+
+    #[Test]
+    public function format_total_minutes_as_french_hour_label_avoids_decimal_hours(): void
+    {
+        $this->assertSame('2h40min', CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel(160));
+        $this->assertSame('2h', CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel(120));
+    }
+
+    #[Test]
+    public function lessons_on_club_closure_day_are_excluded_from_payroll(): void
+    {
+        $closureDate = '2025-11-15';
+        ClubClosureDay::create([
+            'club_id' => $this->club->id,
+            'closed_on' => $closureDate,
+        ]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse($closureDate.' 09:00:00'),
+            'end_time' => Carbon::parse($closureDate.' 10:00:00'),
+            'price' => 50.00,
+            'montant' => 50.00,
+            'est_legacy' => false,
+            'date_paiement' => $closureDate,
+            'status' => 'confirmed',
+        ]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-16 09:00:00'),
+            'end_time' => Carbon::parse('2025-11-16 10:00:00'),
+            'price' => 40.00,
+            'montant' => 40.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-16',
+            'status' => 'confirmed',
+        ]);
+
+        $bundle = $this->service->generatePayrollReportWithLines(2025, 11, $this->club->id);
+        $lessonRows = collect($bundle['lines_by_teacher'][$this->teacherAlpha->id] ?? [])
+            ->where('kind', 'lesson');
+
+        $this->assertCount(1, $lessonRows, 'seul le cours hors congés doit apparaître');
+        $this->assertStringContainsString('2025-11-16', $lessonRows->first()['sort_date']);
+    }
+
+    #[Test]
+    public function inter_lesson_gap_is_paid_at_next_lesson_hourly_equivalent(): void
+    {
+        $this->courseType->update(['duration_minutes' => 20]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-20 09:40:00'),
+            'end_time' => Carbon::parse('2025-11-20 10:00:00'),
+            'price' => 20.00,
+            'montant' => 20.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-20',
+            'status' => 'confirmed',
+        ]);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacherAlpha->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::parse('2025-11-20 10:40:00'),
+            'end_time' => Carbon::parse('2025-11-20 11:00:00'),
+            'price' => 30.00,
+            'montant' => 30.00,
+            'est_legacy' => false,
+            'date_paiement' => '2025-11-20',
+            'status' => 'confirmed',
+        ]);
+
+        $bundle = $this->service->generatePayrollReportWithLines(2025, 11, $this->club->id);
+        $gapRow = collect($bundle['lines_by_teacher'][$this->teacherAlpha->id] ?? [])
+            ->firstWhere('kind', 'inter_lesson_gap');
+
+        $this->assertNotNull($gapRow);
+        $this->assertSame(40, $gapRow['duree_minutes']);
+        $this->assertStringContainsString('cours suivant au tarif', $gapRow['label']);
+        // 30 € / 20 min = 1,5 €/min → 40 min = 60 €
+        $this->assertEquals(60.0, $gapRow['amount']);
+        $report = $bundle['report'][$this->teacherAlpha->id];
+        $this->assertSame(80, $report['total_duree_cours_minutes'], '20+40+20 min');
     }
 }
 

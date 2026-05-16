@@ -356,7 +356,7 @@ class PayrollController extends Controller
                     'total_ndcl' => $row['total_commissions_ndcl'] ?? 0,
                     'total' => $row['total_a_payer'] ?? 0,
                     'total_heures_cours' => $vh,
-                    'total_heures_cours_display' => number_format($vh, 2, ',', ' ').' h',
+                    'total_heures_cours_display' => CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinTeacher),
                     'total_duree_cours_minutes' => $totalMinTeacher,
                     'total_duree_cours_display' => $totalMinTeacher > 0 ? $totalMinTeacher.' min cumul séances' : '—',
                     'lines' => $lineRows,
@@ -423,6 +423,7 @@ class PayrollController extends Controller
         }
 
         $totalHeuresCoursFromMinutes = $totalMinutesCours > 0 ? round($totalMinutesCours / 60.0, 2) : 0.0;
+        $vhHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesCours);
 
         return [
             'nombre_enseignants' => count($report),
@@ -433,7 +434,7 @@ class PayrollController extends Controller
             'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (toutes séances)' : '0 min',
             'total_heures_cours' => $totalHeuresCoursFromMinutes,
             'total_heures_cours_display' => $totalHeuresCoursFromMinutes >= 0.01
-                ? number_format($totalHeuresCoursFromMinutes, 2, ',', ' ').' h (= '.$totalMinutesCours.' min)'
+                ? $vhHuman.' (= '.$totalMinutesCours.' min)'
                 : '0 h',
         ];
     }

@@ -523,8 +523,16 @@ class ClubPayrollController extends Controller
                 })
                 ->with(['courseType', 'student.user', 'students.user'])
                 ->orderBy('start_time')
-                ->get()
-                ->map(function($lesson) {
+                ->get();
+
+            $lessons = $this->commissionCalculationService->excludeLessonsOnClubClosureDays(
+                $lessons,
+                $startDate,
+                $endDate,
+                $clubId
+            );
+
+            $lessons = $lessons->map(function ($lesson) {
                     $amount = $lesson->montant ?? $lesson->price ?? 0;
                     // RÈGLE : est_legacy === false → DCL, sinon (true ou null) → NDCL
                     // Utiliser le même taux pour les deux (1.00 = 100%)
@@ -553,7 +561,7 @@ class ClubPayrollController extends Controller
                         'is_manual_override' => $lesson->montant !== null && $lesson->montant != $lesson->price,
                         'non_paiement_reason' => $nonPaiementReason,
                     ];
-                });
+            });
 
             // Récupérer les abonnements payés durant la période
             $subscriptions = SubscriptionInstance::whereHas('subscription', function($q) use ($clubId) {
@@ -977,6 +985,7 @@ class ClubPayrollController extends Controller
         $totalPaye = $totalAPayer + $reportMoisSuivant;
 
         $vhRounded = $totalMinutesCours > 0 ? round($totalMinutesCours / 60.0, 2) : 0.0;
+        $vhHuman = CommissionCalculationService::formatTotalMinutesAsFrenchHourLabel($totalMinutesCours);
 
         return [
             'nombre_enseignants' => count($report),
@@ -987,7 +996,7 @@ class ClubPayrollController extends Controller
             'total_duree_cours_display' => $totalMinutesCours > 0 ? $totalMinutesCours.' min (toutes séances)' : '0 min',
             'total_heures_cours' => $vhRounded,
             'total_heures_cours_display' => $totalMinutesCours > 0
-                ? number_format($vhRounded, 2, ',', ' ').' h (= '.$totalMinutesCours.' min)'
+                ? $vhHuman.' (= '.$totalMinutesCours.' min)'
                 : '0 h',
             'report_mois_suivant' => round($reportMoisSuivant, 2), // Négatif
             'total_paye' => round($totalPaye, 2),

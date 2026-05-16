@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\ClubClosureDay;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Service de calcul des commissions enseignants
@@ -291,7 +293,12 @@ class CommissionCalculationService
             $lessonQuery->where('club_id', $clubId);
         }
 
-        $lessons = $lessonQuery->get();
+        $lessons = $this->filterOutLessonsOnClubClosureDays(
+            $lessonQuery->get(),
+            $startDate,
+            $endDate,
+            $clubId
+        );
 
         // Boucle sur chaque cours retenu
         foreach ($lessons as $lesson) {
@@ -388,6 +395,14 @@ class CommissionCalculationService
                 continue;
             }
         }
+
+        $this->applyInterLessonGapCompensation(
+            $lessons,
+            $report,
+            $lessonMinutesByTeacher,
+            $linesByTeacher,
+            $includeLines
+        );
 
         // VH = somme minutes ÷ 60 (évite l’erreur 6×0,33 h ≠ 2 h pour des séances de 20 min).
         foreach ($lessonMinutesByTeacher as $tid => $totalMin) {
@@ -531,6 +546,23 @@ class CommissionCalculationService
         return $minutes > 0 ? $minutes : null;
     }
 
+    /**
+     * Affichage lisible des durées cumulées (ex. 160 min → « 2h40min », pas « 2,67 h »).
+     */
+    public static function formatTotalMinutesAsFrenchHourLabel(int $totalMinutes): string
+    {
+        if ($totalMinutes <= 0) {
+            return '0 h';
+        }
+        $h = intdiv($totalMinutes, 60);
+        $m = $totalMinutes % 60;
+        if ($m === 0) {
+            return sprintf('%dh', $h);
+        }
+
+        return sprintf('%dh%dmin', $h, $m);
+    }
+
     private function formatLessonDurationLineDisplay(?int $minutes): string
     {
         if ($minutes === null || $minutes <= 0) {
@@ -538,10 +570,206 @@ class CommissionCalculationService
         }
 
         return sprintf(
-            '%d min (%s h)',
+            '%d min (%s)',
             $minutes,
-            number_format(round($minutes / 60.0, 12), 2, ',', ' ')
+            self::formatTotalMinutesAsFrenchHourLabel($minutes)
         );
+    }
+
+    /**
+     * Cours confirmés un jour de fermeture / congés club : exclus de la paie (les séances ne sont pas réalisées).
+     *
+     * @param  Collection<int, Lesson>  $lessons
+     * @return Collection<int, Lesson>
+     */
+    private function filterOutLessonsOnClubClosureDays(Collection $lessons, Carbon $startDate, Carbon $endDate, ?int $clubId): Collection
+    {
+        $query = ClubClosureDay::query()
+            ->whereBetween('closed_on', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+        if ($clubId !== null) {
+            $query->where('club_id', $clubId);
+        }
+        $closedKeys = [];
+        foreach ($query->get(['club_id', 'closed_on']) as $row) {
+            $closedKeys[$row->club_id.'|'.$row->closed_on->format('Y-m-d')] = true;
+        }
+        $tz = (string) config(
+            'bookyourcoach.club_daily_planning_insight.timezone',
+            config('app.timezone')
+        );
+
+        return $lessons->filter(function (Lesson $lesson) use ($closedKeys, $tz) {
+            if (! $lesson->club_id || ! $lesson->start_time) {
+                return true;
+            }
+            $ymd = $lesson->start_time->copy()->timezone((string) $tz)->format('Y-m-d');
+
+            return empty($closedKeys[$lesson->club_id.'|'.$ymd]);
+        })->values();
+    }
+
+    /**
+     * Exclut les cours d’un jour de fermeture club (congés) — réutilisable hors rapport agrégé.
+     *
+     * @param  Collection<int, Lesson>  $lessons
+     * @return Collection<int, Lesson>
+     */
+    public function excludeLessonsOnClubClosureDays(
+        Collection $lessons,
+        Carbon $startDate,
+        Carbon $endDate,
+        ?int $clubId = null
+    ): Collection {
+        return $this->filterOutLessonsOnClubClosureDays($lessons, $startDate, $endDate, $clubId);
+    }
+
+    /**
+     * Fin de séance pour calcul d’écart (end_time ou durée type de cours).
+     */
+    private function lessonEndTimeForGapCompensation(Lesson $lesson): ?Carbon
+    {
+        if ($lesson->end_time) {
+            return Carbon::parse($lesson->end_time);
+        }
+        $lesson->loadMissing('courseType');
+        if (! $lesson->start_time) {
+            return null;
+        }
+        $start = Carbon::parse($lesson->start_time);
+        $dur = (int) ($lesson->courseType?->duration_minutes ?? 0);
+        if ($dur <= 0) {
+            $dur = 60;
+        }
+
+        return $start->copy()->addMinutes($dur);
+    }
+
+    /**
+     * €/h pour temps d’attente entre deux cours : tarif horaire effectif du cours suivant, ou dérivé montant/durée.
+     */
+    private function resolveGapHourlyRateFromNextLesson(Lesson $next): ?float
+    {
+        $hourly = $this->resolveEffectiveHourlyRateForLesson($next);
+        if ($hourly !== null && $hourly > 0) {
+            return $hourly;
+        }
+        $pay = $this->resolveLessonPayrollAmountWithBasis($next);
+        $min = $this->lessonScheduledDurationMinutes($next);
+        if ($pay['amount'] > 0 && $min !== null && $min > 0) {
+            return round(($pay['amount'] / $min) * 60.0, 4);
+        }
+
+        return null;
+    }
+
+    /**
+     * Rémunérer l’intervalle entre la fin d’un cours et le début du suivant (même jour, même enseignant),
+     * au tarif horaire (ou équivalent) du cours suivant.
+     *
+     * @param  Collection<int, Lesson>  $lessons
+     * @param  array<int, array<int, array<string, mixed>>>  $linesByTeacher
+     */
+    private function applyInterLessonGapCompensation(
+        Collection $lessons,
+        array &$report,
+        array &$lessonMinutesByTeacher,
+        array &$linesByTeacher,
+        bool $appendDetailLines
+    ): void {
+        $tz = (string) config(
+            'bookyourcoach.club_daily_planning_insight.timezone',
+            config('app.timezone')
+        );
+        $byTeacherDay = [];
+        foreach ($lessons as $lesson) {
+            if (! $lesson->teacher_id || ! $lesson->start_time) {
+                continue;
+            }
+            $tid = (int) $lesson->teacher_id;
+            $day = $lesson->start_time->copy()->timezone((string) $tz)->format('Y-m-d');
+            $byTeacherDay[$tid][$day][] = $lesson;
+        }
+
+        foreach ($byTeacherDay as $tid => $days) {
+            foreach ($days as $day => $dayLessons) {
+                usort($dayLessons, function (Lesson $a, Lesson $b): int {
+                    return $a->start_time <=> $b->start_time;
+                });
+                $n = count($dayLessons);
+                for ($i = 0; $i < $n - 1; $i++) {
+                    $prev = $dayLessons[$i];
+                    $next = $dayLessons[$i + 1];
+                    $prevEnd = $this->lessonEndTimeForGapCompensation($prev);
+                    $nextStart = $next->start_time ? Carbon::parse($next->start_time) : null;
+                    if (! $prevEnd || ! $nextStart) {
+                        continue;
+                    }
+                    $gapSec = $nextStart->getTimestamp() - $prevEnd->getTimestamp();
+                    $gapMin = intdiv($gapSec, 60);
+                    if ($gapMin <= 0) {
+                        continue;
+                    }
+                    $euroPerHour = $this->resolveGapHourlyRateFromNextLesson($next);
+                    if ($euroPerHour === null || $euroPerHour <= 0) {
+                        continue;
+                    }
+                    $amount = round($euroPerHour * ($gapMin / 60.0), 2);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+
+                    $this->initializeTeacherEntry($report, $tid);
+                    $segmentDcl = $this->lessonCountsAsDcl($next);
+                    if ($segmentDcl) {
+                        $report[$tid]['total_commissions_dcl'] = round($report[$tid]['total_commissions_dcl'] + $amount, 2);
+                    } else {
+                        $report[$tid]['total_commissions_ndcl'] = round($report[$tid]['total_commissions_ndcl'] + $amount, 2);
+                    }
+                    $report[$tid]['total_a_payer'] = round(
+                        $report[$tid]['total_commissions_dcl'] + $report[$tid]['total_commissions_ndcl'],
+                        2
+                    );
+
+                    $lessonMinutesByTeacher[$tid] = ($lessonMinutesByTeacher[$tid] ?? 0) + $gapMin;
+
+                    if ($appendDetailLines) {
+                        $segment = $segmentDcl ? 'DCL' : 'NDCL';
+                        $gapStart = $prevEnd->copy();
+                        if (! isset($linesByTeacher[$tid])) {
+                            $linesByTeacher[$tid] = [];
+                        }
+                        $linesByTeacher[$tid][] = [
+                            'kind' => 'inter_lesson_gap',
+                            'line_type_label' => 'En attente (cours suivant)',
+                            'sort_date' => $day,
+                            'sort_time' => $gapStart->format('H:i:s'),
+                            'date_display' => $gapStart->format('d/m/Y'),
+                            'datetime_display' => $gapStart->format('d/m/Y H:i').' → '.$nextStart->format('H:i'),
+                            'duree_minutes' => $gapMin,
+                            'hours' => $gapMin / 60.0,
+                            'hours_display' => $this->formatLessonDurationLineDisplay($gapMin),
+                            'segment' => $segment,
+                            'label' => sprintf(
+                                'En attente pour cours suivant au tarif (cours #%d%s)',
+                                $next->id,
+                                $next->courseType?->name ? ' — '.$next->courseType->name : ''
+                            ),
+                            'reference' => 'GAP-'.$prev->id.'-'.$next->id,
+                            'basis' => 'inter_lesson_gap',
+                            'basis_label' => sprintf(
+                                'Attente rémunérée entre cours #%d et #%d — tarif horaire du cours #%d',
+                                $prev->id,
+                                $next->id,
+                                $next->id
+                            ),
+                            'student_display' => null,
+                            'amount' => $amount,
+                            'notification' => null,
+                        ];
+                    }
+                }
+            }
+        }
     }
 
     /**

@@ -59,7 +59,7 @@
             </div>
             <div class="ml-4">
               <p class="text-sm font-medium text-gray-600">VH cours cumulées</p>
-              <p class="text-2xl font-bold text-gray-900">{{ formatLessonHours(selectedReport.statistics?.total_heures_cours ?? 0) }}</p>
+              <p class="text-2xl font-bold text-gray-900">{{ formatMinutesAsFrenchHm(selectedReport.statistics?.total_duree_cours_minutes ?? 0) }}</p>
               <p v-if="selectedReport.statistics?.total_duree_cours_display" class="text-xs text-gray-500 mt-1">
                 {{ selectedReport.statistics.total_duree_cours_display }}
               </p>
@@ -143,7 +143,7 @@
                   {{ report.teachers_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatLessonHours(report.statistics?.total_heures_cours ?? 0) }}
+                  {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_cours_minutes ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -231,7 +231,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
                   <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
-                  <span class="text-gray-500 text-xs">{{ formatLessonHours(data.total_heures_cours ?? 0) }}</span>
+                  <span class="text-gray-500 text-xs">{{ formatMinutesAsFrenchHm(Number(data.total_duree_cours_minutes ?? 0)) }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -448,7 +448,16 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
-/** VH : somme des durées cours (backend), affichée en heures décimales. */
+const formatMinutesAsFrenchHm = (totalMinutes) => {
+  const n = Math.max(0, Math.floor(Number(totalMinutes) || 0))
+  if (n <= 0) return '—'
+  const h = Math.floor(n / 60)
+  const m = n % 60
+  if (m === 0) return `${h}h`
+  return `${h}h${m}min`
+}
+
+/** Décimal heures — préférer formatMinutesAsFrenchHm si minutes disponibles. */
 const formatLessonHours = (value) => {
   const v = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
   if (Number.isNaN(v)) return '—'

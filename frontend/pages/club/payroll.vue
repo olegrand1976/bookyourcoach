@@ -79,7 +79,7 @@
                   {{ report.teachers_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
-                  {{ formatLessonHours(report.statistics?.total_heures_cours ?? 0) }}
+                  {{ formatMinutesAsFrenchHm(report.statistics?.total_duree_cours_minutes ?? 0) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ formatCurrency(report.statistics?.total_commissions_dcl || 0) }}
@@ -173,7 +173,7 @@
               </div>
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-600">VH cours cumulées</p>
-                <p class="text-2xl font-bold text-gray-900">{{ formatLessonHours(selectedReport.statistics?.total_heures_cours ?? 0) }}</p>
+                <p class="text-2xl font-bold text-gray-900">{{ formatMinutesAsFrenchHm(selectedReport.statistics?.total_duree_cours_minutes ?? 0) }}</p>
                 <p v-if="selectedReport.statistics?.total_duree_cours_display" class="text-xs text-gray-500 mt-1">
                   {{ selectedReport.statistics.total_duree_cours_display }}
                 </p>
@@ -276,7 +276,7 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 tabular-nums">
                     <span class="block">{{ Number(data.total_duree_cours_minutes ?? 0) }} min</span>
-                    <span class="text-gray-500 text-xs">{{ formatLessonHours(data.total_heures_cours ?? 0) }}</span>
+                    <span class="text-gray-500 text-xs">{{ formatMinutesAsFrenchHm(Number(data.total_duree_cours_minutes ?? 0)) }}</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {{ formatCurrency(data.total_commissions_dcl || 0) }}
@@ -361,7 +361,7 @@
                               Total jour :
                               <strong>{{ day.totalMinutes }}</strong> min
                               <span v-if="day.totalMinutes > 0" class="text-gray-500 font-normal">
-                                ({{ formatLessonHours(day.totalMinutes / 60) }})
+                                ({{ formatMinutesAsFrenchHm(day.totalMinutes) }})
                               </span>
                               ·
                               <strong>{{ formatCurrency(day.totalAmount) }}</strong>
@@ -386,9 +386,22 @@
                                     <div class="flex flex-wrap items-center gap-2">
                                       <span
                                         class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
-                                        :class="line.kind === 'lesson' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-900'"
+                                        :class="
+                                          line.kind === 'lesson'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : line.kind === 'inter_lesson_gap'
+                                              ? 'bg-emerald-100 text-emerald-900'
+                                              : 'bg-amber-100 text-amber-900'
+                                        "
                                       >
-                                        {{ line.line_type_label || (line.kind === 'lesson' ? 'Cours' : 'Autre') }}
+                                        {{
+                                          line.line_type_label
+                                            || (line.kind === 'lesson'
+                                              ? 'Cours'
+                                              : line.kind === 'inter_lesson_gap'
+                                                ? 'En attente (cours suivant)'
+                                                : 'Autre')
+                                        }}
                                       </span>
                                       <span class="text-xs text-gray-500">{{ line.segment }}</span>
                                     </div>
@@ -710,7 +723,17 @@ const generateReport = async () => {
   }
 }
 
-/** VH cumul cours (somme durées chronométriées sur les séances incluses au rapport). */
+/** Durée cumulée : ex. 160 min → 2h40min (évite 2,67 h). */
+const formatMinutesAsFrenchHm = (totalMinutes: number) => {
+  const n = Math.max(0, Math.floor(Number(totalMinutes) || 0))
+  if (n <= 0) return '—'
+  const h = Math.floor(n / 60)
+  const m = n % 60
+  if (m === 0) return `${h}h`
+  return `${h}h${m}min`
+}
+
+/** Décimal heures (ex. VH API) — préférer formatMinutesAsFrenchHm si vous avez les minutes. */
 const formatLessonHours = (value) => {
   const v = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
   if (Number.isNaN(v)) return '—'
@@ -811,6 +834,9 @@ async function togglePayrollTeacherDetail(teacherId: number) {
 }
 
 function payrollLineTimeDisplay(line: any): string {
+  if (line.kind === 'inter_lesson_gap' && line.datetime_display) {
+    return String(line.datetime_display)
+  }
   if (line.kind !== 'lesson') return '—'
   const t = line.sort_time
   if (!t || t === '00:00:00') {
