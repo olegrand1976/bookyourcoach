@@ -286,7 +286,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <template v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
+              <template v-for="[teacherId, data] in sortedReportTeachers" :key="teacherId">
                 <tr :class="expandedPayrollTeacherId === Number(teacherId) ? 'bg-indigo-50/40' : ''">
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {{ data.nom_enseignant }}
@@ -542,6 +542,7 @@ import {
   filterReportsNotInFuture,
   isPayrollPeriodInFuture,
   maxAllowedPayrollMonthForYear,
+  sortPayrollReportTeachersEntries,
 } from '@/utils/payrollPeriod'
 
 console.log('📊 [PAYROLL] Page chargée')
@@ -1038,6 +1039,13 @@ const hasNdclInReportDetails = computed(() => {
     const ndcl = data.total_commissions_ndcl || 0
     return ndcl > 0
   })
+})
+
+/** Enseignants du rapport détaillé, triés par VH cours (heures prestées) décroissant. */
+const sortedReportTeachers = computed((): [string, Record<string, unknown>][] => {
+  const report = selectedReportDetails.value?.report as Record<string, Record<string, unknown>> | undefined
+  if (!report) return []
+  return sortPayrollReportTeachersEntries(report)
 })
 
 function openEditModal(teacherId: number, teacherName: string) {

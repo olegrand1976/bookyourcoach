@@ -409,6 +409,12 @@ class PayrollController extends Controller
             }
 
             usort($teachersOrdered, static function ($a, $b) {
+                $minutesA = (int) ($a['total_duree_cours_minutes'] ?? 0);
+                $minutesB = (int) ($b['total_duree_cours_minutes'] ?? 0);
+                if ($minutesA !== $minutesB) {
+                    return $minutesB <=> $minutesA;
+                }
+
                 return strcasecmp($a['name'] ?? '', $b['name'] ?? '');
             });
 

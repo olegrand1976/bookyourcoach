@@ -230,7 +230,7 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="(data, teacherId) in selectedReportDetails.report" :key="teacherId">
+              <tr v-for="[teacherId, data] in sortedReportTeachers" :key="teacherId">
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {{ data.enseignant_id }}
                 </td>
@@ -314,6 +314,7 @@ import {
   filterReportsNotInFuture,
   isPayrollPeriodInFuture,
   maxAllowedPayrollMonthForYear,
+  sortPayrollReportTeachersEntries,
 } from '@/utils/payrollPeriod'
 
 definePageMeta({
@@ -443,6 +444,13 @@ const availableGenerateMonths = computed(() => {
     value: index + 1,
     label,
   }))
+})
+
+/** Enseignants du rapport détaillé, triés par VH cours (heures prestées) décroissant. */
+const sortedReportTeachers = computed(() => {
+  const report = selectedReportDetails.value?.report
+  if (!report) return []
+  return sortPayrollReportTeachersEntries(report)
 })
 
 watch(generateYear, () => {
