@@ -4289,7 +4289,7 @@ async function executeDeleteLesson(
 
 // Ancienne fonction deleteLesson conservée pour compatibilité (redirige vers nouvelle méthode)
 async function deleteLesson(lessonId: number) {
-  await executeDeleteLesson(lessonId, 'single', 'delete', '')
+  await executeDeleteLesson(lessonId, 'single', 'cancel', 'Annulé depuis le planning')
 }
 
 // Fonctions utilitaires

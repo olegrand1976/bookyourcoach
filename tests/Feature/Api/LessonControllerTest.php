@@ -245,9 +245,8 @@ class LessonControllerTest extends TestCase
     }
 
     /** @test */
-    public function it_can_delete_lesson()
+    public function it_cancels_lesson_when_club_deletes_without_cancel_scope()
     {
-        // Arrange
         $user = $this->actingAsClub();
         $club = \App\Models\Club::find($user->club_id);
 
@@ -255,7 +254,6 @@ class LessonControllerTest extends TestCase
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
 
-        // Passé + confirmé → suppression définitive (pas simple annulation pending/futur)
         $lesson = Lesson::factory()->create([
             'club_id' => $club->id,
             'teacher_id' => $teacher->id,
@@ -266,17 +264,17 @@ class LessonControllerTest extends TestCase
             'status' => 'confirmed',
         ]);
 
-        // Act
         $response = $this->deleteJson("/api/lessons/{$lesson->id}");
 
-        // Assert
         $response->assertStatus(200)
-                 ->assertJsonFragment([
-                     'success' => true,
-                 ]);
+            ->assertJsonFragment([
+                'success' => true,
+                'message' => 'Cours annulé avec succès',
+            ]);
 
-        $this->assertDatabaseMissing('lessons', [
+        $this->assertDatabaseHas('lessons', [
             'id' => $lesson->id,
+            'status' => 'cancelled',
         ]);
     }
 

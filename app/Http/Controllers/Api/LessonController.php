@@ -1480,9 +1480,27 @@ class LessonController extends Controller
 
             $lesson = $query->findOrFail($id);
 
-            // Si le cours est dans le futur et a le statut 'pending', on l'annule
-            // Sinon on le supprime définitivement (pour les admins principalement)
-            if ($lesson->start_time > now() && $lesson->status === 'pending') {
+            // Club sans cancel_scope : annulation (conservation en base pour historique / journal)
+            // Suppression définitive : DELETE avec cancel_scope + action=delete (cancelWithFuture)
+            if ($user->role === 'club') {
+                if ($lesson->status === 'cancelled') {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Cours déjà annulé',
+                    ]);
+                }
+
+                LessonCancellationAudit::applyToLesson($lesson, $user, 'club', true);
+                $lesson->status = 'cancelled';
+                $lesson->save();
+                $this->lessonActionLogService->log(
+                    $lesson,
+                    LessonActionLog::ACTION_CANCELLED,
+                    $user,
+                    'club',
+                );
+                $message = 'Cours annulé avec succès';
+            } elseif ($lesson->start_time > now() && $lesson->status === 'pending') {
                 LessonCancellationAudit::applyToLesson($lesson, $user, 'club', true);
                 $lesson->status = 'cancelled';
                 $lesson->save();

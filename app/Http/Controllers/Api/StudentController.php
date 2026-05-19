@@ -155,13 +155,14 @@ class StudentController extends Controller
                 'subscription_numbers' => $subscriptionInstances->pluck('subscription.subscription_number')->toArray()
             ]);
 
-            // Récupérer les cours de l'élève (via relation many-to-many ou student_id)
-            $lessonQuery = \App\Models\Lesson::where(function ($query) use ($studentId) {
-                $query->whereHas('students', function ($q) use ($studentId) {
-                    $q->where('students.id', $studentId);
-                })
-                ->orWhere('student_id', $studentId);
-            })->with([
+            // Récupérer les cours de l'élève pour ce club (via relation many-to-many ou student_id)
+            $lessonQuery = \App\Models\Lesson::where('club_id', $club->id)
+                ->where(function ($query) use ($studentId) {
+                    $query->whereHas('students', function ($q) use ($studentId) {
+                        $q->where('students.id', $studentId);
+                    })
+                    ->orWhere('student_id', $studentId);
+                })->with([
                 'teacher.user',
                 'courseType',
                 'location',
@@ -177,8 +178,17 @@ class StudentController extends Controller
                 ->unique('id')
                 ->values();
 
+            // Tous les cours annulés du club doivent rester visibles (le top 100 seul les exclut souvent)
+            $idsAlready = $lessons->pluck('id')->all();
+            $cancelledLessons = (clone $lessonQuery)
+                ->where('status', 'cancelled')
+                ->when(count($idsAlready) > 0, fn ($q) => $q->whereNotIn('id', $idsAlready))
+                ->orderBy('start_time', 'desc')
+                ->get();
+            $lessons = $lessons->concat($cancelledLessons)->unique('id')->values();
+
             // Les cours avec certificat médical en attente (pending) doivent toujours apparaître dans l'historique
-            $idsAlready = $lessons->pluck('id')->toArray();
+            $idsAlready = $lessons->pluck('id')->all();
             $hasCertColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status')
                 && \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_path');
             if ($hasCertColumns) {
@@ -194,6 +204,8 @@ class StudentController extends Controller
                     ->get();
                 $lessons = $lessons->concat($extraCertificateLessons)->unique('id')->values();
             }
+
+            $lessons = $lessons->sortByDesc(fn ($lesson) => Carbon::parse($lesson->start_time)->timestamp)->values();
 
             // Calculer la couverture d'abonnement pour les cours futurs
             $now = Carbon::now();
@@ -275,6 +287,7 @@ class StudentController extends Controller
                 'active_subscriptions' => $subscriptionInstances->where('status', 'active')->count(),
                 'total_lessons' => $lessons->count(),
                 'completed_lessons' => $lessons->where('status', 'completed')->count(),
+                'cancelled_lessons' => $lessons->where('status', 'cancelled')->count(),
                 'total_spent' => $lessons->where('status', 'completed')->sum('price'),
                 'uncovered_future_lessons' => $uncoveredLessonsCount, // Nouveau: cours futurs non couverts
             ];
