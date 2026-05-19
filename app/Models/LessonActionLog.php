@@ -33,6 +33,16 @@ class LessonActionLog extends Model
 
     public const ACTION_STUDENT_CANCELLED = 'student_cancelled';
 
+    /** Filtre API : toutes les variantes d'annulation. */
+    public const ACTION_FILTER_ALL_CANCELLATIONS = 'all_cancellations';
+
+    /** @var list<string> */
+    public const CANCELLATION_ACTIONS = [
+        self::ACTION_CANCELLED,
+        self::ACTION_CANCELLED_CASCADE,
+        self::ACTION_STUDENT_CANCELLED,
+    ];
+
     /** @var array<string, string> */
     public const ACTION_LABELS = [
         self::ACTION_CREATED => 'Création',
@@ -98,5 +108,28 @@ class LessonActionLog extends Model
     public function actionLabel(): string
     {
         return self::ACTION_LABELS[$this->action] ?? $this->action;
+    }
+
+    /**
+     * Résout le filtre action de l'API en liste d'actions SQL.
+     * « Annulation » (cancelled) inclut aussi les annulations élève et série.
+     *
+     * @return list<string>|null null = pas de filtre action
+     */
+    public static function resolveActionFilters(?string $action): ?array
+    {
+        if ($action === null || $action === '') {
+            return null;
+        }
+
+        if ($action === self::ACTION_FILTER_ALL_CANCELLATIONS || $action === self::ACTION_CANCELLED) {
+            return self::CANCELLATION_ACTIONS;
+        }
+
+        if (in_array($action, self::CANCELLATION_ACTIONS, true)) {
+            return [$action];
+        }
+
+        return [$action];
     }
 }

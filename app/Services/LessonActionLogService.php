@@ -7,7 +7,9 @@ use App\Models\LessonActionLog;
 use App\Models\Student;
 use App\Models\SubscriptionInstance;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class LessonActionLogService
 {
@@ -98,6 +100,99 @@ class LessonActionLogService
         $name = trim(($student->first_name ?? '') . ' ' . ($student->last_name ?? ''));
 
         return $name !== '' ? $name : null;
+    }
+
+    /**
+     * Crée les entrées de journal manquantes pour les cours annulés (aligné sur la page « Cours annulés »).
+     */
+    public function syncMissingCancellationLogs(
+        int $clubId,
+        Carbon $from,
+        ?Carbon $to = null,
+        ?int $studentId = null,
+    ): int {
+        if (! Schema::hasTable('lesson_action_logs')) {
+            return 0;
+        }
+
+        $query = Lesson::query()
+            ->where('club_id', $clubId)
+            ->where('status', 'cancelled')
+            ->where(function ($q) use ($from) {
+                $q->where('start_time', '>=', $from);
+                if (Schema::hasColumn('lessons', 'cancelled_at')) {
+                    $q->orWhere('cancelled_at', '>=', $from);
+                }
+            });
+
+        if ($to !== null) {
+            $query->where(function ($q) use ($to) {
+                $q->where('start_time', '<=', $to);
+                if (Schema::hasColumn('lessons', 'cancelled_at')) {
+                    $q->orWhere('cancelled_at', '<=', $to);
+                }
+            });
+        }
+
+        if ($studentId !== null) {
+            $query->where(function ($q) use ($studentId) {
+                $q->where('student_id', $studentId)
+                    ->orWhereHas('students', fn ($sq) => $sq->where('students.id', $studentId));
+            });
+        }
+
+        $created = 0;
+
+        $query->with(['student.user', 'students.user', 'subscriptionInstances.subscription.template', 'cancelledByUser'])
+            ->orderBy('id')
+            ->chunkById(200, function ($lessons) use (&$created) {
+                foreach ($lessons as $lesson) {
+                    $exists = LessonActionLog::query()
+                        ->where('lesson_id', $lesson->id)
+                        ->whereIn('action', LessonActionLog::CANCELLATION_ACTIONS)
+                        ->exists();
+
+                    if ($exists) {
+                        continue;
+                    }
+
+                    $performedBy = null;
+                    if (Schema::hasColumn('lessons', 'cancelled_by_user_id') && $lesson->cancelled_by_user_id) {
+                        $performedBy = User::find($lesson->cancelled_by_user_id);
+                    }
+
+                    $role = $lesson->cancelled_by_role ?? null;
+                    if ($role === null || $role === 'unknown') {
+                        $role = LessonCancellationAudit::inferRoleFromNotes($lesson->notes);
+                    }
+
+                    $action = $role === 'student'
+                        ? LessonActionLog::ACTION_STUDENT_CANCELLED
+                        : LessonActionLog::ACTION_CANCELLED;
+
+                    $actionAt = $lesson->cancelled_at ?? $lesson->updated_at;
+
+                    $log = $this->log(
+                        $lesson,
+                        $action,
+                        $performedBy,
+                        $role,
+                        meta: ['backfilled' => true],
+                    );
+
+                    if ($log && $actionAt) {
+                        $log->created_at = $actionAt;
+                        $log->updated_at = $actionAt;
+                        $log->saveQuietly();
+                    }
+
+                    if ($log) {
+                        $created++;
+                    }
+                }
+            });
+
+        return $created;
     }
 
     public function subscriptionDisplayLabel(?SubscriptionInstance $instance): ?string
