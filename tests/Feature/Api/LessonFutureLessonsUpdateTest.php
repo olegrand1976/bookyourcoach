@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\Club;
 use App\Models\Subscription;
 use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionRecurringSlot;
 use App\Models\SubscriptionTemplate;
 use Carbon\Carbon;
 use Tests\TestCase;
@@ -355,6 +356,125 @@ class LessonFutureLessonsUpdateTest extends TestCase
         $this->assertEquals('2025-11-02 14:30:00', $lesson1->start_time);
         $this->assertEquals('2025-11-09 14:30:00', $lesson2->start_time); // Date décalée d'un jour, heure changée
         $this->assertEquals('2025-11-16 14:30:00', $lesson3->start_time); // Date décalée d'un jour, heure changée
+    }
+
+    /** @test */
+    public function it_moves_all_future_lessons_when_only_time_changes(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 18:00:00');
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek());
+        $lesson3 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(2));
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => '2025-12-01 14:20:00',
+            'update_scope' => 'all_future',
+        ]);
+
+        $response->assertStatus(200);
+
+        $lesson1->refresh();
+        $lesson2->refresh();
+        $lesson3->refresh();
+
+        $this->assertEquals('2025-12-01 14:20:00', $lesson1->start_time);
+        $this->assertEquals('2025-12-08 14:20:00', $lesson2->start_time);
+        $this->assertEquals('2025-12-15 14:20:00', $lesson3->start_time);
+    }
+
+    /** @test */
+    public function it_relocates_subscription_recurring_slot_on_all_future_time_change(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 18:00:00');
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $this->createLessonForSubscription($baseDate->copy()->addWeek());
+
+        $recurringSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => $baseDate->dayOfWeek,
+            'start_time' => '18:00:00',
+            'end_time' => '19:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $baseDate->copy()->startOfDay(),
+            'end_date' => $baseDate->copy()->addMonths(6),
+            'status' => 'active',
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => '2025-12-01 14:20:00',
+            'update_scope' => 'all_future',
+        ]);
+
+        $response->assertStatus(200);
+
+        $recurringSlot->refresh();
+        $this->assertEquals('14:20:00', $recurringSlot->start_time);
+        $this->assertEquals('15:20:00', $recurringSlot->end_time);
+        $this->assertEquals('active', $recurringSlot->status);
+
+        $oldSlotStillActive = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
+            ->where('student_id', $this->student->id)
+            ->where('start_time', '18:00:00')
+            ->where('status', 'active')
+            ->exists();
+
+        $this->assertFalse($oldSlotStillActive);
+    }
+
+    /** @test */
+    public function it_releases_old_slot_when_recurring_interval_changes(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $this->createLessonForSubscription($baseDate->copy()->addWeek());
+
+        $oldSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => $baseDate->dayOfWeek,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $baseDate->copy()->startOfDay(),
+            'end_date' => $baseDate->copy()->addMonths(6),
+            'status' => 'active',
+        ]);
+
+        $newStart = $baseDate->copy()->setTime(14, 30, 0);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => $newStart->format('Y-m-d H:i:s'),
+            'duration' => 60,
+            'update_scope' => 'all_future',
+            'recurring_interval' => 2,
+        ]);
+
+        $response->assertStatus(200);
+
+        $oldSlot->refresh();
+        $this->assertEquals('cancelled', $oldSlot->status);
+
+        $activeAtOldTime = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
+            ->where('student_id', $this->student->id)
+            ->where('start_time', '10:00:00')
+            ->where('status', 'active')
+            ->exists();
+
+        $this->assertFalse($activeAtOldTime);
+
+        $activeAtNewTime = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
+            ->where('student_id', $this->student->id)
+            ->where('start_time', '14:30:00')
+            ->where('status', 'active')
+            ->exists();
+
+        $this->assertTrue($activeAtNewTime);
     }
 
     /**

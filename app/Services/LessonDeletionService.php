@@ -132,17 +132,21 @@ class LessonDeletionService
         Lesson $referenceLesson,
         SubscriptionInstance $subscriptionInstance,
         int $targetStudentId,
-        string $action = 'delete'
+        string $action = 'delete',
+        ?Carbon $slotReferenceStart = null,
+        ?Carbon $slotReferenceEnd = null,
+        ?Carbon $afterDateTime = null,
     ): Collection {
-        $lessonStartDateTime = Carbon::parse($referenceLesson->start_time);
-        $lessonEndDateTime = Carbon::parse($referenceLesson->end_time ?? $referenceLesson->start_time);
+        $lessonStartDateTime = $slotReferenceStart ?? Carbon::parse($referenceLesson->start_time);
+        $lessonEndDateTime = $slotReferenceEnd ?? Carbon::parse($referenceLesson->end_time ?? $referenceLesson->start_time);
+        $pivotDateTime = $afterDateTime ?? $lessonStartDateTime;
         $lessonDayOfWeekCarbon = $lessonStartDateTime->dayOfWeek;
         $lessonDayOfWeekMySQL = $lessonDayOfWeekCarbon === 0 ? 1 : ($lessonDayOfWeekCarbon + 1);
         $lessonStartTime = $lessonStartDateTime->format('H:i:s');
         $lessonEndTime = $lessonEndDateTime->format('H:i:s');
 
         $query = $subscriptionInstance->lessons()
-            ->where('lessons.start_time', '>', $lessonStartDateTime)
+            ->where('lessons.start_time', '>', $pivotDateTime)
             ->where('lessons.id', '!=', $referenceLesson->id)
             ->when(
                 DB::connection()->getDriverName() === 'sqlite',
@@ -164,6 +168,8 @@ class LessonDeletionService
             } else {
                 $query->where('lessons.status', '!=', 'cancelled');
             }
+        } elseif ($action === 'update') {
+            $query->where('lessons.status', '!=', 'cancelled');
         }
 
         return $query->with(['student.user', 'students.user', 'courseType'])->get();

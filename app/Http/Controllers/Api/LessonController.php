@@ -15,6 +15,7 @@ use App\Services\LessonActionLogService;
 use App\Services\LessonBookingNotificationService;
 use App\Services\LessonCancellationAudit;
 use App\Services\LessonDeletionService;
+use App\Services\SubscriptionRecurringSlotRelocationService;
 use App\Models\LessonActionLog;
 use App\Jobs\SendLessonReminderJob;
 use App\Jobs\ProcessLessonPostCreationJob;
@@ -38,6 +39,7 @@ class LessonController extends Controller
     public function __construct(
         private readonly LessonDeletionService $lessonDeletionService,
         private readonly LessonActionLogService $lessonActionLogService,
+        private readonly SubscriptionRecurringSlotRelocationService $recurringSlotRelocationService,
     ) {}
 
     /**
@@ -976,7 +978,11 @@ class LessonController extends Controller
 
             // Stocker l'ancienne valeur de start_time avant la mise à jour
             $oldStartTime = $lesson->start_time ? Carbon::parse($lesson->start_time) : null;
-            
+            $oldTeacherId = $lesson->teacher_id;
+            $oldEndTime = $lesson->end_time
+                ? Carbon::parse($lesson->end_time)
+                : ($oldStartTime ? $oldStartTime->copy()->addMinutes(60) : null);
+
             // Si start_time ou duration change, recalculer end_time
             if (isset($validated['start_time']) || isset($validated['duration'])) {
                 $newStartTime = Carbon::parse($validated['start_time'] ?? $lesson->start_time);
@@ -987,11 +993,55 @@ class LessonController extends Controller
                 $duration = $duration ?? 60;
                 $validated['end_time'] = $newStartTime->copy()->addMinutes($duration)->format('Y-m-d H:i:s');
             }
-            
-            $lesson->update($validated);
-            
-            // Si update_scope est 'all_future' et que le cours fait partie d'un abonnement, mettre à jour tous les cours futurs
+
+            // Pré-validation du déplacement de série récurrente (évite une mise à jour partielle)
+            if (
+                $updateScope === 'all_future'
+                && $oldStartTime
+                && $oldEndTime
+                && isset($validated['start_time'])
+                && !isset($validated['recurring_interval'])
+            ) {
+                $lesson->loadMissing('subscriptionInstances');
+                if ($lesson->subscriptionInstances->isNotEmpty()) {
+                    $targetStudentId = $this->lessonDeletionService->resolveParticipantStudentId($lesson);
+                    if ($targetStudentId !== null) {
+                        $newStartForValidation = Carbon::parse($validated['start_time']);
+                        $newEndForValidation = Carbon::parse($validated['end_time'] ?? $validated['start_time']);
+                        $relocationConflicts = $this->recurringSlotRelocationService->validateRelocation(
+                            $lesson,
+                            $lesson->subscriptionInstances->first(),
+                            $targetStudentId,
+                            (int) $oldTeacherId,
+                            $oldStartTime,
+                            $oldEndTime,
+                            $newStartForValidation,
+                            $newEndForValidation,
+                            isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null,
+                        );
+                        if ($relocationConflicts !== []) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Impossible de déplacer la réservation récurrente : conflits sur les 26 prochaines semaines.',
+                                'conflicts' => $relocationConflicts,
+                            ], 422);
+                        }
+                    }
+                }
+            }
+
             $updatedFutureLessonsCount = 0;
+
+            DB::transaction(function () use (
+                &$lesson,
+                &$updatedFutureLessonsCount,
+                $validated,
+                $updateScope,
+                $oldStartTime,
+                $oldEndTime,
+                $oldTeacherId,
+            ) {
+            $lesson->update($validated);
             
             Log::info("🔍 Vérification mise à jour cours futurs", [
                 'update_scope' => $updateScope,
@@ -1000,8 +1050,7 @@ class LessonController extends Controller
                 'start_time_in_validated' => $validated['start_time'] ?? null
             ]);
             
-            if ($updateScope === 'all_future' && $oldStartTime && isset($validated['start_time'])) {
-                // Recharger les relations pour avoir les subscription_instances
+            if ($updateScope === 'all_future' && $oldStartTime && $oldEndTime && isset($validated['start_time'])) {
                 $lesson->load('subscriptionInstances');
                 
                 Log::info("✅ Conditions remplies pour mise à jour cours futurs", [
@@ -1012,24 +1061,33 @@ class LessonController extends Controller
                 if ($lesson->subscriptionInstances()->count() > 0) {
                     $subscriptionInstance = $lesson->subscriptionInstances()->first();
                     
-                    // Utiliser l'ancienne date pour trouver les cours futurs (ceux qui étaient après l'ancien cours)
-                    // Cela permet de trouver tous les cours qui doivent être décalés, même si le cours actuel a été déplacé vers une date antérieure
-                    $oldLessonDate = $oldStartTime;
-                    
                     $targetStudentId = $this->lessonDeletionService->resolveParticipantStudentId($lesson);
 
-                    // Cours futurs : même élève + même créneau uniquement (évite la suppression fratrie sur abo familial)
                     $futureLessons = $targetStudentId !== null
                         ? $this->lessonDeletionService->queryFutureLessonsForSameSlot(
                             $lesson,
                             $subscriptionInstance,
                             $targetStudentId,
-                            'delete'
+                            'update',
+                            $oldStartTime,
+                            $oldEndTime,
+                            $oldStartTime,
                         )
                         : collect();
                     
-                    // 🔄 NOUVEAU : Si recurring_interval est fourni, supprimer tous les cours futurs et les régénérer
                     if (isset($validated['recurring_interval'])) {
+                        if ($targetStudentId !== null) {
+                            $this->recurringSlotRelocationService->releaseActiveSlotsForSchedule(
+                                $subscriptionInstance,
+                                $targetStudentId,
+                                (int) $oldTeacherId,
+                                $oldStartTime,
+                                $oldEndTime,
+                                'Libération automatique : changement d\'intervalle de récurrence (cours #' . $lesson->id . ')',
+                            );
+                        }
+
+                        // Supprimer tous les cours futurs planifiés et les régénérer
                         Log::info("🔄 Changement d'intervalle de récurrence détecté", [
                             'new_recurring_interval' => $validated['recurring_interval'],
                             'future_lessons_to_delete' => $futureLessons->count()
@@ -1241,9 +1299,25 @@ class LessonController extends Controller
                         ]);
                     }
                 }
+                        if ($targetStudentId !== null) {
+                            $newStartTime = Carbon::parse($lesson->start_time);
+                            $newEndTime = Carbon::parse($lesson->end_time ?? $lesson->start_time);
+                            $this->recurringSlotRelocationService->relocateForAllFutureUpdate(
+                                $lesson,
+                                $subscriptionInstance,
+                                $targetStudentId,
+                                (int) $oldTeacherId,
+                                $oldStartTime,
+                                $oldEndTime,
+                                $newStartTime,
+                                $newEndTime,
+                                isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null,
+                            );
+                        }
                     } // Fin du else (logique de mise à jour individuelle)
                 }
             }
+            }); // Fin transaction all_future / update cours
 
             $message = 'Cours mis à jour avec succès';
             if ($updateScope === 'all_future' && $updatedFutureLessonsCount > 0) {
