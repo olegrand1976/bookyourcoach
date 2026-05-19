@@ -66,9 +66,10 @@ class ClubPlanningController extends Controller
             $openSlots = $openSlots->where('discipline_id', $disciplineId);
         }
 
-        // Récupérer les cours existants pour cette date
+        // Récupérer les cours existants pour cette date (hors annulés : plage libérée)
         $existingLessons = Lesson::where('club_id', $clubId)
             ->whereDate('start_time', $date)
+            ->where('status', '!=', 'cancelled')
             ->get();
 
         $suggestions = [];
@@ -210,6 +211,7 @@ class ClubPlanningController extends Controller
                 $timeStart = Carbon::parse("$date $time")->format('Y-m-d H:i:s');
                 $lessonsAtThisTime = Lesson::where('club_id', $clubId)
                     ->whereDate('start_time', $date)
+                    ->where('status', '!=', 'cancelled')
                     ->whereRaw("TIME(start_time) = TIME(?)", [$timeStart])
                     ->count();
 

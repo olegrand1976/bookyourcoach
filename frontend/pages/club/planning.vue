@@ -1934,16 +1934,17 @@ function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
   }
 }
 
-function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
-  if (!placeholder.is_recurring_placeholder) return false
-  const ps = new Date(placeholder.start_time)
-  const pe = new Date(placeholder.end_time)
-  const y = ps.getFullYear()
-  const m = String(ps.getMonth() + 1).padStart(2, '0')
-  const d = String(ps.getDate()).padStart(2, '0')
-  const dateStr = `${y}-${m}-${d}`
-  const tid = Number(placeholder.teacher_id ?? placeholder.teacher?.id)
-  const sid = Number(placeholder.student_id ?? placeholder.students?.[0]?.id)
+/**
+ * Une occurrence de série est « libérée » ce jour si un cours annulé couvre le même créneau
+ * (élève + enseignant + chevauchement horaire). La série reste active pour les semaines suivantes.
+ */
+function recurringOccurrenceFreedByCancelledLesson(rs: { student_id?: number; teacher_id?: number; start_time?: string; end_time?: string }, dateStr: string): boolean {
+  const rsStart = new Date(`${dateStr}T${String(rs.start_time).substring(0, 5)}:00`)
+  let rsEnd = new Date(`${dateStr}T${String(rs.end_time).substring(0, 5)}:00`)
+  if (rsEnd <= rsStart) rsEnd = new Date(rsEnd.getTime() + 86400000)
+  const tid = Number(rs.teacher_id)
+  const sid = Number(rs.student_id)
+  if (!sid) return false
 
   return lessons.value.some((lesson) => {
     if (lesson.is_recurring_placeholder) return false
@@ -1959,8 +1960,21 @@ function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
     const ld = String(ls.getDate()).padStart(2, '0')
     if (`${ly}-${lm}-${ld}` !== dateStr) return false
 
-    return ls < pe && le > ps
+    return ls < rsEnd && le > rsStart
   })
+}
+
+function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
+  if (!placeholder.is_recurring_placeholder) return false
+  const ps = new Date(placeholder.start_time)
+  const y = ps.getFullYear()
+  const m = String(ps.getMonth() + 1).padStart(2, '0')
+  const d = String(ps.getDate()).padStart(2, '0')
+  const dateStr = `${y}-${m}-${d}`
+  const rs = clubRecurringSlots.value.find((r) => Number(r.id) === Number(placeholder.recurring_slot_id))
+  if (!rs) return false
+
+  return recurringOccurrenceFreedByCancelledLesson(rs, dateStr)
 }
 
 /** Texte condensé pour les placeholders récurrents (carte + liste), une seule lecture au lieu de plusieurs lignes colorées. */
@@ -1993,6 +2007,8 @@ const recurringPlanningPlaceholders = computed((): Lesson[] => {
       lessonMaterializesRecurringOnDate(l, rs, dateStr)
     )
     if (covering) continue
+    // Cours annulé ce jour : plage libérée, série inchangée pour les occurrences futures
+    if (recurringOccurrenceFreedByCancelledLesson(rs, dateStr)) continue
     out.push(buildRecurringPlaceholder(rs, dateStr))
   }
   return out
@@ -2049,7 +2065,9 @@ function countOccupiedParallelLanes(lessons: Lesson[]): number {
   let n = 0
   for (const l of lessons) {
     if (l.is_recurring_placeholder) {
-      n += 1
+      if (!isPlaceholderFromCancelledLesson(l)) {
+        n += 1
+      }
     } else if (l.status === 'cancelled') {
       continue
     } else {

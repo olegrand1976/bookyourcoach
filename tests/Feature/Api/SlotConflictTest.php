@@ -14,6 +14,8 @@ use App\Models\Location;
 use App\Models\ClubOpenSlot;
 use App\Models\Subscription;
 use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionRecurringSlot;
+use App\Models\SubscriptionTemplate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use Carbon\Carbon;
@@ -468,6 +470,97 @@ class SlotConflictTest extends TestCase
         // Seul le cours du premier enseignant doit être retourné
         $this->assertCount(1, $data['lessons']);
         $this->assertEquals($this->teacher->id, $data['lessons'][0]['teacher_id']);
+    }
+
+    /** @test */
+    public function single_cancel_keeps_recurring_slot_active_and_frees_slot_for_booking(): void
+    {
+        Notification::fake();
+
+        $start = Carbon::parse('2026-03-02 10:00:00'); // Lundi
+
+        $template = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'CANCEL-SINGLE-'.uniqid(),
+            'total_lessons' => 20,
+            'validity_months' => 12,
+            'price' => 200.00,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'SUB-CANCEL-'.uniqid(),
+        ]);
+
+        $subscriptionInstance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => $start->copy()->subMonth(),
+            'expires_at' => $start->copy()->addMonths(6),
+        ]);
+        $subscriptionInstance->students()->attach($this->student->id);
+
+        $recurringSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::MONDAY,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $start->copy()->subWeek()->toDateString(),
+            'end_date' => $start->copy()->addMonths(3)->toDateString(),
+            'status' => 'active',
+        ]);
+
+        $lesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $start,
+            'end_time' => $start->copy()->addHour(),
+            'status' => 'confirmed',
+        ]);
+        $lesson->subscriptionInstances()->attach($subscriptionInstance->id);
+
+        $this->postJson("/api/lessons/{$lesson->id}/cancel-with-future", [
+            'cancel_scope' => 'single',
+            'action' => 'cancel',
+            'reason' => 'Absence ponctuelle',
+        ])->assertStatus(200);
+
+        $recurringSlot->refresh();
+        $this->assertSame('active', $recurringSlot->status);
+
+        $occupants = $this->getJson('/api/lessons/slot-occupants?'.http_build_query([
+            'date' => $start->format('Y-m-d'),
+            'time' => '10:00',
+            'duration' => 60,
+            'teacher_id' => $this->teacher->id,
+        ]));
+        $occupants->assertStatus(200);
+        $this->assertCount(0, $occupants->json('data.lessons'));
+        $this->assertFalse($occupants->json('data.slot_info.is_full'));
+
+        $otherStudent = Student::factory()->create(['club_id' => $this->club->id]);
+        $create = $this->postJson('/api/lessons', [
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $otherStudent->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $start->format('Y-m-d H:i:s'),
+            'duration' => 60,
+            'price' => 50,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
+        ]);
+        $create->assertStatus(201);
     }
 }
 

@@ -225,17 +225,52 @@
               </div>
             </div>
 
-            <!-- Cours (triés par date croissante) -->
+            <!-- Cours par mois (trimestre en cours par défaut) -->
             <div>
               <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                 </svg>
-                Calendrier des cours ({{ historyData?.lessons?.length || 0 }}) — certificats à valider en tête, puis par date
+                Calendrier des cours ({{ filteredLessonsCount }})
               </h3>
+              <p class="text-sm text-gray-600 -mt-2 mb-4">
+                {{ lessonHistoryPeriod.label }} — regroupés par mois
+              </p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div>
+                  <label for="lesson-status-filter" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                  <select
+                    id="lesson-status-filter"
+                    v-model="lessonStatusFilter"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="pending">En attente</option>
+                    <option value="confirmed">Confirmé</option>
+                    <option value="completed">Terminé</option>
+                    <option value="cancelled">Annulé</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="lesson-period-filter" class="block text-sm font-medium text-gray-700 mb-1">Période</label>
+                  <select
+                    id="lesson-period-filter"
+                    v-model="lessonPeriodMode"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  >
+                    <option value="current_quarter">Trimestre en cours (à partir d'aujourd'hui)</option>
+                    <option value="with_previous_quarter">Trimestre en cours + trimestre précédent</option>
+                  </select>
+                </div>
+              </div>
               
               <div v-if="!historyData?.lessons || historyData.lessons.length === 0" class="bg-gray-50 rounded-lg p-6 text-center">
                 <p class="text-gray-500">Aucun cours pour cet élève</p>
+              </div>
+
+              <div v-else-if="filteredLessonsCount === 0" class="bg-gray-50 rounded-lg p-6 text-center mb-4">
+                <p class="text-gray-500">Aucun cours ne correspond aux filtres sélectionnés.</p>
               </div>
               
               <template v-else>
@@ -248,6 +283,17 @@
                     Fin théorique des abonnements à partir du {{ subscriptionsEarliestEndFormatted }}.
                   </p>
                 </div>
+
+                <div
+                  v-for="monthGroup in lessonsGroupedByMonth"
+                  :key="monthGroup.key"
+                  class="mb-8 last:mb-0"
+                >
+                  <h4 class="text-base font-semibold text-purple-800 mb-3 flex items-center gap-2 capitalize">
+                    <span class="inline-block w-2 h-2 rounded-full bg-purple-500" aria-hidden="true"></span>
+                    {{ monthGroup.label }}
+                    <span class="text-sm font-normal text-gray-500">({{ monthGroup.lessons.length }})</span>
+                  </h4>
 
                 <!-- En-tête du tableau (desktop) -->
                 <div class="hidden md:grid md:grid-cols-12 gap-2 px-4 py-2 bg-gray-100 rounded-t-lg border border-b-0 border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
@@ -263,7 +309,7 @@
 
                 <div class="space-y-2 border border-gray-200 rounded-b-lg md:rounded-t-none overflow-hidden">
                   <div 
-                    v-for="lesson in lessonsSortedByDate" 
+                    v-for="lesson in monthGroup.lessons" 
                     :key="lesson.id"
                     :class="[
                       'rounded-lg md:rounded-none p-4 md:py-3 border-b border-gray-100 last:border-b-0 md:grid md:grid-cols-12 md:gap-2 md:items-center transition-colors',
@@ -394,6 +440,7 @@
                       {{ lesson.subscription_coverage?.warning || 'Cours futur non couvert par un abonnement actif.' }}
                     </div>
                   </div>
+                </div>
                 </div>
               </template>
             </div>
@@ -831,6 +878,14 @@ import {
   getCertificateStatusClass,
   shouldShowCertificateStatusBadge,
 } from '~/composables/useCancellationLabels'
+import {
+  compareLessonsForHistoryDisplay,
+  groupLessonsByMonth,
+  lessonMatchesHistoryFilters,
+  resolveLessonHistoryPeriod,
+  type LessonPeriodMode,
+  type LessonStatusFilter,
+} from '~/composables/useStudentLessonHistoryFilters'
 
 const props = defineProps({
   student: {
@@ -884,6 +939,30 @@ const showCloseCertificateModal = ref(false)
 const lessonToClose = ref(null)
 const closeCertificateReason = ref('')
 
+const lessonStatusFilter = ref<LessonStatusFilter>('all')
+const lessonPeriodMode = ref<LessonPeriodMode>('current_quarter')
+
+const lessonHistoryPeriod = computed(() => resolveLessonHistoryPeriod(lessonPeriodMode.value))
+
+const filteredLessonsSorted = computed(() => {
+  const lessons = historyData.value?.lessons || []
+  const { from, to } = lessonHistoryPeriod.value
+
+  return lessons
+    .filter((lesson) =>
+      lessonMatchesHistoryFilters(lesson, lessonStatusFilter.value, from, to, {
+        alwaysShowPendingMedicalCerts: true,
+      }),
+    )
+    .sort(compareLessonsForHistoryDisplay)
+})
+
+const lessonsGroupedByMonth = computed(() =>
+  groupLessonsByMonth(filteredLessonsSorted.value, compareLessonsForHistoryDisplay),
+)
+
+const filteredLessonsCount = computed(() => filteredLessonsSorted.value.length)
+
 // Ouvrir la modale de conflit
 const openSlotConflictModal = () => {
   // Utiliser l'heure de début du créneau sélectionné si aucune heure n'est sélectionnée
@@ -936,24 +1015,6 @@ const isLessonUncovered = (lesson) => {
   return lesson?.subscription_coverage?.is_future === true && 
          lesson?.subscription_coverage?.is_covered === false
 }
-
-// Cours triés : d'abord ceux demandant une confirmation de certificat médical (en haut), puis par date croissante
-const lessonsSortedByDate = computed(() => {
-  const lessons = historyData.value?.lessons || []
-  const needsCertificateConfirmation = (l) =>
-    l?.status === 'cancelled' &&
-    l?.cancellation_reason === 'medical' &&
-    (l?.cancellation_certificate_status === 'pending' || l?.cancellation_certificate_path)
-  return [...lessons].sort((a, b) => {
-    const aFirst = needsCertificateConfirmation(a)
-    const bFirst = needsCertificateConfirmation(b)
-    if (aFirst && !bFirst) return -1
-    if (!aFirst && bFirst) return 1
-    const t1 = new Date(a.start_time).getTime()
-    const t2 = new Date(b.start_time).getTime()
-    return t1 - t2
-  })
-})
 
 // Date de fin la plus proche parmi les abonnements actifs (pour affichage "fin théorique")
 const subscriptionsEarliestEndFormatted = computed(() => {
@@ -1796,6 +1857,8 @@ onMounted(() => {
 
 // Recharger si le student change
 watch(() => props.student, () => {
+  lessonStatusFilter.value = 'all'
+  lessonPeriodMode.value = 'current_quarter'
   loadHistory()
 }, { immediate: true })
 
