@@ -225,225 +225,18 @@
               </div>
             </div>
 
-            <!-- Cours par mois (trimestre en cours par défaut) -->
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                </svg>
-                Calendrier des cours ({{ filteredLessonsCount }})
-              </h3>
-              <p class="text-sm text-gray-600 -mt-2 mb-4">
-                {{ lessonHistoryPeriod.label }} — regroupés par mois
-              </p>
+            <StudentHistoryLessonsPanel
+              ref="lessonsPanelRef"
+              :lessons="historyData?.lessons || []"
+              :subscriptions-earliest-end-formatted="subscriptionsEarliestEndFormatted || ''"
+              :certificate-action-loading="certificateActionLoading"
+              :is-lesson-uncovered="isLessonUncovered"
+              @edit-lesson="openEditLessonModal"
+              @download-certificate="downloadCertificate"
+              @accept-certificate="acceptCertificate"
+              @reject-certificate="openRejectCertificate"
+            />
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <div>
-                  <label for="lesson-status-filter" class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-                  <select
-                    id="lesson-status-filter"
-                    v-model="lessonStatusFilter"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="all">Tous les statuts</option>
-                    <option value="pending">En attente</option>
-                    <option value="confirmed">Confirmé</option>
-                    <option value="completed">Terminé</option>
-                    <option value="cancelled">Annulé</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="lesson-period-filter" class="block text-sm font-medium text-gray-700 mb-1">Période</label>
-                  <select
-                    id="lesson-period-filter"
-                    v-model="lessonPeriodMode"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="current_quarter">Trimestre en cours (à partir d'aujourd'hui)</option>
-                    <option value="with_previous_quarter">Trimestre en cours + trimestre précédent</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div v-if="!historyData?.lessons || historyData.lessons.length === 0" class="bg-gray-50 rounded-lg p-6 text-center">
-                <p class="text-gray-500">Aucun cours pour cet élève</p>
-              </div>
-
-              <div v-else-if="filteredLessonsCount === 0" class="bg-gray-50 rounded-lg p-6 text-center mb-4">
-                <p class="text-gray-500">Aucun cours ne correspond aux filtres sélectionnés.</p>
-              </div>
-              
-              <template v-else>
-                <!-- Fin théorique des abonnements à partir du … -->
-                <div 
-                  v-if="subscriptionsEarliestEndFormatted" 
-                  class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4"
-                >
-                  <p class="text-slate-800 font-medium">
-                    Fin théorique des abonnements à partir du {{ subscriptionsEarliestEndFormatted }}.
-                  </p>
-                </div>
-
-                <div
-                  v-for="monthGroup in lessonsGroupedByMonth"
-                  :key="monthGroup.key"
-                  class="mb-8 last:mb-0"
-                >
-                  <h4 class="text-base font-semibold text-purple-800 mb-3 flex items-center gap-2 capitalize">
-                    <span class="inline-block w-2 h-2 rounded-full bg-purple-500" aria-hidden="true"></span>
-                    {{ monthGroup.label }}
-                    <span class="text-sm font-normal text-gray-500">({{ monthGroup.lessons.length }})</span>
-                  </h4>
-
-                <!-- En-tête du tableau (desktop) -->
-                <div class="hidden md:grid md:grid-cols-12 gap-2 px-4 py-2 bg-gray-100 rounded-t-lg border border-b-0 border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                  <div class="col-span-2">Date</div>
-                  <div class="col-span-1">Heure</div>
-                  <div class="col-span-2">Type de cours</div>
-                  <div class="col-span-2">Enseignant</div>
-                  <div class="col-span-1">Statut</div>
-                  <div class="col-span-1">Prix</div>
-                  <div class="col-span-2">Lieu / Abo</div>
-                  <div class="col-span-1 text-right">Action</div>
-                </div>
-
-                <div class="space-y-2 border border-gray-200 rounded-b-lg md:rounded-t-none overflow-hidden">
-                  <div 
-                    v-for="lesson in monthGroup.lessons" 
-                    :key="lesson.id"
-                    :class="[
-                      'rounded-lg md:rounded-none p-4 md:py-3 border-b border-gray-100 last:border-b-0 md:grid md:grid-cols-12 md:gap-2 md:items-center transition-colors',
-                      isLessonUncovered(lesson) 
-                        ? 'bg-red-50 border-red-200 md:border-0' 
-                        : 'bg-white hover:bg-gray-50 md:border-0'
-                    ]"
-                  >
-                    <!-- Date (mise en avant) -->
-                    <div class="md:col-span-2 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Date</span>
-                      <p class="font-semibold text-gray-900">{{ formatDateShort(lesson.start_time) }}</p>
-                      <p class="text-xs text-gray-500">{{ formatWeekday(lesson.start_time) }}</p>
-                    </div>
-                    <!-- Heure -->
-                    <div class="md:col-span-1 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Heure</span>
-                      <p class="font-medium text-gray-900">{{ formatTimeOnly(lesson.start_time) }} – {{ formatTimeOnly(lesson.end_time) }}</p>
-                    </div>
-                    <!-- Type de cours + badges -->
-                    <div class="md:col-span-2 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Type</span>
-                      <p class="font-medium text-gray-900">{{ lesson.course_type?.name || 'Cours' }}</p>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <span 
-                          v-if="lesson.subscription_instances?.length"
-                          class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded"
-                        >✓ Abo</span>
-                        <span v-else class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-800 rounded">Séance libre</span>
-                        <span 
-                          v-if="isLessonUncovered(lesson)"
-                          class="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded"
-                        >⚠️ Non couvert</span>
-                        <span 
-                          v-else-if="lesson.subscription_coverage?.is_future && lesson.subscription_coverage?.is_covered"
-                          class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded"
-                        >✓ Couvert</span>
-                        <span 
-                          :class="{
-                            'bg-green-100 text-green-800': lesson.status === 'completed',
-                            'bg-yellow-100 text-yellow-800': lesson.status === 'pending' || lesson.status === 'confirmed',
-                            'bg-red-100 text-red-800': lesson.status === 'cancelled',
-                            'bg-gray-100 text-gray-800': !['completed','pending','confirmed','cancelled'].includes(lesson.status)
-                          }"
-                          class="px-1.5 py-0.5 text-xs rounded"
-                        >{{ getLessonStatusLabel(lesson.status) }}</span>
-                        <span
-                          v-if="lesson.status === 'cancelled' && (lesson.cancellation_count_in_subscription !== undefined || lesson.cancellation_reason === 'medical')"
-                          :class="getCancellationSubscriptionImpactClass(lesson)"
-                          class="px-1.5 py-0.5 text-xs rounded"
-                        >
-                          {{ getCancellationSubscriptionImpact(lesson) }}
-                        </span>
-                      </div>
-                    </div>
-                    <!-- Enseignant -->
-                    <div class="md:col-span-2 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Enseignant</span>
-                      <p class="text-gray-900">{{ lesson.teacher?.user?.name || '—' }}</p>
-                    </div>
-                    <!-- Statut (desktop: déjà dans Type) -->
-                    <div class="hidden md:block md:col-span-1">
-                      <span :class="statusLessonClass(lesson.status)">{{ getLessonStatusLabel(lesson.status) }}</span>
-                    </div>
-                    <!-- Prix -->
-                    <div class="md:col-span-1 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Prix</span>
-                      <p class="text-gray-900">{{ formatPrice(lesson.price || 0) }} €</p>
-                    </div>
-                    <!-- Lieu -->
-                    <div class="md:col-span-2 mb-2 md:mb-0">
-                      <span class="text-xs text-gray-500 md:hidden">Lieu</span>
-                      <p class="text-gray-700 text-sm">{{ lesson.location?.name || '—' }}</p>
-                    </div>
-                    <!-- Action -->
-                    <div class="md:col-span-1 flex justify-end items-start gap-2 mt-2 md:mt-0">
-                      <template v-if="lesson.status === 'cancelled' && lesson.cancellation_reason === 'medical' && lesson.cancellation_certificate_path">
-                        <span
-                          :class="{
-                            'bg-amber-100 text-amber-800': lesson.cancellation_certificate_status === 'pending',
-                            'bg-emerald-100 text-emerald-800': lesson.cancellation_certificate_status === 'accepted',
-                            'bg-red-100 text-red-800': lesson.cancellation_certificate_status === 'rejected',
-                            'bg-gray-100 text-gray-700': lesson.cancellation_certificate_status === 'closed'
-                          }"
-                          class="px-1.5 py-0.5 text-xs font-medium rounded"
-                        >
-                          {{ getCertificateStatusLabel(lesson.cancellation_certificate_status) }}
-                        </span>
-                        <button
-                          type="button"
-                          @click="downloadCertificate(lesson.id)"
-                          class="px-2 py-1 text-xs text-blue-600 hover:underline"
-                        >
-                          Télécharger
-                        </button>
-                        <template v-if="lesson.cancellation_certificate_status === 'pending'">
-                          <button
-                            @click="acceptCertificate(lesson)"
-                            :disabled="certificateActionLoading === lesson.id"
-                            class="px-2 py-1 text-xs font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            Accepter
-                          </button>
-                          <button
-                            @click="openRejectCertificate(lesson)"
-                            :disabled="certificateActionLoading === lesson.id"
-                            class="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
-                          >
-                            Refuser
-                          </button>
-                        </template>
-                      </template>
-                      <button
-                        v-if="lesson.status !== 'cancelled' || !lesson.cancellation_certificate_path"
-                        @click="openEditLessonModal(lesson)"
-                        class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        title="Modifier la déduction d'abonnement"
-                      >
-                        Modifier
-                      </button>
-                    </div>
-
-                    <!-- Avertissement non couvert (mobile, sous la ligne) -->
-                    <div 
-                      v-if="isLessonUncovered(lesson)" 
-                      class="md:col-span-12 mt-2 bg-red-100 border border-red-200 rounded p-2 text-red-800 text-sm"
-                    >
-                      {{ lesson.subscription_coverage?.warning || 'Cours futur non couvert par un abonnement actif.' }}
-                    </div>
-                  </div>
-                </div>
-                </div>
-              </template>
-            </div>
           </div>
         </div>
 
@@ -878,15 +671,6 @@ import {
   getCertificateStatusClass,
   shouldShowCertificateStatusBadge,
 } from '~/composables/useCancellationLabels'
-import {
-  compareLessonsForHistoryDisplay,
-  groupLessonsByMonth,
-  lessonMatchesHistoryFilters,
-  resolveLessonHistoryPeriod,
-  type LessonPeriodMode,
-  type LessonStatusFilter,
-} from '~/composables/useStudentLessonHistoryFilters'
-
 const props = defineProps({
   student: {
     type: Object,
@@ -939,29 +723,7 @@ const showCloseCertificateModal = ref(false)
 const lessonToClose = ref(null)
 const closeCertificateReason = ref('')
 
-const lessonStatusFilter = ref<LessonStatusFilter>('all')
-const lessonPeriodMode = ref<LessonPeriodMode>('current_quarter')
-
-const lessonHistoryPeriod = computed(() => resolveLessonHistoryPeriod(lessonPeriodMode.value))
-
-const filteredLessonsSorted = computed(() => {
-  const lessons = historyData.value?.lessons || []
-  const { from, to } = lessonHistoryPeriod.value
-
-  return lessons
-    .filter((lesson) =>
-      lessonMatchesHistoryFilters(lesson, lessonStatusFilter.value, from, to, {
-        alwaysShowPendingMedicalCerts: true,
-      }),
-    )
-    .sort(compareLessonsForHistoryDisplay)
-})
-
-const lessonsGroupedByMonth = computed(() =>
-  groupLessonsByMonth(filteredLessonsSorted.value, compareLessonsForHistoryDisplay),
-)
-
-const filteredLessonsCount = computed(() => filteredLessonsSorted.value.length)
+const lessonsPanelRef = ref(null)
 
 // Ouvrir la modale de conflit
 const openSlotConflictModal = () => {
@@ -1857,8 +1619,7 @@ onMounted(() => {
 
 // Recharger si le student change
 watch(() => props.student, () => {
-  lessonStatusFilter.value = 'all'
-  lessonPeriodMode.value = 'current_quarter'
+  lessonsPanelRef.value?.resetFilters?.()
   loadHistory()
 }, { immediate: true })
 
