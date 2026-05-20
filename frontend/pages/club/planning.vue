@@ -484,9 +484,18 @@
                     </div>
                     
                     <!-- Élève -->
-                    <div class="flex items-center gap-1 text-sm text-gray-700 mb-1">
-                      <span class="text-base">👤</span>
-                      <span class="font-medium truncate">{{ getLessonStudents(lesson) }}</span>
+                    <div class="flex items-center gap-1 text-sm text-gray-700 mb-1 min-w-0">
+                      <span class="text-base shrink-0">👤</span>
+                      <button
+                        v-if="resolveLessonPrimaryStudentId(lesson)"
+                        type="button"
+                        class="font-medium truncate text-left text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 min-w-0"
+                        :title="`Voir la fiche de ${getLessonStudents(lesson)}`"
+                        @click.stop="openStudentInfoFromLesson(lesson)"
+                      >
+                        {{ getLessonStudents(lesson) }}
+                      </button>
+                      <span v-else class="font-medium truncate">{{ getLessonStudents(lesson) }}</span>
                       <span 
                         v-if="hasActiveSubscription(lesson)"
                         class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 flex-shrink-0"
@@ -510,9 +519,18 @@
                     </div>
                     
                     <!-- Coach -->
-                    <div class="flex items-center gap-1 text-xs text-gray-500 mb-2">
-                      <span>🎓</span>
-                      <span class="truncate">{{ lesson.teacher?.user?.name || 'Coach' }}</span>
+                    <div class="flex items-center gap-1 text-xs text-gray-500 mb-2 min-w-0">
+                      <span class="shrink-0">🎓</span>
+                      <button
+                        v-if="resolveLessonTeacherId(lesson)"
+                        type="button"
+                        class="truncate text-left text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 min-w-0"
+                        :title="`Voir la fiche de ${lesson.teacher?.user?.name || 'l\'enseignant'}`"
+                        @click.stop="openTeacherInfoFromLesson(lesson)"
+                      >
+                        {{ lesson.teacher?.user?.name || 'Coach' }}
+                      </button>
+                      <span v-else class="truncate">Coach</span>
                     </div>
                     
                     <!-- Prix et boutons d'action -->
@@ -759,7 +777,15 @@
                           </div>
                         </td>
                         <td class="px-3 py-2 align-top text-gray-800">
-                          <span class="font-medium">{{ getLessonStudents(lesson) }}</span>
+                          <button
+                            v-if="resolveLessonPrimaryStudentId(lesson)"
+                            type="button"
+                            class="font-medium text-left text-blue-700 hover:underline"
+                            @click.stop="openStudentInfoFromLesson(lesson)"
+                          >
+                            {{ getLessonStudents(lesson) }}
+                          </button>
+                          <span v-else class="font-medium">{{ getLessonStudents(lesson) }}</span>
                           <span
                             v-if="hasActiveSubscription(lesson)"
                             class="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700"
@@ -779,7 +805,15 @@
                           </div>
                         </td>
                         <td class="px-3 py-2 align-top text-gray-600 truncate max-w-[10rem]">
-                          {{ lesson.teacher?.user?.name || '—' }}
+                          <button
+                            v-if="resolveLessonTeacherId(lesson)"
+                            type="button"
+                            class="text-left text-blue-700 hover:underline truncate max-w-full"
+                            @click.stop="openTeacherInfoFromLesson(lesson)"
+                          >
+                            {{ lesson.teacher?.user?.name || '—' }}
+                          </button>
+                          <span v-else>—</span>
                         </td>
                         <td class="px-3 py-2 align-top whitespace-nowrap">
                           <span
@@ -1024,7 +1058,15 @@
               <div class="grid grid-cols-2 gap-4">
                 <div class="bg-gray-50 rounded-lg p-4">
                   <label class="block text-sm font-medium text-gray-500 mb-1">Étudiant(s)</label>
-                  <p class="text-base font-semibold text-gray-900">
+                  <button
+                    v-if="resolveLessonPrimaryStudentId(selectedLesson)"
+                    type="button"
+                    class="text-base font-semibold text-blue-700 hover:underline text-left"
+                    @click="openStudentInfoFromLesson(selectedLesson)"
+                  >
+                    {{ getLessonStudents(selectedLesson) }}
+                  </button>
+                  <p v-else class="text-base font-semibold text-gray-900">
                     {{ getLessonStudents(selectedLesson) }}
                   </p>
                   <p
@@ -1049,9 +1091,15 @@
                 </div>
                 <div class="bg-gray-50 rounded-lg p-4">
                   <label class="block text-sm font-medium text-gray-500 mb-1">Coach</label>
-                  <p class="text-base font-semibold text-gray-900">
+                  <button
+                    v-if="resolveLessonTeacherId(selectedLesson)"
+                    type="button"
+                    class="text-base font-semibold text-blue-700 hover:underline text-left"
+                    @click="openTeacherInfoFromLesson(selectedLesson)"
+                  >
                     {{ selectedLesson.teacher?.user?.name || 'Non assigné' }}
-                  </p>
+                  </button>
+                  <p v-else class="text-base font-semibold text-gray-900">Non assigné</p>
                 </div>
               </div>
 
@@ -1157,6 +1205,14 @@
         </div>
       </div>
       
+      <PlanningParticipantInfoModal
+        :show="showParticipantInfoModal"
+        :type="participantInfoType"
+        :participant-id="participantInfoId"
+        :fallback-name="participantInfoName"
+        @close="closeParticipantInfoModal"
+      />
+
       <!-- Modale Historique complet -->
       <LessonsHistoryModal
         :show="showHistoryModal"
@@ -1484,6 +1540,11 @@ import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
 import LessonScheduleConflictModal from '~/components/planning/LessonScheduleConflictModal.vue'
 import type { ScheduleConflictPayload, PlanningAdviceAlternative } from '~/components/planning/LessonScheduleConflictModal.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
+import PlanningParticipantInfoModal from '~/components/planning/PlanningParticipantInfoModal.vue'
+import {
+  resolveLessonPrimaryStudentId,
+  resolveLessonTeacherId,
+} from '~/composables/planning/usePlanningParticipant'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
@@ -1619,6 +1680,10 @@ const createLessonRequestedTime = ref<string | null>(null)
 const showScheduleConflictModal = ref(false)
 const scheduleConflictPayload = ref<ScheduleConflictPayload | null>(null)
 const showHistoryModal = ref(false)
+const showParticipantInfoModal = ref(false)
+const participantInfoType = ref<'student' | 'teacher'>('student')
+const participantInfoId = ref<number | null>(null)
+const participantInfoName = ref('')
 const selectedSlotForLesson = ref<OpenSlot | null>(null)
 const selectedSlot = ref<OpenSlot | null>(null) // Créneau sélectionné pour filtrage
 const selectedDate = ref<Date | null>(null) // Date sélectionnée pour filtrage des cours
@@ -4675,6 +4740,36 @@ function findSlotContainingTime(slots: { start_time?: string; end_time?: string 
     if (slotStart <= startMin && slotEnd >= endMin) return slot
   }
   return null
+}
+
+function openStudentInfoFromLesson(lesson: Lesson) {
+  const id = resolveLessonPrimaryStudentId(lesson)
+  if (!id) {
+    warning('Aucun élève associé à ce cours.', 'Fiche élève')
+    return
+  }
+  participantInfoType.value = 'student'
+  participantInfoId.value = id
+  participantInfoName.value = getLessonStudents(lesson)
+  showParticipantInfoModal.value = true
+}
+
+function openTeacherInfoFromLesson(lesson: Lesson) {
+  const id = resolveLessonTeacherId(lesson)
+  if (!id) {
+    warning('Aucun enseignant associé à ce cours.', 'Fiche enseignant')
+    return
+  }
+  participantInfoType.value = 'teacher'
+  participantInfoId.value = id
+  participantInfoName.value = lesson.teacher?.user?.name || 'Enseignant'
+  showParticipantInfoModal.value = true
+}
+
+function closeParticipantInfoModal() {
+  showParticipantInfoModal.value = false
+  participantInfoId.value = null
+  participantInfoName.value = ''
 }
 
 // Formater une date complète (ex: "Mercredi 6 novembre 2025")

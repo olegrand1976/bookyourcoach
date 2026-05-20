@@ -169,6 +169,18 @@ class LessonController extends Controller
             }
 
             // Filtres optionnels
+            if ($request->filled('teacher_id') && $user->role === 'club') {
+                $query->where('teacher_id', (int) $request->teacher_id);
+            }
+
+            if ($request->filled('student_id') && $user->role === 'club') {
+                $studentId = (int) $request->student_id;
+                $query->where(function ($q) use ($studentId) {
+                    $q->where('student_id', $studentId)
+                        ->orWhereHas('students', fn ($sq) => $sq->where('students.id', $studentId));
+                });
+            }
+
             if ($request->has('status')) {
                 $query->where('status', $request->status);
             }
