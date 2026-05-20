@@ -319,24 +319,40 @@
           </div>
           
           <!-- Boutons d'action -->
-          <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button 
-              type="button" 
-              @click="$emit('close')" 
-              class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors font-medium"
+          <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              @click="$emit('close')"
+              :disabled="loading"
+              class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
             >
               Annuler
             </button>
-            <button 
-              type="submit" 
-              :disabled="loading" 
-              class="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center space-x-2"
+            <button
+              type="submit"
+              :disabled="loading"
+              class="px-6 py-3 border border-emerald-300 text-emerald-800 bg-emerald-50 rounded-lg hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
             >
-              <svg v-if="loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <svg v-if="loading && submitMode === 'student-only'" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>{{ loading ? 'Ajout en cours...' : 'Ajouter l\'élève' }}</span>
+              <span>{{ loading && submitMode === 'student-only' ? 'Ajout en cours...' : 'Ajouter l\'élève' }}</span>
+            </button>
+            <button
+              type="button"
+              :disabled="loading"
+              class="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center justify-center gap-2"
+              @click="addStudentAndCreateSubscription"
+            >
+              <svg v-if="loading && submitMode === 'with-subscription'" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              <span>{{ loading && submitMode === 'with-subscription' ? 'Création...' : 'Ajouter + créer abonnement' }}</span>
             </button>
           </div>
         </form>
@@ -349,9 +365,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 
-const emit = defineEmits(['close', 'success'])
+const emit = defineEmits(['close', 'success', 'success-create-subscription'])
 
 const loading = ref(false)
+/** @type {import('vue').Ref<'student-only' | 'with-subscription' | null>} */
+const submitMode = ref(null)
 const availableDisciplines = ref([])
 const selectedDisciplines = ref([])
 const medicalDocuments = ref([])
@@ -473,119 +491,120 @@ const handleFileUpload = (event, index) => {
   }
 }
 
+function normalizeCreatedStudent(raw) {
+  if (!raw?.id) return null
+  const name = [raw.first_name, raw.last_name].filter(Boolean).join(' ').trim()
+    || raw.user?.name
+    || 'Élève sans nom'
+  return {
+    ...raw,
+    name,
+    email: raw.user?.email || form.value.email?.trim() || raw.email || null,
+    first_name: raw.first_name ?? form.value.first_name?.trim() || null,
+    last_name: raw.last_name ?? form.value.last_name?.trim() || null,
+  }
+}
+
+async function createStudentRecord() {
+  let authStore = null
+  try {
+    authStore = useAuthStore()
+    if (authStore && typeof authStore.initializeAuth === 'function') {
+      if (!authStore.token) {
+        await authStore.initializeAuth()
+      }
+      if (!authStore.token && process.env.NODE_ENV !== 'test') {
+        const { error } = useToast()
+        error('Erreur d\'authentification. Veuillez vous reconnecter.', 'Authentification')
+        throw new Error('auth_missing')
+      }
+    }
+  } catch (piniaError) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('⚠️ [AddStudentModal] Pinia non disponible, l\'intercepteur API gérera le token')
+    }
+  }
+
+  const { $api } = useNuxtApp()
+
+  const studentData = {
+    first_name: form.value.first_name?.trim() || null,
+    last_name: form.value.last_name?.trim() || null,
+    date_of_birth: form.value.date_of_birth || null,
+    goals: form.value.goals?.trim() || null,
+    medical_info: form.value.medical_info?.trim() || null,
+    disciplines: selectedDisciplines.value.length > 0 ? selectedDisciplines.value : null,
+    medical_documents: medicalDocuments.value.filter(doc => doc.document_type && doc.file),
+  }
+
+  if (form.value.email && form.value.email.trim() !== '') {
+    studentData.email = form.value.email.trim()
+  }
+  studentData.phone = form.value.phone?.trim() || null
+
+  const response = await $api.post('/club/students', studentData)
+  const rawStudent = response.data.data || response.data.student
+
+  if (medicalDocuments.value.some(doc => doc.file) && rawStudent?.id) {
+    const formData = new FormData()
+    medicalDocuments.value.forEach((doc, index) => {
+      if (doc.file) {
+        formData.append(`documents[${index}][file]`, doc.file)
+        formData.append(`documents[${index}][document_type]`, doc.document_type)
+        formData.append(`documents[${index}][expiry_date]`, doc.expiry_date || '')
+        formData.append(`documents[${index}][renewal_frequency]`, doc.renewal_frequency || '')
+        formData.append(`documents[${index}][notes]`, doc.notes || '')
+      }
+    })
+    await $api.post(`/club/students/${rawStudent.id}/medical-documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  }
+
+  return { response, student: normalizeCreatedStudent(rawStudent) }
+}
+
 const addStudent = async () => {
+  submitMode.value = 'student-only'
   loading.value = true
   try {
-    // Vérifier l'authentification avant l'appel (uniquement si Pinia est disponible)
-    let authStore = null
-    try {
-      authStore = useAuthStore()
-      
-      // Vérifier si le store a les méthodes nécessaires et un token
-      if (authStore && typeof authStore.initializeAuth === 'function') {
-        // Forcer une réinitialisation de l'auth si le token n'est pas présent
-        if (!authStore.token) {
-          if (process.env.NODE_ENV !== 'test') {
-            console.warn('⚠️ Token manquant dans le store, tentative de restauration depuis cookies...')
-          }
-          await authStore.initializeAuth()
-        }
-        
-        if (!authStore.token && process.env.NODE_ENV !== 'test') {
-          console.error('❌ Aucun token d\'authentification disponible')
-          const { error } = useToast()
-          error('Erreur d\'authentification. Veuillez vous reconnecter.', 'Authentification')
-          return
-        }
-        
-        if (process.env.NODE_ENV !== 'test') {
-          console.log('🔑 [AddStudentModal] Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
-        }
-      }
-    } catch (piniaError) {
-      // Si Pinia n'est pas disponible, l'intercepteur API essaiera de récupérer le token depuis les cookies
-      if (process.env.NODE_ENV !== 'test') {
-        console.warn('⚠️ [AddStudentModal] Pinia non disponible, l\'intercepteur API gérera le token')
-      }
-    }
-    
-    // Utiliser $api qui inclut automatiquement le token via l'intercepteur
-    const { $api } = useNuxtApp()
-    
-    // Préparer les données de l'étudiant
-    // Important : envoyer les valeurs même si elles sont vides pour que Laravel puisse les traiter
-    const studentData = {
-      first_name: form.value.first_name?.trim() || null,
-      last_name: form.value.last_name?.trim() || null,
-      date_of_birth: form.value.date_of_birth || null,
-      goals: form.value.goals?.trim() || null,
-      medical_info: form.value.medical_info?.trim() || null,
-      disciplines: selectedDisciplines.value.length > 0 ? selectedDisciplines.value : null,
-      medical_documents: medicalDocuments.value.filter(doc => doc.document_type && doc.file)
-    }
-    
-    // Email : envoyer seulement si non vide (pour éviter les erreurs de validation)
-    if (form.value.email && form.value.email.trim() !== '') {
-      studentData.email = form.value.email.trim()
-    }
-    
-    // Téléphone : toujours envoyer, même si vide (pour que Laravel puisse le sauvegarder)
-    studentData.phone = form.value.phone?.trim() || null
-    
-    console.log('🔄 [AddStudentModal] Création de l\'élève:', studentData)
-    console.log('🔑 [AddStudentModal] Token présent:', !!authStore.token, 'Longueur:', authStore.token?.length)
-    
-    // Créer l'étudiant avec $api
-    const response = await $api.post('/club/students', studentData)
-    
-    console.log('✅ [AddStudentModal] Étudiant créé avec succès:', response.data)
-    
-    // Upload des documents médicaux si il y en a
-    if (medicalDocuments.value.some(doc => doc.file)) {
-      const formData = new FormData()
-      medicalDocuments.value.forEach((doc, index) => {
-        if (doc.file) {
-          formData.append(`documents[${index}][file]`, doc.file)
-          formData.append(`documents[${index}][document_type]`, doc.document_type)
-          formData.append(`documents[${index}][expiry_date]`, doc.expiry_date || '')
-          formData.append(`documents[${index}][renewal_frequency]`, doc.renewal_frequency || '')
-          formData.append(`documents[${index}][notes]`, doc.notes || '')
-        }
-      })
-      
-      const studentId = response.data.data?.id || response.data.student?.id
-      if (studentId) {
-        await $api.post(`/club/students/${studentId}/medical-documents`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        })
-      }
-    }
-    
-    // Afficher le toast de succès
+    const { response } = await createStudentRecord()
     const { success } = useToast()
     success(response.data.message || 'Étudiant créé avec succès !', 'Succès')
-    
-    // Émettre les événements
     emit('success', response.data)
     emit('close')
-    
   } catch (error) {
+    if (error?.message === 'auth_missing') return
     console.error('❌ [AddStudentModal] Erreur lors de l\'ajout de l\'élève:', error)
-    console.error('❌ [AddModal] Détails erreur:', {
-      message: error?.message,
-      response: error?.response?.data,
-      status: error?.response?.status
-    })
-    
-    // Afficher le toast d'erreur
     const { error: showError } = useToast()
-    const errorMessage = error?.response?.data?.message || 'Erreur lors de la création de l\'étudiant'
-    showError(errorMessage, 'Erreur')
-    
+    showError(error?.response?.data?.message || 'Erreur lors de la création de l\'étudiant', 'Erreur')
   } finally {
     loading.value = false
+    submitMode.value = null
+  }
+}
+
+const addStudentAndCreateSubscription = async () => {
+  submitMode.value = 'with-subscription'
+  loading.value = true
+  try {
+    const { response, student } = await createStudentRecord()
+    if (!student) {
+      throw new Error('student_missing')
+    }
+    const { success } = useToast()
+    success(response.data.message || 'Élève créé. Créez maintenant son abonnement.', 'Succès')
+    emit('success', response.data)
+    emit('success-create-subscription', student)
+    emit('close')
+  } catch (error) {
+    if (error?.message === 'auth_missing') return
+    console.error('❌ [AddStudentModal] Erreur ajout élève + abonnement:', error)
+    const { error: showError } = useToast()
+    showError(error?.response?.data?.message || 'Erreur lors de la création de l\'élève', 'Erreur')
+  } finally {
+    loading.value = false
+    submitMode.value = null
   }
 }
 

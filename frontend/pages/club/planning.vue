@@ -1473,6 +1473,7 @@ import {
   CLUB_PLANNING_MONTHS_FORWARD,
   getClubPlanningMaxDate,
   getClubPlanningMinDate,
+  getDefaultDateForSlotDay,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
 
@@ -3278,14 +3279,10 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       dateToUse = new Date(selectedDate.value)
       console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
     } else {
-      const today = new Date()
-      const targetDay = slot.day_of_week
-      const daysUntilTarget = (targetDay - today.getDay() + 7) % 7
-      dateToUse = new Date(today)
-      dateToUse.setDate(today.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget))
+      dateToUse = getDefaultDateForSlotDay(slot.day_of_week)
       selectedDate.value = dateToUse
       selectedDateInput.value = formatDateForInput(dateToUse)
-      console.log('📅 [openCreateLessonModal] Calcul de la prochaine date:', formatDateForInput(dateToUse))
+      console.log('📅 [openCreateLessonModal] Date par défaut du créneau:', formatDateForInput(dateToUse))
     }
 
     const dateStr = formatDateForInput(dateToUse)
@@ -4537,36 +4534,9 @@ function generateColorFromId(id: number): string {
 // 📅 NAVIGATION PAR DATE
 // ═══════════════════════════════════════════════════════════════════
 
-// Calculer la prochaine occurrence d'un jour de la semaine
+/** Prochaine occurrence du jour de créneau (aujourd'hui si c'est déjà ce jour-là). */
 function getNextOccurrence(dayOfWeek: number): Date {
-  const today = new Date()
-  const todayDayOfWeek = today.getDay() // 0 = Dimanche, 1 = Lundi, etc.
-  
-  // Calculer combien de jours ajouter pour atteindre le prochain jour désiré
-  let daysToAdd = dayOfWeek - todayDayOfWeek
-  
-  // Si le jour est déjà passé cette semaine, aller à la semaine prochaine
-  if (daysToAdd < 0) {
-    daysToAdd += 7
-  }
-  
-  // Si c'est aujourd'hui mais l'heure est déjà passée, aller à la semaine prochaine
-  if (daysToAdd === 0 && selectedSlot.value) {
-    const now = new Date()
-    const slotTime = selectedSlot.value.start_time.split(':')
-    const slotHour = parseInt(slotTime[0])
-    const slotMinute = parseInt(slotTime[1])
-    
-    if (now.getHours() > slotHour || (now.getHours() === slotHour && now.getMinutes() >= slotMinute)) {
-      daysToAdd = 7 // Aller à la semaine prochaine
-    }
-  }
-  
-  const nextDate = new Date(today)
-  nextDate.setDate(today.getDate() + daysToAdd)
-  nextDate.setHours(0, 0, 0, 0) // Reset à minuit
-  
-  return nextDate
+  return getDefaultDateForSlotDay(dayOfWeek)
 }
 
 // Naviguer vers la date précédente (même jour, semaine précédente)

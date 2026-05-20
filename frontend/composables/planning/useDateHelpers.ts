@@ -35,6 +35,22 @@ export function isDateWithinClubPlanningRange(date: Date, from: Date = new Date(
  * Décale d'un mois calendaire en conservant le jour du créneau (ex. samedi)
  * le plus proche du même numéro de jour dans le mois.
  */
+/**
+ * Date par défaut pour un créneau : aujourd'hui si c'est le bon jour de semaine,
+ * sinon la prochaine occurrence (sans sauter à la semaine suivante le jour même).
+ */
+export function getDefaultDateForSlotDay(dayOfWeek: number, from: Date = new Date()): Date {
+  const today = new Date(from)
+  today.setHours(0, 0, 0, 0)
+  let daysToAdd = dayOfWeek - today.getDay()
+  if (daysToAdd < 0) {
+    daysToAdd += 7
+  }
+  const result = new Date(today)
+  result.setDate(today.getDate() + daysToAdd)
+  return result
+}
+
 export function addMonthsForSlotWeekday(date: Date, monthDelta: number, dayOfWeek: number): Date {
   const anchorDay = date.getDate()
   const probe = new Date(date.getFullYear(), date.getMonth() + monthDelta, 1)

@@ -3,9 +3,27 @@ import {
   addMonthsForSlotWeekday,
   getClubPlanningMaxDate,
   getClubPlanningMinDate,
+  getDefaultDateForSlotDay,
   CLUB_PLANNING_MONTHS_FORWARD,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
+
+describe('getDefaultDateForSlotDay', () => {
+  it('reste sur aujourd’hui quand le jour du créneau est aujourd’hui', () => {
+    const today = new Date(2026, 4, 19, 18, 30, 0) // mardi 19 mai 2026, soir
+    const result = getDefaultDateForSlotDay(2, today) // mardi
+    expect(result.getFullYear()).toBe(2026)
+    expect(result.getMonth()).toBe(4)
+    expect(result.getDate()).toBe(19)
+  })
+
+  it('cible le prochain jour du créneau si ce n’est pas aujourd’hui', () => {
+    const today = new Date(2026, 4, 19) // mardi
+    const result = getDefaultDateForSlotDay(6, today) // samedi
+    expect(result.getDay()).toBe(6)
+    expect(result.getDate()).toBe(23)
+  })
+})
 
 describe('addMonthsForSlotWeekday', () => {
   it('avance au samedi le plus proche du même jour de mois', () => {

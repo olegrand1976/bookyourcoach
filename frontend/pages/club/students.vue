@@ -421,10 +421,20 @@
     </div>
 
     <!-- Modal d'ajout d'élève -->
-    <AddStudentModal 
-      v-if="showAddStudentModal" 
-      @close="showAddStudentModal = false" 
-      @success="loadStudents" 
+    <AddStudentModal
+      v-if="showAddStudentModal"
+      @close="showAddStudentModal = false"
+      @success="loadStudents"
+      @success-create-subscription="onStudentCreatedWithSubscription"
+    />
+
+    <!-- Création d'abonnement après ajout d'élève (élève pré-sélectionné) -->
+    <AssignSubscriptionModal
+      v-if="showAssignSubscriptionModal && studentForNewSubscription"
+      :student="studentForNewSubscription"
+      :show-family-option="true"
+      @close="closeAssignSubscriptionModal"
+      @success="onSubscriptionCreatedForNewStudent"
     />
 
     <!-- Modal de modification d'élève -->
@@ -455,6 +465,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import EditStudentModal from '~/components/EditStudentModal.vue'
+import AssignSubscriptionModal from '~/components/AssignSubscriptionModal.vue'
 import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
 import StudentHistoryModal from '~/components/StudentHistoryModal.vue'
 
@@ -466,6 +477,8 @@ const students = ref([])
 const stats = ref({ total: 0, active: 0, inactive: 0 })
 const availableDisciplines = ref([])
 const showAddStudentModal = ref(false)
+const showAssignSubscriptionModal = ref(false)
+const studentForNewSubscription = ref(null)
 const showEditStudentModal = ref(false)
 const showSubscriptionsModal = ref(false)
 const showHistoryModal = ref(false)
@@ -740,6 +753,26 @@ const viewStudentSubscriptions = (student) => {
   console.log('📋 Voir abonnements de l\'élève:', student)
   selectedStudent.value = { ...student }
   showSubscriptionsModal.value = true
+}
+
+const onStudentCreatedWithSubscription = async (student) => {
+  showAddStudentModal.value = false
+  await loadStudents()
+  studentForNewSubscription.value = {
+    ...student,
+    name: student.name || getStudentName(student),
+  }
+  showAssignSubscriptionModal.value = true
+}
+
+const closeAssignSubscriptionModal = () => {
+  showAssignSubscriptionModal.value = false
+  studentForNewSubscription.value = null
+}
+
+const onSubscriptionCreatedForNewStudent = async () => {
+  await loadStudents()
+  closeAssignSubscriptionModal()
 }
 
 const closeEditModal = () => {
