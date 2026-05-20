@@ -72,14 +72,21 @@
               <p class="text-sm text-gray-600">
                 {{ quarterPeriodLabel }}
               </p>
-              <p v-if="upcomingLessons.length === 0" class="text-sm text-gray-500 py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
-                Aucun cours prévu sur cette période.
+              <p
+                v-if="type === 'student' && cancelledLessonsCount > 0"
+                class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
+              >
+                {{ cancelledLessonsCount }} cours annulé{{ cancelledLessonsCount > 1 ? 's' : '' }} sur la période
+              </p>
+              <p v-if="displayedLessons.length === 0" class="text-sm text-gray-500 py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
+                {{ type === 'student' ? 'Aucun cours sur ce trimestre.' : 'Aucun cours prévu sur cette période.' }}
               </p>
               <ul v-else class="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
                 <li
-                  v-for="lesson in upcomingLessons"
+                  v-for="lesson in displayedLessons"
                   :key="lesson.id"
                   class="px-4 py-3 hover:bg-gray-50/80 text-sm"
+                  :class="lesson.status === 'cancelled' ? 'bg-red-50/40' : ''"
                 >
                   <div class="flex flex-wrap items-start justify-between gap-2">
                     <div class="min-w-0">
@@ -220,7 +227,7 @@ const titleId = 'planning-participant-info-title'
 const tabs = computed(() => {
   if (props.type === 'student') {
     return [
-      { id: 'lessons' as TabId, label: 'Cours à venir' },
+      { id: 'lessons' as TabId, label: 'Cours du trimestre' },
       { id: 'contact' as TabId, label: 'Coordonnées' },
       { id: 'subscriptions' as TabId, label: 'Abonnements' },
     ]
@@ -235,6 +242,9 @@ const quarterPeriod = computed(() => resolveUpcomingLessonPeriod('upcoming_quart
 
 const quarterPeriodLabel = computed(() => {
   const q = getCalendarQuarterBounds()
+  if (props.type === 'student') {
+    return `Trimestre en cours (T${q.quarter} ${q.year}) — cours prévus, passés et annulés`
+  }
   return `Trimestre en cours (T${q.quarter} ${q.year}) — ${quarterPeriod.value.label}`
 })
 
@@ -248,7 +258,15 @@ const headerTitle = computed(() => {
   return props.fallbackName || (props.type === 'student' ? 'Élève' : 'Enseignant')
 })
 
-const upcomingLessons = computed(() => {
+/** Cours affichés dans l'onglet Cours (élève : tout le trimestre dont annulés ; coach : à venir hors annulés). */
+const displayedLessons = computed(() => {
+  if (props.type === 'student') {
+    const bounds = getCalendarQuarterBounds()
+    return allLessons.value
+      .filter((lesson) => lessonMatchesHistoryFilters(lesson, 'all', bounds.start, bounds.end))
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  }
+
   const period = quarterPeriod.value
   return allLessons.value
     .filter((lesson) => {
@@ -257,6 +275,11 @@ const upcomingLessons = computed(() => {
       return lessonMatchesHistoryFilters(lesson, 'all', period.from, period.to)
     })
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+})
+
+const cancelledLessonsCount = computed(() => {
+  if (props.type !== 'student') return 0
+  return displayedLessons.value.filter((lesson) => lesson.status === 'cancelled').length
 })
 
 const contactRows = computed(() => {
