@@ -3,6 +3,72 @@
  * Utilisé dans le planning pour la navigation et le formatage
  */
 
+/** Fenêtre de navigation du planning club (depuis aujourd'hui). */
+export const CLUB_PLANNING_MONTHS_BACK = 6
+export const CLUB_PLANNING_MONTHS_FORWARD = 18
+
+export function getClubPlanningMinDate(from: Date = new Date()): Date {
+  const d = new Date(from)
+  d.setMonth(d.getMonth() - CLUB_PLANNING_MONTHS_BACK)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+export function getClubPlanningMaxDate(from: Date = new Date()): Date {
+  const d = new Date(from)
+  d.setMonth(d.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
+export function isDateWithinClubPlanningRange(date: Date, from: Date = new Date()): boolean {
+  const d = new Date(date)
+  d.setHours(12, 0, 0, 0)
+  const min = getClubPlanningMinDate(from)
+  const max = getClubPlanningMaxDate(from)
+  min.setHours(0, 0, 0, 0)
+  max.setHours(23, 59, 59, 999)
+  return d >= min && d <= max
+}
+
+/**
+ * Décale d'un mois calendaire en conservant le jour du créneau (ex. samedi)
+ * le plus proche du même numéro de jour dans le mois.
+ */
+export function addMonthsForSlotWeekday(date: Date, monthDelta: number, dayOfWeek: number): Date {
+  const anchorDay = date.getDate()
+  const probe = new Date(date.getFullYear(), date.getMonth() + monthDelta, 1)
+  const monthIndex = probe.getMonth()
+  const yearAdj = probe.getFullYear()
+
+  const candidates: Date[] = []
+  const first = new Date(yearAdj, monthIndex, 1)
+  const offset = (dayOfWeek - first.getDay() + 7) % 7
+  first.setDate(1 + offset)
+
+  for (let d = new Date(first); d.getMonth() === monthIndex; d.setDate(d.getDate() + 7)) {
+    candidates.push(new Date(d))
+  }
+
+  if (candidates.length === 0) {
+    return new Date(date)
+  }
+
+  let best = candidates[0]
+  let bestDist = Math.abs(best.getDate() - anchorDay)
+  for (const c of candidates) {
+    const dist = Math.abs(c.getDate() - anchorDay)
+    if (dist < bestDist) {
+      best = c
+      bestDist = dist
+    }
+  }
+
+  const result = new Date(best)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
 /**
  * Formater une date au format YYYY-MM-DD
  */

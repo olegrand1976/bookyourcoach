@@ -179,20 +179,39 @@
             </div>
 
             <!-- Navigation par date (visible uniquement si un créneau est sélectionné) -->
-            <div v-if="selectedSlot" class="flex flex-wrap items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div v-if="selectedSlot" class="flex flex-wrap items-center gap-2 sm:gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <button
+                type="button"
+                @click="navigateToPreviousMonth"
+                class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!canNavigatePreviousMonth || closureSaving"
+                title="Mois précédent"
+                aria-label="Mois précédent">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
                 @click="navigateToPreviousDate"
                 class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="!canNavigatePrevious || closureSaving"
-                title="Semaine précédente">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                title="Semaine précédente"
+                aria-label="Semaine précédente">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
-              <div class="flex-1 flex items-center justify-center gap-3">
-                <span class="text-sm font-medium text-gray-700">
+              <div class="flex-1 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 min-w-0">
+                <span class="text-sm font-medium text-gray-700 text-center">
                   📅 {{ formatDateFull(selectedDate) }}
+                </span>
+                <span
+                  v-if="selectedDate"
+                  class="text-xs text-gray-500 tabular-nums"
+                >
+                  {{ formatPlanningMonthLabel(selectedDate) }}
                 </span>
                 <input
                   type="date"
@@ -229,12 +248,25 @@
               </div>
 
               <button
+                type="button"
                 @click="navigateToNextDate"
                 class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="!canNavigateNext || closureSaving"
-                title="Semaine suivante">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                title="Semaine suivante"
+                aria-label="Semaine suivante">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                @click="navigateToNextMonth"
+                class="p-2 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!canNavigateNextMonth || closureSaving"
+                title="Mois suivant"
+                aria-label="Mois suivant">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M6 5l7 7-7 7" />
                 </svg>
               </button>
 
@@ -1435,6 +1467,14 @@ import {
   subscriptionRecurringSlotFiresOnDate,
   isLessonLikeRecurringSlot,
 } from '~/utils/subscriptionRecurringSlot'
+import {
+  addMonthsForSlotWeekday,
+  CLUB_PLANNING_MONTHS_BACK,
+  CLUB_PLANNING_MONTHS_FORWARD,
+  getClubPlanningMaxDate,
+  getClubPlanningMinDate,
+  isDateWithinClubPlanningRange,
+} from '~/composables/planning/useDateHelpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -2532,11 +2572,11 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     const today = new Date()
     const startDate = customStartDate || new Date(today)
     if (!customStartDate) {
-      startDate.setMonth(today.getMonth() - 3) // 3 mois en arrière
+      startDate.setMonth(today.getMonth() - CLUB_PLANNING_MONTHS_BACK)
     }
     const endDate = customEndDate || new Date(today)
     if (!customEndDate) {
-      endDate.setMonth(today.getMonth() + 3) // 3 mois en avant
+      endDate.setMonth(today.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
     }
     
     const response = await $api.get('/lessons', {
@@ -2630,11 +2670,11 @@ async function loadClosureDays(
     const today = new Date()
     const startDate = customStartDate ? new Date(customStartDate) : new Date(today)
     if (!customStartDate) {
-      startDate.setMonth(today.getMonth() - 3)
+      startDate.setMonth(today.getMonth() - CLUB_PLANNING_MONTHS_BACK)
     }
     const endDate = customEndDate ? new Date(customEndDate) : new Date(today)
     if (!customEndDate) {
-      endDate.setMonth(today.getMonth() + 3)
+      endDate.setMonth(today.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
     }
     const dateFrom = startDate.toISOString().split('T')[0]
     const dateTo = endDate.toISOString().split('T')[0]
@@ -4536,11 +4576,7 @@ function navigateToPreviousDate() {
   const newDate = new Date(selectedDate.value)
   newDate.setDate(newDate.getDate() - 7) // Soustraire 7 jours
   
-  selectedDate.value = newDate
-  selectedDateInput.value = formatDateForInput(newDate)
-  
-  // Recharger les cours si nécessaire pour couvrir la nouvelle plage
-  checkAndReloadLessonsIfNeeded(newDate)
+  applySelectedPlanningDate(newDate)
 }
 
 // Naviguer vers la date suivante (même jour, semaine suivante)
@@ -4550,10 +4586,24 @@ function navigateToNextDate() {
   const newDate = new Date(selectedDate.value)
   newDate.setDate(newDate.getDate() + 7) // Ajouter 7 jours
   
+  applySelectedPlanningDate(newDate)
+}
+
+function navigateToPreviousMonth() {
+  if (!selectedDate.value || !selectedSlot.value) return
+  const newDate = addMonthsForSlotWeekday(selectedDate.value, -1, selectedSlot.value.day_of_week)
+  applySelectedPlanningDate(newDate)
+}
+
+function navigateToNextMonth() {
+  if (!selectedDate.value || !selectedSlot.value) return
+  const newDate = addMonthsForSlotWeekday(selectedDate.value, 1, selectedSlot.value.day_of_week)
+  applySelectedPlanningDate(newDate)
+}
+
+function applySelectedPlanningDate(newDate: Date) {
   selectedDate.value = newDate
   selectedDateInput.value = formatDateForInput(newDate)
-  
-  // Recharger les cours si nécessaire pour couvrir la nouvelle plage
   checkAndReloadLessonsIfNeeded(newDate)
 }
 
@@ -4567,9 +4617,9 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     // Si aucune plage n'est chargée, charger autour de la date cible
     console.log('🔄 Aucune plage chargée, chargement autour de la date:', targetDate.toISOString().split('T')[0])
     const startDate = new Date(targetDate)
-    startDate.setMonth(targetDate.getMonth() - 3) // 3 mois avant
+    startDate.setMonth(targetDate.getMonth() - CLUB_PLANNING_MONTHS_BACK)
     const endDate = new Date(targetDate)
-    endDate.setMonth(targetDate.getMonth() + 3) // 3 mois après
+    endDate.setMonth(targetDate.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
     await loadLessons(startDate, endDate)
     return
   }
@@ -4589,13 +4639,13 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     // Si la date est avant la plage chargée, étendre vers le passé
     if (targetDate < loadedStart) {
       newStartDate = new Date(targetDate)
-      newStartDate.setMonth(targetDate.getMonth() - 3) // 3 mois avant
+      newStartDate.setMonth(targetDate.getMonth() - CLUB_PLANNING_MONTHS_BACK)
     }
     
     // Si la date est après la plage chargée, étendre vers le futur
     if (targetDate > loadedEnd) {
       newEndDate = new Date(targetDate)
-      newEndDate.setMonth(targetDate.getMonth() + 3) // 3 mois après
+      newEndDate.setMonth(targetDate.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
     }
     
     // Charger seulement la partie manquante
@@ -4802,34 +4852,51 @@ function formatDateFull(date: Date | null): string {
   return date.toLocaleDateString('fr-FR', options)
 }
 
-// Obtenir la date minimum (3 mois avant aujourd'hui)
 function getMinDate(): string {
-  const minDate = new Date()
-  minDate.setMonth(minDate.getMonth() - 3) // 3 mois avant
-  return formatDateForInput(minDate)
+  return formatDateForInput(getClubPlanningMinDate())
 }
 
-// Obtenir la date maximum (par exemple, 3 mois après aujourd'hui)
 function getMaxDate(): string {
-  const maxDate = new Date()
-  maxDate.setMonth(maxDate.getMonth() + 3) // 3 mois après
-  return formatDateForInput(maxDate)
+  return formatDateForInput(getClubPlanningMaxDate())
+}
+
+function formatPlanningMonthLabel(date: Date | null): string {
+  if (!date) return ''
+  return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(date)
+}
+
+function startOfDay(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 // Computed: Peut-on naviguer vers la date précédente ?
 const canNavigatePrevious = computed(() => {
   if (!selectedDate.value) return false
-  const minDate = new Date()
-  minDate.setMonth(minDate.getMonth() - 3) // 3 mois avant
-  return selectedDate.value > minDate
+  const prev = new Date(selectedDate.value)
+  prev.setDate(prev.getDate() - 7)
+  return isDateWithinClubPlanningRange(prev)
 })
 
 // Computed: Peut-on naviguer vers la date suivante ?
 const canNavigateNext = computed(() => {
   if (!selectedDate.value) return false
-  const maxDate = new Date()
-  maxDate.setMonth(maxDate.getMonth() + 3)
-  return selectedDate.value < maxDate
+  const next = new Date(selectedDate.value)
+  next.setDate(next.getDate() + 7)
+  return isDateWithinClubPlanningRange(next)
+})
+
+const canNavigatePreviousMonth = computed(() => {
+  if (!selectedDate.value || !selectedSlot.value) return false
+  const prev = addMonthsForSlotWeekday(selectedDate.value, -1, selectedSlot.value.day_of_week)
+  return isDateWithinClubPlanningRange(prev) && startOfDay(prev).getTime() < startOfDay(selectedDate.value).getTime()
+})
+
+const canNavigateNextMonth = computed(() => {
+  if (!selectedDate.value || !selectedSlot.value) return false
+  const next = addMonthsForSlotWeekday(selectedDate.value, 1, selectedSlot.value.day_of_week)
+  return isDateWithinClubPlanningRange(next) && startOfDay(next).getTime() > startOfDay(selectedDate.value).getTime()
 })
 
 // Computed: Est-ce que le jour actuel correspond au jour du créneau sélectionné ?
