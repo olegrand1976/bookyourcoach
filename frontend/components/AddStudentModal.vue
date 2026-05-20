@@ -500,8 +500,8 @@ function normalizeCreatedStudent(raw) {
     ...raw,
     name,
     email: raw.user?.email || form.value.email?.trim() || raw.email || null,
-    first_name: raw.first_name ?? form.value.first_name?.trim() || null,
-    last_name: raw.last_name ?? form.value.last_name?.trim() || null,
+    first_name: raw.first_name ?? (form.value.first_name?.trim() || null),
+    last_name: raw.last_name ?? (form.value.last_name?.trim() || null),
   }
 }
 
