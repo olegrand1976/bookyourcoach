@@ -2909,22 +2909,23 @@ class LessonController extends Controller
                 ], 422);
             }
 
-            $lessonsToProcess = $this->lessonDeletionService->resolveLessonsToProcess(
-                $lesson,
-                $cancelScope,
-                $action,
-                $explicitLessonIds,
-                $targetStudentId
-            );
-
-            if ($explicitLessonIds !== null && $explicitLessonIds !== []) {
-                $invalid = $lessonsToProcess->first(fn (Lesson $l) => (int) $l->club_id !== (int) $club->id);
-                if ($invalid !== null) {
+            try {
+                $lessonsToProcess = $this->lessonDeletionService->resolveLessonsToProcess(
+                    $lesson,
+                    $cancelScope,
+                    $action,
+                    $explicitLessonIds,
+                    $targetStudentId
+                );
+            } catch (\InvalidArgumentException $e) {
+                if ((int) $e->getCode() === 422) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Un ou plusieurs cours ne appartiennent pas à ce club.',
+                        'message' => $e->getMessage(),
                     ], 422);
                 }
+
+                throw $e;
             }
 
             $processedCount = 0;
@@ -3001,8 +3002,9 @@ class LessonController extends Controller
                 'data' => [
                     'processed_count' => $processedCount,
                     'processed_lesson_ids' => $processedLessons,
-                    'action' => $action
-                ]
+                    'cancelled_lesson_ids' => $action === 'cancel' ? $processedLessons : [],
+                    'action' => $action,
+                ],
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

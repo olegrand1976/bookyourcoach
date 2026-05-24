@@ -92,14 +92,13 @@ class LessonDeletionService
         $targetStudentId = $targetStudentId ?? $this->resolveParticipantStudentId($lesson);
 
         if ($explicitLessonIds !== null && $explicitLessonIds !== []) {
-            $ids = array_values(array_unique(array_map('intval', $explicitLessonIds)));
-
-            return Lesson::query()
-                ->where('club_id', $lesson->club_id)
-                ->whereIn('id', $ids)
-                ->with(['student.user', 'students.user', 'courseType'])
-                ->orderBy('start_time')
-                ->get();
+            return $this->resolveExplicitLessonIdsSubset(
+                $lesson,
+                $cancelScope,
+                $action,
+                $explicitLessonIds,
+                $targetStudentId
+            );
         }
 
         if ($cancelScope === 'single') {
@@ -121,6 +120,37 @@ class LessonDeletionService
         $futureLessons = $this->queryFutureLessonsForSameSlot($lesson, $subscriptionInstance, $targetStudentId, $action);
 
         return $collection->merge($futureLessons)->unique('id')->values();
+    }
+
+    /**
+     * Restreint lesson_ids au périmètre autorisé (preview / cascade sans liste explicite).
+     *
+     * @param  array<int>  $explicitLessonIds
+     * @return Collection<int, Lesson>
+     */
+    public function resolveExplicitLessonIdsSubset(
+        Lesson $lesson,
+        string $cancelScope,
+        string $action,
+        array $explicitLessonIds,
+        ?int $targetStudentId = null
+    ): Collection {
+        $requested = array_values(array_unique(array_map('intval', $explicitLessonIds)));
+        $allowed = $this->resolveLessonsToProcess($lesson, $cancelScope, $action, null, $targetStudentId);
+        $allowedIds = $allowed->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $illegal = array_values(array_diff($requested, $allowedIds));
+        if ($illegal !== []) {
+            throw new \InvalidArgumentException(
+                'Un ou plusieurs cours sont hors du périmètre autorisé pour cette action.',
+                422
+            );
+        }
+
+        return $allowed
+            ->whereIn('id', $requested)
+            ->sortBy('start_time')
+            ->values();
     }
 
     /**

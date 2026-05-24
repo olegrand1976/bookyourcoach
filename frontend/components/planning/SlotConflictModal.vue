@@ -191,11 +191,43 @@
               </div>
             </div>
 
+            <template v-if="cancelModalStep === 'select'">
+              <p class="text-sm text-gray-600 mb-3">
+                Plusieurs séances seraient impactées. Cochez uniquement celles à annuler.
+              </p>
+              <div
+                v-if="siblingWarningsForCancel.length > 0"
+                class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 text-sm text-amber-900"
+              >
+                <strong>Abonnement familial :</strong> d'autres cours le même jour pour d'autres élèves ne sont pas cochés par défaut.
+              </div>
+              <ul class="space-y-2 mb-4 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                <li
+                  v-for="item in affectedLessonsForCancel"
+                  :key="item.id"
+                  class="flex items-start gap-2 p-2 rounded hover:bg-gray-50"
+                >
+                  <input
+                    :id="`slot-cancel-${item.id}`"
+                    v-model="selectedCancelLessonIds"
+                    type="checkbox"
+                    :value="item.id"
+                    class="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <label :for="`slot-cancel-${item.id}`" class="text-sm cursor-pointer flex-1">
+                    <span class="font-medium text-gray-900">{{ item.student_name }}</span>
+                    <span class="text-gray-600"> — {{ formatLessonDateTime(item.start_time) }}</span>
+                  </label>
+                </li>
+              </ul>
+            </template>
+            <template v-else>
             <div v-if="cancelScope === 'all_future'" class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
               <p class="text-sm text-orange-800">
-                <strong>Attention :</strong> Tous les cours futurs de cet abonnement seront également annulés.
+                <strong>Attention :</strong> Les séances futures du même créneau et du même élève seront concernées.
               </p>
             </div>
+            </template>
 
             <!-- Raison -->
             <div class="mb-4">
@@ -220,12 +252,27 @@
               Annuler
             </button>
             <button
+              v-if="cancelModalStep === 'select'"
+              type="button"
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              :disabled="cancelling"
+              @click="cancelModalStep = 'confirm'"
+            >
+              Retour
+            </button>
+            <button
               @click="confirmCancel"
               class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              :disabled="cancelling"
+              :disabled="cancelling || (cancelModalStep === 'select' && selectedCancelLessonIds.length === 0)"
             >
               <span v-if="cancelling" class="animate-spin">⏳</span>
-              <span>{{ cancelling ? 'Annulation...' : 'Confirmer l\'annulation' }}</span>
+              <span>{{
+                cancelling
+                  ? 'Annulation...'
+                  : cancelModalStep === 'select'
+                    ? `Confirmer (${selectedCancelLessonIds.length})`
+                    : 'Confirmer l\'annulation'
+              }}</span>
             </button>
           </div>
         </div>
@@ -285,10 +332,19 @@ const lessons = ref<Lesson[]>([])
 const slotInfo = ref<SlotInfo | null>(null)
 
 const showCancelConfirm = ref(false)
+const cancelModalStep = ref<'confirm' | 'select'>('confirm')
 const lessonToCancel = ref<Lesson | null>(null)
 const cancelScope = ref<'single' | 'all_future'>('single')
 const cancelReason = ref('')
 const cancelling = ref(false)
+const affectedLessonsForCancel = ref<Array<{
+  id: number
+  student_name: string
+  start_time: string
+  status?: string
+}>>([])
+const siblingWarningsForCancel = ref<Array<{ id: number }>>([])
+const selectedCancelLessonIds = ref<number[]>([])
 
 // Charger les cours du créneau
 const loadSlotOccupants = async () => {
@@ -334,6 +390,10 @@ const openCancelModal = (lesson: Lesson, scope: 'single' | 'all_future') => {
   lessonToCancel.value = lesson
   cancelScope.value = scope
   cancelReason.value = ''
+  cancelModalStep.value = 'confirm'
+  affectedLessonsForCancel.value = []
+  siblingWarningsForCancel.value = []
+  selectedCancelLessonIds.value = []
   showCancelConfirm.value = true
 }
 
@@ -342,37 +402,93 @@ const closeCancelConfirm = () => {
   showCancelConfirm.value = false
   lessonToCancel.value = null
   cancelReason.value = ''
+  cancelModalStep.value = 'confirm'
+  affectedLessonsForCancel.value = []
+  siblingWarningsForCancel.value = []
+  selectedCancelLessonIds.value = []
 }
 
-// Confirmer l'annulation
+async function fetchSlotDeletionPreview(
+  lessonId: number,
+  scope: 'single' | 'all_future'
+) {
+  const { $api } = useNuxtApp()
+  const response = await $api.get(`/club/lessons/${lessonId}/deletion-preview`, {
+    params: { cancel_scope: scope, action: 'cancel' },
+  })
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'Prévisualisation impossible')
+  }
+  return response.data.data
+}
+
+async function executeSlotLessonCancel(lessonIds?: number[]) {
+  if (!lessonToCancel.value) return
+
+  const { $api } = useNuxtApp()
+  const payload: Record<string, unknown> = {
+    cancel_scope: cancelScope.value,
+    action: 'cancel',
+    reason: cancelReason.value || 'Libération du créneau',
+  }
+  if (lessonIds && lessonIds.length > 0) {
+    payload.lesson_ids = lessonIds
+  }
+
+  const response = await $api.delete(`/club/lessons/${lessonToCancel.value.id}`, { data: payload })
+
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || 'Erreur lors de l\'annulation du cours')
+  }
+
+  const data = response.data.data ?? {}
+  const processedIds: number[] =
+    data.processed_lesson_ids ?? data.cancelled_lesson_ids ?? []
+
+  emit('lesson-cancelled', processedIds)
+  closeCancelConfirm()
+  await loadSlotOccupants()
+
+  if (lessons.value.length === 0) {
+    close()
+  }
+}
+
+// Confirmer l'annulation (preview + sélection si plusieurs cours)
 const confirmCancel = async () => {
   if (!lessonToCancel.value) return
-  
+
+  if (cancelModalStep.value === 'select') {
+    cancelling.value = true
+    try {
+      await executeSlotLessonCancel(selectedCancelLessonIds.value)
+    } catch (error: any) {
+      console.error('Erreur annulation cours:', error)
+      alert(error.response?.data?.message || error.message || 'Erreur lors de l\'annulation du cours')
+    } finally {
+      cancelling.value = false
+    }
+    return
+  }
+
   cancelling.value = true
   try {
-    const { $api } = useNuxtApp()
-    const response = await $api.post(`/lessons/${lessonToCancel.value.id}/cancel-with-future`, {
-      cancel_scope: cancelScope.value,
-      action: 'cancel',
-      reason: cancelReason.value || 'Libération du créneau'
-    })
-    
-    if (response.data.success) {
-      // Émettre l'événement avec les IDs des cours annulés
-      emit('lesson-cancelled', response.data.data.cancelled_lesson_ids)
-      
-      // Fermer la confirmation et recharger la liste
-      closeCancelConfirm()
-      await loadSlotOccupants()
-      
-      // Si plus de cours, fermer la modale principale
-      if (lessons.value.length === 0) {
-        close()
-      }
+    const preview = await fetchSlotDeletionPreview(lessonToCancel.value.id, cancelScope.value)
+    const affected = preview.affected_lessons || []
+
+    if (affected.length <= 1) {
+      const ids = affected.map((l: { id: number }) => l.id)
+      await executeSlotLessonCancel(ids.length > 0 ? ids : [lessonToCancel.value.id])
+      return
     }
+
+    affectedLessonsForCancel.value = affected
+    siblingWarningsForCancel.value = preview.sibling_warnings || []
+    selectedCancelLessonIds.value = [lessonToCancel.value.id]
+    cancelModalStep.value = 'select'
   } catch (error: any) {
     console.error('Erreur annulation cours:', error)
-    alert(error.response?.data?.message || 'Erreur lors de l\'annulation du cours')
+    alert(error.response?.data?.message || error.message || 'Erreur lors de l\'annulation du cours')
   } finally {
     cancelling.value = false
   }
@@ -386,6 +502,18 @@ const formatDate = (dateStr: string | undefined) => {
     weekday: 'long', 
     day: 'numeric', 
     month: 'long' 
+  })
+}
+
+const formatLessonDateTime = (timeStr: string | undefined) => {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  return date.toLocaleString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 

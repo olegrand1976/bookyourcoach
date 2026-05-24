@@ -4296,24 +4296,17 @@ async function confirmAndDeleteLesson(lesson: Lesson) {
 async function checkFutureLessonsForDelete(lesson: Lesson) {
   futureLessonsCountForDelete.value = 0
   siblingWarningsForDelete.value = []
+  lessonToDelete.value = lesson
+
+  const hasSubscription = Boolean(
+    (lesson as { subscription_instances?: unknown[] }).subscription_instances?.length
+  )
+
+  if (!hasSubscription) {
+    return
+  }
 
   try {
-    const { $api } = useNuxtApp()
-    const response = await $api.get(`/lessons/${lesson.id}`, {
-      params: { include: 'subscription_instances' },
-    })
-
-    if (!response.data.success || !response.data.data) {
-      lessonToDelete.value = lesson
-      return
-    }
-
-    lessonToDelete.value = response.data.data
-
-    if (!lessonToDelete.value.subscription_instances?.length) {
-      return
-    }
-
     const preview = await fetchDeletionPreview(lesson.id, 'all_future', 'delete')
     const affected = preview.affected_lessons || []
     futureLessonsCountForDelete.value = Math.max(0, affected.length - 1)

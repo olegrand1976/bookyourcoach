@@ -333,6 +333,46 @@ class FamilySubscriptionLessonDeletionTest extends TestCase
     }
 
     #[Test]
+    public function lesson_ids_outside_allowed_scope_returns_422(): void
+    {
+        $slotStart = Carbon::parse('next monday')->setTime(9, 0, 0);
+        $slotEnd = $slotStart->copy()->addHour();
+
+        $lessonA = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy(),
+            'end_time' => $slotEnd->copy(),
+            'status' => 'confirmed',
+        ]);
+        $this->attachLesson($lessonA);
+
+        $lessonB = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentB->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy()->addWeek(),
+            'end_time' => $slotEnd->copy()->addWeek(),
+            'status' => 'confirmed',
+        ]);
+        $this->attachLesson($lessonB);
+
+        $response = $this->deleteJson("/api/club/lessons/{$lessonA->id}", [
+            'cancel_scope' => 'single',
+            'action' => 'delete',
+            'lesson_ids' => [$lessonB->id],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('lessons', ['id' => $lessonB->id]);
+    }
+
+    #[Test]
     public function subscriptions_index_family_shared_filter(): void
     {
         $soloSubscription = Subscription::create([
