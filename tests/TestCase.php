@@ -17,13 +17,17 @@ abstract class TestCase extends BaseTestCase
      */
     protected function setUp(): void
     {
+        if (extension_loaded('pdo_sqlite')) {
+            $databasePath = dirname(__DIR__).'/database/testing.sqlite';
+            if (! file_exists($databasePath)) {
+                touch($databasePath);
+            }
+        }
+
         parent::setUp();
 
         if (extension_loaded('pdo_sqlite')) {
             $databasePath = database_path('testing.sqlite');
-            if (! file_exists($databasePath)) {
-                touch($databasePath);
-            }
             config(['database.default' => 'sqlite']);
             config(['database.connections.sqlite' => [
                 'driver' => 'sqlite',

@@ -68,26 +68,14 @@ class ClubMiddlewareTest extends TestCase
     }
 
     /**
-     * Test : Refus d'un utilisateur admin
-     * 
-     * BUT : Vérifier qu'un admin ne peut pas accéder aux routes club
-     * 
-     * ENTRÉE : 
-     * - Un utilisateur avec role = 'admin'
-     * - Une association avec un club
-     * 
-     * SORTIE ATTENDUE : 
-     * - Code HTTP 403
-     * 
-     * POURQUOI : Le middleware actuel vérifie uniquement le rôle 'club',
-     *            donc les admins sont refusés même s'ils sont associés à un club.
+     * Test : Autorisation d'un utilisateur admin plateforme sur les routes club.
      */
     #[Test]
-    public function it_denies_admin_user()
+    public function it_allows_admin_user()
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $club = Club::factory()->create();
-        
+
         $club->users()->attach($admin->id, [
             'role' => 'owner',
             'is_admin' => true,
@@ -104,9 +92,7 @@ class ClubMiddlewareTest extends TestCase
             return new Response('OK', 200);
         });
 
-        // Note : Le middleware actuel ne permet que le rôle 'club', donc les admins sont refusés
-        // Si vous voulez permettre les admins, modifiez le middleware
-        $this->assertEquals(403, $response->getStatusCode());
+        $this->assertEquals(200, $response->getStatusCode());
     }
 
     /**
@@ -245,24 +231,14 @@ class ClubMiddlewareTest extends TestCase
     }
 
     /**
-     * Test : Refus d'un admin sans association club
-     * 
-     * BUT : Vérifier qu'un admin sans association club est refusé
-     * 
-     * ENTRÉE : 
-     * - Un utilisateur avec role = 'admin'
-     * - Pas d'association avec un club
-     * 
-     * SORTIE ATTENDUE : 
-     * - Code HTTP 403
-     * 
-     * POURQUOI : Le middleware vérifie uniquement le rôle 'club', donc les admins sont refusés.
+     * Test : Autorisation d'un admin sans association club explicite
+     *
+     * Le middleware autorise role admin (aligné avec l'espace club Nuxt pour les admins plateforme).
      */
     #[Test]
-    public function it_denies_admin_user_without_club_association()
+    public function it_allows_admin_user_without_club_association()
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        // Ne pas associer l'admin à un club
 
         $middleware = new ClubMiddleware();
         $request = Request::create('/api/club/dashboard');
@@ -274,8 +250,7 @@ class ClubMiddlewareTest extends TestCase
             return new Response('OK', 200);
         });
 
-        $this->assertEquals(403, $response->getStatusCode());
-        $this->assertJson($response->getContent());
+        $this->assertEquals(200, $response->getStatusCode());
     }
 
     /**

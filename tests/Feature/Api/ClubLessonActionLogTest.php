@@ -51,7 +51,7 @@ class ClubLessonActionLogTest extends TestCase
             'meta' => ['student_names' => ['Test Eleve']],
         ]);
 
-        $response = $this->getJson('/api/club/lesson-action-logs');
+        $response = $this->getJson('/api/club/lesson-action-logs?action=' . LessonActionLog::ACTION_CREATED);
 
         $response->assertStatus(200)
             ->assertJson(['success' => true])

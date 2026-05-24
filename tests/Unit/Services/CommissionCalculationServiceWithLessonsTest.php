@@ -90,10 +90,10 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
             'role' => 'teacher',
         ]);
 
-        // Pas de tarif horaire par défaut pour préserver les scénarios montant / prorata (tarif facultatif jusqu’à saisi).
+        // 0 = pas de tarif horaire effectif (colonne NOT NULL en base ; > 0 requis pour la paie au taux horaire).
         $this->teacherAlpha = Teacher::create([
             'user_id' => $userAlpha->id,
-            'hourly_rate' => null,
+            'hourly_rate' => 0,
             'is_available' => true,
         ]);
 
@@ -109,7 +109,7 @@ class CommissionCalculationServiceWithLessonsTest extends TestCase
 
         $this->teacherBeta = Teacher::create([
             'user_id' => $userBeta->id,
-            'hourly_rate' => null,
+            'hourly_rate' => 0,
             'is_available' => true,
         ]);
 

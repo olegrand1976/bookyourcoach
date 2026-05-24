@@ -696,12 +696,11 @@ class TeacherControllerTest extends TestCase
     }
 
     #[Test]
-    public function it_can_delete_own_lesson()
+    public function it_cannot_delete_own_lesson_from_teacher_planning()
     {
-        // Arrange
         $user = $this->actingAsTeacher();
         $teacher = $user->teacher;
-        
+
         $courseType = CourseType::factory()->create();
         $location = Location::factory()->create();
 
@@ -709,21 +708,19 @@ class TeacherControllerTest extends TestCase
             'teacher_id' => $teacher->id,
             'course_type_id' => $courseType->id,
             'location_id' => $location->id,
-            'start_time' => Carbon::now()->addDays(1), // Cours futur pour être supprimé
-            'status' => 'confirmed', // Statut confirmé pour être supprimé (pas annulé)
+            'start_time' => Carbon::now()->addDays(1),
+            'status' => 'confirmed',
         ]);
 
-        // Act
         $response = $this->deleteJson("/api/teacher/lessons/{$lesson->id}");
 
-        // Assert
-        $response->assertStatus(200)
+        $response->assertStatus(403)
                  ->assertJson([
-                     'success' => true,
+                     'success' => false,
+                     'message' => 'La suppression d\'un cours depuis le planning enseignant n\'est pas autorisée. Contactez le responsable du club.',
                  ]);
 
-        // Le cours doit être supprimé (pas seulement annulé car status != 'pending')
-        $this->assertDatabaseMissing('lessons', [
+        $this->assertDatabaseHas('lessons', [
             'id' => $lesson->id,
         ]);
     }

@@ -150,9 +150,12 @@ class ClubControllerTest extends TestCase
         $user = $this->actingAsClub();
         $club = Club::find($user->club_id);
 
-        \App\Models\ClubCustomSpecialty::factory()->count(3)->create([
-            'club_id' => $club->id,
-        ]);
+        \App\Models\ClubCustomSpecialty::factory()
+            ->count(3)
+            ->active()
+            ->create([
+                'club_id' => $club->id,
+            ]);
 
         // Act
         $response = $this->getJson('/api/club/custom-specialties');

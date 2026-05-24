@@ -121,7 +121,9 @@ class ClubDashboardControllerTest extends TestCase
         $response->assertStatus(403)
                  ->assertJson([
                      'message' => 'Unauthorized',
-                     'error' => 'Accès non autorisé. Rôle club requis.'
+                     'error' => 'Accès non autorisé. Rôle club ou administrateur plateforme requis.',
+                     'required_role' => 'club',
+                     'user_role' => 'teacher',
                  ]);
     }
 
