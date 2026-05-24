@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Student;
 use App\Models\Subscription;
 use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionRecurringSlot;
 use App\Models\Teacher;
 use App\Models\User;
 use Carbon\Carbon;
@@ -255,6 +256,80 @@ class FamilySubscriptionLessonDeletionTest extends TestCase
         $response->assertStatus(200)->assertJsonPath('data.processed_count', 1);
         $this->assertDatabaseMissing('lessons', ['id' => $lesson1->id]);
         $this->assertDatabaseHas('lessons', ['id' => $lesson2->id]);
+    }
+
+    #[Test]
+    public function recurring_interval_update_does_not_delete_sibling_student_future_lessons(): void
+    {
+        $slotStart = Carbon::parse('next wednesday')->setTime(10, 0, 0);
+        $slotEnd = $slotStart->copy()->addHour();
+
+        $lessonA = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy(),
+            'end_time' => $slotEnd->copy(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $this->attachLesson($lessonA);
+
+        $lessonAFuture = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy()->addWeek(),
+            'end_time' => $slotEnd->copy()->addWeek(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $this->attachLesson($lessonAFuture);
+
+        $lessonBFuture = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentB->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy()->addWeek()->addHours(2),
+            'end_time' => $slotEnd->copy()->addWeek()->addHours(2),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $this->attachLesson($lessonBFuture);
+
+        SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->instance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'day_of_week' => $slotStart->dayOfWeek,
+            'start_time' => $slotStart->format('H:i:s'),
+            'end_time' => $slotEnd->format('H:i:s'),
+            'recurring_interval' => 1,
+            'start_date' => $slotStart->copy()->startOfDay(),
+            'end_date' => $slotStart->copy()->addWeeks(26),
+            'status' => 'active',
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lessonA->id}", [
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->format('Y-m-d H:i:s'),
+            'duration' => 60,
+            'price' => 50.00,
+            'update_scope' => 'all_future',
+            'recurring_interval' => 2,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('lessons', ['id' => $lessonBFuture->id]);
     }
 
     #[Test]
