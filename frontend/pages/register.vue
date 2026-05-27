@@ -214,6 +214,27 @@
                   </label>
                 </div>
               </div>
+
+              <!-- Compte famille : rattachement d'un enfant existant via code club -->
+              <div class="border border-blue-100 bg-blue-50 rounded-lg p-3">
+                <label for="invite_code" class="block text-sm font-medium text-gray-800">
+                  Rattacher un enfant à votre compte (optionnel)
+                </label>
+                <p class="text-xs text-gray-600 mt-1 mb-2">
+                  Si votre club vous a transmis un code d'invitation pour votre enfant, saisissez-le ici. Il sera rattaché automatiquement à votre compte.
+                </p>
+                <input
+                  id="invite_code"
+                  v-model="form.invite_code"
+                  name="invite_code"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="14"
+                  class="input-field uppercase tracking-widest font-mono"
+                  placeholder="ABCD-EFGH-IJ"
+                />
+              </div>
             </div>
 
             <div v-if="selectedProfile === 'teacher'" class="space-y-4">
@@ -475,7 +496,8 @@ const form = reactive({
   club_description: '',
   specialties: [],
   experience_years: '',
-  club_ids: []
+  club_ids: [],
+  invite_code: ''
 })
 
 // Fonctions utilitaires
@@ -557,7 +579,11 @@ const handleRegister = async () => {
         experience_years: form.experience_years
       }),
       ...(selectedProfile.value === 'student' && {
-        club_ids: form.club_ids && form.club_ids.length > 0 ? form.club_ids : null
+        club_ids: form.club_ids && form.club_ids.length > 0 ? form.club_ids : null,
+        invite_code: (() => {
+          const normalized = (form.invite_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+          return normalized.length >= 6 ? normalized : null
+        })()
       })
     }
 
@@ -588,6 +614,21 @@ const handleRegister = async () => {
     }
 
     showToast(successMessage, 'success')
+
+    if (selectedProfile.value === 'student' && form.invite_code) {
+      if (response?.linked_child) {
+        showToast(`Votre enfant ${response.linked_child.name} a été rattaché à votre compte.`, 'success')
+      } else if (response?.link_error) {
+        const linkErrorMessages = {
+          code_not_found: 'le code n\'a pas été trouvé',
+          code_expired: 'le code a expiré, demandez-en un nouveau à votre club',
+          already_linked: 'cet enfant est déjà rattaché à un compte',
+          parent_role_invalid: 'votre compte ne permet pas le rattachement'
+        }
+        const reason = linkErrorMessages[response.link_error] || 'erreur lors du rattachement'
+        errors.value.push(`Le rattachement de l'enfant a échoué : ${reason}. Vous pourrez réessayer depuis votre dashboard.`)
+      }
+    }
     
     // Redirection selon le profil
     if (selectedProfile.value === 'student') {

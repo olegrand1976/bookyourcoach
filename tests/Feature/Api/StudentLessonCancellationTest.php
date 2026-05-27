@@ -431,4 +431,73 @@ class StudentLessonCancellationTest extends TestCase
 
         $response->assertStatus(400);
     }
+
+    #[Test]
+    public function parent_can_cancel_lesson_of_child_linked_via_invite_code(): void
+    {
+        $parent = $this->actingAsStudent();
+
+        $child = Student::factory()->create(['user_id' => null]);
+        $code = app(\App\Services\FamilyLinkService::class)->generateInviteCode($child);
+        app(\App\Services\FamilyLinkService::class)->linkChildToParent($code, $parent);
+        $child->refresh();
+
+        $club = Club::factory()->create();
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $startTime = Carbon::now()->addHours(10);
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($child)
+            ->create([
+                'status' => 'confirmed',
+                'start_time' => $startTime,
+                'end_time' => $startTime->copy()->addHour(),
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+            ]);
+
+        $response = $this->postJson("/api/student/bookings/{$lesson->id}/cancel", [
+            'active_student_id' => $child->id,
+            'reason' => 'Annulation parent',
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $lesson->refresh();
+        $this->assertSame('cancelled', $lesson->status);
+    }
+
+    #[Test]
+    public function parent_cannot_cancel_lesson_of_unrelated_student(): void
+    {
+        $this->actingAsStudent();
+        $outsider = Student::factory()->create([
+            'user_id' => User::factory()->create(['role' => 'student'])->id,
+        ]);
+
+        $club = Club::factory()->create();
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $startTime = Carbon::now()->addHours(10);
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($outsider)
+            ->create([
+                'status' => 'confirmed',
+                'start_time' => $startTime,
+                'end_time' => $startTime->copy()->addHour(),
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+            ]);
+
+        $response = $this->postJson("/api/student/bookings/{$lesson->id}/cancel");
+
+        $response->assertStatus(404);
+    }
 }

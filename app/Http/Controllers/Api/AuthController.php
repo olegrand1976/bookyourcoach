@@ -52,6 +52,8 @@ class AuthController extends Controller
             // Champs spécifiques pour les élèves
             'club_ids' => ['nullable', 'array'],
             'club_ids.*' => ['integer', 'exists:clubs,id'],
+            // Compte famille : code d'invitation enfant à rattacher
+            'invite_code' => ['nullable', 'string', 'min:6', 'max:24'],
         ]);
 
         // Construire le nom complet
@@ -164,6 +166,23 @@ class AuthController extends Controller
 
             DB::commit();
 
+            // Compte famille : rattachement éventuel d'un enfant via le code fourni.
+            // Hors transaction principale pour ne pas annuler l'inscription en cas d'erreur de code.
+            $linkedChild = null;
+            $linkError = null;
+            if ($request->role === 'student' && filled($request->input('invite_code'))) {
+                try {
+                    $linkedChild = app(\App\Services\FamilyLinkService::class)
+                        ->linkChildToParent((string) $request->input('invite_code'), $user->fresh());
+                } catch (\Throwable $e) {
+                    $linkError = $e->getMessage();
+                    \Log::warning('Rattachement enfant au register impossible', [
+                        'user_id' => $user->id,
+                        'reason' => $linkError,
+                    ]);
+                }
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
@@ -171,6 +190,11 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'user' => $user,
                 'club' => $request->role === 'club' ? $club : null,
+                'linked_child' => $linkedChild ? [
+                    'id' => $linkedChild->id,
+                    'name' => $linkedChild->name,
+                ] : null,
+                'link_error' => $linkError,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();

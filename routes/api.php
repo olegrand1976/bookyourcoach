@@ -180,6 +180,12 @@ Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('studen
     Route::get('/linked-accounts', [StudentController::class, 'getLinkedAccounts']);
     Route::post('/switch-account/{studentId}', [StudentController::class, 'switchAccount']);
     Route::get('/active-account', [StudentController::class, 'getActiveAccount']);
+
+    // Compte famille : enfants rattachés via code d'invitation
+    Route::get('/family/children', [\App\Http\Controllers\Api\Student\FamilyController::class, 'index']);
+    Route::post('/family/link-child', [\App\Http\Controllers\Api\Student\FamilyController::class, 'linkChild'])
+        ->middleware('throttle:family-link');
+    Route::delete('/family/children/{studentId}', [\App\Http\Controllers\Api\Student\FamilyController::class, 'unlinkChild']);
 });
 
 // Webhook Stripe (route publique, sans authentification)
@@ -248,6 +254,9 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/students/{studentId}/linked', [StudentController::class, 'getLinkedForClub']);
     Route::post('/students/{studentId}/link', [StudentController::class, 'linkForClub']);
     Route::delete('/students/{studentId}/unlink/{linkedStudentId}', [StudentController::class, 'unlinkForClub']);
+    // Code d'invitation parent (enfants sans email)
+    Route::get('/students/{studentId}/invite-code', [StudentController::class, 'getInviteCode']);
+    Route::post('/students/{studentId}/invite-code/regenerate', [StudentController::class, 'regenerateInviteCode']);
     Route::get('/students/{studentId}/history', [StudentController::class, 'history']);
     Route::patch('/students/{studentId}/toggle-status', [StudentController::class, 'toggleStatus']);
     Route::patch('/students/{studentId}/block-flags', [StudentController::class, 'updateBlockFlags']);

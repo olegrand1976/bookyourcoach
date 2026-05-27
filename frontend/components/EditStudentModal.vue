@@ -403,7 +403,14 @@
               </div>
             </template>
           </div>
-          
+
+          <!-- Code d'invitation parent (élève sans email) -->
+          <StudentInviteCodeCard
+            v-if="props.student"
+            :student="props.student"
+            @updated="onInviteCodeUpdated"
+          />
+
           <!-- Boutons d'action -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button 
@@ -434,6 +441,13 @@
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import StudentInviteCodeCard from '~/components/club/StudentInviteCodeCard.vue'
+
+const onInviteCodeUpdated = (payload) => {
+  if (!props.student) return
+  props.student.invite_code = payload.invite_code
+  props.student.invite_code_expires_at = payload.invite_code_expires_at
+}
 
 const props = defineProps({
   student: { type: Object, required: true }

@@ -46,6 +46,10 @@ class Student extends Model
         'max_price',
         'max_distance',
         'notifications_enabled',
+        'invite_code',
+        'invite_code_expires_at',
+        'linked_by_user_id',
+        'linked_at',
     ];
 
     protected $casts = [
@@ -55,6 +59,8 @@ class Student extends Model
         'preferred_levels' => 'array',
         'preferred_formats' => 'array',
         'notifications_enabled' => 'boolean',
+        'invite_code_expires_at' => 'datetime',
+        'linked_at' => 'datetime',
     ];
 
     protected $appends = ['age', 'name'];

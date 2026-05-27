@@ -25,6 +25,9 @@
         </div>
       </div>
 
+      <!-- Sélecteur d'élève (compte famille) -->
+      <StudentViewSwitcher @scope-changed="loadBookings" />
+
       <!-- Status Filter -->
       <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
         <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4">Filtrer par statut</h2>
@@ -220,6 +223,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStudentData } from '~/composables/useStudentData'
 import { useStudentFormatters } from '~/composables/useStudentFormatters'
+import { useStudentScopeStore } from '~/stores/studentScope'
+import StudentViewSwitcher from '~/components/student/StudentViewSwitcher.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],
@@ -229,6 +234,7 @@ definePageMeta({
 // Composables
 const { loading, loadBookings: loadBookingsData } = useStudentData()
 const { formatDate, formatTime, formatPrice, getStatusClass, getStatusText } = useStudentFormatters()
+const studentScopeStore = useStudentScopeStore()
 
 // State
 const bookings = ref<any[]>([])
@@ -255,7 +261,10 @@ const filteredBookings = computed(() => {
 const loadBookings = async () => {
   try {
     // In history/bookings view, include cancelled lessons explicitly.
-    bookings.value = await loadBookingsData({ includeCancelled: true })
+    bookings.value = await loadBookingsData({
+      includeCancelled: true,
+      activeStudentId: studentScopeStore.apiScopeParam
+    })
   } catch (err) {
     console.error('Error loading bookings:', err)
   }
@@ -291,7 +300,10 @@ const canRate = (booking: any) => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  if (!studentScopeStore.loaded) {
+    await studentScopeStore.loadLinkedAccounts()
+  }
   loadBookings()
 })
 </script>

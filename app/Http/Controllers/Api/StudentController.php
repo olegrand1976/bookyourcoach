@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use App\Notifications\TeacherWelcomeNotification;
 use App\Notifications\StudentWelcomeNotification;
+use App\Services\FamilyLinkService;
 use Carbon\Carbon;
 
 class StudentController extends Controller
@@ -473,6 +474,15 @@ class StudentController extends Controller
                 'updated_at' => now(),
             ]);
 
+            $inviteCode = null;
+            $inviteCodeExpiresAt = null;
+            if ($newUser === null) {
+                $familyLinkService = app(FamilyLinkService::class);
+                $inviteCode = $familyLinkService->generateInviteCode($student);
+                $student->refresh();
+                $inviteCodeExpiresAt = $student->invite_code_expires_at;
+            }
+
             // Lier les disciplines à l'étudiant si fournies
             if (!empty($validated['disciplines'])) {
                 foreach ($validated['disciplines'] as $disciplineId) {
@@ -500,7 +510,7 @@ class StudentController extends Controller
             if ($emailSent && $newUser) {
                 $message .= ' Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.';
             } elseif (!$newUser) {
-                $message .= ' Aucun compte utilisateur n\'a été créé car aucun email n\'a été fourni. Vous pourrez compléter ces informations plus tard.';
+                $message .= ' Un code d\'invitation a été généré pour que le parent puisse rattacher cet enfant à son compte.';
             }
 
             return response()->json([
@@ -509,6 +519,8 @@ class StudentController extends Controller
                 'student' => $student,
                 'user_created' => $newUser !== null,
                 'email_sent' => $emailSent,
+                'invite_code' => $inviteCode,
+                'invite_code_expires_at' => $inviteCodeExpiresAt,
                 'message' => $message
             ], 201);
 
@@ -2134,5 +2146,111 @@ class StudentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Récupère le code d'invitation parent d'un élève (sans email/compte) — côté club.
+     */
+    public function getInviteCode(Request $request, $studentId): JsonResponse
+    {
+        $student = $this->resolveClubStudentOrFail($request, (int) $studentId);
+        if ($student instanceof JsonResponse) {
+            return $student;
+        }
+
+        if ($student->user_id !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet élève est déjà rattaché à un compte parent.'
+            ], 422);
+        }
+
+        $expiresAt = $student->invite_code_expires_at;
+        $isExpired = $expiresAt && $expiresAt->isPast();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student_id' => $student->id,
+                'invite_code' => $isExpired ? null : $student->invite_code,
+                'invite_code_expires_at' => $expiresAt,
+                'is_expired' => (bool) $isExpired,
+            ],
+            'message' => $isExpired
+                ? 'Le code a expiré, veuillez le régénérer.'
+                : 'Code d\'invitation récupéré'
+        ]);
+    }
+
+    /**
+     * Régénère un code d'invitation parent (et invalide l'ancien).
+     */
+    public function regenerateInviteCode(Request $request, $studentId, FamilyLinkService $service): JsonResponse
+    {
+        $student = $this->resolveClubStudentOrFail($request, (int) $studentId);
+        if ($student instanceof JsonResponse) {
+            return $student;
+        }
+
+        if ($student->user_id !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impossible de régénérer un code : cet élève est déjà rattaché à un compte.'
+            ], 422);
+        }
+
+        try {
+            $code = $service->regenerateInviteCode($student, $request->user());
+            $student->refresh();
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la régénération du code',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student_id' => $student->id,
+                'invite_code' => $code,
+                'invite_code_expires_at' => $student->invite_code_expires_at,
+                'is_expired' => false,
+            ],
+            'message' => 'Nouveau code d\'invitation généré'
+        ]);
+    }
+
+    /**
+     * Résout un élève appartenant à un club du user connecté. Retourne JsonResponse en cas d'échec.
+     */
+    private function resolveClubStudentOrFail(Request $request, int $studentId)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['success' => false, 'message' => 'Non authentifié'], 401);
+        }
+
+        $student = Student::find($studentId);
+        if (! $student) {
+            return response()->json(['success' => false, 'message' => 'Élève introuvable'], 404);
+        }
+
+        $clubIds = $user->clubs()->pluck('clubs.id')->all();
+        if ($clubIds === []) {
+            return response()->json(['success' => false, 'message' => 'Aucun club associé'], 403);
+        }
+
+        $belongs = DB::table('club_students')
+            ->whereIn('club_id', $clubIds)
+            ->where('student_id', $student->id)
+            ->exists();
+
+        if (! $belongs) {
+            return response()->json(['success' => false, 'message' => 'Cet élève n\'appartient pas à votre club'], 404);
+        }
+
+        return $student;
     }
 }

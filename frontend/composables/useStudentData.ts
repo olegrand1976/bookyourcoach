@@ -65,13 +65,19 @@ export const useStudentData = () => {
   /**
    * Charger les réservations
    */
-  const loadBookings = async (options?: { includeCancelled?: boolean }) => {
+  const loadBookings = async (options?: { includeCancelled?: boolean; activeStudentId?: number | 'all' }) => {
     try {
       loading.value = true
       error.value = null
 
-      const params = options?.includeCancelled ? { include_cancelled: true } : undefined
-      const response = await $api.get('/student/bookings', { params })
+      const params: Record<string, any> = {}
+      if (options?.includeCancelled) params.include_cancelled = true
+      if (options?.activeStudentId !== undefined && options.activeStudentId !== null) {
+        params.active_student_id = options.activeStudentId
+      }
+      const response = await $api.get('/student/bookings', {
+        params: Object.keys(params).length > 0 ? params : undefined
+      })
       
       if (response.data.success) {
         return response.data.data || []

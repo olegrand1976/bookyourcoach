@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Models\Lesson;
 use App\Observers\LessonObserver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -41,6 +44,23 @@ class AppServiceProvider extends ServiceProvider
         
         // Enregistrer l'observer pour gérer automatiquement les récurrences
         \App\Models\SubscriptionInstance::observe(\App\Observers\SubscriptionInstanceObserver::class);
+
+        $this->configureRateLimiters();
+    }
+
+    /**
+     * Limiteur dédié aux tentatives de rattachement d'enfant par code d'invitation,
+     * pour réduire le risque de brute-force des codes.
+     */
+    private function configureRateLimiters(): void
+    {
+        RateLimiter::for('family-link', function (Request $request) {
+            $userId = optional($request->user())->id ?: 'guest';
+            return [
+                Limit::perMinutes(10, 5)->by('family-link:user:' . $userId),
+                Limit::perMinutes(10, 15)->by('family-link:ip:' . $request->ip()),
+            ];
+        });
     }
 
     /**

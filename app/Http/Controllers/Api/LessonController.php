@@ -143,9 +143,14 @@ class LessonController extends Controller
                     $query->whereRaw('1 = 0');
                 }
             } elseif ($user->role === 'student') {
-                $query->whereHas('student', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
+                // Foyer complet (compte parent + enfants rattachés) : couvre student_id,
+                // lesson_student et co-bénéficiaires d'abonnements.
+                $householdIds = $user->getHouseholdStudentIds();
+                if ($householdIds === []) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->forParticipantStudents($householdIds);
+                }
             } elseif ($user->role === 'club') {
                 // Les clubs voient uniquement les cours de leurs enseignants
                 $club = $user->getFirstClub();
@@ -820,9 +825,12 @@ class LessonController extends Controller
                     $q->where('user_id', $user->id);
                 });
             } elseif ($user->role === 'student') {
-                $query->whereHas('student', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
+                $householdIds = $user->getHouseholdStudentIds();
+                if ($householdIds === []) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->forParticipantStudents($householdIds);
+                }
             }
 
             $lesson = $query->findOrFail($id);
@@ -902,9 +910,12 @@ class LessonController extends Controller
                     $q->where('user_id', $user->id);
                 });
             } elseif ($user->role === 'student') {
-                $query->whereHas('student', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
+                $householdIds = $user->getHouseholdStudentIds();
+                if ($householdIds === []) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->forParticipantStudents($householdIds);
+                }
                 // Les étudiants ne peuvent modifier que certains champs
                 $allowedFields = ['notes'];
                 $request = new Request($request->only($allowedFields));
@@ -1480,9 +1491,12 @@ class LessonController extends Controller
                     $q->where('user_id', $user->id);
                 });
             } elseif ($user->role === 'student') {
-                $query->whereHas('student', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
+                $householdIds = $user->getHouseholdStudentIds();
+                if ($householdIds === []) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->forParticipantStudents($householdIds);
+                }
             } elseif ($user->role === 'club') {
                 $club = $user->getFirstClub();
                 if ($club) {
