@@ -1,23 +1,18 @@
-# Instructions pour agents (Cursor, etc.) — BookYourCoach
+# Instructions agents — BookYourCoach
 
-## Projet
-
-Plateforme multi-tenant de clubs sportifs : **Laravel 12** (API), **Nuxt 3** (frontend), **MySQL**, **Redis**, **Neo4j** (analytique), **Flutter** (mobile).
+**Stack** : Laravel 12 API, Nuxt 3, MySQL, Redis, Neo4j, Flutter. Multi-tenant (`club_id`).
 
 ## Règles critiques
 
-1. **Auth local ≠ production** — Lire `docs/AUTH_SOLUTION.md` avant toute modification de `AuthControllerSimple.php`, `frontend/stores/auth.ts`, `frontend/plugins/api.client.ts`. En local : pas de `withCredentials: true` pour le flux principal ; en prod : Sanctum SPA avec cookies + `X-Requested-With: XMLHttpRequest`. Détail : `.cursor/rules/Security-Environment-Strategy.mdc`.
+1. **Auth** — `docs/AUTH_SOLUTION.md` ; local ≠ prod (`.cursor/rules/Security-Environment-Strategy.mdc`).
+2. **Multi-tenant** — `club_id` / scopes (`.cursor/rules/Multi-Tenant-Data-Isolation.mdc`).
+3. **API** — `{ success, data, message }` (`.cursor/rules/API-Design-System-Contracts.mdc`).
+4. **Planning** — 26 semaines (`.cursor/rules/Planning-Recurrence-Logic.mdc`).
 
-2. **Multi-tenant** — Données isolées par `club_id` sur les modèles concernés (voir `.cursor/rules/Multi-Tenant-Data-Isolation.mdc`).
+## Communication
 
-3. **API** — Réponses JSON `{ success, data, message }` ; préférer FormRequests et Resources (voir `.cursor/rules/API-Design-System-Contracts.mdc`).
+Réponses **concises** (français) : diff minimal, pas de répétition du contexte. Détail : `.cursor/rules/Concise-Communication.mdc`.
 
-4. **Planning** — Récurrences validées sur **26 semaines** (voir `.cursor/rules/Planning-Recurrence-Logic.mdc`).
+## Index
 
-## Point d’entrée configuration IA
-
-Voir **`docs/CURSOR_PROJECT.md`** pour l’index des règles `.cursor/` et des commandes.
-
-## Langue
-
-Réponses en **français** si l’équipe le demande ; code et commentaires techniques en anglais ou français selon conventions du fichier existant.
+`docs/CURSOR_PROJECT.md` — règles `.cursor/`, commandes test.

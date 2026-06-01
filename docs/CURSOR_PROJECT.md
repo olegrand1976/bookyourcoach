@@ -23,12 +23,15 @@ Ce document sert de **point d’entrée** pour les règles d’assistance au cod
 
 ## Index des règles Cursor (résumé)
 
-- `BookYourCoach-Fullstack-Context.mdc` — stack Laravel / Nuxt / Neo4j / Flutter, rôles, `club_id`, abonnements.
-- `Security-Environment-Strategy.mdc` — **ne pas** activer `withCredentials` en local ni imposer `X-Requested-With` en local.
-- `Multi-Tenant-Data-Isolation.mdc` — isolation par `club_id` sur le code PHP API.
-- `API-Design-System-Contracts.mdc` — format `{ success, data, message }`, FormRequests, Resources.
-- `Planning-Recurrence-Logic.mdc` — récurrences validées sur 26 semaines.
-- `Testing-Docker-SQLite.mdc` — exécuter les tests dans le runner Docker `php-test` (SQLite) pour éviter les dépendances locales manquantes.
+- `Concise-Communication.mdc` — **toujours actif** : réponses courtes, diffs minimaux, pas de duplication du contexte.
+- `BookYourCoach-Fullstack-Context.mdc` — **toujours actif** : stack et concepts métiers (version condensée).
+- `Security-Environment-Strategy.mdc` — auth local vs prod (globs auth ; **ne pas** `withCredentials` en local).
+- `Multi-Tenant-Data-Isolation.mdc` — `club_id` / scopes (globs `app/**`).
+- `API-Design-System-Contracts.mdc` — `{ success, data, message }`, FormRequests, Resources.
+- `Planning-Recurrence-Logic.mdc` — 26 semaines (globs planning / récurrence).
+- `Testing-Docker-SQLite.mdc` — tests via `php-test` Docker (globs tests / compose).
+
+Les règles hors `alwaysApply` ne sont injectées que sur les fichiers correspondant aux **globs** — pour limiter les tokens en entrée.
 
 ## Plans et docs produit
 

@@ -1,46 +1,19 @@
 ---
-description: Gestion adaptative auth Local vs Production — ne pas "nettoyer" withCredentials/cookies en local
+description: Auth local (token) vs prod (Sanctum SPA) — ne pas uniformiser
 globs: app/Http/Controllers/Api/AuthControllerSimple.php,frontend/stores/auth.ts,frontend/plugins/api.client.ts,docs/AUTH_SOLUTION.md
-alwaysApply: true
+alwaysApply: false
 ---
 
-# Security & Environment Strategy
+# Auth local ≠ production
 
-Règle critique : l’authentification est **volontairement différente** selon l’environnement. Ne pas uniformiser le code en pensant corriger une “erreur”.
+Référence : `docs/AUTH_SOLUTION.md`. En local, cookies + `withCredentials` → boucle auth : **ne pas « corriger »** en uniformisant.
 
-## Pourquoi deux stratégies ?
+| | Local | Production |
+|---|--------|------------|
+| Backend | Token JSON (`createToken`), `app()->environment('local')` | Session Sanctum SPA |
+| Frontend | `withCredentials: false`, pas `X-Requested-With`, Bearer | `withCredentials: true`, `X-Requested-With: XMLHttpRequest` |
+| Détection FE | `apiBase` → localhost / 127.0.0.1 | sinon prod |
 
-En **local**, l’usage de cookies Sanctum + `withCredentials: true` provoque une **boucle infinie** d’authentification. La solution est d’utiliser un **token en JSON** et de ne pas envoyer de cookies. Ce n’est pas un oubli à corriger.
+**Interdit** : `withCredentials: true` ou `X-Requested-With` en local ; supprimer la branche `isLocal`.
 
-## Local
-
-- **Backend** : token Sanctum (`createToken('...')->plainTextToken`), pas de session/cookies côté API. Détection : `app()->environment('local')`.
-- **Frontend** :
-  - `withCredentials: false` (ou pas de `credentials: 'include'`) — **obligatoire**.
-  - Pas d’en-tête `X-Requested-With: XMLHttpRequest`.
-  - Token dans la réponse JSON, puis `Authorization: Bearer <token>` pour les appels suivants.
-- Détection frontend : `apiBase` contient `localhost` ou `127.0.0.1`.
-
-## Production
-
-- **Backend** : authentification Sanctum SPA (session + cookies).
-- **Frontend** :
-  - `withCredentials: true` (ou `credentials: 'include'` sur le login).
-  - En-tête obligatoire : `X-Requested-With: XMLHttpRequest`.
-
-## Interdictions
-
-- **Ne jamais** mettre `withCredentials: true` (ou équivalent) sans condition sur l’environnement.
-- **Ne jamais** ajouter `X-Requested-With: XMLHttpRequest` en local pour “être cohérent”.
-- **Ne jamais** supprimer la branche `isLocal` pour “simplifier” : les deux branches sont requises.
-
-## Fichiers concernés
-
-| Fichier | Rôle |
-|--------|------|
-| `docs/AUTH_SOLUTION.md` | Référence officielle |
-| `AuthControllerSimple.php` | Branche local vs production (login/logout) |
-| `frontend/stores/auth.ts` | Branche local vs production (credentials, headers) |
-| `frontend/plugins/api.client.ts` | `withCredentials` et `X-Requested-With` selon environnement |
-
-Avant toute modification de ces fichiers : vérifier que la distinction local/production est conservée et qu’en local on n’introduit pas cookies ni `withCredentials: true`.
+Fichiers : `AuthControllerSimple.php`, `frontend/stores/auth.ts`, `frontend/plugins/api.client.ts`.
