@@ -1,0 +1,20 @@
+---
+description: Périmètre agent, plan multi-fichiers, retry terminal
+alwaysApply: true
+---
+
+# Workflow agent
+
+## Périmètre
+
+- Ne lire ni modifier que les fichiers directement liés à la tâche.
+- Pas de refactor périphérique non demandé.
+
+## Multi-fichiers
+
+- Si plus de 2 fichiers impactés : plan textuel d'abord, attendre validation avant d'écrire.
+
+## Erreurs terminal
+
+- Syntaxe / compilation : une seule tentative de correction.
+- Deuxième échec : stopper et demander de l'aide.
