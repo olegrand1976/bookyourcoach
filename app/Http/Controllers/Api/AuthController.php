@@ -17,6 +17,7 @@ use App\Notifications\StudentWelcomeNotification;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -352,6 +353,34 @@ class AuthController extends Controller
             'message' => __($status),
             'success' => false
         ], 400);
+    }
+
+    /**
+     * Changer le mot de passe de l'utilisateur connecté
+     */
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Le mot de passe actuel est incorrect.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($request->password),
+        ])->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mot de passe modifié avec succès',
+        ]);
     }
 
     /**

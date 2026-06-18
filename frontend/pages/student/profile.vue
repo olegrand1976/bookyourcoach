@@ -190,6 +190,8 @@
           </div>
         </div>
 
+        <ChangePasswordForm />
+
         <!-- Bouton de sauvegarde -->
         <div class="flex justify-end">
           <button

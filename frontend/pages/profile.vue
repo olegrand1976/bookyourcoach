@@ -150,6 +150,10 @@
                         </button>
                     </div>
                 </form>
+
+                <div class="p-6 pt-0">
+                    <ChangePasswordForm />
+                </div>
             </div>
         </div>
     </div>

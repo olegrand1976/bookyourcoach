@@ -270,4 +270,50 @@ class AuthControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('user.teacher.id', $teacher->id);
     }
+
+    #[Test]
+    public function it_can_change_password_with_valid_current_password(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-password'),
+        ]);
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+        ])->putJson('/api/auth/change-password', [
+            'current_password' => 'old-password',
+            'password' => 'new-password123',
+            'password_confirmation' => 'new-password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Mot de passe modifié avec succès',
+            ]);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-password123', $user->password));
+    }
+
+    #[Test]
+    public function it_rejects_change_password_with_wrong_current_password(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-password'),
+        ]);
+        $token = $user->createToken('test-token')->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+        ])->putJson('/api/auth/change-password', [
+            'current_password' => 'wrong-password',
+            'password' => 'new-password123',
+            'password_confirmation' => 'new-password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+    }
 }

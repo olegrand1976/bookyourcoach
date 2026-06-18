@@ -306,6 +306,10 @@
           </button>
         </div>
       </form>
+
+      <div v-if="!loading" class="mt-6">
+        <ChangePasswordForm />
+      </div>
     </div>
   </div>
 </template>

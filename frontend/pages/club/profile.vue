@@ -511,6 +511,10 @@
           </button>
         </div>
       </form>
+
+      <div class="mt-6">
+        <ChangePasswordForm />
+      </div>
     </div>
   </div>
 </template>

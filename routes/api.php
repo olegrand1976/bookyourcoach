@@ -49,6 +49,7 @@ Route::prefix('auth')->group(function () {
             ]);
         });
         Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::put('/change-password', [AuthController::class, 'changePassword']);
     });
 });
 
