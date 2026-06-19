@@ -89,5 +89,40 @@ class CourseTypeControllerTest extends TestCase
                      'duration_minutes' => 60,
                  ]);
     }
+
+    /** @test */
+    public function club_does_not_see_course_types_from_another_club(): void
+    {
+        $discipline = \App\Models\Discipline::factory()->create();
+
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $club->update(['disciplines' => [$discipline->id]]);
+
+        $otherClub = \App\Models\Club::factory()->create([
+            'disciplines' => [$discipline->id],
+        ]);
+
+        $foreignType = CourseType::factory()->create([
+            'club_id' => $otherClub->id,
+            'discipline_id' => $discipline->id,
+            'name' => 'Type étranger',
+            'is_active' => true,
+        ]);
+
+        $ownType = CourseType::factory()->create([
+            'club_id' => $club->id,
+            'discipline_id' => $discipline->id,
+            'name' => 'Type du club',
+            'is_active' => true,
+        ]);
+
+        $response = $this->getJson('/api/course-types');
+
+        $response->assertStatus(200);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($ownType->id, $ids);
+        $this->assertNotContains($foreignType->id, $ids);
+    }
 }
 

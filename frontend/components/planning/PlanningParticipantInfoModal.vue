@@ -441,9 +441,11 @@ function subscriptionStatusClass(status: string): string {
   return map[status] ?? 'bg-gray-100 text-gray-800'
 }
 
-function subTotalLessons(sub: { remaining_lessons?: number; lessons_used?: number; subscription?: { template?: { total_lessons?: number } } }): string {
-  const t = sub.subscription?.template?.total_lessons
-  if (t != null) return String(t)
+function subTotalLessons(sub: { remaining_lessons?: number; lessons_used?: number; subscription?: { template?: { total_lessons?: number; free_lessons?: number } } }): string {
+  const template = sub.subscription?.template
+  if (template) {
+    return String((template.total_lessons || 0) + (template.free_lessons || 0))
+  }
   const used = sub.lessons_used ?? 0
   const rem = sub.remaining_lessons ?? 0
   return String(used + rem)

@@ -1607,7 +1607,8 @@ const getTotalLessons = (subscription) => {
   if (template) {
     return (template.total_lessons || 0) + (template.free_lessons || 0)
   }
-  return subscription.subscription?.total_lessons || 0
+  const sub = subscription.subscription
+  return (sub?.total_lessons || 0) + (sub?.free_lessons || 0)
 }
 
 // Charger l'historique, les créneaux et les enseignants quand le composant est monté

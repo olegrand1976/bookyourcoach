@@ -228,7 +228,11 @@ class DashboardController extends Controller
             ], 404);
         }
 
-        $query = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user', 'students.user'])
+        $query = Lesson::with([
+                'teacher.user', 'courseType', 'location', 'club',
+                'student.user', 'students.user',
+                'subscriptionInstances.students.user',
+            ])
             ->forParticipantStudents($studentIds);
 
         if ($request->has('status')) {
@@ -239,6 +243,9 @@ class DashboardController extends Controller
         }
 
         $bookings = $query->orderBy('start_time', 'desc')->get();
+
+        // Contexte foyer : permet à la Resource d'attribuer chaque cours à l'enfant concerné.
+        $request->attributes->set('household_student_ids', $studentIds);
 
         return response()->json([
             'success' => true,
@@ -324,6 +331,18 @@ class DashboardController extends Controller
         }
         if (Carbon::parse($lesson->start_time)->isPast()) {
             return response()->json(['success' => false, 'message' => 'Impossible d\'annuler un cours qui a déjà commencé.'], 400);
+        }
+
+        // Cours collectif : si d'autres participants restent après le retrait de cet élève,
+        // on détache uniquement l'élève annulant (et libère SON abonnement) sans annuler le cours.
+        $participantIds = array_values(array_unique(array_merge(
+            $lesson->student_id ? [(int) $lesson->student_id] : [],
+            $lesson->students->pluck('id')->map(fn ($i) => (int) $i)->all()
+        )));
+        $remainingParticipantIds = array_values(array_diff($participantIds, [(int) $student->id]));
+
+        if (count($participantIds) > 1 && count($remainingParticipantIds) > 0) {
+            return $this->cancelParticipantFromCollectiveLesson($request, $lesson, $student, $user, $remainingParticipantIds);
         }
 
         $hoursUntilStart = Carbon::now()->diffInHours(Carbon::parse($lesson->start_time));
@@ -443,17 +462,6 @@ class DashboardController extends Controller
             ],
         );
 
-        $shouldReleaseSubscription = $hasCancellationColumns ? !$countInSubscription : true;
-        if ($shouldReleaseSubscription) {
-            try {
-                foreach ($lesson->subscriptionInstances as $instance) {
-                    $instance->recalculateLessonsUsed();
-                }
-            } catch (\Exception $e) {
-                Log::warning("Erreur lors de la libération de l'abonnement: " . $e->getMessage());
-            }
-        }
-
         $lesson->refresh();
         $lesson->loadMissing(['courseType', 'club', 'student.user', 'students.user']);
         $this->notifyClubSubscriptionParticipantMismatch(
@@ -519,6 +527,91 @@ class DashboardController extends Controller
             $message .= " Ce cours sera compté dans votre abonnement (annulation à moins de {$cancellationDeadlineHours} h sans certificat médical).";
         }
         return response()->json(['success' => true, 'message' => $message]);
+    }
+
+    /**
+     * Annulation ciblée d'un participant sur un cours collectif maintenu :
+     * - détache l'élève du pivot lesson_student (réassigne student_id si nécessaire) ;
+     * - libère uniquement SON abonnement lié (détache le lien + recalcule), sans toucher aux autres ;
+     * - le cours reste actif pour les autres participants.
+     *
+     * Note (limite structurelle) : le décompte « annulation tardive comptée » est au niveau lesson
+     * (status + cancellation_count_in_subscription), pas par participant. Sur un cours collectif
+     * maintenu, le retrait anticipé n'est donc pas compté ici (cf. plan, sous-chantier itératif).
+     *
+     * @param  array<int>  $remainingParticipantIds
+     */
+    private function cancelParticipantFromCollectiveLesson(
+        Request $request,
+        Lesson $lesson,
+        Student $student,
+        ?User $user,
+        array $remainingParticipantIds
+    ) {
+        $reasonText = trim((string) $request->input('reason', ''));
+
+        DB::transaction(function () use ($lesson, $student, $remainingParticipantIds, $reasonText) {
+            // 1. Libérer l'abonnement de l'élève annulant (le seul lien possible vu UNIQUE(lesson_id)).
+            $lesson->loadMissing('subscriptionInstances.students');
+            $releasedInstance = $lesson->subscriptionInstances->first(
+                fn (SubscriptionInstance $instance) => $instance->students
+                    ->pluck('id')->map(fn ($i) => (int) $i)->contains((int) $student->id)
+            );
+            if ($releasedInstance) {
+                $releasedInstance->lessons()->detach($lesson->id);
+                $releasedInstance->recalculateLessonsUsed();
+                $releasedInstance->checkAndUpdateStatus();
+            }
+
+            // 2. Retirer l'élève du pivot des participants.
+            $lesson->students()->detach($student->id);
+
+            // 3. Réassigner l'élève principal si l'annulant l'était.
+            if ((int) $lesson->student_id === (int) $student->id) {
+                $lesson->student_id = $remainingParticipantIds[0] ?? null;
+            }
+
+            $studentName = $student->user?->name ?? $student->name ?? "élève #{$student->id}";
+            $note = "[Participation annulée] {$studentName} s'est retiré(e) du cours.";
+            if ($reasonText !== '') {
+                $note .= ' ' . $reasonText;
+            }
+            $lesson->notes = ($lesson->notes ? $lesson->notes . "\n\n" : '') . $note;
+            $lesson->save();
+        });
+
+        app(LessonActionLogService::class)->log(
+            $lesson->fresh(),
+            LessonActionLog::ACTION_STUDENT_CANCELLED,
+            $user,
+            'student',
+            studentId: $student->id,
+            meta: [
+                'participant_removed' => true,
+                'collective_lesson_maintained' => true,
+            ],
+        );
+
+        try {
+            $studentUser = $student->user ?? $user;
+            if ($studentUser) {
+                $deadlineHours = $this->resolveCancellationDeadlineHours($lesson, (int) $student->id) ?? 8;
+                $studentUser->notify(new LessonCancellationConfirmationNotification(
+                    $lesson->fresh(),
+                    false,
+                    null,
+                    $deadlineHours,
+                    $reasonText
+                ));
+            }
+        } catch (\Exception $e) {
+            Log::error("Erreur confirmation retrait participant: " . $e->getMessage(), ['lesson_id' => $lesson->id]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Votre participation à ce cours a été annulée. Le cours est maintenu pour les autres participants.',
+        ]);
     }
 
     /**
@@ -768,11 +861,18 @@ class DashboardController extends Controller
         }
 
         // Historique : cours terminés et annulés
-        $lessons = Lesson::with(['teacher.user', 'courseType', 'location', 'club', 'student.user', 'students.user'])
+        $lessons = Lesson::with([
+                'teacher.user', 'courseType', 'location', 'club',
+                'student.user', 'students.user',
+                'subscriptionInstances.students.user',
+            ])
             ->forParticipantStudents($studentIds)
             ->whereIn('status', ['completed', 'cancelled'])
             ->orderBy('start_time', 'desc')
             ->get();
+
+        // Contexte foyer : attribution de chaque cours à l'enfant concerné (cf. getBookings).
+        $request->attributes->set('household_student_ids', $studentIds);
 
         return response()->json([
             'success' => true,

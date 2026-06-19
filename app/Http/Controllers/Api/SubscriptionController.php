@@ -1382,19 +1382,22 @@ class SubscriptionController extends Controller
                         if (!empty($courseTypeIds)) {
                             // Trouver les cours des élèves qui ne sont pas encore liés à un abonnement
                             // et qui correspondent aux types de cours de cet abonnement
-                            $unlinkedLessons = \App\Models\Lesson::whereIn('student_id', $studentIds)
+                            $unlinkedLessons = \App\Models\Lesson::query()
+                                ->where('club_id', $club->id)
+                                ->where(function ($query) use ($studentIds) {
+                                    $query->whereIn('student_id', $studentIds)
+                                        ->orWhereHas('students', function ($studentQuery) use ($studentIds) {
+                                            $studentQuery->whereIn('students.id', $studentIds);
+                                        });
+                                })
                                 ->whereIn('course_type_id', $courseTypeIds)
                                 ->whereNotIn('status', ['cancelled'])
-                                ->whereDoesntHave('subscriptionInstances') // Cours non encore liés à un abonnement
+                                ->whereDoesntHave('subscriptionInstances')
                                 ->get();
                             
                             foreach ($unlinkedLessons as $lesson) {
                                 try {
-                                    // Vérifier s'il reste des cours disponibles
-                                    $totalLessons = $instance->subscription->total_available_lessons;
-                                    $lessonsUsed = $instance->lessons_used;
-                                    
-                                    if ($lessonsUsed < $totalLessons) {
+                                    if ($instance->getRemainingAttachmentSlots() > 0) {
                                         $instance->consumeLesson($lesson);
                                         $stats['lessons_linked']++;
                                         
@@ -1410,8 +1413,9 @@ class SubscriptionController extends Controller
                     // Sauvegarder l'ancienne valeur
                     $oldLessonsUsed = $instance->lessons_used;
                     
-                    // Recalculer après avoir lié les cours
-                    $instance->recalculateLessonsUsed();
+                            // Recalculer après avoir lié les cours
+                            $instance->recalculateLessonsUsed();
+                            $instance->checkAndUpdateStatus();
                     
                     // Si la valeur a changé, compter comme mise à jour
                     if ($oldLessonsUsed != $instance->lessons_used) {
@@ -1778,12 +1782,7 @@ class SubscriptionController extends Controller
             
             $instance->status = $validated['status'];
             if (isset($validated['manual_lessons_used']) || isset($validated['lessons_used'])) {
-                $consumedLessons = $instance->lessons
-                    ->filter(function ($lesson) {
-                        return in_array($lesson->status, ['pending', 'confirmed', 'completed'], true)
-                            && Carbon::parse($lesson->start_time)->lessThanOrEqualTo(now());
-                    })
-                    ->count();
+                $consumedLessons = $instance->getConsumedLessonsCount();
 
                 $manualLessonsUsed = isset($validated['manual_lessons_used'])
                     ? (int) $validated['manual_lessons_used']

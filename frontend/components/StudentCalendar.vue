@@ -550,6 +550,14 @@ const resolveParticipantNames = (lesson) => {
   return Array.from(new Set(names))
 }
 
+// Élève(s) du foyer réellement concerné(s) par le cours (inclut le bénéficiaire d'abonnement non participant).
+const resolveHouseholdNames = (lesson) => {
+  const names = (lesson.household_students || [])
+    .map(s => s?.name)
+    .filter(Boolean)
+  return Array.from(new Set(names))
+}
+
 const loadCalendarEvents = async () => {
   try {
     isLoading.value = true
@@ -561,11 +569,13 @@ const loadCalendarEvents = async () => {
     if (response.data.success) {
       const lessons = response.data.data || []
       const scopeLabel = studentScopeStore.apiScopeParam === 'all' ? (lesson) => {
+        const household = resolveHouseholdNames(lesson)
         const participants = resolveParticipantNames(lesson)
+        const labelNames = household.length > 0 ? household : participants
         const fallbackName = lesson.student?.user?.name || lesson.student?.name
         const courseName = lesson.course_type?.name || lesson.courseType?.name || 'Cours'
-        if (participants.length > 0) {
-          return `${courseName} (${participants.join(', ')})`
+        if (labelNames.length > 0) {
+          return `${courseName} (${labelNames.join(', ')})`
         }
         return fallbackName ? `${courseName} (${fallbackName})` : courseName
       } : (lesson) => lesson.course_type?.name || lesson.courseType?.name || 'Cours'

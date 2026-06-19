@@ -39,6 +39,7 @@ services:
     depends_on:
       - neo4j
       - mysql-local
+      - redis
     networks:
       - bookyourcoach-network
     healthcheck:
@@ -132,6 +133,31 @@ services:
       start_period: 40s
 
   # =============================================================================
+  # Redis — cache, sessions, queues (local ; prod → VM partagée infra/shared-redis)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: activibe-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-activibe_redis_local}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bookyourcoach-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-activibe_redis_local}", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # =============================================================================
   # Neo4j pour analyses graphiques
   # =============================================================================
   neo4j:
@@ -220,6 +246,8 @@ volumes:
   neo4j_plugins:
     driver: local
   mysql_local_data:
+    driver: local
+  redis_data:
     driver: local
   app_storage:
     driver: local

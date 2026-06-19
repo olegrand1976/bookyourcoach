@@ -574,5 +574,182 @@ class SubscriptionInstanceUpdateTest extends TestCase
         $this->assertGreaterThanOrEqual($consumedLessons, $this->instance->lessons_used);
         $this->assertLessThanOrEqual($expectedTotal, $this->instance->lessons_used);
     }
+
+    public function test_recalculate_all_respects_attachment_slots_not_lessons_used(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->update([
+            'lessons_used' => 0,
+            'manual_lessons_used' => 0,
+        ]);
+
+        for ($i = 0; $i < 10; $i++) {
+            $futureLesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::now()->addWeeks($i + 1),
+                'end_time' => Carbon::now()->addWeeks($i + 1)->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->instance->consumeLesson($futureLesson);
+        }
+
+        $this->assertEquals(0, $this->instance->fresh()->lessons_used);
+        $this->assertEquals(0, $this->instance->fresh()->getRemainingAttachmentSlots());
+
+        $unlinkedPastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'lessons_linked' => 0,
+                ],
+            ]);
+
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $unlinkedPastLesson->id,
+        ]);
+        $this->assertEquals(0, $this->instance->fresh()->getRemainingAttachmentSlots());
+    }
+
+    public function test_recalculate_all_links_unlinked_lesson_when_attachment_slots_remain(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->update([
+            'lessons_used' => 0,
+            'manual_lessons_used' => 0,
+        ]);
+
+        $unlinkedPastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->assertEquals(10, $this->instance->fresh()->getRemainingAttachmentSlots());
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)
+            ->assertJsonPath('data.lessons_linked', 1);
+
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $unlinkedPastLesson->id,
+        ]);
+        $this->assertEquals(1, $this->instance->fresh()->lessons_used);
+        $this->assertEquals(9, $this->instance->fresh()->getRemainingAttachmentSlots());
+    }
+
+    public function test_recalculate_all_links_lesson_for_pivot_only_student(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+
+        $unlinkedPastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => null,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $unlinkedPastLesson->students()->attach($this->student->id);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)->assertJsonPath('data.lessons_linked', 1);
+
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $unlinkedPastLesson->id,
+        ]);
+    }
+
+    public function test_recalculate_all_ignores_lessons_from_other_club(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+
+        $otherClub = Club::create([
+            'name' => 'Autre club',
+            'email' => 'other@club.com',
+            'phone' => '0987654321',
+            'is_active' => true,
+        ]);
+
+        $foreignLesson = Lesson::create([
+            'club_id' => $otherClub->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)->assertJsonPath('data.lessons_linked', 0);
+
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $foreignLesson->id,
+        ]);
+    }
+
+    public function test_recalculate_all_skips_completed_instances(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->update([
+            'status' => 'completed',
+            'lessons_used' => 10,
+            'manual_lessons_used' => 0,
+        ]);
+
+        $unlinkedPastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)->assertJsonPath('data.lessons_linked', 0);
+
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $unlinkedPastLesson->id,
+        ]);
+        $this->assertEquals('completed', $this->instance->fresh()->status);
+    }
 }
 

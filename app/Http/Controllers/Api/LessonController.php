@@ -133,39 +133,7 @@ class LessonController extends Controller
                     'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
                 ]);
 
-            // Filtrage selon le rôle de l'utilisateur
-            if ($user->role === 'teacher') {
-                $teacher = $user->teacher;
-                if ($teacher) {
-                    $query->where('teacher_id', $teacher->id);
-                } else {
-                    // Si pas de profil enseignant, ne retourner aucun cours
-                    $query->whereRaw('1 = 0');
-                }
-            } elseif ($user->role === 'student') {
-                // Foyer complet (compte parent + enfants rattachés) : couvre student_id,
-                // lesson_student et co-bénéficiaires d'abonnements.
-                $householdIds = $user->getHouseholdStudentIds();
-                if ($householdIds === []) {
-                    $query->whereRaw('1 = 0');
-                } else {
-                    $query->forParticipantStudents($householdIds);
-                }
-            } elseif ($user->role === 'club') {
-                // Les clubs voient uniquement les cours de leurs enseignants
-                $club = $user->getFirstClub();
-                if ($club) {
-                    $query->whereHas('teacher', function ($q) use ($club) {
-                        $q->whereHas('clubs', function ($clubQuery) use ($club) {
-                            $clubQuery->where('clubs.id', $club->id);
-                        });
-                    });
-                } else {
-                    // Si le club n'existe pas, ne retourner aucun cours
-                    $query->whereRaw('1 = 0');
-                }
-            }
-            // Les admins voient tous les cours
+            $this->applyLessonAccessScope($query, $user);
 
             // Planning club/enseignant : exclure les cours annulés pour libérer la plage (réutilisable par un autre élève)
             // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
@@ -658,8 +626,9 @@ class LessonController extends Controller
                 $recurrenceService->createRecurrenceAndGenerateLessons($lesson, $recurringIntervalForRecurrence);
             }
 
-            // Job async : déduction abonnement, notifications, rappel (récurrence déjà créée en sync si demandée)
-            $shouldDispatchJob = !empty($validated['student_id']) && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1);
+            // Job async : déduction abonnement, notifications, rappel (récurrence déjà créée en sync si demandée).
+            // Détection des bénéficiaires via student_id OU participants pivot (cours collectif).
+            $shouldDispatchJob = $lesson->hasParticipants() && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1);
             Log::info("⚡ [LessonController] Dispatch job?", [
                 'lesson_id' => $lesson->id,
                 'student_id' => $validated['student_id'] ?? null,
@@ -668,7 +637,7 @@ class LessonController extends Controller
                 'should_dispatch' => $shouldDispatchJob,
             ]);
             if ($shouldDispatchJob) {
-                ProcessLessonPostCreationJob::dispatch($lesson, $recurringIntervalForRecurrence);
+                ProcessLessonPostCreationJob::dispatch($lesson, $recurringIntervalForRecurrence, $deductFromSubscription);
                 Log::info("⚡ [LessonController] Job dispatché pour le cours {$lesson->id}", [
                     'deduct_from_subscription' => $deductFromSubscription,
                     'recurring_interval' => $recurringInterval,
@@ -819,19 +788,7 @@ class LessonController extends Controller
                 }
             ]);
 
-            // Vérifier les permissions selon le rôle
-            if ($user->role === 'teacher') {
-                $query->whereHas('teacher', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
-            } elseif ($user->role === 'student') {
-                $householdIds = $user->getHouseholdStudentIds();
-                if ($householdIds === []) {
-                    $query->whereRaw('1 = 0');
-                } else {
-                    $query->forParticipantStudents($householdIds);
-                }
-            }
+            $this->applyLessonAccessScope($query, $user);
 
             $lesson = $query->findOrFail($id);
 
@@ -904,18 +861,9 @@ class LessonController extends Controller
             $user = Auth::user();
             $query = Lesson::query();
 
-            // Vérifier les permissions selon le rôle
-            if ($user->role === 'teacher') {
-                $query->whereHas('teacher', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
-            } elseif ($user->role === 'student') {
-                $householdIds = $user->getHouseholdStudentIds();
-                if ($householdIds === []) {
-                    $query->whereRaw('1 = 0');
-                } else {
-                    $query->forParticipantStudents($householdIds);
-                }
+            $this->applyLessonAccessScope($query, $user);
+
+            if ($user->role === 'student') {
                 // Les étudiants ne peuvent modifier que certains champs
                 $allowedFields = ['notes'];
                 $request = new Request($request->only($allowedFields));
@@ -993,9 +941,12 @@ class LessonController extends Controller
                     default => 'club',
                 };
                 LessonCancellationAudit::applyToLesson($lesson, $user, $cancelRole, true);
+                if ($user->role === 'club') {
+                    $validated['cancellation_count_in_subscription'] = false;
+                }
             }
             
-            if ($oldStatus !== 'completed' && $newStatus === 'completed' && $lesson->student_id) {
+            if ($oldStatus !== 'completed' && $newStatus === 'completed' && $lesson->hasParticipants()) {
                 $this->consumeLessonFromSubscription($lesson);
             }
 
@@ -1486,23 +1437,7 @@ class LessonController extends Controller
             $query = Lesson::query();
 
             // Vérifier les permissions selon le rôle
-            if ($user->role === 'teacher') {
-                $query->whereHas('teacher', function ($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                });
-            } elseif ($user->role === 'student') {
-                $householdIds = $user->getHouseholdStudentIds();
-                if ($householdIds === []) {
-                    $query->whereRaw('1 = 0');
-                } else {
-                    $query->forParticipantStudents($householdIds);
-                }
-            } elseif ($user->role === 'club') {
-                $club = $user->getFirstClub();
-                if ($club) {
-                    $query->where('club_id', $club->id);
-                }
-            }
+            $this->applyLessonAccessScope($query, $user);
 
             $lesson = $query->findOrFail($id);
 
@@ -1517,6 +1452,7 @@ class LessonController extends Controller
                 }
 
                 LessonCancellationAudit::applyToLesson($lesson, $user, 'club', true);
+                $this->applyClubSubscriptionReleaseOnCancellation($lesson);
                 $lesson->status = 'cancelled';
                 $lesson->save();
                 $this->lessonActionLogService->log(
@@ -1528,6 +1464,7 @@ class LessonController extends Controller
                 $message = 'Cours annulé avec succès';
             } elseif ($lesson->start_time > now() && $lesson->status === 'pending') {
                 LessonCancellationAudit::applyToLesson($lesson, $user, 'club', true);
+                $this->applyClubSubscriptionReleaseOnCancellation($lesson);
                 $lesson->status = 'cancelled';
                 $lesson->save();
                 $this->lessonActionLogService->log(
@@ -1777,105 +1714,48 @@ class LessonController extends Controller
                 return;
             }
 
-            // Pour chaque étudiant du cours, essayer de consommer un abonnement
+            $clubId = $lesson->club_id ? (int) $lesson->club_id : null;
+            $consumed = false;
+
             foreach ($studentIds as $studentId) {
-                // Récupérer les instances d'abonnements actifs où l'élève est inscrit
-                // 📌 IMPORTANT : Tri par started_at ASC pour consommer le plus ancien en premier (FIFO)
-                $subscriptionInstances = SubscriptionInstance::where('status', 'active')
-                    ->whereHas('students', function ($query) use ($studentId) {
-                        $query->where('students.id', $studentId);
-                    })
-                    ->with(['subscription.courseTypes', 'students'])
-                    ->orderBy('started_at', 'asc') // 🔄 FIFO : Le plus ancien d'abord
-                    ->get();
+                $subscriptionInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                    (int) $studentId,
+                    (int) $lesson->course_type_id,
+                    $clubId
+                );
 
-                Log::info("🔍 Recherche d'abonnement pour le cours {$lesson->id}", [
-                    'student_id' => $studentId,
-                    'course_type_id' => $lesson->course_type_id,
-                    'subscriptions_found' => $subscriptionInstances->count(),
-                    'order' => 'FIFO (oldest first)'
-                ]);
+                if (! $subscriptionInstance) {
+                    continue;
+                }
 
-                // Trouver la première instance valide pour ce type de cours
-                foreach ($subscriptionInstances as $subscriptionInstance) {
-                    $subscriptionInstance->checkAndUpdateStatus();
-                    
-                    // Si le statut n'est plus actif après la vérification, passer au suivant
-                    if ($subscriptionInstance->status !== 'active') {
-                        continue;
-                    }
+                try {
+                    $subscriptionInstance->consumeLesson($lesson);
+                    $subscriptionInstance->refresh();
+                    $consumed = true;
 
-                    // Vérifier si ce cours fait partie de l'abonnement
-                    $courseTypeIds = $subscriptionInstance->subscription->courseTypes->pluck('id')->toArray();
-                    
-                    // ⚠️ Ne pas recalculer ici pour préserver les valeurs manuelles
-                    // remaining_lessons utilise directement lessons_used qui peut contenir une valeur manuelle
-                    // consumeLesson() gérera l'incrémentation correctement
-                    
-                    if (in_array($lesson->course_type_id, $courseTypeIds) && $subscriptionInstance->remaining_lessons > 0) {
-                        try {
-                            // Consommer un cours de cet abonnement
-                            $subscriptionInstance->consumeLesson($lesson);
-                            
-                            $studentNames = $subscriptionInstance->students->map(function ($student) {
-                                if ($student->user) {
-                                    return $student->user->name;
-                                }
-                                $firstName = $student->first_name ?? '';
-                                $lastName = $student->last_name ?? '';
-                                $name = trim($firstName . ' ' . $lastName);
-                                return !empty($name) ? $name : 'Élève sans nom';
-                            })->filter()->join(', ');
-                            
-                            // Recharger l'instance pour avoir les valeurs à jour
-                            $subscriptionInstance->refresh();
-                            
-                            // 📦 ARCHIVAGE : Si l'abonnement est plein (100% utilisé), le marquer comme completed
-                            $totalLessons = $subscriptionInstance->subscription->total_available_lessons;
-                            $isFullyUsed = $subscriptionInstance->lessons_used >= $totalLessons;
-                            
-                            if ($isFullyUsed && $subscriptionInstance->status === 'active') {
-                                $subscriptionInstance->status = 'completed';
-                                $subscriptionInstance->save();
-                                
-                                Log::info("📦 Abonnement {$subscriptionInstance->id} ARCHIVÉ (100% utilisé)", [
-                                    'subscription_instance_id' => $subscriptionInstance->id,
-                                    'lessons_used' => $subscriptionInstance->lessons_used,
-                                    'total_lessons' => $totalLessons,
-                                    'students' => $studentNames
-                                ]);
-                            }
-                            
-                            Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO)", [
-                                'lesson_id' => $lesson->id,
-                                'subscription_instance_id' => $subscriptionInstance->id,
-                                'student_id' => $studentId,
-                                'started_at' => $subscriptionInstance->started_at,
-                                'lessons_used' => $subscriptionInstance->lessons_used,
-                                'total_lessons' => $totalLessons,
-                                'remaining_lessons' => $subscriptionInstance->remaining_lessons,
-                                'status' => $subscriptionInstance->status,
-                                'students' => $studentNames,
-                                'archived' => $isFullyUsed
-                            ]);
-                            
-                            break; // Un seul abonnement consommé par étudiant
-                        } catch (\Exception $e) {
-                            Log::error("❌ Erreur lors de la consommation du cours {$lesson->id} depuis l'abonnement {$subscriptionInstance->id}: " . $e->getMessage(), [
-                                'lesson_id' => $lesson->id,
-                                'subscription_instance_id' => $subscriptionInstance->id,
-                                'student_id' => $studentId,
-                                'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString()
-                            ]);
-                            // Continuer avec l'instance suivante si celle-ci échoue
-                            continue;
-                        }
-                    }
+                    Log::info("✅ Cours {$lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (FIFO created_at)", [
+                        'lesson_id' => $lesson->id,
+                        'subscription_instance_id' => $subscriptionInstance->id,
+                        'student_id' => $studentId,
+                        'lessons_used' => $subscriptionInstance->lessons_used,
+                        'remaining_attachment_slots' => $subscriptionInstance->getRemainingAttachmentSlots(),
+                        'status' => $subscriptionInstance->status,
+                    ]);
+
+                    break;
+                } catch (\Exception $e) {
+                    Log::error("❌ Erreur lors de la consommation du cours {$lesson->id} depuis l'abonnement {$subscriptionInstance->id}: " . $e->getMessage(), [
+                        'lesson_id' => $lesson->id,
+                        'subscription_instance_id' => $subscriptionInstance->id,
+                        'student_id' => $studentId,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 
-            Log::info("Aucun abonnement actif trouvé pour le cours {$lesson->id} (étudiants: " . implode(', ', $studentIds) . ", type {$lesson->course_type_id})");
+            if (! $consumed) {
+                Log::info("Aucun abonnement actif trouvé pour le cours {$lesson->id} (étudiants: " . implode(', ', $studentIds) . ", type {$lesson->course_type_id})");
+            }
         } catch (\Exception $e) {
             // Log l'erreur mais ne pas faire échouer la création du cours
             Log::error("Erreur lors de la consommation de l'abonnement: " . $e->getMessage());
@@ -2568,8 +2448,10 @@ class LessonController extends Controller
                 ], 403);
             }
 
-            $lesson = Lesson::findOrFail($id);
-            
+            $query = Lesson::query();
+            $this->applyLessonAccessScope($query, $user);
+            $lesson = $query->findOrFail($id);
+
             $validated = $request->validate([
                 'deduct_from_subscription' => 'required|boolean'
             ]);
@@ -2616,8 +2498,13 @@ class LessonController extends Controller
                     }
                 }
             } else {
-                // Délier le cours de tous les abonnements (sans décrémenter lessons_used)
+                $instanceIds = $lesson->subscriptionInstances()->pluck('subscription_instances.id')->all();
                 $lesson->subscriptionInstances()->detach();
+
+                foreach (SubscriptionInstance::whereIn('id', $instanceIds)->get() as $instance) {
+                    $instance->recalculateLessonsUsed();
+                }
+
                 Log::info("✅ Cours {$lesson->id} délié de tous les abonnements");
             }
 
@@ -2973,6 +2860,7 @@ class LessonController extends Controller
                         }
                     } else {
                         LessonCancellationAudit::applyToLesson($lessonToProcess, $user, 'club', true);
+                        $this->applyClubSubscriptionReleaseOnCancellation($lessonToProcess);
                         if ($lessonToProcess->id === $lesson->id) {
                             $lessonToProcess->status = 'cancelled';
                             $lessonToProcess->notes = ($lessonToProcess->notes ? $lessonToProcess->notes . "\n" : '') . '[Annulé] ' . $reason;
@@ -3046,17 +2934,50 @@ class LessonController extends Controller
     }
 
     /**
+     * Annulation club : libère explicitement la place abonnement (ne compte pas dans l'abo).
+     */
+    private function applyClubSubscriptionReleaseOnCancellation(Lesson $lesson): void
+    {
+        if (! Schema::hasColumn('lessons', 'cancellation_count_in_subscription')) {
+            return;
+        }
+
+        $lesson->cancellation_count_in_subscription = false;
+    }
+
+    /**
+     * Restreint une requête Lesson selon le rôle de l'utilisateur connecté.
+     */
+    private function applyLessonAccessScope($query, User $user): void
+    {
+        if ($user->role === 'teacher') {
+            $query->whereHas('teacher', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        } elseif ($user->role === 'student') {
+            $householdIds = $user->getHouseholdStudentIds();
+            if ($householdIds === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->forParticipantStudents($householdIds);
+            }
+        } elseif ($user->role === 'club') {
+            $club = $user->getFirstClub();
+            if ($club) {
+                $query->where('club_id', $club->id);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+    }
+
+    /**
      * Libérer un cours d'un abonnement (décrémente lessons_used)
      */
     private function releaseSubscriptionLesson(Lesson $lesson): void
     {
         try {
-            $subscriptionInstances = $lesson->subscriptionInstances;
-            
-            foreach ($subscriptionInstances as $instance) {
-                // Recalculer les cours utilisés (exclut les annulés)
-                $instance->recalculateLessonsUsed();
-            }
+            SubscriptionInstance::recalculateForCancelledLesson($lesson);
         } catch (\Exception $e) {
             Log::warning("Erreur lors de la libération de l'abonnement: " . $e->getMessage());
         }

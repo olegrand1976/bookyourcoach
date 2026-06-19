@@ -72,9 +72,15 @@ class StudentLessonCancellationTest extends TestCase
             'reason' => 'Annulation co-inscrit',
         ]);
 
+        // Cours collectif (élève principal + co-inscrit) : le retrait du co-inscrit ne doit pas
+        // annuler le cours, qui reste pour l'élève principal.
         $response->assertStatus(200)->assertJson(['success' => true]);
         $lesson->refresh();
-        $this->assertSame('cancelled', $lesson->status);
+        $this->assertSame('confirmed', $lesson->status);
+        $this->assertFalse(
+            $lesson->students()->where('students.id', $studentPivot->id)->exists(),
+            'Le co-inscrit annulant doit être détaché du cours'
+        );
     }
 
     #[Test]
@@ -173,19 +179,28 @@ class StudentLessonCancellationTest extends TestCase
 
         $response = $this->postJson("/api/student/bookings/{$lesson->id}/cancel", [
             'active_student_id' => $studentPivot->id,
-            'reason' => 'Annulation — test incohérence abo',
+            'reason' => 'Annulation — retrait co-inscrit',
         ]);
 
+        // Nouveau comportement : le co-inscrit (non bénéficiaire de l'instance) est simplement détaché.
+        // Le cours reste actif pour l'élève principal, dont l'abonnement reste lié et intact :
+        // il n'y a donc plus d'incohérence à signaler au club.
         $response->assertStatus(200)->assertJson(['success' => true]);
+        $lesson->refresh();
+        $this->assertSame('confirmed', $lesson->status);
+        $this->assertFalse(
+            $lesson->students()->where('students.id', $studentPivot->id)->exists(),
+            'Le co-inscrit annulant doit être détaché du cours'
+        );
+        $this->assertDatabaseHas('subscription_lessons', [
+            'lesson_id' => $lesson->id,
+            'subscription_instance_id' => $subscriptionInstance->id,
+        ]);
+        $this->assertSame(0, (int) $subscriptionInstance->fresh()->lessons_used);
 
-        Notification::assertSentTo(
+        Notification::assertNotSentTo(
             User::query()->findOrFail($clubOwner->id),
-            LessonCancellationSubscriptionParticipantMismatchNotification::class,
-            function (LessonCancellationSubscriptionParticipantMismatchNotification $n) use ($lesson, $studentPivot, $subscriptionInstance) {
-                return (int) $n->lesson->id === (int) $lesson->id
-                    && (int) $n->cancellingStudent->id === (int) $studentPivot->id
-                    && $n->instancesMissingStudent->pluck('id')->contains($subscriptionInstance->id);
-            }
+            LessonCancellationSubscriptionParticipantMismatchNotification::class
         );
     }
 
@@ -499,5 +514,86 @@ class StudentLessonCancellationTest extends TestCase
         $response = $this->postJson("/api/student/bookings/{$lesson->id}/cancel");
 
         $response->assertStatus(404);
+    }
+
+    #[Test]
+    public function cancel_collective_lesson_releases_only_cancelling_student_subscription(): void
+    {
+        $user = $this->actingAsStudent();
+        $studentA = $user->student;
+        $studentB = Student::factory()->create([
+            'user_id' => User::factory()->create(['role' => 'student', 'email' => 'child-b@example.com'])->id,
+        ]);
+        DB::table('student_family_links')->insert([
+            ['primary_student_id' => $studentA->id, 'linked_student_id' => $studentB->id, 'created_at' => now(), 'updated_at' => now()],
+            ['primary_student_id' => $studentB->id, 'linked_student_id' => $studentA->id, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $club = Club::factory()->create();
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $subscription = Subscription::create([
+            'club_id' => $club->id,
+            'subscription_template_id' => null,
+            'name' => 'Abo collectif test',
+        ]);
+        $instanceA = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => now(),
+            'expires_at' => now()->addMonths(6),
+        ]);
+        $instanceA->students()->attach($studentA->id);
+        $instanceB = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => now(),
+            'expires_at' => now()->addMonths(6),
+        ]);
+        $instanceB->students()->attach($studentB->id);
+
+        $startTime = Carbon::now()->addHours(10);
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($studentA)
+            ->create([
+                'status' => 'confirmed',
+                'start_time' => $startTime,
+                'end_time' => $startTime->copy()->addHour(),
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+            ]);
+        $lesson->students()->syncWithoutDetaching([$studentA->id, $studentB->id]);
+
+        // Le cours débite l'abonnement de A (modèle 1 cours = 1 abonnement).
+        // Cours futur : la place est réservée via le plafond d'attachement (lessons_used ne monte qu'au passé).
+        $instanceA->lessons()->attach($lesson->id);
+        $instanceA->recalculateLessonsUsed();
+        $this->assertSame(1, $instanceA->fresh()->getAttachedCountableLessonsCount());
+
+        $response = $this->postJson("/api/student/bookings/{$lesson->id}/cancel", [
+            'active_student_id' => $studentA->id,
+            'reason' => 'Retrait enfant A',
+        ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $lesson->refresh();
+
+        // Cours maintenu pour B, A retiré et son abonnement libéré, abonnement de B intact.
+        $this->assertSame('confirmed', $lesson->status);
+        $this->assertFalse($lesson->students()->where('students.id', $studentA->id)->exists());
+        $this->assertTrue($lesson->students()->where('students.id', $studentB->id)->exists());
+        $this->assertSame((int) $studentB->id, (int) $lesson->student_id);
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'lesson_id' => $lesson->id,
+            'subscription_instance_id' => $instanceA->id,
+        ]);
+        $this->assertSame(0, $instanceA->fresh()->getAttachedCountableLessonsCount());
+        $this->assertSame(0, $instanceB->fresh()->getAttachedCountableLessonsCount());
     }
 }

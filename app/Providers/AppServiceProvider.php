@@ -17,6 +17,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(\App\Services\Neo4jService::class, function ($app) {
+            if (!filter_var(env('NEO4J_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
+                return new class {
+                    public function __call($method, $args) {
+                        return ['error' => 'Neo4j disabled (NEO4J_ENABLED=false)'];
+                    }
+                };
+            }
             try {
                 return new \App\Services\Neo4jService();
             } catch (\Exception $e) {

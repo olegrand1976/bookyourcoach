@@ -112,7 +112,7 @@ class RecurringSlotService
         SubscriptionInstance $subscriptionInstance
     ): array {
         $validDates = [];
-        $maxLessons = $subscriptionInstance->subscription->total_lessons ?? PHP_INT_MAX;
+        $attachmentSlots = $subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning();
 
         foreach ($dates as $date) {
             // Vérifier que la date est dans la période de validité de l'abonnement
@@ -125,13 +125,10 @@ class RecurringSlotService
                 continue;
             }
 
-            // Vérifier qu'on n'a pas atteint le nombre maximum de cours
-            // On compte les lessons déjà générées pour cet abonnement
-            $existingLessonsCount = $this->countGeneratedLessonsForSubscription($subscriptionInstance);
-            if ($existingLessonsCount >= $maxLessons) {
+            if (count($validDates) >= $attachmentSlots) {
                 Log::info("Limite de cours atteinte pour abonnement #{$subscriptionInstance->id}", [
-                    'existing' => $existingLessonsCount,
-                    'max' => $maxLessons,
+                    'remaining_attachment_slots' => $attachmentSlots,
+                    'planned_dates' => count($validDates),
                 ]);
                 break;
             }
@@ -238,19 +235,6 @@ class RecurringSlotService
             ->where('start_time', '<', $endTime)
             ->where('status', '!=', 'cancelled')
             ->exists();
-    }
-
-    /**
-     * Compte les lessons déjà générées pour un abonnement
-     */
-    private function countGeneratedLessonsForSubscription(SubscriptionInstance $subscriptionInstance): int
-    {
-        return LessonRecurringSlot::where('subscription_instance_id', $subscriptionInstance->id)
-            ->where('generated_by', 'auto')
-            ->whereHas('lesson', function ($query) {
-                $query->where('status', '!=', 'cancelled');
-            })
-            ->count();
     }
 
     /**

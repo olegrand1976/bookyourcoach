@@ -1,0 +1,47 @@
+# Cloud Run API — Laravel sans queue worker (worker sur shared-workers VM)
+FROM php:8.3-fpm-alpine AS base
+
+RUN apk add --no-cache \
+    nginx supervisor curl zip unzip git mysql-client \
+    freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev icu-dev oniguruma-dev sqlite-dev imagemagick \
+    autoconf gcc g++ make
+
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS imagemagick-dev \
+    && docker-php-source extract \
+    && cp -a /usr/src/php /usr/src/php-src \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j1 gd \
+    && for ext in pdo_mysql pdo_sqlite sqlite3 mbstring zip exif pcntl intl bcmath; do \
+         rm -rf /usr/src/php && cp -a /usr/src/php-src /usr/src/php && docker-php-ext-install -j1 "$ext"; \
+       done \
+    && rm -rf /usr/src/php-src && docker-php-source delete \
+    && pecl install redis imagick && docker-php-ext-enable redis imagick \
+    && apk del .build-deps
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx/cloudrun.conf /etc/nginx/http.d/default.conf
+COPY docker/supervisord.cloudrun.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/php.ini /usr/local/etc/php/php.ini
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && sed -i 's/listen 80;/listen 8080;/' /etc/nginx/nginx.conf
+
+COPY --chown=www-data:www-data . .
+
+RUN rm -rf /var/www/html/cert.pem \
+    && composer install --no-dev --optimize-autoloader --no-interaction --no-scripts \
+    && cp .env.example .env \
+    && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    && php artisan package:discover --ansi \
+    && mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views storage/app/temp \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+ENV PORT=8080
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

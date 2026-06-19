@@ -57,6 +57,7 @@ class ClubClosureDayService
                 foreach ($instances as $instance) {
                     $instance->lessons()->detach($lesson->id);
                     $instance->recalculateLessonsUsed();
+                    $instance->checkAndUpdateStatus();
 
                     Log::info('Club closure: lesson detached from subscription instance', [
                         'club_id' => $club->id,

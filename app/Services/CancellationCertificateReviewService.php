@@ -36,11 +36,7 @@ class CancellationCertificateReviewService
             $lesson->cancellation_certificate_reviewed_by = $reviewer->id;
             $lesson->cancellation_certificate_rejection_reason = $closeReason;
             $lesson->cancellation_count_in_subscription = true;
-            $lesson->saveQuietly();
-
-            foreach ($lesson->subscriptionInstances as $instance) {
-                $instance->recalculateLessonsUsed();
-            }
+            $lesson->save();
         });
     }
 
@@ -53,11 +49,7 @@ class CancellationCertificateReviewService
             $lesson->cancellation_certificate_reviewed_by = $reviewer->id;
             $lesson->cancellation_certificate_rejection_reason = $rejectionReason;
             $lesson->cancellation_count_in_subscription = $countInSubscription;
-            $lesson->saveQuietly();
-
-            foreach ($lesson->subscriptionInstances as $instance) {
-                $instance->recalculateLessonsUsed();
-            }
+            $lesson->save();
         });
     }
 }

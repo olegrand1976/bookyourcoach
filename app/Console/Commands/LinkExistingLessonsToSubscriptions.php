@@ -107,7 +107,7 @@ class LinkExistingLessonsToSubscriptions extends Command
                 }
                 
                 $subscriptionInstances = $subscriptionInstancesQuery
-                    ->orderBy('started_at', 'asc') // FIFO
+                    ->orderBy('created_at', 'asc')
                     ->get();
                 
                 if ($subscriptionInstances->isEmpty()) {
@@ -136,19 +136,14 @@ class LinkExistingLessonsToSubscriptions extends Command
                         continue;
                     }
                     
-                    // Recalculer les cours utilisés
-                    $subscriptionInstance->recalculateLessonsUsed();
-                    
-                    if ($subscriptionInstance->remaining_lessons <= 0) {
+                    if ($subscriptionInstance->getRemainingAttachmentSlots() <= 0) {
                         continue;
                     }
                     
-                    // On a trouvé un abonnement valide !
                     if (!$dryRun) {
                         try {
-                            // Lier le cours à l'abonnement
-                            $subscriptionInstance->lessons()->attach($lesson->id);
-                            $subscriptionInstance->recalculateLessonsUsed();
+                            $subscriptionInstance->consumeLesson($lesson);
+                            $subscriptionInstance->refresh();
                             
                             $stats['total_linked']++;
                             $stats['details'][] = [

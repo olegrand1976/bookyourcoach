@@ -278,6 +278,54 @@ class RecurringSlotServiceTest extends TestCase
         // Le test principal est que le nombre de lessons n'a pas changé
     }
 
+    public function test_does_not_plan_generation_beyond_remaining_attachment_slots(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $futureLesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::now()->addWeeks($i + 1),
+                'end_time' => Carbon::now()->addWeeks($i + 1)->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->subscriptionInstance->lessons()->attach($futureLesson->id);
+        }
+
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+
+        $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
+        $recurringSlot = RecurringSlot::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'club_id' => $this->club->id,
+            'course_type_id' => $this->courseType->id,
+            'rrule' => 'FREQ=WEEKLY;BYDAY=SA',
+            'reference_start_time' => $nextSaturday->setTime(9, 0),
+            'duration_minutes' => 60,
+            'status' => 'active',
+        ]);
+
+        RecurringSlotSubscription::create([
+            'recurring_slot_id' => $recurringSlot->id,
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
+        $stats = $this->service->generateLessonsForSlot(
+            $recurringSlot,
+            Carbon::now(),
+            $nextSaturday->copy()->addWeeks(8)
+        );
+
+        $this->assertSame(0, $stats['generated']);
+    }
+
     /**
      * Test de l'expiration des liaisons abonnement-créneau
      */

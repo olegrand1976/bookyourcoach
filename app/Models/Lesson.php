@@ -137,6 +137,16 @@ class Lesson extends Model
     }
 
     /**
+     * Indique si le cours a au moins un bénéficiaire : élève principal (student_id)
+     * OU participant rattaché via le pivot lesson_student (cours collectif).
+     * Sert de garde unique pour la consommation d'abonnement (cf. cours pivot-only).
+     */
+    public function hasParticipants(): bool
+    {
+        return $this->student_id !== null || $this->students()->exists();
+    }
+
+    /**
      * Cours où l'un des élèves donnés est :
      * - l'élève principal (student_id),
      * - rattaché via lesson_student,

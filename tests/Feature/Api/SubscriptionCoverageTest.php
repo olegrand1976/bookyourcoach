@@ -336,6 +336,66 @@ class SubscriptionCoverageTest extends TestCase
     }
 
     /** @test */
+    public function future_lesson_is_uncovered_when_subscription_has_no_remaining_slots()
+    {
+        $template = SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'TEST-SLOTS',
+            'total_lessons' => 1, // Une seule place
+            'free_lessons' => 0,
+            'price' => 50.00,
+            'validity_months' => 6,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+        ]);
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => now(),
+            'expires_at' => now()->addMonths(6),
+        ]);
+        $instance->students()->attach($this->student->id);
+
+        // Cours déjà rattaché qui consomme l'unique place.
+        $attachedLesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'start_time' => now()->addWeek(),
+            'status' => 'confirmed',
+        ]);
+        $instance->lessons()->attach($attachedLesson->id);
+
+        // Second cours futur NON rattaché : plus de place disponible.
+        $uncoveredLesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'start_time' => now()->addWeeks(2),
+            'status' => 'confirmed',
+        ]);
+
+        $response = $this->getJson("/api/club/students/{$this->student->id}/history");
+        $response->assertStatus(200);
+        $lessons = collect($response->json('data.lessons'));
+
+        $attached = $lessons->firstWhere('id', $attachedLesson->id);
+        $this->assertTrue($attached['subscription_coverage']['is_covered'], 'Le cours rattaché doit être couvert (lien réel)');
+        $this->assertEquals($instance->id, $attached['subscription_coverage']['covering_subscription_id']);
+
+        $uncovered = $lessons->firstWhere('id', $uncoveredLesson->id);
+        $this->assertFalse($uncovered['subscription_coverage']['is_covered'], 'Sans place restante, le cours non rattaché n\'est pas couvert');
+    }
+
+    /** @test */
     public function cancelled_lessons_are_not_counted_as_uncovered()
     {
         // Créer un cours futur annulé sans abonnement

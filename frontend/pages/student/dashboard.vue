@@ -121,8 +121,8 @@
                   {{ getCertificateStatusLabel(lesson.cancellation_certificate_status) }}
                 </span>
               </div>
-              <p v-if="studentScopeStore.apiScopeParam === 'all' && (lesson.student?.user?.name || lesson.student?.name)" class="text-xs text-gray-500 mt-1">
-                {{ lesson.student?.user?.name || lesson.student?.name }}
+              <p v-if="studentScopeStore.apiScopeParam === 'all' && resolveHouseholdLabel(lesson)" class="text-xs text-gray-500 mt-1">
+                {{ resolveHouseholdLabel(lesson) }}
               </p>
               <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
                 <span>{{ formatFullDate(lesson.start_time) }}</span>
@@ -195,8 +195,8 @@
                       Annulé
                     </span>
                   </div>
-                  <p v-if="studentScopeStore.apiScopeParam === 'all' && (lesson.student?.user?.name || lesson.student?.name)" class="text-xs text-gray-500 mt-0.5 truncate">
-                    {{ lesson.student?.user?.name || lesson.student?.name }}
+                  <p v-if="studentScopeStore.apiScopeParam === 'all' && resolveHouseholdLabel(lesson)" class="text-xs text-gray-500 mt-0.5 truncate">
+                    {{ resolveHouseholdLabel(lesson) }}
                   </p>
                   <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
                     <span class="flex items-center shrink-0">
@@ -547,6 +547,18 @@ const formatDate = (dateString: string | null): string => {
     day: 'numeric',
     month: 'short'
   })
+}
+
+// Vue « tous » : nom de l'enfant du foyer concerné (priorité au champ d'attribution serveur,
+// qui couvre aussi le cas « bénéficiaire d'abonnement non participant »).
+const resolveHouseholdLabel = (lesson: any): string => {
+  const names = (lesson?.household_students || [])
+    .map((s: any) => s?.name)
+    .filter(Boolean)
+  if (names.length > 0) {
+    return Array.from(new Set(names)).join(', ')
+  }
+  return lesson?.student?.user?.name || lesson?.student?.name || ''
 }
 
 const formatFullDate = (dateString: string | null): string => {

@@ -28,14 +28,16 @@ class ProcessLessonPostCreationJob implements ShouldQueue
 
     protected Lesson $lesson;
     protected int $recurringInterval;
+    protected bool $deductFromSubscription;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Lesson $lesson, int $recurringInterval = 1)
+    public function __construct(Lesson $lesson, int $recurringInterval = 1, bool $deductFromSubscription = true)
     {
         $this->lesson = $lesson;
         $this->recurringInterval = $recurringInterval;
+        $this->deductFromSubscription = $deductFromSubscription;
     }
 
     /**
@@ -46,13 +48,16 @@ class ProcessLessonPostCreationJob implements ShouldQueue
         try {
             Log::info("🚀 [ProcessLessonPostCreation] Début traitement asynchrone pour le cours {$this->lesson->id}");
 
-            // 1. Essayer de consommer un abonnement si l'élève en a un actif
-            if ($this->lesson->student_id) {
+            // 1. Consommer l'abonnement seulement si demandé à la création.
+            //    Inclut les cours collectifs sans student_id mais avec participants pivot.
+            if ($this->deductFromSubscription && $this->lesson->hasParticipants()) {
                 $this->tryConsumeSubscription();
-                
-                // 2. Créer un créneau récurrent si l'élève a un abonnement (et génère les cours suivants)
-                $this->createRecurringSlotIfSubscription();
+            }
 
+            // 2. Créer un créneau récurrent si l'élève a un abonnement (et génère les cours suivants).
+            //    La récurrence reste réservée aux cours mono-élève (student_id requis en interne).
+            if ($this->lesson->student_id) {
+                $this->createRecurringSlotIfSubscription();
             }
 
             // 3. Envoyer les notifications

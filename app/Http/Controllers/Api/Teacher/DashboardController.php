@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessLessonPostCreationJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Lesson;
@@ -192,6 +193,12 @@ class DashboardController extends Controller
                     'price' => $request->price,
                     'notes' => null,
                 ]);
+            }
+
+            // Aligné sur LessonController::store : consommer l'abonnement des bénéficiaires
+            // (élève principal et/ou participants pivot) via le flux post-création asynchrone.
+            if ($hasStudents && $lesson->hasParticipants()) {
+                ProcessLessonPostCreationJob::dispatch($lesson, 0, true);
             }
 
             return response()->json($lesson->load(['courseType', 'location', 'students.user', 'club']), 201);

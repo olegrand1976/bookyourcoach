@@ -306,6 +306,60 @@ class StudentDashboardControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_attributes_household_student_for_subscription_beneficiary_only_lesson(): void
+    {
+        $user = $this->actingAsStudent();
+        $studentA = $user->student;
+        $studentB = Student::factory()->create([
+            'user_id' => User::factory()->create(['role' => 'student', 'email' => 'benef-b@example.com'])->id,
+        ]);
+        \Illuminate\Support\Facades\DB::table('student_family_links')->insert([
+            ['primary_student_id' => $studentA->id, 'linked_student_id' => $studentB->id, 'created_at' => now(), 'updated_at' => now()],
+            ['primary_student_id' => $studentB->id, 'linked_student_id' => $studentA->id, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $club = Club::factory()->create();
+        $teacher = Teacher::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $subscription = Subscription::create([
+            'club_id' => $club->id,
+            'subscription_template_id' => null,
+            'name' => 'Abo bénéficiaire B',
+        ]);
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => now(),
+            'expires_at' => now()->addMonths(6),
+        ]);
+        $instance->students()->attach($studentB->id);
+
+        // Cours rattaché à A en principal, mais dont B est SEULEMENT bénéficiaire d'abonnement.
+        $lesson = Lesson::factory()->create([
+            'club_id' => $club->id,
+            'student_id' => $studentA->id,
+            'status' => 'confirmed',
+            'start_time' => Carbon::now()->addDays(2),
+            'end_time' => Carbon::now()->addDays(2)->addHour(),
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+        ]);
+        $lesson->subscriptionInstances()->attach($instance->id);
+
+        $response = $this->getJson('/api/student/bookings?active_student_id=all');
+        $response->assertStatus(200);
+
+        $booking = collect($response->json('data'))->firstWhere('id', $lesson->id);
+        $this->assertNotNull($booking, 'Le cours du foyer doit apparaître dans la vue « tous »');
+        $this->assertContains($studentA->id, $booking['household_student_ids']);
+        $this->assertContains($studentB->id, $booking['household_student_ids'], 'B (bénéficiaire abonnement) doit être attribué');
+    }
+
+    #[Test]
     public function it_can_filter_bookings_by_status()
     {
         // Arrange

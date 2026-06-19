@@ -72,8 +72,7 @@ class CourseTypeController extends Controller
 
                 // Si le club n'a pas de disciplines, retourner les types génériques uniquement
                 if (empty($clubDisciplineIds)) {
-                    $courseTypes = CourseType::where('is_active', true)
-                        ->whereNull('discipline_id')  // Uniquement génériques
+                    $courseTypes = CourseType::forClub($club->id)
                         ->orderBy('name')
                         ->get();
                     
@@ -171,10 +170,9 @@ class CourseTypeController extends Controller
                         'count' => count($courseTypeIdsUsedInLessons)
                     ]);
                     
-                    // Filtrer par discipline ET par types de cours réellement utilisés dans les cours
-                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
+                    // Filtrer par types de cours réellement utilisés dans les cours du club
+                    $courseTypes = CourseType::forClub($club->id)
                         ->whereIn('id', $courseTypeIdsUsedInLessons)
-                        ->where('is_active', true)
                         ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
                         ->orderBy('discipline_id')
                         ->orderBy('name')
@@ -194,8 +192,7 @@ class CourseTypeController extends Controller
                     // Récupérer UNIQUEMENT les types de cours liés aux disciplines du club
                     // On exclut les types génériques si le club a des disciplines spécifiques
                     // pour éviter la confusion dans la sélection des types de cours
-                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
-                        ->where('is_active', true)
+                    $courseTypes = CourseType::forClub($club->id)
                         ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
                         ->orderBy('discipline_id')
                         ->orderBy('name')
@@ -215,6 +212,7 @@ class CourseTypeController extends Controller
                         if ($discipline) {
                             // Créer un type de cours par défaut pour cette discipline
                             $courseType = CourseType::create([
+                                'club_id' => $club->id,
                                 'discipline_id' => $disciplineId,
                                 'name' => $discipline->name . ' - Cours standard',
                                 'description' => 'Cours standard de ' . $discipline->name,
@@ -229,8 +227,7 @@ class CourseTypeController extends Controller
                     }
                     
                     // Recharger les types de cours
-                    $courseTypes = CourseType::whereIn('discipline_id', $validExistingDisciplineIds)
-                        ->where('is_active', true)
+                    $courseTypes = CourseType::forClub($club->id)
                         ->with('discipline:id,name,activity_type_id', 'discipline.activityType:id,name')
                         ->orderBy('discipline_id')
                         ->orderBy('name')

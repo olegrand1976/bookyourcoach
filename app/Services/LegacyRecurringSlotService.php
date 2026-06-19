@@ -119,6 +119,13 @@ class LegacyRecurringSlotService
 
         // Générer les lessons pour chaque date valide
         foreach ($dates as $date) {
+            if ($isSubscriptionActive && $subscriptionInstance && ! $this->canPlanAnotherLesson($subscriptionInstance)) {
+                Log::info("Limite de cours atteinte pour abonnement #{$subscriptionInstance->id} (legacy)", [
+                    'recurring_slot_id' => $recurringSlot->id,
+                ]);
+                break;
+            }
+
             try {
                 $lesson = $this->createLessonFromRecurringSlot(
                     $recurringSlot, 
@@ -448,6 +455,15 @@ class LegacyRecurringSlotService
         $subscriptionInstance = $recurringSlot->subscriptionInstance;
         $isSubscriptionActive = $subscriptionInstance && $subscriptionInstance->status === 'active';
 
+        if ($isSubscriptionActive && $subscriptionInstance && ! $this->canPlanAnotherLesson($subscriptionInstance)) {
+            return [
+                'success' => false,
+                'lesson' => null,
+                'already_existed' => false,
+                'message' => 'Aucune place restante sur l\'abonnement pour ce cours.',
+            ];
+        }
+
         $lesson = $this->createLessonFromRecurringSlot(
             $recurringSlot,
             $dayStart,
@@ -469,6 +485,11 @@ class LegacyRecurringSlotService
             'already_existed' => false,
             'message' => null,
         ];
+    }
+
+    private function canPlanAnotherLesson(SubscriptionInstance $subscriptionInstance): bool
+    {
+        return $subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning() > 0;
     }
 }
 

@@ -23,6 +23,12 @@ class StudentLessonCalendarResource extends JsonResource
             ]
             : null;
 
+        $householdContext = $request->attributes->get('household_student_ids', []);
+        $attribution = $this->resolveHouseholdAttribution(
+            $lesson,
+            is_array($householdContext) ? $householdContext : []
+        );
+
         return [
             'id' => $lesson->id,
             'club_id' => $lesson->club_id,
@@ -83,7 +89,66 @@ class StudentLessonCalendarResource extends JsonResource
             'cancellation_count_in_subscription' => $lesson->cancellation_count_in_subscription,
             'cancellation_certificate_status' => $lesson->cancellation_certificate_status,
             'cancellation_certificate_rejection_reason' => $lesson->cancellation_certificate_rejection_reason,
+            'household_student_ids' => $attribution['ids'],
+            'household_students' => $attribution['students'],
         ];
+    }
+
+    /**
+     * Détermine quel(s) élève(s) du foyer courant ce cours concerne.
+     * Couvre les 3 sources : élève principal (student_id), participants pivot (lesson_student)
+     * et bénéficiaires d'un abonnement lié au cours (subscriptionInstances.students).
+     * Indispensable pour étiqueter, dans la vue « tous », un cours dont l'enfant du foyer
+     * n'est que bénéficiaire d'abonnement (ni student_id ni participant pivot).
+     *
+     * @param  array<int>  $householdIds
+     * @return array{ids: array<int>, students: array<int, array{id: int, name: ?string}>}
+     */
+    private function resolveHouseholdAttribution(Lesson $lesson, array $householdIds): array
+    {
+        if ($householdIds === []) {
+            return ['ids' => [], 'students' => []];
+        }
+
+        $householdIds = array_map('intval', $householdIds);
+        $candidates = [];
+
+        if ($lesson->student_id) {
+            $candidates[(int) $lesson->student_id] = ($lesson->relationLoaded('student') && $lesson->student)
+                ? ($lesson->student->user?->name ?? $lesson->student->name)
+                : null;
+        }
+
+        if ($lesson->relationLoaded('students')) {
+            foreach ($lesson->students as $student) {
+                $candidates[(int) $student->id] = $student->user?->name ?? $student->name;
+            }
+        }
+
+        if ($lesson->relationLoaded('subscriptionInstances')) {
+            foreach ($lesson->subscriptionInstances as $instance) {
+                if (! $instance->relationLoaded('students')) {
+                    continue;
+                }
+                foreach ($instance->students as $student) {
+                    if (! array_key_exists((int) $student->id, $candidates)) {
+                        $candidates[(int) $student->id] = $student->user?->name ?? $student->name;
+                    }
+                }
+            }
+        }
+
+        $ids = array_values(array_filter(
+            array_keys($candidates),
+            static fn ($id) => in_array((int) $id, $householdIds, true)
+        ));
+
+        $students = array_map(
+            static fn ($id) => ['id' => (int) $id, 'name' => $candidates[$id]],
+            $ids
+        );
+
+        return ['ids' => array_map('intval', $ids), 'students' => $students];
     }
 
     public static function sanitizeNotesForStudent(?string $notes): ?string

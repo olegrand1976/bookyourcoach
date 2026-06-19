@@ -1148,15 +1148,14 @@ const getManualLessonsUsed = (instance) => {
   return Math.max(0, totalUsed - consumedLessons)
 }
 
-// Compter les cours réellement consommés (passés)
+// Décompte automatique aligné sur le backend : lessons_used est l'autorité du total débité
+// (inclut les annulations comptées via cancellation_count_in_subscription et les futurs réservés).
+// La part automatique = lessons_used - manual_lessons_used ; on n'effectue plus de recalcul local divergent.
 const getConsumedLessonsCount = (instance) => {
-  if (!instance || !instance.lessons || !Array.isArray(instance.lessons)) return 0
-  const now = new Date()
-  return instance.lessons.filter(lesson => {
-    if (!lesson.start_time) return false
-    const lessonDate = new Date(lesson.start_time)
-    return lessonDate <= now && lesson.status !== 'cancelled'
-  }).length
+  if (!instance) return 0
+  const totalUsed = instance.lessons_used || 0
+  const manualUsed = instance.manual_lessons_used || 0
+  return Math.max(0, totalUsed - manualUsed)
 }
 
 // Formulaires

@@ -1,0 +1,96 @@
+substitutions:
+  _AR_REGION: europe-west1
+  _RUN_REGION: europe-west9
+  _AR_REPO: bookyourcoach
+  _SERVICE_ACCOUNT: bookyourcoach-run
+  _VPC_CONNECTOR: premedica-connector
+  _CLOUDSQL_INSTANCE: premedica-prod-2025:europe-west9:ll-it-mysql
+  _DB_SECRET: bookyourcoach-database-url
+  _API_SERVICE: bookyourcoach-api-staging
+  _WEB_SERVICE: bookyourcoach-web-staging
+  _API_PUBLIC_URL: https://api-bookyourcoach.ll-it-sc.be
+  _WEB_PUBLIC_URL: https://bookyourcoach.ll-it-sc.be
+
+options:
+  machineType: E2_HIGHCPU_4
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: build-api
+    name: gcr.io/kaniko-project/executor:latest
+    waitFor: ["-"]
+    args:
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$BUILD_ID
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:latest
+      - --cache=true
+      - --context=dir://.
+      - --dockerfile=Dockerfile.cloudrun.api
+
+  - id: build-web
+    name: gcr.io/kaniko-project/executor:latest
+    waitFor: ["-"]
+    args:
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$BUILD_ID
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:latest
+      - --cache=true
+      - --context=dir://frontend
+      - --dockerfile=Dockerfile.cloudrun.web
+      - --build-arg=API_PUBLIC_URL=${_API_PUBLIC_URL}
+      - --build-arg=WEB_PUBLIC_URL=${_WEB_PUBLIC_URL}
+
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$BUILD_ID"
+        SA="${_SERVICE_ACCOUNT}@$PROJECT_ID.iam.gserviceaccount.com"
+        CONNECTOR="projects/$PROJECT_ID/locations/${_RUN_REGION}/connectors/${_VPC_CONNECTOR}"
+        WEB_HOST="${_WEB_PUBLIC_URL#https://}"
+        ENV_FILE="/tmp/byc-api-env.yaml"
+        printf '%s\n' \
+          "APP_ENV: staging" \
+          "APP_DEBUG: \"false\"" \
+          "APP_URL: \"${_API_PUBLIC_URL}\"" \
+          "FRONTEND_URL: \"${_WEB_PUBLIC_URL}\"" \
+          "SANCTUM_STATEFUL_DOMAINS: \"$$WEB_HOST\"" \
+          "DB_CONNECTION: mysql" \
+          "CACHE_STORE: redis" \
+          "SESSION_DRIVER: redis" \
+          "QUEUE_CONNECTION: redis" \
+          "REDIS_CLIENT: phpredis" \
+          "REDIS_PORT: \"6379\"" \
+          "REDIS_DB: \"3\"" \
+          "REDIS_CACHE_DB: \"4\"" \
+          "NEO4J_ENABLED: \"false\"" \
+          > "$$ENV_FILE"
+        gcloud run deploy ${_API_SERVICE} \
+          --project="$PROJECT_ID" --image="$$IMAGE" --region="${_RUN_REGION}" \
+          --service-account="$$SA" --allow-unauthenticated --port=8080 \
+          --memory=512Mi --cpu=1 --min-instances=0 --max-instances=5 --timeout=300 \
+          --set-cloudsql-instances="${_CLOUDSQL_INSTANCE}" \
+          --vpc-connector="$$CONNECTOR" --vpc-egress=private-ranges-only \
+          --env-vars-file="$$ENV_FILE" \
+          --set-secrets="APP_KEY=bookyourcoach-app-key-staging:latest,DATABASE_URL=${_DB_SECRET}:latest,REDIS_HOST=premedica-redis-host:latest" \
+          --quiet
+    waitFor: ["build-api"]
+
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$BUILD_ID"
+        SA="${_SERVICE_ACCOUNT}@$PROJECT_ID.iam.gserviceaccount.com"
+        gcloud run deploy ${_WEB_SERVICE} \
+          --project="$PROJECT_ID" --image="$$IMAGE" --region="${_RUN_REGION}" \
+          --service-account="$$SA" --allow-unauthenticated --port=8080 \
+          --memory=512Mi --cpu=1 --min-instances=0 --max-instances=5 --timeout=120 \
+          --set-env-vars="NODE_ENV=production,NUXT_PUBLIC_API_BASE=${_API_PUBLIC_URL}/api,NUXT_API_BASE=${_API_PUBLIC_URL}/api,NUXT_PUBLIC_FRONT_END_URL=${_WEB_PUBLIC_URL}" \
+          --quiet
+        gcloud run services describe ${_WEB_SERVICE} --region="${_RUN_REGION}" --format='value(status.url)'
+    waitFor: ["build-web", "deploy-api"]

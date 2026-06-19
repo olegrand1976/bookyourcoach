@@ -231,19 +231,38 @@ class StudentController extends Controller
                 
                 // Si le cours est dans le futur, vérifier la couverture
                 if ($isFuture && $lesson->status !== 'cancelled') {
-                    // Vérifier si le cours est déjà attaché à un abonnement
-                    $isAttachedToSubscription = $lesson->subscriptionInstances && $lesson->subscriptionInstances->count() > 0;
-                    
-                    // Trouver un abonnement actif qui couvre ce type de cours et cette date
+                    // 1. Lien réel : le cours est déjà rattaché à un abonnement (place déjà débitée).
+                    $attachedInstance = $lesson->subscriptionInstances && $lesson->subscriptionInstances->count() > 0
+                        ? $lesson->subscriptionInstances->first()
+                        : null;
+
+                    if ($attachedInstance) {
+                        $lesson->subscription_coverage = [
+                            'is_future' => true,
+                            'is_covered' => true,
+                            'coverage_end_date' => $attachedInstance->expires_at ? Carbon::parse($attachedInstance->expires_at)->toDateString() : null,
+                            'covering_subscription_id' => $attachedInstance->id,
+                            'warning' => null
+                        ];
+
+                        return $lesson;
+                    }
+
+                    // 2. Couverture potentielle : abo actif couvrant type+date ET disposant de places restantes.
                     $coveringSubscription = null;
                     $latestExpiresAt = null;
-                    
+
                     foreach ($activeSubscriptions as $subscription) {
                         // Vérifier si l'abonnement expire après la date du cours
                         if ($subscription->expires_at && Carbon::parse($subscription->expires_at)->isBefore($lessonDate)) {
                             continue; // Abonnement expiré avant la date du cours
                         }
-                        
+
+                        // Vérifier que l'abonnement a encore des places disponibles (sinon il ne peut pas couvrir)
+                        if ($subscription->resolveRemainingAttachmentSlotsForPlanning() <= 0) {
+                            continue;
+                        }
+
                         // Vérifier si l'abonnement couvre le type de cours
                         $template = $subscription->subscription?->template;
                         if ($template && $template->courseTypes) {
@@ -257,7 +276,7 @@ class StudentController extends Controller
                             }
                         }
                     }
-                    
+
                     if ($coveringSubscription) {
                         $lesson->subscription_coverage = [
                             'is_future' => true,
@@ -267,7 +286,7 @@ class StudentController extends Controller
                             'warning' => null
                         ];
                     } else {
-                        // Aucun abonnement actif ne couvre ce cours
+                        // Aucun abonnement actif (avec places) ne couvre ce cours
                         $uncoveredLessonsCount++;
                         $lesson->subscription_coverage = [
                             'is_future' => true,

@@ -113,7 +113,7 @@ class SubscriptionInstance extends Model
     {
         $consumedLessons = $this->getConsumedLessonsCount();
         $oldValue = $this->lessons_used;
-        $manualLessonsUsed = $this->resolveManualLessonsUsed($consumedLessons);
+        $manualLessonsUsed = $this->resolveManualLessonsUsed();
         $newLessonsUsed = $manualLessonsUsed + $consumedLessons;
 
         \Log::info("🔍 Recalcul lessons_used pour subscription_instance {$this->id}", [
@@ -126,8 +126,7 @@ class SubscriptionInstance extends Model
             'subscription_instance_id' => $this->id
         ]);
 
-        if ($this->manual_lessons_used !== $manualLessonsUsed || $this->lessons_used !== $newLessonsUsed) {
-            $this->manual_lessons_used = $manualLessonsUsed;
+        if ($this->lessons_used !== $newLessonsUsed) {
             $this->lessons_used = $newLessonsUsed;
             $this->saveQuietly();
 
@@ -142,16 +141,94 @@ class SubscriptionInstance extends Model
         }
     }
 
-    private function getConsumedLessonsCount(): int
+    /**
+     * Cours passés consommés + annulations tardives comptées (pivot conservé).
+     * Source de vérité pour lessons_used = manual_lessons_used + ce compteur.
+     */
+    public function getConsumedLessonsCount(): int
+    {
+        $hasCountColumn = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
+
+        return (int) $this->buildAttachedLessonsQuery()
+            ->where(function ($q) use ($hasCountColumn) {
+                $q->where(function ($q2) {
+                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+                        ->where('lessons.start_time', '<=', Carbon::now());
+                });
+                if ($hasCountColumn) {
+                    $q->orWhere(function ($q2) {
+                        $q2->where('lessons.status', 'cancelled')
+                            ->where('lessons.cancellation_count_in_subscription', true);
+                    });
+                }
+            })
+            ->count();
+    }
+
+    /**
+     * Cours attachés qui réservent une place : consommés + futurs non annulés.
+     * Utilisé pour le plafond d'attachement (les futurs ne consomment pas lessons_used mais bloquent la capacité).
+     */
+    public function getAttachedCountableLessonsCount(): int
+    {
+        return (int) $this->buildAttachedLessonsQuery()
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+                        ->where('lessons.start_time', '>', Carbon::now());
+                })
+                    ->orWhere(function ($q2) {
+                        $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
+                            ->where('lessons.start_time', '<=', Carbon::now());
+                    });
+
+                if (\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription')) {
+                    $q->orWhere(function ($q2) {
+                        $q2->where('lessons.status', 'cancelled')
+                            ->where('lessons.cancellation_count_in_subscription', true);
+                    });
+                }
+            })
+            ->count();
+    }
+
+    /**
+     * Places restantes pour attacher un nouveau cours (futur ou passé).
+     */
+    public function getRemainingAttachmentSlots(): int
+    {
+        $total = $this->subscription->total_available_lessons;
+        $manual = $this->resolveManualLessonsUsed();
+        $attached = $this->getAttachedCountableLessonsCount();
+
+        return max(0, $total - $manual - $attached);
+    }
+
+    /**
+     * Capacité restante pour planifier des cours récurrents (génération auto).
+     * Fallback illimité si le total est indéterminé et aucun cours attaché (legacy).
+     */
+    public function resolveRemainingAttachmentSlotsForPlanning(): int
+    {
+        $instance = $this->fresh();
+        $slots = $instance->getRemainingAttachmentSlots();
+        $total = $instance->subscription->total_available_lessons;
+
+        if ($total <= 0 && $slots === 0 && $instance->getAttachedCountableLessonsCount() === 0) {
+            return PHP_INT_MAX;
+        }
+
+        return $slots;
+    }
+
+    private function buildAttachedLessonsQuery()
     {
         $subscriptionStudentIds = $this->students()->pluck('students.id')->map(fn ($id) => (int) $id)->all();
 
-        $hasCountColumn = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
         $query = \Illuminate\Support\Facades\DB::table('subscription_lessons')
             ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
             ->where('subscription_lessons.subscription_instance_id', $this->id);
 
-        // Abonnement familial : ne compter que les cours dont au moins un participant est bénéficiaire de l'instance
         if ($subscriptionStudentIds !== []) {
             $query->where(function ($q) use ($subscriptionStudentIds) {
                 $q->whereIn('lessons.student_id', $subscriptionStudentIds)
@@ -161,7 +238,6 @@ class SubscriptionInstance extends Model
                             ->whereColumn('lesson_student.lesson_id', 'lessons.id')
                             ->whereIn('lesson_student.student_id', $subscriptionStudentIds);
                     })
-                    // Données legacy : cours lié uniquement à cet abonnement sans élève renseigné
                     ->orWhere(function ($q2) {
                         $q2->whereNull('lessons.student_id')
                             ->whereNotExists(function ($sub) {
@@ -173,31 +249,12 @@ class SubscriptionInstance extends Model
             });
         }
 
-        $query->where(function ($q) use ($hasCountColumn) {
-                $q->where(function ($q2) {
-                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                        ->where('lessons.start_time', '<=', Carbon::now());
-                });
-                if ($hasCountColumn) {
-                    $q->orWhere(function ($q2) {
-                        $q2->where('lessons.status', 'cancelled')
-                            ->where('lessons.cancellation_count_in_subscription', true);
-                    });
-                }
-            });
-
-        return (int) $query->count();
+        return $query;
     }
 
-    private function resolveManualLessonsUsed(?int $consumedLessons = null): int
+    private function resolveManualLessonsUsed(): int
     {
-        if ($this->manual_lessons_used !== null) {
-            return max(0, (int) $this->manual_lessons_used);
-        }
-
-        $consumedLessons ??= $this->getConsumedLessonsCount();
-
-        return max(0, ((int) $this->lessons_used) - $consumedLessons);
+        return max(0, (int) ($this->manual_lessons_used ?? 0));
     }
 
     /**
@@ -288,6 +345,10 @@ class SubscriptionInstance extends Model
         // Ne pas recalculer ici pour éviter la récursion (recalculé ailleurs avant l'appel)
         
         $totalAvailable = $this->subscription->total_available_lessons;
+
+        if ($totalAvailable <= 0) {
+            return $this->status;
+        }
         
         // 🔄 RÉOUVERTURE : Si l'abonnement est completed mais qu'il redevient disponible
         // (par exemple après annulation d'un cours), le remettre en active
@@ -361,12 +422,7 @@ class SubscriptionInstance extends Model
             return;
         }
 
-        // Vérifier qu'il reste des cours
-        // ⚠️ Ne pas recalculer ici pour préserver les valeurs manuelles
-        // On utilise directement lessons_used (qui peut être une valeur manuelle)
-        $total = $this->subscription->total_available_lessons;
-        $remaining = max(0, $total - $this->lessons_used);
-        if ($remaining <= 0) {
+        if ($this->getRemainingAttachmentSlots() <= 0) {
             throw new \Exception('Aucun cours restant dans cet abonnement');
         }
 
@@ -419,14 +475,12 @@ class SubscriptionInstance extends Model
         // 📅 LOGIQUE : Mettre à jour started_at si c'est le premier cours réellement pris
         // La date de début doit être basée sur le premier cours, pas sur la création de l'abonnement
         $isFirstLesson = $this->lessons()->count() === 0;
-        $startedAtChanged = false;
         if ($isFirstLesson && $lesson->start_time) {
             $lessonDate = Carbon::parse($lesson->start_time)->startOfDay();
             // Pour le premier cours, toujours mettre à jour started_at avec la date du cours
             // (peu importe si c'est dans le passé ou le futur)
             $oldStartedAt = $this->started_at;
             $this->started_at = $lessonDate;
-            $startedAtChanged = true;
             \Log::info("📅 Date de début mise à jour pour subscription_instance {$this->id}", [
                 'old_started_at' => $oldStartedAt,
                 'new_started_at' => $this->started_at,
@@ -454,93 +508,25 @@ class SubscriptionInstance extends Model
             ]);
         }
         
-        // ⚠️ LOGIQUE CRITIQUE : Vérifier si le cours est déjà attaché AVANT l'attachement
-        // pour savoir si on doit incrémenter ou recalculer
-        $wasAlreadyAttached = $this->lessons()->where('lesson_id', $lesson->id)->exists();
-        
-        // Créer la liaison dans subscription_lessons
-        if (!$wasAlreadyAttached) {
-            $this->lessons()->attach($lesson->id);
-            
-            // Forcer le rafraîchissement de la relation
-            $this->load('lessons');
-            
-            // 🔄 PROPAGATION DCL/NDCL : Propager le statut est_legacy de l'abonnement au cours
-            if ($this->est_legacy !== null) {
-                $lesson->est_legacy = $this->est_legacy;
-                $lesson->saveQuietly();
-                \Log::info("🔄 Statut DCL/NDCL propagé de l'abonnement au cours", [
-                    'lesson_id' => $lesson->id,
-                    'subscription_instance_id' => $this->id,
-                    'est_legacy' => $this->est_legacy,
-                    'status' => $this->est_legacy ? 'NDCL' : 'DCL'
-                ]);
-            }
-            
-            // ⚠️ LOGIQUE CRITIQUE : Consommer l'abonnement si le cours est passé
-            // Si le cours est dans le futur, on l'attache mais on ne consomme pas encore
-            $lessonStartTime = Carbon::parse($lesson->start_time);
-            $isPastLesson = $lessonStartTime->isPast();
-            
-            if (!$isPastLesson) {
-                // Cours futur : juste attacher, ne pas consommer
-                \Log::info("📅 Cours futur attaché à l'abonnement (non consommé)", [
-                    'lesson_id' => $lesson->id,
-                    'lesson_start_time' => $lesson->start_time,
-                    'subscription_instance_id' => $this->id,
-                    'note' => 'Le cours sera consommé automatiquement quand sa date/heure sera passée'
-                ]);
-                // Recalculer quand même pour mettre à jour les autres valeurs si nécessaire
-                $this->recalculateLessonsUsed();
-                return;
-            }
-            
-            // ✅ COURS PASSÉ : Consommer immédiatement l'abonnement
-            \Log::info("📅 Cours passé détecté - consommation immédiate de l'abonnement", [
-                'lesson_id' => $lesson->id,
-                'lesson_start_time' => $lesson->start_time,
-                'subscription_instance_id' => $this->id,
-                'is_past' => true,
-                'note' => 'Cours planifié dans le passé, consommation immédiate'
-            ]);
-            
-            // ⚠️ LOGIQUE CRITIQUE : Incrémenter directement lessons_used au lieu de recalculer
-            // Cela préserve la valeur manuelle initiale
-            // Exemple : 5 (manuel) + 1 (nouveau cours) = 6 (et non 1)
-            $oldLessonsUsed = $this->lessons_used;
-            $this->lessons_used = $this->lessons_used + 1;
-            
-            \Log::info("➕ Cours {$lesson->id} ajouté à l'abonnement {$this->id} (incrémentation directe)", [
+        $this->lessons()->attach($lesson->id);
+        $this->load('lessons');
+
+        if ($this->est_legacy !== null) {
+            $lesson->est_legacy = $this->est_legacy;
+            $lesson->saveQuietly();
+            \Log::info("🔄 Statut DCL/NDCL propagé de l'abonnement au cours", [
                 'lesson_id' => $lesson->id,
                 'subscription_instance_id' => $this->id,
-                'old_lessons_used' => $oldLessonsUsed,
-                'new_lessons_used' => $this->lessons_used,
-                'calculation' => "{$oldLessonsUsed} + 1 = {$this->lessons_used}",
-                'note' => 'Incrémentation directe pour préserver la valeur manuelle'
+                'est_legacy' => $this->est_legacy,
+                'status' => $this->est_legacy ? 'NDCL' : 'DCL',
             ]);
-        } else {
-            // Cours déjà attaché : mettre à jour le statut DCL/NDCL si nécessaire
-            if ($this->est_legacy !== null && $lesson->est_legacy !== $this->est_legacy) {
-                $lesson->est_legacy = $this->est_legacy;
-                $lesson->saveQuietly();
-                \Log::info("🔄 Statut DCL/NDCL mis à jour pour le cours déjà attaché", [
-                    'lesson_id' => $lesson->id,
-                    'subscription_instance_id' => $this->id,
-                    'est_legacy' => $this->est_legacy,
-                    'status' => $this->est_legacy ? 'NDCL' : 'DCL'
-                ]);
-            }
-            // Juste recalculer pour vérifier la cohérence
-            \Log::info("ℹ️ Cours {$lesson->id} déjà attaché à l'abonnement {$this->id}, recalcul...");
-            $this->recalculateLessonsUsed();
         }
-        
-        // Sauvegarder les modifications (started_at, status, lessons_used)
+
         if ($this->isDirty()) {
             $this->saveQuietly();
         }
-        
-        // Vérifier et mettre à jour le statut (peut passer en completed si plein)
+
+        $this->recalculateLessonsUsed();
         $this->checkAndUpdateStatus();
         
         \Log::info("Cours {$lesson->id} consommé depuis l'abonnement {$this->id}", [
@@ -611,6 +597,28 @@ class SubscriptionInstance extends Model
      * @param int|null $clubId ID du club (optionnel, pour filtrer)
      * @return SubscriptionInstance|null
      */
+    /**
+     * Recalcule les instances liées à un cours annulé (pivot ou cancelled_subscription_instance_ids).
+     */
+    public static function recalculateForCancelledLesson(Lesson $lesson): void
+    {
+        $instanceIds = collect($lesson->cancelled_subscription_instance_ids ?? [])
+            ->merge(
+                self::whereHas('lessons', function ($query) use ($lesson) {
+                    $query->where('lesson_id', $lesson->id);
+                })->pluck('id')
+            )
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->filter()
+            ->values()
+            ->all();
+
+        foreach (self::whereIn('id', $instanceIds)->get() as $instance) {
+            $instance->recalculateLessonsUsed();
+        }
+    }
+
     public static function findActiveSubscriptionForLesson(int $studentId, int $courseTypeId, ?int $clubId = null): ?self
     {
         // Récupérer tous les abonnements actifs de l'élève qui acceptent ce type de cours
@@ -641,14 +649,7 @@ class SubscriptionInstance extends Model
 
         // Parcourir les abonnements du plus ancien au plus récent
         foreach ($instances as $instance) {
-            // ⚠️ Ne pas recalculer ici pour préserver les valeurs manuelles
-            // Utiliser directement lessons_used (qui peut être une valeur manuelle)
-            // Le recalcul se fera automatiquement quand des cours seront attachés
-            $total = $instance->subscription->total_available_lessons;
-            $remaining = max(0, $total - $instance->lessons_used);
-            
-            // Vérifier qu'il reste des cours disponibles
-            if ($remaining > 0) {
+            if ($instance->getRemainingAttachmentSlots() > 0) {
                 return $instance;
             }
         }

@@ -116,6 +116,10 @@ mobile/.pub-cache/
 *.old
 *.orig
 
+# Database dumps (PII — ne jamais committer)
+dump.sql.gz
+*.sql.gz
+
 # Lock files (keep composer.lock and package-lock.json for consistency)
 # composer.lock - KEEP for PHP dependencies
 # package-lock.json - KEEP for Node.js dependencies

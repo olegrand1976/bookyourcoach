@@ -1,0 +1,28 @@
+# Cloud Run — frontend Nuxt (port 8080)
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+FROM base AS builder
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ARG API_PUBLIC_URL=https://api-bookyourcoach.ll-it-sc.be
+ARG WEB_PUBLIC_URL=https://bookyourcoach.ll-it-sc.be
+ENV NUXT_PUBLIC_API_BASE=${API_PUBLIC_URL}/api
+ENV NUXT_API_BASE=${API_PUBLIC_URL}/api
+ENV NUXT_PUBLIC_FRONT_END_URL=${WEB_PUBLIC_URL}
+RUN npm run build
+
+FROM node:20-alpine AS production
+RUN apk add --no-cache libc6-compat
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nuxtjs
+WORKDIR /app
+COPY --from=builder --chown=nuxtjs:nodejs /app/.output ./.output
+USER nuxtjs
+ENV PORT=8080
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=8080
+ENV NODE_ENV=production
+EXPOSE 8080
+CMD ["node", ".output/server/index.mjs"]

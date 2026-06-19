@@ -457,7 +457,7 @@ class SubscriptionInstanceTest extends TestCase
     #[Test]
     public function recalculateLessonsUsed_preserves_manual_value_when_no_lessons(): void
     {
-        // Définir une valeur manuelle
+        $this->subscriptionInstance->manual_lessons_used = 5;
         $this->subscriptionInstance->lessons_used = 5;
         $this->subscriptionInstance->save();
 
@@ -682,11 +682,64 @@ class SubscriptionInstanceTest extends TestCase
     #[Test]
     public function consumeLesson_throws_exception_when_no_remaining_lessons(): void
     {
-        // Utiliser tous les cours
-        $this->subscriptionInstance->lessons_used = 10;
-        $this->subscriptionInstance->save();
+        for ($i = 1; $i <= 10; $i++) {
+            $futureLesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::now()->addDays($i),
+                'end_time' => Carbon::now()->addDays($i)->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->subscriptionInstance->consumeLesson($futureLesson);
+        }
 
-        $lesson = Lesson::create([
+        $extraLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDays(20),
+            'end_time' => Carbon::now()->addDays(20)->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Aucun cours restant dans cet abonnement');
+
+        $this->subscriptionInstance->consumeLesson($extraLesson);
+    }
+
+    #[Test]
+    public function getRemainingAttachmentSlots_counts_future_attached_lessons(): void
+    {
+        $futureLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addWeek(),
+            'end_time' => Carbon::now()->addWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->consumeLesson($futureLesson);
+
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
+        $this->assertEquals(9, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+    }
+
+    #[Test]
+    public function cancellation_releases_slot_when_not_counted_in_subscription(): void
+    {
+        $pastLesson = Lesson::create([
             'club_id' => $this->club->id,
             'teacher_id' => $this->teacher->id,
             'student_id' => $this->student->id,
@@ -698,10 +751,82 @@ class SubscriptionInstanceTest extends TestCase
             'price' => 50.00,
         ]);
 
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Aucun cours restant dans cet abonnement');
+        $this->subscriptionInstance->consumeLesson($pastLesson);
+        $this->assertEquals(1, $this->subscriptionInstance->fresh()->lessons_used);
 
-        $this->subscriptionInstance->consumeLesson($lesson);
+        $pastLesson->update([
+            'status' => 'cancelled',
+            'cancellation_count_in_subscription' => false,
+        ]);
+
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'lesson_id' => $pastLesson->id,
+        ]);
+    }
+
+    #[Test]
+    public function cancellation_keeps_count_when_counted_in_subscription(): void
+    {
+        $pastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->consumeLesson($pastLesson);
+        $this->assertEquals(1, $this->subscriptionInstance->fresh()->lessons_used);
+
+        $pastLesson->update([
+            'status' => 'cancelled',
+            'cancellation_count_in_subscription' => true,
+        ]);
+
+        $this->assertEquals(1, $this->subscriptionInstance->fresh()->lessons_used);
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'lesson_id' => $pastLesson->id,
+        ]);
+    }
+
+    #[Test]
+    public function cancel_then_reactivate_does_not_double_count(): void
+    {
+        $pastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->consumeLesson($pastLesson);
+        $this->assertEquals(1, $this->subscriptionInstance->fresh()->lessons_used);
+
+        $pastLesson->update([
+            'status' => 'cancelled',
+            'cancellation_count_in_subscription' => false,
+        ]);
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
+
+        $pastLesson->update(['status' => 'confirmed']);
+
+        $this->assertEquals(1, $this->subscriptionInstance->fresh()->lessons_used);
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'lesson_id' => $pastLesson->id,
+        ]);
     }
 
     /**
@@ -839,6 +964,66 @@ class SubscriptionInstanceTest extends TestCase
 
         $this->subscriptionInstance->refresh();
         $this->assertEquals('expired', $this->subscriptionInstance->status);
+    }
+
+    #[Test]
+    public function checkAndUpdateStatus_keeps_status_when_total_unknown(): void
+    {
+        $subscriptionWithoutTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscriptionWithoutTemplate->id,
+            'lessons_used' => 5,
+            'started_at' => Carbon::now(),
+            'status' => 'active',
+        ]);
+        $instance->students()->attach($this->student->id);
+
+        $this->assertEquals(0, $instance->subscription->total_available_lessons);
+
+        $instance->checkAndUpdateStatus();
+
+        $this->assertEquals('active', $instance->fresh()->status);
+    }
+
+    #[Test]
+    public function resolveRemainingAttachmentSlotsForPlanning_returns_unlimited_when_total_unknown_and_empty(): void
+    {
+        $subscriptionWithoutTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscriptionWithoutTemplate->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now(),
+            'status' => 'active',
+        ]);
+
+        $this->assertEquals(PHP_INT_MAX, $instance->resolveRemainingAttachmentSlotsForPlanning());
+    }
+
+    #[Test]
+    public function resolveRemainingAttachmentSlotsForPlanning_returns_zero_when_full(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $lesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::now()->addWeeks($i + 1),
+                'end_time' => Carbon::now()->addWeeks($i + 1)->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->subscriptionInstance->lessons()->attach($lesson->id);
+        }
+
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning());
     }
 
     #[Test]

@@ -589,5 +589,174 @@ class LegacyRecurringSlotServiceTest extends TestCase
             $this->assertEquals(Carbon::SATURDAY, $lessonDate->dayOfWeek);
         }
     }
+
+    #[Test]
+    public function it_does_not_plan_generation_beyond_remaining_attachment_slots(): void
+    {
+        $discipline = \App\Models\Discipline::create([
+            'name' => 'Discipline legacy slots',
+            'slug' => 'discipline-legacy-slots',
+            'is_active' => true,
+        ]);
+        $this->courseType->update(['discipline_id' => $discipline->id]);
+
+        $template = \App\Models\SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'LEG-SLOTS',
+            'name' => 'Template legacy slots',
+            'total_lessons' => 10,
+            'validity_months' => 4,
+            'price' => 200.00,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'LEG-SLOTS-001',
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now(),
+            'expires_at' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+        $instance->students()->attach($this->student->id);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subWeek(),
+            'end_time' => Carbon::now()->subWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        for ($i = 0; $i < 10; $i++) {
+            $futureLesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => Carbon::now()->addWeeks($i + 1),
+                'end_time' => Carbon::now()->addWeeks($i + 1)->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $instance->lessons()->attach($futureLesson->id);
+        }
+
+        $this->assertEquals(0, $instance->fresh()->getRemainingAttachmentSlots());
+
+        $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
+        $recurringSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $instance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY,
+            'start_time' => '09:00:00',
+            'end_time' => '10:00:00',
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
+        $stats = $this->service->generateLessonsForSlot(
+            $recurringSlot,
+            Carbon::now(),
+            $nextSaturday->copy()->addWeeks(8)
+        );
+
+        $this->assertSame(0, $stats['generated']);
+    }
+
+    #[Test]
+    public function materialize_lesson_for_single_date_rejects_when_attachment_slots_full(): void
+    {
+        $discipline = \App\Models\Discipline::create([
+            'name' => 'Discipline materialize',
+            'slug' => 'discipline-materialize',
+            'is_active' => true,
+        ]);
+        $this->courseType->update(['discipline_id' => $discipline->id]);
+
+        $template = \App\Models\SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'LEG-MAT',
+            'name' => 'Template materialize',
+            'total_lessons' => 1,
+            'validity_months' => 4,
+            'price' => 200.00,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+
+        $subscription = Subscription::create([
+            'club_id' => $this->club->id,
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'LEG-MAT-001',
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now(),
+            'expires_at' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+        $instance->students()->attach($this->student->id);
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subWeek(),
+            'end_time' => Carbon::now()->subWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $attached = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addWeek(),
+            'end_time' => Carbon::now()->addWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $instance->consumeLesson($attached);
+        $this->assertEquals(0, $instance->fresh()->getRemainingAttachmentSlots());
+
+        $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
+        $recurringSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $instance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY,
+            'start_time' => '09:00:00',
+            'end_time' => '10:00:00',
+            'start_date' => Carbon::now(),
+            'end_date' => Carbon::now()->addMonths(3),
+            'status' => 'active',
+        ]);
+
+        $result = $this->service->materializeLessonForSingleDate($recurringSlot, $nextSaturday->copy());
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['lesson']);
+        $this->assertStringContainsString('place restante', strtolower($result['message']));
+    }
 }
 

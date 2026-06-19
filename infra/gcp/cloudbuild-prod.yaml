@@ -1,0 +1,144 @@
+substitutions:
+  _AR_REGION: europe-west1
+  _RUN_REGION: europe-west9
+  _AR_REPO: bookyourcoach
+  _SERVICE_ACCOUNT: bookyourcoach-run
+  _VPC_CONNECTOR: premedica-connector
+  _CLOUDSQL_INSTANCE: premedica-prod-2025:europe-west9:ll-it-mysql
+  _DB_SECRET: bookyourcoach-database-url
+  _API_SERVICE: bookyourcoach-api-prod
+  _WEB_SERVICE: bookyourcoach-web-prod
+  _API_PUBLIC_URL: https://activibe.be
+  _WEB_PUBLIC_URL: https://activibe.be
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: build-api
+    name: gcr.io/kaniko-project/executor:latest
+    waitFor: ["-"]
+    args:
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$BUILD_ID
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:latest
+      - --cache=false
+      - --context=dir://.
+      - --dockerfile=Dockerfile.cloudrun.api
+
+  - id: build-web
+    name: gcr.io/kaniko-project/executor:latest
+    waitFor: ["-"]
+    args:
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$BUILD_ID
+      - --destination=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:latest
+      - --cache=true
+      - --context=dir://frontend
+      - --dockerfile=Dockerfile.cloudrun.web
+      - --build-arg=API_PUBLIC_URL=${_API_PUBLIC_URL}
+      - --build-arg=WEB_PUBLIC_URL=${_WEB_PUBLIC_URL}
+
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/api:$BUILD_ID"
+        SA="${_SERVICE_ACCOUNT}@$PROJECT_ID.iam.gserviceaccount.com"
+        CONNECTOR="projects/$PROJECT_ID/locations/${_RUN_REGION}/connectors/${_VPC_CONNECTOR}"
+        WEB_HOST="${_WEB_PUBLIC_URL}"
+        WEB_HOST="$${WEB_HOST#https://}"
+        ENV_FILE="/tmp/byc-api-env.yaml"
+        printf '%s\n' \
+          "APP_NAME: ActiVibe" \
+          "APP_ENV: production" \
+          "APP_DEBUG: \"false\"" \
+          "APP_URL: \"${_API_PUBLIC_URL}\"" \
+          "FRONTEND_URL: \"${_WEB_PUBLIC_URL}\"" \
+          "SANCTUM_STATEFUL_DOMAINS: \"activibe.be,www.activibe.be\"" \
+          "SESSION_DOMAIN: \".activibe.be\"" \
+          "CORS_ALLOWED_ORIGINS: \"https://activibe.be,https://www.activibe.be\"" \
+          "DB_CONNECTION: mysql" \
+          "DB_SOCKET: \"/cloudsql/${_CLOUDSQL_INSTANCE}\"" \
+          "DB_DATABASE: bookyourcoach_prod" \
+          "DB_USERNAME: byc_app" \
+          "CACHE_STORE: redis" \
+          "SESSION_DRIVER: redis" \
+          "QUEUE_CONNECTION: sync" \
+          "REDIS_CLIENT: phpredis" \
+          "REDIS_PORT: \"6379\"" \
+          "REDIS_DB: \"3\"" \
+          "REDIS_CACHE_DB: \"4\"" \
+          "NEO4J_ENABLED: \"false\"" \
+          "LOG_CHANNEL: stderr" \
+          "TRUSTED_PROXIES: \"*\"" \
+          "MAIL_MAILER: smtp" \
+          "MAIL_HOST: pro1.mail.ovh.net" \
+          "MAIL_PORT: \"587\"" \
+          "MAIL_USERNAME: \"info@activibe.be\"" \
+          "MAIL_ENCRYPTION: tls" \
+          "MAIL_FROM_ADDRESS: \"info@activibe.be\"" \
+          "MAIL_FROM_NAME: ActiVibe" \
+          "GOOGLE_CALENDAR_CLIENT_ID: \"81947935268-qqk9p60v8mm6p8rd3prif96ffhvc3fm0.apps.googleusercontent.com\"" \
+          "GOOGLE_CALENDAR_REDIRECT_URI: \"${_API_PUBLIC_URL}/api/google-calendar/callback\"" \
+          "GOOGLE_CALENDAR_APPLICATION_NAME: BOOKYOURCOACH" \
+          "GEMINI_MODEL: gemini-2.5-flash" \
+          > "$$ENV_FILE"
+        gcloud run deploy ${_API_SERVICE} \
+          --project="$PROJECT_ID" --image="$$IMAGE" --region="${_RUN_REGION}" \
+          --service-account="$$SA" --allow-unauthenticated --port=8080 \
+          --memory=512Mi --cpu=1 --min-instances=0 --cpu-boost --max-instances=5 --timeout=300 \
+          --set-cloudsql-instances="${_CLOUDSQL_INSTANCE}" \
+          --vpc-connector="$$CONNECTOR" --vpc-egress=private-ranges-only \
+          --env-vars-file="$$ENV_FILE" \
+          --set-secrets="APP_KEY=bookyourcoach-app-key-prod:latest,DB_PASSWORD=${_DB_SECRET}-password:latest,REDIS_HOST=premedica-redis-host:latest,MAIL_PASSWORD=bookyourcoach-mail-password-prod:latest,GOOGLE_CALENDAR_CLIENT_SECRET=bookyourcoach-google-client-secret-prod:latest,GEMINI_API_KEY=bookyourcoach-gemini-api-key-prod:latest" \
+          --quiet
+        gcloud run services add-iam-policy-binding ${_API_SERVICE} \
+          --project="$PROJECT_ID" --region="${_RUN_REGION}" \
+          --member=allUsers --role=roles/run.invoker --quiet 2>/dev/null || true
+    waitFor: ["build-api"]
+
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/web:$BUILD_ID"
+        SA="${_SERVICE_ACCOUNT}@$PROJECT_ID.iam.gserviceaccount.com"
+        gcloud run deploy ${_WEB_SERVICE} \
+          --project="$PROJECT_ID" --image="$$IMAGE" --region="${_RUN_REGION}" \
+          --service-account="$$SA" --allow-unauthenticated --port=8080 \
+          --memory=512Mi --cpu=1 --min-instances=0 --cpu-boost --max-instances=5 --timeout=120 \
+          --set-env-vars="NODE_ENV=production,NUXT_PUBLIC_API_BASE=${_API_PUBLIC_URL}/api,NUXT_API_BASE=${_API_PUBLIC_URL}/api,NUXT_PUBLIC_FRONT_END_URL=${_WEB_PUBLIC_URL}" \
+          --quiet
+        gcloud run services add-iam-policy-binding ${_WEB_SERVICE} \
+          --project="$PROJECT_ID" --region="${_RUN_REGION}" \
+          --member=allUsers --role=roles/run.invoker --quiet 2>/dev/null || true
+        gcloud run services describe ${_WEB_SERVICE} --region="${_RUN_REGION}" --format='value(status.url)'
+    waitFor: ["build-web", "deploy-api"]
+
+  - id: ensure-warm
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        TZ=Europe/Paris
+        now=$((10#$$(date +%H) * 60 + 10#$$(date +%M)))
+        start=$((7 * 60 + 45))
+        end=$((18 * 60))
+        if [[ $$now -ge $$start && $$now -lt $$end ]]; then
+          for svc in ${_API_SERVICE} ${_WEB_SERVICE}; do
+            echo "→ $$svc min=1 (fenêtre 7:45–18h Paris)"
+            gcloud run services update "$$svc" \
+              --project="$PROJECT_ID" --region="${_RUN_REGION}" \
+              --min-instances=1 --cpu-boost --max-instances=5 --quiet || true
+          done
+        else
+          echo "Hors fenêtre 7:45–18h Paris — min=0"
+        fi
+    waitFor: ["deploy-web"]
