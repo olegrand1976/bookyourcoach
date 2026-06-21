@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ClubOpenSlotController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\SubscriptionTemplateController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminPlanningController;
 
 // Health check endpoint pour Docker healthcheck
 Route::get('/health', function () {
@@ -98,6 +99,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::get('/available-for-linking', [AdminController::class, 'getStudentsAvailableForLinking']);
     });
     
+    // Planning : heures d'ouverture par club sur une période
+    Route::get('/planning/clubs', [AdminPlanningController::class, 'clubs']);
+    Route::get('/planning/opening-hours', [AdminPlanningController::class, 'openingHours']);
+
     // Routes pour les rapports de paie
     Route::prefix('payroll')->group(function () {
         Route::get('/reports', [App\Http\Controllers\Api\PayrollController::class, 'getReports']);
