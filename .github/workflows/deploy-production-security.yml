@@ -169,6 +169,7 @@ jobs:
           --image="${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}" \
           --region=${{ env.GCP_REGION }} \
           --project=${{ env.GCP_PROJECT }} \
+          --port=80 \
           --quiet
 
     - name: 🎨 Deploy Web (Nuxt)
