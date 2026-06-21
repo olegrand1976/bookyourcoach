@@ -1,42 +1,33 @@
-# Configuration Cursor / IA — BookYourCoach
+# Cursor — BookYourCoach
 
-Ce document sert de **point d’entrée** pour les règles d’assistance au code (Cursor, équivalents).
+## Structure
 
-## Emplacement des règles
+| Chemin | Rôle |
+|--------|------|
+| `.cursor/rules/00-Core.mdc` | Stack, workflow, concision (**always**) |
+| `.cursor/rules/*.mdc` | Règles métier par glob (auth, API, planning…) |
+| `.cursor/skills/*/SKILL.md` | Compétences on-demand (auth, standards, Neo4j) |
+| `.cursor/agents/*.md` | Sous-agents experts |
+| `.cursor/commands/*.md` | `/test`, `/phpunit` |
 
-| Emplacement | Rôle |
-|-------------|------|
-| `.cursor/rules/*.mdc` | Règles du projet (contexte stack, auth local/prod, multi-tenant, API, planning 26 sem.) |
-| `.cursor/skills/*/SKILL.md` | Compétences réutilisables (auth adaptative, standards, Neo4j) |
-| `.cursor/agents/*.md` | Profils « experts » pour délégation / sous-agents |
-| `.cursor/commands/*.md` | Commandes slash (ex. lancer les tests) |
+## Docs clés
 
-## Références produit / technique obligatoires
+- Auth : `docs/AUTH_SOLUTION.md` — local token vs prod Sanctum SPA
+- Prod Sanctum : `docs/PRODUCTION_SANCTUM_CONFIG.md`
+- Tests : `composer test:docker` ou `/test` → `./scripts/test-all.sh`
 
-- **Authentification** : `docs/AUTH_SOLUTION.md` — stratégie **différenciée** local (token, pas de cookies) vs production (Sanctum SPA, cookies). Ne pas « uniformiser » sans lire ce document.
-- **Sanctum production** : `docs/PRODUCTION_SANCTUM_CONFIG.md`
-- **Tests** : commande Cursor `test` → `./scripts/test-all.sh` ; `phpunit` → `./scripts/run-phpunit.sh` (voir `.cursor/commands/`)
-- **Tests Docker SQLite** : service `php-test` (profil `test`) disponible dans `docker-compose.yml` **et** `docker-compose.local.yml`. Utiliser en priorité :
-  - `composer test:docker`
-  - `composer test:docker:local`
-  - ou `docker compose --profile test run --rm php-test ...`
+## Règles par glob
 
-## Index des règles Cursor (résumé)
+| Fichier | Glob |
+|---------|------|
+| `Security-Environment-Strategy.mdc` | auth FE/BE |
+| `Multi-Tenant-Data-Isolation.mdc` | `app/**/*.php` |
+| `API-Design-System-Contracts.mdc` | controllers/requests/resources API |
+| `Planning-Recurrence-Logic.mdc` | services planning/récurrence |
+| `Testing-Docker-SQLite.mdc` | `tests/**`, compose test |
 
-- `Concise-Communication.mdc` — **toujours actif** : réponses courtes, diffs minimaux, pas de duplication du contexte.
-- `BookYourCoach-Fullstack-Context.mdc` — **toujours actif** : stack et concepts métiers (version condensée).
-- `Security-Environment-Strategy.mdc` — auth local vs prod (globs auth ; **ne pas** `withCredentials` en local).
-- `Multi-Tenant-Data-Isolation.mdc` — `club_id` / scopes (globs `app/**`).
-- `API-Design-System-Contracts.mdc` — `{ success, data, message }`, FormRequests, Resources.
-- `Planning-Recurrence-Logic.mdc` — 26 semaines (globs planning / récurrence).
-- `Testing-Docker-SQLite.mdc` — tests via `php-test` Docker (globs tests / compose).
+Hors `alwaysApply` → injectées seulement sur fichiers matchés (économie tokens).
 
-Les règles hors `alwaysApply` ne sont injectées que sur les fichiers correspondant aux **globs** — pour limiter les tokens en entrée.
+## Exclusions index
 
-## Plans et docs produit
-
-Les brouillons de plans peuvent vivre sous `.cursor/plans/`. Les **décisions** pérennes doivent être reflétées dans `docs/` ou dans les issues / PR du dépôt.
-
-## Fichiers exclus de l’indexation Cursor
-
-Voir `.cursorignore` à la racine du dépôt (vendor, node_modules, artefacts lourds).
+`.cursorignore` : vendor, node_modules, builds, `.env*`, logs, dumps, médias lourds.

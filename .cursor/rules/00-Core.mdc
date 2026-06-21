@@ -1,0 +1,25 @@
+---
+description: Stack, workflow agent, communication concise — BookYourCoach
+alwaysApply: true
+---
+
+# BookYourCoach
+
+Multi-tenant clubs sportifs. **Stack** : Laravel 12 API, MySQL, Redis, Nuxt 3, Neo4j (analytics), Flutter.
+
+**Métier** : rôles admin/club/teacher/student ; `club_id` ; abonnements `SubscriptionTemplate`/`SubscriptionInstance` ; récurrences **26 sem.** → `Planning-Recurrence-Logic.mdc`.
+
+## Workflow
+
+- Périmètre strict : lire/modifier uniquement les fichiers liés à la tâche. Pas de refactor périphérique.
+- >2 fichiers impactés → plan textuel, attendre validation.
+- Erreur terminal : 1 retry max, puis stopper.
+
+## Communication
+
+- Français, direct, diff minimal. Pas de répétition du contexte ni suggestions non demandées.
+- Référencer `docs/…` / `.cursor/rules/…` plutôt que recopier. Skills/agents : invoquer seulement si le sujet le requiert.
+
+## Règles ciblées (globs)
+
+Auth local≠prod · multi-tenant · API · planning · tests → voir `AGENTS.md` et `docs/CURSOR_PROJECT.md`.

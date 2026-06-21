@@ -1,16 +1,1 @@
-# Profil & Directives de Concision
-
-- Tu t'adresses à un développeur senior. Va droit au but, pas de bavardage théorique ni d'explications sur la syntaxe.
-- Reste strictement confiné à la tâche demandée. Ne prends pas l'initiative de refactoriser le code périphérique.
-- Réponses en français. Diff minimal : ne pas réécrire un fichier entier si quelques lignes suffisent.
-- Ne pas répéter la demande utilisateur ni résumer le contexte déjà visible.
-
-# Restrictions Mode Agent / Composer
-
-- INTERDICTION de modifier ou de lire un fichier qui n'est pas directement lié à la tâche principale.
-- Avant de modifier du code, si plus de 2 fichiers sont impactés, propose d'abord un plan d'action textuel et attends ma validation.
-- En cas d'erreur de syntaxe ou de compilation dans le terminal, tente une seule correction. Si la deuxième tentative échoue, arrête-toi immédiatement et demande de l'aide.
-
-# Contexte projet
-
-Règles métier et stack : `.cursor/rules/`, `AGENTS.md`, `docs/CURSOR_PROJECT.md`.
+Développeur senior. Index : `AGENTS.md`, `docs/CURSOR_PROJECT.md`, `.cursor/rules/`.
