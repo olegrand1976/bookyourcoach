@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Club;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use Carbon\Carbon;
@@ -21,18 +20,7 @@ class AdminPlanningController extends Controller
     private const COUNTED_STATUSES = ['confirmed', 'completed'];
 
     /**
-     * Liste allégée des clubs pour le sélecteur (sans pagination).
-     */
-    public function clubs(): JsonResponse
-    {
-        $clubs = Club::orderBy('name')
-            ->get(['id', 'name', 'is_active']);
-
-        return response()->json(['success' => true, 'data' => $clubs]);
-    }
-
-    /**
-     * Heures d'ouverture d'un club sur une période.
+     * Heures d'ouverture du club connecté sur une période.
      *
      * Découpage par plage d'ouverture (ClubOpenSlot) : pour chaque créneau du jour,
      * l'amplitude est mesurée sur les cours réellement donnés à l'intérieur
@@ -40,8 +28,12 @@ class AdminPlanningController extends Controller
      */
     public function openingHours(Request $request): JsonResponse
     {
+        $club = $request->user()->getFirstClub();
+        if (!$club) {
+            return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
+        }
+
         $validator = Validator::make($request->all(), [
-            'club_id' => 'required|integer|exists:clubs,id',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
@@ -54,7 +46,7 @@ class AdminPlanningController extends Controller
             ], 422);
         }
 
-        $clubId = (int) $request->input('club_id');
+        $clubId = $club->id;
 
         // Par défaut : mois précédent complet
         $from = $request->filled('date_from')

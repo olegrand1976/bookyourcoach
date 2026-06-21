@@ -99,9 +99,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::get('/available-for-linking', [AdminController::class, 'getStudentsAvailableForLinking']);
     });
     
-    // Planning : heures d'ouverture par club sur une période
-    Route::get('/planning/clubs', [AdminPlanningController::class, 'clubs']);
-    Route::get('/planning/opening-hours', [AdminPlanningController::class, 'openingHours']);
 
     // Routes pour les rapports de paie
     Route::prefix('payroll')->group(function () {
@@ -234,6 +231,7 @@ Route::get('/clubs/public', function() {
 
 Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     Route::get('/dashboard', [ClubDashboardController::class, 'dashboard']);
+    Route::get('/planning/opening-hours', [AdminPlanningController::class, 'openingHours']);
     Route::get('/qr-code', function(Request $request) {
         $user = $request->user();
         $club = $user->getFirstClub();
