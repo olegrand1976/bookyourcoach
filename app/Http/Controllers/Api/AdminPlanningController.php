@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClubClosureDay;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use Carbon\Carbon;
@@ -29,7 +30,7 @@ class AdminPlanningController extends Controller
     public function openingHours(Request $request): JsonResponse
     {
         $club = $request->user()->getFirstClub();
-        if (!$club) {
+        if (! $club) {
             return response()->json(['success' => false, 'message' => 'Club non trouvé'], 404);
         }
 
@@ -74,10 +75,22 @@ class AdminPlanningController extends Controller
 
         $lessonsByDate = $lessons->groupBy(fn (Lesson $l) => $l->start_time->format('Y-m-d'));
 
+        // Jours de fermeture / congés du club sur la période : les cours qui y tombent
+        // ne sont pas réellement assurés -> exclus de l'amplitude d'ouverture (ex. vacances de juillet).
+        $closedDates = ClubClosureDay::where('club_id', $clubId)
+            ->whereBetween('closed_on', [$from->toDateString(), $to->toDateString()])
+            ->pluck('closed_on')
+            ->map(fn ($d) => Carbon::parse($d)->format('Y-m-d'))
+            ->flip();
+
         $days = [];
         $totalHours = 0.0;
 
         foreach ($lessonsByDate as $date => $dayLessons) {
+            if ($closedDates->has($date)) {
+                continue; // club fermé ce jour-là : aucun cours compté
+            }
+
             $dow = Carbon::parse($date)->dayOfWeek; // 0=dim .. 6=sam
             $daySlots = $slotsByDow->get($dow, collect());
 
