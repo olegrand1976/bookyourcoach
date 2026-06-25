@@ -59,8 +59,9 @@ class RepairSubscriptionCountersCommand extends Command
                     $this->line("  Instance #{$instance->id} : manual_lessons_used ← {$derivedManual}");
                 }
 
-                $overflow = $this->detachExcessFutureLessons($instance, $dryRun, $stats);
+                $this->detachExcessFutureLessons($instance, $dryRun, $stats);
 
+                $overflow = $instance->fresh()->getPastOverflowInfo();
                 if ($overflow['past_exceeds_capacity']) {
                     $stats['past_overflow']++;
                     $this->warn("  Instance #{$instance->id} : passés seuls dépassent le plafond ({$overflow['consumed']}/{$overflow['capacity']}) — arbitrage manuel requis");

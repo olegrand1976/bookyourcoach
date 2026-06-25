@@ -1156,17 +1156,16 @@ class SubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Mettre à jour les statuts si nécessaire
+            // Mettre à jour les statuts et recalculer les compteurs depuis le pivot
             foreach ($subscriptionInstances as $sub) {
                 try {
-                    // S'assurer que la relation subscription est chargée
                     if (!$sub->relationLoaded('subscription')) {
                         $sub->load('subscription.template');
                     }
+                    $sub->recalculateLessonsUsed();
                     $sub->checkAndUpdateStatus();
                 } catch (\Exception $e) {
-                    Log::warning('Erreur lors de la mise à jour du statut de l\'instance ' . $sub->id . ': ' . $e->getMessage());
-                    // Continuer même en cas d'erreur de statut
+                    Log::warning('Erreur lors du recalcul de l\'instance ' . $sub->id . ': ' . $e->getMessage());
                 }
             }
 
@@ -1319,8 +1318,8 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Recalculer le nombre de cours restants pour tous les abonnements actifs
-     * Utile pour corriger les compteurs en se basant sur l'historique réel
+     * Recalculer le nombre de cours restants pour les abonnements du club.
+     * Query : include_inactive=1 pour inclure completed/expired/cancelled (recalcul seul, sans liaison).
      */
     public function recalculateAll(Request $request): JsonResponse
     {
@@ -1350,74 +1349,54 @@ class SubscriptionController extends Controller
                 ], 404);
             }
 
-            // Récupérer tous les abonnements actifs du club
+            $includeInactive = $request->boolean('include_inactive');
+
             $subscriptions = Subscription::forClub($club->id)
-                ->with('instances.students')
+                ->with(['instances.students', 'template.courseTypes'])
                 ->get();
 
             $stats = [
                 'total_checked' => 0,
                 'total_updated' => 0,
                 'lessons_linked' => 0,
-                'details' => []
+                'past_overflow' => [],
+                'details' => [],
             ];
 
             foreach ($subscriptions as $subscription) {
                 foreach ($subscription->instances as $instance) {
-                    // Ne recalculer que les instances actives
-                    if ($instance->status !== 'active') {
+                    $isActive = $instance->status === 'active';
+                    if (!$isActive && !$includeInactive) {
                         continue;
                     }
 
                     $stats['total_checked']++;
-                    
-                    // 🔧 NOUVELLE FONCTIONNALITÉ : Trouver et lier les cours manquants
-                    // Récupérer les élèves de cet abonnement
-                    $studentIds = $instance->students->pluck('id')->toArray();
-                    
-                    if (!empty($studentIds)) {
-                        // Récupérer les types de cours acceptés par cet abonnement
-                        $courseTypeIds = $subscription->courseTypes->pluck('id')->toArray();
-                        
-                        if (!empty($courseTypeIds)) {
-                            // Trouver les cours des élèves qui ne sont pas encore liés à un abonnement
-                            // et qui correspondent aux types de cours de cet abonnement
-                            $unlinkedLessons = \App\Models\Lesson::query()
-                                ->where('club_id', $club->id)
-                                ->where(function ($query) use ($studentIds) {
-                                    $query->whereIn('student_id', $studentIds)
-                                        ->orWhereHas('students', function ($studentQuery) use ($studentIds) {
-                                            $studentQuery->whereIn('students.id', $studentIds);
-                                        });
-                                })
-                                ->whereIn('course_type_id', $courseTypeIds)
-                                ->whereNotIn('status', ['cancelled'])
-                                ->whereDoesntHave('subscriptionInstances')
-                                ->get();
-                            
-                            foreach ($unlinkedLessons as $lesson) {
-                                try {
-                                    if ($instance->getRemainingAttachmentSlots() > 0) {
-                                        $instance->consumeLesson($lesson);
-                                        $stats['lessons_linked']++;
-                                        
-                                        Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} lors du recalcul");
-                                    }
-                                } catch (\Exception $e) {
-                                    Log::warning("Impossible de lier le cours {$lesson->id} à l'abonnement {$instance->id}: " . $e->getMessage());
-                                }
-                            }
-                        }
+
+                    if ($isActive) {
+                        $stats['lessons_linked'] += $this->linkOrphanLessonsToInstance(
+                            $instance,
+                            $subscription,
+                            $club->id
+                        );
                     }
-                    
-                    // Sauvegarder l'ancienne valeur
+
                     $oldLessonsUsed = $instance->lessons_used;
-                    
-                            // Recalculer après avoir lié les cours
-                            $instance->recalculateLessonsUsed();
-                            $instance->checkAndUpdateStatus();
-                    
-                    // Si la valeur a changé, compter comme mise à jour
+
+                    $instance->recalculateLessonsUsed();
+                    $instance->checkAndUpdateStatus();
+
+                    $overflow = $instance->fresh()->getPastOverflowInfo();
+                    if ($overflow['past_exceeds_capacity']) {
+                        $stats['past_overflow'][] = [
+                            'subscription_number' => $subscription->subscription_number,
+                            'instance_id' => $instance->id,
+                            'status' => $instance->status,
+                            'consumed' => $overflow['consumed'],
+                            'capacity' => $overflow['capacity'],
+                            'max_attachable' => $overflow['max_attachable'],
+                        ];
+                    }
+
                     if ($oldLessonsUsed != $instance->lessons_used) {
                         $stats['total_updated']++;
                         $stats['details'][] = [
@@ -1425,7 +1404,9 @@ class SubscriptionController extends Controller
                             'instance_id' => $instance->id,
                             'old_lessons_used' => $oldLessonsUsed,
                             'new_lessons_used' => $instance->lessons_used,
-                            'remaining_lessons' => $instance->remaining_lessons
+                            'remaining_lessons' => $instance->remaining_lessons,
+                            'remaining_consumed' => $instance->remaining_consumed,
+                            'remaining_bookable' => $instance->remaining_bookable,
                         ];
                     }
                 }
@@ -1433,9 +1414,11 @@ class SubscriptionController extends Controller
 
             Log::info('Recalcul de tous les abonnements', [
                 'club_id' => $club->id,
+                'include_inactive' => $includeInactive,
                 'total_checked' => $stats['total_checked'],
                 'total_updated' => $stats['total_updated'],
-                'lessons_linked' => $stats['lessons_linked']
+                'lessons_linked' => $stats['lessons_linked'],
+                'past_overflow_count' => count($stats['past_overflow']),
             ]);
 
             $message = "Recalcul terminé : {$stats['total_updated']} abonnement(s) mis à jour sur {$stats['total_checked']} vérifié(s)";
@@ -1443,6 +1426,9 @@ class SubscriptionController extends Controller
                 $message .= " - {$stats['lessons_linked']} cours lié(s) automatiquement";
             } else {
                 $message .= " - Les compteurs sont déjà corrects";
+            }
+            if (count($stats['past_overflow']) > 0) {
+                $message .= ' - ' . count($stats['past_overflow']) . ' instance(s) en dépassement passé (arbitrage manuel requis)';
             }
 
             return response()->json([
@@ -1458,6 +1444,55 @@ class SubscriptionController extends Controller
                 'message' => 'Erreur lors du recalcul: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Lie les cours orphelins éligibles à une instance active.
+     */
+    private function linkOrphanLessonsToInstance(
+        SubscriptionInstance $instance,
+        Subscription $subscription,
+        int $clubId
+    ): int {
+        $linked = 0;
+        $studentIds = $instance->students->pluck('id')->toArray();
+
+        if ($studentIds === []) {
+            return 0;
+        }
+
+        $courseTypeIds = $subscription->courseTypes->pluck('id')->toArray();
+        if ($courseTypeIds === []) {
+            return 0;
+        }
+
+        $unlinkedLessons = \App\Models\Lesson::query()
+            ->where('club_id', $clubId)
+            ->where(function ($query) use ($studentIds) {
+                $query->whereIn('student_id', $studentIds)
+                    ->orWhereHas('students', function ($studentQuery) use ($studentIds) {
+                        $studentQuery->whereIn('students.id', $studentIds);
+                    });
+            })
+            ->whereIn('course_type_id', $courseTypeIds)
+            ->whereNotIn('status', ['cancelled'])
+            ->whereDoesntHave('subscriptionInstances')
+            ->get();
+
+        foreach ($unlinkedLessons as $lesson) {
+            try {
+                if ($instance->getRemainingAttachmentSlots() > 0) {
+                    $instance->consumeLesson($lesson);
+                    $linked++;
+
+                    Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} lors du recalcul");
+                }
+            } catch (\Exception $e) {
+                Log::warning("Impossible de lier le cours {$lesson->id} à l'abonnement {$instance->id}: " . $e->getMessage());
+            }
+        }
+
+        return $linked;
     }
 
     /**

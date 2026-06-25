@@ -751,5 +751,36 @@ class SubscriptionInstanceUpdateTest extends TestCase
         ]);
         $this->assertEquals('completed', $this->instance->fresh()->status);
     }
+
+    public function test_recalculate_all_with_include_inactive_recalculates_completed_instances(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->update([
+            'status' => 'completed',
+            'lessons_used' => 5,
+            'manual_lessons_used' => 0,
+        ]);
+
+        $pastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $this->instance->lessons()->attach($pastLesson->id);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate?include_inactive=1');
+        $response->assertStatus(200)
+            ->assertJsonPath('data.total_checked', 1)
+            ->assertJsonPath('data.lessons_linked', 0);
+
+        $this->assertEquals(1, $this->instance->fresh()->lessons_used);
+        $this->assertEquals(9, $this->instance->fresh()->remaining_bookable);
+    }
 }
 

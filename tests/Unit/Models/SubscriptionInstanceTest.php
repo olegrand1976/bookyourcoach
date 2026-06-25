@@ -207,6 +207,63 @@ class SubscriptionInstanceTest extends TestCase
         $this->subscriptionInstance->save();
 
         $this->assertEquals(7, $this->subscriptionInstance->remaining_lessons);
+        $this->assertEquals(7, $this->subscriptionInstance->remaining_consumed);
+    }
+
+    #[Test]
+    public function remaining_bookable_accounts_for_future_attached_lessons(): void
+    {
+        $futureLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addWeek(),
+            'end_time' => Carbon::now()->addWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->consumeLesson($futureLesson);
+
+        $fresh = $this->subscriptionInstance->fresh();
+
+        $this->assertEquals(10, $fresh->remaining_consumed);
+        $this->assertEquals(9, $fresh->remaining_bookable);
+        $this->assertEquals(9, $fresh->getRemainingAttachmentSlots());
+    }
+
+    #[Test]
+    public function getPastOverflowInfo_detects_excess_consumed_lessons(): void
+    {
+        $this->subscriptionInstance->update([
+            'manual_lessons_used' => 0,
+            'lessons_used' => 10,
+        ]);
+
+        for ($i = 0; $i < 11; $i++) {
+            $past = Carbon::now()->subDays($i + 1);
+            $lesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => $past,
+                'end_time' => $past->copy()->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->subscriptionInstance->lessons()->attach($lesson->id);
+        }
+
+        $this->subscriptionInstance->recalculateLessonsUsed();
+        $info = $this->subscriptionInstance->fresh()->getPastOverflowInfo();
+
+        $this->assertTrue($info['past_exceeds_capacity']);
+        $this->assertEquals(11, $info['consumed']);
+        $this->assertEquals(10, $info['capacity']);
     }
 
     /**

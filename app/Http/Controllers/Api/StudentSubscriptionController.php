@@ -168,9 +168,14 @@ class StudentSubscriptionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Mettre à jour les statuts si nécessaire
+            // Recalculer les compteurs depuis le pivot puis mettre à jour les statuts
             foreach ($subscriptionInstances as $instance) {
-                $instance->checkAndUpdateStatus();
+                try {
+                    $instance->recalculateLessonsUsed();
+                    $instance->checkAndUpdateStatus();
+                } catch (\Exception $e) {
+                    Log::warning('Erreur lors du recalcul de l\'instance ' . $instance->id . ': ' . $e->getMessage());
+                }
             }
 
             return response()->json([

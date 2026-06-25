@@ -22,6 +22,7 @@ Vue d’ensemble de la documentation du projet.
 ## Références par thème
 
 - **Récurrence des cours :** [RECURRENCE_COURS_ANALYSE.md](RECURRENCE_COURS_ANALYSE.md) — Flux, validation 26 semaines, erreurs corrigées.
+- **Cours restants (abonnements) :** [SUBSCRIPTION_REMAINING_LESSONS.md](SUBSCRIPTION_REMAINING_LESSONS.md) — Métriques `remaining_consumed` / `remaining_bookable`, recalcul, limites collectif.
 - **Auth / CORS :** [AUTH_SOLUTION.md](AUTH_SOLUTION.md), [config CORS](../config/cors.php)
 - **Intégrations :** [Google Calendar](GOOGLE_CALENDAR_INTEGRATION.md), [calendrier étudiant](student-calendar-integration.md)
 - **Mobile :** [Démarrage élève](../mobile/DEMARRAGE-ELEVE.md), [Démarrage enseignant](../mobile/DEMARRAGE-ENSEIGNANT.md), [Fonctionnalités élève](../mobile/FONCTIONNALITES-ELEVE.md), [Fonctionnalités enseignant](../mobile/FONCTIONNALITES-ENSEIGNANT.md)

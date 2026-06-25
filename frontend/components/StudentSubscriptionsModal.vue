@@ -78,8 +78,15 @@
                         </span>
                       </div>
                       <div>
-                        <span class="text-gray-600">Restants:</span>
-                        <span class="font-semibold text-gray-900 ml-1">{{ subscription.remaining_lessons }}</span>
+                        <span class="text-gray-600">Restants (réservables):</span>
+                        <span class="font-semibold text-gray-900 ml-1">{{ getRemainingBookable(subscription) }}</span>
+                        <span
+                          v-if="hasReservedFutureSlots(subscription)"
+                          class="block text-xs text-amber-600 mt-0.5"
+                          :title="`${getReservedFutureCount(subscription)} cours futur(s) déjà réservé(s)`"
+                        >
+                          dont {{ getReservedFutureCount(subscription) }} réservé(s) à l'avance
+                        </span>
                       </div>
                       <div>
                         <span class="text-gray-600">Début:</span>
@@ -261,8 +268,34 @@ const isExpiringSoon = (expiresAt) => {
 const canRenew = (subscription) => {
   const isNearingExpiry = subscription.expires_at && isExpiringSoon(subscription.expires_at)
   const totalLessons = getTotalLessons(subscription)
-  const isAlmostUsed = subscription.remaining_lessons <= (totalLessons * 0.2)
+  const isAlmostUsed = getRemainingBookable(subscription) <= (totalLessons * 0.2)
   return isNearingExpiry || isAlmostUsed
+}
+
+const getRemainingConsumed = (subscription) => {
+  if (subscription.remaining_consumed !== undefined && subscription.remaining_consumed !== null) {
+    return subscription.remaining_consumed
+  }
+  if (subscription.remaining_lessons !== undefined && subscription.remaining_lessons !== null) {
+    return subscription.remaining_lessons
+  }
+  const total = getTotalLessons(subscription)
+  return Math.max(0, total - (subscription.lessons_used || 0))
+}
+
+const getRemainingBookable = (subscription) => {
+  if (subscription.remaining_bookable !== undefined && subscription.remaining_bookable !== null) {
+    return subscription.remaining_bookable
+  }
+  return getRemainingConsumed(subscription)
+}
+
+const getReservedFutureCount = (subscription) => {
+  return Math.max(0, getRemainingConsumed(subscription) - getRemainingBookable(subscription))
+}
+
+const hasReservedFutureSlots = (subscription) => {
+  return getReservedFutureCount(subscription) > 0
 }
 
 // Obtenir les types de cours (supporte template.courseTypes et course_types legacy)

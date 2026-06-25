@@ -37,6 +37,17 @@ class SubscriptionInstance extends Model
     ];
 
     /**
+     * Champs calculés exposés en JSON (remaining_lessons = alias historique de remaining_consumed).
+     *
+     * @var list<string>
+     */
+    protected $appends = [
+        'remaining_lessons',
+        'remaining_consumed',
+        'remaining_bookable',
+    ];
+
+    /**
      * Boot method pour calculer automatiquement expires_at si non fourni
      */
     protected static function boot()
@@ -104,10 +115,9 @@ class SubscriptionInstance extends Model
 
     /**
      * Calcule automatiquement lessons_used en comptant les cours réellement consommés
-     * (exclut les cours annulés)
-     * 
-     * ⚠️ IMPORTANT : Si aucun cours n'est attaché et qu'une valeur manuelle existe,
-     * on préserve la valeur manuelle pour permettre l'initialisation avec lessons_used > 0
+     * (passés + annulations tardives comptées ; exclut les futurs et annulations libérées).
+     *
+     * ⚠️ IMPORTANT : manual_lessons_used est toujours ajouté (cours pré-digitalisation).
      */
     public function recalculateLessonsUsed(): void
     {
@@ -258,17 +268,50 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Nombre de cours restants
-     * 
-     * ⚠️ Ne recalcule PAS automatiquement pour préserver les valeurs manuelles.
-     * Le recalcul se fait automatiquement lors de l'ajout/suppression de cours via les observers.
+     * Cours restants non encore consommés (hors réservations futures).
+     * Alias historique : préférer remaining_consumed pour la sémantique explicite.
      */
-    public function getRemainingLessonsAttribute()
+    public function getRemainingLessonsAttribute(): int
     {
-        // Utiliser directement lessons_used sans recalculer pour préserver les valeurs manuelles
-        // Le recalcul se fait automatiquement quand des cours sont attachés/détachés
+        return $this->remaining_consumed;
+    }
+
+    /**
+     * Cours restants non consommés (passés débités + manual déjà dans lessons_used).
+     */
+    public function getRemainingConsumedAttribute(): int
+    {
         $total = $this->subscription->total_available_lessons;
+
         return max(0, $total - $this->lessons_used);
+    }
+
+    /**
+     * Places encore réservables (inclut les cours futurs déjà attachés).
+     */
+    public function getRemainingBookableAttribute(): int
+    {
+        return $this->getRemainingAttachmentSlots();
+    }
+
+    /**
+     * Détecte un dépassement : plus de cours passés consommés que la capacité nette.
+     *
+     * @return array{consumed: int, capacity: int, max_attachable: int, past_exceeds_capacity: bool}
+     */
+    public function getPastOverflowInfo(): array
+    {
+        $capacity = (int) ($this->subscription->total_available_lessons ?? 0);
+        $manual = $this->resolveManualLessonsUsed();
+        $maxAttachable = max(0, $capacity - $manual);
+        $consumed = $this->getConsumedLessonsCount();
+
+        return [
+            'consumed' => $consumed,
+            'capacity' => $capacity,
+            'max_attachable' => $maxAttachable,
+            'past_exceeds_capacity' => $consumed > $maxAttachable,
+        ];
     }
 
     /**
