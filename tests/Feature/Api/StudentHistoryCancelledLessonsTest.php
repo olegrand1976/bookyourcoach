@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Club;
+use App\Models\ClubClosureDay;
 use App\Models\CourseType;
 use App\Models\Lesson;
 use App\Models\LessonActionLog;
@@ -187,5 +188,61 @@ class StudentHistoryCancelledLessonsTest extends TestCase
         $logsResponse->assertStatus(200);
         $logLessonIds = collect($logsResponse->json('data'))->pluck('lesson_id');
         $this->assertTrue($logLessonIds->contains($lesson->id));
+    }
+
+    #[Test]
+    public function history_includes_soft_deleted_lessons_with_deleted_at(): void
+    {
+        $lesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDays(2)->setTime(10, 0),
+            'end_time' => Carbon::now()->subDays(2)->setTime(11, 0),
+            'status' => 'confirmed',
+        ]);
+
+        // Suppression physique → soft-delete (le modèle utilise SoftDeletes)
+        $lesson->delete();
+
+        $this->assertSoftDeleted('lessons', ['id' => $lesson->id]);
+
+        $response = $this->getJson("/api/club/students/{$this->student->id}/history");
+        $response->assertStatus(200);
+
+        $row = collect($response->json('data.lessons'))->firstWhere('id', $lesson->id);
+        $this->assertNotNull($row, 'Le cours supprimé doit rester visible dans la fiche élève.');
+        $this->assertNotNull($row['deleted_at'], 'Le cours supprimé doit exposer deleted_at pour le tag « Supprimé ».');
+    }
+
+    #[Test]
+    public function history_flags_lessons_falling_on_a_club_closure_day(): void
+    {
+        $date = Carbon::now()->addDays(5)->setTime(10, 0);
+
+        $lesson = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $date,
+            'end_time' => (clone $date)->addHour(),
+            'status' => 'confirmed',
+        ]);
+
+        ClubClosureDay::create([
+            'club_id' => $this->club->id,
+            'closed_on' => $date->toDateString(),
+        ]);
+
+        $response = $this->getJson("/api/club/students/{$this->student->id}/history");
+        $response->assertStatus(200);
+
+        $row = collect($response->json('data.lessons'))->firstWhere('id', $lesson->id);
+        $this->assertNotNull($row);
+        $this->assertTrue((bool) $row['is_on_closure_day'], 'Le cours sur un jour de fermeture doit être flaggé.');
     }
 }

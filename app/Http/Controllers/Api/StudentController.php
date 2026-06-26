@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClubClosureDay;
 use App\Models\Student;
 use App\Models\SubscriptionInstance;
 use App\Models\User;
@@ -157,7 +158,10 @@ class StudentController extends Controller
             ]);
 
             // Récupérer les cours de l'élève pour ce club (via relation many-to-many ou student_id)
-            $lessonQuery = \App\Models\Lesson::where('club_id', $club->id)
+            // withTrashed() : les cours supprimés (soft-delete) restent visibles dans la fiche élève
+            // (taggés « Supprimé »), alors qu'ils sont masqués des plannings par le scope global.
+            $lessonQuery = \App\Models\Lesson::withTrashed()
+                ->where('club_id', $club->id)
                 ->where(function ($query) use ($studentId) {
                     $query->whereHas('students', function ($q) use ($studentId) {
                         $q->where('students.id', $studentId);
@@ -208,17 +212,27 @@ class StudentController extends Controller
 
             $lessons = $lessons->sortByDesc(fn ($lesson) => Carbon::parse($lesson->start_time)->timestamp)->values();
 
+            // Jours de fermeture du club (pour tag « Fermeture club »).
+            // Normalisés en chaînes Y-m-d et comparés en PHP (le stockage de closed_on varie).
+            $closureDates = ClubClosureDay::where('club_id', $club->id)
+                ->pluck('closed_on')
+                ->map(fn ($d) => Carbon::parse($d)->toDateString())
+                ->flip();
+
             // Calculer la couverture d'abonnement pour les cours futurs
             $now = Carbon::now();
             $uncoveredLessonsCount = 0;
-            
+
             // Pré-charger les abonnements actifs avec leurs types de cours pour optimiser
             $activeSubscriptions = $subscriptionInstances->where('status', 'active');
-            
-            $lessons = $lessons->map(function ($lesson) use ($activeSubscriptions, $now, &$uncoveredLessonsCount) {
+
+            $lessons = $lessons->map(function ($lesson) use ($activeSubscriptions, $now, $closureDates, &$uncoveredLessonsCount) {
                 $lessonDate = Carbon::parse($lesson->start_time);
                 $isFuture = $lessonDate->isAfter($now);
                 $courseTypeId = $lesson->course_type_id;
+
+                // Flag d'affichage : le cours tombe un jour de fermeture du club
+                $lesson->is_on_closure_day = $closureDates->has($lessonDate->toDateString());
                 
                 // Par défaut, considérer comme couvert (pour les cours passés ou déjà liés à un abonnement)
                 $lesson->subscription_coverage = [
@@ -229,8 +243,8 @@ class StudentController extends Controller
                     'warning' => null
                 ];
                 
-                // Si le cours est dans le futur, vérifier la couverture
-                if ($isFuture && $lesson->status !== 'cancelled') {
+                // Si le cours est dans le futur, vérifier la couverture (hors cours supprimés)
+                if ($isFuture && $lesson->status !== 'cancelled' && ! $lesson->deleted_at) {
                     // 1. Lien réel : le cours est déjà rattaché à un abonnement (place déjà débitée).
                     $attachedInstance = $lesson->subscriptionInstances && $lesson->subscriptionInstances->count() > 0
                         ? $lesson->subscriptionInstances->first()

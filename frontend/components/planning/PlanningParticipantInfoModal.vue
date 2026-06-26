@@ -76,7 +76,7 @@
                 v-if="type === 'student' && cancelledLessonsCount > 0"
                 class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
               >
-                {{ cancelledLessonsCount }} cours annulé{{ cancelledLessonsCount > 1 ? 's' : '' }} sur la période
+                {{ cancelledLessonsCount }} cours annulé{{ cancelledLessonsCount > 1 ? 's' : '' }} ou supprimé{{ cancelledLessonsCount > 1 ? 's' : '' }} sur la période
               </p>
               <p v-if="displayedLessons.length === 0" class="text-sm text-gray-500 py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
                 {{ type === 'student' ? 'Aucun cours sur ce trimestre.' : 'Aucun cours prévu sur cette période.' }}
@@ -86,7 +86,7 @@
                   v-for="lesson in displayedLessons"
                   :key="lesson.id"
                   class="px-4 py-3 hover:bg-gray-50/80 text-sm"
-                  :class="lesson.status === 'cancelled' ? 'bg-red-50/40' : ''"
+                  :class="lesson.deleted_at ? 'bg-gray-50' : (lesson.status === 'cancelled' ? 'bg-red-50/40' : (lesson.is_on_closure_day ? 'bg-orange-50/40' : ''))"
                 >
                   <div class="flex flex-wrap items-start justify-between gap-2">
                     <div class="min-w-0">
@@ -108,9 +108,9 @@
                     </div>
                     <span
                       class="inline-flex shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
-                      :class="statusBadgeClass(lesson.status)"
+                      :class="lessonTag(lesson).class"
                     >
-                      {{ statusLabel(lesson.status) }}
+                      {{ lessonTag(lesson).label }}
                     </span>
                   </div>
                 </li>
@@ -279,7 +279,7 @@ const displayedLessons = computed(() => {
 
 const cancelledLessonsCount = computed(() => {
   if (props.type !== 'student') return 0
-  return displayedLessons.value.filter((lesson) => lesson.status === 'cancelled').length
+  return displayedLessons.value.filter((lesson) => lesson.status === 'cancelled' || lesson.deleted_at).length
 })
 
 const contactRows = computed(() => {
@@ -401,24 +401,51 @@ function lessonStudentLabel(lesson: { student?: { user?: { name?: string } }; st
   return '—'
 }
 
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
+/**
+ * Tag différencié d'un cours, par priorité :
+ *  1. supprimé (soft-delete)  2. annulé (selon origine / motif)
+ *  3. jour de fermeture du club  4. statut standard.
+ */
+function lessonTag(lesson: any): { label: string; class: string } {
+  // 1. Cours supprimé par le club (soft-delete) — reste visible ici, masqué des plannings
+  if (lesson?.deleted_at) {
+    return { label: 'Supprimé', class: 'bg-gray-200 text-gray-600 line-through' }
+  }
+
+  // 2. Cours annulé — variante selon qui a annulé / le motif
+  if (lesson?.status === 'cancelled') {
+    const role = lesson?.cancelled_by_role
+    if (role === 'club') return { label: 'Annulé (club)', class: 'bg-red-100 text-red-800' }
+    if (role === 'teacher') return { label: 'Annulé (coach)', class: 'bg-red-100 text-red-800' }
+    if (role === 'student') {
+      if (lesson?.cancellation_reason === 'medical') {
+        return { label: 'Annulé (certificat médical)', class: 'bg-amber-100 text-amber-800' }
+      }
+      return { label: 'Annulé (élève)', class: 'bg-red-100 text-red-800' }
+    }
+    return { label: 'Annulé', class: 'bg-red-100 text-red-800' }
+  }
+
+  // 3. Jour de fermeture du club (cours ni annulé ni supprimé)
+  if (lesson?.is_on_closure_day) {
+    return { label: 'Fermeture club', class: 'bg-orange-100 text-orange-800' }
+  }
+
+  // 4. Statuts standards
+  const labels: Record<string, string> = {
     confirmed: 'Confirmé',
     pending: 'En attente',
     completed: 'Terminé',
-    cancelled: 'Annulé',
   }
-  return map[status] ?? status
-}
-
-function statusBadgeClass(status: string): string {
-  const map: Record<string, string> = {
+  const classes: Record<string, string> = {
     confirmed: 'bg-green-100 text-green-800',
     pending: 'bg-yellow-100 text-yellow-800',
     completed: 'bg-gray-100 text-gray-700',
-    cancelled: 'bg-red-100 text-red-800',
   }
-  return map[status] ?? 'bg-blue-100 text-blue-800'
+  return {
+    label: labels[lesson?.status] ?? lesson?.status ?? '—',
+    class: classes[lesson?.status] ?? 'bg-blue-100 text-blue-800',
+  }
 }
 
 function subscriptionStatusLabel(status: string): string {

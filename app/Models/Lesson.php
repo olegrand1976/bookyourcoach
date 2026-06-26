@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @OA\Schema(
@@ -31,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Lesson extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'club_id',
@@ -71,6 +73,7 @@ class Lesson extends Model
     protected $casts = [
         'start_time' => 'datetime',
         'end_time' => 'datetime',
+        'deleted_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'cancelled_subscription_instance_ids' => 'array',
         'price' => 'decimal:2',

@@ -109,7 +109,7 @@ class FamilySubscriptionLessonDeletionTest extends TestCase
 
         $response->assertStatus(200)->assertJsonPath('data.processed_count', 1);
 
-        $this->assertDatabaseMissing('lessons', ['id' => $lessonA->id]);
+        $this->assertSoftDeleted('lessons', ['id' => $lessonA->id]);
         $this->assertDatabaseHas('lessons', ['id' => $lessonB->id, 'status' => 'confirmed']);
     }
 
@@ -254,7 +254,7 @@ class FamilySubscriptionLessonDeletionTest extends TestCase
         ]);
 
         $response->assertStatus(200)->assertJsonPath('data.processed_count', 1);
-        $this->assertDatabaseMissing('lessons', ['id' => $lesson1->id]);
+        $this->assertSoftDeleted('lessons', ['id' => $lesson1->id]);
         $this->assertDatabaseHas('lessons', ['id' => $lesson2->id]);
     }
 
