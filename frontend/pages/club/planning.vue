@@ -167,7 +167,17 @@
                     Liste
                   </button>
                 </div>
-                <button 
+                <button
+                  v-if="selectedDate"
+                  @click="showBroadcastModal = true"
+                  :disabled="dayBroadcastCount === 0"
+                  :title="dayBroadcastCount === 0 ? 'Aucun participant ce jour' : 'Envoyer un message à tous les participants du jour'"
+                  class="px-3 py-2 text-sm border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <span aria-hidden="true">📣</span>
+                  Message collectif
+                  <span v-if="dayBroadcastCount > 0" class="text-xs font-semibold bg-orange-100 text-orange-800 rounded-full px-1.5 py-0.5">{{ dayBroadcastCount }}</span>
+                </button>
+                <button
                   @click="showHistoryModal = true"
                   class="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1214,6 +1224,14 @@
       />
 
       <!-- Modale Historique complet -->
+      <BroadcastDayMessageModal
+        :show="showBroadcastModal"
+        :date-label="formatDateFull(selectedDate)"
+        :teachers="dayBroadcastRecipients.teachers"
+        :students="dayBroadcastRecipients.students"
+        @close="showBroadcastModal = false"
+      />
+
       <LessonsHistoryModal
         :show="showHistoryModal"
         @close="showHistoryModal = false"
@@ -1541,9 +1559,12 @@ import LessonScheduleConflictModal from '~/components/planning/LessonScheduleCon
 import type { ScheduleConflictPayload, PlanningAdviceAlternative } from '~/components/planning/LessonScheduleConflictModal.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 import PlanningParticipantInfoModal from '~/components/planning/PlanningParticipantInfoModal.vue'
+import BroadcastDayMessageModal from '~/components/planning/BroadcastDayMessageModal.vue'
 import {
   resolveLessonPrimaryStudentId,
   resolveLessonTeacherId,
+  participantDisplayNameFromStudent,
+  participantDisplayNameFromTeacher,
 } from '~/composables/planning/usePlanningParticipant'
 
 // Composable pour les toasts
@@ -1680,6 +1701,7 @@ const createLessonRequestedTime = ref<string | null>(null)
 const showScheduleConflictModal = ref(false)
 const scheduleConflictPayload = ref<ScheduleConflictPayload | null>(null)
 const showHistoryModal = ref(false)
+const showBroadcastModal = ref(false)
 const showParticipantInfoModal = ref(false)
 const participantInfoType = ref<'student' | 'teacher'>('student')
 const participantInfoId = ref<number | null>(null)
@@ -1845,6 +1867,62 @@ const filteredLessons = computed(() => {
     return dayMatch && timeMatch && dateMatch
   })
 })
+
+/**
+ * Participants (enseignants + élèves) ayant un cours réel le jour sélectionné,
+ * tous créneaux/disciplines confondus. Exclut placeholders d'abonnement et cours annulés.
+ * Alimente le message collectif (ex. annulation chaleur).
+ */
+const dayBroadcastRecipients = computed(() => {
+  const teachersMap = new Map<number, string>()
+  const studentsMap = new Map<number, string>()
+
+  if (!selectedDate.value) {
+    return { teachers: [], students: [] }
+  }
+
+  const sel = selectedDate.value
+  const selStr = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, '0')}-${String(sel.getDate()).padStart(2, '0')}`
+
+  for (const lesson of lessons.value) {
+    if ((lesson as any).is_recurring_placeholder || lesson.status === 'cancelled') continue
+    if (!lesson.start_time) continue
+
+    const d = new Date(lesson.start_time as string)
+    const lessonStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (lessonStr !== selStr) continue
+
+    const teacherId = resolveLessonTeacherId(lesson)
+    if (teacherId != null && !teachersMap.has(teacherId)) {
+      teachersMap.set(teacherId, participantDisplayNameFromTeacher((lesson as any).teacher))
+    }
+
+    // Cours de groupe : inclure tous les élèves, sinon l'élève principal
+    const groupStudents = (lesson as any).students as Array<any> | undefined
+    if (groupStudents && groupStudents.length > 1) {
+      for (const s of groupStudents) {
+        if (s?.id != null && !studentsMap.has(Number(s.id))) {
+          studentsMap.set(Number(s.id), participantDisplayNameFromStudent(s))
+        }
+      }
+    } else {
+      const studentId = resolveLessonPrimaryStudentId(lesson)
+      if (studentId != null && !studentsMap.has(studentId)) {
+        const raw = (lesson as any).student ?? groupStudents?.[0] ?? null
+        studentsMap.set(studentId, participantDisplayNameFromStudent(raw))
+      }
+    }
+  }
+
+  return {
+    teachers: Array.from(teachersMap, ([id, name]) => ({ id, name })),
+    students: Array.from(studentsMap, ([id, name]) => ({ id, name })),
+  }
+})
+
+const dayBroadcastCount = computed(
+  () => dayBroadcastRecipients.value.teachers.length + dayBroadcastRecipients.value.students.length
+)
 
 /** Intervalle temps réel du cours (ms) pour détecter double-booking enseignant */
 function planningLessonIntervalEdgeMs(lesson: Lesson): { start: number; end: number } | null {
