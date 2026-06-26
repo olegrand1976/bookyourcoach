@@ -183,27 +183,39 @@ jobs:
 
     - name: 📦 Migrations (Cloud Run Job)
       run: |
-        # Créer ou mettre à jour le job de migration
+        IMAGE="${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}"
+        ENV_FILE="/tmp/byc-migrate-env.yaml"
+        printf '%s\n' \
+          "APP_ENV: production" \
+          "APP_DEBUG: \"false\"" \
+          "DB_CONNECTION: mysql" \
+          "DB_SOCKET: \"/cloudsql/${{ env.GCP_PROJECT }}:${{ env.GCP_REGION }}:ll-it-mysql\"" \
+          "DB_DATABASE: bookyourcoach_prod" \
+          "DB_USERNAME: byc_app" \
+          "LOG_CHANNEL: stderr" \
+          > "$ENV_FILE"
+
+        migrate_job_flags=(
+          --image="$IMAGE"
+          --region=${{ env.GCP_REGION }}
+          --project=${{ env.GCP_PROJECT }}
+          --command="php"
+          --args="artisan,migrate,--force"
+          --service-account="bookyourcoach-run@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com"
+          --vpc-connector="projects/${{ env.GCP_PROJECT }}/locations/${{ env.GCP_REGION }}/connectors/premedica-connector"
+          --vpc-egress=private-ranges-only
+          --set-cloudsql-instances="${{ env.GCP_PROJECT }}:${{ env.GCP_REGION }}:ll-it-mysql"
+          --env-vars-file="$ENV_FILE"
+          --set-secrets="APP_KEY=bookyourcoach-app-key-prod:latest,DB_PASSWORD=bookyourcoach-database-url-password:latest"
+          --quiet
+        )
+
         if gcloud run jobs describe ${{ env.MIGRATE_JOB }} \
             --region=${{ env.GCP_REGION }} \
             --project=${{ env.GCP_PROJECT }} 2>/dev/null; then
-          gcloud run jobs update ${{ env.MIGRATE_JOB }} \
-            --image="${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}" \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.GCP_PROJECT }} \
-            --quiet
+          gcloud run jobs update ${{ env.MIGRATE_JOB }} "${migrate_job_flags[@]}"
         else
-          gcloud run jobs create ${{ env.MIGRATE_JOB }} \
-            --image="${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}" \
-            --region=${{ env.GCP_REGION }} \
-            --project=${{ env.GCP_PROJECT }} \
-            --command="php" \
-            --args="artisan,migrate,--force" \
-            --service-account="bookyourcoach-run@${{ env.GCP_PROJECT }}.iam.gserviceaccount.com" \
-            --vpc-connector="projects/${{ env.GCP_PROJECT }}/locations/${{ env.GCP_REGION }}/connectors/premedica-connector" \
-            --vpc-egress=private-ranges-only \
-            --set-cloudsql-instances="${{ env.GCP_PROJECT }}:${{ env.GCP_REGION }}:ll-it-mysql" \
-            --quiet
+          gcloud run jobs create ${{ env.MIGRATE_JOB }} "${migrate_job_flags[@]}"
         fi
 
         gcloud run jobs execute ${{ env.MIGRATE_JOB }} \

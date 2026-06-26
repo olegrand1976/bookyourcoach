@@ -120,6 +120,7 @@ class LessonController extends Controller
                     'student.subscriptionInstances' => function ($query) {
                         $query->where('status', 'active')
                               ->where('expires_at', '>=', now())
+                              ->whereHas('subscription')
                               ->with(['subscription.template']);
                     },
                     'students:id,user_id,first_name,last_name,phone',
@@ -128,7 +129,8 @@ class LessonController extends Controller
                     'location:id,name',
                     'club:id,name,email,phone',
                     'subscriptionInstances' => function ($query) {
-                        $query->with(['subscription.template']);
+                        $query->whereHas('subscription')
+                              ->with(['subscription.template']);
                     },
                     'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
                 ]);
@@ -653,6 +655,7 @@ class LessonController extends Controller
                 'student.subscriptionInstances' => function ($query) {
                     $query->where('status', 'active')
                           ->where('expires_at', '>=', now())
+                          ->whereHas('subscription')
                           ->with(['subscription.template']);
                 },
                 'students:id,user_id,first_name,last_name,phone',
@@ -774,6 +777,7 @@ class LessonController extends Controller
                 'student.subscriptionInstances' => function ($query) {
                     $query->where('status', 'active')
                           ->where('expires_at', '>=', now())
+                          ->whereHas('subscription')
                           ->with(['subscription.template']);
                 },
                 'students:id,user_id,first_name,last_name,phone',
@@ -784,7 +788,8 @@ class LessonController extends Controller
                 // ⚠️ IMPORTANT : Charger les subscription_instances directement liées au cours
                 // (utilisées pour la suppression des cours futurs)
                 'subscriptionInstances' => function ($query) {
-                    $query->with(['subscription.template']);
+                    $query->whereHas('subscription')
+                          ->with(['subscription.template']);
                 }
             ]);
 
@@ -1317,6 +1322,7 @@ class LessonController extends Controller
                     'student.subscriptionInstances' => function ($query) {
                         $query->where('status', 'active')
                               ->where('expires_at', '>=', now())
+                              ->whereHas('subscription')
                               ->with(['subscription.template']);
                     },
                     'students:id,user_id,first_name,last_name,phone',

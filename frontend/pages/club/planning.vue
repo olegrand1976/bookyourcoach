@@ -171,7 +171,9 @@
                   v-if="selectedDate"
                   @click="showBroadcastModal = true"
                   :disabled="dayBroadcastCount === 0"
-                  :title="dayBroadcastCount === 0 ? 'Aucun participant ce jour' : 'Envoyer un message à tous les participants du jour'"
+                  :title="dayBroadcastCount === 0
+                    ? (lessons.length === 0 ? 'Chargement des cours en cours ou aucun cours ce jour' : 'Aucun participant ce jour')
+                    : 'Envoyer un message à tous les participants du jour'"
                   class="px-3 py-2 text-sm border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                   <span aria-hidden="true">📣</span>
                   Message collectif
@@ -1869,8 +1871,8 @@ const filteredLessons = computed(() => {
 })
 
 /**
- * Participants (enseignants + élèves) ayant un cours réel le jour sélectionné,
- * tous créneaux/disciplines confondus. Exclut placeholders d'abonnement et cours annulés.
+ * Participants (enseignants + élèves) ayant un cours ou une série récurrente active le jour sélectionné,
+ * tous créneaux/disciplines confondus. Exclut les cours annulés et les séries libérées par annulation ce jour.
  * Alimente le message collectif (ex. annulation chaleur).
  */
 const dayBroadcastRecipients = computed(() => {
@@ -1883,6 +1885,30 @@ const dayBroadcastRecipients = computed(() => {
 
   const sel = selectedDate.value
   const selStr = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, '0')}-${String(sel.getDate()).padStart(2, '0')}`
+  const selDow = sel.getDay()
+
+  const addLessonParticipants = (lesson: Lesson) => {
+    const teacherId = resolveLessonTeacherId(lesson)
+    if (teacherId != null && !teachersMap.has(teacherId)) {
+      teachersMap.set(teacherId, participantDisplayNameFromTeacher((lesson as any).teacher))
+    }
+
+    const groupStudents = (lesson as any).students as Array<any> | undefined
+    if (groupStudents && groupStudents.length > 0) {
+      for (const s of groupStudents) {
+        if (s?.id != null && !studentsMap.has(Number(s.id))) {
+          studentsMap.set(Number(s.id), participantDisplayNameFromStudent(s))
+        }
+      }
+      return
+    }
+
+    const studentId = resolveLessonPrimaryStudentId(lesson)
+    if (studentId != null && !studentsMap.has(studentId)) {
+      const raw = (lesson as any).student ?? null
+      studentsMap.set(studentId, participantDisplayNameFromStudent(raw))
+    }
+  }
 
   for (const lesson of lessons.value) {
     if ((lesson as any).is_recurring_placeholder || lesson.status === 'cancelled') continue
@@ -1892,25 +1918,32 @@ const dayBroadcastRecipients = computed(() => {
     const lessonStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     if (lessonStr !== selStr) continue
 
-    const teacherId = resolveLessonTeacherId(lesson)
-    if (teacherId != null && !teachersMap.has(teacherId)) {
-      teachersMap.set(teacherId, participantDisplayNameFromTeacher((lesson as any).teacher))
-    }
+    addLessonParticipants(lesson)
+  }
 
-    // Cours de groupe : inclure tous les élèves, sinon l'élève principal
-    const groupStudents = (lesson as any).students as Array<any> | undefined
-    if (groupStudents && groupStudents.length > 1) {
-      for (const s of groupStudents) {
-        if (s?.id != null && !studentsMap.has(Number(s.id))) {
-          studentsMap.set(Number(s.id), participantDisplayNameFromStudent(s))
-        }
-      }
-    } else {
-      const studentId = resolveLessonPrimaryStudentId(lesson)
-      if (studentId != null && !studentsMap.has(studentId)) {
-        const raw = (lesson as any).student ?? groupStudents?.[0] ?? null
-        studentsMap.set(studentId, participantDisplayNameFromStudent(raw))
-      }
+  // Séries récurrentes (abonnements) sans ligne `lessons` matérialisée ce jour-là
+  for (const rs of clubRecurringSlots.value) {
+    if (rs.status !== 'active') continue
+    if (!isLessonLikeRecurringSlot(rs)) continue
+    if (!ymdInRange(selStr, String(rs.start_date), String(rs.end_date))) continue
+    if (Number(rs.day_of_week) !== selDow) continue
+    if (!subscriptionRecurringSlotFiresOnDate(rs, selStr)) continue
+
+    const alreadyMaterialized = lessons.value.some(
+      (l) => !(l as any).is_recurring_placeholder
+        && l.status !== 'cancelled'
+        && lessonMaterializesRecurringOnDate(l, rs, selStr),
+    )
+    if (alreadyMaterialized) continue
+    if (recurringOccurrenceFreedByCancelledLesson(rs, selStr)) continue
+
+    const teacherId = Number(rs.teacher_id)
+    if (teacherId && !teachersMap.has(teacherId)) {
+      teachersMap.set(teacherId, participantDisplayNameFromTeacher(rs.teacher))
+    }
+    const studentId = Number(rs.student_id)
+    if (studentId && !studentsMap.has(studentId)) {
+      studentsMap.set(studentId, participantDisplayNameFromStudent(rs.student))
     }
   }
 

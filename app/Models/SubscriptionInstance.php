@@ -202,12 +202,17 @@ class SubscriptionInstance extends Model
             ->count();
     }
 
+    private function resolveTotalAvailableLessons(): int
+    {
+        return (int) ($this->subscription?->total_available_lessons ?? 0);
+    }
+
     /**
      * Places restantes pour attacher un nouveau cours (futur ou passé).
      */
     public function getRemainingAttachmentSlots(): int
     {
-        $total = $this->subscription->total_available_lessons;
+        $total = $this->resolveTotalAvailableLessons();
         $manual = $this->resolveManualLessonsUsed();
         $attached = $this->getAttachedCountableLessonsCount();
 
@@ -222,7 +227,7 @@ class SubscriptionInstance extends Model
     {
         $instance = $this->fresh();
         $slots = $instance->getRemainingAttachmentSlots();
-        $total = $instance->subscription->total_available_lessons;
+        $total = $instance->resolveTotalAvailableLessons();
 
         if ($total <= 0 && $slots === 0 && $instance->getAttachedCountableLessonsCount() === 0) {
             return PHP_INT_MAX;
@@ -281,7 +286,7 @@ class SubscriptionInstance extends Model
      */
     public function getRemainingConsumedAttribute(): int
     {
-        $total = $this->subscription->total_available_lessons;
+        $total = $this->resolveTotalAvailableLessons();
 
         return max(0, $total - $this->lessons_used);
     }
@@ -301,7 +306,7 @@ class SubscriptionInstance extends Model
      */
     public function getPastOverflowInfo(): array
     {
-        $capacity = (int) ($this->subscription->total_available_lessons ?? 0);
+        $capacity = $this->resolveTotalAvailableLessons();
         $manual = $this->resolveManualLessonsUsed();
         $maxAttachable = max(0, $capacity - $manual);
         $consumed = $this->getConsumedLessonsCount();
@@ -324,8 +329,11 @@ class SubscriptionInstance extends Model
     {
         // Utiliser directement lessons_used sans recalculer pour préserver les valeurs manuelles
         // Le recalcul se fait automatiquement quand des cours sont attachés/détachés
-        $total = $this->subscription->total_available_lessons;
-        if ($total === 0) return 0;
+        $total = $this->resolveTotalAvailableLessons();
+        if ($total === 0) {
+            return 0;
+        }
+
         return round(($this->lessons_used / $total) * 100, 1);
     }
 
@@ -339,7 +347,7 @@ class SubscriptionInstance extends Model
         }
         
         $startDate = Carbon::parse($this->started_at);
-        $validityMonths = $this->subscription->validity_months ?? 12;
+        $validityMonths = $this->subscription?->validity_months ?? 12;
         $this->expires_at = $startDate->copy()->addMonths($validityMonths);
     }
 
@@ -387,7 +395,7 @@ class SubscriptionInstance extends Model
     {
         // Ne pas recalculer ici pour éviter la récursion (recalculé ailleurs avant l'appel)
         
-        $totalAvailable = $this->subscription->total_available_lessons;
+        $totalAvailable = $this->resolveTotalAvailableLessons();
 
         if ($totalAvailable <= 0) {
             return $this->status;
