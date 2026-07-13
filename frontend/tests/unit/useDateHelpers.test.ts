@@ -2,8 +2,13 @@ import { describe, it, expect } from 'vitest'
 import {
   addMonthsForSlotWeekday,
   getClubPlanningMaxDate,
+  getClubPlanningInitialRange,
+  getClubPlanningLoadRangeAround,
   getClubPlanningMinDate,
   getDefaultDateForSlotDay,
+  CLUB_PLANNING_INITIAL_WEEKS_BACK,
+  CLUB_PLANNING_INITIAL_WEEKS_FORWARD,
+  CLUB_PLANNING_LOAD_CHUNK_WEEKS,
   CLUB_PLANNING_MONTHS_FORWARD,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
@@ -63,5 +68,33 @@ describe('club planning range', () => {
     const min = getClubPlanningMinDate(today)
     expect(min.getMonth()).toBe(10) // novembre 2025
     expect(min.getFullYear()).toBe(2025)
+  })
+})
+
+describe('club planning loading windows', () => {
+  it('calcule une fenêtre initiale autour de la date de référence', () => {
+    const today = new Date(2026, 4, 19, 10, 15, 30)
+    const { start, end } = getClubPlanningInitialRange(today)
+    const expectedStart = new Date(today)
+    expectedStart.setDate(expectedStart.getDate() - CLUB_PLANNING_INITIAL_WEEKS_BACK * 7)
+    expectedStart.setHours(0, 0, 0, 0)
+    const expectedEnd = new Date(today)
+    expectedEnd.setDate(expectedEnd.getDate() + CLUB_PLANNING_INITIAL_WEEKS_FORWARD * 7)
+    expectedEnd.setHours(23, 59, 59, 999)
+    expect(start.getTime()).toBe(expectedStart.getTime())
+    expect(end.getTime()).toBe(expectedEnd.getTime())
+  })
+
+  it('calcule un chunk de chargement autour d’une date cible', () => {
+    const target = new Date(2026, 6, 1, 9, 0, 0)
+    const { start, end } = getClubPlanningLoadRangeAround(target)
+    const expectedStart = new Date(target)
+    expectedStart.setDate(expectedStart.getDate() - CLUB_PLANNING_LOAD_CHUNK_WEEKS * 7)
+    expectedStart.setHours(0, 0, 0, 0)
+    const expectedEnd = new Date(target)
+    expectedEnd.setDate(expectedEnd.getDate() + CLUB_PLANNING_LOAD_CHUNK_WEEKS * 7)
+    expectedEnd.setHours(23, 59, 59, 999)
+    expect(start.getTime()).toBe(expectedStart.getTime())
+    expect(end.getTime()).toBe(expectedEnd.getTime())
   })
 })

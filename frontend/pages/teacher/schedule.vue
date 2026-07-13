@@ -71,7 +71,40 @@
 
         <!-- Calendrier avec cours -->
         <div class="bg-white shadow rounded-lg p-4 sm:p-6 mb-6">
-          <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Calendrier mensuel</h3>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4">
+            <h3 class="text-base sm:text-lg font-semibold text-gray-900">Calendrier mensuel</h3>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="previousMonth"
+                :disabled="loadingLessons"
+                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Mois précédent"
+              >
+                ←
+              </button>
+              <span class="min-h-[44px] flex items-center px-3 text-sm sm:text-base font-medium text-gray-900 capitalize">
+                {{ displayMonthLabel }}
+              </span>
+              <button
+                type="button"
+                @click="nextMonth"
+                :disabled="loadingLessons"
+                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Mois suivant"
+              >
+                →
+              </button>
+              <button
+                type="button"
+                @click="goToToday"
+                :disabled="loadingLessons"
+                class="min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Aujourd'hui
+              </button>
+            </div>
+          </div>
           <div class="calendar-month-view">
             <!-- En-tête des jours de la semaine -->
             <div class="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
@@ -118,12 +151,15 @@
           </div>
         </div>
 
-        <!-- Bloc : Cours programmés -->
+        <!-- Bloc : Cours du mois -->
         <div class="bg-white shadow rounded-lg p-4 sm:p-6">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div class="min-w-0">
               <h2 class="text-lg sm:text-xl font-semibold text-gray-900">
-                Cours programmés
+                Cours du mois
+                <span class="text-sm sm:text-base font-normal text-gray-600 capitalize">
+                  • {{ displayMonthLabel }}
+                </span>
                 <span v-if="selectedCalendar !== 'personal'" class="text-sm sm:text-base font-normal text-gray-600">
                   • {{ getClubName(selectedCalendar) }}
                 </span>
@@ -132,15 +168,15 @@
                 </span>
               </h2>
               <p class="text-xs sm:text-sm text-gray-500 mt-1">
-                {{ lessons.length }} cours programmé{{ lessons.length > 1 ? 's' : '' }}
+                {{ lessons.length }} cours ce mois
                 <span v-if="selectedCalendar === 'personal'" class="text-xs text-gray-400">
                   (cours directs avec vos élèves, sans club)
                 </span>
               </p>
             </div>
-            <!-- Bouton d'ajout de cours - uniquement pour calendrier personnel -->
+            <!-- Bouton d'ajout de cours - calendrier personnel, mois courant ou futur -->
             <button 
-              v-if="selectedCalendar === 'personal'"
+              v-if="canCreateLesson"
               @click="openCreateLessonModal"
               class="min-h-[44px] w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg font-medium">
               <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,12 +226,15 @@
           <!-- État vide -->
           <div v-else class="text-center py-12 text-gray-500">
             <div class="text-4xl mb-4">📚</div>
-            <p class="text-lg mb-2">Aucun cours programmé</p>
-            <p v-if="selectedCalendar === 'personal'" class="text-sm">
+            <p class="text-lg mb-2">Aucun cours ce mois</p>
+            <p v-if="canCreateLesson" class="text-sm">
               Cliquez sur "Créer un cours" pour ajouter votre premier cours
             </p>
-            <p v-else class="text-sm">
+            <p v-else-if="selectedCalendar !== 'personal'" class="text-sm">
               Aucun cours trouvé pour ce club
+            </p>
+            <p v-else class="text-sm">
+              Aucun cours sur cette période
             </p>
           </div>
         </div>
@@ -251,8 +290,8 @@
               <!-- Élève -->
               <div class="bg-gray-50 rounded-lg p-4">
                 <label class="block text-sm font-medium text-gray-500 mb-1">Élève</label>
-                <p v-if="getLessonStudentNames(selectedLesson) && getLessonStudentNames(selectedLesson) !== 'Sans élève'" class="text-base font-semibold text-gray-900">
-                  {{ getLessonStudentNames(selectedLesson) }}
+                <p v-if="selectedLessonStudentNames !== 'Sans élève'" class="text-base font-semibold text-gray-900">
+                  {{ selectedLessonStudentNames }}
                 </p>
                 <p v-else class="text-base font-semibold text-gray-400 italic">
                   Sans élève
@@ -406,6 +445,7 @@ interface CourseType {
 
 // State
 const loading = ref(true)
+const loadingLessons = ref(false)
 const error = ref<string | null>(null)
 const lessons = ref<Lesson[]>([])
 const showLessonModal = ref(false)
@@ -413,6 +453,7 @@ const selectedLesson = ref<Lesson | null>(null)
 const showCreateLessonModal = ref(false)
 const saving = ref(false)
 const selectedCalendar = ref<string>('personal')
+const displayDate = ref(new Date())
 const teacherClubs = ref<any[]>([])
 const students = ref<any[]>([])
 const courseTypes = ref<CourseType[]>([])
@@ -435,6 +476,65 @@ const getClubName = (clubId: string | number) => {
   return club?.name || 'Club'
 }
 
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const displayMonthLabel = computed(() =>
+  displayDate.value.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+)
+
+const monthDateRange = computed(() => {
+  const year = displayDate.value.getFullYear()
+  const month = displayDate.value.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  return {
+    date_from: toLocalDateString(firstDay),
+    date_to: toLocalDateString(lastDay)
+  }
+})
+
+const isPastMonth = computed(() => {
+  const now = new Date()
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const displayMonthStart = new Date(displayDate.value.getFullYear(), displayDate.value.getMonth(), 1)
+  return displayMonthStart < currentMonthStart
+})
+
+const canCreateLesson = computed(() =>
+  selectedCalendar.value === 'personal' && !isPastMonth.value
+)
+
+const selectedLessonStudentNames = computed(() =>
+  selectedLesson.value ? getLessonStudentNames(selectedLesson.value) : 'Sans élève'
+)
+
+function previousMonth() {
+  if (loadingLessons.value) return
+  const d = new Date(displayDate.value)
+  d.setMonth(d.getMonth() - 1)
+  displayDate.value = d
+  loadLessons()
+}
+
+function nextMonth() {
+  if (loadingLessons.value) return
+  const d = new Date(displayDate.value)
+  d.setMonth(d.getMonth() + 1)
+  displayDate.value = d
+  loadLessons()
+}
+
+function goToToday() {
+  if (loadingLessons.value) return
+  displayDate.value = new Date()
+  loadLessons()
+}
+
 // Fonction pour sélectionner un calendrier
 function selectCalendar(calendarId: string) {
   selectedCalendar.value = calendarId
@@ -447,24 +547,22 @@ const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 // Calculer les jours du calendrier mensuel
 const calendarDays = computed(() => {
   const today = new Date()
-  const year = today.getFullYear()
-  const month = today.getMonth()
-  
+  const year = displayDate.value.getFullYear()
+  const month = displayDate.value.getMonth()
+
   const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
   const startDate = new Date(firstDay)
-  // Ajuster pour commencer le lundi (day 1)
   startDate.setDate(firstDay.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1))
-  
+
   const days = []
-  const todayStr = today.toISOString().split('T')[0]
-  
+  const todayStr = toLocalDateString(today)
+
   for (let i = 0; i < 42; i++) {
     const date = new Date(startDate)
     date.setDate(startDate.getDate() + i)
-    
-    const dateStr = date.toISOString().split('T')[0]
-    
+
+    const dateStr = toLocalDateString(date)
+
     days.push({
       date: dateStr,
       day: date.getDate(),
@@ -472,14 +570,13 @@ const calendarDays = computed(() => {
       isToday: dateStr === todayStr
     })
   }
-  
+
   return days
 })
 
-// Obtenir les cours pour un jour donné
 function getLessonsForDay(dateStr: string): Lesson[] {
   return lessons.value.filter(lesson => {
-    const lessonDate = new Date(lesson.start_time).toISOString().split('T')[0]
+    const lessonDate = toLocalDateString(new Date(lesson.start_time))
     return lessonDate === dateStr
   }).sort((a, b) => {
     const timeA = new Date(a.start_time).getTime()
@@ -489,18 +586,23 @@ function getLessonsForDay(dateStr: string): Lesson[] {
 }
 
 // Fonctions
-async function loadLessons() {
+async function loadLessons(options: { silent?: boolean } = {}) {
   try {
-    loading.value = true
-    error.value = null
-    
-    const { $api } = useNuxtApp()
-    
-    // Construire les paramètres selon le calendrier sélectionné
-    const params: any = {
-      period: 'current_month' // Charger le mois en cours par défaut
+    if (!options.silent) {
+      loading.value = true
     }
-    
+    loadingLessons.value = true
+    error.value = null
+
+    const { $api } = useNuxtApp()
+    const { date_from, date_to } = monthDateRange.value
+
+    const params = {
+      date_from,
+      date_to,
+      order: 'asc'
+    }
+
     const response = await $api.get('/teacher/lessons', { params })
     
     if (response.data.success) {
@@ -543,7 +645,10 @@ async function loadLessons() {
     console.error('Erreur chargement cours:', err)
     error.value = err.message || 'Erreur lors du chargement des cours'
   } finally {
-    loading.value = false
+    loadingLessons.value = false
+    if (!options.silent) {
+      loading.value = false
+    }
   }
 }
 
@@ -587,9 +692,8 @@ async function loadCourseTypes() {
 }
 
 function openCreateLessonModal() {
-  // Pré-remplir avec la date d'aujourd'hui
   const today = new Date()
-  const dateStr = today.toISOString().split('T')[0]
+  const dateStr = toLocalDateString(today)
   const timeStr = '09:00'
   
   lessonForm.value = {
@@ -671,8 +775,15 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
     })
     
     if (response.data.success) {
-      await loadLessons()
-      closeLessonModal()
+      await loadLessons({ silent: true })
+      if (newStatus === 'cancelled') {
+        closeLessonModal()
+        return
+      }
+      const updated = lessons.value.find(l => l.id === lessonId)
+      if (updated && selectedLesson.value?.id === lessonId) {
+        selectedLesson.value = updated
+      }
     } else {
       alert('Erreur lors de la mise à jour du statut')
     }
@@ -733,6 +844,27 @@ function getLessonBorderClass(lesson: Lesson): string {
     'completed': 'border-gray-300 bg-gray-50'
   }
   return classes[lesson.status] || 'border-blue-300 bg-blue-50'
+}
+
+function getLessonStudentNames(lesson: Lesson): string {
+  if (lesson.students && Array.isArray(lesson.students) && lesson.students.length > 0) {
+    const names = lesson.students
+      .map((s) => s.user?.name || s.name || null)
+      .filter((name): name is string => name !== null && name !== undefined && name !== '' && name !== 'Sans nom')
+
+    if (names.length > 0) {
+      return names.join(', ')
+    }
+  }
+
+  if (lesson.student) {
+    const studentName = lesson.student.user?.name || null
+    if (studentName && studentName !== '' && studentName !== 'Sans nom') {
+      return studentName
+    }
+  }
+
+  return 'Sans élève'
 }
 
 // Lifecycle

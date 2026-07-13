@@ -31,14 +31,17 @@
         <DisciplinesList :disciplines="activeDisciplines" />
         
         <!-- Bloc 2: Gestion des créneaux horaires avec sélection -->
-        <SlotsList 
-          :slots="openSlots"
-          :selected-slot-id="selectedSlot?.id"
-          @create-slot="openSlotModal()"
-          @edit-slot="openSlotModal"
-          @delete-slot="(slot) => deleteSlot(slot.id)"
-          @select-slot="handleSlotSelection"
-        />
+        <div id="open-slots-section">
+          <SlotsList 
+            ref="slotsListRef"
+            :slots="openSlots"
+            :selected-slot-id="selectedSlot?.id"
+            @create-slot="openSlotModal()"
+            @edit-slot="openSlotModal"
+            @delete-slot="(slot) => deleteSlot(slot.id)"
+            @select-slot="handleSlotSelection"
+          />
+        </div>
         
         <!-- Bouton "Créer un cours" si un créneau est sélectionné -->
         <div
@@ -72,9 +75,9 @@
                 Créer un cours
               </button>
               <button 
-                @click="selectedSlot = null"
+                @click="changeSlot"
                 class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                Annuler
+                Changer de créneau
               </button>
             </div>
           </div>
@@ -1545,8 +1548,8 @@ import {
 } from '~/utils/subscriptionRecurringSlot'
 import {
   addMonthsForSlotWeekday,
-  CLUB_PLANNING_MONTHS_BACK,
-  CLUB_PLANNING_MONTHS_FORWARD,
+  getClubPlanningInitialRange,
+  getClubPlanningLoadRangeAround,
   getClubPlanningMaxDate,
   getClubPlanningMinDate,
   getDefaultDateForSlotDay,
@@ -1684,6 +1687,7 @@ const openSlots = ref<OpenSlot[]>([])
 const lessons = ref<Lesson[]>([])
 /** Créneaux récurrents (abonnements) — pour afficher les réservations sans ligne `lessons` */
 const clubRecurringSlots = ref<any[]>([])
+const slotsListRef = ref<{ open?: () => void } | null>(null)
 /** Libération API en cours (évite double clic) */
 const releasingRecurringSlotId = ref<number | null>(null)
 const materializingRecurringSlotId = ref<number | null>(null)
@@ -1717,6 +1721,16 @@ const closureDates = ref<string[]>([])
 const closureSaving = ref(false)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
+
+async function changeSlot() {
+  slotsListRef.value?.open?.()
+  await nextTick()
+  if (typeof document !== 'undefined') {
+    document
+      .getElementById('open-slots-section')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
 const courseTypes = ref<any[]>([])
 const editingLesson = ref<Lesson | null>(null) // Cours en cours d'édition
 const lessonForm = ref({
@@ -1824,8 +1838,8 @@ const pendingCertificateStudents = computed(() => {
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
   if (!selectedSlot.value) {
-    // Si aucun créneau sélectionné, afficher tous les cours
-    return lessons.value
+    // Sans créneau, ne rien rendre (évite une page gigantesque sur toute la plage chargée).
+    return []
   }
   
   // Filtrer les cours qui correspondent au créneau sélectionné
@@ -2745,39 +2759,34 @@ const loadedLessonsRange = ref<{ start: Date | null, end: Date | null }>({ start
 async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
   try {
     const $api = getApiClient()
-    // Charger les cours sur une plage plus large pour couvrir toutes les semaines navigables
     const today = new Date()
-    const startDate = customStartDate || new Date(today)
-    if (!customStartDate) {
-      startDate.setMonth(today.getMonth() - CLUB_PLANNING_MONTHS_BACK)
-    }
-    const endDate = customEndDate || new Date(today)
-    if (!customEndDate) {
-      endDate.setMonth(today.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
-    }
+    const initial = getClubPlanningInitialRange(today)
+    const startDate = customStartDate ? new Date(customStartDate) : new Date(initial.start)
+    const endDate = customEndDate ? new Date(customEndDate) : new Date(initial.end)
     
     const response = await $api.get('/lessons', {
       params: {
         date_from: startDate.toISOString().split('T')[0],
         date_to: endDate.toISOString().split('T')[0]
-        // Pas de limite : on filtre uniquement par période (3 mois)
+        // Pas de limite : on filtre par plage (cap API date range).
       }
     })
     
     if (response.data.success) {
+      const newLessons = Array.isArray(response.data.data) ? response.data.data : []
       // Si on recharge une plage spécifique, fusionner avec les cours existants
       if (customStartDate || customEndDate) {
-        const newLessons = response.data.data
         const existingLessonIds = new Set(lessons.value.map((l: any) => l.id))
         const lessonsToAdd = newLessons.filter((l: any) => !existingLessonIds.has(l.id))
         lessons.value = [...lessons.value, ...lessonsToAdd]
-        console.log('✅ Cours fusionnés:', { 
-          nouveaux: lessonsToAdd.length, 
-          total: lessons.value.length 
-        })
+        if (import.meta.dev) {
+          console.log('✅ Cours fusionnés:', { nouveaux: lessonsToAdd.length, total: lessons.value.length })
+        }
       } else {
-        lessons.value = response.data.data
-        console.log('✅ Cours chargés:', lessons.value)
+        lessons.value = newLessons
+        if (import.meta.dev) {
+          console.log('✅ Cours chargés:', { total: lessons.value.length })
+        }
       }
       
       // Mettre à jour la plage chargée
@@ -2785,39 +2794,27 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
         start: new Date(startDate),
         end: new Date(endDate)
       }
-      
-      console.log('📊 Nombre total de cours:', lessons.value.length)
-      console.log('📋 Plage chargée:', {
-        start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
-        end: loadedLessonsRange.value.end?.toISOString().split('T')[0]
-      })
-      console.log('📋 IDs des cours reçus:', lessons.value.map((l: any) => l.id).join(', '))
-      // Debug: Afficher le statut de chaque cours avec les élèves
-      lessons.value.forEach((lesson: any, index: number) => {
-        console.log(`  Cours ${index + 1}:`, {
-          id: lesson.id,
-          status: lesson.status,
-          course_type: lesson.course_type?.name,
-          start_time: lesson.start_time,
-          student_id: lesson.student_id,
-          student: lesson.student ? {
-            id: lesson.student.id,
-            name: lesson.student.user?.name
-          } : null,
-          students: lesson.students ? lesson.students.map((s: any) => ({
-            id: s.id,
-            name: s.user?.name
-          })) : []
+
+      // Purge : garder uniquement les cours dans la plage chargée (évite la croissance infinie).
+      const rangeStart = loadedLessonsRange.value.start
+      const rangeEnd = loadedLessonsRange.value.end
+      if (rangeStart && rangeEnd) {
+        const rs = rangeStart.getTime()
+        const re = rangeEnd.getTime()
+        lessons.value = lessons.value.filter((l: any) => {
+          if (!l?.start_time) return false
+          const t = new Date(l.start_time).getTime()
+          return t >= rs && t <= re
         })
-      })
-      
-      // Vérifier spécifiquement les cours du 29/11
-      const lessonsNov29 = lessons.value.filter((l: any) => {
-        if (!l.start_time) return false
-        const date = new Date(l.start_time)
-        return date.getDate() === 29 && date.getMonth() === 10 && date.getFullYear() === 2025
-      })
-      console.log('🔍 Cours du 29/11 trouvés:', lessonsNov29.length, lessonsNov29.map((l: any) => ({ id: l.id, start_time: l.start_time })))
+      }
+
+      if (import.meta.dev) {
+        console.log('📋 Plage cours chargée:', {
+          total: lessons.value.length,
+          start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
+          end: loadedLessonsRange.value.end?.toISOString().split('T')[0],
+        })
+      }
 
       await loadClosureDays(startDate, endDate, Boolean(customStartDate || customEndDate))
     } else {
@@ -2845,14 +2842,9 @@ async function loadClosureDays(
   try {
     const $api = getApiClient()
     const today = new Date()
-    const startDate = customStartDate ? new Date(customStartDate) : new Date(today)
-    if (!customStartDate) {
-      startDate.setMonth(today.getMonth() - CLUB_PLANNING_MONTHS_BACK)
-    }
-    const endDate = customEndDate ? new Date(customEndDate) : new Date(today)
-    if (!customEndDate) {
-      endDate.setMonth(today.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
-    }
+    const initial = getClubPlanningInitialRange(today)
+    const startDate = customStartDate ? new Date(customStartDate) : new Date(initial.start)
+    const endDate = customEndDate ? new Date(customEndDate) : new Date(initial.end)
     const dateFrom = startDate.toISOString().split('T')[0]
     const dateTo = endDate.toISOString().split('T')[0]
     const response = await $api.get('/club/closure-days', {
@@ -2921,10 +2913,28 @@ async function onClosureToggle(ev: Event) {
   }
 }
 
-async function loadClubRecurringSlots() {
+async function loadClubRecurringSlots(customStartDate?: Date, customEndDate?: Date) {
   try {
     const $api = getApiClient()
-    const response = await $api.get('/club/recurring-slots')
+    const today = new Date()
+    const initial = getClubPlanningInitialRange(today)
+    const rangeStart = customStartDate
+      ? new Date(customStartDate)
+      : loadedLessonsRange.value.start
+        ? new Date(loadedLessonsRange.value.start)
+        : new Date(initial.start)
+    const rangeEnd = customEndDate
+      ? new Date(customEndDate)
+      : loadedLessonsRange.value.end
+        ? new Date(loadedLessonsRange.value.end)
+        : new Date(initial.end)
+
+    const response = await $api.get('/club/recurring-slots', {
+      params: {
+        date_from: rangeStart.toISOString().split('T')[0],
+        date_to: rangeEnd.toISOString().split('T')[0],
+      },
+    })
     if (response.data?.success) {
       clubRecurringSlots.value = Array.isArray(response.data.data) ? response.data.data : []
     } else {
@@ -4709,41 +4719,41 @@ function getNextOccurrence(dayOfWeek: number): Date {
 }
 
 // Naviguer vers la date précédente (même jour, semaine précédente)
-function navigateToPreviousDate() {
+async function navigateToPreviousDate() {
   if (!selectedDate.value) return
   
   const newDate = new Date(selectedDate.value)
   newDate.setDate(newDate.getDate() - 7) // Soustraire 7 jours
   
-  applySelectedPlanningDate(newDate)
+  await applySelectedPlanningDate(newDate)
 }
 
 // Naviguer vers la date suivante (même jour, semaine suivante)
-function navigateToNextDate() {
+async function navigateToNextDate() {
   if (!selectedDate.value) return
   
   const newDate = new Date(selectedDate.value)
   newDate.setDate(newDate.getDate() + 7) // Ajouter 7 jours
   
-  applySelectedPlanningDate(newDate)
+  await applySelectedPlanningDate(newDate)
 }
 
-function navigateToPreviousMonth() {
+async function navigateToPreviousMonth() {
   if (!selectedDate.value || !selectedSlot.value) return
   const newDate = addMonthsForSlotWeekday(selectedDate.value, -1, selectedSlot.value.day_of_week)
-  applySelectedPlanningDate(newDate)
+  await applySelectedPlanningDate(newDate)
 }
 
-function navigateToNextMonth() {
+async function navigateToNextMonth() {
   if (!selectedDate.value || !selectedSlot.value) return
   const newDate = addMonthsForSlotWeekday(selectedDate.value, 1, selectedSlot.value.day_of_week)
-  applySelectedPlanningDate(newDate)
+  await applySelectedPlanningDate(newDate)
 }
 
-function applySelectedPlanningDate(newDate: Date) {
+async function applySelectedPlanningDate(newDate: Date) {
   selectedDate.value = newDate
   selectedDateInput.value = formatDateForInput(newDate)
-  checkAndReloadLessonsIfNeeded(newDate)
+  await checkAndReloadLessonsIfNeeded(newDate)
 }
 
 // Vérifier si on doit recharger les cours pour couvrir la nouvelle date
@@ -4754,12 +4764,12 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
   
   if (!loadedStart || !loadedEnd) {
     // Si aucune plage n'est chargée, charger autour de la date cible
-    console.log('🔄 Aucune plage chargée, chargement autour de la date:', targetDate.toISOString().split('T')[0])
-    const startDate = new Date(targetDate)
-    startDate.setMonth(targetDate.getMonth() - CLUB_PLANNING_MONTHS_BACK)
-    const endDate = new Date(targetDate)
-    endDate.setMonth(targetDate.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
+    if (import.meta.dev) {
+      console.log('🔄 Aucune plage cours, chargement chunk autour de:', targetDate.toISOString().split('T')[0])
+    }
+    const { start: startDate, end: endDate } = getClubPlanningLoadRangeAround(targetDate)
     await loadLessons(startDate, endDate)
+    await loadClubRecurringSlots(startDate, endDate)
     return
   }
   
@@ -4769,7 +4779,9 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
                       targetDate > new Date(loadedEnd.getTime() - marginDays * 24 * 60 * 60 * 1000)
   
   if (needsReload) {
-    console.log('🔄 Extension de la plage de cours pour couvrir la date:', targetDate.toISOString().split('T')[0])
+    if (import.meta.dev) {
+      console.log('🔄 Extension plage cours pour:', targetDate.toISOString().split('T')[0])
+    }
     
     // Calculer la nouvelle plage à charger
     let newStartDate = new Date(loadedStart)
@@ -4777,27 +4789,27 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     
     // Si la date est avant la plage chargée, étendre vers le passé
     if (targetDate < loadedStart) {
-      newStartDate = new Date(targetDate)
-      newStartDate.setMonth(targetDate.getMonth() - CLUB_PLANNING_MONTHS_BACK)
+      newStartDate = getClubPlanningLoadRangeAround(targetDate).start
     }
     
     // Si la date est après la plage chargée, étendre vers le futur
     if (targetDate > loadedEnd) {
-      newEndDate = new Date(targetDate)
-      newEndDate.setMonth(targetDate.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
+      newEndDate = getClubPlanningLoadRangeAround(targetDate).end
     }
     
     // Charger seulement la partie manquante
     await loadLessons(newStartDate, newEndDate)
+    await loadClubRecurringSlots(newStartDate, newEndDate)
   }
 }
 
 // Aller à la prochaine occurrence (aujourd'hui ou prochain jour du créneau)
-function navigateToToday() {
+async function navigateToToday() {
   if (!selectedSlot.value) return
   
   selectedDate.value = getNextOccurrence(selectedSlot.value.day_of_week)
   selectedDateInput.value = formatDateForInput(selectedDate.value)
+  await checkAndReloadLessonsIfNeeded(selectedDate.value)
 }
 
 // Gérer le changement de date via l'input
@@ -5078,18 +5090,25 @@ const isTodaySlotDay = computed(() => {
 
 // Lifecycle
 onMounted(async () => {
-  await Promise.all([
-    loadClubDisciplines(),
-    loadOpenSlots(),
-    loadLessons(),
-    loadClubRecurringSlots(),
-    loadTeachers(),
-    loadStudents(),
-    loadCourseTypes()
-  ])
-  // Chargement dédié CM à valider (appel explicite pour garantir l'exécution)
-  await loadPendingCertificates()
-  updateAvailableDays()
+  loading.value = true
+  try {
+    await Promise.all([
+      loadClubDisciplines(),
+      loadOpenSlots(),
+      loadTeachers(),
+      loadStudents(),
+      loadCourseTypes(),
+      (async () => {
+        await loadLessons()
+        await loadClubRecurringSlots()
+      })(),
+    ])
+    // Chargement dédié CM à valider (appel explicite pour garantir l'exécution)
+    await loadPendingCertificates()
+    updateAvailableDays()
+  } finally {
+    loading.value = false
+  }
 
   // Depuis la page Plages disponibles : même modale et mêmes règles (CreateLessonModal + createLesson).
   // slot_id + date [+ time] → sélection du créneau (déjà fait dans loadOpenSlots), ouverture modale avec jour/heure.

@@ -7,6 +7,12 @@
 export const CLUB_PLANNING_MONTHS_BACK = 6
 export const CLUB_PLANNING_MONTHS_FORWARD = 18
 
+/** Fenêtre initiale de chargement des cours (plus petite que la fenêtre navigable). */
+export const CLUB_PLANNING_INITIAL_WEEKS_BACK = 4
+export const CLUB_PLANNING_INITIAL_WEEKS_FORWARD = 4
+/** Taille des extensions de chargement autour d’une date (chunk). */
+export const CLUB_PLANNING_LOAD_CHUNK_WEEKS = 4
+
 export function getClubPlanningMinDate(from: Date = new Date()): Date {
   const d = new Date(from)
   d.setMonth(d.getMonth() - CLUB_PLANNING_MONTHS_BACK)
@@ -19,6 +25,28 @@ export function getClubPlanningMaxDate(from: Date = new Date()): Date {
   d.setMonth(d.getMonth() + CLUB_PLANNING_MONTHS_FORWARD)
   d.setHours(23, 59, 59, 999)
   return d
+}
+
+export function getClubPlanningInitialRange(from: Date = new Date()): { start: Date; end: Date } {
+  const base = new Date(from)
+  const start = new Date(base)
+  start.setDate(start.getDate() - CLUB_PLANNING_INITIAL_WEEKS_BACK * 7)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(base)
+  end.setDate(end.getDate() + CLUB_PLANNING_INITIAL_WEEKS_FORWARD * 7)
+  end.setHours(23, 59, 59, 999)
+  return { start, end }
+}
+
+export function getClubPlanningLoadRangeAround(target: Date): { start: Date; end: Date } {
+  const base = new Date(target)
+  const start = new Date(base)
+  start.setDate(start.getDate() - CLUB_PLANNING_LOAD_CHUNK_WEEKS * 7)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(base)
+  end.setDate(end.getDate() + CLUB_PLANNING_LOAD_CHUNK_WEEKS * 7)
+  end.setHours(23, 59, 59, 999)
+  return { start, end }
 }
 
 export function isDateWithinClubPlanningRange(date: Date, from: Date = new Date()): boolean {

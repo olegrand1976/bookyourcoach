@@ -254,8 +254,14 @@ const emit = defineEmits<{
   'select-slot': [slot: OpenSlot]
 }>()
 
-const isOpen = ref(true) // Ouvert par défaut pour faciliter la visualisation
+const isOpen = ref(false)
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+function open() {
+  isOpen.value = true
+}
+
+defineExpose({ open })
 
 // Trouver le créneau sélectionné pour l'affichage dans le titre
 const selectedSlot = computed(() => {
