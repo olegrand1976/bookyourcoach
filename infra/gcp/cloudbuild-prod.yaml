@@ -80,6 +80,7 @@ steps:
           "MAIL_ENCRYPTION: tls" \
           "MAIL_FROM_ADDRESS: \"info@activibe.be\"" \
           "MAIL_FROM_NAME: ActiVibe" \
+          "MAIL_USE_MAILHOG: \"false\"" \
           "GOOGLE_CALENDAR_CLIENT_ID: \"81947935268-qqk9p60v8mm6p8rd3prif96ffhvc3fm0.apps.googleusercontent.com\"" \
           "GOOGLE_CALENDAR_REDIRECT_URI: \"${_API_PUBLIC_URL}/api/google-calendar/callback\"" \
           "GOOGLE_CALENDAR_APPLICATION_NAME: BOOKYOURCOACH" \

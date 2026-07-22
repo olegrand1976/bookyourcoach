@@ -36,6 +36,8 @@ RUN rm -rf /var/www/html/cert.pem \
     && composer install --no-dev --optimize-autoloader --no-interaction --no-scripts \
     && cp .env.example .env \
     && sed -i 's/^MAIL_USE_MAILHOG=.*/MAIL_USE_MAILHOG=false/' .env \
+    && grep -q '^MAIL_USE_MAILHOG=false$' .env || echo 'MAIL_USE_MAILHOG=false' >> .env \
+    && grep -q '^MAIL_USE_MAILHOG=false$' .env \
     && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
     && php artisan package:discover --ansi \
     && mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views storage/app/temp \
