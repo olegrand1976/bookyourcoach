@@ -423,44 +423,62 @@ class ClubPlanningController extends Controller
             ->get(['open_slot_id', 'day_of_week', 'start_time', 'end_time'])
             ->groupBy('open_slot_id');
 
+        // Une seule query lessons sur tout l'horizon + index date|heure (évite 1 get()/semaine + filter O(L))
+        $rangeStart = $weekStart->format('Y-m-d').' 00:00:00';
+        $rangeEnd = $weekStart->copy()->addWeeks($weeksCount - 1)->endOfWeek()->format('Y-m-d').' 23:59:59';
+        $occupancyIndex = [];
+        $allLessons = Lesson::where('club_id', $clubId)
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('start_time', [$rangeStart, $rangeEnd])
+            ->get(['id', 'start_time']);
+        foreach ($allLessons as $lesson) {
+            $dt = Carbon::parse($lesson->start_time);
+            $key = $dt->format('Y-m-d').'|'.$dt->format('H:i');
+            $occupancyIndex[$key] = ($occupancyIndex[$key] ?? 0) + 1;
+        }
+
+        // Pré-calcul par créneau (indépendant de la semaine)
+        $slotMeta = [];
+        foreach ($openSlots as $slot) {
+            $recurringForSlot = $recurringBySlot->get($slot->id, collect())->filter(
+                fn ($rec) => (int) $rec->day_of_week === (int) $slot->day_of_week
+            );
+            $slotMeta[$slot->id] = [
+                'time_step' => $this->calculateTimeStep($slot->courseTypes),
+                'start_minutes' => $this->timeToMinutes($slot->start_time),
+                'end_minutes' => $this->timeToMinutes($slot->end_time),
+                'max_slots' => (int) ($slot->max_slots ?? 1),
+                'recurring' => $recurringForSlot,
+                'label' => $slot->discipline->name ?? 'Créneau',
+                'time_range' => substr((string) $slot->start_time, 0, 5).' - '.substr((string) $slot->end_time, 0, 5),
+                'day_of_week' => $slot->day_of_week,
+            ];
+        }
+
         $result = [];
 
         for ($w = 0; $w < $weeksCount; $w++) {
             $startDate = $weekStart->copy()->addWeeks($w)->format('Y-m-d');
             $endDate = Carbon::parse($startDate)->endOfWeek()->format('Y-m-d');
 
-            $lessons = Lesson::where('club_id', $clubId)
-                ->where('status', '!=', 'cancelled')
-                ->whereBetween('start_time', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-                ->get();
-
             $weeksSlots = [];
 
             foreach ($openSlots as $slot) {
-                $timeStep = $this->calculateTimeStep($slot->courseTypes);
-                $slotStartMinutes = $this->timeToMinutes($slot->start_time);
-                $slotEndMinutes = $this->timeToMinutes($slot->end_time);
-                $maxSlots = (int) ($slot->max_slots ?? 1);
-
-                $recurringForSlot = $recurringBySlot->get($slot->id, collect())->filter(
-                    fn ($rec) => (int) $rec->day_of_week === (int) $slot->day_of_week
-                );
+                $meta = $slotMeta[$slot->id];
+                $timeStep = $meta['time_step'];
+                $slotStartMinutes = $meta['start_minutes'];
+                $slotEndMinutes = $meta['end_minutes'];
+                $maxSlots = $meta['max_slots'];
+                $recurringForSlot = $meta['recurring'];
 
                 $dates = $this->getDatesByDayOfWeek($startDate, $endDate, $slot->day_of_week);
-                $slotLabel = $slot->discipline->name ?? 'Créneau';
-                $timeRange = substr($slot->start_time, 0, 5) . ' - ' . substr($slot->end_time, 0, 5);
-
                 $datesDetail = [];
 
                 foreach ($dates as $date) {
                     $plages = [];
                     for ($min = $slotStartMinutes; $min + $timeStep <= $slotEndMinutes; $min += $timeStep) {
                         $timeStr = $this->minutesToTime($min);
-                        $occupied = $lessons->filter(function ($lesson) use ($date, $timeStr) {
-                            $d = Carbon::parse($lesson->start_time)->format('Y-m-d');
-                            $t = Carbon::parse($lesson->start_time)->format('H:i');
-                            return $d === $date && $t === $timeStr;
-                        })->count();
+                        $occupied = $occupancyIndex[$date.'|'.$timeStr] ?? 0;
                         $remaining = max(0, $maxSlots - $occupied);
                         $isRecurringPlage = $this->isTimeInRecurringRanges($timeStr, $recurringForSlot);
                         $plages[] = [
@@ -480,9 +498,9 @@ class ClubPlanningController extends Controller
 
                 $weeksSlots[] = [
                     'slot_id' => $slot->id,
-                    'slot_name' => $slotLabel,
-                    'time_range' => $timeRange,
-                    'day_of_week' => $slot->day_of_week,
+                    'slot_name' => $meta['label'],
+                    'time_range' => $meta['time_range'],
+                    'day_of_week' => $meta['day_of_week'],
                     'dates' => $datesDetail,
                 ];
             }

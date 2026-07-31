@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PlanningLessonResource;
 use App\Models\Lesson;
 use App\Models\User;
 use App\Models\Teacher;
@@ -101,18 +102,43 @@ class LessonController extends Controller
     {
         try {
             $user = Auth::user();
-            // Optimiser les relations chargées - sélectionner uniquement les colonnes nécessaires
-            // Désactiver les accessors coûteux pour améliorer les performances
-            
-            // Vérifier si la colonne color existe dans la table teachers
-            $hasColorColumn = \Illuminate\Support\Facades\Schema::hasColumn('teachers', 'color');
+            $isPlanningContext = $request->get('context') === 'planning';
+
+            // Cache one-shot : Schema::hasColumn à chaque hit était coûteux
+            static $hasColorColumn = null;
+            if ($hasColorColumn === null) {
+                $hasColorColumn = \Illuminate\Support\Facades\Schema::hasColumn('teachers', 'color');
+            }
             $teacherColumns = $hasColorColumn ? 'id,user_id,color' : 'id,user_id';
-            
-            $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id', 
-                                   'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time', 
-                                   'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
-                                   'lessons.est_legacy', 'lessons.deduct_from_subscription')
-                ->with([
+
+            $eager = $isPlanningContext
+                ? [
+                    "teacher:{$teacherColumns}",
+                    'teacher.user:id,name',
+                    'student:id,user_id,first_name,last_name,phone',
+                    'student.user:id,name,phone',
+                    // IDs seuls (badge 📋) — sans templates ni remaining_* 
+                    'student.subscriptionInstances' => function ($query) {
+                        $query->select('subscription_instances.id')
+                              ->where('status', 'active')
+                              ->where('expires_at', '>=', now())
+                              ->whereHas('subscription');
+                    },
+                    'students:id,user_id,first_name,last_name,phone',
+                    'students.user:id,name,phone',
+                    'students.subscriptionInstances' => function ($query) {
+                        $query->select('subscription_instances.id')
+                              ->where('status', 'active')
+                              ->where('expires_at', '>=', now())
+                              ->whereHas('subscription');
+                    },
+                    'courseType:id,name',
+                    'subscriptionInstances' => function ($q) {
+                        $q->select('subscription_instances.id');
+                    },
+                    'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
+                ]
+                : [
                     "teacher:{$teacherColumns}",
                     'teacher.user:id,name,email',
                     'student:id,user_id,first_name,last_name,phone',
@@ -133,7 +159,13 @@ class LessonController extends Controller
                               ->with(['subscription.template']);
                     },
                     'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
-                ]);
+                ];
+
+            $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id',
+                                   'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time',
+                                   'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
+                                   'lessons.est_legacy', 'lessons.deduct_from_subscription')
+                ->with($eager);
 
             $this->applyLessonAccessScope($query, $user);
 
@@ -166,7 +198,7 @@ class LessonController extends Controller
                 $now = now();
                 $dateFrom = null;
                 $dateTo = null;
-                
+
                 switch ($period) {
                     case '7days':
                         $dateFrom = $now->copy()->startOfDay();
@@ -189,71 +221,103 @@ class LessonController extends Controller
                         $dateTo = $now->copy()->addMonth()->endOfMonth()->endOfDay();
                         break;
                 }
-                
+
                 if ($dateFrom && $dateTo) {
                     $query->whereBetween('start_time', [$dateFrom, $dateTo]);
                 }
             } elseif ($request->has('date_from') || $request->has('date_to')) {
-                // Si date_from ou date_to sont fournis, les utiliser (pas de filtre par défaut)
+                // whereBetween datetime pour utiliser l'index (club_id, start_time)
                 if ($request->has('date_from')) {
-                    $query->whereDate('start_time', '>=', $request->date_from);
+                    $query->where('start_time', '>=', $request->date_from.' 00:00:00');
                 }
 
                 if ($request->has('date_to')) {
-                    $query->whereDate('start_time', '<=', $request->date_to);
+                    $query->where('start_time', '<=', $request->date_to.' 23:59:59');
                 }
             } else {
                 // Par défaut: filtrer sur les 7 prochains jours si aucune période spécifiée
                 $now = now();
                 $query->whereBetween('start_time', [
                     $now->copy()->startOfDay(),
-                    $now->copy()->addDays(7)->endOfDay()
+                    $now->copy()->addDays(7)->endOfDay(),
                 ]);
             }
 
-            // Limiter le nombre de résultats pour éviter les chargements trop longs
-            // Si date_from ET date_to sont fournis, ne pas limiter (on filtre par période)
-            // Sinon, appliquer une limite par défaut
             $hasDateRange = $request->has('date_from') && $request->has('date_to');
-            $offset = max((int) $request->get('offset', 0), 0); // Support de la pagination
+            $offset = max((int) $request->get('offset', 0), 0);
+            $wantsPaginationMeta = $request->has('offset') || $request->has('limit');
 
-            // Toujours définir $limit pour le bloc pagination JSON (évite undefined variable → 500 + CORS opaque)
             $limit = min(max((int) $request->get('limit', 50), 1), 500);
             $dateRangeCap = 10000;
 
-            // Compter le total avant pagination (pour l'historique complet)
-            $total = $query->count();
+            // Planning + plage date : pas de count() inutile (double scan)
+            $total = 0;
+            if (! ($isPlanningContext && $hasDateRange && ! $wantsPaginationMeta)) {
+                $total = $query->count();
+            }
 
-            // ✅ Tri DESC (du plus récent au plus ancien) pour l'historique, ASC pour les cours à venir
-            $orderDirection = $request->get('order', 'asc'); // 'asc' par défaut, 'desc' pour l'historique
+            $orderDirection = $request->get('order', 'asc');
             $lessonsQuery = $query->orderBy('start_time', $orderDirection);
 
-            // Appliquer offset et limit seulement si nécessaire
             if ($hasDateRange) {
                 if ($request->has('limit')) {
                     $limit = min(max((int) $request->get('limit'), 1), $dateRangeCap);
-                } else {
-                    $limit = min($total > 0 ? $total : 1, $dateRangeCap);
-                }
-                // Pas de limite SQL si on a une plage de dates complète (sauf offset / cap interne)
-                if ($offset > 0) {
+                    $lessonsQuery->offset($offset)->limit($limit);
+                } elseif ($offset > 0) {
                     $lessonsQuery->offset($offset)->limit($dateRangeCap);
+                } else {
+                    $lessonsQuery->limit($dateRangeCap);
+                }
+                if ($total === 0 && ! $wantsPaginationMeta) {
+                    $limit = $dateRangeCap;
+                } elseif (! $request->has('limit')) {
+                    $limit = min($total > 0 ? $total : 1, $dateRangeCap);
                 }
             } else {
                 $limit = min(max((int) $request->get('limit', 50), 1), 500);
                 $lessonsQuery->offset($offset)->limit($limit);
             }
-            
+
             $lessons = $lessonsQuery->get()
-                ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']); // Désactiver les accessors coûteux
+                ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']);
+
+            if ($isPlanningContext) {
+                // Couper les appends remaining_* (1–2 SQL / instance à la sérialisation)
+                $stripAppends = static function ($instances): void {
+                    if ($instances) {
+                        $instances->each->setAppends([]);
+                    }
+                };
+                $lessons->each(function (Lesson $lesson) use ($stripAppends) {
+                    if ($lesson->relationLoaded('subscriptionInstances')) {
+                        $stripAppends($lesson->subscriptionInstances);
+                    }
+                    if ($lesson->relationLoaded('student') && $lesson->student?->relationLoaded('subscriptionInstances')) {
+                        $stripAppends($lesson->student->subscriptionInstances);
+                    }
+                    if ($lesson->relationLoaded('students')) {
+                        foreach ($lesson->students as $student) {
+                            if ($student->relationLoaded('subscriptionInstances')) {
+                                $stripAppends($student->subscriptionInstances);
+                            }
+                        }
+                    }
+                });
+
+                $payload = PlanningLessonResource::collection($lessons)->resolve();
+            } else {
+                $payload = $lessons;
+            }
 
             $response = [
                 'success' => true,
-                'data' => $lessons
+                'data' => $payload,
             ];
-            
-            // Ajouter les informations de pagination si offset ou limit explicite
-            if ($request->has('offset') || $request->has('limit')) {
+
+            if ($wantsPaginationMeta) {
+                if ($total === 0 && $hasDateRange) {
+                    $total = count($lessons) + $offset;
+                }
                 $perPage = max($limit, 1);
                 $response['pagination'] = [
                     'total' => $total,
@@ -264,13 +328,13 @@ class LessonController extends Controller
                     'to' => min($offset + $perPage, $total),
                 ];
             }
-            
+
             return response()->json($response);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur lors de la récupération des cours',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

@@ -711,4 +711,99 @@ class LessonControllerTest extends TestCase
         $this->assertEquals(0, $context['instance']->fresh()->lessons_used);
         $this->assertEquals(10, $context['instance']->fresh()->getRemainingAttachmentSlots());
     }
+
+    /** @test */
+    public function planning_context_returns_slim_payload_without_remaining_appends(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'PLAN-SLIM');
+
+        $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(2)->setTime(10, 0),
+            'end_time' => now()->addDays(2)->setTime(11, 0),
+        ]);
+        $context['instance']->lessons()->attach($lesson->id);
+
+        $from = now()->toDateString();
+        $to = now()->addWeeks(2)->toDateString();
+
+        $response = $this->getJson("/api/lessons?context=planning&date_from={$from}&date_to={$to}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $rows = $response->json('data');
+        $this->assertIsArray($rows);
+        $this->assertNotEmpty($rows);
+
+        $row = collect($rows)->firstWhere('id', $lesson->id);
+        $this->assertNotNull($row);
+        $this->assertArrayHasKey('teacher', $row);
+        $this->assertArrayHasKey('subscription_instances', $row);
+        $this->assertArrayNotHasKey('club', $row);
+        $this->assertArrayNotHasKey('location', $row);
+
+        $instances = $row['subscription_instances'] ?? [];
+        $this->assertNotEmpty($instances);
+        $this->assertArrayHasKey('id', $instances[0]);
+        $this->assertArrayNotHasKey('remaining_bookable', $instances[0]);
+        $this->assertArrayNotHasKey('remaining_consumed', $instances[0]);
+        $this->assertArrayNotHasKey('remaining_lessons', $instances[0]);
+
+        // Élève sans remaining_* ni templates (subscription_instances = ids actifs seulement)
+        if (isset($row['student']['subscription_instances'])) {
+            foreach ($row['student']['subscription_instances'] as $si) {
+                $this->assertArrayHasKey('id', $si);
+                $this->assertArrayNotHasKey('remaining_bookable', $si);
+            }
+        }
+    }
+
+    /**
+     * Mesure : context=planning doit faire nettement moins de requêtes SQL
+     * qu'un index classique (évite remaining_* N+1 par instance).
+     *
+     * @test
+     */
+    public function planning_context_uses_fewer_queries_than_default_index(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+
+        for ($i = 0; $i < 8; $i++) {
+            $context = $this->createSubscriptionInstanceForClub($club, 'PERF-'.$i);
+            $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+                'start_time' => now()->addDays($i + 1)->setTime(10, 0),
+                'end_time' => now()->addDays($i + 1)->setTime(11, 0),
+            ]);
+            $context['instance']->lessons()->attach($lesson->id);
+        }
+
+        $from = now()->toDateString();
+        $to = now()->addWeeks(2)->toDateString();
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->getJson("/api/lessons?date_from={$from}&date_to={$to}")->assertStatus(200);
+        $defaultCount = count(\Illuminate\Support\Facades\DB::getQueryLog());
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->getJson("/api/lessons?context=planning&date_from={$from}&date_to={$to}")->assertStatus(200);
+        $planningCount = count(\Illuminate\Support\Facades\DB::getQueryLog());
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        $this->assertLessThan(
+            $defaultCount,
+            $planningCount,
+            "planning ({$planningCount}) doit être < default ({$defaultCount})"
+        );
+        // Au moins ~30% de requêtes en moins (remaining_* N+1 évité)
+        $this->assertLessThanOrEqual(
+            (int) floor($defaultCount * 0.7),
+            $planningCount,
+            "gain insuffisant: planning={$planningCount} default={$defaultCount}"
+        );
+    }
 }

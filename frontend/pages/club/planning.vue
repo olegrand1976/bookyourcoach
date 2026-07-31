@@ -418,21 +418,21 @@
                     class="border-2 rounded-lg p-3 transition-all bg-white min-w-0 max-w-full flex flex-col overflow-hidden"
                     :class="[
                       getLessonBorderClass(lesson),
-                      planningLessonHasTeacherParallelConflict(lesson) ? 'ring-2 ring-red-600 ring-offset-2' : '',
+                      getPlanningGridMeta(lesson)?.hasTeacherConflict ? 'ring-2 ring-red-600 ring-offset-2' : '',
                       isSelectedDateClosure && lesson.status !== 'cancelled'
                         ? 'opacity-55 grayscale pointer-events-none cursor-not-allowed'
                         : lesson.is_recurring_placeholder
                           ? 'cursor-default hover:shadow-md'
                           : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]',
                     ]"
-                    :style="getLessonCardStyle(lesson)"
+                    :style="getPlanningGridMeta(lesson)?.cardStyle"
                     @click="openLessonModal(lesson)">
                     
                     <!-- Type de cours et statut -->
                     <div class="flex items-start justify-between gap-2 mb-2">
                       <div class="flex items-start gap-1.5 min-w-0 flex-1">
                         <span
-                          v-if="planningLessonHasTeacherParallelConflict(lesson)"
+                          v-if="getPlanningGridMeta(lesson)?.hasTeacherConflict"
                           class="shrink-0 mt-0.5 text-red-600"
                           title="Sens interdit : ce coach a un autre cours en parallèle sur cette plage. Corrigez l’horaire ou changez d’enseignant."
                         >
@@ -442,7 +442,7 @@
                           </svg>
                         </span>
                         <span
-                          v-if="planningLessonOverlapsRecurringSeries(lesson)"
+                          v-if="getPlanningGridMeta(lesson)?.overlapsRecurring"
                           class="shrink-0 mt-0.5 text-violet-600"
                           title="Série récurrente (abonnement) — gérer dans Créneaux récurrents"
                         >
@@ -470,7 +470,7 @@
                               {{ recurringPlaceholderSummaryLine(lesson) }}
                             </p>
                             <p
-                              v-if="isPlaceholderFromCancelledLesson(lesson)"
+                              v-if="getPlanningGridMeta(lesson)?.fromCancelled"
                               class="mt-1.5 mb-0 text-xs font-medium text-amber-800 leading-snug"
                             >
                               Séance annulée : cet emplacement peut accueillir un cours ponctuel.
@@ -505,14 +505,14 @@
                         v-if="resolveLessonPrimaryStudentId(lesson)"
                         type="button"
                         class="font-medium truncate text-left text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 min-w-0"
-                        :title="`Voir la fiche de ${getLessonStudents(lesson)}`"
+                        :title="`Voir la fiche de ${getPlanningGridMeta(lesson)?.studentsLabel}`"
                         @click.stop="openStudentInfoFromLesson(lesson)"
                       >
-                        {{ getLessonStudents(lesson) }}
+                        {{ getPlanningGridMeta(lesson)?.studentsLabel }}
                       </button>
-                      <span v-else class="font-medium truncate">{{ getLessonStudents(lesson) }}</span>
+                      <span v-else class="font-medium truncate">{{ getPlanningGridMeta(lesson)?.studentsLabel }}</span>
                       <span 
-                        v-if="hasActiveSubscription(lesson)"
+                        v-if="getPlanningGridMeta(lesson)?.hasAbo"
                         class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 flex-shrink-0"
                         title="Abonnement actif"
                       >
@@ -520,17 +520,17 @@
                       </span>
                     </div>
                     <div
-                      v-if="getLessonStudentPhonesDisplay(lesson)"
+                      v-if="getPlanningGridMeta(lesson)?.phonesDisplay"
                       class="flex items-start gap-1 text-xs text-gray-600 mb-1 min-w-0"
                     >
                       <span class="shrink-0" aria-hidden="true">📞</span>
                       <a
-                        v-if="getLessonStudentTelHref(lesson)"
-                        :href="getLessonStudentTelHref(lesson)!"
+                        v-if="getPlanningGridMeta(lesson)?.telHref"
+                        :href="getPlanningGridMeta(lesson)?.telHref!"
                         class="truncate text-blue-700 hover:underline"
                         @click.stop
-                      >{{ getLessonStudentPhonesDisplay(lesson) }}</a>
-                      <span v-else class="truncate">{{ getLessonStudentPhonesDisplay(lesson) }}</span>
+                      >{{ getPlanningGridMeta(lesson)?.phonesDisplay }}</a>
+                      <span v-else class="truncate">{{ getPlanningGridMeta(lesson)?.phonesDisplay }}</span>
                     </div>
                     
                     <!-- Coach -->
@@ -724,8 +724,8 @@
                         :key="'row-' + lesson.id"
                         class="border-t border-gray-200 transition-colors"
                         :class="[
-                          planningLessonRowHighlightClass(lesson) || (lesson.is_recurring_placeholder ? '' : 'bg-white hover:bg-blue-50/40'),
-                          planningLessonHasTeacherParallelConflict(lesson) ? 'border-l-4 border-l-red-600' : '',
+                          getPlanningGridMeta(lesson)?.rowHighlightClass || (lesson.is_recurring_placeholder ? '' : 'bg-white hover:bg-blue-50/40'),
+                          getPlanningGridMeta(lesson)?.hasTeacherConflict ? 'border-l-4 border-l-red-600' : '',
                           isSelectedDateClosure && lesson.status !== 'cancelled'
                             ? 'opacity-55 pointer-events-none'
                             : '',
@@ -738,7 +738,7 @@
                         <td class="px-3 py-2 align-top">
                           <div class="flex items-start gap-1.5">
                             <span
-                              v-if="planningLessonHasTeacherParallelConflict(lesson)"
+                              v-if="getPlanningGridMeta(lesson)?.hasTeacherConflict"
                               class="shrink-0 mt-0.5 text-red-600"
                               title="Sens interdit : ce coach a un autre cours en parallèle sur cette plage. Corrigez l’horaire ou changez d’enseignant."
                             >
@@ -748,7 +748,7 @@
                               </svg>
                             </span>
                             <span
-                              v-if="planningLessonOverlapsRecurringSeries(lesson)"
+                              v-if="getPlanningGridMeta(lesson)?.overlapsRecurring"
                               class="shrink-0 mt-0.5 text-violet-600"
                               title="Série récurrente (abonnement)">
                               <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -775,7 +775,7 @@
                                   {{ recurringPlaceholderSummaryLine(lesson) }}
                                 </p>
                                 <p
-                                  v-if="isPlaceholderFromCancelledLesson(lesson)"
+                                  v-if="getPlanningGridMeta(lesson)?.fromCancelled"
                                   class="mt-1 mb-0 text-xs font-medium text-amber-800 leading-snug">
                                   Séance annulée : emplacement utilisable pour un cours ponctuel.
                                 </p>
@@ -798,25 +798,25 @@
                             class="font-medium text-left text-blue-700 hover:underline"
                             @click.stop="openStudentInfoFromLesson(lesson)"
                           >
-                            {{ getLessonStudents(lesson) }}
+                            {{ getPlanningGridMeta(lesson)?.studentsLabel }}
                           </button>
-                          <span v-else class="font-medium">{{ getLessonStudents(lesson) }}</span>
+                          <span v-else class="font-medium">{{ getPlanningGridMeta(lesson)?.studentsLabel }}</span>
                           <span
-                            v-if="hasActiveSubscription(lesson)"
+                            v-if="getPlanningGridMeta(lesson)?.hasAbo"
                             class="ml-1 inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700"
                             title="Abonnement actif">Abo</span>
                           <div
-                            v-if="getLessonStudentPhonesDisplay(lesson)"
+                            v-if="getPlanningGridMeta(lesson)?.phonesDisplay"
                             class="mt-0.5 text-xs text-gray-600 flex items-center gap-1 min-w-0"
                           >
                             <span aria-hidden="true">📞</span>
                             <a
-                              v-if="getLessonStudentTelHref(lesson)"
-                              :href="getLessonStudentTelHref(lesson)!"
+                              v-if="getPlanningGridMeta(lesson)?.telHref"
+                              :href="getPlanningGridMeta(lesson)?.telHref!"
                               class="truncate text-blue-700 hover:underline"
                               @click.stop
-                            >{{ getLessonStudentPhonesDisplay(lesson) }}</a>
-                            <span v-else class="truncate">{{ getLessonStudentPhonesDisplay(lesson) }}</span>
+                            >{{ getPlanningGridMeta(lesson)?.phonesDisplay }}</a>
+                            <span v-else class="truncate">{{ getPlanningGridMeta(lesson)?.phonesDisplay }}</span>
                           </div>
                         </td>
                         <td class="px-3 py-2 align-top text-gray-600 truncate max-w-[10rem]">
@@ -1584,6 +1584,15 @@ function getApiClient() {
   return api
 }
 
+/** Logs planning uniquement en dev (évite le coût console en prod). */
+function planningDevLog(...args: unknown[]) {
+  if (import.meta.dev) {
+    // eslint-disable-next-line no-console
+    ;(console as Console).log(...args)
+  }
+}
+
+
 definePageMeta({
   middleware: ['auth']
 })
@@ -1835,52 +1844,57 @@ const pendingCertificateStudents = computed(() => {
   return list
 })
 
+function toLocalYmd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function toLocalHm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/** Index O(1) par jour local — évite de rescanner toute la fenêtre 8 sem. à chaque filtre. */
+const lessonsByLocalDate = computed(() => {
+  const map = new Map<string, Lesson[]>()
+  for (const lesson of lessons.value) {
+    if (!lesson?.start_time) continue
+    const d = new Date(lesson.start_time as string)
+    if (Number.isNaN(d.getTime())) continue
+    const key = toLocalYmd(d)
+    const bucket = map.get(key)
+    if (bucket) {
+      bucket.push(lesson)
+    } else {
+      map.set(key, [lesson])
+    }
+  }
+  return map
+})
+
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
   if (!selectedSlot.value) {
     // Sans créneau, ne rien rendre (évite une page gigantesque sur toute la plage chargée).
     return []
   }
-  
-  // Filtrer les cours qui correspondent au créneau sélectionné
-  return lessons.value.filter(lesson => {
+
+  const slot = selectedSlot.value
+  const slotStartTime = formatTime(slot.start_time)
+  const slotEndTime = formatTime(slot.end_time)
+
+  const candidates = selectedDate.value
+    ? (lessonsByLocalDate.value.get(toLocalYmd(selectedDate.value)) ?? [])
+    : lessons.value
+
+  return candidates.filter((lesson) => {
     const lessonDate = new Date(lesson.start_time)
-    // JavaScript getDay() retourne 0 (Dim) à 6 (Sam) - correspond à Laravel (0=Dim)
     const lessonDay = lessonDate.getDay()
-    
-    // 🔧 CORRECTION : Extraire l'heure locale au format "HH:mm"
-    // Utiliser les méthodes getHours() et getMinutes() pour éviter les problèmes de format
-    const lessonHours = String(lessonDate.getHours()).padStart(2, '0')
-    const lessonMinutes = String(lessonDate.getMinutes()).padStart(2, '0')
-    const lessonTime = `${lessonHours}:${lessonMinutes}` // Format: "09:00"
-    
-    // Normaliser les heures du créneau (au cas où elles sont en format "HH:mm:ss")
-    const slotStartTime = formatTime(selectedSlot.value!.start_time)
-    const slotEndTime = formatTime(selectedSlot.value!.end_time)
-    
-    const dayMatch = lessonDay === selectedSlot.value!.day_of_week
+    const lessonTime = toLocalHm(lessonDate)
+    const dayMatch = lessonDay === slot.day_of_week
     const timeMatch = lessonTime >= slotStartTime && lessonTime < slotEndTime
-    
-    // 📅 FILTRE PAR DATE : Si une date est sélectionnée, ne garder que les cours de cette date
-    // ⚠️ IMPORTANT : Comparer les dates en LOCAL, pas en UTC (problème de timezone)
-    let dateMatch = true
-    if (selectedDate.value) {
-      // Extraire la date locale (YYYY-MM-DD) de la date sélectionnée
-      const selectedYear = selectedDate.value.getFullYear()
-      const selectedMonth = String(selectedDate.value.getMonth() + 1).padStart(2, '0')
-      const selectedDay = String(selectedDate.value.getDate()).padStart(2, '0')
-      const selectedDateStr = `${selectedYear}-${selectedMonth}-${selectedDay}`
-      
-      // Extraire la date locale (YYYY-MM-DD) du cours
-      const lessonYear = lessonDate.getFullYear()
-      const lessonMonth = String(lessonDate.getMonth() + 1).padStart(2, '0')
-      const lessonDay = String(lessonDate.getDate()).padStart(2, '0')
-      const lessonDateStr = `${lessonYear}-${lessonMonth}-${lessonDay}`
-      
-      dateMatch = lessonDateStr === selectedDateStr
-    }
-    
-    return dayMatch && timeMatch && dateMatch
+    return dayMatch && timeMatch
   })
 })
 
@@ -1897,9 +1911,8 @@ const dayBroadcastRecipients = computed(() => {
     return { teachers: [], students: [] }
   }
 
-  const sel = selectedDate.value
-  const selStr = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, '0')}-${String(sel.getDate()).padStart(2, '0')}`
-  const selDow = sel.getDay()
+  const selStr = toLocalYmd(selectedDate.value)
+  const selDow = selectedDate.value.getDay()
 
   const addLessonParticipants = (lesson: Lesson) => {
     const teacherId = resolveLessonTeacherId(lesson)
@@ -1924,14 +1937,8 @@ const dayBroadcastRecipients = computed(() => {
     }
   }
 
-  for (const lesson of lessons.value) {
+  for (const lesson of lessonsByLocalDate.value.get(selStr) ?? []) {
     if ((lesson as any).is_recurring_placeholder || lesson.status === 'cancelled') continue
-    if (!lesson.start_time) continue
-
-    const d = new Date(lesson.start_time as string)
-    const lessonStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    if (lessonStr !== selStr) continue
-
     addLessonParticipants(lesson)
   }
 
@@ -1943,7 +1950,7 @@ const dayBroadcastRecipients = computed(() => {
     if (Number(rs.day_of_week) !== selDow) continue
     if (!subscriptionRecurringSlotFiresOnDate(rs, selStr)) continue
 
-    const alreadyMaterialized = lessons.value.some(
+    const alreadyMaterialized = (lessonsByLocalDate.value.get(selStr) ?? []).some(
       (l) => !(l as any).is_recurring_placeholder
         && l.status !== 'cancelled'
         && lessonMaterializesRecurringOnDate(l, rs, selStr),
@@ -2177,7 +2184,8 @@ function recurringOccurrenceFreedByCancelledLesson(rs: { student_id?: number; te
   const sid = Number(rs.student_id)
   if (!sid) return false
 
-  return lessons.value.some((lesson) => {
+  const dayLessons = lessonsByLocalDate.value.get(dateStr) ?? []
+  return dayLessons.some((lesson) => {
     if (lesson.is_recurring_placeholder) return false
     if (lesson.status !== 'cancelled') return false
     const lid = Number(lesson.teacher_id ?? lesson.teacher?.id)
@@ -2186,11 +2194,6 @@ function recurringOccurrenceFreedByCancelledLesson(rs: { student_id?: number; te
 
     const ls = new Date(lesson.start_time)
     const le = new Date(lesson.end_time)
-    const ly = ls.getFullYear()
-    const lm = String(ls.getMonth() + 1).padStart(2, '0')
-    const ld = String(ls.getDate()).padStart(2, '0')
-    if (`${ly}-${lm}-${ld}` !== dateStr) return false
-
     return ls < rsEnd && le > rsStart
   })
 }
@@ -2220,11 +2223,20 @@ function recurringPlaceholderSummaryLine(lesson: Lesson): string {
  */
 const recurringPlanningPlaceholders = computed((): Lesson[] => {
   if (!selectedSlot.value || !selectedDate.value) return []
-  const d = selectedDate.value
-  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const dateStr = toLocalYmd(selectedDate.value)
   const slot = selectedSlot.value
   const slotStart = formatTime(slot.start_time)
   const slotEnd = formatTime(slot.end_time)
+  const dayFiltered = filteredLessons.value
+  // Index élève → cours du créneau (lookup O(1) vs find nested)
+  const byStudentId = new Map<number, Lesson[]>()
+  for (const l of dayFiltered) {
+    const sid = Number(l.student_id ?? (l as any).students?.[0]?.id)
+    if (!sid) continue
+    const bucket = byStudentId.get(sid)
+    if (bucket) bucket.push(l)
+    else byStudentId.set(sid, [l])
+  }
   const out: Lesson[] = []
   for (const rs of clubRecurringSlots.value) {
     if (rs.status !== 'active') continue
@@ -2234,9 +2246,8 @@ const recurringPlanningPlaceholders = computed((): Lesson[] => {
     if (!subscriptionRecurringSlotFiresOnDate(rs, dateStr)) continue
     const rsStart = formatTime(rs.start_time)
     if (!(rsStart >= slotStart && rsStart < slotEnd)) continue
-    const covering = filteredLessons.value.find((l) =>
-      lessonMaterializesRecurringOnDate(l, rs, dateStr)
-    )
+    const candidates = byStudentId.get(Number(rs.student_id)) ?? []
+    const covering = candidates.find((l) => lessonMaterializesRecurringOnDate(l, rs, dateStr))
     if (covering) continue
     // Cours annulé ce jour : plage libérée, série inchangée pour les occurrences futures
     if (recurringOccurrenceFreedByCancelledLesson(rs, dateStr)) continue
@@ -2367,56 +2378,30 @@ function planningLessonRowHighlightClass(lesson: Lesson): string {
 // Types de cours filtrés - Utilise les courseTypes du créneau sélectionné
 // au lieu de filtrer la liste globale (relation directe créneau → types)
 const filteredCourseTypes = computed(() => {
-  console.log('🔄 [filteredCourseTypes] Computed appelé', {
-    hasSlot: !!selectedSlotForLesson.value,
-    slotId: selectedSlotForLesson.value?.id,
-    slotDisciplineId: selectedSlotForLesson.value?.discipline_id,
-    slotHasCourseTypes: !!selectedSlotForLesson.value?.course_types,
-    modalOpen: showCreateLessonModal.value,
-    clubDisciplinesCount: clubDisciplines.value.length,
-    clubDisciplineIds: clubDisciplines.value.map(d => d.id)
-  })
-  
   // Si la modale n'est pas ouverte, retourner un tableau vide
   if (!showCreateLessonModal.value) {
-    console.log('⚠️ [filteredCourseTypes] Modale fermée → tableau vide')
     return []
   }
   
   // Si pas de créneau sélectionné, retourner tableau vide
   if (!selectedSlotForLesson.value) {
-    console.log('⚠️ [filteredCourseTypes] Pas de créneau → tableau vide')
     return []
   }
   
   // ✅ Les courseTypes sont déjà filtrés par le backend selon les disciplines du club
-  // Le backend (ClubOpenSlotController::index) filtre pour ne garder que :
-  // 1. Les types génériques (sans discipline_id)
-  // 2. Les types dont la discipline_id est dans les disciplines activées du club
   const slotCourseTypes = selectedSlotForLesson.value.course_types || []
   
-  console.log('🎯 [filteredCourseTypes] Types de cours du créneau (déjà filtrés par le backend)', {
-    slotId: selectedSlotForLesson.value.id,
-    slotDisciplineId: selectedSlotForLesson.value.discipline_id,
-    slotDisciplineName: selectedSlotForLesson.value.discipline?.name,
-    courseTypesCount: slotCourseTypes.length,
-    courseTypes: slotCourseTypes.map(ct => ({ 
-      id: ct.id, 
-      name: ct.name,
-      discipline_id: ct.discipline_id,
-      duration: ct.duration || ct.duration_minutes,
-      price: ct.price
-    }))
-  })
-  
-  // ⚠️ Si aucun type de cours n'est disponible, afficher un avertissement
-  if (slotCourseTypes.length === 0) {
-    console.warn('⚠️ [filteredCourseTypes] Aucun type de cours disponible !', {
+  if (import.meta.dev) {
+    planningDevLog('🎯 [filteredCourseTypes] Types de cours du créneau', {
       slotId: selectedSlotForLesson.value.id,
-      slotDisciplineId: selectedSlotForLesson.value.discipline_id,
-      clubDisciplines: clubDisciplines.value.map(d => ({ id: d.id, name: d.name })),
-      message: 'Vérifiez que des types de cours sont associés à ce créneau et correspondent aux disciplines du club'
+      courseTypesCount: slotCourseTypes.length,
     })
+    if (slotCourseTypes.length === 0) {
+      console.warn('⚠️ [filteredCourseTypes] Aucun type de cours disponible !', {
+        slotId: selectedSlotForLesson.value.id,
+        slotDisciplineId: selectedSlotForLesson.value.discipline_id,
+      })
+    }
   }
   
   return slotCourseTypes
@@ -2434,7 +2419,7 @@ watch(() => slotForm.value.discipline_id, (newDisciplineId) => {
       slotForm.value.price = selectedDiscipline.settings.price || 0
       slotForm.value.max_capacity = selectedDiscipline.settings.max_participants || 1
       
-      console.log('✨ Valeurs initialisées depuis la discipline:', {
+      planningDevLog('✨ Valeurs initialisées depuis la discipline:', {
         duration: slotForm.value.duration,
         price: slotForm.value.price,
         max_capacity: slotForm.value.max_capacity
@@ -2457,7 +2442,7 @@ watch(() => lessonForm.value.course_type_id, (newCourseTypeId) => {
       // Utiliser duration_minutes en priorité, puis duration
       lessonForm.value.duration = courseType.duration_minutes || courseType.duration || 60
       lessonForm.value.price = courseType.price || 0
-      console.log('✨ Durée et prix initialisés depuis type de cours:', {
+      planningDevLog('✨ Durée et prix initialisés depuis type de cours:', {
         name: courseType.name,
         duration: lessonForm.value.duration,
         price: lessonForm.value.price,
@@ -2473,7 +2458,7 @@ watch(() => selectedSlotForLesson.value, (newSlot, oldSlot) => {
   if (newSlot && oldSlot && newSlot.discipline_id !== oldSlot.discipline_id) {
     // Réinitialiser le type de cours car les options disponibles ont changé
     lessonForm.value.course_type_id = null
-    console.log('🔄 Type de cours réinitialisé suite au changement de créneau')
+    planningDevLog('🔄 Type de cours réinitialisé suite au changement de créneau')
   }
 })
 
@@ -2496,41 +2481,37 @@ watch(() => [lessonForm.value.date, lessonForm.value.time], ([date, time]) => {
 // Fonctions
 async function loadClubDisciplines() {
   try {
-    loading.value = true
     error.value = null
     
     const $api = getApiClient()
     const config = useRuntimeConfig()
     
-    console.log('🔍 Début du chargement des disciplines...')
+    if (import.meta.dev) {
+      planningDevLog('🔍 Début du chargement des disciplines...')
+    }
     
-    // 1. Récupérer le profil du club avec les disciplines configurées
-    const profileResponse = await $api.get('/club/profile')
+    // Profil club + référentiel disciplines en parallèle
+    const [profileResponse, disciplinesResponse] = await Promise.all([
+      $api.get('/club/profile'),
+      $fetch(`${config.public.apiBase}/disciplines`) as Promise<{ data?: any[] }>,
+    ])
     
-    console.log('📥 Réponse profil brute:', profileResponse.data)
+    if (import.meta.dev) {
+      planningDevLog('📥 Réponse profil brute:', profileResponse.data)
+    }
     
     if (!profileResponse.data.success || !profileResponse.data.data) {
       throw new Error('Impossible de récupérer le profil du club')
     }
     
     const clubData = profileResponse.data.data
-    
-    console.log('🏢 Données du club:', {
-      id: clubData.id,
-      name: clubData.name,
-      disciplines_raw: clubData.disciplines,
-      disciplines_type: typeof clubData.disciplines,
-      discipline_settings_raw: clubData.discipline_settings,
-      discipline_settings_type: typeof clubData.discipline_settings
-    })
-    
-    // 2. Récupérer la liste complète des disciplines pour avoir les noms
-    const disciplinesResponse = await $fetch(`${config.public.apiBase}/disciplines`)
     const allDisciplines = disciplinesResponse.data || []
     
-    console.log('📚 Disciplines disponibles:', allDisciplines.map((d: any) => ({ id: d.id, name: d.name })))
+    if (import.meta.dev) {
+      planningDevLog('📚 Disciplines disponibles:', allDisciplines.map((d: any) => ({ id: d.id, name: d.name })))
+    }
     
-    // 3. Parser les données du club
+    // Parser les données du club
     let clubDisciplineIds = []
     
     if (clubData.disciplines) {
@@ -2561,24 +2542,17 @@ async function loadClubDisciplines() {
       }
     }
     
-    console.log('✅ Données parsées:', {
-      clubDisciplineIds,
-      disciplineSettings
-    })
-    
-    // 4. Construire la liste des disciplines avec leurs settings
+    // Construire la liste des disciplines avec leurs settings
     clubDisciplines.value = clubDisciplineIds
       .map((disciplineId: number) => {
-        console.log(`🔍 Recherche discipline ID ${disciplineId}...`)
         const discipline = allDisciplines.find((d: Discipline) => d.id === disciplineId)
         
         if (!discipline) {
-          console.warn(`❌ Discipline ${disciplineId} non trouvée dans le référentiel`)
-          console.log('   IDs disponibles:', allDisciplines.map((d: any) => d.id))
+          if (import.meta.dev) {
+            console.warn(`❌ Discipline ${disciplineId} non trouvée dans le référentiel`)
+          }
           return null
         }
-        
-        console.log(`✅ Discipline ${disciplineId} trouvée:`, discipline.name)
         
         const settings = disciplineSettings[disciplineId] || {
           duration: 45,
@@ -2588,8 +2562,6 @@ async function loadClubDisciplines() {
   notes: ''
         }
         
-        console.log(`   Settings pour ${discipline.name}:`, settings)
-        
       return {
           ...discipline,
           settings
@@ -2597,15 +2569,14 @@ async function loadClubDisciplines() {
       })
       .filter((d): d is ClubDiscipline => d !== null)
     
-    console.log('🎯 RÉSULTAT FINAL:', clubDisciplines.value)
-    console.log('📊 Nombre de disciplines actives:', activeDisciplines.value.length)
+    if (import.meta.dev) {
+      planningDevLog('🎯 Disciplines club:', clubDisciplines.value.length)
+    }
   } catch (err: any) {
     console.error('❌ ERREUR:', err)
     const errorMessage = err.message || 'Erreur lors du chargement des disciplines'
     error.value = errorMessage
     showError(errorMessage, 'Erreur de chargement')
-  } finally {
-    loading.value = false
   }
 }
 
@@ -2673,11 +2644,11 @@ function findNearestSlot(): OpenSlot | null {
 async function loadOpenSlots() {
   try {
     const $api = getApiClient()
-    console.log('🔄 [Planning] Chargement des créneaux horaires...')
+    planningDevLog('🔄 [Planning] Chargement des créneaux horaires...')
     
     const response = await $api.get('/club/open-slots')
     
-    console.log('📥 [Planning] Réponse API créneaux:', {
+    planningDevLog('📥 [Planning] Réponse API créneaux:', {
       success: response.data.success,
       data_type: typeof response.data.data,
       data_is_array: Array.isArray(response.data.data),
@@ -2687,7 +2658,7 @@ async function loadOpenSlots() {
     
     if (response.data.success) {
       openSlots.value = Array.isArray(response.data.data) ? response.data.data : []
-      console.log('✅ Créneaux chargés:', openSlots.value.length, 'créneaux')
+      planningDevLog('✅ Créneaux chargés:', openSlots.value.length, 'créneaux')
       
       if (openSlots.value.length === 0) {
         console.warn('⚠️ Aucun créneau trouvé pour ce club')
@@ -2697,7 +2668,7 @@ async function loadOpenSlots() {
           ? openSlots.value.find((s: any) => s.id === Number(slotIdFromQuery))
           : findNearestSlot()
         if (slotToSelect) {
-          console.log('🎯 Créneau sélectionné:', slotIdFromQuery ? 'depuis URL' : 'plus proche', {
+          planningDevLog('🎯 Créneau sélectionné:', slotIdFromQuery ? 'depuis URL' : 'plus proche', {
             id: slotToSelect.id,
             day: getDayName(slotToSelect.day_of_week),
             time: formatTime(slotToSelect.start_time),
@@ -2705,13 +2676,13 @@ async function loadOpenSlots() {
           })
           handleSlotSelection(slotToSelect)
         } else {
-          console.log('⚠️ Aucun créneau actif trouvé pour présélectionner')
+          planningDevLog('⚠️ Aucun créneau actif trouvé pour présélectionner')
         }
       }
       
       // 🔍 DEBUG: Vérifier les course_types dans chaque slot
       openSlots.value.forEach((slot, index) => {
-        console.log(`🔍 [Slot ${index + 1}] ID: ${slot.id}`, {
+        planningDevLog(`🔍 [Slot ${index + 1}] ID: ${slot.id}`, {
           club_id: slot.club_id,
           day_of_week: slot.day_of_week,
           start_time: slot.start_time,
@@ -2766,6 +2737,7 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     
     const response = await $api.get('/lessons', {
       params: {
+        context: 'planning',
         date_from: startDate.toISOString().split('T')[0],
         date_to: endDate.toISOString().split('T')[0]
         // Pas de limite : on filtre par plage (cap API date range).
@@ -2780,12 +2752,12 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
         const lessonsToAdd = newLessons.filter((l: any) => !existingLessonIds.has(l.id))
         lessons.value = [...lessons.value, ...lessonsToAdd]
         if (import.meta.dev) {
-          console.log('✅ Cours fusionnés:', { nouveaux: lessonsToAdd.length, total: lessons.value.length })
+          planningDevLog('✅ Cours fusionnés:', { nouveaux: lessonsToAdd.length, total: lessons.value.length })
         }
       } else {
         lessons.value = newLessons
         if (import.meta.dev) {
-          console.log('✅ Cours chargés:', { total: lessons.value.length })
+          planningDevLog('✅ Cours chargés:', { total: lessons.value.length })
         }
       }
       
@@ -2809,7 +2781,7 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
       }
 
       if (import.meta.dev) {
-        console.log('📋 Plage cours chargée:', {
+        planningDevLog('📋 Plage cours chargée:', {
           total: lessons.value.length,
           start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
           end: loadedLessonsRange.value.end?.toISOString().split('T')[0],
@@ -3106,9 +3078,9 @@ async function loadPendingCertificates() {
     const list = response.data?.data
     pendingCertificateLessons.value = Array.isArray(list) ? list : []
     if (import.meta.dev) {
-      console.log('[Planning] CM à valider:', pendingCertificateLessons.value.length, response.data)
+      planningDevLog('[Planning] CM à valider:', pendingCertificateLessons.value.length, response.data)
       if (response.data?._debug) {
-        console.log('[Planning] pending-certificates _debug:', response.data._debug)
+        planningDevLog('[Planning] pending-certificates _debug:', response.data._debug)
       }
     }
   } catch (err: any) {
@@ -3119,16 +3091,43 @@ async function loadPendingCertificates() {
   }
 }
 
+const modalListsLoaded = ref(false)
+let modalListsPromise: Promise<void> | null = null
+
+/** Teachers / students : lazy au premier open modale. courseTypes chargé au mount (filtre DisciplinesList). */
+async function ensureModalListsLoaded() {
+  if (modalListsLoaded.value) return
+  if (modalListsPromise) {
+    await modalListsPromise
+    return
+  }
+  modalListsPromise = (async () => {
+    const tasks: Promise<void>[] = [loadTeachers(), loadStudents()]
+    if (courseTypes.value.length === 0) {
+      tasks.push(loadCourseTypes())
+    }
+    await Promise.all(tasks)
+    modalListsLoaded.value = true
+  })().finally(() => {
+    modalListsPromise = null
+  })
+  await modalListsPromise
+}
+
 // Charger les enseignants du club
 async function loadTeachers() {
   try {
     const { $api } = useNuxtApp()
     const response = await $api.get('/club/teachers')
-    console.log('🔍 [Planning] Réponse enseignants:', response.data)
+    if (import.meta.dev) {
+      planningDevLog('🔍 [Planning] Réponse enseignants:', response.data)
+    }
     if (response.data.success) {
       // La clé est 'teachers' et non 'data' (voir ClubController::getTeachers)
       teachers.value = response.data.teachers || response.data.data || []
-      console.log('✅ Enseignants chargés:', teachers.value.length)
+      if (import.meta.dev) {
+        planningDevLog('✅ Enseignants chargés:', teachers.value.length)
+      }
     }
   } catch (err: any) {
     console.error('Erreur chargement enseignants:', err)
@@ -3157,10 +3156,14 @@ async function loadStudents() {
         status: 'active' // Seulement les élèves actifs
       }
     })
-    console.log('🔍 [Planning] Réponse élèves:', response.data)
+    if (import.meta.dev) {
+      planningDevLog('🔍 [Planning] Réponse élèves:', response.data)
+    }
     if (response.data.success) {
       students.value = response.data.data || []
-      console.log('✅ Élèves chargés:', students.value.length)
+      if (import.meta.dev) {
+        planningDevLog('✅ Élèves chargés:', students.value.length)
+      }
       
       // Si on a reçu exactement le nombre de per_page, il pourrait y avoir plus d'élèves
       // Dans ce cas, charger les pages suivantes
@@ -3179,11 +3182,15 @@ async function loadStudents() {
               allStudents.push(...nextPageResponse.data.data)
             }
           } catch (pageErr) {
-            console.warn(`Erreur chargement page ${page} des élèves:`, pageErr)
+            if (import.meta.dev) {
+              console.warn(`Erreur chargement page ${page} des élèves:`, pageErr)
+            }
           }
         }
         students.value = allStudents
-        console.log('✅ Tous les élèves chargés:', students.value.length)
+        if (import.meta.dev) {
+          planningDevLog('✅ Tous les élèves chargés:', students.value.length)
+        }
       }
     }
   } catch (err: any) {
@@ -3207,14 +3214,16 @@ async function loadCourseTypes() {
     
     if (response.data.success) {
       courseTypes.value = response.data.data
-      console.log('✅ Types de cours chargés:', courseTypes.value.length)
-      console.log('📋 Détail des types de cours:', courseTypes.value.map(ct => ({
-        id: ct.id,
-        name: ct.name,
-        discipline_id: ct.discipline_id,
-        duration_minutes: ct.duration_minutes,
-        price: ct.price
-      })))
+      if (import.meta.dev) {
+        planningDevLog('✅ Types de cours chargés:', courseTypes.value.length)
+        planningDevLog('📋 Détail des types de cours:', courseTypes.value.map(ct => ({
+          id: ct.id,
+          name: ct.name,
+          discipline_id: ct.discipline_id,
+          duration_minutes: ct.duration_minutes,
+          price: ct.price
+        })))
+      }
     }
   } catch (err: any) {
     console.error('Erreur chargement types de cours:', err)
@@ -3239,7 +3248,7 @@ function updateAvailableDays() {
     }
   })
   availableDaysOfWeek.value = Array.from(days).sort()
-  console.log('📅 Jours disponibles:', availableDaysOfWeek.value)
+  planningDevLog('📅 Jours disponibles:', availableDaysOfWeek.value)
 }
 
 // Vérifier si une date correspond à un jour disponible
@@ -3256,13 +3265,13 @@ async function openSlotModal(slot?: OpenSlot) {
     // Recharger le slot depuis la DB pour avoir le statut actuel
     try {
       const { $api } = useNuxtApp()
-      console.log('🔄 [openSlotModal] Rechargement du créneau depuis la DB:', slot.id)
+      planningDevLog('🔄 [openSlotModal] Rechargement du créneau depuis la DB:', slot.id)
       
       const response = await $api.get(`/club/open-slots/${slot.id}`)
       
       if (response.data.success && response.data.data) {
         const freshSlot = response.data.data
-        console.log('✅ [openSlotModal] Créneau rechargé depuis la DB:', {
+        planningDevLog('✅ [openSlotModal] Créneau rechargé depuis la DB:', {
           id: freshSlot.id,
           is_active: freshSlot.is_active
         })
@@ -3357,7 +3366,7 @@ async function saveSlot() {
       is_active: isActive
     }
     
-    console.log('💾 [saveSlot] Envoi du payload:', {
+    planningDevLog('💾 [saveSlot] Envoi du payload:', {
       ...payload,
       is_active_type: typeof payload.is_active,
       is_active_value: payload.is_active
@@ -3366,11 +3375,11 @@ async function saveSlot() {
     if (editingSlot.value) {
       // Mise à jour
       const response = await $api.put(`/club/open-slots/${editingSlot.value.id}`, payload)
-      console.log('✅ Créneau mis à jour:', response.data)
+      planningDevLog('✅ Créneau mis à jour:', response.data)
     } else {
       // Création
       const response = await $api.post('/club/open-slots', payload)
-      console.log('✅ Créneau créé:', response.data)
+      planningDevLog('✅ Créneau créé:', response.data)
     }
     
     // Recharger la liste
@@ -3419,7 +3428,7 @@ async function deleteSlot(id: number) {
   try {
     const { $api } = useNuxtApp()
     await $api.delete(`/club/open-slots/${id}`)
-    console.log('✅ Créneau supprimé')
+    planningDevLog('✅ Créneau supprimé')
     
     // Recharger la liste
     await loadOpenSlots()
@@ -3439,7 +3448,10 @@ async function deleteSlot(id: number) {
 }
 
 async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, explicitDate?: string) {
-  console.log('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
+  await ensureModalListsLoaded()
+
+  if (import.meta.dev) {
+  planningDevLog('📝 [openCreateLessonModal] DÉBUT - Avant mise à jour selectedSlotForLesson', {
     hasSlot: !!slot,
     slotId: slot?.id,
     slotDisciplineId: slot?.discipline_id,
@@ -3450,6 +3462,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
     totalCourseTypes: courseTypes.value.length,
     currentSelectedSlot: selectedSlotForLesson.value?.id
   })
+  }
 
   selectedSlotForLesson.value = slot || null
 
@@ -3460,15 +3473,15 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       dateToUse = new Date(explicitDate + 'T00:00:00')
       selectedDate.value = dateToUse
       selectedDateInput.value = explicitDate
-      console.log('📅 [openCreateLessonModal] Date explicite (ex. depuis Plages disponibles):', explicitDate)
+      planningDevLog('📅 [openCreateLessonModal] Date explicite (ex. depuis Plages disponibles):', explicitDate)
     } else if (selectedDate.value && selectedDate.value.getDay() === slot.day_of_week) {
       dateToUse = new Date(selectedDate.value)
-      console.log('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
+      planningDevLog('📅 [openCreateLessonModal] Utilisation de la date sélectionnée:', formatDateForInput(dateToUse))
     } else {
       dateToUse = getDefaultDateForSlotDay(slot.day_of_week)
       selectedDate.value = dateToUse
       selectedDateInput.value = formatDateForInput(dateToUse)
-      console.log('📅 [openCreateLessonModal] Date par défaut du créneau:', formatDateForInput(dateToUse))
+      planningDevLog('📅 [openCreateLessonModal] Date par défaut du créneau:', formatDateForInput(dateToUse))
     }
 
     const dateStr = formatDateForInput(dateToUse)
@@ -3492,7 +3505,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
         initialPrice = matchingCourseType.price || initialPrice
       }
 
-      console.log('🔍 Recherche type de cours pour discipline', slot.discipline_id, ':', {
+      planningDevLog('🔍 Recherche type de cours pour discipline', slot.discipline_id, ':', {
         found: !!matchingCourseType,
         selectedId: courseTypeId,
         selectedName: matchingCourseType?.name,
@@ -3507,7 +3520,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
           initialDuration = matchingCourseType.duration_minutes || matchingCourseType.duration || initialDuration
           initialPrice = matchingCourseType.price || initialPrice
         }
-        console.log('⚠️ [openCreateLessonModal] Aucun type de cours dans le créneau, recherche dans tous les types:', {
+        planningDevLog('⚠️ [openCreateLessonModal] Aucun type de cours dans le créneau, recherche dans tous les types:', {
           found: !!matchingCourseType,
           selectedId: courseTypeId
         })
@@ -3553,7 +3566,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
 }
 
 function closeCreateLessonModal() {
-  console.log('🚪 [closeCreateLessonModal] Fermeture modale')
+  planningDevLog('🚪 [closeCreateLessonModal] Fermeture modale')
   showCreateLessonModal.value = false
   createLessonRequestedTime.value = null
   
@@ -3584,7 +3597,7 @@ function closeCreateLessonModal() {
   // que le computed retourne tous les types pendant la fermeture
   setTimeout(() => {
     selectedSlotForLesson.value = null
-    console.log('🧹 [closeCreateLessonModal] selectedSlotForLesson réinitialisé après délai')
+    planningDevLog('🧹 [closeCreateLessonModal] selectedSlotForLesson réinitialisé après délai')
   }, 100)
 }
 
@@ -3594,9 +3607,11 @@ async function openEditLessonModal(lesson: Lesson) {
     navigateTo('/club/recurring-slots')
     return
   }
+  await ensureModalListsLoaded()
   editingLesson.value = lesson
   
-  console.log('📝 [openEditLessonModal] Chargement des données du cours:', {
+  if (import.meta.dev) {
+  planningDevLog('📝 [openEditLessonModal] Chargement des données du cours:', {
     id: lesson.id,
     start_time: lesson.start_time,
     course_type: lesson.course_type,
@@ -3604,7 +3619,7 @@ async function openEditLessonModal(lesson: Lesson) {
     subscription_instances: (lesson as any).subscription_instances,
     teacher: lesson.teacher
   })
-  
+  }
   // Extraire la date et l'heure depuis start_time
   if (lesson.start_time) {
     const dateTime = new Date(lesson.start_time)
@@ -3621,7 +3636,7 @@ async function openEditLessonModal(lesson: Lesson) {
       time: lessonForm.value.time
     }
     
-    console.log('📅 [openEditLessonModal] Date et heure extraites:', {
+    planningDevLog('📅 [openEditLessonModal] Date et heure extraites:', {
       date: lessonForm.value.date,
       time: lessonForm.value.time,
       start_time: lesson.start_time,
@@ -3641,7 +3656,7 @@ async function openEditLessonModal(lesson: Lesson) {
     const matchingSlot = findSlotContainingTime(slotsSameDay, lessonStartStr, duration) ?? slotsSameDay[0] ?? null
     if (matchingSlot) {
       selectedSlotForLesson.value = matchingSlot
-      console.log('🎯 [openEditLessonModal] Créneau trouvé (contenant l\'heure du cours):', {
+      planningDevLog('🎯 [openEditLessonModal] Créneau trouvé (contenant l\'heure du cours):', {
         day_of_week: dayOfWeek,
         slot_id: matchingSlot.id,
         slot_start: matchingSlot.start_time,
@@ -3675,7 +3690,7 @@ async function openEditLessonModal(lesson: Lesson) {
   
   // DCL/NDCL : est_legacy = false pour DCL, true pour NDCL
   lessonForm.value.est_legacy = (lesson as any).est_legacy !== undefined ? Boolean((lesson as any).est_legacy) : false
-  console.log('🏷️ [openEditLessonModal] Classification chargée:', {
+  planningDevLog('🏷️ [openEditLessonModal] Classification chargée:', {
     est_legacy: lessonForm.value.est_legacy,
     label: lessonForm.value.est_legacy ? 'NDCL' : 'DCL',
     raw_value: (lesson as any).est_legacy
@@ -3689,7 +3704,7 @@ async function openEditLessonModal(lesson: Lesson) {
     const hasSubscriptionInstances = (lesson as any).subscription_instances && Array.isArray((lesson as any).subscription_instances) && (lesson as any).subscription_instances.length > 0
     lessonForm.value.deduct_from_subscription = hasSubscriptionInstances
   }
-  console.log('💳 [openEditLessonModal] Déduction d\'abonnement chargée:', {
+  planningDevLog('💳 [openEditLessonModal] Déduction d\'abonnement chargée:', {
     deduct_from_subscription: lessonForm.value.deduct_from_subscription,
     raw_value: (lesson as any).deduct_from_subscription,
     has_subscription_instances: (lesson as any).subscription_instances?.length > 0
@@ -3734,7 +3749,7 @@ function closeEditLessonModal() {
 
 // Gestion de la sélection de créneau
 function handleSlotSelection(slot: OpenSlot) {
-  console.log('🎯 [handleSlotSelection] Créneau sélectionné:', slot.id)
+  planningDevLog('🎯 [handleSlotSelection] Créneau sélectionné:', slot.id)
   selectedSlot.value = slot
   
   // 📅 Initialiser la date à la prochaine occurrence du créneau
@@ -3756,7 +3771,7 @@ async function createLesson() {
     const { $api } = useNuxtApp()
     
     // 🔍 DEBUG : Afficher l'état du formulaire
-    console.log('🔍 [createLesson] État du formulaire:', {
+    planningDevLog('🔍 [createLesson] État du formulaire:', {
       teacher_id: lessonForm.value.teacher_id,
       teacher_id_type: typeof lessonForm.value.teacher_id,
       student_id: lessonForm.value.student_id,
@@ -3852,12 +3867,12 @@ async function createLesson() {
         : 0))
     }
     
-    console.log('📤 Création du cours avec payload:', payload)
+    planningDevLog('📤 Création du cours avec payload:', payload)
     
     const response = await $api.post('/lessons', payload)
     
     if (response.data.success) {
-      console.log('✅ Cours créé:', response.data.data)
+      planningDevLog('✅ Cours créé:', response.data.data)
       success('Cours créé avec succès', 'Succès')
       
       // Recharger les cours et les récurrences (affichage séries / placeholders)
@@ -3868,7 +3883,7 @@ async function createLesson() {
       if (selectedDate.value && selectedSlot.value && 
           selectedDate.value.getDay() === selectedSlot.value.day_of_week) {
         // La date est déjà correcte, pas besoin de la modifier
-        console.log('📅 [createLesson] Conservation de la date sélectionnée:', selectedDate.value.toISOString().split('T')[0])
+        planningDevLog('📅 [createLesson] Conservation de la date sélectionnée:', selectedDate.value.toISOString().split('T')[0])
       } else if (selectedSlot.value && lessonForm.value.date) {
         // Si une date a été sélectionnée dans le formulaire et qu'un créneau est sélectionné,
         // mettre à jour selectedDate pour rester sur cette date
@@ -3876,7 +3891,7 @@ async function createLesson() {
         if (createdDate.getDay() === selectedSlot.value.day_of_week) {
           selectedDate.value = createdDate
           selectedDateInput.value = formatDateForInput(createdDate)
-          console.log('📅 [createLesson] Mise à jour de selectedDate avec la date du cours créé:', selectedDate.value.toISOString().split('T')[0])
+          planningDevLog('📅 [createLesson] Mise à jour de selectedDate avec la date du cours créé:', selectedDate.value.toISOString().split('T')[0])
         }
       }
       
@@ -3994,14 +4009,14 @@ async function loadFutureLessonsCount() {
                                 lesson.student?.subscription_instances ||
                                 (lesson.students && lesson.students.length > 0 ? lesson.students[0].subscription_instances : null)
   
-  console.log('🔍 [loadFutureLessonsCount] Début du chargement', {
+  planningDevLog('🔍 [loadFutureLessonsCount] Début du chargement', {
     hasLesson: !!editingLesson.value,
     hasSubscriptionInstances: !!subscriptionInstances,
     subscriptionInstancesCount: subscriptionInstances?.length || 0
   })
   
   if (!subscriptionInstances || subscriptionInstances.length === 0) {
-    console.log('⚠️ [loadFutureLessonsCount] Aucune instance d\'abonnement trouvée')
+    planningDevLog('⚠️ [loadFutureLessonsCount] Aucune instance d\'abonnement trouvée')
     futureLessonsCount.value = 0
     return
   }
@@ -4011,7 +4026,7 @@ async function loadFutureLessonsCount() {
     const subscriptionInstanceId = subscriptionInstances[0].id
     const currentLessonDate = new Date(editingLesson.value.start_time)
     
-    console.log('📅 [loadFutureLessonsCount] Paramètres', {
+    planningDevLog('📅 [loadFutureLessonsCount] Paramètres', {
       subscriptionInstanceId,
       currentLessonDate: currentLessonDate.toISOString().split('T')[0],
       startTime: editingLesson.value.start_time
@@ -4024,7 +4039,7 @@ async function loadFutureLessonsCount() {
       }
     })
     
-    console.log('✅ [loadFutureLessonsCount] Réponse API', {
+    planningDevLog('✅ [loadFutureLessonsCount] Réponse API', {
       success: response.data.success,
       count: response.data.data?.count,
       data: response.data.data
@@ -4032,7 +4047,7 @@ async function loadFutureLessonsCount() {
     
     if (response.data.success) {
       futureLessonsCount.value = response.data.data?.count || 0
-      console.log('✅ [loadFutureLessonsCount] Nombre de cours futurs:', futureLessonsCount.value)
+      planningDevLog('✅ [loadFutureLessonsCount] Nombre de cours futurs:', futureLessonsCount.value)
     } else {
       console.warn('⚠️ [loadFutureLessonsCount] Réponse non réussie:', response.data)
       futureLessonsCount.value = 0
@@ -4088,7 +4103,7 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
       payloadWithScope.recurring_interval = lessonForm.value.recurring_interval
     }
     
-    console.log('📤 Mise à jour du cours avec payload:', payloadWithScope)
+    planningDevLog('📤 Mise à jour du cours avec payload:', payloadWithScope)
     
     // Mettre à jour le cours
     const response = await $api.put(`/lessons/${editingLesson.value.id}`, payloadWithScope)
@@ -4360,7 +4375,7 @@ async function openCreateLessonModalForTimeSlot(timeSlot: string) {
   // Utiliser le créneau sélectionné et la date sélectionnée avec l'heure de la plage horaire
   await openCreateLessonModal(selectedSlot.value, timeSlot)
   
-  console.log('📅 [openCreateLessonModalForTimeSlot] Modale ouverte avec:', {
+  planningDevLog('📅 [openCreateLessonModalForTimeSlot] Modale ouverte avec:', {
     date: formatDateForInput(selectedDate.value),
     time: timeSlot,
     slot: selectedSlot.value.id,
@@ -4765,7 +4780,7 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
   if (!loadedStart || !loadedEnd) {
     // Si aucune plage n'est chargée, charger autour de la date cible
     if (import.meta.dev) {
-      console.log('🔄 Aucune plage cours, chargement chunk autour de:', targetDate.toISOString().split('T')[0])
+      planningDevLog('🔄 Aucune plage cours, chargement chunk autour de:', targetDate.toISOString().split('T')[0])
     }
     const { start: startDate, end: endDate } = getClubPlanningLoadRangeAround(targetDate)
     await loadLessons(startDate, endDate)
@@ -4780,7 +4795,7 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
   
   if (needsReload) {
     if (import.meta.dev) {
-      console.log('🔄 Extension plage cours pour:', targetDate.toISOString().split('T')[0])
+      planningDevLog('🔄 Extension plage cours pour:', targetDate.toISOString().split('T')[0])
     }
     
     // Calculer la nouvelle plage à charger
@@ -5004,8 +5019,13 @@ function getLessonStudentTelHref(lesson: Lesson | null): string | null {
 function hasActiveSubscription(lesson: Lesson | null): boolean {
   if (!lesson) return false
   if (lesson.is_recurring_placeholder) return true
+
+  // Lien abo sur le cours (payload planning slim : subscription_instances: [{id}])
+  if ((lesson as any).subscription_instances?.length > 0) {
+    return true
+  }
   
-  // Vérifier l'élève principal
+  // Vérifier l'élève principal (payload complet historique)
   if (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) {
     return true
   }
@@ -5018,6 +5038,50 @@ function hasActiveSubscription(lesson: Lesson | null): boolean {
   }
   
   return false
+}
+
+
+function planningGridKey(lesson: Lesson): string {
+  if (lesson.is_recurring_placeholder) {
+    return `p-${lesson.recurring_slot_id ?? lesson.start_time}`
+  }
+  return `l-${lesson.id}`
+}
+
+type PlanningGridMeta = {
+  studentsLabel: string
+  phonesDisplay: string | null
+  telHref: string | null
+  cardStyle: Record<string, string>
+  hasTeacherConflict: boolean
+  overlapsRecurring: boolean
+  hasAbo: boolean
+  rowHighlightClass: string
+  fromCancelled: boolean
+}
+
+/** Pré-calcul O(1) pour le rendu cartes/liste (évite N appels de helpers par propriété). */
+const planningGridMetaByKey = computed(() => {
+  const map = new Map<string, PlanningGridMeta>()
+  for (const lesson of lessonsForPlanningGrid.value) {
+    const phones = getLessonStudentPhonesDisplay(lesson)
+    map.set(planningGridKey(lesson), {
+      studentsLabel: getLessonStudents(lesson),
+      phonesDisplay: phones,
+      telHref: phones ? getLessonStudentTelHref(lesson) : null,
+      cardStyle: getLessonCardStyle(lesson),
+      hasTeacherConflict: planningLessonHasTeacherParallelConflict(lesson),
+      overlapsRecurring: planningLessonOverlapsRecurringSeries(lesson),
+      hasAbo: hasActiveSubscription(lesson),
+      rowHighlightClass: planningLessonRowHighlightClass(lesson),
+      fromCancelled: isPlaceholderFromCancelledLesson(lesson),
+    })
+  }
+  return map
+})
+
+function getPlanningGridMeta(lesson: Lesson): PlanningGridMeta | undefined {
+  return planningGridMetaByKey.value.get(planningGridKey(lesson))
 }
 
 function formatDateFull(date: Date | null): string {
@@ -5095,16 +5159,13 @@ onMounted(async () => {
     await Promise.all([
       loadClubDisciplines(),
       loadOpenSlots(),
-      loadTeachers(),
-      loadStudents(),
       loadCourseTypes(),
+      loadPendingCertificates(),
       (async () => {
         await loadLessons()
         await loadClubRecurringSlots()
       })(),
     ])
-    // Chargement dédié CM à valider (appel explicite pour garantir l'exécution)
-    await loadPendingCertificates()
     updateAvailableDays()
   } finally {
     loading.value = false

@@ -661,4 +661,55 @@ class ClubPlanningControllerTest extends TestCase
             $this->assertEquals($sortedPriorities, $priorities);
         }
     }
+
+    #[Test]
+    public function availability_by_week_returns_occupancy_for_open_slots(): void
+    {
+        $date = Carbon::now()->next($this->openSlot->day_of_week)->format('Y-m-d');
+        if (Carbon::parse($date)->lt(Carbon::now()->startOfWeek())) {
+            $date = Carbon::parse($date)->addWeek()->format('Y-m-d');
+        }
+
+        Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $date.' 10:00:00',
+            'end_time' => $date.' 11:00:00',
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $response = $this->getJson('/api/club/planning/availability-by-week?weeks=2');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $weeks = $response->json('weeks');
+        $this->assertIsArray($weeks);
+        $this->assertNotEmpty($weeks);
+
+        $foundOccupied = false;
+        foreach ($weeks as $week) {
+            foreach ($week['slots'] ?? [] as $slot) {
+                if ((int) ($slot['slot_id'] ?? 0) !== (int) $this->openSlot->id) {
+                    continue;
+                }
+                foreach ($slot['dates'] ?? [] as $day) {
+                    if (($day['date'] ?? '') !== $date) {
+                        continue;
+                    }
+                    foreach ($day['plages'] ?? [] as $plage) {
+                        if (($plage['time'] ?? '') === '10:00' && (int) ($plage['occupied'] ?? 0) >= 1) {
+                            $foundOccupied = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->assertTrue($foundOccupied, 'La plage 10:00 du créneau doit compter 1 occupation');
+    }
 }
