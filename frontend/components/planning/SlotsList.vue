@@ -92,6 +92,7 @@
               <div 
                 v-for="slot in getSlotsByDay((day) % 7)" 
                 :key="slot.id"
+                data-testid="open-slot"
                 @click="handleSlotClick(slot)"
                 class="border-2 rounded-lg p-2 cursor-pointer transition-all hover:shadow-md"
                 :class="[
@@ -147,6 +148,7 @@
           <div 
             v-for="slot in slots" 
             :key="slot.id"
+            data-testid="open-slot"
             @click="handleSlotClick(slot)"
             class="border-2 rounded-lg p-3 cursor-pointer transition-all hover:shadow-md"
             :class="[

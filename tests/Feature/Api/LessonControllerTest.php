@@ -806,4 +806,31 @@ class LessonControllerTest extends TestCase
             "gain insuffisant: planning={$planningCount} default={$defaultCount}"
         );
     }
+
+    /** @test */
+    public function default_index_still_includes_remaining_when_instances_serialized(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'DEFAULT-REM');
+
+        $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(3)->setTime(10, 0),
+            'end_time' => now()->addDays(3)->setTime(11, 0),
+        ]);
+        $context['instance']->lessons()->attach($lesson->id);
+
+        $from = now()->toDateString();
+        $to = now()->addWeeks(2)->toDateString();
+
+        $response = $this->getJson("/api/lessons?date_from={$from}&date_to={$to}");
+        $response->assertStatus(200);
+        $row = collect($response->json('data'))->firstWhere('id', $lesson->id);
+        $this->assertNotNull($row);
+
+        $instances = $row['subscription_instances'] ?? [];
+        $this->assertNotEmpty($instances);
+        // Path non-planning : appends historiques toujours présents (pas de régression silencieuse)
+        $this->assertArrayHasKey('remaining_bookable', $instances[0]);
+    }
 }

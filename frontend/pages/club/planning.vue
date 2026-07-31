@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
+  <div class="min-h-screen bg-gray-50 p-8" data-testid="planning-view">
     <div class="max-w-7xl mx-auto">
     <!-- Header -->
       <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -31,7 +31,7 @@
         <DisciplinesList :disciplines="activeDisciplines" />
         
         <!-- Bloc 2: Gestion des créneaux horaires avec sélection -->
-        <div id="open-slots-section">
+        <div id="open-slots-section" data-testid="open-slots-section">
           <SlotsList 
             ref="slotsListRef"
             :slots="openSlots"
@@ -117,7 +117,7 @@
         </div>
 
         <!-- Bloc 3: Cours programmés (filtrés par créneau sélectionné) -->
-        <div class="bg-white shadow rounded-lg p-6">
+        <div class="bg-white shadow rounded-lg p-6" data-testid="scheduled-lessons-section">
           <div class="mb-4">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
@@ -1571,6 +1571,12 @@ import {
   participantDisplayNameFromStudent,
   participantDisplayNameFromTeacher,
 } from '~/composables/planning/usePlanningParticipant'
+import {
+  buildLessonsByLocalDate,
+  filterLessonsForOpenSlot,
+  lessonHasActiveSubscriptionBadge,
+  toLocalYmd,
+} from '~/composables/planning/usePlanningLessonIndex'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
@@ -1844,34 +1850,8 @@ const pendingCertificateStudents = computed(() => {
   return list
 })
 
-function toLocalYmd(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function toLocalHm(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
 /** Index O(1) par jour local — évite de rescanner toute la fenêtre 8 sem. à chaque filtre. */
-const lessonsByLocalDate = computed(() => {
-  const map = new Map<string, Lesson[]>()
-  for (const lesson of lessons.value) {
-    if (!lesson?.start_time) continue
-    const d = new Date(lesson.start_time as string)
-    if (Number.isNaN(d.getTime())) continue
-    const key = toLocalYmd(d)
-    const bucket = map.get(key)
-    if (bucket) {
-      bucket.push(lesson)
-    } else {
-      map.set(key, [lesson])
-    }
-  }
-  return map
-})
+const lessonsByLocalDate = computed(() => buildLessonsByLocalDate(lessons.value))
 
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
@@ -1881,21 +1861,11 @@ const filteredLessons = computed(() => {
   }
 
   const slot = selectedSlot.value
-  const slotStartTime = formatTime(slot.start_time)
-  const slotEndTime = formatTime(slot.end_time)
-
   const candidates = selectedDate.value
     ? (lessonsByLocalDate.value.get(toLocalYmd(selectedDate.value)) ?? [])
     : lessons.value
 
-  return candidates.filter((lesson) => {
-    const lessonDate = new Date(lesson.start_time)
-    const lessonDay = lessonDate.getDay()
-    const lessonTime = toLocalHm(lessonDate)
-    const dayMatch = lessonDay === slot.day_of_week
-    const timeMatch = lessonTime >= slotStartTime && lessonTime < slotEndTime
-    return dayMatch && timeMatch
-  })
+  return filterLessonsForOpenSlot(candidates, slot, formatTime)
 })
 
 /**
@@ -5015,29 +4985,8 @@ function getLessonStudentTelHref(lesson: Lesson | null): string | null {
   return `tel:${cleaned}`
 }
 
-// Fonction pour vérifier si un cours a un abonnement actif
 function hasActiveSubscription(lesson: Lesson | null): boolean {
-  if (!lesson) return false
-  if (lesson.is_recurring_placeholder) return true
-
-  // Lien abo sur le cours (payload planning slim : subscription_instances: [{id}])
-  if ((lesson as any).subscription_instances?.length > 0) {
-    return true
-  }
-  
-  // Vérifier l'élève principal (payload complet historique)
-  if (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) {
-    return true
-  }
-  
-  // Vérifier les élèves de la relation many-to-many
-  if (lesson.students && Array.isArray(lesson.students)) {
-    return lesson.students.some((student: any) => 
-      student.subscription_instances && student.subscription_instances.length > 0
-    )
-  }
-  
-  return false
+  return lessonHasActiveSubscriptionBadge(lesson as any)
 }
 
 
