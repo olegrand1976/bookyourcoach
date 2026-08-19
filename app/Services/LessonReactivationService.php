@@ -75,6 +75,12 @@ class LessonReactivationService
             $lesson,
             &$reactivatedIds
         ) {
+            // Capturer le créneau avant réactivation : consumeLesson peut vider
+            // cancelled_subscription_instance_ids sur le même modèle Lesson.
+            $slotToRestore = $restoreRecurring
+                ? $this->findMatchingRecurringSlot($lesson)
+                : null;
+
             foreach ($lessons as $lessonToReactivate) {
                 $this->reactivateOneLesson(
                     $lessonToReactivate,
@@ -86,8 +92,8 @@ class LessonReactivationService
                 $reactivatedIds[] = $lessonToReactivate->id;
             }
 
-            if ($restoreRecurring) {
-                $this->restoreRecurringSlotIfNeeded($lesson);
+            if ($slotToRestore && $slotToRestore->status === 'cancelled') {
+                $slotToRestore->reactivate('Réactivé avec les cours annulés');
             }
         });
 
@@ -281,22 +287,44 @@ class LessonReactivationService
     {
         $lesson->loadMissing('subscriptionInstances');
         $start = Carbon::parse($lesson->start_time);
-        $dayOfWeek = $start->dayOfWeek;
+        $dayOfWeek = (int) $start->dayOfWeek;
         $timeStr = $start->format('H:i:s');
+        $timeHm = $start->format('H:i');
 
         $instanceIds = $lesson->cancelled_subscription_instance_ids
             ?? $lesson->subscriptionInstances->pluck('id')->all();
 
-        if ($instanceIds === [] || ! $lesson->student_id || ! $lesson->teacher_id) {
+        if (! is_array($instanceIds)) {
+            $instanceIds = [];
+        }
+        $instanceIds = array_values(array_filter(array_map('intval', $instanceIds)));
+
+        $studentId = $lesson->student_id
+            ?? $this->lessonDeletionService->resolveParticipantStudentId($lesson);
+
+        if ($instanceIds === [] || ! $studentId || ! $lesson->teacher_id) {
             return null;
         }
 
-        return SubscriptionRecurringSlot::query()
+        $candidates = SubscriptionRecurringSlot::query()
             ->whereIn('subscription_instance_id', $instanceIds)
-            ->where('student_id', $lesson->student_id)
+            ->where('student_id', $studentId)
             ->where('teacher_id', $lesson->teacher_id)
             ->where('day_of_week', $dayOfWeek)
-            ->whereRaw('TIME(start_time) = ?', [$timeStr])
-            ->first();
+            ->get();
+
+        return $candidates->first(function (SubscriptionRecurringSlot $slot) use ($timeStr, $timeHm) {
+            $raw = $slot->getAttributes()['start_time'] ?? $slot->start_time;
+            if ($raw instanceof Carbon) {
+                $slotTime = $raw->format('H:i:s');
+            } else {
+                $slotTime = substr((string) $raw, 0, 8);
+            }
+
+            return $slotTime === $timeStr
+                || substr($slotTime, 0, 5) === $timeHm
+                || (string) $raw === $timeStr
+                || (string) $raw === $timeHm;
+        });
     }
 }

@@ -415,9 +415,20 @@ const currentMonthLabel = computed(() => {
 })
 
 // Methods
+function isLessonOnClosureDay(lesson: { is_on_closure_day?: boolean }) {
+  return Boolean(lesson?.is_on_closure_day)
+}
+
+function isNonMaintainedLesson(lesson: { status?: string; is_on_closure_day?: boolean }) {
+  return lesson?.status === 'cancelled' || isLessonOnClosureDay(lesson)
+}
+
 const loadUpcomingLessons = async () => {
   try {
-    const params = { active_student_id: studentScopeStore.apiScopeParam }
+    const params: Record<string, unknown> = {
+      active_student_id: studentScopeStore.apiScopeParam,
+      include_cancelled: true,
+    }
     const response = await $api.get('/student/bookings', { params })
     if (response.data.success) {
       const bookings = response.data.data || []
@@ -428,7 +439,9 @@ const loadUpcomingLessons = async () => {
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && lessonDate <= oneMonthLater && ['confirmed', 'pending'].includes(lesson.status)
+          return lessonDate > now && lessonDate <= oneMonthLater
+            && ['confirmed', 'pending'].includes(lesson.status)
+            && !isLessonOnClosureDay(lesson)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(a.start_time)
@@ -439,7 +452,7 @@ const loadUpcomingLessons = async () => {
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && lessonDate <= oneMonthLater && lesson.status === 'cancelled'
+          return lessonDate > now && lessonDate <= oneMonthLater && isNonMaintainedLesson(lesson)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(b.start_time)
@@ -448,7 +461,7 @@ const loadUpcomingLessons = async () => {
         })
       cancellationsThisMonth.value = bookings
         .filter((lesson: any) => {
-          if (!lesson.start_time || lesson.status !== 'cancelled') return false
+          if (!lesson.start_time || !isNonMaintainedLesson(lesson)) return false
           const d = new Date(lesson.start_time)
           const today = new Date()
           return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
@@ -483,7 +496,7 @@ const loadUpcomingLessons = async () => {
         .filter((lesson: any) => {
           if (!lesson.start_time) return false
           const lessonDate = new Date(lesson.start_time)
-          return lessonDate > now && lessonDate <= oneMonthLater && lesson.status === 'cancelled'
+          return lessonDate > now && lessonDate <= oneMonthLater && isNonMaintainedLesson(lesson)
         })
         .sort((a: any, b: any) => {
           const dateA = new Date(b.start_time)
@@ -493,7 +506,7 @@ const loadUpcomingLessons = async () => {
       const today = new Date()
       cancellationsThisMonth.value = history
         .filter((lesson: any) => {
-          if (!lesson.start_time || lesson.status !== 'cancelled') return false
+          if (!lesson.start_time || !isNonMaintainedLesson(lesson)) return false
           const d = new Date(lesson.start_time)
           return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()
         })

@@ -38,7 +38,6 @@
             :selected-slot-id="selectedSlot?.id"
             @create-slot="openSlotModal()"
             @edit-slot="openSlotModal"
-            @delete-slot="(slot) => deleteSlot(slot.id)"
             @select-slot="handleSlotSelection"
           />
         </div>
@@ -1006,15 +1005,26 @@
           </div>
 
                 <!-- Boutons -->
-                <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
-                  <button type="button" @click="closeSlotModal"
-                          class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Annuler
-            </button>
-                  <button type="submit" :disabled="saving"
-                          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
-                    {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
-            </button>
+                <div class="flex items-center justify-between gap-3 mt-6 pt-4 border-t">
+                  <button
+                    v-if="editingSlot"
+                    type="button"
+                    @click="deleteSlotFromModal"
+                    class="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    Supprimer
+                  </button>
+                  <div v-else></div>
+                  <div class="flex gap-3">
+                    <button type="button" @click="closeSlotModal"
+                            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                      Annuler
+                    </button>
+                    <button type="submit" :disabled="saving"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                      {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+                    </button>
+                  </div>
           </div>
         </form>
             </div>
@@ -3399,6 +3409,11 @@ async function deleteSlot(id: number) {
     const { $api } = useNuxtApp()
     await $api.delete(`/club/open-slots/${id}`)
     planningDevLog('✅ Créneau supprimé')
+
+    if (selectedSlot.value?.id === id) {
+      selectedSlot.value = null
+    }
+    closeSlotModal()
     
     // Recharger la liste
     await loadOpenSlots()
@@ -3415,6 +3430,11 @@ async function deleteSlot(id: number) {
     
     showError(errorMessage, 'Erreur de suppression')
   }
+}
+
+async function deleteSlotFromModal() {
+  if (!editingSlot.value?.id) return
+  await deleteSlot(editingSlot.value.id)
 }
 
 async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, explicitDate?: string) {

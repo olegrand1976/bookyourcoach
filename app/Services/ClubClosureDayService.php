@@ -43,11 +43,11 @@ class ClubClosureDayService
 
             $notify = true;
 
-            $lessons = Lesson::query()
+            $lessonsQuery = Lesson::query()
                 ->where('club_id', $club->id)
-                ->whereDate('start_time', $dateYmd)
-                ->whereIn('status', ['pending', 'confirmed'])
-                ->get();
+                ->whereIn('status', ['pending', 'confirmed']);
+            LessonCalendarDate::whereOnCalendarDate($lessonsQuery, 'start_time', $dateYmd);
+            $lessons = $lessonsQuery->get();
 
             foreach ($lessons as $lesson) {
                 $instances = SubscriptionInstance::query()
@@ -115,26 +115,36 @@ class ClubClosureDayService
     }
 
     /**
-     * Exclut les cours tombant un jour de fermeture club (même club_id, même règle date que closeDay / whereDate).
+     * Exclut les cours tombant un jour de fermeture club (même club_id, même règle date que closeDay).
      */
     public function excludeClosedDaysFromQuery(Builder $query, string $lessonsTable = 'lessons'): void
     {
-        $lessonDateSql = $this->lessonStartDateSqlExpression($lessonsTable);
+        $this->applyClosureDayExistsSubquery($query, $lessonsTable, false);
+    }
 
-        $query->whereNotExists(function ($sub) use ($lessonsTable, $lessonDateSql) {
+    /**
+     * Ne garde que les cours tombant un jour de fermeture club.
+     */
+    public function includeOnlyClosedDaysFromQuery(Builder $query, string $lessonsTable = 'lessons'): void
+    {
+        $this->applyClosureDayExistsSubquery($query, $lessonsTable, true);
+    }
+
+    private function applyClosureDayExistsSubquery(Builder $query, string $lessonsTable, bool $match): void
+    {
+        $lessonDateSql = LessonCalendarDate::sqlDateExpression(
+            "{$lessonsTable}.start_time",
+            $query->getConnection()
+        );
+
+        $method = $match ? 'whereExists' : 'whereNotExists';
+
+        $query->{$method}(function ($sub) use ($lessonsTable, $lessonDateSql) {
             $sub->select(DB::raw(1))
                 ->from('club_closure_days')
                 ->whereColumn('club_closure_days.club_id', "{$lessonsTable}.club_id")
                 ->whereRaw("{$lessonDateSql} = DATE(club_closure_days.closed_on)");
         });
-    }
-
-    /**
-     * Expression SQL de la date calendaire du cours — alignée sur whereDate('start_time') et lessonStartDateYmd().
-     */
-    private function lessonStartDateSqlExpression(string $lessonsTable): string
-    {
-        return 'DATE('.$lessonsTable.'.start_time)';
     }
 
     /**
@@ -169,11 +179,6 @@ class ClubClosureDayService
 
     private function lessonStartDateYmd(Lesson $lesson): ?string
     {
-        if (! $lesson->start_time) {
-            return null;
-        }
-
-        // Aligné sur closeDay() → whereDate('start_time') et excludeClosedDaysFromQuery() → DATE(start_time).
-        return Carbon::parse($lesson->start_time)->toDateString();
+        return LessonCalendarDate::toYmd($lesson->start_time);
     }
 }

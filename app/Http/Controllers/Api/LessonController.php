@@ -181,6 +181,11 @@ class LessonController extends Controller
                 app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($query);
             }
 
+            // Élève : masquer les jours fermés (planning actif via GET /lessons).
+            if ($user->role === 'student') {
+                app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($query);
+            }
+
             // Filtres optionnels
             if ($request->filled('teacher_id') && $user->role === 'club') {
                 $query->where('teacher_id', (int) $request->teacher_id);

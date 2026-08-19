@@ -123,25 +123,26 @@ class DashboardController extends Controller
             ], 404);
         }
 
-        $studentId = $student->id;
+        $studentIds = $this->getActiveStudentIds($request);
+        if ($studentIds === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé.'
+            ], 404);
+        }
 
-        // Calcul des statistiques
-        $upcomingQuery = Lesson::where('student_id', $studentId)
+        // Calcul des statistiques (foyer : forParticipantStudents)
+        $upcomingQuery = Lesson::query()
+            ->forParticipantStudents($studentIds)
             ->where('status', 'confirmed')
             ->where('start_time', '>=', Carbon::now());
         app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($upcomingQuery);
         $upcoming_lessons = $upcomingQuery->count();
 
-        $completed_lessons = Lesson::where('student_id', $studentId)
+        $completed_lessons = Lesson::query()
+            ->forParticipantStudents($studentIds)
             ->where('status', 'completed')
             ->count();
-
-        $total_hours = Lesson::where('student_id', $studentId)
-            ->where('status', 'completed')
-            ->get()
-            ->sum(function ($lesson) {
-                return Carbon::parse($lesson->start_time)->diffInMinutes(Carbon::parse($lesson->end_time));
-            }) / 60; // Convertir les minutes en heures
 
         return response()->json([
             'success' => true,
@@ -151,8 +152,8 @@ class DashboardController extends Controller
                     ->count(),
                 'activeBookings' => $upcoming_lessons,
                 'completedLessons' => $completed_lessons,
-                'favoriteTeachers' => Teacher::whereHas('lessons', function ($q) use ($studentId) {
-                    $q->where('student_id', $studentId)
+                'favoriteTeachers' => Teacher::whereHas('lessons', function ($q) use ($studentIds) {
+                    $q->forParticipantStudents($studentIds)
                       ->where('status', 'completed');
                 })->distinct()->count()
             ]
@@ -879,16 +880,32 @@ class DashboardController extends Controller
             ], 404);
         }
 
-        // Historique : cours terminés et annulés
-        $lessons = Lesson::with([
-                'teacher.user', 'courseType', 'location', 'club',
-                'student.user', 'students.user',
-                'subscriptionInstances.students.user',
-            ])
+        // Historique : terminés, annulés, et cours actifs tombant un jour de fermeture club.
+        $closureDayService = app(ClubClosureDayService::class);
+        $relations = [
+            'teacher.user', 'courseType', 'location', 'club',
+            'student.user', 'students.user',
+            'subscriptionInstances.students.user',
+        ];
+
+        $standardHistory = Lesson::with($relations)
             ->forParticipantStudents($studentIds)
             ->whereIn('status', ['completed', 'cancelled'])
-            ->orderBy('start_time', 'desc')
             ->get();
+
+        $closureHistoryQuery = Lesson::with($relations)
+            ->forParticipantStudents($studentIds)
+            ->whereIn('status', ['confirmed', 'pending']);
+        $closureDayService->includeOnlyClosedDaysFromQuery($closureHistoryQuery);
+        $closureHistory = $closureHistoryQuery->get();
+
+        $lessons = $standardHistory
+            ->concat($closureHistory)
+            ->unique('id')
+            ->sortByDesc(fn ($lesson) => Carbon::parse($lesson->start_time)->timestamp)
+            ->values();
+
+        $closureDayService->flagLessonsOnClosureDays($lessons);
 
         // Contexte foyer : attribution de chaque cours à l'enfant concerné (cf. getBookings).
         $request->attributes->set('household_student_ids', $studentIds);

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Club;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Services\LessonCalendarDate;
 use App\Support\FrontendUrl;
 use App\Notifications\ClubClosureNotification;
 use Illuminate\Bus\Queueable;
@@ -34,12 +35,12 @@ class NotifyClubClosureRecipientsJob implements ShouldQueue
             return;
         }
 
-        $lessons = Lesson::query()
+        $lessonsQuery = Lesson::query()
             ->where('club_id', $this->clubId)
-            ->whereDate('start_time', $this->dateYmd)
             ->whereIn('status', ['pending', 'confirmed'])
-            ->with(['teacher.user', 'student.user', 'students.user'])
-            ->get();
+            ->with(['teacher.user', 'student.user', 'students.user']);
+        LessonCalendarDate::whereOnCalendarDate($lessonsQuery, 'start_time', $this->dateYmd);
+        $lessons = $lessonsQuery->get();
 
         $users = collect();
         foreach ($lessons as $lesson) {

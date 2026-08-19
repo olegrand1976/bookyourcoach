@@ -45,4 +45,15 @@ return [
         'max_alternatives_returned' => (int) env('RECURRING_PLANNING_ADVICE_MAX_ALTERNATIVES', 12),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Date calendaire des cours (fermeture club, filtres planning, récurrence)
+    |--------------------------------------------------------------------------
+    */
+    'lesson_calendar' => [
+        'timezone' => env('LESSON_CALENDAR_TIMEZONE', env('CLUB_DAILY_PLANNING_INSIGHT_TIMEZONE', 'Europe/Paris')),
+        // Par défaut identique au calendrier club : évite CONVERT_TZ MySQL si stockage naïf local.
+        'db_storage_timezone' => env('LESSON_DB_STORAGE_TIMEZONE', env('LESSON_CALENDAR_TIMEZONE', env('CLUB_DAILY_PLANNING_INSIGHT_TIMEZONE', 'Europe/Paris'))),
+    ],
+
 ];

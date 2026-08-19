@@ -625,18 +625,14 @@ class CommissionCalculationService
         foreach ($query->get(['club_id', 'closed_on']) as $row) {
             $closedKeys[$row->club_id.'|'.$row->closed_on->format('Y-m-d')] = true;
         }
-        $tz = (string) config(
-            'bookyourcoach.club_daily_planning_insight.timezone',
-            config('app.timezone')
-        );
 
-        return $lessons->filter(function (Lesson $lesson) use ($closedKeys, $tz) {
+        return $lessons->filter(function (Lesson $lesson) use ($closedKeys) {
             if (! $lesson->club_id || ! $lesson->start_time) {
                 return true;
             }
-            $ymd = $lesson->start_time->copy()->timezone((string) $tz)->format('Y-m-d');
+            $ymd = LessonCalendarDate::toYmd($lesson->start_time);
 
-            return empty($closedKeys[$lesson->club_id.'|'.$ymd]);
+            return $ymd !== null && empty($closedKeys[$lesson->club_id.'|'.$ymd]);
         })->values();
     }
 
@@ -709,17 +705,16 @@ class CommissionCalculationService
         array &$linesByTeacher,
         bool $appendDetailLines
     ): void {
-        $tz = (string) config(
-            'bookyourcoach.club_daily_planning_insight.timezone',
-            config('app.timezone')
-        );
         $byTeacherDay = [];
         foreach ($lessons as $lesson) {
             if (! $lesson->teacher_id || ! $lesson->start_time) {
                 continue;
             }
             $tid = (int) $lesson->teacher_id;
-            $day = $lesson->start_time->copy()->timezone((string) $tz)->format('Y-m-d');
+            $day = LessonCalendarDate::toYmd($lesson->start_time);
+            if ($day === null) {
+                continue;
+            }
             $byTeacherDay[$tid][$day][] = $lesson;
         }
 

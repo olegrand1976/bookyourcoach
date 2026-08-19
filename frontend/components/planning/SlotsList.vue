@@ -125,12 +125,6 @@
                     title="Modifier">
                     ✏️
                   </button>
-                  <button 
-                    @click.stop="$emit('delete-slot', slot)"
-                    class="flex-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Supprimer">
-                    🗑️
-                  </button>
                 </div>
               </div>
               
@@ -194,11 +188,6 @@
                 class="flex-1 px-3 py-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors font-medium">
                 ✏️ Modifier
               </button>
-              <button 
-                @click.stop="$emit('delete-slot', slot)"
-                class="flex-1 px-3 py-1.5 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors font-medium">
-                🗑️ Supprimer
-              </button>
             </div>
           </div>
         </div>
@@ -252,7 +241,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'create-slot': []
   'edit-slot': [slot: OpenSlot]
-  'delete-slot': [slot: OpenSlot]
   'select-slot': [slot: OpenSlot]
 }>()
 
@@ -290,8 +278,8 @@ function getSlotsByDay(dayOfWeek: number): OpenSlot[] {
 
 function handleSlotClick(slot: OpenSlot) {
   emit('select-slot', slot)
-  // Ne pas fermer le panneau : les actions Modifier / Supprimer sont dans la zone dépliée ;
-  // les refermer provoquait la « disparition » des boutons après sélection d’un créneau.
+  // Ne pas fermer le panneau : l'action Modifier reste dans la zone dépliée ;
+  // la refermer provoquait la « disparition » du bouton après sélection d’un créneau.
   // Sur très petit écran, replier libère de la place une fois le créneau choisi.
   if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
     isOpen.value = false

@@ -276,7 +276,7 @@ class LegacyRecurringSlotService
             return null;
         }
 
-        $closureDateYmd = $startTime->copy()->timezone(config('app.timezone'))->format('Y-m-d');
+        $closureDateYmd = LessonCalendarDate::toYmd($startTime);
         if (\App\Models\ClubClosureDay::clubIsClosedOn((int) $lastLesson->club_id, $closureDateYmd)) {
             Log::info('Lesson non générée : jour de fermeture club (legacy récurrence)', [
                 'recurring_slot_id' => $recurringSlot->id,
@@ -428,7 +428,7 @@ class LegacyRecurringSlotService
         }
 
         $clubId = (int) ($recurringSlot->subscriptionInstance?->subscription?->club_id ?? 0);
-        if ($clubId > 0 && ClubClosureDay::clubIsClosedOn($clubId, $dayStart->format('Y-m-d'))) {
+        if ($clubId > 0 && ClubClosureDay::clubIsClosedOn($clubId, LessonCalendarDate::toYmd($dayStart) ?? '')) {
             return [
                 'success' => false,
                 'lesson' => null,

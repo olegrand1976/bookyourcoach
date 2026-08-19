@@ -18,6 +18,7 @@ use Illuminate\Validation\Rule;
 use App\Notifications\TeacherWelcomeNotification;
 use App\Notifications\StudentWelcomeNotification;
 use App\Services\FamilyLinkService;
+use App\Services\LessonCalendarDate;
 use Carbon\Carbon;
 
 class StudentController extends Controller
@@ -232,7 +233,8 @@ class StudentController extends Controller
                 $courseTypeId = $lesson->course_type_id;
 
                 // Flag d'affichage : le cours tombe un jour de fermeture du club
-                $lesson->is_on_closure_day = $closureDates->has($lessonDate->toDateString());
+                $lessonYmd = LessonCalendarDate::toYmd($lesson->start_time);
+                $lesson->is_on_closure_day = $lessonYmd !== null && $closureDates->has($lessonYmd);
                 
                 // Par défaut, considérer comme couvert (pour les cours passés ou déjà liés à un abonnement)
                 $lesson->subscription_coverage = [

@@ -74,7 +74,7 @@ describe('Page de connexion', () => {
     it('a un bouton de soumission', () => {
         const submitButton = wrapper.find('button[type="submit"]')
         expect(submitButton.exists()).toBe(true)
-        expect(submitButton.text()).toContain('Se connecter')
+        expect(submitButton.text()).toContain('Connexion')
     })
 
     it('a une case à cocher "Se souvenir de moi"', () => {
