@@ -98,10 +98,10 @@
               <span 
                 :class="[
                   'px-3 py-1 text-xs md:text-sm font-medium rounded-full',
-                  getStatusClass(booking.status)
+                  bookingStatusClass(booking)
                 ]"
               >
-                {{ getStatusText(booking.status) }}
+                {{ bookingStatusText(booking) }}
               </span>
             </div>
 
@@ -254,8 +254,32 @@ const filteredBookings = computed(() => {
   if (selectedStatus.value === 'all') {
     return bookings.value
   }
+  if (selectedStatus.value === 'cancelled') {
+    return bookings.value.filter(isNonMaintainedBooking)
+  }
+  if (selectedStatus.value === 'confirmed') {
+    return bookings.value.filter((booking) => booking.status === 'confirmed' && !isOnClosureDay(booking))
+  }
   return bookings.value.filter(booking => booking.status === selectedStatus.value)
 })
+
+function isOnClosureDay(booking: any) {
+  return Boolean(booking.is_on_closure_day)
+}
+
+function isNonMaintainedBooking(booking: any) {
+  return booking.status === 'cancelled' || isOnClosureDay(booking)
+}
+
+function bookingStatusClass(booking: any) {
+  if (isOnClosureDay(booking)) return 'bg-orange-100 text-orange-800'
+  return getStatusClass(booking.status)
+}
+
+function bookingStatusText(booking: any) {
+  if (isOnClosureDay(booking)) return 'Fermeture club'
+  return getStatusText(booking.status)
+}
 
 // Methods
 const loadBookings = async () => {
@@ -292,7 +316,10 @@ const viewBookingDetails = (bookingId: number) => {
 
 const canCancel = (booking: any) => {
   const startTime = booking.start_time ?? booking.lesson?.start_time
-  return ['pending', 'confirmed'].includes(booking.status) && startTime && new Date(startTime) > new Date()
+  return ['pending', 'confirmed'].includes(booking.status)
+    && !isOnClosureDay(booking)
+    && startTime
+    && new Date(startTime) > new Date()
 }
 
 const canRate = (booking: any) => {

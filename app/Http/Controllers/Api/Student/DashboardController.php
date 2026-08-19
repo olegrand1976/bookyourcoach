@@ -15,6 +15,7 @@ use App\Models\Location;
 use App\Models\Club;
 use App\Models\SubscriptionInstance;
 use App\Models\LessonActionLog;
+use App\Services\ClubClosureDayService;
 use App\Services\LessonActionLogService;
 use App\Services\LessonCancellationAudit;
 use App\Notifications\LessonCancellationConfirmationNotification;
@@ -125,10 +126,11 @@ class DashboardController extends Controller
         $studentId = $student->id;
 
         // Calcul des statistiques
-        $upcoming_lessons = Lesson::where('student_id', $studentId)
+        $upcomingQuery = Lesson::where('student_id', $studentId)
             ->where('status', 'confirmed')
-            ->where('start_time', '>=', Carbon::now())
-            ->count();
+            ->where('start_time', '>=', Carbon::now());
+        app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($upcomingQuery);
+        $upcoming_lessons = $upcomingQuery->count();
 
         $completed_lessons = Lesson::where('student_id', $studentId)
             ->where('status', 'completed')
@@ -235,14 +237,31 @@ class DashboardController extends Controller
             ])
             ->forParticipantStudents($studentIds);
 
+        $includeCancelled = $request->boolean('include_cancelled', false);
+        $statusFilter = $request->input('status');
+        $closureDayService = app(ClubClosureDayService::class);
+
         if ($request->has('status')) {
-            $query->where('status', $request->status);
-        } elseif (! $request->boolean('include_cancelled', false)) {
-            // Planning student: hide cancelled lessons by default.
+            $query->where('status', $statusFilter);
+        } elseif (! $includeCancelled) {
             $query->where('status', '!=', 'cancelled');
         }
 
+        // Masquer les jours fermés dans les vues « actives » (planning, confirmed/pending).
+        $operationalView = ! $includeCancelled && (
+            ! $request->has('status')
+            || in_array($statusFilter, ['confirmed', 'pending'], true)
+        );
+
+        if ($operationalView) {
+            $closureDayService->excludeClosedDaysFromQuery($query);
+        }
+
         $bookings = $query->orderBy('start_time', 'desc')->get();
+
+        if (! $operationalView) {
+            $closureDayService->flagLessonsOnClosureDays($bookings);
+        }
 
         // Contexte foyer : permet à la Resource d'attribuer chaque cours à l'enfant concerné.
         $request->attributes->set('household_student_ids', $studentIds);

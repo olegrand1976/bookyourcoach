@@ -15,6 +15,7 @@ use App\Notifications\LessonCancelledNotification;
 use App\Services\LessonActionLogService;
 use App\Services\LessonBookingNotificationService;
 use App\Services\LessonCancellationAudit;
+use App\Services\ClubClosureDayService;
 use App\Services\LessonDeletionService;
 use App\Services\SubscriptionRecurringSlotRelocationService;
 use App\Models\LessonActionLog;
@@ -173,6 +174,11 @@ class LessonController extends Controller
             // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
             if (in_array($user->role, ['club', 'teacher'], true)) {
                 $query->where('status', '!=', 'cancelled');
+            }
+
+            // Enseignant : masquer aussi les cours sur un jour de fermeture club (le club les garde pour la grille).
+            if ($user->role === 'teacher') {
+                app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($query);
             }
 
             // Filtres optionnels

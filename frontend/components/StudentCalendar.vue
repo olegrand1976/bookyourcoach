@@ -11,7 +11,7 @@
             class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
             @change="loadCalendarEvents"
           >
-          Afficher les cours annulés
+          Afficher les cours annulés ou fermés
         </label>
         <button @click="toggleView('month')" 
           :class="['min-h-[44px] min-w-[44px] px-3 py-2 rounded-md text-sm font-medium transition-colors', 
@@ -89,14 +89,10 @@
             <div class="space-y-0.5 sm:space-y-1">
               <div v-for="event in day.events" :key="event.id" 
                 @click="selectEvent(event)"
-                :class="['text-xs p-1.5 sm:p-2 rounded cursor-pointer hover:opacity-90 transition-opacity min-h-[32px] flex flex-col justify-center leading-tight', 
-                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 
-                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800']"
+                :class="['text-xs p-1.5 sm:p-2 rounded cursor-pointer hover:opacity-90 transition-opacity min-h-[32px] flex flex-col justify-center leading-tight', eventCardClass(event)]"
                 :title="`${event.title} – ${formatTime(event.start)}`">
                 <span class="font-medium whitespace-nowrap">{{ formatTime(event.start) }}</span>
-                <span class="block truncate mt-0.5" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</span>
+                <span class="block truncate mt-0.5" :class="isNonMaintainedEvent(event) ? 'line-through' : ''">{{ event.title }}</span>
               </div>
             </div>
           </div>
@@ -120,13 +116,9 @@
                 v-for="event in dayInfo.events"
                 :key="event.id"
                 @click="selectEvent(event)"
-                :class="['p-3 rounded-lg cursor-pointer hover:opacity-90 transition-opacity',
-                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800']"
+                :class="['p-3 rounded-lg cursor-pointer hover:opacity-90 transition-opacity', eventCardClass(event)]"
               >
-                <p class="font-medium text-sm" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</p>
+                <p class="font-medium text-sm" :class="isNonMaintainedEvent(event) ? 'line-through' : ''">{{ event.title }}</p>
                 <p class="text-xs mt-0.5 text-gray-600">{{ formatTime(event.start) }} – {{ formatTime(event.end) }}</p>
               </div>
               <p v-if="dayInfo.events.length === 0" class="text-xs text-gray-400 py-2">Aucun cours</p>
@@ -155,16 +147,12 @@
                   v-for="event in getEventsForHourAndDay(hour, day)"
                   :key="event.id"
                   @click="selectEvent(event)"
-                  :class="['absolute left-1 right-1 p-2 rounded text-xs cursor-pointer hover:opacity-90 transition-opacity overflow-hidden flex flex-col justify-center',
-                    event.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                    event.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    event.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800']"
+                  :class="['absolute left-1 right-1 p-2 rounded text-xs cursor-pointer hover:opacity-90 transition-opacity overflow-hidden flex flex-col justify-center', eventCardClass(event)]"
                   :style="{ top: `${getEventPosition(event, hour)}px`, height: `${getEventHeight(event)}px` }"
                   :title="event.title"
                 >
                   <span class="font-medium">{{ formatTime(event.start) }}</span>
-                  <span class="truncate block" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</span>
+                  <span class="truncate block" :class="isNonMaintainedEvent(event) ? 'line-through' : ''">{{ event.title }}</span>
                 </div>
               </div>
             </div>
@@ -186,13 +174,9 @@
                 :key="event.id"
                 @click="selectEvent(event)"
                 class="min-h-[48px] flex flex-col justify-center"
-                :class="['p-3 sm:p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity',
-                  event.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 
-                  event.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                  event.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
-                  'bg-gray-100 text-gray-800 border border-gray-200']"
+                :class="['p-3 sm:p-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity', eventCardClass(event, true)]"
               >
-                <p class="font-medium" :class="event.status === 'cancelled' ? 'line-through' : ''">{{ event.title }}</p>
+                <p class="font-medium" :class="isNonMaintainedEvent(event) ? 'line-through' : ''">{{ event.title }}</p>
                 <p class="text-xs mt-1 text-gray-600">{{ formatTime(event.start) }} – {{ formatTime(event.end) }}</p>
               </div>
             </div>
@@ -240,14 +224,15 @@
             <span class="text-sm font-medium text-gray-500">Statut:</span>
             <span 
               :class="{
-                'bg-green-100 text-green-800': selectedEvent.status === 'confirmed',
+                'bg-green-100 text-green-800': selectedEvent.status === 'confirmed' && !selectedEvent.is_on_closure_day,
                 'bg-yellow-100 text-yellow-800': selectedEvent.status === 'pending',
                 'bg-gray-100 text-gray-800': selectedEvent.status === 'completed',
-                'bg-red-100 text-red-800': selectedEvent.status === 'cancelled'
+                'bg-red-100 text-red-800': selectedEvent.status === 'cancelled',
+                'bg-orange-100 text-orange-800': selectedEvent.is_on_closure_day,
               }"
               class="ml-2 inline-block px-2 py-1 text-xs font-medium rounded-full"
             >
-              {{ getStatusLabel(selectedEvent.status) }}
+              {{ getStatusLabel(selectedEvent) }}
             </span>
           </div>
           <template v-if="selectedEvent.status === 'cancelled'">
@@ -483,7 +468,11 @@ const formatPrice = (price) => {
   }).format(price)
 }
 
-const getStatusLabel = (status) => {
+const getStatusLabel = (eventOrStatus) => {
+  if (eventOrStatus && typeof eventOrStatus === 'object') {
+    if (eventOrStatus.is_on_closure_day) return 'Fermeture club'
+    return getStatusLabel(eventOrStatus.status)
+  }
   const labels = {
     'confirmed': 'Confirmé',
     'pending': 'En attente',
@@ -491,7 +480,26 @@ const getStatusLabel = (status) => {
     'cancelled': 'Annulé',
     'available': 'Disponible'
   }
-  return labels[status] || status
+  return labels[eventOrStatus] || eventOrStatus
+}
+
+const isNonMaintainedEvent = (event) => event.status === 'cancelled' || Boolean(event.is_on_closure_day)
+
+const eventCardClass = (event, withBorder = false) => {
+  const border = withBorder ? ' border' : ''
+  if (event.is_on_closure_day) {
+    return `${withBorder ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-orange-100 text-orange-800'}${border}`
+  }
+  if (event.status === 'confirmed') {
+    return `${withBorder ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-blue-100 text-blue-800'}${border}`
+  }
+  if (event.status === 'pending') {
+    return `${withBorder ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-yellow-100 text-yellow-800'}${border}`
+  }
+  if (event.status === 'cancelled') {
+    return `${withBorder ? 'bg-red-100 text-red-800 border-red-200' : 'bg-red-100 text-red-800'}${border}`
+  }
+  return `${withBorder ? 'bg-gray-100 text-gray-800 border-gray-200' : 'bg-gray-100 text-gray-800'}${border}`
 }
 
 
@@ -582,7 +590,7 @@ const loadCalendarEvents = async () => {
       events.value = lessons
         .filter(lesson => {
           if (!lesson.start_time) return false
-          if (!showCancelled.value && lesson.status === 'cancelled') return false
+          if (!showCancelled.value && (lesson.status === 'cancelled' || lesson.is_on_closure_day)) return false
           return true
         })
         .map(lesson => ({
@@ -594,6 +602,7 @@ const loadCalendarEvents = async () => {
           location: lesson.location,
           price: lesson.price,
           status: lesson.status,
+          is_on_closure_day: Boolean(lesson.is_on_closure_day),
           description: lesson.notes,
           notes: lesson.notes,
           course_type: lesson.course_type || lesson.courseType,

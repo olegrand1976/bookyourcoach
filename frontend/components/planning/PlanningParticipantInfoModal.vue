@@ -73,10 +73,10 @@
                 {{ quarterPeriodLabel }}
               </p>
               <p
-                v-if="type === 'student' && cancelledLessonsCount > 0"
+                v-if="type === 'student' && nonMaintainedLessonsCount > 0"
                 class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
               >
-                {{ cancelledLessonsCount }} cours annulé{{ cancelledLessonsCount > 1 ? 's' : '' }} ou supprimé{{ cancelledLessonsCount > 1 ? 's' : '' }} sur la période
+                {{ nonMaintainedLessonsCount }} cours non maintenu{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} ou supprimé{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} sur la période
               </p>
               <p v-if="displayedLessons.length === 0" class="text-sm text-gray-500 py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
                 {{ type === 'student' ? 'Aucun cours sur ce trimestre.' : 'Aucun cours prévu sur cette période.' }}
@@ -90,7 +90,7 @@
                 >
                   <div class="flex flex-wrap items-start justify-between gap-2">
                     <div class="min-w-0">
-                      <p class="font-medium text-gray-900">
+                      <p class="font-medium text-gray-900" :class="lessonIsNonMaintained(lesson) ? 'line-through' : ''">
                         {{ formatLessonDate(lesson.start_time) }}
                         <span class="text-gray-500 font-normal">
                           · {{ formatLessonTime(lesson.start_time) }} – {{ formatLessonTime(lesson.end_time) }}
@@ -277,10 +277,14 @@ const displayedLessons = computed(() => {
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 })
 
-const cancelledLessonsCount = computed(() => {
+const nonMaintainedLessonsCount = computed(() => {
   if (props.type !== 'student') return 0
-  return displayedLessons.value.filter((lesson) => lesson.status === 'cancelled' || lesson.deleted_at).length
+  return displayedLessons.value.filter((lesson) => lessonIsNonMaintained(lesson) || lesson.deleted_at).length
 })
+
+function lessonIsNonMaintained(lesson: { status?: string; is_on_closure_day?: boolean }) {
+  return lesson.status === 'cancelled' || Boolean(lesson.is_on_closure_day)
+}
 
 const contactRows = computed(() => {
   if (props.type === 'student') {

@@ -16,6 +16,7 @@ use App\Models\Teacher;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -362,5 +363,220 @@ class ClubClosureDayTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    /**
+     * @return array{club: \App\Models\Club, teacher: Teacher, student: Student, day: string, lesson: Lesson}
+     */
+    private function seedStudentLessonOnFutureDay(): array
+    {
+        $studentUser = \App\Models\User::factory()->create([
+            'role' => 'student',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $student = Student::factory()->create(['user_id' => $studentUser->id]);
+
+        $clubUser = $this->actingAsClub();
+        $club = $clubUser->getFirstClub();
+        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $day = Carbon::now()->addDays(12)->format('Y-m-d');
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($student)
+            ->confirmed()
+            ->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $day.' 10:00:00',
+                'end_time' => $day.' 11:00:00',
+            ]);
+
+        return [
+            'club' => $club,
+            'teacher' => $teacher,
+            'student' => $student,
+            'studentUser' => $studentUser,
+            'clubUser' => $clubUser,
+            'day' => $day,
+            'lesson' => $lesson,
+        ];
+    }
+
+    #[Test]
+    public function closure_day_hides_lessons_from_student_bookings_by_default(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/bookings');
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($seed['lesson']->id, $ids);
+        $this->assertSame('confirmed', $seed['lesson']->fresh()->status);
+    }
+
+    #[Test]
+    public function closure_day_lessons_visible_with_include_cancelled_and_flagged(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/bookings?include_cancelled=true');
+        $response->assertStatus(200);
+
+        $row = collect($response->json('data'))->firstWhere('id', $seed['lesson']->id);
+        $this->assertNotNull($row);
+        $this->assertTrue((bool) $row['is_on_closure_day']);
+        $this->assertSame('confirmed', $row['status']);
+    }
+
+    #[Test]
+    public function reopening_closure_day_restores_student_booking_visibility(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => false,
+        ])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/bookings');
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($seed['lesson']->id, $ids);
+    }
+
+    #[Test]
+    public function closure_day_on_club_a_does_not_hide_lesson_on_club_b_same_date(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $otherClub = \App\Models\Club::factory()->create();
+        $otherTeacher = Teacher::factory()->create(['club_id' => $otherClub->id]);
+        $otherLesson = Lesson::factory()
+            ->forClub($otherClub)
+            ->forTeacher($otherTeacher)
+            ->forStudent($seed['student'])
+            ->confirmed()
+            ->create([
+                'course_type_id' => $seed['lesson']->course_type_id,
+                'location_id' => $seed['lesson']->location_id,
+                'start_time' => $seed['day'].' 14:00:00',
+                'end_time' => $seed['day'].' 15:00:00',
+            ]);
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/bookings');
+        $ids = collect($response->json('data'))->pluck('id')->all();
+
+        $this->assertNotContains($seed['lesson']->id, $ids);
+        $this->assertContains($otherLesson->id, $ids);
+    }
+
+    #[Test]
+    public function club_lessons_index_still_includes_lessons_on_closure_day(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        $response = $this->getJson('/api/lessons?date_from='.$seed['day'].'&date_to='.$seed['day']);
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($seed['lesson']->id, $ids);
+    }
+
+    #[Test]
+    public function teacher_lessons_index_excludes_lessons_on_closure_day(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        $teacherUser = \App\Models\User::factory()->create([
+            'role' => 'teacher',
+            'status' => 'active',
+            'is_active' => true,
+        ]);
+        $seed['teacher']->update(['user_id' => $teacherUser->id]);
+
+        Sanctum::actingAs($teacherUser);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/lessons?date_from='.$seed['day'].'&date_to='.$seed['day']);
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($seed['lesson']->id, $ids);
+    }
+
+    #[Test]
+    public function closure_day_hides_lessons_from_student_bookings_with_confirmed_status_filter(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $seed['day'],
+            'closed' => true,
+        ])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/bookings?status=confirmed');
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($seed['lesson']->id, $ids);
     }
 }

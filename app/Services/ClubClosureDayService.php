@@ -8,6 +8,8 @@ use App\Models\ClubClosureDay;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -97,15 +99,81 @@ class ClubClosureDayService
 
     public function shouldSkipSubscriptionConsumption(Lesson $lesson): bool
     {
+        return $this->isLessonOnClosureDay($lesson);
+    }
+
+    public function isLessonOnClosureDay(Lesson $lesson): bool
+    {
         $clubId = $lesson->club_id;
-        if (!$clubId || !$lesson->start_time) {
+        if (! $clubId || ! $lesson->start_time) {
             return false;
         }
 
-        $ymd = Carbon::parse($lesson->start_time)
-            ->timezone(config('app.timezone'))
-            ->format('Y-m-d');
+        $ymd = $this->lessonStartDateYmd($lesson);
 
-        return ClubClosureDay::clubIsClosedOn((int) $clubId, $ymd);
+        return $ymd !== null && ClubClosureDay::clubIsClosedOn((int) $clubId, $ymd);
+    }
+
+    /**
+     * Exclut les cours tombant un jour de fermeture club (même club_id, même règle date que closeDay / whereDate).
+     */
+    public function excludeClosedDaysFromQuery(Builder $query, string $lessonsTable = 'lessons'): void
+    {
+        $lessonDateSql = $this->lessonStartDateSqlExpression($lessonsTable);
+
+        $query->whereNotExists(function ($sub) use ($lessonsTable, $lessonDateSql) {
+            $sub->select(DB::raw(1))
+                ->from('club_closure_days')
+                ->whereColumn('club_closure_days.club_id', "{$lessonsTable}.club_id")
+                ->whereRaw("{$lessonDateSql} = DATE(club_closure_days.closed_on)");
+        });
+    }
+
+    /**
+     * Expression SQL de la date calendaire du cours — alignée sur whereDate('start_time') et lessonStartDateYmd().
+     */
+    private function lessonStartDateSqlExpression(string $lessonsTable): string
+    {
+        return 'DATE('.$lessonsTable.'.start_time)';
+    }
+
+    /**
+     * @param  Collection<int, Lesson>  $lessons
+     * @return Collection<int, Lesson>
+     */
+    public function flagLessonsOnClosureDays(Collection $lessons): Collection
+    {
+        if ($lessons->isEmpty()) {
+            return $lessons;
+        }
+
+        $clubIds = $lessons->pluck('club_id')->filter()->unique()->values()->all();
+
+        $closureDatesByClub = ClubClosureDay::query()
+            ->whereIn('club_id', $clubIds)
+            ->get()
+            ->groupBy('club_id')
+            ->map(fn (Collection $rows) => $rows
+                ->mapWithKeys(fn (ClubClosureDay $row) => [
+                    Carbon::parse($row->closed_on)->toDateString() => true,
+                ]));
+
+        return $lessons->each(function (Lesson $lesson) use ($closureDatesByClub) {
+            $ymd = $this->lessonStartDateYmd($lesson);
+            $clubDates = $closureDatesByClub->get((int) $lesson->club_id);
+            $lesson->is_on_closure_day = $ymd !== null
+                && $clubDates instanceof Collection
+                && $clubDates->has($ymd);
+        });
+    }
+
+    private function lessonStartDateYmd(Lesson $lesson): ?string
+    {
+        if (! $lesson->start_time) {
+            return null;
+        }
+
+        // Aligné sur closeDay() → whereDate('start_time') et excludeClosedDaysFromQuery() → DATE(start_time).
+        return Carbon::parse($lesson->start_time)->toDateString();
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Availability;
 use App\Models\Student;
 use App\Models\CourseType;
 use App\Models\Location;
+use App\Services\ClubClosureDayService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -42,9 +43,12 @@ class DashboardController extends Controller
 
         // Requête de base pour les leçons du prof
         $lessons = Lesson::where('teacher_id', $teacher->id);
+        $closureDayService = app(ClubClosureDayService::class);
 
         // Stats générales
-        $today_lessons = (clone $lessons)->where('status', 'confirmed')->whereDate('start_time', $now->toDateString())->count();
+        $todayLessonsQuery = (clone $lessons)->where('status', 'confirmed')->whereDate('start_time', $now->toDateString());
+        $closureDayService->excludeClosedDaysFromQuery($todayLessonsQuery);
+        $today_lessons = $todayLessonsQuery->count();
         $active_students = (clone $lessons)->whereIn('status', ['confirmed', 'completed'])->distinct('student_id')->count('student_id');
         $monthly_earnings = (clone $lessons)->where('status', 'completed')->whereBetween('start_time', [$startOfMonth, $endOfMonth])->sum('price');
 
@@ -52,7 +56,9 @@ class DashboardController extends Controller
         $average_rating = 0;
 
         // Stats de la semaine
-        $week_lessons = (clone $lessons)->where('status', 'confirmed')->whereBetween('start_time', [$startOfWeek, $endOfWeek])->count();
+        $weekLessonsQuery = (clone $lessons)->where('status', 'confirmed')->whereBetween('start_time', [$startOfWeek, $endOfWeek]);
+        $closureDayService->excludeClosedDaysFromQuery($weekLessonsQuery);
+        $week_lessons = $weekLessonsQuery->count();
         $week_hours = (clone $lessons)->where('status', 'completed')->whereBetween('start_time', [$startOfWeek, $endOfWeek])->get()->sum(function ($lesson) {
             return Carbon::parse($lesson->start_time)->diffInMinutes(Carbon::parse($lesson->end_time));
         }) / 60;
@@ -62,11 +68,13 @@ class DashboardController extends Controller
         $new_students = (clone $lessons)->where('created_at', '>=', $now->subMonth())->distinct('student_id')->count('student_id');
 
         // --- Prochains cours ---
-        $upcomingLessons = (clone $lessons)->with('student.user') // Charger l'élève et son utilisateur associé
+        $upcomingLessonsQuery = (clone $lessons)->with('student.user')
             ->where('status', 'confirmed')
             ->where('start_time', '>=', $now)
             ->orderBy('start_time', 'asc')
-            ->limit(5)
+            ->limit(5);
+        $closureDayService->excludeClosedDaysFromQuery($upcomingLessonsQuery);
+        $upcomingLessons = $upcomingLessonsQuery
             ->get()
             ->map(function ($lesson) {
                 return [
@@ -104,6 +112,8 @@ class DashboardController extends Controller
 
         $query = Lesson::with(['student.user', 'students.user', 'courseType', 'location', 'club'])
             ->where('teacher_id', $teacherId);
+
+        app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($query);
 
         if ($request->has('status')) {
             $query->where('status', $request->status);

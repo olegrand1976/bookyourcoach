@@ -39,6 +39,7 @@ class StudentLessonCalendarResource extends JsonResource
             'start_time' => $lesson->start_time?->toIso8601String(),
             'end_time' => $lesson->end_time?->toIso8601String(),
             'status' => $lesson->status,
+            'is_on_closure_day' => (bool) ($lesson->is_on_closure_day ?? false),
             'price' => $lesson->price,
             'payment_status' => $lesson->payment_status,
             'notes' => self::sanitizeNotesForStudent($lesson->notes),
