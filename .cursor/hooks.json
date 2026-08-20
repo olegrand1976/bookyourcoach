@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": ".cursor/hooks/graphify-update.sh",
+        "matcher": "Write|StrReplace|EditNotebook|Delete",
+        "timeout": 60
+      }
+    ]
+  }
+}
