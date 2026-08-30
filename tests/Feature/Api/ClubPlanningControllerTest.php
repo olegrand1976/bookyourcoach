@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use App\Models\Club;
+use App\Models\ClubClosureDay;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use App\Models\Teacher;
@@ -704,6 +705,11 @@ class ClubPlanningControllerTest extends TestCase
                     foreach ($day['plages'] ?? [] as $plage) {
                         if (($plage['time'] ?? '') === '10:00' && (int) ($plage['occupied'] ?? 0) >= 1) {
                             $foundOccupied = true;
+                            $this->assertNotEmpty($plage['lessons'] ?? [], 'La plage occupée doit exposer lessons[]');
+                            $this->assertSame(
+                                (int) Lesson::where('club_id', $this->club->id)->where('start_time', $date.' 10:00:00')->value('id'),
+                                (int) ($plage['lessons'][0]['id'] ?? 0)
+                            );
                         }
                     }
                 }
@@ -711,5 +717,100 @@ class ClubPlanningControllerTest extends TestCase
         }
 
         $this->assertTrue($foundOccupied, 'La plage 10:00 du créneau doit compter 1 occupation');
+    }
+
+    #[Test]
+    public function availability_by_week_marks_closure_days(): void
+    {
+        $date = Carbon::now()->next($this->openSlot->day_of_week)->format('Y-m-d');
+        if (Carbon::parse($date)->lt(Carbon::now()->startOfWeek())) {
+            $date = Carbon::parse($date)->addWeek()->format('Y-m-d');
+        }
+
+        ClubClosureDay::create([
+            'club_id' => $this->club->id,
+            'closed_on' => $date,
+        ]);
+
+        $response = $this->getJson('/api/club/planning/availability-by-week?weeks=2');
+
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $foundClosure = false;
+        foreach ($response->json('weeks') as $week) {
+            foreach ($week['slots'] ?? [] as $slot) {
+                if ((int) ($slot['slot_id'] ?? 0) !== (int) $this->openSlot->id) {
+                    continue;
+                }
+                foreach ($slot['dates'] ?? [] as $day) {
+                    if (($day['date'] ?? '') !== $date) {
+                        continue;
+                    }
+                    $this->assertTrue((bool) ($day['is_closure_day'] ?? false));
+                    $foundClosure = true;
+                }
+            }
+        }
+
+        $this->assertTrue($foundClosure, 'La date de congés doit être signalée is_closure_day');
+    }
+
+    #[Test]
+    public function availability_by_week_includes_pivot_students_in_lesson_name(): void
+    {
+        $date = Carbon::now()->next($this->openSlot->day_of_week)->format('Y-m-d');
+        if (Carbon::parse($date)->lt(Carbon::now()->startOfWeek())) {
+            $date = Carbon::parse($date)->addWeek()->format('Y-m-d');
+        }
+
+        $pivotUser = User::create([
+            'name' => 'Pivot Élève',
+            'email' => 'pivot-student@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'student',
+        ]);
+        $pivotStudent = Student::create([
+            'user_id' => $pivotUser->id,
+        ]);
+
+        $lesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => null,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $date.' 10:00:00',
+            'end_time' => $date.' 11:00:00',
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $lesson->students()->attach($pivotStudent->id);
+
+        $response = $this->getJson('/api/club/planning/availability-by-week?weeks=2');
+        $response->assertStatus(200);
+
+        $found = false;
+        foreach ($response->json('weeks') as $week) {
+            foreach ($week['slots'] ?? [] as $slot) {
+                if ((int) ($slot['slot_id'] ?? 0) !== (int) $this->openSlot->id) {
+                    continue;
+                }
+                foreach ($slot['dates'] ?? [] as $day) {
+                    if (($day['date'] ?? '') !== $date) {
+                        continue;
+                    }
+                    foreach ($day['plages'] ?? [] as $plage) {
+                        if (($plage['time'] ?? '') !== '10:00') {
+                            continue;
+                        }
+                        $this->assertNotEmpty($plage['lessons'] ?? []);
+                        $this->assertStringContainsString('Pivot Élève', (string) ($plage['lessons'][0]['student_name'] ?? ''));
+                        $found = true;
+                    }
+                }
+            }
+        }
+
+        $this->assertTrue($found, 'Le nom du participant pivot doit apparaître dans student_name');
     }
 }

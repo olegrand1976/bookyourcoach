@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Club;
+use App\Models\ClubClosureDay;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
@@ -424,17 +425,36 @@ class ClubPlanningController extends Controller
             ->groupBy('open_slot_id');
 
         // Une seule query lessons sur tout l'horizon + index date|heure (évite 1 get()/semaine + filter O(L))
-        $rangeStart = $weekStart->format('Y-m-d').' 00:00:00';
-        $rangeEnd = $weekStart->copy()->addWeeks($weeksCount - 1)->endOfWeek()->format('Y-m-d').' 23:59:59';
-        $occupancyIndex = [];
+        $rangeStartYmd = $weekStart->format('Y-m-d');
+        $rangeEndYmd = $weekStart->copy()->addWeeks($weeksCount - 1)->endOfWeek()->format('Y-m-d');
+        $rangeStart = $rangeStartYmd.' 00:00:00';
+        $rangeEnd = $rangeEndYmd.' 23:59:59';
+
+        $closureDates = ClubClosureDay::query()
+            ->where('club_id', $clubId)
+            ->whereBetween('closed_on', [$rangeStartYmd, $rangeEndYmd])
+            ->get()
+            ->mapWithKeys(fn (ClubClosureDay $row) => [$row->closed_on->format('Y-m-d') => true])
+            ->all();
+
+        /** @var array<string, list<array<string, mixed>>> $occupancyLessons */
+        $occupancyLessons = [];
         $allLessons = Lesson::where('club_id', $clubId)
             ->where('status', '!=', 'cancelled')
             ->whereBetween('start_time', [$rangeStart, $rangeEnd])
-            ->get(['id', 'start_time']);
+            ->with(['teacher.user', 'student.user', 'students.user', 'courseType:id,name'])
+            ->get(['id', 'start_time', 'status', 'teacher_id', 'student_id', 'course_type_id']);
         foreach ($allLessons as $lesson) {
             $dt = Carbon::parse($lesson->start_time);
             $key = $dt->format('Y-m-d').'|'.$dt->format('H:i');
-            $occupancyIndex[$key] = ($occupancyIndex[$key] ?? 0) + 1;
+            $occupancyLessons[$key][] = [
+                'id' => (int) $lesson->id,
+                'start_time' => $dt->format('Y-m-d H:i:s'),
+                'status' => (string) $lesson->status,
+                'teacher_name' => $this->personDisplayName($lesson->teacher),
+                'student_name' => $this->lessonStudentsDisplayName($lesson),
+                'course_type' => $lesson->courseType?->name,
+            ];
         }
 
         // Pré-calcul par créneau (indépendant de la semaine)
@@ -475,10 +495,12 @@ class ClubPlanningController extends Controller
                 $datesDetail = [];
 
                 foreach ($dates as $date) {
+                    $isClosureDay = isset($closureDates[$date]);
                     $plages = [];
                     for ($min = $slotStartMinutes; $min + $timeStep <= $slotEndMinutes; $min += $timeStep) {
                         $timeStr = $this->minutesToTime($min);
-                        $occupied = $occupancyIndex[$date.'|'.$timeStr] ?? 0;
+                        $lessonsAtPlage = $occupancyLessons[$date.'|'.$timeStr] ?? [];
+                        $occupied = count($lessonsAtPlage);
                         $remaining = max(0, $maxSlots - $occupied);
                         $isRecurringPlage = $this->isTimeInRecurringRanges($timeStr, $recurringForSlot);
                         $plages[] = [
@@ -487,11 +509,13 @@ class ClubPlanningController extends Controller
                             'occupied' => $occupied,
                             'remaining' => $remaining,
                             'is_recurring' => $isRecurringPlage,
+                            'lessons' => $lessonsAtPlage,
                         ];
                     }
                     $datesDetail[] = [
                         'date' => $date,
                         'day_of_week' => $slot->day_of_week,
+                        'is_closure_day' => $isClosureDay,
                         'plages' => $plages,
                     ];
                 }
@@ -537,6 +561,49 @@ class ClubPlanningController extends Controller
         $hours = floor($minutes / 60);
         $mins = $minutes % 60;
         return sprintf('%02d:%02d', $hours, $mins);
+    }
+
+    /**
+     * Nom affichable moniteur / élève (user.name sinon prénom+nom).
+     */
+    private function personDisplayName(mixed $model): ?string
+    {
+        if ($model === null) {
+            return null;
+        }
+
+        $fromUser = $model->user?->name ?? null;
+        if (is_string($fromUser) && trim($fromUser) !== '') {
+            return trim($fromUser);
+        }
+
+        $fromParts = trim(($model->first_name ?? '').' '.($model->last_name ?? ''));
+
+        return $fromParts !== '' ? $fromParts : null;
+    }
+
+    /**
+     * Élève principal + participants pivot (cours collectif), dédupliqués.
+     */
+    private function lessonStudentsDisplayName(Lesson $lesson): ?string
+    {
+        $names = [];
+        $primary = $this->personDisplayName($lesson->student);
+        if ($primary !== null) {
+            $names[$primary] = true;
+        }
+        foreach ($lesson->students ?? [] as $participant) {
+            $name = $this->personDisplayName($participant);
+            if ($name !== null) {
+                $names[$name] = true;
+            }
+        }
+
+        if ($names === []) {
+            return null;
+        }
+
+        return implode(', ', array_keys($names));
     }
 
     /**
