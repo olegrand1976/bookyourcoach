@@ -218,7 +218,7 @@
         class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
       >
         <div class="overflow-x-auto">
-          <table class="min-w-[960px] w-full text-sm text-left">
+          <table class="min-w-[1080px] w-full text-sm text-left">
             <thead class="text-xs font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
               <tr>
                 <th scope="col" class="px-3 py-3 whitespace-nowrap">
@@ -244,6 +244,9 @@
                 </th>
                 <th scope="col" class="px-3 py-3 whitespace-nowrap">
                   Statut
+                </th>
+                <th scope="col" class="px-3 py-3 whitespace-nowrap">
+                  Dernière génération
                 </th>
                 <th scope="col" class="px-3 py-3 max-w-[10rem]">
                   Notes
@@ -287,6 +290,10 @@
                   >
                     {{ getStatusLabel(slot.status) }}
                   </span>
+                </td>
+                <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap tabular-nums text-xs sm:text-sm">
+                  <span v-if="slot.last_generated_at">{{ formatDateTime(slot.last_generated_at) }}</span>
+                  <span v-else class="text-gray-400">—</span>
                 </td>
                 <td class="px-3 py-2.5 text-gray-600 text-xs max-w-[10rem]">
                   <span
@@ -784,6 +791,17 @@ function formatDate(date) {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
+  })
+}
+
+function formatDateTime(date) {
+  if (!date) return '—'
+  return new Date(date).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   })
 }
 

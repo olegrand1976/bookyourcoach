@@ -32,6 +32,7 @@ class SubscriptionRecurringSlot extends Model
         'end_date',    // Utilise end_date au lieu de expires_at
         'status',
         'notes',
+        'last_generated_at',
     ];
 
     protected $casts = [
@@ -39,6 +40,7 @@ class SubscriptionRecurringSlot extends Model
         'recurring_interval' => 'integer',
         'start_date' => 'date',
         'end_date' => 'date',
+        'last_generated_at' => 'datetime',
     ];
     
     // Alias pour compatibilité avec le code

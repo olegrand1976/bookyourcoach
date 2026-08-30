@@ -148,6 +148,8 @@ class LegacyRecurringSlotService
             }
         }
 
+        $recurringSlot->forceFill(['last_generated_at' => now()])->save();
+
         return $stats;
     }
 
@@ -478,6 +480,8 @@ class LegacyRecurringSlotService
                 'message' => 'Impossible de générer le cours (conflit ou contrainte). Réessayez ou créez le cours manuellement.',
             ];
         }
+
+        $recurringSlot->forceFill(['last_generated_at' => now()])->save();
 
         return [
             'success' => true,
