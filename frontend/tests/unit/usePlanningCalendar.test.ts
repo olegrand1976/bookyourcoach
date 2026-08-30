@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import {
   assertMonthCountsMatchIndex,
   buildCalendarLessonCounts,
-  buildKanbanHourAlignedRows,
+  buildKanbanPlageAlignedRows,
   calendarPeriodOverlapsPlanningWindow,
   groupLessonsByYmdForSlot,
   listSlotOccurrenceDates,
@@ -336,80 +336,172 @@ describe('groupLessonsByYmdForSlot', () => {
   })
 })
 
-describe('buildKanbanHourAlignedRows', () => {
-  const studentKey = (l: { student?: { user?: { name?: string } } }) =>
-    l.student?.user?.name ?? ''
+describe('buildKanbanPlageAlignedRows', () => {
+  const opts = {
+    getStudentRowKey: (l: { student_id?: number; id?: number; student?: { user?: { name?: string } } }) =>
+      l.student_id != null ? `id:${l.student_id}` : `name:${l.student?.user?.name ?? l.id}`,
+    getStudentSortKey: (l: { student?: { user?: { name?: string } } }) => l.student?.user?.name ?? '',
+  }
 
-  it('aligne les bandes : padding null si une colonne a plus de cours à la même heure', () => {
+  it('Tom même ligne à 16:40, null le jour absent', () => {
+    const columns = [
+      {
+        ymd: '2026-09-02',
+        lessons: [
+          { id: 1, student_id: 10, start_time: '2026-09-02T16:40:00', end_time: '2026-09-02T17:00:00', student: { user: { name: 'Tom Broucke' } } },
+          { id: 2, student_id: 11, start_time: '2026-09-02T16:00:00', end_time: '2026-09-02T16:20:00', student: { user: { name: 'Sarah' } } },
+        ],
+      },
+      {
+        ymd: '2026-09-09',
+        lessons: [
+          { id: 3, student_id: 10, start_time: '2026-09-09T16:40:00', end_time: '2026-09-09T17:00:00', student: { user: { name: 'Tom Broucke' } } },
+        ],
+      },
+      {
+        ymd: '2026-09-16',
+        lessons: [
+          { id: 4, student_id: 11, start_time: '2026-09-16T16:00:00', end_time: '2026-09-16T16:20:00', student: { user: { name: 'Sarah' } } },
+        ],
+      },
+    ]
+    const { plages, byYmd } = buildKanbanPlageAlignedRows(columns, opts)
+    expect(plages.map((p) => p.key)).toEqual(['16:00', '16:40'])
+    expect(plages[0].label).toBe('16:00 – 16:20')
+    expect(plages[1].label).toBe('16:40 – 17:00')
+
+    const band1640Keys = byYmd['2026-09-02'].find((b) => b.plageKey === '16:40')!.rowKeys
+    const tomIdx = band1640Keys.indexOf('id:10')
+    expect(tomIdx).toBeGreaterThanOrEqual(0)
+
+    for (const ymd of ['2026-09-02', '2026-09-09', '2026-09-16'] as const) {
+      const band = byYmd[ymd].find((b) => b.plageKey === '16:40')!
+      expect(band.rowKeys).toEqual(band1640Keys)
+      expect(band.slots).toHaveLength(band1640Keys.length)
+    }
+    expect(byYmd['2026-09-02'].find((b) => b.plageKey === '16:40')!.slots[tomIdx]?.id).toBe(1)
+    expect(byYmd['2026-09-09'].find((b) => b.plageKey === '16:40')!.slots[tomIdx]?.id).toBe(3)
+    expect(byYmd['2026-09-16'].find((b) => b.plageKey === '16:40')!.slots[tomIdx]).toBeNull()
+  })
+
+  it('sépare les plages 16:00 et 16:20 (pas une seule bande 16h)', () => {
     const columns = [
       {
         ymd: '2026-05-09',
         lessons: [
-          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'A' } } },
-          { id: 2, start_time: '2026-05-09T16:15:00', student: { user: { name: 'B' } } },
-          { id: 3, start_time: '2026-05-09T16:30:00', student: { user: { name: 'C' } } },
-          { id: 4, start_time: '2026-05-09T16:40:00', student: { user: { name: 'D' } } },
-          { id: 5, start_time: '2026-05-09T16:50:00', student: { user: { name: 'E' } } },
+          { id: 1, student_id: 1, start_time: '2026-05-09T16:00:00', end_time: '2026-05-09T16:20:00', student: { user: { name: 'Alice' } } },
+          { id: 2, student_id: 2, start_time: '2026-05-09T16:20:00', end_time: '2026-05-09T16:40:00', student: { user: { name: 'Bob' } } },
+        ],
+      },
+    ]
+    const { plages } = buildKanbanPlageAlignedRows(columns, opts)
+    expect(plages.map((p) => p.key)).toEqual(['16:00', '16:20'])
+  })
+
+  it('trie les élèves alpha dans une plage', () => {
+    const columns = [
+      {
+        ymd: '2026-05-09',
+        lessons: [
+          { id: 1, student_id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Zoé' } } },
+          { id: 2, student_id: 2, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Alice' } } },
         ],
       },
       {
         ymd: '2026-05-16',
         lessons: [
-          { id: 10, start_time: '2026-05-16T16:00:00', student: { user: { name: 'Z' } } },
-          { id: 11, start_time: '2026-05-16T16:20:00', student: { user: { name: 'Y' } } },
+          { id: 3, student_id: 1, start_time: '2026-05-16T16:00:00', student: { user: { name: 'Zoé' } } },
         ],
       },
     ]
-    const { hours, byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
-    expect(hours).toEqual([{ key: 16, label: '16h' }])
-    expect(byYmd['2026-05-09'][0].slots).toHaveLength(5)
-    expect(byYmd['2026-05-09'][0].slots.every((s) => s !== null)).toBe(true)
-    expect(byYmd['2026-05-16'][0].slots).toHaveLength(5)
-    expect(byYmd['2026-05-16'][0].slots.filter((s) => s === null)).toHaveLength(3)
+    const { byYmd } = buildKanbanPlageAlignedRows(columns, opts)
+    const band = byYmd['2026-05-09'][0]
+    expect(band.rowKeys).toEqual(['id:2', 'id:1'])
+    expect(band.slots.map((s) => s?.student?.user?.name)).toEqual(['Alice', 'Zoé'])
+    expect(byYmd['2026-05-16'][0].slots.map((s) => s?.student?.user?.name ?? null)).toEqual([null, 'Zoé'])
   })
 
-  it('trie par élève dans une bande et unionne plusieurs heures', () => {
+  it('doublon même élève/plage : préfère le cours réel au placeholder', () => {
     const columns = [
       {
         ymd: '2026-05-09',
         lessons: [
-          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Zoé' } } },
-          { id: 2, start_time: '2026-05-09T16:30:00', student: { user: { name: 'Alice' } } },
-          { id: 3, start_time: '2026-05-09T09:00:00', student: { user: { name: 'Marc' } } },
-        ],
-      },
-      {
-        ymd: '2026-05-16',
-        lessons: [
-          { id: 4, start_time: '2026-05-16T10:00:00', student: { user: { name: 'Bob' } } },
-        ],
-      },
-    ]
-    const { hours, byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
-    expect(hours.map((h) => h.key)).toEqual([9, 10, 16])
-    const band16 = byYmd['2026-05-09'].find((b) => b.hourKey === 16)!
-    expect(band16.slots.map((s) => s?.student?.user?.name)).toEqual(['Alice', 'Zoé'])
-    // colonne sans 16h : 2 slots null (max = 2)
-    expect(byYmd['2026-05-16'].find((b) => b.hourKey === 16)!.slots).toEqual([null, null])
-  })
-
-  it('tie-break start_time puis id si même élève', () => {
-    const columns = [
-      {
-        ymd: '2026-05-09',
-        lessons: [
-          { id: 2, start_time: '2026-05-09T16:30:00', student: { user: { name: 'Alice' } } },
-          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Alice' } } },
-          { id: 3, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Alice' } } },
+          {
+            id: 'ph-1',
+            student_id: 10,
+            start_time: '2026-05-09T16:40:00',
+            is_recurring_placeholder: true,
+            student: { user: { name: 'Tom' } },
+          },
+          {
+            id: 99,
+            student_id: 10,
+            start_time: '2026-05-09T16:40:00',
+            is_recurring_placeholder: false,
+            student: { user: { name: 'Tom' } },
+          },
         ],
       },
     ]
-    const { byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
-    expect(byYmd['2026-05-09'][0].slots.map((s) => s?.id)).toEqual([1, 3, 2])
+    const { byYmd } = buildKanbanPlageAlignedRows(columns, opts)
+    expect(byYmd['2026-05-09'][0].slots).toHaveLength(1)
+    expect(byYmd['2026-05-09'][0].slots[0]?.id).toBe(99)
   })
 })
 
 describe('PlanningSlotKanbanView', () => {
+  it('aligne via student.id même sans student_id', async () => {
+    const wrapper = mount(PlanningSlotKanbanView, {
+      props: {
+        title: 'mai',
+        columns: [
+          {
+            ymd: '2026-05-09',
+            label: 'sam. 9',
+            isClosure: false,
+            lessons: [
+              {
+                id: 1,
+                start_time: '2026-05-09T16:40:00',
+                end_time: '2026-05-09T17:00:00',
+                student: { id: 42, user: { name: 'Tom Broucke' } },
+                course_type: { name: 'Natation' },
+              },
+            ],
+          },
+          {
+            ymd: '2026-05-16',
+            label: 'sam. 16',
+            isClosure: false,
+            lessons: [
+              {
+                id: 2,
+                start_time: '2026-05-16T16:40:00',
+                end_time: '2026-05-16T17:00:00',
+                student: { id: 42, user: { name: 'Tom Broucke' } },
+                course_type: { name: 'Natation' },
+              },
+            ],
+          },
+          {
+            ymd: '2026-05-23',
+            label: 'sam. 23',
+            isClosure: false,
+            lessons: [],
+          },
+        ],
+      },
+    })
+    const cols = wrapper.findAll('[data-ymd]')
+    const band0 = cols[0].find('[data-plage="16:40"]')
+    const band2 = cols[2].find('[data-plage="16:40"]')
+    expect(band0.exists()).toBe(true)
+    expect(band2.exists()).toBe(true)
+    // même nombre de slots (1 ligne Tom) ; jour vide = 1 placeholder
+    expect(band0.findAll('button').length).toBe(1)
+    expect(band2.findAll('[aria-hidden="true"]').length).toBe(1)
+  })
+
   it('affiche une colonne par jour avec cours et pastille congé', async () => {
     const wrapper = mount(PlanningSlotKanbanView, {
       props: {
@@ -423,7 +515,9 @@ describe('PlanningSlotKanbanView', () => {
             lessons: [
               {
                 id: 1,
+                student_id: 1,
                 start_time: '2026-05-09T09:30:00',
+                end_time: '2026-05-09T09:50:00',
                 course_type: { name: 'CSO' },
                 student: { user: { name: 'Alice' } },
                 teacher: { user: { name: 'Bob' } },
@@ -441,12 +535,13 @@ describe('PlanningSlotKanbanView', () => {
     })
     expect(wrapper.text()).toContain('mai 2026')
     expect(wrapper.text()).toContain('Samedi • 09:00 – 12:00')
-    expect(wrapper.text()).toContain('9h')
+    expect(wrapper.text()).toContain('09:30 – 09:50')
     const cols = wrapper.findAll('[data-ymd]')
     expect(cols).toHaveLength(2)
     expect(cols[0].text()).toContain('CSO')
     expect(cols[0].text()).toContain('Alice')
     expect(cols[1].text()).toContain('Congé')
+    expect(cols[1].find('[data-plage="09:30"]').exists()).toBe(true)
     await cols[0].find('header button').trigger('click')
     expect(wrapper.emitted('select-day')?.[0]).toEqual(['2026-05-09'])
   })
@@ -463,7 +558,9 @@ describe('PlanningSlotKanbanView', () => {
             lessons: [
               {
                 id: 1,
+                student_id: 1,
                 start_time: '2026-05-09T16:00:00',
+                end_time: '2026-05-09T16:20:00',
                 course_type: { name: 'Dressage' },
                 student: { user: { name: 'Léa' } },
               },
@@ -472,7 +569,7 @@ describe('PlanningSlotKanbanView', () => {
         ],
       },
     })
-    expect(wrapper.text()).toContain('16h')
+    expect(wrapper.text()).toContain('16:00 – 16:20')
     const top = wrapper.find('[data-testid="kanban-create-top"]')
     const bottom = wrapper.find('[data-testid="kanban-create-bottom"]')
     expect(top.exists()).toBe(true)

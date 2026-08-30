@@ -227,88 +227,129 @@ export function groupLessonsByYmdForSlot<T extends CalendarCountableLesson & { s
   return result
 }
 
-/** Clé heure locale 0–23 à partir d’un datetime ISO / MySQL. */
-export function lessonLocalHourKey(startTime: string): number | null {
-  const d = new Date(startTime)
+/** HH:mm local à partir d’un datetime ISO / MySQL. */
+export function lessonLocalHm(datetime: string): string | null {
+  const d = new Date(datetime)
   if (Number.isNaN(d.getTime())) return null
-  return d.getHours()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
-export function formatKanbanHourLabel(hour: number): string {
-  return `${hour}h`
+export function formatKanbanPlageLabel(startHm: string, endHm: string | null): string {
+  if (endHm && endHm !== startHm) return `${startHm} – ${endHm}`
+  return startHm
 }
 
-export type KanbanHourBand<T> = {
-  hourKey: number
+export type KanbanPlageBand<T> = {
+  plageKey: string
   label: string
   stripeIndex: number
+  rowKeys: string[]
   slots: Array<T | null>
 }
 
+export type KanbanPlageAlignOptions<T extends { start_time: string; end_time?: string; id?: string | number }> = {
+  getStudentRowKey: (lesson: T) => string
+  getStudentSortKey: (lesson: T) => string
+}
+
 /**
- * Bandes horaires alignées entre colonnes : union des heures, padding à max(count),
- * tri par clé élève dans chaque bande.
+ * Bandes = plages HH:mm (début) ; lignes = union des élèves sur la période.
+ * Même élève = même index de ligne dans toutes les colonnes (trou = null).
  */
-export function buildKanbanHourAlignedRows<T extends { start_time: string; id?: string | number }>(
+export function buildKanbanPlageAlignedRows<
+  T extends { start_time: string; end_time?: string; id?: string | number },
+>(
   columns: Array<{ ymd: string; lessons: T[] }>,
-  getStudentSortKey: (lesson: T) => string,
-): { hours: Array<{ key: number; label: string }>; byYmd: Record<string, KanbanHourBand<T>[]> } {
-  const hourSet = new Set<number>()
-  const lessonsByYmdHour = new Map<string, Map<number, T[]>>()
+  options: KanbanPlageAlignOptions<T>,
+): { plages: Array<{ key: string; label: string }>; byYmd: Record<string, KanbanPlageBand<T>[]> } {
+  const { getStudentRowKey, getStudentSortKey } = options
+
+  /** ymd → plageKey → rowKey → lesson */
+  const cell = new Map<string, Map<string, Map<string, T>>>()
+  const plageEndHm = new Map<string, string>()
+  const rowMeta = new Map<string, Map<string, { sortKey: string }>>()
 
   for (const col of columns) {
-    const byHour = new Map<number, T[]>()
+    const byPlage = new Map<string, Map<string, T>>()
     for (const lesson of col.lessons) {
-      const hour = lessonLocalHourKey(lesson.start_time)
-      if (hour === null) continue
-      hourSet.add(hour)
-      const list = byHour.get(hour) ?? []
-      list.push(lesson)
-      byHour.set(hour, list)
+      const plageKey = lessonLocalHm(lesson.start_time)
+      if (!plageKey) continue
+      const rowKey = getStudentRowKey(lesson)
+      const endHm = lesson.end_time ? lessonLocalHm(lesson.end_time) : null
+      if (endHm && !plageEndHm.has(plageKey)) plageEndHm.set(plageKey, endHm)
+
+      let rowMap = byPlage.get(plageKey)
+      if (!rowMap) {
+        rowMap = new Map()
+        byPlage.set(plageKey, rowMap)
+      }
+      if (!rowMap.has(rowKey)) {
+        rowMap.set(rowKey, lesson)
+      } else {
+        // Une cellule = un élève ; en cas de doublon même jour/plage, préférer le cours réel au placeholder.
+        const existing = rowMap.get(rowKey)!
+        const existingPh = Boolean(
+          (existing as { is_recurring_placeholder?: boolean }).is_recurring_placeholder,
+        )
+        const nextPh = Boolean(
+          (lesson as { is_recurring_placeholder?: boolean }).is_recurring_placeholder,
+        )
+        if (existingPh && !nextPh) {
+          rowMap.set(rowKey, lesson)
+        }
+      }
+
+      let meta = rowMeta.get(plageKey)
+      if (!meta) {
+        meta = new Map()
+        rowMeta.set(plageKey, meta)
+      }
+      if (!meta.has(rowKey)) {
+        meta.set(rowKey, { sortKey: getStudentSortKey(lesson) })
+      }
     }
-    for (const [, list] of byHour) {
-      list.sort((a, b) => {
-        const byStudent = getStudentSortKey(a).localeCompare(getStudentSortKey(b), 'fr', {
-          sensitivity: 'base',
-        })
-        if (byStudent !== 0) return byStudent
-        const byTime = String(a.start_time).localeCompare(String(b.start_time))
-        if (byTime !== 0) return byTime
-        return String(a.id ?? '').localeCompare(String(b.id ?? ''))
+    cell.set(col.ymd, byPlage)
+  }
+
+  const sortedPlageKeys = Array.from(
+    new Set([...cell.values()].flatMap((m) => [...m.keys()])),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const orderedRowsByPlage = new Map<string, string[]>()
+  for (const plageKey of sortedPlageKeys) {
+    const meta = rowMeta.get(plageKey) ?? new Map()
+    const keys = Array.from(meta.keys()).sort((a, b) => {
+      const byName = (meta.get(a)?.sortKey ?? '').localeCompare(meta.get(b)?.sortKey ?? '', 'fr', {
+        sensitivity: 'base',
       })
-    }
-    lessonsByYmdHour.set(col.ymd, byHour)
+      if (byName !== 0) return byName
+      return a.localeCompare(b)
+    })
+    orderedRowsByPlage.set(plageKey, keys)
   }
 
-  const sortedHours = Array.from(hourSet).sort((a, b) => a - b)
-  const hours = sortedHours.map((key) => ({ key, label: formatKanbanHourLabel(key) }))
+  const plages = sortedPlageKeys.map((key) => ({
+    key,
+    label: formatKanbanPlageLabel(key, plageEndHm.get(key) ?? null),
+  }))
 
-  const maxByHour = new Map<number, number>()
-  for (const hour of sortedHours) {
-    let max = 0
-    for (const col of columns) {
-      const n = lessonsByYmdHour.get(col.ymd)?.get(hour)?.length ?? 0
-      if (n > max) max = n
-    }
-    maxByHour.set(hour, max)
-  }
-
-  const byYmd: Record<string, KanbanHourBand<T>[]> = {}
+  const byYmd: Record<string, KanbanPlageBand<T>[]> = {}
   for (const col of columns) {
-    const byHour = lessonsByYmdHour.get(col.ymd) ?? new Map()
-    byYmd[col.ymd] = sortedHours.map((hourKey, stripeIndex) => {
-      const lessons = byHour.get(hourKey) ?? []
-      const max = maxByHour.get(hourKey) ?? 0
-      const slots: Array<T | null> = [...lessons]
-      while (slots.length < max) slots.push(null)
+    const byPlage = cell.get(col.ymd) ?? new Map()
+    byYmd[col.ymd] = sortedPlageKeys.map((plageKey, stripeIndex) => {
+      const rowKeys = orderedRowsByPlage.get(plageKey) ?? []
+      const rowMap = byPlage.get(plageKey) ?? new Map()
       return {
-        hourKey,
-        label: formatKanbanHourLabel(hourKey),
+        plageKey,
+        label: formatKanbanPlageLabel(plageKey, plageEndHm.get(plageKey) ?? null),
         stripeIndex,
-        slots,
+        rowKeys,
+        slots: rowKeys.map((rk) => rowMap.get(rk) ?? null),
       }
     })
   }
 
-  return { hours, byYmd }
+  return { plages, byYmd }
 }

@@ -108,15 +108,18 @@
           <template v-if="(alignedByYmd[col.ymd] ?? []).length > 0">
             <div
               v-for="band in alignedByYmd[col.ymd]"
-              :key="`${col.ymd}-${band.hourKey}`"
+              :key="`${col.ymd}-${band.plageKey}`"
               class="rounded-md px-1.5 py-1.5 space-y-2"
               :class="stripeBandClass(band.stripeIndex)"
-              :data-hour="band.hourKey"
+              :data-plage="band.plageKey"
             >
-              <p class="text-xs font-bold uppercase tracking-wide text-gray-700 px-1">
+              <p class="text-xs font-bold tracking-wide text-gray-700 px-1 tabular-nums">
                 {{ band.label }}
               </p>
-              <template v-for="(slot, slotIdx) in band.slots" :key="slot ? String(slot.id) : `empty-${band.hourKey}-${slotIdx}`">
+              <template
+                v-for="(slot, slotIdx) in band.slots"
+                :key="slot ? String(slot.id) : `empty-${band.plageKey}-${band.rowKeys[slotIdx] ?? slotIdx}`"
+              >
                 <button
                   v-if="slot"
                   type="button"
@@ -178,7 +181,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { buildKanbanHourAlignedRows } from '~/composables/planning/usePlanningCalendar'
+import { buildKanbanPlageAlignedRows } from '~/composables/planning/usePlanningCalendar'
+import { resolveLessonPrimaryStudentId } from '~/composables/planning/usePlanningParticipant'
 
 export type KanbanLessonCard = {
   id: number | string
@@ -187,8 +191,8 @@ export type KanbanLessonCard = {
   status?: string | null
   is_recurring_placeholder?: boolean
   course_type?: { name?: string } | null
-  student?: { user?: { name?: string } | null } | null
-  students?: Array<{ user?: { name?: string } | null }>
+  student?: { id?: number; user?: { name?: string } | null } | null
+  students?: Array<{ id?: number; user?: { name?: string } | null }>
   teacher?: { user?: { name?: string } | null } | null
   student_id?: number | null
   teacher_id?: number | null
@@ -235,13 +239,24 @@ const createLessonBtnClass =
   'w-full min-h-[36px] text-sm font-medium rounded-md border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed'
 
 const alignedByYmd = computed(() =>
-  buildKanbanHourAlignedRows(props.columns, studentLabel).byYmd,
+  buildKanbanPlageAlignedRows(props.columns, {
+    getStudentRowKey: studentRowKey,
+    getStudentSortKey: studentLabel,
+  }).byYmd,
 )
 
 function formatLessonTime(datetime: string): string {
   const date = new Date(datetime)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function studentRowKey(lesson: KanbanLessonCard): string {
+  const sid = resolveLessonPrimaryStudentId(lesson)
+  if (sid != null) return `id:${sid}`
+  const label = studentLabel(lesson)
+  if (label && label !== 'Élève —') return `name:${label}`
+  return `lesson:${lesson.id}`
 }
 
 function studentLabel(lesson: KanbanLessonCard): string {
