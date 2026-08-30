@@ -175,3 +175,54 @@ export function assertMonthCountsMatchIndex<T extends CalendarCountableLesson>(
   }
   return { ok: mismatches.length === 0, mismatches }
 }
+
+/**
+ * Toutes les dates (YYYY-MM-DD) du weekday dans [start, end] inclus.
+ * dayOfWeek : 0 = dimanche … 6 = samedi (Date#getDay).
+ */
+export function listSlotOccurrenceDates(
+  bounds: { start: Date; end: Date },
+  dayOfWeek: number,
+): string[] {
+  const dates: string[] = []
+  const cursor = new Date(bounds.start)
+  cursor.setHours(12, 0, 0, 0)
+  const end = new Date(bounds.end)
+  end.setHours(23, 59, 59, 999)
+
+  const offset = (dayOfWeek - cursor.getDay() + 7) % 7
+  cursor.setDate(cursor.getDate() + offset)
+
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(toLocalYmd(cursor))
+    cursor.setDate(cursor.getDate() + 7)
+  }
+  return dates
+}
+
+/**
+ * Pour chaque date d’occurrence, les cours du créneau (filtre open-slot).
+ * Placeholders récurrence inclus ; annulés exclus (comme densité / grille utile).
+ */
+export function groupLessonsByYmdForSlot<T extends CalendarCountableLesson & { start_time: string }>(
+  occurrenceYmds: string[],
+  lessonsByLocalDate: Map<string, T[]>,
+  slot: OpenSlotTimeWindow,
+  formatTime: (time: string) => string,
+  options?: { includeCancelled?: boolean; includePlaceholders?: boolean },
+): Record<string, T[]> {
+  const includeCancelled = options?.includeCancelled === true
+  const includePlaceholders = options?.includePlaceholders !== false
+  const result: Record<string, T[]> = {}
+  for (const ymd of occurrenceYmds) {
+    const bucket = lessonsByLocalDate.get(ymd) ?? []
+    const filtered = filterLessonsForOpenSlot(bucket, slot, formatTime).filter((l) => {
+      if (!includeCancelled && l.status === 'cancelled') return false
+      if (!includePlaceholders && l.is_recurring_placeholder) return false
+      return true
+    })
+    filtered.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+    result[ymd] = filtered
+  }
+  return result
+}

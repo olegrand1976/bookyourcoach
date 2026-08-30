@@ -143,14 +143,17 @@
                 </h2>
                 <p class="text-sm text-gray-500 mt-1 space-y-0.5">
                   <template v-if="planningCalendarMode !== 'day'">
-                    <span class="text-blue-700 font-medium block">
-                      Tous les cours du club. Cliquez un jour pour ouvrir le détail.
+                    <span v-if="!selectedSlot" class="text-blue-600 font-medium block">
+                      Sélectionnez un créneau ci-dessus pour afficher le kanban (une colonne = un jour du créneau).
                     </span>
-                    <span class="block text-xs text-gray-500">
-                      Densité = nombre de cours non annulés. Lien
-                      <NuxtLink to="/club/availability" class="text-blue-700 underline font-medium">plages disponibles</NuxtLink>
-                      pour la capacité fine.
-                    </span>
+                    <template v-else>
+                      <span class="text-blue-700 font-medium block">
+                        Vue détaillée du créneau — une colonne par {{ getDayName(selectedSlot.day_of_week).toLowerCase() }}.
+                      </span>
+                      <span class="block text-xs text-gray-500">
+                        Cliquez une colonne ou une carte pour ouvrir le détail jour.
+                      </span>
+                    </template>
                   </template>
                   <span v-else-if="!selectedSlot" class="text-blue-600 font-medium">
                     ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
@@ -256,35 +259,44 @@
 
           </div>
 
-          <!-- Vues calendrier mois / trimestre (tous les cours du club) -->
-          <div v-if="planningCalendarMode === 'month'" class="mt-2">
-            <PlanningMonthView
-              :display-date="calendarAnchorDate"
-              :lesson-counts="calendarLessonCounts"
-              :closure-dates="closureDates"
-              :selected-ymd="selectedDateYmd || null"
+          <!-- Vues mois / trimestre : kanban filtré par créneau -->
+          <div
+            v-if="planningCalendarMode === 'month' || planningCalendarMode === 'quarter'"
+            class="mt-2"
+          >
+            <div
+              v-if="!selectedSlot"
+              class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-10 text-center"
+              data-testid="planning-kanban-slot-required"
+            >
+              <p class="text-blue-900 font-medium">Sélectionnez un créneau pour afficher le kanban</p>
+              <p class="text-sm text-blue-800/80 mt-2">
+                Une colonne = une occurrence du jour du créneau sur le mois ou le trimestre.
+              </p>
+              <button
+                type="button"
+                class="mt-4 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                @click="changeSlot"
+              >
+                Choisir un créneau
+              </button>
+            </div>
+            <PlanningSlotKanbanView
+              v-else
+              :title="planningCalendarMode === 'quarter' ? kanbanQuarterTitle : kanbanMonthTitle"
+              :slot-label="kanbanSlotLabel"
+              :columns="kanbanColumns"
               :loading="calendarRangeLoading"
               :can-prev="canNavigateCalendarPrevious"
               :can-next="canNavigateCalendarNext"
-              @select-day="onCalendarSelectDay"
-              @prev-month="navigateCalendarPrevious"
-              @next-month="navigateCalendarNext"
+              :prev-label="planningCalendarMode === 'quarter' ? 'Trimestre précédent' : 'Mois précédent'"
+              :next-label="planningCalendarMode === 'quarter' ? 'Trimestre suivant' : 'Mois suivant'"
+              @prev="navigateCalendarPrevious"
+              @next="navigateCalendarNext"
               @go-today="navigateCalendarToday"
-            />
-          </div>
-          <div v-else-if="planningCalendarMode === 'quarter'" class="mt-2">
-            <PlanningQuarterView
-              :display-date="calendarAnchorDate"
-              :lesson-counts="calendarLessonCounts"
-              :closure-dates="closureDates"
-              :selected-ymd="selectedDateYmd || null"
-              :loading="calendarRangeLoading"
-              :can-prev="canNavigateCalendarPrevious"
-              :can-next="canNavigateCalendarNext"
               @select-day="onCalendarSelectDay"
-              @prev-quarter="navigateCalendarPrevious"
-              @next-quarter="navigateCalendarNext"
-              @go-today="navigateCalendarToday"
+              @select-lesson="onKanbanSelectLesson"
+              @create-lesson="onKanbanCreateLesson"
             />
           </div>
 
@@ -1666,8 +1678,8 @@ import {
   getQuarterBounds,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
-import PlanningMonthView from '~/components/planning/PlanningMonthView.vue'
-import PlanningQuarterView from '~/components/planning/PlanningQuarterView.vue'
+import PlanningSlotKanbanView from '~/components/planning/PlanningSlotKanbanView.vue'
+import type { KanbanLessonCard } from '~/components/planning/PlanningSlotKanbanView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1691,8 +1703,9 @@ import {
   toLocalYmd,
 } from '~/composables/planning/usePlanningLessonIndex'
 import {
-  buildCalendarLessonCounts,
   calendarPeriodOverlapsPlanningWindow,
+  groupLessonsByYmdForSlot,
+  listSlotOccurrenceDates,
   pickOpenSlotForCalendarDay,
   pruneYmdListToRange,
   unionLoadedDateRange,
@@ -1979,10 +1992,87 @@ const pendingCertificateStudents = computed(() => {
 /** Index O(1) par jour local — évite de rescanner toute la fenêtre 8 sem. à chaque filtre. */
 const lessonsByLocalDate = computed(() => buildLessonsByLocalDate(lessons.value))
 
-/** Compteurs jour → cours actifs (tous créneaux) pour vues mois / trimestre. */
-const calendarLessonCounts = computed(() =>
-  buildCalendarLessonCounts(lessonsByLocalDate.value),
+const isKanbanCalendarMode = computed(
+  () => planningCalendarMode.value === 'month' || planningCalendarMode.value === 'quarter',
 )
+
+const kanbanPeriodBounds = computed(() => {
+  if (!isKanbanCalendarMode.value) return null
+  return planningCalendarMode.value === 'quarter'
+    ? getQuarterBounds(calendarAnchorDate.value)
+    : getMonthBounds(calendarAnchorDate.value)
+})
+
+const kanbanOccurrenceYmds = computed(() => {
+  if (!isKanbanCalendarMode.value || !selectedSlot.value || !kanbanPeriodBounds.value) {
+    return [] as string[]
+  }
+  return listSlotOccurrenceDates(kanbanPeriodBounds.value, selectedSlot.value.day_of_week)
+})
+
+const kanbanLessonsByYmd = computed(() => {
+  if (!isKanbanCalendarMode.value || !selectedSlot.value) return {} as Record<string, Lesson[]>
+  return groupLessonsByYmdForSlot(
+    kanbanOccurrenceYmds.value,
+    lessonsByLocalDate.value,
+    selectedSlot.value,
+    formatTime,
+    { includeCancelled: false, includePlaceholders: true },
+  )
+})
+
+const closureDateSet = computed(() => new Set(closureDates.value))
+
+function resolveKanbanStudentName(lesson: Lesson): KanbanLessonCard['student'] {
+  if (lesson.student?.user?.name) return lesson.student
+  if (!lesson.student_id) return lesson.student ?? null
+  const found = students.value.find((s: any) => s.id === lesson.student_id)
+  if (!found) return lesson.student ?? null
+  const name = found.user?.name || found.name || `Élève #${found.id}`
+  return { user: { name } }
+}
+
+const kanbanColumns = computed(() => {
+  if (!isKanbanCalendarMode.value) return [] as Array<{
+    ymd: string
+    label: string
+    isClosure: boolean
+    lessons: KanbanLessonCard[]
+  }>
+  return kanbanOccurrenceYmds.value.map((ymd) => {
+    const d = new Date(`${ymd}T12:00:00`)
+    const label = d.toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    })
+    const dayLessons = (kanbanLessonsByYmd.value[ymd] ?? []).map((lesson) => ({
+      ...lesson,
+      student: resolveKanbanStudentName(lesson),
+    })) as KanbanLessonCard[]
+    return {
+      ymd,
+      label,
+      isClosure: closureDateSet.value.has(ymd),
+      lessons: dayLessons,
+    }
+  })
+})
+
+const kanbanMonthTitle = computed(() =>
+  new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(calendarAnchorDate.value),
+)
+
+const kanbanQuarterTitle = computed(() => {
+  const q = Math.floor(calendarAnchorDate.value.getMonth() / 3) + 1
+  return `T${q} ${calendarAnchorDate.value.getFullYear()}`
+})
+
+const kanbanSlotLabel = computed(() => {
+  if (!selectedSlot.value) return ''
+  const s = selectedSlot.value
+  return `${getDayName(s.day_of_week)} • ${formatTime(s.start_time)} – ${formatTime(s.end_time)}${s.discipline?.name ? ` • ${s.discipline.name}` : ''}`
+})
 
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
@@ -5008,6 +5098,34 @@ async function onCalendarSelectDay(ymd: string) {
       .getElementById('scheduled-lessons-day-panel')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+}
+
+async function onKanbanSelectLesson(lesson: KanbanLessonCard, ymd: string) {
+  await onCalendarSelectDay(ymd)
+  const full = lessons.value.find((l) => String(l.id) === String(lesson.id))
+  if (!full) return
+  if (full.is_recurring_placeholder) {
+    await openCreateLessonFromRecurringPlaceholder(full)
+    return
+  }
+  openLessonModal(full)
+}
+
+async function onKanbanCreateLesson(ymd: string) {
+  if (!selectedSlot.value) {
+    await changeSlot()
+    return
+  }
+  if (closureDates.value.includes(ymd)) {
+    warning('Ce jour est marqué comme congé.', 'Jour fermé')
+    return
+  }
+  const day = new Date(`${ymd}T12:00:00`)
+  selectedDate.value = day
+  selectedDateInput.value = ymd
+  calendarAnchorDate.value = new Date(day)
+  await checkAndReloadLessonsIfNeeded(day)
+  await openCreateLessonModal(selectedSlot.value, undefined, ymd)
 }
 
 async function navigateCalendarPrevious() {

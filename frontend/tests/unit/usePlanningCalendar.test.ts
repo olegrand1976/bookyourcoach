@@ -4,6 +4,8 @@ import {
   assertMonthCountsMatchIndex,
   buildCalendarLessonCounts,
   calendarPeriodOverlapsPlanningWindow,
+  groupLessonsByYmdForSlot,
+  listSlotOccurrenceDates,
   pickOpenSlotForCalendarDay,
   pruneYmdListToRange,
   unionLoadedDateRange,
@@ -21,6 +23,7 @@ import {
 } from '~/composables/planning/useDateHelpers'
 import PlanningMonthView from '~/components/planning/PlanningMonthView.vue'
 import PlanningQuarterView from '~/components/planning/PlanningQuarterView.vue'
+import PlanningSlotKanbanView from '~/components/planning/PlanningSlotKanbanView.vue'
 
 const formatTime = (t: string) => t.substring(0, 5)
 
@@ -279,5 +282,110 @@ describe('PlanningQuarterView', () => {
       .find((b) => b.attributes('aria-label')?.startsWith('2026-05-12'))
     expect(mayDay?.text()).toContain('2')
     expect(mayDay?.text()).not.toContain('cours')
+  })
+})
+
+describe('listSlotOccurrenceDates', () => {
+  it('liste les samedis de mai 2026', () => {
+    const bounds = getMonthBounds(new Date(2026, 4, 1))
+    const saturdays = listSlotOccurrenceDates(bounds, 6)
+    expect(saturdays).toEqual([
+      '2026-05-02',
+      '2026-05-09',
+      '2026-05-16',
+      '2026-05-23',
+      '2026-05-30',
+    ])
+  })
+
+  it('liste les samedis du T2 2026 (avr–juin)', () => {
+    const bounds = getQuarterBounds(new Date(2026, 4, 15))
+    const saturdays = listSlotOccurrenceDates(bounds, 6)
+    expect(saturdays[0]).toBe('2026-04-04')
+    expect(saturdays.at(-1)).toBe('2026-06-27')
+    expect(saturdays).toHaveLength(13)
+    for (const ymd of saturdays) {
+      expect(new Date(`${ymd}T12:00:00`).getDay()).toBe(6)
+    }
+  })
+})
+
+describe('groupLessonsByYmdForSlot', () => {
+  const slot = { day_of_week: 6, start_time: '09:00:00', end_time: '12:00:00' }
+  const formatTime = (t: string) => t.substring(0, 5)
+
+  it('filtre le créneau, exclut annulés, garde placeholders', () => {
+    const lessons = [
+      { id: 1, start_time: '2026-05-09T09:30:00', status: 'confirmed' },
+      { id: 2, start_time: '2026-05-09T10:00:00', status: 'cancelled' },
+      { id: 3, start_time: '2026-05-09T11:00:00', status: 'confirmed', is_recurring_placeholder: true },
+      { id: 4, start_time: '2026-05-09T14:00:00', status: 'confirmed' }, // hors plage
+      { id: 5, start_time: '2026-05-08T10:00:00', status: 'confirmed' }, // vendredi
+    ]
+    const byDate = buildLessonsByLocalDate(lessons)
+    const grouped = groupLessonsByYmdForSlot(
+      ['2026-05-09', '2026-05-16'],
+      byDate,
+      slot,
+      formatTime,
+      { includeCancelled: false, includePlaceholders: true },
+    )
+    expect(grouped['2026-05-09'].map((l) => l.id)).toEqual([1, 3])
+    expect(grouped['2026-05-16']).toEqual([])
+  })
+})
+
+describe('PlanningSlotKanbanView', () => {
+  it('affiche une colonne par jour avec cours et pastille congé', async () => {
+    const wrapper = mount(PlanningSlotKanbanView, {
+      props: {
+        title: 'mai 2026',
+        slotLabel: 'Samedi • 09:00 – 12:00',
+        columns: [
+          {
+            ymd: '2026-05-09',
+            label: 'sam. 9 mai',
+            isClosure: false,
+            lessons: [
+              {
+                id: 1,
+                start_time: '2026-05-09T09:30:00',
+                course_type: { name: 'CSO' },
+                student: { user: { name: 'Alice' } },
+                teacher: { user: { name: 'Bob' } },
+              },
+            ],
+          },
+          {
+            ymd: '2026-05-16',
+            label: 'sam. 16 mai',
+            isClosure: true,
+            lessons: [],
+          },
+        ],
+      },
+    })
+    expect(wrapper.text()).toContain('mai 2026')
+    expect(wrapper.text()).toContain('Samedi • 09:00 – 12:00')
+    const cols = wrapper.findAll('[data-ymd]')
+    expect(cols).toHaveLength(2)
+    expect(cols[0].text()).toContain('CSO')
+    expect(cols[0].text()).toContain('Alice')
+    expect(cols[1].text()).toContain('Congé')
+    await cols[0].find('header button').trigger('click')
+    expect(wrapper.emitted('select-day')?.[0]).toEqual(['2026-05-09'])
+  })
+
+  it('émet create-lesson depuis le footer', async () => {
+    const wrapper = mount(PlanningSlotKanbanView, {
+      props: {
+        title: 'T2',
+        columns: [
+          { ymd: '2026-05-09', label: 'sam. 9', isClosure: false, lessons: [] },
+        ],
+      },
+    })
+    await wrapper.find('footer button').trigger('click')
+    expect(wrapper.emitted('create-lesson')?.[0]).toEqual(['2026-05-09'])
   })
 })
