@@ -450,7 +450,7 @@ describe('buildKanbanPlageAlignedRows', () => {
 })
 
 describe('PlanningSlotKanbanView', () => {
-  it('aligne via student.id même sans student_id', async () => {
+  it('aligne via student.id même sans student_id (rangées)', async () => {
     const wrapper = mount(PlanningSlotKanbanView, {
       props: {
         title: 'mai',
@@ -492,17 +492,13 @@ describe('PlanningSlotKanbanView', () => {
         ],
       },
     })
-    const cols = wrapper.findAll('[data-ymd]')
-    const band0 = cols[0].find('[data-plage="16:40"]')
-    const band2 = cols[2].find('[data-plage="16:40"]')
-    expect(band0.exists()).toBe(true)
-    expect(band2.exists()).toBe(true)
-    // même nombre de slots (1 ligne Tom) ; jour vide = 1 placeholder
-    expect(band0.findAll('button').length).toBe(1)
-    expect(band2.findAll('[aria-hidden="true"]').length).toBe(1)
+    expect(wrapper.findAll('[data-ymd]')).toHaveLength(3)
+    expect(wrapper.find('[data-plage="16:40"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Tom Broucke')
+    expect(wrapper.findAll('[aria-hidden="true"]')).toHaveLength(1)
   })
 
-  it('affiche une colonne par jour avec cours et pastille congé', async () => {
+  it('affiche en-têtes, plage et pastille congé ; select-day', async () => {
     const wrapper = mount(PlanningSlotKanbanView, {
       props: {
         title: 'mai 2026',
@@ -536,14 +532,27 @@ describe('PlanningSlotKanbanView', () => {
     expect(wrapper.text()).toContain('mai 2026')
     expect(wrapper.text()).toContain('Samedi • 09:00 – 12:00')
     expect(wrapper.text()).toContain('09:30 – 09:50')
-    const cols = wrapper.findAll('[data-ymd]')
-    expect(cols).toHaveLength(2)
-    expect(cols[0].text()).toContain('CSO')
-    expect(cols[0].text()).toContain('Alice')
-    expect(cols[1].text()).toContain('Congé')
-    expect(cols[1].find('[data-plage="09:30"]').exists()).toBe(true)
-    await cols[0].find('header button').trigger('click')
+    expect(wrapper.text()).toContain('CSO')
+    expect(wrapper.text()).toContain('Alice')
+    expect(wrapper.text()).toContain('Congé')
+    expect(wrapper.find('[data-plage="09:30"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="kanban-top-scroll"]').exists()).toBe(false)
+    const dayHeader = wrapper.find('[data-ymd="2026-05-09"] button')
+    await dayHeader.trigger('click')
     expect(wrapper.emitted('select-day')?.[0]).toEqual(['2026-05-09'])
+  })
+
+  it('affiche la scrollbar haute si topScrollbar', () => {
+    const wrapper = mount(PlanningSlotKanbanView, {
+      props: {
+        title: 'T3',
+        topScrollbar: true,
+        columns: [
+          { ymd: '2026-05-09', label: 'sam. 9', isClosure: false, lessons: [] },
+        ],
+      },
+    })
+    expect(wrapper.find('[data-testid="kanban-top-scroll"]').exists()).toBe(true)
   })
 
   it('émet create-lesson depuis le haut et le bas de colonne', async () => {

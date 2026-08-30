@@ -118,61 +118,30 @@
         <!-- Bloc 3: Cours programmés (filtrés par créneau sélectionné) -->
         <div class="bg-white shadow rounded-lg p-6" data-testid="scheduled-lessons-section">
           <div class="mb-4">
-            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <div>
-                <h2 class="text-xl font-semibold text-gray-900">
-                  Cours programmés
-                  <span
-                    v-if="planningCalendarMode === 'day' && selectedSlot"
-                    class="text-base font-normal text-gray-600"
-                  >
-                    • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
-                  </span>
-                  <span
-                    v-else-if="planningCalendarMode === 'month'"
-                    class="text-base font-normal text-gray-600"
-                  >
-                    • Vue mois
-                  </span>
-                  <span
-                    v-else-if="planningCalendarMode === 'quarter'"
-                    class="text-base font-normal text-gray-600"
-                  >
-                    • Vue trimestre
-                  </span>
-                </h2>
-                <p class="text-sm text-gray-500 mt-1 space-y-0.5">
-                  <template v-if="planningCalendarMode !== 'day'">
-                    <span v-if="!selectedSlot" class="text-blue-600 font-medium block">
-                      Sélectionnez un créneau ci-dessus pour afficher le kanban (une colonne = un jour du créneau).
-                    </span>
-                    <template v-else>
-                      <span class="text-blue-700 font-medium block">
-                        Vue détaillée du créneau — une colonne par {{ getDayName(selectedSlot.day_of_week).toLowerCase() }}.
-                      </span>
-                      <span class="block text-xs text-gray-500">
-                        Cliquez une colonne ou une carte pour ouvrir le détail jour.
-                      </span>
-                    </template>
-                  </template>
-                  <span v-else-if="!selectedSlot" class="text-blue-600 font-medium">
-                    ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
-                  </span>
-                  <template v-else>
-                    <span class="font-bold block" :class="lessonsForPlanningGrid.length > 0 ? 'text-green-600' : 'text-orange-600'">
-                      {{ lessonsForPlanningGrid.length }} ligne(s) affichée(s)
-                      {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
-                      <span v-if="recurringPlanningPlaceholders.length" class="font-semibold text-violet-700">
-                        ({{ filteredLessons.length }} cours + {{ recurringPlanningPlaceholders.length }} série(s) abo. sans cours ce jour)
-                      </span>
-                    </span>
-                    <span v-if="selectedSlot && selectedDate" class="block text-xs text-gray-500">
-                      Icône ⇄ dans un cercle = réservation récurrente (abonnement). Nettoyage : menu <NuxtLink to="/club/recurring-slots" class="text-violet-700 underline font-medium">Créneaux récurrents</NuxtLink>.
-                    </span>
-                  </template>
-                </p>
-              </div>
-              <div class="flex gap-2 flex-wrap items-center justify-end">
+            <!-- Ligne 1 stable : titre | Jour/Mois/Trimestre + Historique -->
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <h2 class="text-xl font-semibold text-gray-900 min-w-0 truncate">
+                Cours programmés
+                <span
+                  v-if="planningCalendarMode === 'day' && selectedSlot"
+                  class="text-base font-normal text-gray-600"
+                >
+                  • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
+                </span>
+                <span
+                  v-else-if="planningCalendarMode === 'month'"
+                  class="text-base font-normal text-gray-600"
+                >
+                  • Vue mois
+                </span>
+                <span
+                  v-else-if="planningCalendarMode === 'quarter'"
+                  class="text-base font-normal text-gray-600"
+                >
+                  • Vue trimestre
+                </span>
+              </h2>
+              <div class="flex gap-2 items-center shrink-0">
                 <div
                   class="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm"
                   role="group"
@@ -210,45 +179,11 @@
                     Trimestre
                   </button>
                 </div>
-                <div
-                  v-if="planningCalendarMode === 'day' && lessonsForPlanningGrid.length > 0"
-                  class="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm"
-                  role="group"
-                  aria-label="Mode d'affichage des cours">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                    :class="planningLessonsDisplayMode === 'cards'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'"
-                    @click="planningLessonsDisplayMode = 'cards'">
-                    Cartes
-                  </button>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                    :class="planningLessonsDisplayMode === 'list'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'"
-                    @click="planningLessonsDisplayMode = 'list'">
-                    Liste
-                  </button>
-                </div>
                 <button
-                  v-if="planningCalendarMode === 'day' && selectedDate"
-                  @click="showBroadcastModal = true"
-                  :disabled="dayBroadcastCount === 0"
-                  :title="dayBroadcastCount === 0
-                    ? (lessons.length === 0 ? 'Chargement des cours en cours ou aucun cours ce jour' : 'Aucun participant ce jour')
-                    : 'Envoyer un message à tous les participants du jour'"
-                  class="px-3 py-2 text-sm border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <span aria-hidden="true">📣</span>
-                  Message collectif
-                  <span v-if="dayBroadcastCount > 0" class="text-xs font-semibold bg-orange-100 text-orange-800 rounded-full px-1.5 py-0.5">{{ dayBroadcastCount }}</span>
-                </button>
-                <button
+                  type="button"
                   @click="showHistoryModal = true"
-                  class="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2">
+                  class="px-3 py-2 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2"
+                >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -257,6 +192,85 @@
               </div>
             </div>
 
+            <!-- Ligne 2 : sous-titres + actions jour -->
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <p class="text-sm text-gray-500 space-y-0.5 min-w-0 flex-1">
+                <template v-if="planningCalendarMode !== 'day'">
+                  <span v-if="!selectedSlot" class="text-blue-600 font-medium block">
+                    Sélectionnez un créneau ci-dessus pour afficher le kanban (une colonne = un jour du créneau).
+                  </span>
+                  <template v-else>
+                    <span class="text-blue-700 font-medium block">
+                      Vue détaillée du créneau — une colonne par {{ getDayName(selectedSlot.day_of_week).toLowerCase() }}.
+                    </span>
+                    <span class="block text-xs text-gray-500">
+                      Cliquez une colonne ou une carte pour ouvrir le détail jour.
+                    </span>
+                  </template>
+                </template>
+                <span v-else-if="!selectedSlot" class="text-blue-600 font-medium">
+                  ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
+                </span>
+                <template v-else>
+                  <span class="font-bold block" :class="lessonsForPlanningGrid.length > 0 ? 'text-green-600' : 'text-orange-600'">
+                    {{ lessonsForPlanningGrid.length }} ligne(s) affichée(s)
+                    {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
+                    <span v-if="recurringPlanningPlaceholders.length" class="font-semibold text-violet-700">
+                      ({{ filteredLessons.length }} cours + {{ recurringPlanningPlaceholders.length }} série(s) abo. sans cours ce jour)
+                    </span>
+                  </span>
+                  <span v-if="selectedSlot && selectedDate" class="block text-xs text-gray-500">
+                    Icône ⇄ dans un cercle = réservation récurrente (abonnement). Nettoyage : menu <NuxtLink to="/club/recurring-slots" class="text-violet-700 underline font-medium">Créneaux récurrents</NuxtLink>.
+                  </span>
+                </template>
+              </p>
+              <div
+                v-if="planningCalendarMode === 'day'"
+                class="flex gap-2 flex-wrap items-center justify-end shrink-0"
+              >
+                <div
+                  v-if="lessonsForPlanningGrid.length > 0"
+                  class="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm"
+                  role="group"
+                  aria-label="Mode d'affichage des cours"
+                >
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                    :class="planningLessonsDisplayMode === 'cards'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'"
+                    @click="planningLessonsDisplayMode = 'cards'"
+                  >
+                    Cartes
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                    :class="planningLessonsDisplayMode === 'list'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'"
+                    @click="planningLessonsDisplayMode = 'list'"
+                  >
+                    Liste
+                  </button>
+                </div>
+                <button
+                  v-if="selectedDate"
+                  type="button"
+                  @click="showBroadcastModal = true"
+                  :disabled="dayBroadcastCount === 0"
+                  :title="dayBroadcastCount === 0
+                    ? (lessons.length === 0 ? 'Chargement des cours en cours ou aucun cours ce jour' : 'Aucun participant ce jour')
+                    : 'Envoyer un message à tous les participants du jour'"
+                  class="px-3 py-2 text-sm border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span aria-hidden="true">📣</span>
+                  Message collectif
+                  <span v-if="dayBroadcastCount > 0" class="text-xs font-semibold bg-orange-100 text-orange-800 rounded-full px-1.5 py-0.5">{{ dayBroadcastCount }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Vues mois / trimestre : kanban filtré par créneau -->
@@ -291,6 +305,7 @@
               :can-next="canNavigateCalendarNext"
               :prev-label="planningCalendarMode === 'quarter' ? 'Trimestre précédent' : 'Mois précédent'"
               :next-label="planningCalendarMode === 'quarter' ? 'Trimestre suivant' : 'Mois suivant'"
+              :top-scrollbar="planningCalendarMode === 'quarter'"
               @prev="navigateCalendarPrevious"
               @next="navigateCalendarNext"
               @go-today="navigateCalendarToday"
