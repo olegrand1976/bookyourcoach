@@ -38,42 +38,39 @@ class LessonFutureLessonsUpdateTest extends TestCase
         $this->club = Club::find($user->club_id);
         
         // Créer les entités nécessaires
-        $this->teacher = Teacher::factory()->create(['club_id' => $this->club->id]);
+        $this->teacher = Teacher::factory()->create();
+        $this->teacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
         $this->student = Student::factory()->create(['club_id' => $this->club->id]);
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
-        
-        // Créer un template d'abonnement
+
         $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id,
-            'name' => 'Abonnement Test',
             'model_number' => 'TEST001',
-            'total_lessons' => 10,
+            'total_lessons' => 20,
+            'validity_months' => 12,
             'price' => 200.00,
-            'validity_months' => 6,
-            'is_active' => true
+            'is_active' => true,
         ]);
-        
-        // Créer un abonnement
+        $template->courseTypes()->attach($this->courseType->id);
+
         $subscription = Subscription::create([
             'club_id' => $this->club->id,
-            'template_id' => $template->id,
-            'student_id' => $this->student->id,
-            'name' => 'Abonnement Test',
-            'total_lessons' => 10,
-            'price' => 200.00
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'SUB-TEST-FUTURE-' . uniqid(),
         ]);
-        
-        // Créer une instance d'abonnement
+
         $this->subscriptionInstance = SubscriptionInstance::create([
             'subscription_id' => $subscription->id,
-            'student_id' => $this->student->id,
             'status' => 'active',
-            'lessons_remaining' => 10,
             'lessons_used' => 0,
-            'started_at' => now(),
-            'expires_at' => now()->addMonths(6)
+            'started_at' => now()->subDays(30),
+            'expires_at' => now()->addMonths(6),
         ]);
+        $this->subscriptionInstance->students()->attach($this->student->id);
     }
 
     /** @test */
@@ -428,7 +425,7 @@ class LessonFutureLessonsUpdateTest extends TestCase
     /** @test */
     public function it_releases_old_slot_when_recurring_interval_changes(): void
     {
-        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+        $baseDate = Carbon::parse('2026-12-07 10:00:00'); // lundi futur
 
         $lesson1 = $this->createLessonForSubscription($baseDate);
         $this->createLessonForSubscription($baseDate->copy()->addWeek());
@@ -475,6 +472,87 @@ class LessonFutureLessonsUpdateTest extends TestCase
             ->exists();
 
         $this->assertTrue($activeAtNewTime);
+    }
+
+    /** @test */
+    public function it_does_not_soft_delete_futures_when_recurring_interval_unchanged(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek());
+        $lesson3 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(2));
+
+        SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => $baseDate->dayOfWeek,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $baseDate->copy()->startOfDay(),
+            'end_date' => $baseDate->copy()->addMonths(6),
+            'status' => 'active',
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => '2025-12-01 14:00:00',
+            'duration' => 60,
+            'update_scope' => 'all_future',
+            'recurring_interval' => 1, // identique à la série
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertNull($lesson2->fresh()->deleted_at);
+        $this->assertNull($lesson3->fresh()->deleted_at);
+        $this->assertEquals('2025-12-08 14:00:00', $lesson2->fresh()->start_time);
+        $this->assertEquals('2025-12-15 14:00:00', $lesson3->fresh()->start_time);
+
+        $activeSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $this->subscriptionInstance->id)
+            ->where('status', 'active')
+            ->where('start_time', '14:00:00')
+            ->first();
+        $this->assertNotNull($activeSlot);
+        $this->assertEquals(1, $activeSlot->recurring_interval);
+    }
+
+    /** @test */
+    public function it_syncs_recurring_slot_teacher_on_all_future_teacher_only_change(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+        $newTeacher = Teacher::factory()->create(['club_id' => $this->club->id]);
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek());
+
+        $slot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => $baseDate->dayOfWeek,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $baseDate->copy()->startOfDay(),
+            'end_date' => $baseDate->copy()->addMonths(6),
+            'status' => 'active',
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => $baseDate->format('Y-m-d H:i:s'),
+            'teacher_id' => $newTeacher->id,
+            'update_scope' => 'all_future',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertEquals($newTeacher->id, $lesson1->fresh()->teacher_id);
+        $this->assertEquals($newTeacher->id, $lesson2->fresh()->teacher_id);
+        $this->assertEquals($newTeacher->id, $slot->fresh()->teacher_id);
+        $this->assertEquals('active', $slot->fresh()->status);
+        $this->assertEquals('10:00:00', $slot->fresh()->start_time);
     }
 
     /**

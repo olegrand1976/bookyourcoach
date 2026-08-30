@@ -137,7 +137,7 @@ class RecurringSlotValidator
      * @param string $startTime H:i ou H:i:s
      * @param string $endTime H:i ou H:i:s
      * @param int $recurringInterval Fréquence en semaines (1=hebdo, 2=bi-hebdo, etc.). Défaut 1.
-     * @param int|null $excludeLessonId ID d'un cours à exclure du contrôle (ex: cours déclencheur déjà créé)
+     * @param int|array<int>|null $excludeLessonId ID ou liste d'IDs de cours à exclure du contrôle
      * @param int|null $clubId Si défini, ne considère que les cours et récurrences de cet abonnement/club (évite faux conflits inter-clubs).
      * @return array{valid: bool, conflicts: array, message: string, hint: ?string}
      */
@@ -149,8 +149,9 @@ class RecurringSlotValidator
         string $startTime,
         string $endTime,
         int $recurringInterval = 1,
-        ?int $excludeLessonId = null,
-        ?int $clubId = null
+        int|array|null $excludeLessonId = null,
+        ?int $clubId = null,
+        array $excludeRecurringSlotIds = [],
     ): array {
         $startDate = Carbon::parse($startDate);
         $conflicts = [];
@@ -177,7 +178,8 @@ class RecurringSlotValidator
                 $excludeLessonId,
                 $k,
                 $clubId,
-                $studentId
+                $studentId,
+                $excludeRecurringSlotIds,
             );
 
             $studentConflict = $this->checkStudentAvailability(
@@ -187,7 +189,8 @@ class RecurringSlotValidator
                 $endTime,
                 $excludeLessonId,
                 $k,
-                $clubId
+                $clubId,
+                $excludeRecurringSlotIds,
             );
 
             // Même cours (lesson_id) bloque enseignant et élève : un seul message (évite doublon bruyant le 1er jour)
@@ -662,9 +665,10 @@ class RecurringSlotValidator
         Carbon $date,
         string $startTime,
         string $endTime,
-        ?int $excludeLessonId = null,
+        int|array|null $excludeLessonId = null,
         int $weekIndex = 0,
-        ?int $clubId = null
+        ?int $clubId = null,
+        array $excludeRecurringSlotIds = [],
     ): ?array {
         [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
 
@@ -683,9 +687,7 @@ class RecurringSlotValidator
             $lessonQuery->where('club_id', $clubId);
         }
 
-        if ($excludeLessonId) {
-            $lessonQuery->where('id', '!=', $excludeLessonId);
-        }
+        $this->applyExcludeLessonFilter($lessonQuery, $excludeLessonId);
 
         $conflictLesson = $lessonQuery->first([
             'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
@@ -726,6 +728,10 @@ class RecurringSlotValidator
             ->byTimeRange($startTime, $endTime);
 
         $this->scopeRecurringSlotsToClub($recurringCandidatesQuery, $clubId);
+
+        if ($excludeRecurringSlotIds !== []) {
+            $recurringCandidatesQuery->whereNotIn('id', array_map('intval', $excludeRecurringSlotIds));
+        }
 
         $recurringCandidates = $recurringCandidatesQuery->get();
 
@@ -845,10 +851,11 @@ class RecurringSlotValidator
         Carbon $date,
         string $startTime,
         string $endTime,
-        ?int $excludeLessonId = null,
+        int|array|null $excludeLessonId = null,
         int $weekIndex = 0,
         ?int $clubId = null,
-        ?int $contextStudentIdForLesson = null
+        ?int $contextStudentIdForLesson = null,
+        array $excludeRecurringSlotIds = [],
     ): ?array {
         [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
 
@@ -862,9 +869,7 @@ class RecurringSlotValidator
             $lessonQuery->where('club_id', $clubId);
         }
 
-        if ($excludeLessonId) {
-            $lessonQuery->where('id', '!=', $excludeLessonId);
-        }
+        $this->applyExcludeLessonFilter($lessonQuery, $excludeLessonId);
 
         $conflictLesson = $lessonQuery->first([
             'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
@@ -906,6 +911,10 @@ class RecurringSlotValidator
             ->byTimeRange($startTime, $endTime);
 
         $this->scopeRecurringSlotsToClub($teacherRecurringQuery, $clubId);
+
+        if ($excludeRecurringSlotIds !== []) {
+            $teacherRecurringQuery->whereNotIn('id', array_map('intval', $excludeRecurringSlotIds));
+        }
 
         $teacherRecurringCandidates = $teacherRecurringQuery->get();
 
@@ -1014,6 +1023,28 @@ class RecurringSlotValidator
             'recurring_slot_id' => $recurringSlot->id,
             'reason' => $reason
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\Lesson>  $query
+     * @param  int|array<int>|null  $excludeLessonId
+     */
+    private function applyExcludeLessonFilter($query, int|array|null $excludeLessonId): void
+    {
+        if ($excludeLessonId === null || $excludeLessonId === [] || $excludeLessonId === 0) {
+            return;
+        }
+
+        if (is_array($excludeLessonId)) {
+            $ids = array_values(array_unique(array_map('intval', $excludeLessonId)));
+            if ($ids !== []) {
+                $query->whereNotIn('id', $ids);
+            }
+
+            return;
+        }
+
+        $query->where('id', '!=', (int) $excludeLessonId);
     }
 }
 

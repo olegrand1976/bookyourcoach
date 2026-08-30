@@ -1048,13 +1048,12 @@ class LessonController extends Controller
                 $validated['end_time'] = $newStartTime->copy()->addMinutes($duration)->format('Y-m-d H:i:s');
             }
 
-            // Pré-validation du déplacement de série récurrente (évite une mise à jour partielle)
+            // Pré-validation du déplacement / changement d'intervalle (26 semaines)
             if (
                 $updateScope === 'all_future'
                 && $oldStartTime
                 && $oldEndTime
                 && isset($validated['start_time'])
-                && !isset($validated['recurring_interval'])
             ) {
                 $lesson->loadMissing('subscriptionInstances');
                 if ($lesson->subscriptionInstances->isNotEmpty()) {
@@ -1062,6 +1061,15 @@ class LessonController extends Controller
                     if ($targetStudentId !== null) {
                         $newStartForValidation = Carbon::parse($validated['start_time']);
                         $newEndForValidation = Carbon::parse($validated['end_time'] ?? $validated['start_time']);
+                        $excludeFutureIds = $this->lessonDeletionService->queryFutureLessonsForSameSlot(
+                            $lesson,
+                            $lesson->subscriptionInstances->first(),
+                            $targetStudentId,
+                            'update',
+                            $oldStartTime,
+                            $oldEndTime,
+                            $oldStartTime,
+                        )->pluck('id')->map(fn ($id) => (int) $id)->all();
                         $relocationConflicts = $this->recurringSlotRelocationService->validateRelocation(
                             $lesson,
                             $lesson->subscriptionInstances->first(),
@@ -1072,6 +1080,8 @@ class LessonController extends Controller
                             $newStartForValidation,
                             $newEndForValidation,
                             isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null,
+                            isset($validated['recurring_interval']) ? (int) $validated['recurring_interval'] : null,
+                            $excludeFutureIds,
                         );
                         if ($relocationConflicts !== []) {
                             return response()->json([
@@ -1128,118 +1138,133 @@ class LessonController extends Controller
                             $oldStartTime,
                         )
                         : collect();
-                    
-                    if (isset($validated['recurring_interval'])) {
-                        if ($targetStudentId !== null) {
+
+                    $requestedInterval = isset($validated['recurring_interval'])
+                        ? (int) $validated['recurring_interval']
+                        : null;
+                    $intervalActuallyChanged = false;
+                    $activeSlotsForInterval = collect();
+                    if ($requestedInterval !== null && $targetStudentId !== null) {
+                        $activeSlotsForInterval = $this->recurringSlotRelocationService->findActiveSlotsForSchedule(
+                            $subscriptionInstance,
+                            $targetStudentId,
+                            (int) $oldTeacherId,
+                            $oldStartTime,
+                            $oldEndTime,
+                        );
+                        if ($activeSlotsForInterval->isEmpty()) {
+                            throw new \RuntimeException(
+                                'Aucune série récurrente active trouvée pour ce créneau. Impossible de changer l\'intervalle.'
+                            );
+                        }
+                        $currentInterval = max(1, min(52, (int) ($activeSlotsForInterval->first()->recurring_interval ?? 1)));
+                        $intervalActuallyChanged = $currentInterval !== $requestedInterval;
+                    }
+
+                    if ($intervalActuallyChanged) {
+                        if ($targetStudentId === null) {
+                            throw new \RuntimeException(
+                                'Impossible de changer l\'intervalle de récurrence : élève cible non déterminé.'
+                            );
+                        }
+
+                        $newStartTime = Carbon::parse($lesson->start_time);
+                        $newEndTime = Carbon::parse($lesson->end_time ?? $lesson->start_time);
+                        $scheduleChanged = $this->recurringSlotRelocationService->hasSlotScheduleChanged(
+                            $oldStartTime,
+                            $newStartTime,
+                            $oldEndTime,
+                            $newEndTime,
+                        );
+
+                        // Ne libérer l'ancienne série que si le jour/horaire change aussi
+                        if ($scheduleChanged) {
                             $this->recurringSlotRelocationService->releaseActiveSlotsForSchedule(
                                 $subscriptionInstance,
                                 $targetStudentId,
                                 (int) $oldTeacherId,
                                 $oldStartTime,
                                 $oldEndTime,
-                                'Libération automatique : changement d\'intervalle de récurrence (cours #' . $lesson->id . ')',
+                                'Libération automatique : changement d\'intervalle et d\'horaire (cours #' . $lesson->id . ')',
                             );
                         }
 
-                        // Supprimer tous les cours futurs planifiés et les régénérer
                         Log::info("🔄 Changement d'intervalle de récurrence détecté", [
-                            'new_recurring_interval' => $validated['recurring_interval'],
-                            'future_lessons_to_delete' => $futureLessons->count()
+                            'new_recurring_interval' => $requestedInterval,
+                            'schedule_changed' => $scheduleChanged,
+                            'future_lessons_to_delete' => $futureLessons->count(),
                         ]);
-                        
-                        // Supprimer tous les cours futurs planifiés
+
                         $deletedCount = 0;
                         foreach ($futureLessons as $futureLesson) {
-                            try {
-                                $futureLesson->delete();
-                                $deletedCount++;
-                                Log::info("🗑️ Cours futur supprimé", [
-                                    'lesson_id' => $futureLesson->id,
-                                    'start_time' => $futureLesson->start_time
-                                ]);
-                            } catch (\Exception $e) {
-                                Log::warning("❌ Impossible de supprimer le cours futur {$futureLesson->id}", [
-                                    'error' => $e->getMessage()
-                                ]);
-                            }
+                            $futureLesson->delete();
+                            $deletedCount++;
                         }
-                        
-                        // Trouver ou créer le créneau récurrent correspondant
-                        $newStartTime = Carbon::parse($lesson->start_time);
+
                         $dayOfWeek = $newStartTime->dayOfWeek;
                         $timeStart = $newStartTime->format('H:i:s');
-                        
-                        // Calculer la durée
-                        $durationMinutes = $validated['duration'] ?? 60;
-                        if (!$durationMinutes && $lesson->courseType) {
-                            $durationMinutes = $lesson->courseType->duration_minutes ?? 60;
+
+                        $durationMinutes = $validated['duration'] ?? null;
+                        if (! $durationMinutes && $lesson->courseType) {
+                            $durationMinutes = $lesson->courseType->duration_minutes ?? $lesson->courseType->duration ?? 60;
                         }
+                        $durationMinutes = $durationMinutes ?? 60;
                         $timeEnd = $newStartTime->copy()->addMinutes($durationMinutes)->format('H:i:s');
-                        
-                        // Chercher un créneau récurrent existant pour cet abonnement et ce jour/heure
-                        $recurringSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $subscriptionInstance->id)
-                            ->where('student_id', $lesson->student_id)
-                            ->where('teacher_id', $lesson->teacher_id)
-                            ->where('day_of_week', $dayOfWeek)
-                            ->where('start_time', $timeStart)
-                            ->first();
-                        
+                        $teacherIdForSlot = (int) ($lesson->teacher_id ?? $oldTeacherId);
+
+                        $recurringSlot = null;
+                        if (! $scheduleChanged) {
+                            $recurringSlot = $activeSlotsForInterval->first();
+                        } else {
+                            $recurringSlot = SubscriptionRecurringSlot::where('subscription_instance_id', $subscriptionInstance->id)
+                                ->where('student_id', $targetStudentId)
+                                ->where('teacher_id', $teacherIdForSlot)
+                                ->where('day_of_week', $dayOfWeek)
+                                ->where('start_time', $timeStart)
+                                ->where('status', 'active')
+                                ->first();
+                        }
+
                         if ($recurringSlot) {
-                            // Mettre à jour l'intervalle du créneau récurrent existant
                             $recurringSlot->update([
-                                'recurring_interval' => $validated['recurring_interval']
-                            ]);
-                            Log::info("✅ Créneau récurrent mis à jour avec nouvel intervalle", [
-                                'recurring_slot_id' => $recurringSlot->id,
-                                'new_interval' => $validated['recurring_interval']
+                                'recurring_interval' => $requestedInterval,
+                                'teacher_id' => $teacherIdForSlot,
+                                'day_of_week' => $dayOfWeek,
+                                'start_time' => $timeStart,
+                                'end_time' => $timeEnd,
                             ]);
                         } else {
-                            // Créer un nouveau créneau récurrent si aucun n'existe
                             $recurringStartDate = $newStartTime->copy()->startOfDay();
                             $recurringEndDate = now()->addMonths(6);
                             if ($subscriptionInstance->expires_at && Carbon::parse($subscriptionInstance->expires_at)->lessThan($recurringEndDate)) {
                                 $recurringEndDate = Carbon::parse($subscriptionInstance->expires_at);
                             }
-                            
+
                             $recurringSlot = SubscriptionRecurringSlot::create([
                                 'subscription_instance_id' => $subscriptionInstance->id,
-                                'teacher_id' => $lesson->teacher_id,
-                                'student_id' => $lesson->student_id,
+                                'teacher_id' => $teacherIdForSlot,
+                                'student_id' => $targetStudentId,
                                 'day_of_week' => $dayOfWeek,
                                 'start_time' => $timeStart,
                                 'end_time' => $timeEnd,
-                                'recurring_interval' => $validated['recurring_interval'],
+                                'recurring_interval' => $requestedInterval,
                                 'start_date' => $recurringStartDate,
                                 'end_date' => $recurringEndDate,
-                            ]);
-                            Log::info("✅ Nouveau créneau récurrent créé", [
-                                'recurring_slot_id' => $recurringSlot->id,
-                                'interval' => $validated['recurring_interval']
+                                'status' => 'active',
                             ]);
                         }
-                        
-                        // Régénérer les cours avec le nouvel intervalle
-                        try {
-                            $legacyService = new \App\Services\LegacyRecurringSlotService();
-                            $startDate = $newStartTime->copy()->addWeeks($validated['recurring_interval']); // Commencer après le cours actuel
-                            $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
-                            
-                            Log::info("✅ Cours régénérés avec nouvel intervalle", [
-                                'recurring_slot_id' => $recurringSlot->id,
-                                'interval' => $validated['recurring_interval'],
-                                'deleted_count' => $deletedCount,
-                                'generated_count' => $stats['generated'],
-                                'skipped' => $stats['skipped'],
-                                'errors' => $stats['errors']
-                            ]);
-                            
-                            $updatedFutureLessonsCount = $stats['generated'];
-                        } catch (\Exception $e) {
-                            Log::error("❌ Erreur lors de la régénération des cours", [
-                                'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString()
-                            ]);
+
+                        $legacyService = new \App\Services\LegacyRecurringSlotService();
+                        $startDate = $newStartTime->copy()->addWeeks($requestedInterval);
+                        $stats = $legacyService->generateLessonsForSlot($recurringSlot, $startDate, null);
+
+                        if ($deletedCount > 0 && ($stats['generated'] ?? 0) === 0) {
+                            throw new \RuntimeException(
+                                'Échec de la régénération des cours futurs après changement d\'intervalle. Aucune modification n\'a été conservée.'
+                            );
                         }
+
+                        $updatedFutureLessonsCount = $stats['generated'];
                     } else {
                         // Logique existante : mettre à jour les cours futurs un par un
                         $newStartTime = Carbon::parse($lesson->start_time);
@@ -1266,97 +1291,67 @@ class LessonController extends Controller
                             'subscription_instance_id' => $subscriptionInstance->id
                         ]);
                     
-                        // Mettre à jour chaque cours futur
+                        // Mettre à jour chaque cours futur (fail-fast : rollback transaction si un échec)
                         foreach ($futureLessons as $futureLesson) {
-                    try {
+                        try {
                         $futureStartTime = Carbon::parse($futureLesson->start_time);
-                        
-                        // Appliquer le décalage de jours si nécessaire
+
                         $newFutureStartTime = $futureStartTime->copy();
                         if ($dateOffset > 0) {
                             $newFutureStartTime->addDays($dateOffset);
                         } elseif ($dateOffset < 0) {
                             $newFutureStartTime->subDays(abs($dateOffset));
                         }
-                        
-                        // Remplacer l'heure par la nouvelle heure (en gardant la date du cours futur)
-                        // Cela garantit que tous les cours futurs auront la même heure que le cours modifié
+
                         $newFutureStartTime->setTime($newHour, $newMinute, $newSecond);
-                        
-                        Log::info("📝 Mise à jour cours futur", [
-                            'future_lesson_id' => $futureLesson->id,
-                            'old_start_time' => $futureStartTime->toDateTimeString(),
-                            'new_start_time' => $newFutureStartTime->toDateTimeString(),
-                            'date_offset_applied' => $dateOffset,
-                            'new_hour_applied' => $newHour,
-                            'new_minute_applied' => $newMinute
-                        ]);
-                        
-                        // Vérifier la disponibilité avant de mettre à jour
+
                         $clubId = $futureLesson->club_id;
                         $teacherId = $validated['teacher_id'] ?? $futureLesson->teacher_id;
-                        
-                        // Compter les élèves du cours
+
                         $studentCount = 0;
                         if ($futureLesson->student_id) {
                             $studentCount++;
                         }
                         $studentCount += $futureLesson->students()->count();
-                        
-                        // Calculer la durée : utiliser la durée fournie, ou celle du type de cours, ou 60 par défaut
+
                         $duration = $validated['duration'] ?? null;
                         if (!$duration && $futureLesson->courseType) {
                             $duration = $futureLesson->courseType->duration_minutes ?? $futureLesson->courseType->duration ?? 60;
                         }
                         $duration = $duration ?? 60;
-                        
-                        // Vérifier la disponibilité
-                        try {
-                            $this->checkSlotCapacityForUpdate(
-                                $newFutureStartTime->toDateTimeString(),
-                                $clubId,
-                                $teacherId,
-                                $studentCount,
-                                $futureLesson->id,
-                                $duration
-                            );
-                            
-                            // Calculer la nouvelle heure de fin
-                            $newFutureEndTime = $newFutureStartTime->copy()->addMinutes($duration);
-                            
-                            // Mettre à jour le cours futur
-                            $updateResult = $futureLesson->update([
-                                'start_time' => $newFutureStartTime->toDateTimeString(),
-                                'end_time' => $newFutureEndTime->toDateTimeString(),
-                                'teacher_id' => $teacherId
-                            ]);
-                            
-                            Log::info("✅ Cours futur mis à jour", [
-                                'future_lesson_id' => $futureLesson->id,
-                                'update_result' => $updateResult,
-                                'new_start_time' => $newFutureStartTime->toDateTimeString(),
-                                'new_end_time' => $newFutureEndTime->toDateTimeString()
-                            ]);
-                            
-                            $updatedFutureLessonsCount++;
+
+                        $this->checkSlotCapacityForUpdate(
+                            $newFutureStartTime->toDateTimeString(),
+                            $clubId,
+                            $teacherId,
+                            $studentCount,
+                            $futureLesson->id,
+                            $duration
+                        );
+
+                        $newFutureEndTime = $newFutureStartTime->copy()->addMinutes($duration);
+
+                        $futureLesson->update([
+                            'start_time' => $newFutureStartTime->toDateTimeString(),
+                            'end_time' => $newFutureEndTime->toDateTimeString(),
+                            'teacher_id' => $teacherId
+                        ]);
+
+                        $updatedFutureLessonsCount++;
                         } catch (\Exception $e) {
-                            // Si la mise à jour échoue pour un cours, continuer avec les autres
                             Log::warning("❌ Impossible de mettre à jour le cours futur {$futureLesson->id}", [
                                 'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString()
                             ]);
+                            throw new \RuntimeException(
+                                'Impossible de mettre à jour tous les cours futurs : '.$e->getMessage()
+                            );
                         }
-                    } catch (\Exception $e) {
-                        Log::warning("❌ Erreur lors de la mise à jour du cours futur {$futureLesson->id}", [
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString()
-                        ]);
-                    }
                 }
                         if ($targetStudentId !== null) {
                             $newStartTime = Carbon::parse($lesson->start_time);
                             $newEndTime = Carbon::parse($lesson->end_time ?? $lesson->start_time);
-                            $this->recurringSlotRelocationService->relocateForAllFutureUpdate(
+                            $newTeacherId = isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null;
+                            $relocated = $this->recurringSlotRelocationService->relocateForAllFutureUpdate(
                                 $lesson,
                                 $subscriptionInstance,
                                 $targetStudentId,
@@ -1365,8 +1360,23 @@ class LessonController extends Controller
                                 $oldEndTime,
                                 $newStartTime,
                                 $newEndTime,
-                                isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null,
+                                $newTeacherId,
                             );
+                            // Horaire inchangé : synchroniser le moniteur sur la série active
+                            if (
+                                $relocated === null
+                                && $newTeacherId !== null
+                                && $newTeacherId !== (int) $oldTeacherId
+                            ) {
+                                $this->recurringSlotRelocationService->syncTeacherForSchedule(
+                                    $subscriptionInstance,
+                                    $targetStudentId,
+                                    (int) $oldTeacherId,
+                                    $newTeacherId,
+                                    $newStartTime,
+                                    $newEndTime,
+                                );
+                            }
                         }
                     } // Fin du else (logique de mise à jour individuelle)
                 }
@@ -1449,6 +1459,21 @@ class LessonController extends Controller
                     'errors' => [
                         'start_time' => [$e->getMessage()],
                     ],
+                ], 422);
+            }
+
+            if (str_contains($e->getMessage(), 'régénération des cours futurs')
+                || str_contains($e->getMessage(), 'intervalle de récurrence')
+                || str_contains($e->getMessage(), 'série récurrente active')
+                || str_contains($e->getMessage(), 'Impossible de mettre à jour tous les cours futurs')) {
+                Log::warning('Échec modification récurrence (mise à jour cours)', [
+                    'lesson_id' => $id,
+                    'message' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
                 ], 422);
             }
 

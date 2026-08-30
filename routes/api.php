@@ -295,10 +295,12 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
     
     // Gestion des créneaux récurrents (réservations d'abonnements)
     Route::get('/recurring-slots', [\App\Http\Controllers\Api\RecurringSlotController::class, 'index']);
+    Route::get('/recurring-slots/diagnostics', [\App\Http\Controllers\Api\RecurringSlotController::class, 'diagnostics']);
     Route::get('/recurring-slots/{id}', [\App\Http\Controllers\Api\RecurringSlotController::class, 'show']);
     Route::post('/recurring-slots/{id}/release', [\App\Http\Controllers\Api\RecurringSlotController::class, 'release']);
     Route::post('/recurring-slots/{id}/reactivate', [\App\Http\Controllers\Api\RecurringSlotController::class, 'reactivate']);
     Route::post('/recurring-slots/{id}/materialize-lesson', [\App\Http\Controllers\Api\RecurringSlotController::class, 'materializeLesson']);
+    Route::post('/recurring-slots/{id}/regenerate-future-lessons', [\App\Http\Controllers\Api\RecurringSlotController::class, 'regenerateFutureLessons']);
 
     // Jours de fermeture / congés (planning)
     Route::get('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'index']);

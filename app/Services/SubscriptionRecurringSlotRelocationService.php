@@ -36,6 +36,9 @@ class SubscriptionRecurringSlotRelocationService
     }
 
     /**
+     * Séries actives du créneau (jour + heure de début). Ne filtre pas sur end_time
+     * pour éviter les ratés si la durée SRS ≠ durée du cours.
+     *
      * @return Collection<int, SubscriptionRecurringSlot>
      */
     public function findActiveSlotsForSchedule(
@@ -51,9 +54,44 @@ class SubscriptionRecurringSlotRelocationService
             ->where('teacher_id', $teacherId)
             ->where('day_of_week', $slotStart->dayOfWeek)
             ->where('start_time', $slotStart->format('H:i:s'))
-            ->where('end_time', $slotEnd->format('H:i:s'))
             ->where('status', 'active')
             ->get();
+    }
+
+    /**
+     * Valide la disponibilité 26 semaines sur le créneau / intervalle cible.
+     *
+     * @param  int|array<int>|null  $excludeLessonIds
+     * @param  array<int>  $excludeRecurringSlotIds
+     * @return array<int, mixed>
+     */
+    public function validateTargetAvailability(
+        Lesson $lesson,
+        int $teacherId,
+        int $studentId,
+        Carbon $newStart,
+        Carbon $newEnd,
+        int $recurringInterval,
+        int|array|null $excludeLessonIds = null,
+        array $excludeRecurringSlotIds = [],
+    ): array {
+        $interval = max(1, min(52, $recurringInterval));
+        $exclude = $excludeLessonIds ?? (int) $lesson->id;
+
+        $validation = $this->recurringSlotValidator->validateRecurringAvailabilityWithoutOpenSlot(
+            $teacherId,
+            $studentId,
+            $newStart->copy()->startOfDay()->format('Y-m-d'),
+            $newStart->dayOfWeek,
+            $newStart->format('H:i:s'),
+            $newEnd->format('H:i:s'),
+            $interval,
+            $exclude,
+            $lesson->club_id ? (int) $lesson->club_id : null,
+            $excludeRecurringSlotIds,
+        );
+
+        return $validation['valid'] ? [] : ($validation['conflicts'] ?? []);
     }
 
     /**
@@ -87,8 +125,9 @@ class SubscriptionRecurringSlotRelocationService
     }
 
     /**
-     * Valide le déplacement de série (26 semaines) sans modifier la base.
+     * Valide le déplacement / changement moniteur / intervalle (26 semaines) sans modifier la base.
      *
+     * @param  array<int>  $excludeLessonIds  Cours de la série à ignorer (évite auto-conflit)
      * @return array<int, mixed> Liste des conflits (vide si OK ou rien à déplacer)
      */
     public function validateRelocation(
@@ -101,11 +140,9 @@ class SubscriptionRecurringSlotRelocationService
         Carbon $newStart,
         Carbon $newEnd,
         ?int $newTeacherId = null,
+        ?int $recurringIntervalOverride = null,
+        array $excludeLessonIds = [],
     ): array {
-        if (!$this->hasSlotScheduleChanged($oldStart, $newStart, $oldEnd, $newEnd)) {
-            return [];
-        }
-
         $slots = $this->findActiveSlotsForSchedule(
             $subscriptionInstance,
             $studentId,
@@ -114,26 +151,49 @@ class SubscriptionRecurringSlotRelocationService
             $oldEnd,
         );
 
-        if ($slots->isEmpty()) {
+        $scheduleChanged = $this->hasSlotScheduleChanged($oldStart, $newStart, $oldEnd, $newEnd);
+        $teacherChanged = $newTeacherId !== null && $newTeacherId !== $oldTeacherId;
+        $currentInterval = max(1, min(52, (int) ($slots->first()->recurring_interval ?? 1)));
+        $effectiveInterval = $recurringIntervalOverride !== null
+            ? max(1, min(52, $recurringIntervalOverride))
+            : $currentInterval;
+        $intervalChanged = $recurringIntervalOverride !== null && $effectiveInterval !== $currentInterval;
+
+        if (! $scheduleChanged && ! $teacherChanged && ! $intervalChanged) {
+            return [];
+        }
+
+        // Moniteur seul / intervalle plus espacé : pas de nouvelles occurrences à valider ici
+        // (capacité moniteur vérifiée cours par cours dans update). Densification = intervalle plus petit.
+        if (! $scheduleChanged) {
+            if (! $intervalChanged) {
+                return [];
+            }
+            if ($effectiveInterval >= $currentInterval) {
+                return [];
+            }
+        }
+
+        if ($slots->isEmpty() && ! $scheduleChanged) {
             return [];
         }
 
         $teacherId = $newTeacherId ?? $oldTeacherId;
-        $recurringInterval = max(1, min(52, (int) ($slots->first()->recurring_interval ?? 1)));
+        $exclude = $excludeLessonIds !== []
+            ? array_values(array_unique(array_merge([(int) $lesson->id], $excludeLessonIds)))
+            : (int) $lesson->id;
+        $excludeSlotIds = $slots->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $validation = $this->recurringSlotValidator->validateRecurringAvailabilityWithoutOpenSlot(
+        return $this->validateTargetAvailability(
+            $lesson,
             $teacherId,
             $studentId,
-            $newStart->copy()->startOfDay()->format('Y-m-d'),
-            $newStart->dayOfWeek,
-            $newStart->format('H:i:s'),
-            $newEnd->format('H:i:s'),
-            $recurringInterval,
-            (int) $lesson->id,
-            $lesson->club_id ? (int) $lesson->club_id : null,
+            $newStart,
+            $newEnd,
+            $effectiveInterval,
+            $exclude,
+            $excludeSlotIds,
         );
-
-        return $validation['valid'] ? [] : ($validation['conflicts'] ?? []);
     }
 
     /**
@@ -199,6 +259,51 @@ class SubscriptionRecurringSlotRelocationService
         }
 
         return ['relocated' => $relocated];
+    }
+
+    /**
+     * Met à jour le moniteur des séries actives du créneau (horaire inchangé).
+     */
+    public function syncTeacherForSchedule(
+        SubscriptionInstance $subscriptionInstance,
+        int $studentId,
+        int $oldTeacherId,
+        int $newTeacherId,
+        Carbon $slotStart,
+        Carbon $slotEnd,
+    ): int {
+        if ($oldTeacherId === $newTeacherId) {
+            return 0;
+        }
+
+        $slots = $this->findActiveSlotsForSchedule(
+            $subscriptionInstance,
+            $studentId,
+            $oldTeacherId,
+            $slotStart,
+            $slotEnd,
+        );
+
+        $updated = 0;
+        foreach ($slots as $slot) {
+            $note = sprintf(
+                'Moniteur changé (%d → %d) via modification cours (horaire inchangé)',
+                $oldTeacherId,
+                $newTeacherId,
+            );
+            $slot->update([
+                'teacher_id' => $newTeacherId,
+                'notes' => ($slot->notes ? $slot->notes."\n" : '').$note,
+            ]);
+            $updated++;
+            Log::info('✅ Créneau récurrent : moniteur synchronisé', [
+                'recurring_slot_id' => $slot->id,
+                'old_teacher_id' => $oldTeacherId,
+                'new_teacher_id' => $newTeacherId,
+            ]);
+        }
+
+        return $updated;
     }
 
     private function dayLabel(int $dayOfWeek): string

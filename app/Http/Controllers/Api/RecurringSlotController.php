@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MaterializeRecurringSlotLessonRequest;
+use App\Http\Requests\RecurringSlotDiagnosticsRequest;
+use App\Http\Requests\RegenerateRecurringSlotLessonsRequest;
 use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
 use App\Services\LegacyRecurringSlotService;
+use App\Services\SubscriptionRecurringSlotDiagnosticsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +19,9 @@ use Illuminate\Support\Facades\Log;
 
 class RecurringSlotController extends Controller
 {
+    public function __construct(
+        private readonly SubscriptionRecurringSlotDiagnosticsService $diagnosticsService,
+    ) {}
     /**
      * Liste des créneaux récurrents pour un club
      */
@@ -255,6 +261,97 @@ class RecurringSlotController extends Controller
                 'success' => false,
                 'message' => 'Erreur lors de la réactivation du créneau',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Audit des incohérences série ↔ cours futurs (club courant).
+     */
+    public function diagnostics(RecurringSlotDiagnosticsRequest $request): JsonResponse
+    {
+        $club = $request->user()->getFirstClub();
+        if (! $club) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun club associé',
+            ], 404);
+        }
+
+        $filters = array_filter([
+            'status' => $request->validated('status'),
+            'teacher_id' => $request->validated('teacher_id'),
+            'student_id' => $request->validated('student_id'),
+            'issue' => $request->validated('issue'),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $result = $this->diagnosticsService->diagnoseForClub((int) $club->id, $filters);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'items' => $result['items'],
+                'summary' => $result['summary'],
+            ],
+            'message' => 'Diagnostic des créneaux récurrents',
+        ]);
+    }
+
+    /**
+     * Régénère les cours futurs manquants pour une série active (sans supprimer les existants).
+     */
+    public function regenerateFutureLessons(RegenerateRecurringSlotLessonsRequest $request, int $id): JsonResponse
+    {
+        try {
+            $club = $request->user()->getFirstClub();
+            if (! $club) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun club associé',
+                ], 404);
+            }
+
+            $slot = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($query) use ($club) {
+                $query->whereHas('subscription', function ($q) use ($club) {
+                    $q->where('club_id', $club->id);
+                });
+            })->findOrFail($id);
+
+            $fromDate = null;
+            $from = $request->validated('from_date');
+            if ($from) {
+                $fromDate = Carbon::createFromFormat('Y-m-d', $from, config('app.timezone'))->startOfDay();
+            }
+
+            $stats = $this->diagnosticsService->regenerateFutureLessons($slot, $fromDate);
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+                'message' => sprintf(
+                    'Régénération terminée : %d créé(s), %d ignoré(s), %d erreur(s). %d cours futur(s) au total.',
+                    $stats['generated'],
+                    $stats['skipped'],
+                    $stats['errors'],
+                    $stats['future_lessons_count'],
+                ),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Créneau récurrent non trouvé',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erreur regenerateFutureLessons: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la régénération des cours',
             ], 500);
         }
     }

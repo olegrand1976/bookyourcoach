@@ -8,15 +8,57 @@
             <h1 class="text-2xl font-bold text-gray-900">Créneaux Récurrents</h1>
             <p class="text-gray-600">Gérez les créneaux récurrents réservés pour les abonnements</p>
           </div>
-          <NuxtLink
-            to="/club/subscriptions"
-            class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-          >
-            <span>←</span>
-            <span>Abonnements</span>
-          </NuxtLink>
+          <div class="flex items-center gap-3">
+            <NuxtLink
+              to="/club/planning"
+              class="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Planning
+            </NuxtLink>
+            <NuxtLink
+              to="/club/subscriptions"
+              class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+            >
+              <span>←</span>
+              <span>Abonnements</span>
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- Onglets -->
+        <div class="mt-6 border-b border-gray-200">
+          <nav class="-mb-px flex gap-4" aria-label="Onglets créneaux">
+            <button
+              type="button"
+              class="whitespace-nowrap border-b-2 px-1 py-2 text-sm font-medium"
+              :class="activeTab === 'list'
+                ? 'border-violet-600 text-violet-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              @click="activeTab = 'list'"
+            >
+              Liste
+            </button>
+            <button
+              type="button"
+              class="whitespace-nowrap border-b-2 px-1 py-2 text-sm font-medium"
+              :class="activeTab === 'diagnostics'
+                ? 'border-violet-600 text-violet-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              @click="switchToDiagnostics"
+            >
+              Diagnostic
+              <span
+                v-if="diagnosticsSummary.with_issues"
+                class="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"
+              >
+                {{ diagnosticsSummary.with_issues }}
+              </span>
+            </button>
+          </nav>
         </div>
       </div>
+
+      <template v-if="activeTab === 'list'">
 
       <!-- Filtres -->
       <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
@@ -291,6 +333,152 @@
           {{ recurringSlots.length }} créneau(x) affiché(s)
         </p>
       </div>
+      </template>
+
+      <!-- Onglet Diagnostic -->
+      <template v-else>
+        <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-sm font-semibold text-gray-700">Incohérences série ↔ cours futurs</h2>
+              <p class="text-xs text-gray-500 mt-1">
+                Détecte les séries sans planification future, écarts moniteur/horaire, et permet de régénérer les cours manquants.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
+              :disabled="diagnosticsLoading"
+              @click="loadDiagnostics"
+            >
+              Actualiser
+            </button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Alerte</label>
+              <select
+                v-model="diagFilters.issue"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                @change="loadDiagnostics"
+              >
+                <option value="">Toutes</option>
+                <option value="no_future_lessons">Sans cours futurs</option>
+                <option value="teacher_mismatch">Moniteur désaligné</option>
+                <option value="schedule_drift">Horaire désaligné</option>
+                <option value="gap_in_series">Trous dans la série</option>
+                <option value="orphan_lessons">Cours orphelins</option>
+                <option value="cancelled_srs_with_futures">Série annulée + futurs</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Statut série</label>
+              <select
+                v-model="diagFilters.status"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                @change="loadDiagnostics"
+              >
+                <option value="">Tous</option>
+                <option value="active">Actif</option>
+                <option value="cancelled">Annulé</option>
+              </select>
+            </div>
+            <div class="sm:col-span-2 flex items-end gap-3 text-sm text-gray-600">
+              <span>{{ diagnosticsSummary.total }} série(s)</span>
+              <span class="font-medium text-amber-700">{{ diagnosticsSummary.with_issues }} avec alerte(s)</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="diagnosticsLoading" class="text-center py-12">
+          <p class="text-gray-500">Analyse en cours…</p>
+        </div>
+
+        <div
+          v-else-if="diagnosticRows.length === 0"
+          class="bg-white rounded-lg shadow-sm p-12 text-center"
+        >
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">Aucune incohérence</h3>
+          <p class="text-gray-600">Aucune série ne correspond aux filtres, ou tout est cohérent.</p>
+        </div>
+
+        <div
+          v-else
+          class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+        >
+          <div class="overflow-x-auto">
+            <table class="min-w-[1100px] w-full text-sm text-left">
+              <thead class="text-xs font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th class="px-3 py-3">Élève</th>
+                  <th class="px-3 py-3">Moniteur</th>
+                  <th class="px-3 py-3 whitespace-nowrap">Jour / horaire</th>
+                  <th class="px-3 py-3">Fréq.</th>
+                  <th class="px-3 py-3">Statut</th>
+                  <th class="px-3 py-3 whitespace-nowrap">Futurs</th>
+                  <th class="px-3 py-3 whitespace-nowrap">Prochaine</th>
+                  <th class="px-3 py-3">Alertes</th>
+                  <th class="px-3 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr
+                  v-for="row in diagnosticRows"
+                  :key="row.id"
+                  class="hover:bg-amber-50/40 align-top"
+                >
+                  <td class="px-3 py-2.5">{{ getStudentName(row) }}</td>
+                  <td class="px-3 py-2.5">{{ row.teacher?.name || row.teacher?.user?.name || '—' }}</td>
+                  <td class="px-3 py-2.5 whitespace-nowrap">
+                    {{ getDayName(row.day_of_week) }}
+                    {{ formatTime(row.start_time) }}–{{ formatTime(row.end_time) }}
+                  </td>
+                  <td class="px-3 py-2.5">{{ getIntervalLabel(row) }}</td>
+                  <td class="px-3 py-2.5">
+                    <span :class="getStatusClass(row.status)" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium">
+                      {{ getStatusLabel(row.status) }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2.5 tabular-nums">{{ row.future_lessons_count }}</td>
+                  <td class="px-3 py-2.5 whitespace-nowrap text-xs">
+                    <NuxtLink
+                      v-if="row.next_expected_date"
+                      :to="{ path: '/club/planning', query: { date: row.next_expected_date } }"
+                      class="text-blue-600 hover:underline"
+                    >
+                      {{ formatDate(row.next_expected_date) }}
+                    </NuxtLink>
+                    <span v-else class="text-gray-400">—</span>
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <ul v-if="row.issues?.length" class="space-y-1">
+                      <li
+                        v-for="issue in row.issues"
+                        :key="issue.code"
+                        class="text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded px-2 py-1"
+                      >
+                        {{ issueLabel(issue.code) }} — {{ issue.message }}
+                      </li>
+                    </ul>
+                    <span v-else class="text-xs text-green-700">OK</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-right">
+                    <button
+                      v-if="row.can_regenerate"
+                      type="button"
+                      :disabled="processing"
+                      class="px-2.5 py-1 bg-violet-600 text-white rounded-md hover:bg-violet-700 text-xs font-medium disabled:opacity-50"
+                      @click="regenerateRow(row)"
+                    >
+                      Régénérer futurs
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -307,6 +495,17 @@ const teachers = ref([])
 const students = ref([])
 const loading = ref(true)
 const processing = ref(false)
+const activeTab = ref('list')
+const diagnosticsLoading = ref(false)
+const diagnosticRows = ref([])
+const diagnosticsSummary = ref({
+  total: 0,
+  with_issues: 0
+})
+const diagFilters = reactive({
+  issue: '',
+  status: 'active'
+})
 
 const filters = reactive({
   status: '',
@@ -444,6 +643,69 @@ onMounted(async () => {
 onUnmounted(() => {
   clearTimeout(searchDebounceTimer)
 })
+
+async function switchToDiagnostics() {
+  activeTab.value = 'diagnostics'
+  if (diagnosticRows.value.length === 0 && !diagnosticsLoading.value) {
+    await loadDiagnostics()
+  }
+}
+
+async function loadDiagnostics() {
+  try {
+    diagnosticsLoading.value = true
+    const params = {}
+    if (diagFilters.issue) params.issue = diagFilters.issue
+    if (diagFilters.status) params.status = diagFilters.status
+    const response = await $api.get('/club/recurring-slots/diagnostics', { params })
+    if (response.data.success) {
+      const payload = response.data.data || {}
+      diagnosticRows.value = Array.isArray(payload) ? payload : (payload.items || [])
+      diagnosticsSummary.value = (Array.isArray(payload) ? response.data.summary : payload.summary)
+        || { total: 0, with_issues: 0 }
+    } else {
+      showError(response.data.message || 'Erreur diagnostic')
+    }
+  } catch (err) {
+    console.error('Erreur diagnostic:', err)
+    showError('Erreur lors du diagnostic des créneaux')
+  } finally {
+    diagnosticsLoading.value = false
+  }
+}
+
+async function regenerateRow(row) {
+  if (!confirm(`Régénérer les cours futurs manquants pour la série #${row.id} ? Les cours existants ne seront pas supprimés.`)) {
+    return
+  }
+  try {
+    processing.value = true
+    const response = await $api.post(`/club/recurring-slots/${row.id}/regenerate-future-lessons`, {})
+    if (response.data.success) {
+      success(response.data.message || 'Régénération terminée')
+      await loadDiagnostics()
+    } else {
+      showError(response.data.message || 'Échec de la régénération')
+    }
+  } catch (err) {
+    console.error('Erreur régénération:', err)
+    showError(err.response?.data?.message || 'Erreur lors de la régénération')
+  } finally {
+    processing.value = false
+  }
+}
+
+function issueLabel(code) {
+  const labels = {
+    no_future_lessons: 'Sans futurs',
+    teacher_mismatch: 'Moniteur',
+    orphan_lessons: 'Orphelins',
+    cancelled_srs_with_futures: 'Série annulée',
+    schedule_drift: 'Horaire',
+    gap_in_series: 'Trous'
+  }
+  return labels[code] || code
+}
 
 async function releaseSlot(id) {
   if (!confirm('Êtes-vous sûr de vouloir libérer ce créneau récurrent ?')) {

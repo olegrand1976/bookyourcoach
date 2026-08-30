@@ -382,7 +382,7 @@
               </div>
 
               <!-- Intervalle de récurrence (uniquement si un élève est sélectionné et déduction d'abonnement activée) -->
-              <!-- En mode création OU en mode édition avec portée 'all_future' -->
+              <!-- En mode création OU en mode édition avec portée 'all_future' ET changement d'intervalle explicite -->
               <!-- Alerte : pas d'abonnement actif pour déduction / récurrence -->
               <div v-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <p class="text-sm text-amber-800 flex items-start gap-2">
@@ -392,10 +392,28 @@
                   <span>Cet élève n'a pas d'abonnement actif pour ce type de cours. Créez le cours sans déduction (décocher « Déduire de l'abonnement ») ou assignez un abonnement à l'élève.</span>
                 </p>
               </div>
-              <div v-if="((!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future'))" class="md:col-span-2">
+              <div
+                v-if="(!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future')"
+                class="md:col-span-2"
+              >
+                <template v-if="editingLesson">
+                  <label class="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      v-model="form.change_recurring_interval"
+                      class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span class="text-sm font-medium text-gray-700">Changer la fréquence de la série</span>
+                  </label>
+                  <p class="text-xs text-gray-500 mb-2">
+                    Par défaut, « tous les cours futurs » déplace ou met à jour les séances existantes sans les supprimer.
+                    Cochez uniquement pour supprimer et recréer la série avec un nouvel intervalle.
+                  </p>
+                </template>
+                <div v-if="!editingLesson || form.change_recurring_interval">
                 <label class="block text-sm font-medium text-gray-700 mb-1">
                   Fréquence de récurrence
-                  <span class="text-xs font-normal text-gray-500 ml-2">{{ editingLesson ? '(pour tous les cours futurs)' : '(pour les cours réguliers)' }}</span>
+                  <span class="text-xs font-normal text-gray-500 ml-2">{{ editingLesson ? '(suppression + recréation des cours futurs)' : '(pour les cours réguliers)' }}</span>
                 </label>
                 <p v-if="!editingLesson" class="text-xs text-gray-600 mb-2">
                   Par défaut : <strong>une seule séance</strong> (déduction d’abonnement possible). Choisissez « Chaque semaine » ou un autre intervalle uniquement pour générer la série sur les semaines suivantes (validation sur 26 semaines).
@@ -404,7 +422,7 @@
                   v-model.number="form.recurring_interval"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
-                  <option :value="0">Une seule séance (pas de récurrence automatique)</option>
+                  <option v-if="!editingLesson" :value="0">Une seule séance (pas de récurrence automatique)</option>
                   <option :value="1">Chaque semaine</option>
                   <option :value="2">Toutes les 2 semaines</option>
                   <option :value="3">Toutes les 3 semaines</option>
@@ -440,6 +458,7 @@
                       <strong>Attention :</strong> Tous les cours futurs planifiés seront supprimés et recréés avec le nouvel intervalle de récurrence "{{ getRecurringIntervalLabel() }}".
                     </span>
                   </p>
+                </div>
                 </div>
               </div>
 
@@ -578,6 +597,8 @@ interface LessonForm {
   deduct_from_subscription: boolean | null
   // 0 = une seule séance ; 1+ = récurrence automatique (semaines)
   recurring_interval: number
+  /** Édition : envoyer recurring_interval seulement si true */
+  change_recurring_interval?: boolean
   // Portée de la mise à jour (pour les récurrences)
   update_scope?: 'single' | 'all_future'
 }
@@ -603,6 +624,18 @@ const emit = defineEmits<{
   'close': []
   'submit': [form: LessonForm]
 }>()
+
+watch(
+  () => props.form.change_recurring_interval,
+  (enabled) => {
+    if (enabled && props.editingLesson && (props.form.recurring_interval ?? 0) < 1) {
+      props.form.recurring_interval = 1
+    }
+    if (!enabled && props.editingLesson) {
+      props.form.recurring_interval = 0
+    }
+  },
+)
 
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 

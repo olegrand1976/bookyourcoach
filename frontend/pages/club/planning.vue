@@ -4241,13 +4241,21 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
     const response = await $api.put(`/lessons/${editingLesson.value.id}`, payloadWithScope)
     
     if (!response.data.success) {
-      showError(response.data.message || 'Erreur lors de la modification', 'Erreur')
+      if (response.data.conflicts?.length) {
+        showError(
+          response.data.message || 'Conflits sur les 26 prochaines semaines.',
+          'Conflits de récurrence',
+        )
+      } else {
+        showError(response.data.message || 'Erreur lors de la modification', 'Erreur')
+      }
       return
     }
     
-    const message = scope === 'all_future' 
-      ? `Cours modifié avec succès. ${futureLessonsCount.value} cours futur(s) ont également été mis à jour.`
-      : 'Cours modifié avec succès'
+    const updatedCount = Number(response.data.updated_future_lessons_count ?? futureLessonsCount.value ?? 0)
+    const message = scope === 'all_future' && updatedCount > 0
+      ? `Cours modifié avec succès. ${updatedCount} cours futur(s) ont également été mis à jour.`
+      : (response.data.message || 'Cours modifié avec succès')
     
     success(message, 'Succès')
     
@@ -4271,7 +4279,12 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
     originalLessonTime.value = null
   } catch (err: any) {
     console.error('Erreur modification cours:', err)
-    showError(err.response?.data?.message || 'Erreur lors de la modification', 'Erreur')
+    const data = err.response?.data
+    if (data?.conflicts?.length) {
+      showError(data.message || 'Conflits sur les 26 prochaines semaines.', 'Conflits de récurrence')
+    } else {
+      showError(data?.message || 'Erreur lors de la modification', 'Erreur')
+    }
   } finally {
     saving.value = false
   }
