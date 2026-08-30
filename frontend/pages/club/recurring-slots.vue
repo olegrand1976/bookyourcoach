@@ -106,38 +106,32 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Enseignant</label>
-            <select
-              v-model="filters.teacherId"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              @change="loadRecurringSlots"
-            >
-              <option value="">Tous</option>
-              <option
-                v-for="t in teachers"
-                :key="t.id"
-                :value="String(t.id)"
-              >
-                {{ t.user?.name || `Enseignant #${t.id}` }}
-              </option>
-            </select>
+            <Autocomplete
+              :model-value="teacherFilterModel"
+              :items="teachers"
+              label="Enseignant"
+              placeholder="Rechercher un enseignant…"
+              class="[&_label]:mb-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-gray-500 [&_label]:uppercase"
+              :max-results="500"
+              :get-item-label="formatTeacherFilterLabel"
+              :get-item-id="getPersonItemId"
+              :filter-function="filterTeacherByQuery"
+              @update:model-value="onListTeacherFilterChange"
+            />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Élève</label>
-            <select
-              v-model="filters.studentId"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              @change="loadRecurringSlots"
-            >
-              <option value="">Tous</option>
-              <option
-                v-for="s in students"
-                :key="s.id"
-                :value="String(s.id)"
-              >
-                {{ formatStudentFilterLabel(s) }}
-              </option>
-            </select>
+            <Autocomplete
+              :model-value="studentFilterModel"
+              :items="students"
+              label="Élève"
+              placeholder="Rechercher un élève…"
+              class="[&_label]:mb-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-gray-500 [&_label]:uppercase"
+              :max-results="500"
+              :get-item-label="formatStudentFilterLabel"
+              :get-item-id="getPersonItemId"
+              :filter-function="filterStudentByQuery"
+              @update:model-value="onListStudentFilterChange"
+            />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Période — du</label>
@@ -162,7 +156,7 @@
             <input
               v-model="filters.search"
               type="search"
-              placeholder="Nom élève / prof, n° abonnement, modèle…"
+              placeholder="N° abonnement, modèle…"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               autocomplete="off"
             >
@@ -275,7 +269,7 @@
                   {{ getStudentName(slot) }}
                 </td>
                 <td class="px-3 py-2.5 text-gray-900">
-                  {{ slot.teacher?.user?.name || 'Non défini' }}
+                  {{ getTeacherName(slot) }}
                 </td>
                 <td class="px-3 py-2.5 text-gray-800">
                   {{ getSubscriptionName(slot) }}
@@ -352,16 +346,26 @@
                 Détecte les séries sans planification future, écarts moniteur/horaire, et permet de régénérer les cours manquants.
               </p>
             </div>
-            <button
-              type="button"
-              class="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
-              :disabled="diagnosticsLoading"
-              @click="loadDiagnostics"
-            >
-              Actualiser
-            </button>
+            <div class="flex items-center gap-3 self-start sm:self-auto">
+              <button
+                type="button"
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                :disabled="diagnosticsLoading"
+                @click="resetDiagFilters"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                :disabled="diagnosticsLoading"
+                @click="loadDiagnostics"
+              >
+                Actualiser
+              </button>
+            </div>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <div>
               <label class="block text-xs font-medium text-gray-500 uppercase mb-1">Alerte</label>
               <select
@@ -390,7 +394,35 @@
                 <option value="cancelled">Annulé</option>
               </select>
             </div>
-            <div class="sm:col-span-2 flex items-end gap-3 text-sm text-gray-600">
+            <div>
+              <Autocomplete
+                :model-value="diagTeacherFilterModel"
+                :items="teachers"
+                label="Enseignant"
+                placeholder="Rechercher un enseignant…"
+                class="[&_label]:mb-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-gray-500 [&_label]:uppercase"
+                :max-results="500"
+                :get-item-label="formatTeacherFilterLabel"
+                :get-item-id="getPersonItemId"
+                :filter-function="filterTeacherByQuery"
+                @update:model-value="onDiagTeacherFilterChange"
+              />
+            </div>
+            <div>
+              <Autocomplete
+                :model-value="diagStudentFilterModel"
+                :items="students"
+                label="Élève"
+                placeholder="Rechercher un élève…"
+                class="[&_label]:mb-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-gray-500 [&_label]:uppercase"
+                :max-results="500"
+                :get-item-label="formatStudentFilterLabel"
+                :get-item-id="getPersonItemId"
+                :filter-function="filterStudentByQuery"
+                @update:model-value="onDiagStudentFilterChange"
+              />
+            </div>
+            <div class="sm:col-span-2 lg:col-span-3 xl:col-span-4 flex items-end gap-3 text-sm text-gray-600">
               <span>{{ diagnosticsSummary.total }} série(s)</span>
               <span class="font-medium text-amber-700">{{ diagnosticsSummary.with_issues }} avec alerte(s)</span>
             </div>
@@ -435,7 +467,7 @@
                   class="hover:bg-amber-50/40 align-top"
                 >
                   <td class="px-3 py-2.5">{{ getStudentName(row) }}</td>
-                  <td class="px-3 py-2.5">{{ row.teacher?.name || row.teacher?.user?.name || '—' }}</td>
+                  <td class="px-3 py-2.5">{{ getTeacherName(row, '—') }}</td>
                   <td class="px-3 py-2.5 whitespace-nowrap">
                     {{ getDayName(row.day_of_week) }}
                     {{ formatTime(row.start_time) }}–{{ formatTime(row.end_time) }}
@@ -492,7 +524,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import Autocomplete from '~/components/Autocomplete.vue'
 import { useToast } from '~/composables/useToast'
+import { resolveStudentDisplayName } from '~/composables/planning/usePlanningParticipant'
 
 const { $api } = useNuxtApp()
 const { success, error: showError } = useToast()
@@ -511,7 +545,9 @@ const diagnosticsSummary = ref({
 })
 const diagFilters = reactive({
   issue: '',
-  status: 'active'
+  status: 'active',
+  teacherId: '',
+  studentId: ''
 })
 
 const filters = reactive({
@@ -524,6 +560,11 @@ const filters = reactive({
   search: ''
 })
 
+const teacherFilterModel = computed(() => parseFilterId(filters.teacherId))
+const studentFilterModel = computed(() => parseFilterId(filters.studentId))
+const diagTeacherFilterModel = computed(() => parseFilterId(diagFilters.teacherId))
+const diagStudentFilterModel = computed(() => parseFilterId(diagFilters.studentId))
+
 const hasActiveFilters = computed(() => {
   if (filters.status) return true
   if (filters.dayOfWeek !== '') return true
@@ -534,6 +575,61 @@ const hasActiveFilters = computed(() => {
   if (filters.search.trim()) return true
   return false
 })
+
+function parseFilterId(value) {
+  if (value === '' || value == null) return null
+  const n = Number.parseInt(String(value), 10)
+  return Number.isFinite(n) ? n : null
+}
+
+function getPersonItemId(item) {
+  return item.id
+}
+
+function formatTeacherFilterLabel(t) {
+  if (!t) return ''
+  if (t.user?.name && String(t.user.name).trim()) return String(t.user.name).trim()
+  if (t.name && String(t.name).trim()) return String(t.name).trim()
+  return `Enseignant #${t.id ?? '?'}`
+}
+
+function filterTeacherByQuery(t, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  if (formatTeacherFilterLabel(t).toLowerCase().includes(q)) return true
+  return String(t.id) === q
+}
+
+function filterStudentByQuery(s, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  if (formatStudentFilterLabel(s).toLowerCase().includes(q)) return true
+  if (s.email && String(s.email).toLowerCase().includes(q)) return true
+  for (const part of [s.first_name, s.last_name, s.student_first_name, s.student_last_name]) {
+    if (part && String(part).toLowerCase().includes(q)) return true
+  }
+  return String(s.id) === q
+}
+
+function onListTeacherFilterChange(id) {
+  filters.teacherId = id == null ? '' : String(id)
+  loadRecurringSlots()
+}
+
+function onListStudentFilterChange(id) {
+  filters.studentId = id == null ? '' : String(id)
+  loadRecurringSlots()
+}
+
+function onDiagTeacherFilterChange(id) {
+  diagFilters.teacherId = id == null ? '' : String(id)
+  loadDiagnostics()
+}
+
+function onDiagStudentFilterChange(id) {
+  diagFilters.studentId = id == null ? '' : String(id)
+  loadDiagnostics()
+}
 
 let searchDebounceTimer = null
 
@@ -633,6 +729,14 @@ function resetFilters() {
   loadRecurringSlots()
 }
 
+function resetDiagFilters() {
+  diagFilters.issue = ''
+  diagFilters.status = 'active'
+  diagFilters.teacherId = ''
+  diagFilters.studentId = ''
+  loadDiagnostics()
+}
+
 watch(
   () => filters.search,
   () => {
@@ -664,6 +768,8 @@ async function loadDiagnostics() {
     const params = {}
     if (diagFilters.issue) params.issue = diagFilters.issue
     if (diagFilters.status) params.status = diagFilters.status
+    if (diagFilters.teacherId) params.teacher_id = parseInt(diagFilters.teacherId, 10)
+    if (diagFilters.studentId) params.student_id = parseInt(diagFilters.studentId, 10)
     const response = await $api.get('/club/recurring-slots/diagnostics', { params })
     if (response.data.success) {
       const payload = response.data.data || {}
@@ -826,7 +932,7 @@ function getStatusLabel(status) {
 }
 
 /**
- * Libellé pour le select : l'API GET /club/students renvoie un objet plat (name, first_name, student_first_name…), sans user imbriqué.
+ * Libellé pour le filtre : l'API GET /club/students renvoie un objet plat (name, first_name, student_first_name…), sans user imbriqué.
  */
 function formatStudentFilterLabel(s) {
   if (!s) return ''
@@ -843,19 +949,35 @@ function formatStudentFilterLabel(s) {
 }
 
 function getStudentName(slot) {
+  if (!slot) return 'Non défini'
   const st = slot.student
   if (st) {
-    if (st.user?.name) return st.user.name
-    const fl = [st.first_name, st.last_name].filter(Boolean).join(' ').trim()
-    if (fl) return fl
+    const resolved = resolveStudentDisplayName(st)
+    if (resolved) return resolved
   }
   if (slot.subscription_instance?.students?.length) {
-    const firstStudent = slot.subscription_instance.students[0]
-    if (firstStudent?.user?.name) return firstStudent.user.name
-    const fl = [firstStudent?.first_name, firstStudent?.last_name].filter(Boolean).join(' ').trim()
+    for (const s of slot.subscription_instance.students) {
+      const resolved = resolveStudentDisplayName(s)
+      if (resolved) return resolved
+    }
+  }
+  const sid = slot.student_id ?? st?.id
+  if (sid != null) return `Élève #${sid}`
+  return 'Non défini'
+}
+
+function getTeacherName(slot, emptyLabel = 'Non défini') {
+  if (!slot) return emptyLabel
+  const t = slot.teacher
+  if (t) {
+    if (t.name && String(t.name).trim()) return String(t.name).trim()
+    if (t.user?.name && String(t.user.name).trim()) return String(t.user.name).trim()
+    const fl = [t.first_name, t.last_name].filter(Boolean).join(' ').trim()
     if (fl) return fl
   }
-  return 'Non défini'
+  const tid = slot.teacher_id ?? t?.id
+  if (tid != null) return `Enseignant #${tid}`
+  return emptyLabel
 }
 
 function getSubscriptionName(slot) {
@@ -868,9 +990,6 @@ function getSubscriptionName(slot) {
   }
   if (subscription.template?.model_number) {
     return subscription.template.model_number
-  }
-  if (subscription.template?.name) {
-    return subscription.template.name
   }
   return 'N/A'
 }

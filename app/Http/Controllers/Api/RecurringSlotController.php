@@ -99,13 +99,23 @@ class RecurringSlotController extends Controller
                 $term = '%'.addcslashes($validated['search'], '%_\\').'%';
                 $query->where(function ($q) use ($term) {
                     $q->whereHas('student.user', fn ($u) => $u->where('name', 'like', $term))
+                        ->orWhereHas('student', function ($s) use ($term) {
+                            $s->where(function ($inner) use ($term) {
+                                $inner->where('first_name', 'like', $term)
+                                    ->orWhere('last_name', 'like', $term);
+                            });
+                        })
                         ->orWhereHas('teacher.user', fn ($u) => $u->where('name', 'like', $term))
                         ->orWhereHas('subscriptionInstance.students.user', fn ($u) => $u->where('name', 'like', $term))
+                        ->orWhereHas('subscriptionInstance.students', function ($s) use ($term) {
+                            $s->where(function ($inner) use ($term) {
+                                $inner->where('first_name', 'like', $term)
+                                    ->orWhere('last_name', 'like', $term);
+                            });
+                        })
                         ->orWhereHas('subscriptionInstance.subscription', fn ($s) => $s->where('subscription_number', 'like', $term))
-                        ->orWhereHas('subscriptionInstance.subscription.template', function ($t) use ($term) {
-                            $t->where('name', 'like', $term)
-                                ->orWhere('model_number', 'like', $term);
-                        });
+                        // subscription_templates n'a pas de colonne name — seulement model_number
+                        ->orWhereHas('subscriptionInstance.subscription.template', fn ($t) => $t->where('model_number', 'like', $term));
                 });
             }
 

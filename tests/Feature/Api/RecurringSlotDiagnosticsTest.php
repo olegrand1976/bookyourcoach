@@ -217,6 +217,46 @@ class RecurringSlotDiagnosticsTest extends TestCase
         $response->assertStatus(422);
     }
 
+    /** Régression : search ne doit plus requêter subscription_templates.name (colonne absente → 500). */
+    public function test_index_search_does_not_query_missing_template_name_column(): void
+    {
+        $this->createActiveSlot(Carbon::parse('2026-03-02 10:00:00'));
+
+        $response = $this->getJson('/api/club/recurring-slots?search=ez');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_index_search_matches_template_model_number(): void
+    {
+        $slot = $this->createActiveSlot(Carbon::parse('2026-03-02 10:00:00'));
+
+        $response = $this->getJson('/api/club/recurring-slots?search=DIAG001');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($slot->id, $ids);
+    }
+
+    public function test_index_search_matches_student_first_name_without_user(): void
+    {
+        $this->student->update([
+            'user_id' => null,
+            'first_name' => 'Ezra',
+            'last_name' => 'SansCompte',
+        ]);
+        $slot = $this->createActiveSlot(Carbon::parse('2026-03-02 10:00:00'));
+
+        $response = $this->getJson('/api/club/recurring-slots?search=ez');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($slot->id, $ids);
+    }
+
     private function createActiveSlot(Carbon $start): SubscriptionRecurringSlot
     {
         return SubscriptionRecurringSlot::create([
