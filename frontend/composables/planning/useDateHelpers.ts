@@ -114,11 +114,82 @@ export function addMonthsForSlotWeekday(date: Date, monthDelta: number, dayOfWee
 }
 
 /**
- * Formater une date au format YYYY-MM-DD
+ * Formater une date au format YYYY-MM-DD (fuseau local, pas UTC).
  */
 export function formatDateToISO(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Premier et dernier jour du mois calendaire (heures localisées). */
+export function getMonthBounds(date: Date): { start: Date; end: Date } {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0)
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999)
+  return { start, end }
+}
+
+/** Trimestre civil (Q1=jan–mar …) contenant la date. */
+export function getQuarterBounds(date: Date): { start: Date; end: Date } {
+  const q = Math.floor(date.getMonth() / 3)
+  const start = new Date(date.getFullYear(), q * 3, 1, 0, 0, 0, 0)
+  const end = new Date(date.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999)
+  return { start, end }
+}
+
+/** Les 3 premiers jours de chaque mois du trimestre. */
+export function getQuarterMonthAnchors(date: Date): Date[] {
+  const q = Math.floor(date.getMonth() / 3)
+  const year = date.getFullYear()
+  return [0, 1, 2].map((i) => new Date(year, q * 3 + i, 1, 12, 0, 0, 0))
+}
+
+export function addCalendarMonths(date: Date, monthDelta: number): Date {
+  const d = new Date(date)
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + monthDelta)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
+  d.setHours(12, 0, 0, 0)
+  return d
+}
+
+export type MonthCalendarDay = {
+  date: string
+  day: number
+  isCurrentMonth: boolean
+  isToday: boolean
+}
+
+/** Grille 6×7 (lundi → dimanche) pour un mois donné. */
+export function buildMonthCalendarDays(
+  displayDate: Date,
+  today: Date = new Date(),
+): MonthCalendarDay[] {
+  const year = displayDate.getFullYear()
+  const month = displayDate.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const startDate = new Date(firstDay)
+  const dow = firstDay.getDay()
+  startDate.setDate(firstDay.getDate() - (dow === 0 ? 6 : dow - 1))
+
+  const todayStr = formatDateToISO(today)
+  const days: MonthCalendarDay[] = []
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+    const dateStr = formatDateToISO(date)
+    days.push({
+      date: dateStr,
+      day: date.getDate(),
+      isCurrentMonth: date.getMonth() === month,
+      isToday: dateStr === todayStr,
+    })
+  }
+  return days
 }
 
 /**

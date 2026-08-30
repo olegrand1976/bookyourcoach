@@ -122,12 +122,37 @@
               <div>
                 <h2 class="text-xl font-semibold text-gray-900">
                   Cours programmés
-                  <span v-if="selectedSlot" class="text-base font-normal text-gray-600">
+                  <span
+                    v-if="planningCalendarMode === 'day' && selectedSlot"
+                    class="text-base font-normal text-gray-600"
+                  >
                     • {{ getDayName(selectedSlot.day_of_week) }} {{ formatTime(selectedSlot.start_time) }}
+                  </span>
+                  <span
+                    v-else-if="planningCalendarMode === 'month'"
+                    class="text-base font-normal text-gray-600"
+                  >
+                    • Vue mois
+                  </span>
+                  <span
+                    v-else-if="planningCalendarMode === 'quarter'"
+                    class="text-base font-normal text-gray-600"
+                  >
+                    • Vue trimestre
                   </span>
                 </h2>
                 <p class="text-sm text-gray-500 mt-1 space-y-0.5">
-                  <span v-if="!selectedSlot" class="text-blue-600 font-medium">
+                  <template v-if="planningCalendarMode !== 'day'">
+                    <span class="text-blue-700 font-medium block">
+                      Tous les cours du club. Cliquez un jour pour ouvrir le détail.
+                    </span>
+                    <span class="block text-xs text-gray-500">
+                      Densité = nombre de cours non annulés. Lien
+                      <NuxtLink to="/club/availability" class="text-blue-700 underline font-medium">plages disponibles</NuxtLink>
+                      pour la capacité fine.
+                    </span>
+                  </template>
+                  <span v-else-if="!selectedSlot" class="text-blue-600 font-medium">
                     ℹ️ Sélectionnez un créneau ci-dessus pour filtrer les cours
                   </span>
                   <template v-else>
@@ -146,7 +171,44 @@
               </div>
               <div class="flex gap-2 flex-wrap items-center justify-end">
                 <div
-                  v-if="lessonsForPlanningGrid.length > 0"
+                  class="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm"
+                  role="group"
+                  aria-label="Échelle du planning"
+                  data-testid="planning-calendar-mode"
+                >
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                    :class="planningCalendarMode === 'day'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'"
+                    @click="setPlanningCalendarMode('day')"
+                  >
+                    Jour
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                    :class="planningCalendarMode === 'month'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'"
+                    @click="setPlanningCalendarMode('month')"
+                  >
+                    Mois
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
+                    :class="planningCalendarMode === 'quarter'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'"
+                    @click="setPlanningCalendarMode('quarter')"
+                  >
+                    Trimestre
+                  </button>
+                </div>
+                <div
+                  v-if="planningCalendarMode === 'day' && lessonsForPlanningGrid.length > 0"
                   class="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm"
                   role="group"
                   aria-label="Mode d'affichage des cours">
@@ -170,7 +232,7 @@
                   </button>
                 </div>
                 <button
-                  v-if="selectedDate"
+                  v-if="planningCalendarMode === 'day' && selectedDate"
                   @click="showBroadcastModal = true"
                   :disabled="dayBroadcastCount === 0"
                   :title="dayBroadcastCount === 0
@@ -192,6 +254,42 @@
               </div>
             </div>
 
+          </div>
+
+          <!-- Vues calendrier mois / trimestre (tous les cours du club) -->
+          <div v-if="planningCalendarMode === 'month'" class="mt-2">
+            <PlanningMonthView
+              :display-date="calendarAnchorDate"
+              :lesson-counts="calendarLessonCounts"
+              :closure-dates="closureDates"
+              :selected-ymd="selectedDateYmd || null"
+              :loading="calendarRangeLoading"
+              :can-prev="canNavigateCalendarPrevious"
+              :can-next="canNavigateCalendarNext"
+              @select-day="onCalendarSelectDay"
+              @prev-month="navigateCalendarPrevious"
+              @next-month="navigateCalendarNext"
+              @go-today="navigateCalendarToday"
+            />
+          </div>
+          <div v-else-if="planningCalendarMode === 'quarter'" class="mt-2">
+            <PlanningQuarterView
+              :display-date="calendarAnchorDate"
+              :lesson-counts="calendarLessonCounts"
+              :closure-dates="closureDates"
+              :selected-ymd="selectedDateYmd || null"
+              :loading="calendarRangeLoading"
+              :can-prev="canNavigateCalendarPrevious"
+              :can-next="canNavigateCalendarNext"
+              @select-day="onCalendarSelectDay"
+              @prev-quarter="navigateCalendarPrevious"
+              @next-quarter="navigateCalendarNext"
+              @go-today="navigateCalendarToday"
+            />
+          </div>
+
+          <!-- Vue jour (détail créneau) -->
+          <div v-else id="scheduled-lessons-day-panel">
             <!-- Navigation par date (visible uniquement si un créneau est sélectionné) -->
             <div v-if="selectedSlot" class="flex flex-wrap items-center gap-2 sm:gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <button
@@ -329,10 +427,9 @@
                 </span>
               </label>
             </div>
-          </div>
 
           <!-- Grille ou liste des cours (groupés par plage horaire) + réservations récurrentes sans cours matérialisé -->
-          <div v-if="lessonsForPlanningGrid.length > 0" class="space-y-4">
+          <div v-if="lessonsForPlanningGrid.length > 0" class="space-y-4 mt-4">
             <div
               v-if="displayedTimeSlots.length === 0"
               class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-8 text-center text-amber-950">
@@ -906,7 +1003,8 @@
               }}
             </p>
           </div>
-        </div> <!-- Fermeture du v-else class="space-y-6" -->
+          </div><!-- /scheduled-lessons-day-panel -->
+        </div> <!-- Fermeture scheduled-lessons-section -->
           
         <!-- Modale Créneau -->
         <div v-if="showSlotModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1557,14 +1655,19 @@ import {
   isLessonLikeRecurringSlot,
 } from '~/utils/subscriptionRecurringSlot'
 import {
+  addCalendarMonths,
   addMonthsForSlotWeekday,
   getClubPlanningInitialRange,
   getClubPlanningLoadRangeAround,
   getClubPlanningMaxDate,
   getClubPlanningMinDate,
   getDefaultDateForSlotDay,
+  getMonthBounds,
+  getQuarterBounds,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
+import PlanningMonthView from '~/components/planning/PlanningMonthView.vue'
+import PlanningQuarterView from '~/components/planning/PlanningQuarterView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1587,6 +1690,13 @@ import {
   lessonHasActiveSubscriptionBadge,
   toLocalYmd,
 } from '~/composables/planning/usePlanningLessonIndex'
+import {
+  buildCalendarLessonCounts,
+  calendarPeriodOverlapsPlanningWindow,
+  pickOpenSlotForCalendarDay,
+  pruneYmdListToRange,
+  unionLoadedDateRange,
+} from '~/composables/planning/usePlanningCalendar'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
@@ -1718,6 +1828,11 @@ const releasingRecurringSlotId = ref<number | null>(null)
 const materializingRecurringSlotId = ref<number | null>(null)
 /** Affichage des cours programmés : grille de cartes ou tableau par plage horaire */
 const planningLessonsDisplayMode = ref<'cards' | 'list'>('cards')
+/** Vue calendrier : détail jour (créneau) | mois | trimestre */
+const planningCalendarMode = ref<'day' | 'month' | 'quarter'>('day')
+/** Ancre de navigation pour les vues mois / trimestre */
+const calendarAnchorDate = ref<Date>(new Date())
+const calendarRangeLoading = ref(false)
 /** Ne garder que les plages horaires avec place(s) libre(s) et/ou série sans cours / annulation */
 const showOnlyAvailablePlages = ref(false)
 const showSlotModal = ref(false)
@@ -1774,6 +1889,7 @@ const lessonForm = ref({
   deduct_from_subscription: true as boolean | null,
   // 0 = une seule séance (défaut planning club : pas de validation 26 sem. ni série auto) ; 1+ = récurrence
   recurring_interval: 0,
+  change_recurring_interval: false,
   // Portée de la mise à jour (pour les récurrences)
   update_scope: 'single' as 'single' | 'all_future'
 })
@@ -1862,6 +1978,11 @@ const pendingCertificateStudents = computed(() => {
 
 /** Index O(1) par jour local — évite de rescanner toute la fenêtre 8 sem. à chaque filtre. */
 const lessonsByLocalDate = computed(() => buildLessonsByLocalDate(lessons.value))
+
+/** Compteurs jour → cours actifs (tous créneaux) pour vues mois / trimestre. */
+const calendarLessonCounts = computed(() =>
+  buildCalendarLessonCounts(lessonsByLocalDate.value),
+)
 
 // Cours filtrés par créneau sélectionné ET par date
 const filteredLessons = computed(() => {
@@ -2718,8 +2839,8 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
     const response = await $api.get('/lessons', {
       params: {
         context: 'planning',
-        date_from: startDate.toISOString().split('T')[0],
-        date_to: endDate.toISOString().split('T')[0]
+        date_from: toLocalYmd(startDate),
+        date_to: toLocalYmd(endDate)
         // Pas de limite : on filtre par plage (cap API date range).
       }
     })
@@ -2734,17 +2855,22 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
         if (import.meta.dev) {
           planningDevLog('✅ Cours fusionnés:', { nouveaux: lessonsToAdd.length, total: lessons.value.length })
         }
+        const prevStart = loadedLessonsRange.value.start
+        const prevEnd = loadedLessonsRange.value.end
+        loadedLessonsRange.value = unionLoadedDateRange(
+          { start: prevStart, end: prevEnd },
+          startDate,
+          endDate,
+        )
       } else {
         lessons.value = newLessons
         if (import.meta.dev) {
           planningDevLog('✅ Cours chargés:', { total: lessons.value.length })
         }
-      }
-      
-      // Mettre à jour la plage chargée
-      loadedLessonsRange.value = {
-        start: new Date(startDate),
-        end: new Date(endDate)
+        loadedLessonsRange.value = {
+          start: new Date(startDate),
+          end: new Date(endDate)
+        }
       }
 
       // Purge : garder uniquement les cours dans la plage chargée (évite la croissance infinie).
@@ -2763,12 +2889,13 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
       if (import.meta.dev) {
         planningDevLog('📋 Plage cours chargée:', {
           total: lessons.value.length,
-          start: loadedLessonsRange.value.start?.toISOString().split('T')[0],
-          end: loadedLessonsRange.value.end?.toISOString().split('T')[0],
+          start: loadedLessonsRange.value.start ? toLocalYmd(loadedLessonsRange.value.start) : null,
+          end: loadedLessonsRange.value.end ? toLocalYmd(loadedLessonsRange.value.end) : null,
         })
       }
 
       await loadClosureDays(startDate, endDate, Boolean(customStartDate || customEndDate))
+      pruneClosureDatesToLoadedRange()
     } else {
       console.error('Erreur chargement cours:', response.data.message)
     }
@@ -2797,8 +2924,8 @@ async function loadClosureDays(
     const initial = getClubPlanningInitialRange(today)
     const startDate = customStartDate ? new Date(customStartDate) : new Date(initial.start)
     const endDate = customEndDate ? new Date(customEndDate) : new Date(initial.end)
-    const dateFrom = startDate.toISOString().split('T')[0]
-    const dateTo = endDate.toISOString().split('T')[0]
+    const dateFrom = toLocalYmd(startDate)
+    const dateTo = toLocalYmd(endDate)
     const response = await $api.get('/club/closure-days', {
       params: { date_from: dateFrom, date_to: dateTo }
     })
@@ -2814,6 +2941,11 @@ async function loadClosureDays(
   } catch (err) {
     console.warn('[Planning] Chargement jours de fermeture:', err)
   }
+}
+
+/** Aligne les congés sur la plage cours chargée (évite l’accumulation infinie). */
+function pruneClosureDatesToLoadedRange() {
+  closureDates.value = pruneYmdListToRange(closureDates.value, loadedLessonsRange.value)
 }
 
 async function onClosureToggle(ev: Event) {
@@ -2883,8 +3015,8 @@ async function loadClubRecurringSlots(customStartDate?: Date, customEndDate?: Da
 
     const response = await $api.get('/club/recurring-slots', {
       params: {
-        date_from: rangeStart.toISOString().split('T')[0],
-        date_to: rangeEnd.toISOString().split('T')[0],
+        date_from: toLocalYmd(rangeStart),
+        date_to: toLocalYmd(rangeEnd),
       },
     })
     if (response.data?.success) {
@@ -3530,6 +3662,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       est_legacy: false,
       deduct_from_subscription: true,
       recurring_interval: 0,
+      change_recurring_interval: false,
       update_scope: 'single'
     }
   } else {
@@ -3547,6 +3680,7 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       est_legacy: false,
       deduct_from_subscription: true,
       recurring_interval: 0,
+      change_recurring_interval: false,
       update_scope: 'single'
     }
   }
@@ -3580,6 +3714,7 @@ function closeCreateLessonModal() {
     est_legacy: false,
     deduct_from_subscription: true,
     recurring_interval: 0,
+    change_recurring_interval: false,
     update_scope: 'single'
   }
   
@@ -3667,6 +3802,8 @@ async function openEditLessonModal(lesson: Lesson) {
   lessonForm.value.student_id = lesson.student?.id || (lesson.students && lesson.students.length > 0 ? lesson.students[0].id : null)
   lessonForm.value.course_type_id = lesson.course_type?.id || null
   lessonForm.value.update_scope = 'single' // Par défaut, modifier uniquement ce cours
+  lessonForm.value.change_recurring_interval = false
+  lessonForm.value.recurring_interval = 0
   
   // Calculer la durée en minutes
   if (lesson.start_time && lesson.end_time) {
@@ -3733,6 +3870,7 @@ function closeEditLessonModal() {
     est_legacy: false,
     deduct_from_subscription: true,
     recurring_interval: 0,
+    change_recurring_interval: false,
     update_scope: 'single'
   }
 }
@@ -4088,8 +4226,12 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
       update_scope: scope // 'single' ou 'all_future'
     }
     
-    // Inclure recurring_interval si la portée est 'all_future'
-    if (scope === 'all_future' && lessonForm.value.recurring_interval) {
+    // Inclure recurring_interval seulement si changement d'intervalle explicite
+    if (
+      scope === 'all_future'
+      && lessonForm.value.change_recurring_interval
+      && lessonForm.value.recurring_interval >= 1
+    ) {
       payloadWithScope.recurring_interval = lessonForm.value.recurring_interval
     }
     
@@ -4759,6 +4901,125 @@ async function applySelectedPlanningDate(newDate: Date) {
   selectedDate.value = newDate
   selectedDateInput.value = formatDateForInput(newDate)
   await checkAndReloadLessonsIfNeeded(newDate)
+}
+
+function syncSlotForCalendarDay(day: Date) {
+  selectedSlot.value = pickOpenSlotForCalendarDay(
+    day,
+    openSlots.value,
+    selectedSlot.value,
+    lessonsByLocalDate.value.get(toLocalYmd(day)) ?? [],
+    formatTime,
+  )
+}
+
+const calendarLoadSeq = ref(0)
+
+const canNavigateCalendarPrevious = computed(() => {
+  if (planningCalendarMode.value === 'day') return false
+  const delta = planningCalendarMode.value === 'quarter' ? -3 : -1
+  const probe = addCalendarMonths(calendarAnchorDate.value, delta)
+  return calendarPeriodOverlapsPlanningWindow(
+    probe,
+    planningCalendarMode.value === 'quarter' ? 'quarter' : 'month',
+  )
+})
+
+const canNavigateCalendarNext = computed(() => {
+  if (planningCalendarMode.value === 'day') return false
+  const delta = planningCalendarMode.value === 'quarter' ? 3 : 1
+  const probe = addCalendarMonths(calendarAnchorDate.value, delta)
+  return calendarPeriodOverlapsPlanningWindow(
+    probe,
+    planningCalendarMode.value === 'quarter' ? 'quarter' : 'month',
+  )
+})
+
+async function ensureCalendarVisibleRangeLoaded() {
+  const mode = planningCalendarMode.value === 'quarter' ? 'quarter' : 'month'
+  const bounds =
+    mode === 'quarter'
+      ? getQuarterBounds(calendarAnchorDate.value)
+      : getMonthBounds(calendarAnchorDate.value)
+
+  const loadedStart = loadedLessonsRange.value.start
+  const loadedEnd = loadedLessonsRange.value.end
+  const covers =
+    loadedStart &&
+    loadedEnd &&
+    startOfDay(loadedStart).getTime() <= startOfDay(bounds.start).getTime() &&
+    loadedEnd.getTime() >= bounds.end.getTime()
+
+  if (covers) return
+
+  const seq = ++calendarLoadSeq.value
+  calendarRangeLoading.value = true
+  try {
+    await loadLessons(bounds.start, bounds.end)
+    if (seq !== calendarLoadSeq.value) return
+    await loadClubRecurringSlots(bounds.start, bounds.end)
+  } finally {
+    if (seq === calendarLoadSeq.value) {
+      calendarRangeLoading.value = false
+    }
+  }
+}
+
+async function setPlanningCalendarMode(mode: 'day' | 'month' | 'quarter') {
+  planningCalendarMode.value = mode
+  if (mode === 'day') return
+  if (selectedDate.value) {
+    calendarAnchorDate.value = new Date(selectedDate.value)
+  } else {
+    calendarAnchorDate.value = new Date()
+  }
+  await ensureCalendarVisibleRangeLoaded()
+}
+
+async function onCalendarSelectDay(ymd: string) {
+  const day = new Date(`${ymd}T12:00:00`)
+  if (Number.isNaN(day.getTime())) return
+  if (!isDateWithinClubPlanningRange(day)) {
+    warning('Cette date est hors de la fenêtre de planification du club.', 'Date hors plage')
+    return
+  }
+  planningCalendarMode.value = 'day'
+  syncSlotForCalendarDay(day)
+  selectedDate.value = day
+  selectedDateInput.value = ymd
+  calendarAnchorDate.value = new Date(day)
+  await checkAndReloadLessonsIfNeeded(day)
+  await nextTick()
+  if (typeof document !== 'undefined') {
+    document
+      .getElementById('scheduled-lessons-day-panel')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+async function navigateCalendarPrevious() {
+  if (!canNavigateCalendarPrevious.value) return
+  if (planningCalendarMode.value === 'month') {
+    calendarAnchorDate.value = addCalendarMonths(calendarAnchorDate.value, -1)
+  } else if (planningCalendarMode.value === 'quarter') {
+    calendarAnchorDate.value = addCalendarMonths(calendarAnchorDate.value, -3)
+  }
+  await ensureCalendarVisibleRangeLoaded()
+}
+
+async function navigateCalendarNext() {
+  if (!canNavigateCalendarNext.value) return
+  if (planningCalendarMode.value === 'month') {
+    calendarAnchorDate.value = addCalendarMonths(calendarAnchorDate.value, 1)
+  } else if (planningCalendarMode.value === 'quarter') {
+    calendarAnchorDate.value = addCalendarMonths(calendarAnchorDate.value, 3)
+  }
+  await ensureCalendarVisibleRangeLoaded()
+}
+
+async function navigateCalendarToday() {
+  calendarAnchorDate.value = new Date()
+  await ensureCalendarVisibleRangeLoaded()
 }
 
 // Vérifier si on doit recharger les cours pour couvrir la nouvelle date

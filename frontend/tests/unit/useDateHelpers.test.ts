@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
+  addCalendarMonths,
   addMonthsForSlotWeekday,
+  buildMonthCalendarDays,
   getClubPlanningMaxDate,
   getClubPlanningInitialRange,
   getClubPlanningLoadRangeAround,
   getClubPlanningMinDate,
   getDefaultDateForSlotDay,
+  getMonthBounds,
+  getQuarterBounds,
+  getQuarterMonthAnchors,
   CLUB_PLANNING_INITIAL_WEEKS_BACK,
   CLUB_PLANNING_INITIAL_WEEKS_FORWARD,
   CLUB_PLANNING_LOAD_CHUNK_WEEKS,
@@ -96,5 +101,45 @@ describe('club planning loading windows', () => {
     expectedEnd.setHours(23, 59, 59, 999)
     expect(start.getTime()).toBe(expectedStart.getTime())
     expect(end.getTime()).toBe(expectedEnd.getTime())
+  })
+})
+
+describe('month / quarter helpers', () => {
+  it('getMonthBounds couvre le mois calendaire', () => {
+    const { start, end } = getMonthBounds(new Date(2026, 4, 19))
+    expect(start.getFullYear()).toBe(2026)
+    expect(start.getMonth()).toBe(4)
+    expect(start.getDate()).toBe(1)
+    expect(end.getMonth()).toBe(4)
+    expect(end.getDate()).toBe(31)
+  })
+
+  it('getQuarterBounds pour mai → T2 (avr–juin)', () => {
+    const { start, end } = getQuarterBounds(new Date(2026, 4, 19))
+    expect(start.getMonth()).toBe(3) // avril
+    expect(start.getDate()).toBe(1)
+    expect(end.getMonth()).toBe(5) // juin
+    expect(end.getDate()).toBe(30)
+  })
+
+  it('getQuarterMonthAnchors renvoie 3 mois', () => {
+    const anchors = getQuarterMonthAnchors(new Date(2026, 4, 19))
+    expect(anchors).toHaveLength(3)
+    expect(anchors.map((d) => d.getMonth())).toEqual([3, 4, 5])
+  })
+
+  it('buildMonthCalendarDays démarre un lundi et fait 42 cases', () => {
+    const days = buildMonthCalendarDays(new Date(2026, 4, 1), new Date(2026, 4, 19))
+    expect(days).toHaveLength(42)
+    expect(new Date(days[0].date + 'T12:00:00').getDay()).toBe(1)
+    const todayCell = days.find((d) => d.date === '2026-05-19')
+    expect(todayCell?.isToday).toBe(true)
+    expect(todayCell?.isCurrentMonth).toBe(true)
+  })
+
+  it('addCalendarMonths gère les fins de mois', () => {
+    const d = addCalendarMonths(new Date(2026, 0, 31), 1)
+    expect(d.getMonth()).toBe(1)
+    expect(d.getDate()).toBe(28)
   })
 })
