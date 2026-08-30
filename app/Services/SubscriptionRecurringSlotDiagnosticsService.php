@@ -7,6 +7,7 @@ use App\Models\SubscriptionRecurringSlot;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SubscriptionRecurringSlotDiagnosticsService
 {
@@ -21,6 +22,8 @@ class SubscriptionRecurringSlotDiagnosticsService
     public const ISSUE_SCHEDULE_DRIFT = 'schedule_drift';
 
     public const ISSUE_GAP_IN_SERIES = 'gap_in_series';
+
+    public const ISSUE_INVERTED_DATE_RANGE = 'inverted_date_range';
 
     public function __construct(
         private readonly RecurringSlotValidator $recurringSlotValidator,
@@ -84,6 +87,7 @@ class SubscriptionRecurringSlotDiagnosticsService
             self::ISSUE_CANCELLED_SRS_WITH_FUTURES => 0,
             self::ISSUE_SCHEDULE_DRIFT => 0,
             self::ISSUE_GAP_IN_SERIES => 0,
+            self::ISSUE_INVERTED_DATE_RANGE => 0,
         ];
 
         foreach ($items as $row) {
@@ -122,7 +126,26 @@ class SubscriptionRecurringSlotDiagnosticsService
         $nextExpected = $this->nextExpectedOccurrence($slot, $now);
         $needsRegen = false;
 
-        if ($slot->status === 'active' && $auditEnd->greaterThan($now) && $futureCount === 0) {
+        $hasInvertedRange = $slot->start_date
+            && $slot->end_date
+            && Carbon::parse($slot->start_date)->greaterThan(Carbon::parse($slot->end_date));
+
+        if ($hasInvertedRange) {
+            $issues[] = [
+                'code' => self::ISSUE_INVERTED_DATE_RANGE,
+                'message' => 'Période incohérente : start_date postérieure à end_date (aucune occurrence générable).',
+            ];
+            if ($slot->status === 'active') {
+                $needsRegen = true;
+            }
+        }
+
+        // Série active sans futurs : aussi si plage inversée (auditEnd serait dans le passé sinon)
+        if (
+            $slot->status === 'active'
+            && $futureCount === 0
+            && ($hasInvertedRange || $auditEnd->greaterThan($now))
+        ) {
             $issues[] = [
                 'code' => self::ISSUE_NO_FUTURE_LESSONS,
                 'message' => 'Série active sans cours futur planifié.',
@@ -235,6 +258,8 @@ class SubscriptionRecurringSlotDiagnosticsService
             throw new \InvalidArgumentException('Seules les séries actives peuvent être régénérées.');
         }
 
+        $this->repairInvertedDateRangeIfNeeded($slot);
+
         $from = ($fromDate ?? now())->copy()->startOfDay();
         $stats = $this->legacyRecurringSlotService->generateLessonsForSlot($slot, $from, null);
         $auditEnd = $this->resolveAuditEnd($slot, now());
@@ -246,6 +271,46 @@ class SubscriptionRecurringSlotDiagnosticsService
             'errors' => (int) ($stats['errors'] ?? 0),
             'future_lessons_count' => $futureCount,
         ];
+    }
+
+    /**
+     * Corrige end_date si start_date > end_date (sinon la génération produit 0 occurrence).
+     */
+    public function repairInvertedDateRangeIfNeeded(SubscriptionRecurringSlot $slot): bool
+    {
+        if (! $slot->start_date || ! $slot->end_date) {
+            return false;
+        }
+
+        $start = Carbon::parse($slot->start_date)->startOfDay();
+        $end = Carbon::parse($slot->end_date)->startOfDay();
+        if ($start->lte($end)) {
+            return false;
+        }
+
+        if (! $slot->relationLoaded('subscriptionInstance')) {
+            $slot->load('subscriptionInstance');
+        }
+
+        $subscriptionExpiresAt = $slot->subscriptionInstance?->expires_at
+            ? Carbon::parse($slot->subscriptionInstance->expires_at)
+            : null;
+
+        $oldEnd = $end->format('Y-m-d');
+        $newEnd = SubscriptionRecurringSlot::resolveEndDate($start, $subscriptionExpiresAt);
+        $slot->end_date = $newEnd;
+        $slot->save();
+
+        Log::warning('SRS: réparation plage inversée start_date > end_date', [
+            'recurring_slot_id' => $slot->id,
+            'start_date' => $start->format('Y-m-d'),
+            'old_end_date' => $oldEnd,
+            'new_end_date' => $newEnd->format('Y-m-d'),
+            'subscription_instance_id' => $slot->subscription_instance_id,
+            'subscription_expires_at' => $subscriptionExpiresAt?->format('Y-m-d'),
+        ]);
+
+        return true;
     }
 
     private function resolveAuditEnd(SubscriptionRecurringSlot $slot, Carbon $now): Carbon

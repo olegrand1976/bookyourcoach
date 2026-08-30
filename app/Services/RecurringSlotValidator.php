@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\Log;
 class RecurringSlotValidator
 {
     /**
-     * Nombre de semaines à vérifier (6 mois ≈ 26 semaines)
+     * Nombre de semaines à vérifier (source : SubscriptionRecurringSlot::RECURRENCE_WEEKS)
      */
-    const VALIDATION_WEEKS = 26;
+    const VALIDATION_WEEKS = SubscriptionRecurringSlot::RECURRENCE_WEEKS;
 
     private function shouldLogRecurringConflicts(): bool
     {
@@ -972,15 +972,11 @@ class RecurringSlotValidator
         string $startDate
     ): SubscriptionRecurringSlot {
         $openSlot = ClubOpenSlot::findOrFail($openSlotId);
-        $startDate = Carbon::parse($startDate);
-        
-        // Calculer la date d'expiration (la plus proche entre expires_at de l'abonnement et 6 mois)
-        $subscriptionExpires = $subscriptionInstance->expires_at 
-            ? Carbon::parse($subscriptionInstance->expires_at) 
-            : $startDate->copy()->addMonths(6);
-        
-        $sixMonthsLater = $startDate->copy()->addMonths(6);
-        $expiresAt = $subscriptionExpires->lt($sixMonthsLater) ? $subscriptionExpires : $sixMonthsLater;
+        $startDate = Carbon::parse($startDate)->startOfDay();
+        $subscriptionExpiresAt = $subscriptionInstance->expires_at
+            ? Carbon::parse($subscriptionInstance->expires_at)
+            : null;
+        $expiresAt = SubscriptionRecurringSlot::resolveEndDate($startDate, $subscriptionExpiresAt);
 
         $recurringSlot = SubscriptionRecurringSlot::create([
             'subscription_instance_id' => $subscriptionInstance->id,

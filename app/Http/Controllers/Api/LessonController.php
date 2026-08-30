@@ -1235,10 +1235,13 @@ class LessonController extends Controller
                             ]);
                         } else {
                             $recurringStartDate = $newStartTime->copy()->startOfDay();
-                            $recurringEndDate = now()->addMonths(6);
-                            if ($subscriptionInstance->expires_at && Carbon::parse($subscriptionInstance->expires_at)->lessThan($recurringEndDate)) {
-                                $recurringEndDate = Carbon::parse($subscriptionInstance->expires_at);
-                            }
+                            $subscriptionExpiresAt = $subscriptionInstance->expires_at
+                                ? Carbon::parse($subscriptionInstance->expires_at)
+                                : null;
+                            $recurringEndDate = SubscriptionRecurringSlot::resolveEndDate(
+                                $recurringStartDate,
+                                $subscriptionExpiresAt
+                            );
 
                             $recurringSlot = SubscriptionRecurringSlot::create([
                                 'subscription_instance_id' => $subscriptionInstance->id,
@@ -2217,12 +2220,13 @@ class LessonController extends Controller
 
             // Date de début : date du cours (pas aujourd'hui, pour éviter de bloquer des créneaux dans le passé)
             $recurringStartDate = Carbon::parse($lesson->start_time)->startOfDay();
-            
-            // Date de fin : 6 mois à partir d'aujourd'hui OU date d'expiration de l'abonnement (le plus proche)
-            $recurringEndDate = now()->addMonths(6);
-            if ($activeSubscription->expires_at && Carbon::parse($activeSubscription->expires_at)->lessThan($recurringEndDate)) {
-                $recurringEndDate = Carbon::parse($activeSubscription->expires_at);
-            }
+            $subscriptionExpiresAt = $activeSubscription->expires_at
+                ? Carbon::parse($activeSubscription->expires_at)
+                : null;
+            $recurringEndDate = SubscriptionRecurringSlot::resolveEndDate(
+                $recurringStartDate,
+                $subscriptionExpiresAt
+            );
 
             // Vérifier si une récurrence existe déjà pour ce même créneau (même élève + même horaire)
             // ⚠️ IMPORTANT : Un élève ne peut pas avoir plusieurs créneaux récurrents au même jour/heure
@@ -2329,7 +2333,7 @@ class LessonController extends Controller
                 'end_time' => $timeEnd,
                 'start_date' => $recurringStartDate->format('Y-m-d'),
                 'end_date' => $recurringEndDate->format('Y-m-d'),
-                'duration_months' => 6,
+                'duration_weeks' => SubscriptionRecurringSlot::RECURRENCE_WEEKS,
                 'conflicts_detected' => !empty($conflicts),
                 'note' => 'Réservation flexible - libérable via POST /club/recurring-slots/{id}/release'
             ];

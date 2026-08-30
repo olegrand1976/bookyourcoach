@@ -453,5 +453,43 @@ class SubscriptionRecurringSlotTest extends TestCase
         $this->assertNotContains($wide->id, $lessonLike);
         $this->assertNotContains($mediumClubWindow->id, $lessonLike);
     }
+
+    #[Test]
+    public function resolveEndDate_defaults_to_start_plus_26_weeks(): void
+    {
+        $start = Carbon::parse('2026-09-02')->startOfDay();
+        $end = SubscriptionRecurringSlot::resolveEndDate($start, null);
+
+        $this->assertSame('2026-09-02', $start->format('Y-m-d'));
+        $this->assertSame(
+            $start->copy()->addWeeks(SubscriptionRecurringSlot::RECURRENCE_WEEKS)->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
+    }
+
+    #[Test]
+    public function resolveEndDate_clamps_to_subscription_expires_when_after_start(): void
+    {
+        $start = Carbon::parse('2026-04-01')->startOfDay();
+        $expires = Carbon::parse('2026-06-15')->startOfDay();
+        $end = SubscriptionRecurringSlot::resolveEndDate($start, $expires);
+
+        $this->assertSame('2026-06-15', $end->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function resolveEndDate_ignores_subscription_expires_before_start(): void
+    {
+        // Cas Théa / Alicia : expires_at abo au 24/03, start au 02/09 → ne doit pas inverser
+        $start = Carbon::parse('2026-09-02')->startOfDay();
+        $expires = Carbon::parse('2026-03-24')->startOfDay();
+        $end = SubscriptionRecurringSlot::resolveEndDate($start, $expires);
+
+        $this->assertTrue($end->gte($start));
+        $this->assertSame(
+            $start->copy()->addWeeks(SubscriptionRecurringSlot::RECURRENCE_WEEKS)->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
+    }
 }
 

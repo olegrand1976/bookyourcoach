@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class SubscriptionRecurringSlot extends Model
@@ -18,6 +19,54 @@ class SubscriptionRecurringSlot extends Model
      * Les vraies réservations récurrentes « cours » restent typiquement ≤ 90–120 min.
      */
     public const MAX_LESSON_LIKE_WINDOW_MINUTES = 120;
+
+    /** Horizon de récurrence (source de vérité partagée avec RecurringSlotValidator::VALIDATION_WEEKS). */
+    public const RECURRENCE_WEEKS = 26;
+
+    /**
+     * Calcule end_date d'une série.
+     *
+     * Règle : start + RECURRENCE_WEEKS, éventuellement borné par expires_at de l'abonnement
+     * si expires_at >= start. Si expires_at < start (abo déjà expiré à la date du créneau),
+     * on conserve l'horizon 26 semaines (jamais end < start) et on journalise un warning.
+     *
+     * @return array{0: Carbon, 1: bool} [endDate, ignoredExpiredExpiresAt]
+     */
+    public static function resolveEndDateWithMeta(Carbon $startDate, ?Carbon $subscriptionExpiresAt = null): array
+    {
+        $start = $startDate->copy()->startOfDay();
+        $end = $start->copy()->addWeeks(self::RECURRENCE_WEEKS);
+        $ignoredExpiredExpiresAt = false;
+
+        if ($subscriptionExpiresAt) {
+            $expires = $subscriptionExpiresAt->copy()->startOfDay();
+            if ($expires->lt($start)) {
+                $ignoredExpiredExpiresAt = true;
+            } elseif ($expires->lt($end)) {
+                $end = $expires;
+            }
+        }
+
+        return [$end, $ignoredExpiredExpiresAt];
+    }
+
+    /**
+     * @see resolveEndDateWithMeta
+     */
+    public static function resolveEndDate(Carbon $startDate, ?Carbon $subscriptionExpiresAt = null): Carbon
+    {
+        [$end, $ignored] = self::resolveEndDateWithMeta($startDate, $subscriptionExpiresAt);
+
+        if ($ignored) {
+            Log::warning('SubscriptionRecurringSlot::resolveEndDate: expires_at abo antérieur au start_date, horizon 26 semaines conservé', [
+                'start_date' => $startDate->copy()->startOfDay()->format('Y-m-d'),
+                'subscription_expires_at' => $subscriptionExpiresAt?->copy()->startOfDay()->format('Y-m-d'),
+                'resolved_end_date' => $end->format('Y-m-d'),
+            ]);
+        }
+
+        return $end;
+    }
 
     protected $fillable = [
         'subscription_instance_id',

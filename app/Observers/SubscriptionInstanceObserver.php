@@ -97,8 +97,9 @@ class SubscriptionInstanceObserver
 
         $updatedCount = 0;
         foreach ($recurringSlots as $recurringSlot) {
-            // Ne pas dépasser 6 mois depuis la start_date de la récurrence
-            $maxEndDate = \Carbon\Carbon::parse($recurringSlot->start_date)->addMonths(6);
+            // Ne pas dépasser l'horizon de récurrence depuis start_date
+            $maxEndDate = \Carbon\Carbon::parse($recurringSlot->start_date)
+                ->addWeeks(SubscriptionRecurringSlot::RECURRENCE_WEEKS);
             $newEndDate = min(
                 \Carbon\Carbon::parse($newExpiresAt),
                 $maxEndDate

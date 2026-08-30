@@ -209,7 +209,7 @@
       <!-- Liste tabulaire des créneaux récurrents -->
       <div
         v-else
-        class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+        class="bg-white rounded-lg shadow-sm border border-gray-200"
       >
         <div class="overflow-x-auto">
           <table class="min-w-[1080px] w-full text-sm text-left">
@@ -242,10 +242,13 @@
                 <th scope="col" class="px-3 py-3 whitespace-nowrap">
                   Dernière génération
                 </th>
-                <th scope="col" class="px-3 py-3 max-w-[10rem]">
+                <th scope="col" class="px-3 py-3 min-w-[8rem]">
                   Notes
                 </th>
-                <th scope="col" class="px-3 py-3 text-right whitespace-nowrap">
+                <th
+                  scope="col"
+                  class="px-3 py-3 text-right whitespace-nowrap sticky right-0 bg-gray-50 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.12)]"
+                >
                   Actions
                 </th>
               </tr>
@@ -254,7 +257,7 @@
               <tr
                 v-for="slot in recurringSlots"
                 :key="slot.id"
-                class="hover:bg-violet-50/40 align-top"
+                class="group hover:bg-violet-50/40 align-top"
               >
                 <td class="px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
                   {{ getDayName(slot.day_of_week) }}
@@ -274,8 +277,19 @@
                 <td class="px-3 py-2.5 text-gray-800">
                   {{ getSubscriptionName(slot) }}
                 </td>
-                <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap tabular-nums text-xs sm:text-sm">
-                  {{ formatDate(slot.start_date) }} → {{ formatDate(slot.end_date) }}
+                <td class="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs sm:text-sm">
+                  <span
+                    :class="isInvertedDateRange(slot) ? 'text-red-700 font-medium' : 'text-gray-700'"
+                    :title="isInvertedDateRange(slot) ? 'Période incohérente : début après la fin' : undefined"
+                  >
+                    {{ formatDate(slot.start_date) }} → {{ formatDate(slot.end_date) }}
+                  </span>
+                  <span
+                    v-if="isInvertedDateRange(slot)"
+                    class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-800"
+                  >
+                    Incohérent
+                  </span>
                 </td>
                 <td class="px-3 py-2.5">
                   <span
@@ -289,7 +303,7 @@
                   <span v-if="slot.last_generated_at">{{ formatDateTime(slot.last_generated_at) }}</span>
                   <span v-else class="text-gray-400">—</span>
                 </td>
-                <td class="px-3 py-2.5 text-gray-600 text-xs max-w-[10rem]">
+                <td class="px-3 py-2.5 text-gray-600 text-xs min-w-[8rem] max-w-[14rem]">
                   <span
                     v-if="slot.notes"
                     class="line-clamp-2"
@@ -297,7 +311,7 @@
                   >{{ slot.notes }}</span>
                   <span v-else class="text-gray-400">—</span>
                 </td>
-                <td class="px-3 py-2.5 text-right">
+                <td class="px-3 py-2.5 text-right sticky right-0 bg-white z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.12)] group-hover:bg-violet-50/40">
                   <div class="inline-flex flex-wrap items-center justify-end gap-1">
                     <button
                       v-if="slot.status === 'active'"
@@ -375,6 +389,7 @@
               >
                 <option value="">Toutes</option>
                 <option value="no_future_lessons">Sans cours futurs</option>
+                <option value="inverted_date_range">Période incohérente</option>
                 <option value="teacher_mismatch">Moniteur désaligné</option>
                 <option value="schedule_drift">Horaire désaligné</option>
                 <option value="gap_in_series">Trous dans la série</option>
@@ -811,6 +826,7 @@ async function regenerateRow(row) {
 function issueLabel(code) {
   const labels = {
     no_future_lessons: 'Sans futurs',
+    inverted_date_range: 'Période incohérente',
     teacher_mismatch: 'Moniteur',
     orphan_lessons: 'Orphelins',
     cancelled_srs_with_futures: 'Série annulée',
@@ -898,6 +914,27 @@ function formatDate(date) {
     month: '2-digit',
     year: 'numeric'
   })
+}
+
+/** Compare YYYY-MM-DD (ou ISO) sans biais UTC de toLocaleDateString. */
+function toYmd(date) {
+  if (!date) return null
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date)) {
+    return date.slice(0, 10)
+  }
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function isInvertedDateRange(slot) {
+  const start = toYmd(slot?.start_date)
+  const end = toYmd(slot?.end_date)
+  if (!start || !end) return false
+  return start > end
 }
 
 function formatDateTime(date) {
