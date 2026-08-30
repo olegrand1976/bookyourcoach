@@ -55,7 +55,7 @@
       <section
         v-for="col in columns"
         :key="col.ymd"
-        class="snap-start shrink-0 w-[220px] sm:w-[240px] flex flex-col rounded-lg border border-gray-200 bg-gray-50 min-h-[280px]"
+        class="snap-start shrink-0 w-[220px] sm:w-[240px] flex flex-col rounded-lg border border-gray-200 bg-gray-50"
         role="listitem"
         :data-ymd="col.ymd"
       >
@@ -88,37 +88,71 @@
           </button>
         </header>
 
-        <div class="flex-1 p-2 space-y-2 overflow-y-auto max-h-[420px]">
+        <div class="p-2 border-b border-gray-200 bg-white">
           <button
-            v-for="lesson in col.lessons"
-            :key="String(lesson.id)"
             type="button"
-            class="w-full text-left rounded-md border bg-white px-2.5 py-2 shadow-sm hover:shadow transition-shadow"
-            :class="cardClass(lesson)"
-            @click="$emit('select-lesson', lesson, col.ymd)"
+            :class="createLessonBtnClass"
+            :disabled="col.isClosure || loading"
+            title="Créer un cours ce jour"
+            data-testid="kanban-create-top"
+            @click.stop="$emit('create-lesson', col.ymd)"
           >
-            <div class="flex items-center justify-between gap-1 mb-1">
-              <span class="text-xs font-semibold text-blue-800 tabular-nums">
-                {{ formatLessonTime(lesson.start_time) }}
-              </span>
-              <span
-                v-if="lesson.is_recurring_placeholder"
-                class="text-[9px] font-bold uppercase text-violet-700 bg-violet-100 px-1 rounded"
-              >Série</span>
-            </div>
-            <p class="text-xs font-medium text-gray-900 truncate">
-              {{ lesson.course_type?.name || (lesson.is_recurring_placeholder ? 'Réservation récurrente' : 'Cours') }}
-            </p>
-            <p class="text-[11px] text-gray-600 truncate mt-0.5">
-              {{ studentLabel(lesson) }}
-            </p>
-            <p class="text-[11px] text-gray-500 truncate">
-              {{ teacherLabel(lesson) }}
-            </p>
+            + Cours
           </button>
+        </div>
 
+        <div
+          class="flex-1 p-2 space-y-3"
+          :class="col.isClosure ? 'opacity-50' : ''"
+        >
+          <template v-if="(alignedByYmd[col.ymd] ?? []).length > 0">
+            <div
+              v-for="band in alignedByYmd[col.ymd]"
+              :key="`${col.ymd}-${band.hourKey}`"
+              class="rounded-md px-1.5 py-1.5 space-y-2"
+              :class="stripeBandClass(band.stripeIndex)"
+              :data-hour="band.hourKey"
+            >
+              <p class="text-xs font-bold uppercase tracking-wide text-gray-700 px-1">
+                {{ band.label }}
+              </p>
+              <template v-for="(slot, slotIdx) in band.slots" :key="slot ? String(slot.id) : `empty-${band.hourKey}-${slotIdx}`">
+                <button
+                  v-if="slot"
+                  type="button"
+                  class="w-full text-left rounded-md border border-gray-200 bg-white px-2.5 py-2 shadow-sm hover:shadow transition-shadow min-h-[72px] box-border"
+                  :class="cardAccentClass(slot)"
+                  @click="$emit('select-lesson', slot, col.ymd)"
+                >
+                  <div class="flex items-center justify-between gap-1 mb-1">
+                    <span class="text-[10px] font-medium text-gray-500 tabular-nums">
+                      {{ formatLessonTime(slot.start_time) }}
+                    </span>
+                    <span
+                      v-if="slot.is_recurring_placeholder"
+                      class="text-[9px] font-bold uppercase text-violet-700 bg-violet-100 px-1 rounded"
+                    >Série</span>
+                  </div>
+                  <p class="text-xs font-medium text-gray-900 truncate">
+                    {{ slot.course_type?.name || (slot.is_recurring_placeholder ? 'Réservation récurrente' : 'Cours') }}
+                  </p>
+                  <p class="text-[11px] text-gray-600 truncate mt-0.5">
+                    {{ studentLabel(slot) }}
+                  </p>
+                  <p class="text-[11px] text-gray-500 truncate">
+                    {{ teacherLabel(slot) }}
+                  </p>
+                </button>
+                <div
+                  v-else
+                  class="w-full min-h-[72px] box-border rounded-md border border-dashed border-gray-200/80 bg-white/50"
+                  aria-hidden="true"
+                />
+              </template>
+            </div>
+          </template>
           <p
-            v-if="col.lessons.length === 0"
+            v-else
             class="text-xs text-gray-400 text-center py-4"
           >
             Aucun cours
@@ -128,9 +162,10 @@
         <footer class="p-2 border-t border-gray-200 bg-white rounded-b-lg">
           <button
             type="button"
-            class="w-full min-h-[36px] text-sm font-medium rounded-md border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="createLessonBtnClass"
             :disabled="col.isClosure || loading"
             title="Créer un cours ce jour"
+            data-testid="kanban-create-bottom"
             @click.stop="$emit('create-lesson', col.ymd)"
           >
             + Cours
@@ -142,6 +177,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { buildKanbanHourAlignedRows } from '~/composables/planning/usePlanningCalendar'
+
 export type KanbanLessonCard = {
   id: number | string
   start_time: string
@@ -163,7 +201,7 @@ export type KanbanColumn = {
   lessons: KanbanLessonCard[]
 }
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string
     slotLabel?: string
@@ -192,6 +230,13 @@ defineEmits<{
   'select-lesson': [lesson: KanbanLessonCard, ymd: string]
   'create-lesson': [ymd: string]
 }>()
+
+const createLessonBtnClass =
+  'w-full min-h-[36px] text-sm font-medium rounded-md border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed'
+
+const alignedByYmd = computed(() =>
+  buildKanbanHourAlignedRows(props.columns, studentLabel).byYmd,
+)
 
 function formatLessonTime(datetime: string): string {
   const date = new Date(datetime)
@@ -225,13 +270,18 @@ function teacherLabel(lesson: KanbanLessonCard): string {
   return lesson.teacher?.user?.name || 'Coach —'
 }
 
-function cardClass(lesson: KanbanLessonCard): string {
+/** Couleur de bande uniquement (cartes restent blanches pour hauteur visuelle stable). */
+function stripeBandClass(stripeIndex: number): string {
+  return stripeIndex % 2 === 0 ? 'bg-sky-50/80' : 'bg-amber-50/80'
+}
+
+function cardAccentClass(lesson: KanbanLessonCard): string {
   if (lesson.is_recurring_placeholder) {
-    return 'border-violet-200 ring-1 ring-violet-100'
+    return 'ring-1 ring-violet-200 border-violet-200'
   }
   if (lesson.status === 'cancelled') {
-    return 'border-orange-200 opacity-70'
+    return 'opacity-70 border-orange-200'
   }
-  return 'border-gray-200'
+  return ''
 }
 </script>

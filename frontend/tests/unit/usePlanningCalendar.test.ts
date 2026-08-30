@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import {
   assertMonthCountsMatchIndex,
   buildCalendarLessonCounts,
+  buildKanbanHourAlignedRows,
   calendarPeriodOverlapsPlanningWindow,
   groupLessonsByYmdForSlot,
   listSlotOccurrenceDates,
@@ -335,6 +336,79 @@ describe('groupLessonsByYmdForSlot', () => {
   })
 })
 
+describe('buildKanbanHourAlignedRows', () => {
+  const studentKey = (l: { student?: { user?: { name?: string } } }) =>
+    l.student?.user?.name ?? ''
+
+  it('aligne les bandes : padding null si une colonne a plus de cours à la même heure', () => {
+    const columns = [
+      {
+        ymd: '2026-05-09',
+        lessons: [
+          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'A' } } },
+          { id: 2, start_time: '2026-05-09T16:15:00', student: { user: { name: 'B' } } },
+          { id: 3, start_time: '2026-05-09T16:30:00', student: { user: { name: 'C' } } },
+          { id: 4, start_time: '2026-05-09T16:40:00', student: { user: { name: 'D' } } },
+          { id: 5, start_time: '2026-05-09T16:50:00', student: { user: { name: 'E' } } },
+        ],
+      },
+      {
+        ymd: '2026-05-16',
+        lessons: [
+          { id: 10, start_time: '2026-05-16T16:00:00', student: { user: { name: 'Z' } } },
+          { id: 11, start_time: '2026-05-16T16:20:00', student: { user: { name: 'Y' } } },
+        ],
+      },
+    ]
+    const { hours, byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
+    expect(hours).toEqual([{ key: 16, label: '16h' }])
+    expect(byYmd['2026-05-09'][0].slots).toHaveLength(5)
+    expect(byYmd['2026-05-09'][0].slots.every((s) => s !== null)).toBe(true)
+    expect(byYmd['2026-05-16'][0].slots).toHaveLength(5)
+    expect(byYmd['2026-05-16'][0].slots.filter((s) => s === null)).toHaveLength(3)
+  })
+
+  it('trie par élève dans une bande et unionne plusieurs heures', () => {
+    const columns = [
+      {
+        ymd: '2026-05-09',
+        lessons: [
+          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Zoé' } } },
+          { id: 2, start_time: '2026-05-09T16:30:00', student: { user: { name: 'Alice' } } },
+          { id: 3, start_time: '2026-05-09T09:00:00', student: { user: { name: 'Marc' } } },
+        ],
+      },
+      {
+        ymd: '2026-05-16',
+        lessons: [
+          { id: 4, start_time: '2026-05-16T10:00:00', student: { user: { name: 'Bob' } } },
+        ],
+      },
+    ]
+    const { hours, byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
+    expect(hours.map((h) => h.key)).toEqual([9, 10, 16])
+    const band16 = byYmd['2026-05-09'].find((b) => b.hourKey === 16)!
+    expect(band16.slots.map((s) => s?.student?.user?.name)).toEqual(['Alice', 'Zoé'])
+    // colonne sans 16h : 2 slots null (max = 2)
+    expect(byYmd['2026-05-16'].find((b) => b.hourKey === 16)!.slots).toEqual([null, null])
+  })
+
+  it('tie-break start_time puis id si même élève', () => {
+    const columns = [
+      {
+        ymd: '2026-05-09',
+        lessons: [
+          { id: 2, start_time: '2026-05-09T16:30:00', student: { user: { name: 'Alice' } } },
+          { id: 1, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Alice' } } },
+          { id: 3, start_time: '2026-05-09T16:00:00', student: { user: { name: 'Alice' } } },
+        ],
+      },
+    ]
+    const { byYmd } = buildKanbanHourAlignedRows(columns, studentKey)
+    expect(byYmd['2026-05-09'][0].slots.map((s) => s?.id)).toEqual([1, 3, 2])
+  })
+})
+
 describe('PlanningSlotKanbanView', () => {
   it('affiche une colonne par jour avec cours et pastille congé', async () => {
     const wrapper = mount(PlanningSlotKanbanView, {
@@ -367,6 +441,7 @@ describe('PlanningSlotKanbanView', () => {
     })
     expect(wrapper.text()).toContain('mai 2026')
     expect(wrapper.text()).toContain('Samedi • 09:00 – 12:00')
+    expect(wrapper.text()).toContain('9h')
     const cols = wrapper.findAll('[data-ymd]')
     expect(cols).toHaveLength(2)
     expect(cols[0].text()).toContain('CSO')
@@ -376,16 +451,35 @@ describe('PlanningSlotKanbanView', () => {
     expect(wrapper.emitted('select-day')?.[0]).toEqual(['2026-05-09'])
   })
 
-  it('émet create-lesson depuis le footer', async () => {
+  it('émet create-lesson depuis le haut et le bas de colonne', async () => {
     const wrapper = mount(PlanningSlotKanbanView, {
       props: {
         title: 'T2',
         columns: [
-          { ymd: '2026-05-09', label: 'sam. 9', isClosure: false, lessons: [] },
+          {
+            ymd: '2026-05-09',
+            label: 'sam. 9',
+            isClosure: false,
+            lessons: [
+              {
+                id: 1,
+                start_time: '2026-05-09T16:00:00',
+                course_type: { name: 'Dressage' },
+                student: { user: { name: 'Léa' } },
+              },
+            ],
+          },
         ],
       },
     })
-    await wrapper.find('footer button').trigger('click')
+    expect(wrapper.text()).toContain('16h')
+    const top = wrapper.find('[data-testid="kanban-create-top"]')
+    const bottom = wrapper.find('[data-testid="kanban-create-bottom"]')
+    expect(top.exists()).toBe(true)
+    expect(bottom.exists()).toBe(true)
+    await top.trigger('click')
     expect(wrapper.emitted('create-lesson')?.[0]).toEqual(['2026-05-09'])
+    await bottom.trigger('click')
+    expect(wrapper.emitted('create-lesson')?.[1]).toEqual(['2026-05-09'])
   })
 })

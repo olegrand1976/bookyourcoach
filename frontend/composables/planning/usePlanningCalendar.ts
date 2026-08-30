@@ -226,3 +226,89 @@ export function groupLessonsByYmdForSlot<T extends CalendarCountableLesson & { s
   }
   return result
 }
+
+/** Clé heure locale 0–23 à partir d’un datetime ISO / MySQL. */
+export function lessonLocalHourKey(startTime: string): number | null {
+  const d = new Date(startTime)
+  if (Number.isNaN(d.getTime())) return null
+  return d.getHours()
+}
+
+export function formatKanbanHourLabel(hour: number): string {
+  return `${hour}h`
+}
+
+export type KanbanHourBand<T> = {
+  hourKey: number
+  label: string
+  stripeIndex: number
+  slots: Array<T | null>
+}
+
+/**
+ * Bandes horaires alignées entre colonnes : union des heures, padding à max(count),
+ * tri par clé élève dans chaque bande.
+ */
+export function buildKanbanHourAlignedRows<T extends { start_time: string; id?: string | number }>(
+  columns: Array<{ ymd: string; lessons: T[] }>,
+  getStudentSortKey: (lesson: T) => string,
+): { hours: Array<{ key: number; label: string }>; byYmd: Record<string, KanbanHourBand<T>[]> } {
+  const hourSet = new Set<number>()
+  const lessonsByYmdHour = new Map<string, Map<number, T[]>>()
+
+  for (const col of columns) {
+    const byHour = new Map<number, T[]>()
+    for (const lesson of col.lessons) {
+      const hour = lessonLocalHourKey(lesson.start_time)
+      if (hour === null) continue
+      hourSet.add(hour)
+      const list = byHour.get(hour) ?? []
+      list.push(lesson)
+      byHour.set(hour, list)
+    }
+    for (const [, list] of byHour) {
+      list.sort((a, b) => {
+        const byStudent = getStudentSortKey(a).localeCompare(getStudentSortKey(b), 'fr', {
+          sensitivity: 'base',
+        })
+        if (byStudent !== 0) return byStudent
+        const byTime = String(a.start_time).localeCompare(String(b.start_time))
+        if (byTime !== 0) return byTime
+        return String(a.id ?? '').localeCompare(String(b.id ?? ''))
+      })
+    }
+    lessonsByYmdHour.set(col.ymd, byHour)
+  }
+
+  const sortedHours = Array.from(hourSet).sort((a, b) => a - b)
+  const hours = sortedHours.map((key) => ({ key, label: formatKanbanHourLabel(key) }))
+
+  const maxByHour = new Map<number, number>()
+  for (const hour of sortedHours) {
+    let max = 0
+    for (const col of columns) {
+      const n = lessonsByYmdHour.get(col.ymd)?.get(hour)?.length ?? 0
+      if (n > max) max = n
+    }
+    maxByHour.set(hour, max)
+  }
+
+  const byYmd: Record<string, KanbanHourBand<T>[]> = {}
+  for (const col of columns) {
+    const byHour = lessonsByYmdHour.get(col.ymd) ?? new Map()
+    byYmd[col.ymd] = sortedHours.map((hourKey, stripeIndex) => {
+      const lessons = byHour.get(hourKey) ?? []
+      const max = maxByHour.get(hourKey) ?? 0
+      const slots: Array<T | null> = [...lessons]
+      while (slots.length < max) slots.push(null)
+      return {
+        hourKey,
+        label: formatKanbanHourLabel(hourKey),
+        stripeIndex,
+        slots,
+      }
+    })
+  }
+
+  return { hours, byYmd }
+}
