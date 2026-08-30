@@ -247,7 +247,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { buildKanbanPlageAlignedRows } from '~/composables/planning/usePlanningCalendar'
-import { resolveLessonPrimaryStudentId } from '~/composables/planning/usePlanningParticipant'
+import {
+  resolveLessonPrimaryStudentId,
+  formatLessonStudentsLabel,
+} from '~/composables/planning/usePlanningParticipant'
 
 export type KanbanLessonCard = {
   id: number | string
@@ -256,8 +259,20 @@ export type KanbanLessonCard = {
   status?: string | null
   is_recurring_placeholder?: boolean
   course_type?: { name?: string } | null
-  student?: { id?: number; user?: { name?: string } | null } | null
-  students?: Array<{ id?: number; user?: { name?: string } | null }>
+  student?: {
+    id?: number
+    first_name?: string | null
+    last_name?: string | null
+    name?: string | null
+    user?: { name?: string | null } | null
+  } | null
+  students?: Array<{
+    id?: number
+    first_name?: string | null
+    last_name?: string | null
+    name?: string | null
+    user?: { name?: string | null } | null
+  }>
   teacher?: { user?: { name?: string } | null } | null
   student_id?: number | null
   teacher_id?: number | null
@@ -416,17 +431,7 @@ function studentRowKey(lesson: KanbanLessonCard): string {
 }
 
 function studentLabel(lesson: KanbanLessonCard): string {
-  const names: string[] = []
-  if (lesson.student?.user?.name) names.push(lesson.student.user.name)
-  if (Array.isArray(lesson.students)) {
-    for (const s of lesson.students) {
-      const n = s?.user?.name
-      if (n && !names.includes(n)) names.push(n)
-    }
-  }
-  if (names.length) return names.join(', ')
-  if (lesson.student_id != null) return `Élève #${lesson.student_id}`
-  return 'Élève —'
+  return formatLessonStudentsLabel(lesson, { emptyLabel: 'Élève —' })
 }
 
 function columnCountLabel(col: KanbanColumn): string {

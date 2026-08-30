@@ -1710,6 +1710,8 @@ import {
   resolveLessonTeacherId,
   participantDisplayNameFromStudent,
   participantDisplayNameFromTeacher,
+  formatLessonStudentsLabel,
+  resolveStudentDisplayName,
 } from '~/composables/planning/usePlanningParticipant'
 import {
   buildLessonsByLocalDate,
@@ -1804,32 +1806,40 @@ interface OpenSlot {
 
 interface Lesson {
   id: number
+  student_id?: number | null
+  teacher_id?: number | null
   start_time: string // DateTime ISO string
   end_time: string   // DateTime ISO string
   status: string
   price: number
   teacher?: {
     id: number
-    user: {
-      name: string
-    }
+    user?: {
+      name?: string | null
+    } | null
   }
   student?: {
     id: number
+    first_name?: string | null
+    last_name?: string | null
+    name?: string | null
     phone?: string | null
-    user: {
-      name: string
+    user?: {
+      name?: string | null
       phone?: string | null
-    }
+    } | null
     subscription_instances?: any[]
-  }
+  } | null
   students?: Array<{
     id: number
+    first_name?: string | null
+    last_name?: string | null
+    name?: string | null
     phone?: string | null
-    user: {
-      name: string
+    user?: {
+      name?: string | null
       phone?: string | null
-    }
+    } | null
     subscription_instances?: any[]
   }>
   course_type?: CourseType
@@ -1840,6 +1850,7 @@ interface Lesson {
   recurring_slot_id?: number
   /** Lien pivot si le cours a été généré depuis un créneau récurrent (API) */
   lesson_recurring_slot?: { id?: number; recurring_slot_id?: number } | null
+  subscription_instances?: any[]
 }
 
 // State
@@ -2038,13 +2049,21 @@ const kanbanLessonsByYmd = computed(() => {
 
 const closureDateSet = computed(() => new Set(closureDates.value))
 
+/** Enrichit student depuis la liste club si le payload n’a pas de nom affichable. */
 function resolveKanbanStudentName(lesson: Lesson): KanbanLessonCard['student'] {
-  if (lesson.student?.user?.name) return lesson.student
+  if (lesson.student && resolveStudentDisplayName(lesson.student) != null) {
+    return lesson.student
+  }
   if (!lesson.student_id) return lesson.student ?? null
-  const found = students.value.find((s: any) => s.id === lesson.student_id)
-  if (!found) return lesson.student ?? null
-  const name = found.user?.name || found.name || `Élève #${found.id}`
-  return { user: { name } }
+  const found = students.value.find((s: { id: number }) => s.id === lesson.student_id)
+  if (!found || resolveStudentDisplayName(found) == null) return lesson.student ?? null
+  return {
+    id: found.id,
+    first_name: found.first_name,
+    last_name: found.last_name,
+    name: found.name,
+    user: found.user ?? null,
+  }
 }
 
 const kanbanColumns = computed(() => {
@@ -5300,54 +5319,19 @@ function closeParticipantInfoModal() {
   participantInfoName.value = ''
 }
 
-// Formater une date complète (ex: "Mercredi 6 novembre 2025")
-// Fonction pour obtenir les élèves d'un cours (student_id ou relation many-to-many)
+// Élèves d'un cours (BelongsTo + M2M) — first_name/last_name si pas de user.name
 function getLessonStudents(lesson: Lesson | null): string {
   if (!lesson) return 'Aucun élève'
-  
-  const studentNames: string[] = []
-  
-  // Ajouter l'élève principal (student_id) s'il existe
-  if (lesson.student?.user?.name) {
-    studentNames.push(lesson.student.user.name)
-  } else if (lesson.student_id) {
-    // Fallback : si student_id existe mais que la relation n'est pas chargée,
-    // chercher l'élève dans la liste des élèves chargés
-    const foundStudent = students.value.find((s: any) => s.id === lesson.student_id)
-    if (foundStudent) {
-      const studentName = foundStudent.user?.name || foundStudent.name || `Élève #${foundStudent.id}`
-      studentNames.push(studentName)
-    } else {
-      // Debug si l'élève n'est pas trouvé
-      console.warn('⚠️ [getLessonStudents] student_id existe mais élève non trouvé dans la liste:', {
-        lesson_id: lesson.id,
-        student_id: lesson.student_id,
-        students_loaded: students.value.length
-      })
+  if (
+    lesson.student_id &&
+    (!lesson.student || resolveStudentDisplayName(lesson.student) == null)
+  ) {
+    const found = students.value.find((s: { id: number }) => s.id === lesson.student_id)
+    if (found) {
+      return formatLessonStudentsLabel({ ...lesson, student: found }, { emptyLabel: 'Aucun élève' })
     }
   }
-  
-  // Ajouter les élèves de la relation many-to-many
-  if (lesson.students && Array.isArray(lesson.students)) {
-    lesson.students.forEach((student: any) => {
-      if (student.user?.name && !studentNames.includes(student.user.name)) {
-        studentNames.push(student.user.name)
-      }
-    })
-  }
-  
-  // Debug si aucun élève trouvé mais qu'il y a un student_id
-  if (studentNames.length === 0 && lesson.student_id) {
-    console.warn('⚠️ [getLessonStudents] Aucun élève trouvé mais student_id existe:', {
-      lesson_id: lesson.id,
-      student_id: lesson.student_id,
-      student: lesson.student,
-      students: lesson.students,
-      students_loaded_count: students.value.length
-    })
-  }
-  
-  return studentNames.length > 0 ? studentNames.join(', ') : 'Aucun élève'
+  return formatLessonStudentsLabel(lesson, { emptyLabel: 'Aucun élève' })
 }
 
 function normalizePhoneDisplay(value: string | null | undefined): string | null {
