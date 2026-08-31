@@ -197,6 +197,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import {
+  STUDENT_LESSON_PERIOD_FILTER_OPTIONS,
   compareLessonsForHistoryDisplay,
   comparePastLessonsForHistoryDisplay,
   groupLessonsByMonth,
@@ -231,11 +232,7 @@ const statusFilterOptions = [
   { value: 'cancelled', label: 'Annulés' },
 ]
 
-const periodFilterOptions = [
-  { value: 'upcoming_quarter', label: 'Trimestre en cours' },
-  { value: 'quarter_all', label: 'Trimestre complet' },
-  { value: 'with_previous_quarter', label: '2 trimestres' },
-]
+const periodFilterOptions = STUDENT_LESSON_PERIOD_FILTER_OPTIONS
 
 const filterOptions = { alwaysShowPendingMedicalCerts: true }
 

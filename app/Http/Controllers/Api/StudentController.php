@@ -179,12 +179,12 @@ class StudentController extends Controller
 
             $lessons = (clone $lessonQuery)
                 ->orderBy('start_time', 'desc')
-                ->limit(100)
                 ->get()
                 ->unique('id')
                 ->values();
 
-            // Tous les cours annulés du club doivent rester visibles (le top 100 seul les exclut souvent)
+            // Filets de sécurité : rattraper d'éventuels annulés / certificats absents du lot principal
+            // (ex. edge-cases de jointure). Idempotents via unique('id').
             $idsAlready = $lessons->pluck('id')->all();
             $cancelledLessons = (clone $lessonQuery)
                 ->where('status', 'cancelled')
@@ -193,7 +193,7 @@ class StudentController extends Controller
                 ->get();
             $lessons = $lessons->concat($cancelledLessons)->unique('id')->values();
 
-            // Les cours avec certificat médical en attente (pending) doivent toujours apparaître dans l'historique
+            // Certificats médicaux pending / avec fichier : toujours exposés dans l'historique
             $idsAlready = $lessons->pluck('id')->all();
             $hasCertColumns = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_status')
                 && \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_certificate_path');

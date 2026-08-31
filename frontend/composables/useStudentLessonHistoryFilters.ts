@@ -3,7 +3,23 @@
  */
 
 export type LessonStatusFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'
-export type LessonPeriodMode = 'upcoming_quarter' | 'quarter_all' | 'with_previous_quarter'
+export type LessonPeriodMode = 'upcoming_quarter' | 'quarter_all' | 'with_previous_quarter' | 'all'
+
+/** Options UI partagées (fiche planning + panel élèves). `quarter_all` volontairement omis : même plage que `upcoming_quarter`. */
+export const STUDENT_LESSON_PERIOD_FILTER_OPTIONS: { value: LessonPeriodMode; label: string }[] = [
+  { value: 'upcoming_quarter', label: 'Trimestre en cours' },
+  { value: 'with_previous_quarter', label: '2 trimestres' },
+  { value: 'all', label: 'Tout l\'historique' },
+]
+
+/** Borne basse pour le mode « tout l'historique » (pas de filtre métier). */
+function historyAllFrom(): Date {
+  return new Date(1970, 0, 1, 0, 0, 0, 0)
+}
+
+function historyAllTo(referenceDate: Date): Date {
+  return new Date(referenceDate.getFullYear() + 50, 11, 31, 23, 59, 59, 999)
+}
 
 export interface CalendarQuarterBounds {
   start: Date
@@ -58,6 +74,15 @@ export function resolveUpcomingLessonPeriod(
 ): LessonHistoryPeriod {
   const current = getCalendarQuarterBounds(referenceDate)
   const today = startOfLocalDay(referenceDate)
+
+  if (mode === 'all') {
+    return {
+      from: today,
+      to: historyAllTo(referenceDate),
+      label: 'À venir — tout l\'historique',
+    }
+  }
+
   const from = today.getTime() > current.start.getTime() ? today : current.start
 
   if (mode === 'with_previous_quarter') {
@@ -89,8 +114,15 @@ export function resolvePastLessonPeriod(
   referenceDate: Date = new Date(),
 ): LessonHistoryPeriod | null {
   const current = getCalendarQuarterBounds(referenceDate)
-  const today = startOfLocalDay(referenceDate)
   const pastEnd = endOfPreviousLocalDay(referenceDate)
+
+  if (mode === 'all') {
+    return {
+      from: historyAllFrom(),
+      to: pastEnd,
+      label: 'Passés — tout l\'historique',
+    }
+  }
 
   if (pastEnd.getTime() < current.start.getTime()) {
     return null
@@ -116,6 +148,47 @@ export function resolvePastLessonPeriod(
     to: pastEnd,
     label: `Passés — T${current.quarter} ${current.year}`,
   }
+}
+
+/**
+ * Fenêtre d'affichage complète (passés + à venir) pour la fiche planning.
+ * Contrairement aux resolveurs upcoming/past, ne coupe pas à « aujourd'hui ».
+ * Mode `all` : bornes volontairement larges ; préférer `isFullHistoryPeriodMode` pour skipper le filtre date.
+ */
+export function resolveFullLessonPeriod(
+  mode: LessonPeriodMode,
+  referenceDate: Date = new Date(),
+): LessonHistoryPeriod {
+  if (mode === 'all') {
+    return {
+      from: historyAllFrom(),
+      to: historyAllTo(referenceDate),
+      label: 'Tout l\'historique — cours prévus, passés et annulés',
+    }
+  }
+
+  const current = getCalendarQuarterBounds(referenceDate)
+
+  if (mode === 'with_previous_quarter') {
+    const previous = getPreviousCalendarQuarterBounds(referenceDate)
+
+    return {
+      from: previous.start,
+      to: current.end,
+      label: `T${previous.quarter} ${previous.year} – T${current.quarter} ${current.year} — cours prévus, passés et annulés`,
+    }
+  }
+
+  // upcoming_quarter et quarter_all (legacy) → même fenêtre trimestre
+  return {
+    from: current.start,
+    to: current.end,
+    label: `Trimestre en cours (T${current.quarter} ${current.year}) — cours prévus, passés et annulés`,
+  }
+}
+
+export function isFullHistoryPeriodMode(mode: LessonPeriodMode): boolean {
+  return mode === 'all'
 }
 
 /** @deprecated Utiliser resolveUpcomingLessonPeriod */

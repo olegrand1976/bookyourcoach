@@ -120,6 +120,34 @@ class StudentHistoryCancelledLessonsTest extends TestCase
     }
 
     #[Test]
+    public function history_includes_old_confirmed_lessons_beyond_former_recent_limit(): void
+    {
+        $oldest = null;
+        for ($i = 0; $i < 105; $i++) {
+            $lesson = Lesson::factory()->create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => now()->subDays($i + 10)->setTime(10, 0),
+                'end_time' => now()->subDays($i + 10)->setTime(11, 0),
+                'status' => 'confirmed',
+            ]);
+            if ($i === 104) {
+                $oldest = $lesson;
+            }
+        }
+
+        $response = $this->getJson("/api/club/students/{$this->student->id}/history");
+
+        $response->assertStatus(200);
+        $lessonIds = collect($response->json('data.lessons'))->pluck('id');
+        $this->assertCount(105, $lessonIds);
+        $this->assertTrue($lessonIds->contains($oldest->id));
+    }
+
+    #[Test]
     public function history_excludes_lessons_from_other_clubs(): void
     {
         $otherClub = Club::factory()->create();

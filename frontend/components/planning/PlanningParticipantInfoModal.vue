@@ -69,8 +69,31 @@
           <template v-else>
             <!-- Onglet Cours -->
             <div v-show="activeTab === 'lessons'" class="space-y-4">
-              <p class="text-sm text-gray-600">
-                {{ quarterPeriodLabel }}
+              <div
+                v-if="type === 'student'"
+                class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <p class="text-sm text-gray-600">
+                  {{ lessonsPeriodLabel }}
+                </p>
+                <label class="flex items-center gap-2 text-sm text-gray-700 shrink-0">
+                  <span class="sr-only">Période</span>
+                  <select
+                    v-model="lessonPeriodMode"
+                    class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option
+                      v-for="opt in periodFilterOptions"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+              <p v-else class="text-sm text-gray-600">
+                {{ lessonsPeriodLabel }}
               </p>
               <p
                 v-if="type === 'student' && nonMaintainedLessonsCount > 0"
@@ -79,7 +102,7 @@
                 {{ nonMaintainedLessonsCount }} cours non maintenu{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} ou supprimé{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} sur la période
               </p>
               <p v-if="displayedLessons.length === 0" class="text-sm text-gray-500 py-8 text-center bg-gray-50 rounded-lg border border-gray-200">
-                {{ type === 'student' ? 'Aucun cours sur ce trimestre.' : 'Aucun cours prévu sur cette période.' }}
+                {{ type === 'student' ? 'Aucun cours sur cette période.' : 'Aucun cours prévu sur cette période.' }}
               </p>
               <ul v-else class="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
                 <li
@@ -187,9 +210,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import {
+  type LessonPeriodMode,
+  STUDENT_LESSON_PERIOD_FILTER_OPTIONS,
   getCalendarQuarterBounds,
+  isFullHistoryPeriodMode,
   lessonIsUpcoming,
   lessonMatchesHistoryFilters,
+  resolveFullLessonPeriod,
   resolveUpcomingLessonPeriod,
 } from '~/composables/useStudentLessonHistoryFilters'
 import {
@@ -216,6 +243,9 @@ const { $api } = useNuxtApp()
 const loading = ref(false)
 const error = ref('')
 const activeTab = ref<TabId>('lessons')
+const lessonPeriodMode = ref<LessonPeriodMode>('upcoming_quarter')
+
+const periodFilterOptions = STUDENT_LESSON_PERIOD_FILTER_OPTIONS
 
 const studentRecord = ref<Record<string, unknown> | null>(null)
 const subscriptions = ref<any[]>([])
@@ -227,7 +257,7 @@ const titleId = 'planning-participant-info-title'
 const tabs = computed(() => {
   if (props.type === 'student') {
     return [
-      { id: 'lessons' as TabId, label: 'Cours du trimestre' },
+      { id: 'lessons' as TabId, label: 'Cours' },
       { id: 'contact' as TabId, label: 'Coordonnées' },
       { id: 'subscriptions' as TabId, label: 'Abonnements' },
     ]
@@ -238,14 +268,16 @@ const tabs = computed(() => {
   ]
 })
 
-const quarterPeriod = computed(() => resolveUpcomingLessonPeriod('upcoming_quarter'))
+const teacherQuarterPeriod = computed(() => resolveUpcomingLessonPeriod('upcoming_quarter'))
 
-const quarterPeriodLabel = computed(() => {
-  const q = getCalendarQuarterBounds()
+const studentDisplayPeriod = computed(() => resolveFullLessonPeriod(lessonPeriodMode.value))
+
+const lessonsPeriodLabel = computed(() => {
   if (props.type === 'student') {
-    return `Trimestre en cours (T${q.quarter} ${q.year}) — cours prévus, passés et annulés`
+    return studentDisplayPeriod.value.label
   }
-  return `Trimestre en cours (T${q.quarter} ${q.year}) — ${quarterPeriod.value.label}`
+  const q = getCalendarQuarterBounds()
+  return `Trimestre en cours (T${q.quarter} ${q.year}) — ${teacherQuarterPeriod.value.label}`
 })
 
 const headerTitle = computed(() => {
@@ -258,16 +290,22 @@ const headerTitle = computed(() => {
   return props.fallbackName || (props.type === 'student' ? 'Élève' : 'Enseignant')
 })
 
-/** Cours affichés dans l'onglet Cours (élève : tout le trimestre dont annulés ; coach : à venir hors annulés). */
+/** Cours affichés dans l'onglet Cours (élève : période choisie ; coach : à venir hors annulés). */
 const displayedLessons = computed(() => {
   if (props.type === 'student') {
-    const bounds = getCalendarQuarterBounds()
-    return allLessons.value
-      .filter((lesson) => lessonMatchesHistoryFilters(lesson, 'all', bounds.start, bounds.end))
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    const lessons = isFullHistoryPeriodMode(lessonPeriodMode.value)
+      ? allLessons.value
+      : allLessons.value.filter((lesson) => {
+          const { from, to } = studentDisplayPeriod.value
+          return lessonMatchesHistoryFilters(lesson, 'all', from, to)
+        })
+
+    return [...lessons].sort(
+      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+    )
   }
 
-  const period = quarterPeriod.value
+  const period = teacherQuarterPeriod.value
   return allLessons.value
     .filter((lesson) => {
       if (!lessonIsUpcoming(lesson)) return false
@@ -334,6 +372,7 @@ watch(
   ([visible, type, id]) => {
     if (!visible || !id) return
     activeTab.value = 'lessons'
+    lessonPeriodMode.value = 'upcoming_quarter'
     loadData(type, id)
   },
 )
@@ -357,7 +396,7 @@ async function loadData(type: ParticipantType, id: number) {
       subscriptions.value = data.subscriptions ?? []
       allLessons.value = data.lessons ?? []
     } else {
-      const period = quarterPeriod.value
+      const period = teacherQuarterPeriod.value
       const from = period.from.toISOString().split('T')[0]
       const to = period.to.toISOString().split('T')[0]
 

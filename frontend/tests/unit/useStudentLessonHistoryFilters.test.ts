@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  getCalendarQuarterBounds,
   getPreviousCalendarQuarterBounds,
   resolveUpcomingLessonPeriod,
   resolvePastLessonPeriod,
+  resolveFullLessonPeriod,
   lessonMatchesHistoryFilters,
   groupLessonsByMonth,
   comparePastLessonsForHistoryDisplay,
@@ -68,5 +68,45 @@ describe('useStudentLessonHistoryFilters', () => {
     expect(groups[0].key).toBe('2026-06')
     expect(groups[1].key).toBe('2026-05')
     expect(groups[1].lessons[0].start_time).toBe('2026-05-20T14:00:00')
+  })
+
+  it('resolves all-history upcoming and past periods without quarter cutoff', () => {
+    const ref = new Date(2026, 0, 2) // début T1 — past du trimestre serait null hors mode all
+    const upcoming = resolveUpcomingLessonPeriod('all', ref)
+    const past = resolvePastLessonPeriod('all', ref)
+
+    expect(upcoming.from.getFullYear()).toBe(2026)
+    expect(upcoming.from.getMonth()).toBe(0)
+    expect(upcoming.from.getDate()).toBe(2)
+    expect(upcoming.to.getFullYear()).toBe(2076)
+
+    expect(past).not.toBeNull()
+    expect(past!.from.getFullYear()).toBe(1970)
+    expect(past!.to.getDate()).toBe(1)
+  })
+
+  it('resolves full display period for planning fiche', () => {
+    const ref = new Date(2026, 7, 31) // T3
+    const quarter = resolveFullLessonPeriod('upcoming_quarter', ref)
+    const two = resolveFullLessonPeriod('with_previous_quarter', ref)
+    const all = resolveFullLessonPeriod('all', ref)
+
+    expect(quarter.from.getMonth()).toBe(6) // 1 juil.
+    expect(quarter.to.getMonth()).toBe(8) // 30 sept.
+
+    expect(two.from.getMonth()).toBe(3) // 1 avr. (T2)
+    expect(two.to.getMonth()).toBe(8)
+
+    expect(all.from.getFullYear()).toBe(1970)
+    expect(all.to.getFullYear()).toBe(2076)
+  })
+
+  it('treats quarter_all like upcoming_quarter for full display window', () => {
+    const ref = new Date(2026, 7, 31)
+    const a = resolveFullLessonPeriod('upcoming_quarter', ref)
+    const b = resolveFullLessonPeriod('quarter_all', ref)
+
+    expect(b.from.getTime()).toBe(a.from.getTime())
+    expect(b.to.getTime()).toBe(a.to.getTime())
   })
 })
