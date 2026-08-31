@@ -20,44 +20,91 @@
         </div>
 
         <!-- Filtres -->
-        <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-            <input
-              v-model="filters.dateFrom"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+        <div class="mb-6 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+              <input
+                v-model="filters.dateFrom"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+              <input
+                v-model="filters.dateTo"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+              <select
+                v-model="filters.status"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous</option>
+                <option value="pending">En attente</option>
+                <option value="confirmed">Confirmé</option>
+                <option value="completed">Terminé</option>
+                <option value="cancelled">Annulé</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Ordre</label>
+              <select
+                v-model="filters.order"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                @change="applyFilters"
+              >
+                <option value="desc">Date décroissante</option>
+                <option value="asc">Date croissante</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-            <input
-              v-model="filters.dateTo"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-            <select
-              v-model="filters.status"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Tous</option>
-              <option value="pending">En attente</option>
-              <option value="confirmed">Confirmé</option>
-              <option value="completed">Terminé</option>
-              <option value="cancelled">Annulé</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <button
-              @click="applyFilters"
-              :disabled="loading"
-              class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              Filtrer
-            </button>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Enseignant</label>
+              <select
+                v-model="filters.teacherId"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous</option>
+                <option
+                  v-for="teacher in teachers"
+                  :key="teacher.id"
+                  :value="String(teacher.id)"
+                >
+                  {{ teacher.user?.name || teacher.name || 'Enseignant' }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Élève</label>
+              <select
+                v-model="filters.studentId"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Tous</option>
+                <option
+                  v-for="student in students"
+                  :key="student.id"
+                  :value="String(student.id)"
+                >
+                  {{ student.user?.name || student.name || 'Élève' }}
+                </option>
+              </select>
+            </div>
+            <div class="md:col-span-2 flex items-end">
+              <button
+                @click="applyFilters"
+                :disabled="loading"
+                class="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                Filtrer
+              </button>
+            </div>
           </div>
         </div>
 
@@ -76,7 +123,7 @@
         <div v-else class="space-y-4">
           <div class="flex items-center justify-between mb-4">
             <p class="text-sm text-gray-600">
-              {{ filteredLessons.length }} cours trouvé(s)
+              {{ totalLessons }} cours trouvé(s)
             </p>
             <button
               @click="exportHistory"
@@ -93,7 +140,9 @@
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date {{ filters.order === 'asc' ? '↑' : '↓' }}
+                  </th>
                   <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Heure</th>
                   <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enseignant</th>
@@ -227,11 +276,23 @@ interface Lesson {
   [key: string]: any
 }
 
-interface Props {
-  show: boolean
+interface HistoryPerson {
+  id: number
+  name?: string
+  user?: { name?: string }
+  [key: string]: any
 }
 
-const props = defineProps<Props>()
+interface Props {
+  show: boolean
+  teachers?: HistoryPerson[]
+  students?: HistoryPerson[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  teachers: () => [],
+  students: () => []
+})
 const emit = defineEmits<{
   'close': []
   'view-lesson': [lesson: Lesson]
@@ -250,7 +311,10 @@ const totalLessons = ref(0)
 const filters = ref({
   dateFrom: '',
   dateTo: '',
-  status: ''
+  status: '',
+  teacherId: '',
+  studentId: '',
+  order: 'desc' as 'asc' | 'desc'
 })
 
 // Initialiser les dates par défaut (1 an en arrière jusqu'à 1 an en avant)
@@ -264,6 +328,10 @@ watch(() => props.show, (newValue) => {
     
     filters.value.dateFrom = oneYearAgo.toISOString().split('T')[0]
     filters.value.dateTo = oneYearLater.toISOString().split('T')[0]
+    filters.value.status = ''
+    filters.value.teacherId = ''
+    filters.value.studentId = ''
+    filters.value.order = 'desc'
     currentPage.value = 1
     loadHistory()
   } else {
@@ -283,9 +351,10 @@ async function loadHistory() {
   error.value = null
   
   try {
-    const params: any = {
+    const params: Record<string, string | number> = {
       limit: perPage.value,
-      offset: (currentPage.value - 1) * perPage.value
+      offset: (currentPage.value - 1) * perPage.value,
+      order: filters.value.order === 'asc' ? 'asc' : 'desc'
     }
     
     if (filters.value.dateFrom) {
@@ -297,13 +366,14 @@ async function loadHistory() {
     if (filters.value.status) {
       params.status = filters.value.status
     }
-    
-    const paramsWithOrder = {
-      ...params,
-      order: 'desc' // Du plus récent au plus ancien pour l'historique
+    if (filters.value.teacherId) {
+      params.teacher_id = Number(filters.value.teacherId)
+    }
+    if (filters.value.studentId) {
+      params.student_id = Number(filters.value.studentId)
     }
     
-    const response = await $api.get('/lessons', { params: paramsWithOrder })
+    const response = await $api.get('/lessons', { params })
     
     if (response.data.success) {
       lessons.value = response.data.data || []

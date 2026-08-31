@@ -1374,6 +1374,8 @@
 
       <LessonsHistoryModal
         :show="showHistoryModal"
+        :teachers="teachers"
+        :students="students"
         @close="showHistoryModal = false"
         @view-lesson="handleViewLessonFromHistory"
         @edit-lesson="handleEditLessonFromHistory"
