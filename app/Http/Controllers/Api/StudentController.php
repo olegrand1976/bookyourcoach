@@ -85,10 +85,12 @@ class StudentController extends Controller
         ]);
         $studentId = (int) $validated['student_id'];
         $courseTypeId = (int) $validated['course_type_id'];
-        $active = SubscriptionInstance::findActiveSubscriptionForLesson($studentId, $courseTypeId, $club->id);
+        $explanation = SubscriptionInstance::explainActiveSubscriptionForLesson($studentId, $courseTypeId, $club->id);
+
         return response()->json([
             'success' => true,
-            'has_active' => $active !== null,
+            'has_active' => $explanation['has_active'],
+            'reason' => $explanation['reason'],
         ]);
     }
 

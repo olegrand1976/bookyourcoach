@@ -672,18 +672,58 @@ class SubscriptionInstance extends Model
 
     public static function findActiveSubscriptionForLesson(int $studentId, int $courseTypeId, ?int $clubId = null): ?self
     {
-        // Récupérer tous les abonnements actifs de l'élève qui acceptent ce type de cours
+        $explanation = self::explainActiveSubscriptionForLesson($studentId, $courseTypeId, $clubId);
+
+        return $explanation['instance'] ?? null;
+    }
+
+    /**
+     * Explique pourquoi aucun abonnement n'est utilisable pour créer un cours (précheck UI).
+     *
+     * @return array{has_active: bool, reason: null|string, instance: ?self} reason: no_subscription|wrong_course_type|no_credits
+     */
+    public static function explainActiveSubscriptionForLesson(int $studentId, int $courseTypeId, ?int $clubId = null): array
+    {
+        $activeForStudent = self::queryActiveForStudent($studentId, $clubId)
+            ->with(['subscription.template.courseTypes'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($activeForStudent->isEmpty()) {
+            return ['has_active' => false, 'reason' => 'no_subscription', 'instance' => null];
+        }
+
+        $matchingType = $activeForStudent->filter(function (self $instance) use ($courseTypeId) {
+            $courseTypes = $instance->subscription?->template?->courseTypes;
+
+            return $courseTypes !== null && $courseTypes->contains('id', $courseTypeId);
+        });
+
+        if ($matchingType->isEmpty()) {
+            return ['has_active' => false, 'reason' => 'wrong_course_type', 'instance' => null];
+        }
+
+        foreach ($matchingType as $instance) {
+            if ($instance->getRemainingAttachmentSlots() > 0) {
+                return ['has_active' => true, 'reason' => null, 'instance' => $instance];
+            }
+        }
+
+        return ['has_active' => false, 'reason' => 'no_credits', 'instance' => null];
+    }
+
+    /**
+     * Abonnements actifs de l'élève, optionnellement cloisonnés au club.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    private static function queryActiveForStudent(int $studentId, ?int $clubId = null)
+    {
         $query = self::where('status', 'active')
             ->whereHas('students', function ($q) use ($studentId) {
                 $q->where('students.id', $studentId);
-            })
-            ->whereHas('subscription.template.courseTypes', function ($q) use ($courseTypeId) {
-                $q->where('course_types.id', $courseTypeId);
-            })
-            ->with(['subscription.template.courseTypes'])
-            ->orderBy('created_at', 'asc'); // Les plus anciens en premier
+            });
 
-        // Filtrer par club si fourni
         if ($clubId !== null) {
             $query->whereHas('subscription', function ($q) use ($clubId) {
                 if (Subscription::hasClubIdColumn()) {
@@ -696,17 +736,7 @@ class SubscriptionInstance extends Model
             });
         }
 
-        $instances = $query->get();
-
-        // Parcourir les abonnements du plus ancien au plus récent
-        foreach ($instances as $instance) {
-            if ($instance->getRemainingAttachmentSlots() > 0) {
-                return $instance;
-            }
-        }
-
-        // Aucun abonnement disponible
-        return null;
+        return $query;
     }
 }
 

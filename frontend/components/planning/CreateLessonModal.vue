@@ -383,13 +383,19 @@
 
               <!-- Intervalle de récurrence (uniquement si un élève est sélectionné et déduction d'abonnement activée) -->
               <!-- En mode création OU en mode édition avec portée 'all_future' ET changement d'intervalle explicite -->
-              <!-- Alerte : pas d'abonnement actif pour déduction / récurrence -->
-              <div v-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <!-- Alerte : pas d'abonnement utilisable pour déduction / récurrence -->
+              <div
+                v-if="!editingLesson && needsSubscriptionCheck && loadingCheckSubscription"
+                class="md:col-span-2 p-3 rounded-lg bg-gray-50 border border-gray-200"
+              >
+                <p class="text-sm text-gray-600">Vérification de l'abonnement en cours…</p>
+              </div>
+              <div v-else-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <p class="text-sm text-amber-800 flex items-start gap-2">
                   <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  <span>Cet élève n'a pas d'abonnement actif pour ce type de cours. Créez le cours sans déduction (décocher « Déduire de l'abonnement ») ou assignez un abonnement à l'élève.</span>
+                  <span>{{ subscriptionBlockMessage }}</span>
                 </p>
               </div>
               <div
@@ -534,7 +540,7 @@
                     class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               Annuler
             </button>
-            <button type="submit" :disabled="saving || (needsSubscriptionCheck && hasActiveSubscription === false)"
+            <button type="submit" :disabled="saving || isSubscriptionSubmitBlocked"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
               <span v-if="saving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
               {{ saving ? (editingLesson ? 'Modification...' : (form.recurring_interval >= 1 ? 'Création du cours et des occurrences en cours…' : 'Création...')) : (editingLesson ? 'Modifier le cours' : 'Créer le cours') }}
@@ -640,12 +646,43 @@ watch(
 const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
 // Vérification abonnement actif pour déduction / récurrence (création uniquement)
+type SubscriptionCheckReason = 'no_subscription' | 'wrong_course_type' | 'no_credits'
+
 const hasActiveSubscription = ref<boolean | null>(null)
+const subscriptionBlockReason = ref<SubscriptionCheckReason | null>(null)
 const loadingCheckSubscription = ref(false)
 const needsSubscriptionCheck = computed(() => {
   const f = props.form
   return !props.editingLesson && !!f.student_id && !!f.course_type_id && (f.deduct_from_subscription === true || (f.recurring_interval ?? 0) >= 1)
 })
+
+const subscriptionBlockMessage = computed(() => {
+  const reason = subscriptionBlockReason.value
+  switch (reason) {
+    case 'no_credits':
+      return 'L\'abonnement actif de cet élève n\'a plus de crédits restants pour ce type de cours. Choisissez « Séance non incluse dans l\'abonnement » (une seule séance), ou renouvelez / assignez un abonnement avec des crédits.'
+    case 'wrong_course_type':
+      return 'L\'abonnement actif de cet élève ne couvre pas ce type de cours. Changez le type de cours, choisissez « Séance non incluse dans l\'abonnement » (une seule séance), ou assignez un abonnement adapté.'
+    case 'no_subscription':
+      return 'Cet élève n\'a pas d\'abonnement actif. Choisissez « Séance non incluse dans l\'abonnement » (une seule séance), ou assignez un abonnement à l\'élève.'
+    case null:
+      return 'Aucun abonnement utilisable pour cet élève et ce type de cours. Choisissez « Séance non incluse dans l\'abonnement » (une seule séance), ou assignez un abonnement utilisable à l\'élève.'
+    default: {
+      const _exhaustive: never = reason
+      return _exhaustive
+    }
+  }
+})
+
+/** Bloque le submit tant que le check n'a pas confirmé un abo utilisable (fail-closed). */
+const isSubscriptionSubmitBlocked = computed(() => {
+  if (!needsSubscriptionCheck.value) {
+    return false
+  }
+  return loadingCheckSubscription.value || hasActiveSubscription.value !== true
+})
+
+let subscriptionCheckSeq = 0
 
 // Fonction pour normaliser les chaînes (supprimer les accents) pour la recherche
 function normalizeString(str: string): string {
@@ -1020,7 +1057,7 @@ function canNavigateDate(direction: number): boolean {
 }
 
 function handleSubmit() {
-  if (needsSubscriptionCheck.value && hasActiveSubscription.value === false) {
+  if (isSubscriptionSubmitBlocked.value) {
     return
   }
   emit('submit', props.form)
@@ -1047,26 +1084,48 @@ watch(
     props.form.recurring_interval
   ],
   async ([show, studentId, courseTypeId, deduct, recurring]) => {
+    const seq = ++subscriptionCheckSeq
     const needsCheck = show && !props.editingLesson && studentId && courseTypeId &&
       (deduct === true || (recurring ?? 0) >= 1)
     if (!needsCheck) {
       hasActiveSubscription.value = null
+      subscriptionBlockReason.value = null
+      loadingCheckSubscription.value = false
       return
     }
     loadingCheckSubscription.value = true
     hasActiveSubscription.value = null
+    subscriptionBlockReason.value = null
     try {
       const { $api } = useNuxtApp()
       const response = await $api.get('/club/students/check-active-subscription', {
         params: { student_id: studentId, course_type_id: courseTypeId }
       })
+      if (seq !== subscriptionCheckSeq) {
+        return
+      }
       if (response?.data?.success === true) {
         hasActiveSubscription.value = response.data.has_active === true
+        const reason = response.data.reason
+        subscriptionBlockReason.value =
+          reason === 'no_subscription' || reason === 'wrong_course_type' || reason === 'no_credits'
+            ? reason
+            : null
+      } else {
+        // Réponse inattendue : fail-closed
+        hasActiveSubscription.value = false
+        subscriptionBlockReason.value = null
       }
     } catch {
-      hasActiveSubscription.value = null
+      if (seq !== subscriptionCheckSeq) {
+        return
+      }
+      hasActiveSubscription.value = false
+      subscriptionBlockReason.value = null
     } finally {
-      loadingCheckSubscription.value = false
+      if (seq === subscriptionCheckSeq) {
+        loadingCheckSubscription.value = false
+      }
     }
   },
   { immediate: true }
@@ -1820,17 +1879,17 @@ watch(() => props.form.time, () => {
   // Pas besoin de recharger les cours, ils sont déjà chargés pour la date
 })
 
-// Gérer est_legacy selon le choix de déduction d'abonnement
+// Gérer est_legacy + reset récurrence selon le choix de déduction d'abonnement
 watch(() => props.form.deduct_from_subscription, (newValue) => {
   if (newValue === true) {
-    // Si "Déduire d'un abonnement existant" est sélectionné, utiliser la valeur de l'abonnement
-    // Le backend récupérera automatiquement la valeur de l'abonnement actif de l'élève
+    // Backend définit est_legacy depuis l'abonnement actif
     props.form.est_legacy = null
-    console.log('🔄 [CreateLessonModal] Déduction d\'abonnement activée - est_legacy mis à null (sera défini par le backend depuis l\'abonnement)')
   } else {
-    // Si "Séance non incluse dans l'abonnement" est sélectionné, on garde la valeur actuelle (ou on la laisse modifier)
-    // La valeur sera modifiable via les boutons DCL/NDCL
-    console.log('🔄 [CreateLessonModal] Séance non incluse dans l\'abonnement - DCL/NDCL modifiable')
+    // Hors déduction : une seule séance — évite needsSubscriptionCheck bloqué par recurring>=1
+    // alors que l'UI de récurrence est masquée
+    if (!props.editingLesson) {
+      props.form.recurring_interval = 0
+    }
   }
 })
 
