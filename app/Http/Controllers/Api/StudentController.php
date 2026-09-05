@@ -82,15 +82,44 @@ class StudentController extends Controller
         $validated = $request->validate([
             'student_id' => 'required|integer|exists:students,id',
             'course_type_id' => 'required|integer|exists:course_types,id',
+            'date' => 'nullable|date',
+            'start_time' => 'nullable|date',
         ]);
         $studentId = (int) $validated['student_id'];
         $courseTypeId = (int) $validated['course_type_id'];
-        $explanation = SubscriptionInstance::explainActiveSubscriptionForLesson($studentId, $courseTypeId, $club->id);
+        $asOf = null;
+        if (! empty($validated['start_time'])) {
+            $asOf = \Carbon\Carbon::parse($validated['start_time']);
+        } elseif (! empty($validated['date'])) {
+            $asOf = \Carbon\Carbon::parse($validated['date'])->endOfDay();
+        }
+        $explanation = SubscriptionInstance::explainActiveSubscriptionForLesson(
+            $studentId,
+            $courseTypeId,
+            $club->id,
+            $asOf
+        );
+
+        $subscriptionPayload = null;
+        $instance = $explanation['instance'] ?? null;
+        if ($instance instanceof SubscriptionInstance) {
+            $instance->loadMissing('subscription.template');
+            $total = (int) ($instance->subscription?->total_available_lessons ?? 0);
+            $remaining = $instance->getRemainingAttachmentSlots($asOf);
+            $subscriptionPayload = [
+                'id' => $instance->id,
+                'subscription_number' => $instance->subscription?->subscription_number,
+                'remaining' => $remaining,
+                'total' => $total,
+                'lessons_used' => (int) $instance->lessons_used,
+            ];
+        }
 
         return response()->json([
             'success' => true,
             'has_active' => $explanation['has_active'],
             'reason' => $explanation['reason'],
+            'subscription' => $subscriptionPayload,
         ]);
     }
 

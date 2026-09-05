@@ -550,7 +550,12 @@ class LessonControllerTest extends TestCase
 
         $instance = $context['instance']->fresh();
         $this->assertEquals(0, $instance->lessons_used);
-        $this->assertEquals($context['totalLessons'] - 1, $instance->getRemainingAttachmentSlots());
+        // Cours futur : n'entre pas dans le plafond à « maintenant »
+        $this->assertEquals($context['totalLessons'], $instance->getRemainingAttachmentSlots());
+        $this->assertEquals(
+            $context['totalLessons'] - 1,
+            $instance->getRemainingAttachmentSlots(now()->addWeek()->addMinute())
+        );
 
         $this->putJson("/api/lessons/{$lesson->id}/subscription", [
             'deduct_from_subscription' => false,

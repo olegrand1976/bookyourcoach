@@ -14,8 +14,8 @@ services:
     env_file:
       - ./.env.local
     ports:
-      # API Backend accessible en interne et externe
-      - "8080:80"
+      # API Backend — 8083 (évite conflit host avec d'autres stacks)
+      - "8083:80"
       - "8001:8000"  # Serveur PHP intégré pour développement local
     volumes:
       # Volumes en écriture pour Laravel
@@ -62,12 +62,12 @@ services:
     container_name: activibe-frontend
     restart: unless-stopped
     ports:
-      # Frontend accessible sur le port 3000
-      - "3000:3000"
+      # Frontend — 3001 (évite conflit host avec d'autres stacks)
+      - "3001:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
-      - NUXT_API_BASE=http://localhost:8080/api
-      - FRONTEND_URL=http://localhost:3000
+      - NUXT_PUBLIC_API_BASE=http://localhost:8083/api
+      - NUXT_API_BASE=http://localhost:8083/api
+      - FRONTEND_URL=http://localhost:3001
       - NITRO_HOST=0.0.0.0
       - NITRO_PORT=3000
       - NODE_ENV=production
@@ -91,8 +91,8 @@ services:
     container_name: activibe-phpmyadmin
     restart: unless-stopped
     ports:
-      # Exposition sur le port 8082 pour éviter les conflits
-      - "8082:80"
+      # phpMyAdmin — 8084 (évite conflit host avec d'autres stacks)
+      - "8084:80"
     environment:
       - PMA_HOST=${DB_HOST:-mysql-local}
       - PMA_PORT=${DB_PORT:-3306}
@@ -113,7 +113,7 @@ services:
     container_name: activibe-mysql-local
     restart: unless-stopped
     ports:
-      - "3308:3306"
+      - "3309:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=book_your_coach_local
@@ -146,7 +146,7 @@ services:
       --maxmemory-policy allkeys-lru
       --appendonly yes
     ports:
-      - "6379:6379"
+      - "6382:6379"
     volumes:
       - redis_data:/data
     networks:

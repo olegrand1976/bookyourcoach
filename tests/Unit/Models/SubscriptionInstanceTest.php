@@ -211,7 +211,7 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
-    public function remaining_bookable_accounts_for_future_attached_lessons(): void
+    public function remaining_bookable_ignores_future_attached_lessons_until_as_of(): void
     {
         $futureLesson = Lesson::create([
             'club_id' => $this->club->id,
@@ -230,8 +230,10 @@ class SubscriptionInstanceTest extends TestCase
         $fresh = $this->subscriptionInstance->fresh();
 
         $this->assertEquals(10, $fresh->remaining_consumed);
-        $this->assertEquals(9, $fresh->remaining_bookable);
-        $this->assertEquals(9, $fresh->getRemainingAttachmentSlots());
+        // À « maintenant », le futur ne compte pas
+        $this->assertEquals(10, $fresh->remaining_bookable);
+        $this->assertEquals(10, $fresh->getRemainingAttachmentSlots());
+        $this->assertEquals(9, $fresh->getRemainingAttachmentSlots(Carbon::now()->addWeek()->addMinute()));
     }
 
     #[Test]
@@ -773,7 +775,7 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
-    public function getRemainingAttachmentSlots_counts_future_attached_lessons(): void
+    public function getRemainingAttachmentSlots_ignores_future_attached_lessons(): void
     {
         $futureLesson = Lesson::create([
             'club_id' => $this->club->id,
@@ -790,7 +792,12 @@ class SubscriptionInstanceTest extends TestCase
         $this->subscriptionInstance->consumeLesson($futureLesson);
 
         $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
-        $this->assertEquals(9, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+        // Le futur ne réduit pas la capacité à « maintenant »
+        $this->assertEquals(10, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+        // À la date du cours futur, ce cours compte
+        $this->assertEquals(9, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots(
+            Carbon::now()->addWeek()->addMinute()
+        ));
     }
 
     #[Test]
@@ -1072,8 +1079,8 @@ class SubscriptionInstanceTest extends TestCase
                 'student_id' => $this->student->id,
                 'course_type_id' => $this->courseType->id,
                 'location_id' => $this->location->id,
-                'start_time' => Carbon::now()->addWeeks($i + 1),
-                'end_time' => Carbon::now()->addWeeks($i + 1)->addHour(),
+                'start_time' => Carbon::now()->subWeeks($i + 1),
+                'end_time' => Carbon::now()->subWeeks($i + 1)->addHour(),
                 'status' => 'confirmed',
                 'price' => 50.00,
             ]);

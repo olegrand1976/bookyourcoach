@@ -29,15 +29,21 @@ class ProcessLessonPostCreationJob implements ShouldQueue
     protected Lesson $lesson;
     protected int $recurringInterval;
     protected bool $deductFromSubscription;
+    protected bool $forceSubscriptionOverride;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(Lesson $lesson, int $recurringInterval = 1, bool $deductFromSubscription = true)
-    {
+    public function __construct(
+        Lesson $lesson,
+        int $recurringInterval = 1,
+        bool $deductFromSubscription = true,
+        bool $forceSubscriptionOverride = false
+    ) {
         $this->lesson = $lesson;
         $this->recurringInterval = $recurringInterval;
         $this->deductFromSubscription = $deductFromSubscription;
+        $this->forceSubscriptionOverride = $forceSubscriptionOverride;
     }
 
     /**
@@ -133,15 +139,20 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 // Trouver le bon abonnement actif pour cet élève et ce type de cours
                 // (le plus ancien par date de création qui a encore des cours disponibles)
                 $clubId = $this->lesson->club_id ?? null;
+                $asOf = $this->lesson->start_time
+                    ? Carbon::parse($this->lesson->start_time)
+                    : null;
                 $subscriptionInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
                     $studentId,
                     $this->lesson->course_type_id,
-                    $clubId
+                    $clubId,
+                    $asOf,
+                    $this->forceSubscriptionOverride
                 );
 
                 if ($subscriptionInstance) {
                     try {
-                        $subscriptionInstance->consumeLesson($this->lesson);
+                        $subscriptionInstance->consumeLesson($this->lesson, $this->forceSubscriptionOverride);
                         
                         $studentNames = $subscriptionInstance->students->map(function ($student) {
                             if ($student->user) {

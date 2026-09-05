@@ -334,7 +334,7 @@
                   Déduction d'abonnement
                 </label>
                 <div class="space-y-2">
-                  <div class="flex items-center">
+                  <div class="flex items-center flex-wrap gap-x-2 gap-y-1">
                     <input
                       id="deduct_subscription"
                       v-model="form.deduct_from_subscription"
@@ -346,12 +346,34 @@
                     <label 
                       for="deduct_subscription" 
                       :class="[
-                        'ml-2 block text-sm font-medium',
+                        'block text-sm font-medium',
                         (editingLesson || form.student_id) ? 'text-gray-700' : 'text-gray-400'
                       ]"
                     >
                       Déduire d'un abonnement existant
                     </label>
+                    <span
+                      v-if="form.deduct_from_subscription === true && matchedSubscriptionSummary"
+                      class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full"
+                      :class="matchedSubscriptionSummary.remaining > 0
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-900 border border-amber-200'"
+                      :title="matchedSubscriptionSummary.subscription_number
+                        ? `Abonnement ${matchedSubscriptionSummary.subscription_number}`
+                        : 'Abonnement lié'"
+                    >
+                      <span v-if="matchedSubscriptionSummary.subscription_number">
+                        {{ matchedSubscriptionSummary.subscription_number }}
+                      </span>
+                      <span class="opacity-60">·</span>
+                      <span>{{ matchedSubscriptionSummary.remaining }}/{{ matchedSubscriptionSummary.total }} restants</span>
+                    </span>
+                    <span
+                      v-else-if="form.deduct_from_subscription === true && !editingLesson && form.student_id && form.course_type_id && loadingCheckSubscription"
+                      class="text-xs text-gray-500"
+                    >
+                      Vérification…
+                    </span>
                   </div>
                   <div class="flex items-center">
                     <input
@@ -390,13 +412,24 @@
               >
                 <p class="text-sm text-gray-600">Vérification de l'abonnement en cours…</p>
               </div>
-              <div v-else-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div v-else-if="!editingLesson && needsSubscriptionCheck && hasActiveSubscription === false" class="md:col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-3">
                 <p class="text-sm text-amber-800 flex items-start gap-2">
                   <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   <span>{{ subscriptionBlockMessage }}</span>
                 </p>
+                <label class="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    v-model="form.force_subscription_override"
+                    class="mt-0.5 rounded border-amber-400 text-amber-700 focus:ring-amber-500"
+                  />
+                  <span class="text-sm text-amber-900">
+                    <strong>Forcer la validation (club)</strong>
+                    — créer quand même le cours (déduction possible même sans crédit restant).
+                  </span>
+                </label>
               </div>
               <div
                 v-if="(!editingLesson && form.student_id && form.deduct_from_subscription === true) || (editingLesson && form.update_scope === 'all_future')"
@@ -601,6 +634,8 @@ interface LessonForm {
   est_legacy: boolean | null
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: boolean | null
+  /** Club : contourner le blocage crédits / abo pour créer quand même */
+  force_subscription_override?: boolean
   // 0 = une seule séance ; 1+ = récurrence automatique (semaines)
   recurring_interval: number
   /** Édition : envoyer recurring_interval seulement si true */
@@ -651,6 +686,14 @@ type SubscriptionCheckReason = 'no_subscription' | 'wrong_course_type' | 'no_cre
 const hasActiveSubscription = ref<boolean | null>(null)
 const subscriptionBlockReason = ref<SubscriptionCheckReason | null>(null)
 const loadingCheckSubscription = ref(false)
+type MatchedSubscriptionSummary = {
+  id: number
+  subscription_number: string | null
+  remaining: number
+  total: number
+  lessons_used: number
+}
+const matchedSubscriptionSummary = ref<MatchedSubscriptionSummary | null>(null)
 const needsSubscriptionCheck = computed(() => {
   const f = props.form
   return !props.editingLesson && !!f.student_id && !!f.course_type_id && (f.deduct_from_subscription === true || (f.recurring_interval ?? 0) >= 1)
@@ -674,9 +717,12 @@ const subscriptionBlockMessage = computed(() => {
   }
 })
 
-/** Bloque le submit tant que le check n'a pas confirmé un abo utilisable (fail-closed). */
+/** Bloque le submit tant que le check n'a pas confirmé un abo utilisable (fail-closed), sauf forçage club. */
 const isSubscriptionSubmitBlocked = computed(() => {
   if (!needsSubscriptionCheck.value) {
+    return false
+  }
+  if (props.form.force_subscription_override === true) {
     return false
   }
   return loadingCheckSubscription.value || hasActiveSubscription.value !== true
@@ -1081,7 +1127,9 @@ watch(
     props.form.student_id,
     props.form.course_type_id,
     props.form.deduct_from_subscription,
-    props.form.recurring_interval
+    props.form.recurring_interval,
+    props.form.date,
+    props.form.time,
   ],
   async ([show, studentId, courseTypeId, deduct, recurring]) => {
     const seq = ++subscriptionCheckSeq
@@ -1090,16 +1138,34 @@ watch(
     if (!needsCheck) {
       hasActiveSubscription.value = null
       subscriptionBlockReason.value = null
+      matchedSubscriptionSummary.value = null
       loadingCheckSubscription.value = false
+      if (props.form.force_subscription_override) {
+        props.form.force_subscription_override = false
+      }
       return
     }
     loadingCheckSubscription.value = true
     hasActiveSubscription.value = null
     subscriptionBlockReason.value = null
+    matchedSubscriptionSummary.value = null
     try {
       const { $api } = useNuxtApp()
+      const params: Record<string, string | number> = {
+        student_id: studentId as number,
+        course_type_id: courseTypeId as number,
+      }
+      if (props.form.date) {
+        params.date = props.form.date as string
+        if (props.form.time) {
+          const t = String(props.form.time).length === 5
+            ? `${props.form.time}:00`
+            : String(props.form.time)
+          params.start_time = `${props.form.date}T${t}`
+        }
+      }
       const response = await $api.get('/club/students/check-active-subscription', {
-        params: { student_id: studentId, course_type_id: courseTypeId }
+        params,
       })
       if (seq !== subscriptionCheckSeq) {
         return
@@ -1111,10 +1177,24 @@ watch(
           reason === 'no_subscription' || reason === 'wrong_course_type' || reason === 'no_credits'
             ? reason
             : null
+        const sub = response.data.subscription
+        matchedSubscriptionSummary.value = sub && typeof sub === 'object'
+          ? {
+              id: Number(sub.id),
+              subscription_number: sub.subscription_number ?? null,
+              remaining: Number(sub.remaining ?? 0),
+              total: Number(sub.total ?? 0),
+              lessons_used: Number(sub.lessons_used ?? 0),
+            }
+          : null
+        if (hasActiveSubscription.value === true && props.form.force_subscription_override) {
+          props.form.force_subscription_override = false
+        }
       } else {
         // Réponse inattendue : fail-closed
         hasActiveSubscription.value = false
         subscriptionBlockReason.value = null
+        matchedSubscriptionSummary.value = null
       }
     } catch {
       if (seq !== subscriptionCheckSeq) {
@@ -1122,6 +1202,7 @@ watch(
       }
       hasActiveSubscription.value = false
       subscriptionBlockReason.value = null
+      matchedSubscriptionSummary.value = null
     } finally {
       if (seq === subscriptionCheckSeq) {
         loadingCheckSubscription.value = false
@@ -1879,11 +1960,15 @@ watch(() => props.form.time, () => {
   // Pas besoin de recharger les cours, ils sont déjà chargés pour la date
 })
 
-// Gérer est_legacy + reset récurrence selon le choix de déduction d'abonnement
+// Gérer est_legacy + fréquence selon le choix de déduction d'abonnement
 watch(() => props.form.deduct_from_subscription, (newValue) => {
   if (newValue === true) {
     // Backend définit est_legacy depuis l'abonnement actif
     props.form.est_legacy = null
+    // Déduction abo → récurrence hebdo par défaut
+    if (!props.editingLesson) {
+      props.form.recurring_interval = 1
+    }
   } else {
     // Hors déduction : une seule séance — évite needsSubscriptionCheck bloqué par recurring>=1
     // alors que l'UI de récurrence est masquée

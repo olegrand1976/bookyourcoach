@@ -1928,8 +1928,9 @@ const lessonForm = ref({
   est_legacy: false as boolean | null, // Par défaut DCL (false)
   // Déduction d'abonnement (par défaut true)
   deduct_from_subscription: true as boolean | null,
-  // 0 = une seule séance (défaut planning club : pas de validation 26 sem. ni série auto) ; 1+ = récurrence
-  recurring_interval: 0,
+  force_subscription_override: false,
+  // Défaut : chaque semaine si déduction abo (aligné ouverture modale)
+  recurring_interval: 1,
   change_recurring_interval: false,
   // Portée de la mise à jour (pour les récurrences)
   update_scope: 'single' as 'single' | 'all_future'
@@ -3787,7 +3788,8 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       notes: '',
       est_legacy: false,
       deduct_from_subscription: true,
-      recurring_interval: 0,
+      force_subscription_override: false,
+      recurring_interval: 1,
       change_recurring_interval: false,
       update_scope: 'single'
     }
@@ -3805,7 +3807,8 @@ async function openCreateLessonModal(slot?: OpenSlot, customTime?: string, expli
       notes: '',
       est_legacy: false,
       deduct_from_subscription: true,
-      recurring_interval: 0,
+      force_subscription_override: false,
+      recurring_interval: 1,
       change_recurring_interval: false,
       update_scope: 'single'
     }
@@ -3839,7 +3842,8 @@ function closeCreateLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
-    recurring_interval: 0,
+    force_subscription_override: false,
+    recurring_interval: 1,
     change_recurring_interval: false,
     update_scope: 'single'
   }
@@ -3995,7 +3999,8 @@ function closeEditLessonModal() {
     notes: '',
     est_legacy: false,
     deduct_from_subscription: true,
-    recurring_interval: 0,
+    force_subscription_override: false,
+    recurring_interval: 1,
     change_recurring_interval: false,
     update_scope: 'single'
   }
@@ -4115,6 +4120,7 @@ async function createLesson() {
       est_legacy: Boolean(lessonForm.value.est_legacy === true || lessonForm.value.est_legacy === 'true'),
       // Déduction d'abonnement (par défaut true)
       deduct_from_subscription: lessonForm.value.deduct_from_subscription !== false,
+      force_subscription_override: lessonForm.value.force_subscription_override === true,
       // 0 = une seule séance (déduction abo possible sans récurrence / sans validation 26 sem.)
       recurring_interval: Math.max(0, Math.min(52, Number.isFinite(Number(lessonForm.value.recurring_interval))
         ? Number(lessonForm.value.recurring_interval)

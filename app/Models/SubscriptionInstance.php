@@ -176,21 +176,18 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Cours attachés qui réservent une place : consommés + futurs non annulés.
-     * Utilisé pour le plafond d'attachement (les futurs ne consomment pas lessons_used mais bloquent la capacité).
+     * Cours attachés qui comptent dans la capacité à une date de référence.
+     * Ne compte jamais le futur (start_time > $asOf) ni les soft-deleted.
      */
-    public function getAttachedCountableLessonsCount(): int
+    public function getAttachedCountableLessonsCount(?\Carbon\CarbonInterface $asOf = null): int
     {
+        $asOf = $asOf ? Carbon::parse($asOf) : Carbon::now();
+
         return (int) $this->buildAttachedLessonsQuery()
+            ->whereNull('lessons.deleted_at')
+            ->where('lessons.start_time', '<=', $asOf)
             ->where(function ($q) {
-                $q->where(function ($q2) {
-                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                        ->where('lessons.start_time', '>', Carbon::now());
-                })
-                    ->orWhere(function ($q2) {
-                        $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                            ->where('lessons.start_time', '<=', Carbon::now());
-                    });
+                $q->whereIn('lessons.status', ['pending', 'confirmed', 'completed']);
 
                 if (\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription')) {
                     $q->orWhere(function ($q2) {
@@ -208,13 +205,14 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Places restantes pour attacher un nouveau cours (futur ou passé).
+     * Places restantes pour attacher un nouveau cours à la date de référence ($asOf).
+     * Le futur par rapport à $asOf n'entre pas dans le comptage.
      */
-    public function getRemainingAttachmentSlots(): int
+    public function getRemainingAttachmentSlots(?\Carbon\CarbonInterface $asOf = null): int
     {
         $total = $this->resolveTotalAvailableLessons();
         $manual = $this->resolveManualLessonsUsed();
-        $attached = $this->getAttachedCountableLessonsCount();
+        $attached = $this->getAttachedCountableLessonsCount($asOf);
 
         return max(0, $total - $manual - $attached);
     }
@@ -463,8 +461,10 @@ class SubscriptionInstance extends Model
     /**
      * Consommer un cours (attacher au abonnement)
      * Le compteur lessons_used sera recalculé automatiquement par l'observer
+     *
+     * @param  bool  $force  Si true, ignore le plafond de crédits (forçage club).
      */
-    public function consumeLesson(Lesson $lesson)
+    public function consumeLesson(Lesson $lesson, bool $force = false)
     {
         // Vérifier que le cours n'est pas déjà attaché à cet abonnement
         if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
@@ -473,7 +473,8 @@ class SubscriptionInstance extends Model
             return;
         }
 
-        if ($this->getRemainingAttachmentSlots() <= 0) {
+        $asOf = $lesson->start_time ? Carbon::parse($lesson->start_time) : Carbon::now();
+        if (! $force && $this->getRemainingAttachmentSlots($asOf) <= 0) {
             throw new \Exception('Aucun cours restant dans cet abonnement');
         }
 
@@ -670,9 +671,24 @@ class SubscriptionInstance extends Model
         }
     }
 
-    public static function findActiveSubscriptionForLesson(int $studentId, int $courseTypeId, ?int $clubId = null): ?self
-    {
-        $explanation = self::explainActiveSubscriptionForLesson($studentId, $courseTypeId, $clubId);
+    public static function findActiveSubscriptionForLesson(
+        int $studentId,
+        int $courseTypeId,
+        ?int $clubId = null,
+        ?\Carbon\CarbonInterface $asOf = null,
+        bool $allowEmptyCredits = false
+    ): ?self {
+        $explanation = self::explainActiveSubscriptionForLesson(
+            $studentId,
+            $courseTypeId,
+            $clubId,
+            $asOf,
+            $allowEmptyCredits
+        );
+
+        if (! ($explanation['has_active'] ?? false)) {
+            return null;
+        }
 
         return $explanation['instance'] ?? null;
     }
@@ -682,8 +698,13 @@ class SubscriptionInstance extends Model
      *
      * @return array{has_active: bool, reason: null|string, instance: ?self} reason: no_subscription|wrong_course_type|no_credits
      */
-    public static function explainActiveSubscriptionForLesson(int $studentId, int $courseTypeId, ?int $clubId = null): array
-    {
+    public static function explainActiveSubscriptionForLesson(
+        int $studentId,
+        int $courseTypeId,
+        ?int $clubId = null,
+        ?\Carbon\CarbonInterface $asOf = null,
+        bool $allowEmptyCredits = false
+    ): array {
         $activeForStudent = self::queryActiveForStudent($studentId, $clubId)
             ->with(['subscription.template.courseTypes'])
             ->orderBy('created_at', 'asc')
@@ -704,12 +725,13 @@ class SubscriptionInstance extends Model
         }
 
         foreach ($matchingType as $instance) {
-            if ($instance->getRemainingAttachmentSlots() > 0) {
+            if ($allowEmptyCredits || $instance->getRemainingAttachmentSlots($asOf) > 0) {
                 return ['has_active' => true, 'reason' => null, 'instance' => $instance];
             }
         }
 
-        return ['has_active' => false, 'reason' => 'no_credits', 'instance' => null];
+        // Premier abo du bon type (sans crédit) — utile pour l'UI (n° + 0/total)
+        return ['has_active' => false, 'reason' => 'no_credits', 'instance' => $matchingType->first()];
     }
 
     /**

@@ -577,6 +577,7 @@ class LessonController extends Controller
 
             // 🔒 Règle : déduction abonnement ou récurrence → exiger un abonnement actif (sinon bloquer la création)
             $deductFromSubscription = filter_var($request->input('deduct_from_subscription', true), FILTER_VALIDATE_BOOLEAN);
+            $forceSubscriptionOverride = filter_var($request->input('force_subscription_override', false), FILTER_VALIDATE_BOOLEAN);
             // recurring_interval : 0 = une seule séance (déduction possible sans créneau récurrent ni validation 26 sem.)
             // Si le champ est absent du JSON → rétrocompat : hebdo (1) quand déduction + élève (ancien comportement).
             if ($request->has('recurring_interval')) {
@@ -586,14 +587,20 @@ class LessonController extends Controller
             }
             $recurringIntervalForRecurrence = max(0, min(52, $recurringInterval));
 
+            $lessonAsOf = ! empty($validated['start_time'])
+                ? \Carbon\Carbon::parse($validated['start_time'])
+                : null;
+
             if (!empty($validated['student_id']) && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1)) {
                 $clubId = $validated['club_id'] ?? null;
                 $activeSubscription = SubscriptionInstance::findActiveSubscriptionForLesson(
                     (int) $validated['student_id'],
                     (int) $validated['course_type_id'],
-                    $clubId
+                    $clubId,
+                    $lessonAsOf,
+                    $forceSubscriptionOverride
                 );
-                if (!$activeSubscription) {
+                if (!$activeSubscription && !$forceSubscriptionOverride) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Aucun abonnement actif pour cet élève et ce type de cours. La création du cours est impossible.',
@@ -714,9 +721,15 @@ class LessonController extends Controller
                 'should_dispatch' => $shouldDispatchJob,
             ]);
             if ($shouldDispatchJob) {
-                ProcessLessonPostCreationJob::dispatch($lesson, $recurringIntervalForRecurrence, $deductFromSubscription);
+                ProcessLessonPostCreationJob::dispatch(
+                    $lesson,
+                    $recurringIntervalForRecurrence,
+                    $deductFromSubscription,
+                    $forceSubscriptionOverride
+                );
                 Log::info("⚡ [LessonController] Job dispatché pour le cours {$lesson->id}", [
                     'deduct_from_subscription' => $deductFromSubscription,
+                    'force_subscription_override' => $forceSubscriptionOverride,
                     'recurring_interval' => $recurringInterval,
                 ]);
             } else {
@@ -1800,7 +1813,7 @@ class LessonController extends Controller
      * Essaie de consommer un abonnement actif pour ce cours
      * RÈGLE FIFO : Consomme toujours l'abonnement le plus ancien en premier
      */
-    private function tryConsumeSubscription(Lesson $lesson): void
+    private function tryConsumeSubscription(Lesson $lesson, bool $force = false): void
     {
         try {
             if (!$lesson->course_type_id) {
@@ -1824,13 +1837,16 @@ class LessonController extends Controller
             }
 
             $clubId = $lesson->club_id ? (int) $lesson->club_id : null;
+            $asOf = $lesson->start_time ? Carbon::parse($lesson->start_time) : null;
             $consumed = false;
 
             foreach ($studentIds as $studentId) {
                 $subscriptionInstance = SubscriptionInstance::findActiveSubscriptionForLesson(
                     (int) $studentId,
                     (int) $lesson->course_type_id,
-                    $clubId
+                    $clubId,
+                    $asOf,
+                    $force
                 );
 
                 if (! $subscriptionInstance) {
@@ -1838,7 +1854,7 @@ class LessonController extends Controller
                 }
 
                 try {
-                    $subscriptionInstance->consumeLesson($lesson);
+                    $subscriptionInstance->consumeLesson($lesson, $force);
                     $subscriptionInstance->refresh();
                     $consumed = true;
 
