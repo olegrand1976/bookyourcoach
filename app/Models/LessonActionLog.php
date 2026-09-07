@@ -65,6 +65,8 @@ class LessonActionLog extends Model
         'lesson_id',
         'student_id',
         'subscription_instance_id',
+        'teacher_id',
+        'old_teacher_id',
         'performed_by_user_id',
         'performed_by_role',
         'action',
@@ -77,6 +79,8 @@ class LessonActionLog extends Model
         'lesson_id' => 'integer',
         'student_id' => 'integer',
         'subscription_instance_id' => 'integer',
+        'teacher_id' => 'integer',
+        'old_teacher_id' => 'integer',
         'performed_by_user_id' => 'integer',
     ];
 

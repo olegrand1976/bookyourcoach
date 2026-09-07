@@ -17,8 +17,10 @@ use App\Services\LessonBookingNotificationService;
 use App\Services\LessonCancellationAudit;
 use App\Services\ClubClosureDayService;
 use App\Services\LessonDeletionService;
+use App\Services\LessonMovementHistoryService;
 use App\Services\SubscriptionRecurringSlotRelocationService;
 use App\Models\LessonActionLog;
+use App\Models\LessonMovementHistory;
 use App\Jobs\SendLessonReminderJob;
 use App\Jobs\ProcessLessonPostCreationJob;
 use Illuminate\Http\Request;
@@ -42,6 +44,7 @@ class LessonController extends Controller
         private readonly LessonDeletionService $lessonDeletionService,
         private readonly LessonActionLogService $lessonActionLogService,
         private readonly SubscriptionRecurringSlotRelocationService $recurringSlotRelocationService,
+        private readonly LessonMovementHistoryService $lessonMovementHistoryService,
     ) {}
 
     /**
@@ -101,6 +104,7 @@ class LessonController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $t0 = microtime(true);
         try {
             $user = Auth::user();
             $isPlanningContext = $request->get('context') === 'planning';
@@ -340,6 +344,12 @@ class LessonController extends Controller
                 ];
             }
 
+            Log::info('[perf] LessonController::index', [
+                'context' => $isPlanningContext ? 'planning' : 'default',
+                'count' => count($lessons),
+                'ms' => (int) round((microtime(true) - $t0) * 1000),
+            ]);
+
             return response()->json($response);
         } catch (\Exception $e) {
             return response()->json([
@@ -389,6 +399,7 @@ class LessonController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $t0 = microtime(true);
         try {
             Log::info('📥 [LessonController::store] Requête reçue', [
                 'student_id' => $request->input('student_id'),
@@ -700,17 +711,22 @@ class LessonController extends Controller
 
             $lesson = Lesson::create($validated);
 
-            // Récurrence : création synchrone du créneau + génération des cours pour affichage immédiat au calendrier
-            if (!empty($validated['student_id']) && $recurringIntervalForRecurrence >= 1) {
-                Log::info("[LessonController] Création récurrence synchrone", [
+            // Récurrence : création sync du créneau + génération des cours (validation déjà faite ci-dessus).
+            if (! empty($validated['student_id']) && $recurringIntervalForRecurrence >= 1) {
+                Log::info('[LessonController] Création récurrence synchrone', [
                     'lesson_id' => $lesson->id,
                     'recurring_interval' => $recurringIntervalForRecurrence,
                 ]);
-                $recurrenceService = new \App\Services\RecurrenceCreationService();
-                $recurrenceService->createRecurrenceAndGenerateLessons($lesson, $recurringIntervalForRecurrence);
+                $recurrenceService = new \App\Services\RecurrenceCreationService;
+                $recurrenceService->createRecurrenceAndGenerateLessons(
+                    $lesson,
+                    $recurringIntervalForRecurrence,
+                    skipValidation: true,
+                    generateFutureLessons: true
+                );
             }
 
-            // Job async : déduction abonnement, notifications, rappel (récurrence déjà créée en sync si demandée).
+            // Job async : déduction abonnement, notifications, rappel (récurrence + cours futurs déjà créés en sync).
             // Détection des bénéficiaires via student_id OU participants pivot (cours collectif).
             $shouldDispatchJob = $lesson->hasParticipants() && ($deductFromSubscription || $recurringIntervalForRecurrence >= 1);
             Log::info("⚡ [LessonController] Dispatch job?", [
@@ -764,6 +780,27 @@ class LessonController extends Controller
                 $user->role,
             );
 
+            $this->lessonMovementHistoryService->record(
+                $lesson,
+                LessonMovementHistory::EVENT_CREATED,
+                $user,
+                $user->role,
+                null,
+                $lesson->teacher_id !== null ? (int) $lesson->teacher_id : null,
+                null,
+                $lesson->start_time,
+                null,
+                $lesson->end_time,
+                null,
+                $lesson->status,
+            );
+
+            Log::info('[perf] LessonController::store', [
+                'lesson_id' => $lesson->id,
+                'recurring_interval' => $recurringIntervalForRecurrence,
+                'ms' => (int) round((microtime(true) - $t0) * 1000),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $lesson,
@@ -795,7 +832,8 @@ class LessonController extends Controller
             if (str_contains($e->getMessage(), 'complet')
                 || str_contains($e->getMessage(), 'capacité')
                 || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
-                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')) {
+                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')
+                || str_contains($e->getMessage(), 'réservation récurrente')) {
                 Log::warning('Créneau ou disponibilité enseignant:', [
                     'message' => $e->getMessage(),
                     'request' => $request->all()
@@ -975,11 +1013,13 @@ class LessonController extends Controller
                 'est_legacy' => 'nullable|boolean',
                 'deduct_from_subscription' => 'nullable|boolean',
                 'update_scope' => 'sometimes|in:single,all_future',
+                'force_teacher_on_exceptions' => 'sometimes|boolean',
                 'recurring_interval' => 'sometimes|integer|min:1|max:52', // Support pour modification de l'intervalle
             ];
 
             $validated = $request->validate($validationRules);
             $updateScope = $validated['update_scope'] ?? 'single';
+            $forceTeacherOnExceptions = (bool) ($validated['force_teacher_on_exceptions'] ?? false);
 
             // Vérifier la disponibilité si la date/heure ou l'enseignant change
             if (isset($validated['start_time']) || isset($validated['teacher_id'])) {
@@ -1108,15 +1148,21 @@ class LessonController extends Controller
             }
 
             $updatedFutureLessonsCount = 0;
+            $skippedFutureLessons = [];
+            $beforeSnapshot = $this->lessonMovementHistoryService->snapshot($lesson);
 
             DB::transaction(function () use (
                 &$lesson,
                 &$updatedFutureLessonsCount,
+                &$skippedFutureLessons,
                 $validated,
                 $updateScope,
                 $oldStartTime,
                 $oldEndTime,
                 $oldTeacherId,
+                $forceTeacherOnExceptions,
+                $user,
+                $beforeSnapshot,
             ) {
             $lesson->update($validated);
             
@@ -1310,6 +1356,7 @@ class LessonController extends Controller
                         // Mettre à jour chaque cours futur (fail-fast : rollback transaction si un échec)
                         foreach ($futureLessons as $futureLesson) {
                         try {
+                        $futureBefore = $this->lessonMovementHistoryService->snapshot($futureLesson);
                         $futureStartTime = Carbon::parse($futureLesson->start_time);
 
                         $newFutureStartTime = $futureStartTime->copy();
@@ -1322,7 +1369,26 @@ class LessonController extends Controller
                         $newFutureStartTime->setTime($newHour, $newMinute, $newSecond);
 
                         $clubId = $futureLesson->club_id;
-                        $teacherId = $validated['teacher_id'] ?? $futureLesson->teacher_id;
+                        $requestedTeacherId = isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : null;
+                        $teacherChanging = $requestedTeacherId !== null
+                            && $requestedTeacherId !== (int) $oldTeacherId;
+                        $isTeacherException = $teacherChanging
+                            && (int) $futureLesson->teacher_id !== (int) $oldTeacherId
+                            && ! $forceTeacherOnExceptions;
+
+                        if ($isTeacherException) {
+                            $skippedFutureLessons[] = [
+                                'id' => (int) $futureLesson->id,
+                                'start_time' => optional($futureLesson->start_time)?->toIso8601String()
+                                    ?? (string) $futureLesson->start_time,
+                                'teacher_id' => (int) $futureLesson->teacher_id,
+                                'reason' => 'teacher_exception',
+                            ];
+                            // Propager l'horaire sans écraser le moniteur d'exception
+                            $teacherId = (int) $futureLesson->teacher_id;
+                        } else {
+                            $teacherId = $requestedTeacherId ?? (int) $futureLesson->teacher_id;
+                        }
 
                         $studentCount = 0;
                         if ($futureLesson->student_id) {
@@ -1353,7 +1419,24 @@ class LessonController extends Controller
                             'teacher_id' => $teacherId
                         ]);
 
-                        $updatedFutureLessonsCount++;
+                        if (! $isTeacherException) {
+                            $updatedFutureLessonsCount++;
+                        }
+
+                        $this->lessonMovementHistoryService->recordChange(
+                            $futureLesson->fresh(),
+                            $futureBefore,
+                            $isTeacherException
+                                ? LessonMovementHistory::EVENT_TEACHER_EXCEPTION_SKIPPED
+                                : LessonMovementHistory::EVENT_UPDATED,
+                            $user,
+                            $user->role,
+                            $updateScope,
+                            (int) $lesson->id,
+                            $isTeacherException
+                                ? ['reason' => 'teacher_exception', 'requested_teacher_id' => $requestedTeacherId]
+                                : [],
+                        );
                         } catch (\Exception $e) {
                             Log::warning("❌ Impossible de mettre à jour le cours futur {$futureLesson->id}", [
                                 'error' => $e->getMessage(),
@@ -1403,6 +1486,25 @@ class LessonController extends Controller
             if ($updateScope === 'all_future' && $updatedFutureLessonsCount > 0) {
                 $message .= ". {$updatedFutureLessonsCount} cours futur(s) ont également été mis à jour.";
             }
+            $skippedCount = count($skippedFutureLessons);
+            if ($updateScope === 'all_future' && $skippedCount > 0) {
+                $message .= " {$skippedCount} occurrence(s) conservée(s) (moniteur différent).";
+            }
+
+            $lesson->refresh();
+            $this->lessonMovementHistoryService->recordChange(
+                $lesson,
+                $beforeSnapshot,
+                LessonMovementHistory::EVENT_UPDATED,
+                $user,
+                $user->role,
+                $updateScope,
+                null,
+                [
+                    'force_teacher_on_exceptions' => $forceTeacherOnExceptions,
+                    'skipped_future_lessons_count' => $skippedCount,
+                ],
+            );
 
             $this->lessonActionLogService->log(
                 $lesson,
@@ -1412,6 +1514,9 @@ class LessonController extends Controller
                 meta: [
                     'update_scope' => $updateScope ?? 'single',
                     'updated_future_lessons_count' => $updatedFutureLessonsCount,
+                    'old_teacher_id' => $oldTeacherId !== null ? (int) $oldTeacherId : null,
+                    'skipped_future_lessons_count' => $skippedCount,
+                    'force_teacher_on_exceptions' => $forceTeacherOnExceptions,
                 ],
             );
 
@@ -1432,7 +1537,9 @@ class LessonController extends Controller
                     'location'
                 ]),
                 'message' => $message,
-                'updated_future_lessons_count' => $updatedFutureLessonsCount
+                'updated_future_lessons_count' => $updatedFutureLessonsCount,
+                'skipped_future_lessons' => $skippedFutureLessons,
+                'skipped_future_lessons_count' => $skippedCount,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -1462,7 +1569,8 @@ class LessonController extends Controller
             if (str_contains($e->getMessage(), 'complet')
                 || str_contains($e->getMessage(), 'capacité')
                 || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
-                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')) {
+                || str_contains($e->getMessage(), 'déjà un cours qui chevauche ce créneau')
+                || str_contains($e->getMessage(), 'réservation récurrente')) {
                 Log::warning('Créneau ou disponibilité enseignant (mise à jour cours)', [
                     'lesson_id' => $id,
                     'message' => $e->getMessage(),
@@ -1917,6 +2025,9 @@ class LessonController extends Controller
         $newLessonStart = Carbon::parse($startTime);
         $newLessonEnd = $newLessonStart->copy()->addMinutes(max(1, $durationMinutes));
         $date = $newLessonStart->format('Y-m-d');
+        $dayOfWeek = $newLessonStart->dayOfWeek;
+        $timeStart = $newLessonStart->format('H:i:s');
+        $timeEnd = $newLessonEnd->format('H:i:s');
 
         $query = Lesson::query()
             ->where('club_id', $clubId)
@@ -1939,6 +2050,33 @@ class LessonController extends Controller
                     'Un enseignant ne peut pas encadrer deux cours en parallèle.'
                 );
             }
+        }
+
+        // Séries récurrentes actives (même avant matérialisation des Lesson)
+        $validator = new \App\Services\RecurringSlotValidator;
+        $occurrence = $newLessonStart->copy()->startOfDay();
+        $recurringCandidates = SubscriptionRecurringSlot::query()
+            ->where('status', 'active')
+            ->where('teacher_id', $teacherId)
+            ->where('day_of_week', $dayOfWeek)
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->lessonLikeTimeWindow()
+            ->byTimeRange($timeStart, $timeEnd)
+            ->whereHas('subscriptionInstance.subscription', function ($q) use ($clubId) {
+                $q->where('club_id', $clubId);
+            })
+            ->get();
+
+        foreach ($recurringCandidates as $slot) {
+            if (! $validator->subscriptionRecurringSlotFiresOnDate($slot, $occurrence)) {
+                continue;
+            }
+            $slotStart = substr((string) $slot->start_time, 0, 5);
+            throw new \Exception(
+                "Impossible : cet enseignant a déjà une réservation récurrente qui chevauche ce créneau (début à {$slotStart}). ".
+                'Un enseignant ne peut pas encadrer deux cours en parallèle.'
+            );
         }
     }
 
@@ -2040,7 +2178,8 @@ class LessonController extends Controller
                 || str_contains($e->getMessage(), 'capacité maximale')
                 || str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche')
                 || str_contains($e->getMessage(), 'plusieurs cours simultanés')
-                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')) {
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
+                || str_contains($e->getMessage(), 'réservation récurrente')) {
                 throw $e;
             }
             // Sinon, logger et continuer (pour ne pas bloquer si erreur technique)
@@ -2138,7 +2277,8 @@ class LessonController extends Controller
                 || str_contains($e->getMessage(), 'capacité maximale')
                 || str_contains($e->getMessage(), 'déjà un cours programmé qui se chevauche')
                 || str_contains($e->getMessage(), 'plusieurs cours simultanés')
-                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')) {
+                || str_contains($e->getMessage(), 'ne peut pas encadrer deux cours en parallèle')
+                || str_contains($e->getMessage(), 'réservation récurrente')) {
                 throw $e;
             }
             Log::warning("Erreur lors de la vérification de capacité du créneau pour mise à jour: " . $e->getMessage());

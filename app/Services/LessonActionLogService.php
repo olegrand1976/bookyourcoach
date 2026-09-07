@@ -39,8 +39,12 @@ class LessonActionLogService
         $subscriptionInstanceId = $subscriptionInstanceId ?? $this->resolvePrimarySubscriptionInstanceId($lesson);
 
         $snapshot = array_merge($this->lessonSnapshot($lesson), $meta);
+        $teacherId = isset($snapshot['teacher_id'])
+            ? (int) $snapshot['teacher_id']
+            : ($lesson->teacher_id !== null ? (int) $lesson->teacher_id : null);
+        $oldTeacherId = isset($snapshot['old_teacher_id']) ? (int) $snapshot['old_teacher_id'] : null;
 
-        return LessonActionLog::create([
+        $payload = [
             'club_id' => (int) $lesson->club_id,
             'lesson_id' => $lesson->id,
             'student_id' => $studentId,
@@ -49,7 +53,14 @@ class LessonActionLogService
             'performed_by_role' => $performedByRole ?? $performedBy?->role,
             'action' => $action,
             'meta' => $snapshot !== [] ? $snapshot : null,
-        ]);
+        ];
+
+        if (Schema::hasColumn('lesson_action_logs', 'teacher_id')) {
+            $payload['teacher_id'] = $teacherId;
+            $payload['old_teacher_id'] = $oldTeacherId;
+        }
+
+        return LessonActionLog::create($payload);
     }
 
     /**
@@ -217,6 +228,7 @@ class LessonActionLogService
      */
     private function lessonSnapshot(Lesson $lesson): array
     {
+        $lesson->loadMissing(['teacher.user', 'courseType', 'student.user', 'students.user', 'subscriptionInstances.subscription.template']);
         $studentNames = $this->collectStudentNames($lesson);
 
         return [
@@ -224,6 +236,8 @@ class LessonActionLogService
             'lesson_end_time' => $lesson->end_time?->toIso8601String(),
             'lesson_status' => $lesson->status,
             'course_type_name' => $lesson->courseType?->name,
+            'teacher_id' => $lesson->teacher_id !== null ? (int) $lesson->teacher_id : null,
+            'teacher_name' => $lesson->teacher?->user?->name,
             'student_names' => $studentNames,
             'subscription_labels' => $lesson->subscriptionInstances
                 ->map(fn (SubscriptionInstance $i) => $this->subscriptionDisplayLabel($i))

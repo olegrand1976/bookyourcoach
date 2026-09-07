@@ -555,6 +555,89 @@ class LessonFutureLessonsUpdateTest extends TestCase
         $this->assertEquals('10:00:00', $slot->fresh()->start_time);
     }
 
+    /** @test */
+    public function it_preserves_future_teacher_exceptions_on_all_future_teacher_change(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+        $newTeacher = Teacher::factory()->create();
+        $newTeacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+        $exceptionTeacher = Teacher::factory()->create();
+        $exceptionTeacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek());
+        $lesson3 = $this->createLessonForSubscription($baseDate->copy()->addWeeks(2));
+        $lesson2->update(['teacher_id' => $exceptionTeacher->id]);
+
+        SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $this->subscriptionInstance->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'day_of_week' => $baseDate->dayOfWeek,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => $baseDate->copy()->startOfDay(),
+            'end_date' => $baseDate->copy()->addMonths(6),
+            'status' => 'active',
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => $baseDate->format('Y-m-d H:i:s'),
+            'teacher_id' => $newTeacher->id,
+            'update_scope' => 'all_future',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals($newTeacher->id, $lesson1->fresh()->teacher_id);
+        $this->assertEquals($exceptionTeacher->id, $lesson2->fresh()->teacher_id);
+        $this->assertEquals($newTeacher->id, $lesson3->fresh()->teacher_id);
+        $this->assertSame(1, $response->json('skipped_future_lessons_count'));
+        $this->assertSame($lesson2->id, $response->json('skipped_future_lessons.0.id'));
+        $this->assertDatabaseHas('lesson_movement_histories', [
+            'lesson_id' => $lesson2->id,
+            'event' => 'teacher_exception_skipped',
+        ]);
+    }
+
+    /** @test */
+    public function it_can_force_teacher_on_exceptions_with_all_future(): void
+    {
+        $baseDate = Carbon::parse('2025-12-01 10:00:00');
+        $newTeacher = Teacher::factory()->create();
+        $newTeacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+        $exceptionTeacher = Teacher::factory()->create();
+        $exceptionTeacher->clubs()->attach($this->club->id, [
+            'is_active' => true,
+            'joined_at' => now(),
+        ]);
+
+        $lesson1 = $this->createLessonForSubscription($baseDate);
+        $lesson2 = $this->createLessonForSubscription($baseDate->copy()->addWeek());
+        $lesson2->update(['teacher_id' => $exceptionTeacher->id]);
+
+        $response = $this->putJson("/api/lessons/{$lesson1->id}", [
+            'start_time' => $baseDate->format('Y-m-d H:i:s'),
+            'teacher_id' => $newTeacher->id,
+            'update_scope' => 'all_future',
+            'force_teacher_on_exceptions' => true,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertEquals($newTeacher->id, $lesson1->fresh()->teacher_id);
+        $this->assertEquals($newTeacher->id, $lesson2->fresh()->teacher_id);
+        $this->assertSame(0, $response->json('skipped_future_lessons_count'));
+    }
+
     /**
      * Helper pour créer un cours lié à l'abonnement
      */

@@ -1415,13 +1415,30 @@
           
           <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">
-              Souhaitez-vous appliquer ce changement d'horaire uniquement à ce cours ou à tous les cours suivants de cet abonnement ?
+              Appliquer ce changement uniquement à ce cours ou à tous les cours suivants de cet abonnement ?
             </h3>
             
             <div v-if="futureLessonsCount > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
               <p class="text-sm text-blue-800">
                 <strong>{{ futureLessonsCount }}</strong> cours futur(s) seront affectés si vous choisissez "Tous les cours suivants".
               </p>
+              <p v-if="pendingTeacherChange" class="text-sm text-amber-800 mt-2">
+                Changement de moniteur : les occurrences déjà affectées à un autre moniteur seront
+                <strong>conservées</strong> sauf si vous forcez ci-dessous.
+              </p>
+              <label
+                v-if="pendingTeacherChange"
+                class="mt-3 flex items-start gap-2 text-sm text-gray-700 cursor-pointer"
+              >
+                <input
+                  v-model="forceTeacherOnExceptions"
+                  type="checkbox"
+                  class="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                >
+                <span>
+                  Forcer aussi les exceptions (écraser les moniteurs déjà différents)
+                </span>
+              </label>
             </div>
             
             <div v-else-if="futureLessonsCount === 0 && showUpdateScopeModal" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
@@ -1940,8 +1957,11 @@ const availableDaysOfWeek = ref<number[]>([]) // Jours de la semaine où il y a 
 // Variables pour la modale de confirmation de modification
 const showUpdateScopeModal = ref(false)
 const futureLessonsCount = ref(0)
+const forceTeacherOnExceptions = ref(false)
+const pendingTeacherChange = ref(false)
 const pendingUpdatePayload = ref<any>(null)
 const originalLessonTime = ref<{ date: string; time: string } | null>(null)
+const originalTeacherId = ref<number | null>(null)
 
 // Variables pour la modale de confirmation de suppression
 const showDeleteScopeModal = ref(false)
@@ -2955,7 +2975,12 @@ async function loadOpenSlots() {
 const loadedLessonsRange = ref<{ start: Date | null, end: Date | null }>({ start: null, end: null })
 
 // Charger les cours réels
-async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
+async function loadLessons(
+  customStartDate?: Date,
+  customEndDate?: Date,
+  options?: { loadClosures?: boolean }
+) {
+  const loadClosures = options?.loadClosures !== false
   try {
     const $api = getApiClient()
     const today = new Date()
@@ -3021,8 +3046,10 @@ async function loadLessons(customStartDate?: Date, customEndDate?: Date) {
         })
       }
 
-      await loadClosureDays(startDate, endDate, Boolean(customStartDate || customEndDate))
-      pruneClosureDatesToLoadedRange()
+      if (loadClosures) {
+        await loadClosureDays(startDate, endDate, Boolean(customStartDate || customEndDate))
+        pruneClosureDatesToLoadedRange()
+      }
     } else {
       console.error('Erreur chargement cours:', response.data.message)
     }
@@ -3142,6 +3169,8 @@ async function loadClubRecurringSlots(customStartDate?: Date, customEndDate?: Da
 
     const response = await $api.get('/club/recurring-slots', {
       params: {
+        status: 'active',
+        context: 'planning',
         date_from: toLocalYmd(rangeStart),
         date_to: toLocalYmd(rangeEnd),
       },
@@ -3890,6 +3919,7 @@ async function openEditLessonModal(lesson: Lesson) {
       date: lessonForm.value.date,
       time: lessonForm.value.time
     }
+    originalTeacherId.value = lesson.teacher_id != null ? Number(lesson.teacher_id) : null
     
     planningDevLog('📅 [openEditLessonModal] Date et heure extraites:', {
       date: lessonForm.value.date,
@@ -3986,6 +4016,9 @@ function closeEditLessonModal() {
   pendingUpdatePayload.value = null
   futureLessonsCount.value = 0
   originalLessonTime.value = null
+  originalTeacherId.value = null
+  forceTeacherOnExceptions.value = false
+  pendingTeacherChange.value = false
   // Réinitialiser le formulaire
   lessonForm.value = {
     teacher_id: null,
@@ -4257,6 +4290,12 @@ function hasTimeChanged(): boolean {
          lessonForm.value.time !== originalLessonTime.value.time
 }
 
+function hasTeacherChanged(): boolean {
+  if (!editingLesson.value) return false
+  const current = lessonForm.value.teacher_id != null ? Number(lessonForm.value.teacher_id) : null
+  return current !== originalTeacherId.value
+}
+
 // Charger le nombre de cours futurs de l'abonnement
 async function loadFutureLessonsCount() {
   if (!editingLesson.value) {
@@ -4357,6 +4396,10 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
       ...updatePayload,
       update_scope: scope // 'single' ou 'all_future'
     }
+
+    if (scope === 'all_future' && forceTeacherOnExceptions.value) {
+      payloadWithScope.force_teacher_on_exceptions = true
+    }
     
     // Inclure recurring_interval seulement si changement d'intervalle explicite
     if (
@@ -4385,9 +4428,14 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
     }
     
     const updatedCount = Number(response.data.updated_future_lessons_count ?? futureLessonsCount.value ?? 0)
-    const message = scope === 'all_future' && updatedCount > 0
-      ? `Cours modifié avec succès. ${updatedCount} cours futur(s) ont également été mis à jour.`
-      : (response.data.message || 'Cours modifié avec succès')
+    const skippedCount = Number(response.data.skipped_future_lessons_count ?? 0)
+    let message = response.data.message || 'Cours modifié avec succès'
+    if (scope === 'all_future' && updatedCount > 0 && !response.data.message) {
+      message = `Cours modifié avec succès. ${updatedCount} cours futur(s) ont également été mis à jour.`
+    }
+    if (scope === 'all_future' && skippedCount > 0 && !String(message).includes('conservée')) {
+      message += ` ${skippedCount} occurrence(s) conservée(s) (moniteur différent).`
+    }
     
     success(message, 'Succès')
     
@@ -4409,6 +4457,9 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
     pendingUpdatePayload.value = null
     futureLessonsCount.value = 0
     originalLessonTime.value = null
+    originalTeacherId.value = null
+    forceTeacherOnExceptions.value = false
+    pendingTeacherChange.value = false
   } catch (err: any) {
     console.error('Erreur modification cours:', err)
     const data = err.response?.data
@@ -4516,10 +4567,13 @@ async function updateLesson() {
                                   (lesson.student?.subscription_instances && lesson.student.subscription_instances.length > 0) ||
                                   (lesson.students && lesson.students.length > 0 && lesson.students[0].subscription_instances && lesson.students[0].subscription_instances.length > 0)
     const timeChanged = hasTimeChanged()
+    const teacherChanged = hasTeacherChanged()
     
-    // Si le cours fait partie d'un abonnement et que l'horaire a changé, demander confirmation
-    if (isPartOfSubscription && timeChanged) {
+    // Abonnement + (horaire ou moniteur) → demander single / all_future
+    if (isPartOfSubscription && (timeChanged || teacherChanged)) {
       pendingUpdatePayload.value = payload
+      pendingTeacherChange.value = teacherChanged
+      forceTeacherOnExceptions.value = false
       await loadFutureLessonsCount()
       showUpdateScopeModal.value = true
       saving.value = false
@@ -5100,9 +5154,11 @@ async function ensureCalendarVisibleRangeLoaded() {
   const seq = ++calendarLoadSeq.value
   calendarRangeLoading.value = true
   try {
-    await loadLessons(bounds.start, bounds.end)
+    await Promise.all([
+      loadLessons(bounds.start, bounds.end),
+      loadClubRecurringSlots(bounds.start, bounds.end),
+    ])
     if (seq !== calendarLoadSeq.value) return
-    await loadClubRecurringSlots(bounds.start, bounds.end)
   } finally {
     if (seq === calendarLoadSeq.value) {
       calendarRangeLoading.value = false
@@ -5207,8 +5263,10 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
       planningDevLog('🔄 Aucune plage cours, chargement chunk autour de:', targetDate.toISOString().split('T')[0])
     }
     const { start: startDate, end: endDate } = getClubPlanningLoadRangeAround(targetDate)
-    await loadLessons(startDate, endDate)
-    await loadClubRecurringSlots(startDate, endDate)
+    await Promise.all([
+      loadLessons(startDate, endDate),
+      loadClubRecurringSlots(startDate, endDate),
+    ])
     return
   }
   
@@ -5237,8 +5295,10 @@ async function checkAndReloadLessonsIfNeeded(targetDate: Date) {
     }
     
     // Charger seulement la partie manquante
-    await loadLessons(newStartDate, newEndDate)
-    await loadClubRecurringSlots(newStartDate, newEndDate)
+    await Promise.all([
+      loadLessons(newStartDate, newEndDate),
+      loadClubRecurringSlots(newStartDate, newEndDate),
+    ])
   }
 }
 
@@ -5523,21 +5583,29 @@ const isTodaySlotDay = computed(() => {
 // Lifecycle
 onMounted(async () => {
   loading.value = true
+  const mountT0 = import.meta.dev ? performance.now() : 0
   try {
+    const today = new Date()
+    const initial = getClubPlanningInitialRange(today)
     await Promise.all([
       loadClubDisciplines(),
       loadOpenSlots(),
-      loadCourseTypes(),
-      loadPendingCertificates(),
-      (async () => {
-        await loadLessons()
-        await loadClubRecurringSlots()
-      })(),
+      loadLessons(undefined, undefined, { loadClosures: false }),
+      loadClosureDays(initial.start, initial.end),
+      loadClubRecurringSlots(initial.start, initial.end),
     ])
+    pruneClosureDatesToLoadedRange()
     updateAvailableDays()
   } finally {
     loading.value = false
+    if (import.meta.dev) {
+      planningDevLog('[perf] planning mount critical path ms', Math.round(performance.now() - mountT0))
+    }
   }
+
+  // Hors chemin critique (modales / badges)
+  void loadCourseTypes()
+  void loadPendingCertificates()
 
   // Depuis la page Plages disponibles : même modale et mêmes règles (CreateLessonModal + createLesson).
   // slot_id + date [+ time] → sélection du créneau (déjà fait dans loadOpenSlots), ouverture modale avec jour/heure.
