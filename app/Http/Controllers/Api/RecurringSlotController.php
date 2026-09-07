@@ -27,6 +27,7 @@ class RecurringSlotController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $t0 = microtime(true);
         try {
             $user = Auth::user();
             
@@ -52,7 +53,10 @@ class RecurringSlotController extends Controller
                 'search' => 'nullable|string|max:200',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date',
+                'context' => 'nullable|string|in:planning',
             ]);
+
+            $planningContext = ($validated['context'] ?? null) === 'planning';
 
             // Récupérer les créneaux récurrents via les subscription_instances du club
             $query = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($q) use ($club) {
@@ -60,18 +64,47 @@ class RecurringSlotController extends Controller
                     $sub->where('club_id', $club->id);
                 });
             })
-                ->with([
+                ->select([
+                    'id',
+                    'subscription_instance_id',
+                    'teacher_id',
+                    'student_id',
+                    'open_slot_id',
+                    'day_of_week',
+                    'start_time',
+                    'end_time',
+                    'recurring_interval',
+                    'start_date',
+                    'end_date',
+                    'status',
+                ])
+                ->orderBy('day_of_week')
+                ->orderBy('start_time');
+
+            if ($planningContext) {
+                $query->with([
+                    'teacher:id,user_id',
+                    'teacher.user:id,name',
+                    'student:id,user_id,first_name,last_name',
+                    'student.user:id,name',
+                    'subscriptionInstance:id,subscription_id',
+                    'subscriptionInstance.subscription:id,subscription_template_id',
+                    'subscriptionInstance.subscription.template:id,model_number,price',
+                ]);
+            } else {
+                $query->with([
                     'subscriptionInstance.subscription.template',
                     'subscriptionInstance.students.user',
                     'teacher.user',
                     'student.user',
                     'openSlot',
-                ])
-                ->orderBy('day_of_week')
-                ->orderBy('start_time');
+                ]);
+            }
 
             if (! empty($validated['status'])) {
                 $query->where('status', $validated['status']);
+            } elseif ($planningContext) {
+                $query->where('status', 'active');
             }
             if (! empty($validated['teacher_id'])) {
                 $query->where('teacher_id', (int) $validated['teacher_id']);
@@ -121,9 +154,20 @@ class RecurringSlotController extends Controller
 
             $recurringSlots = $query->get();
 
+            $data = $planningContext
+                ? \App\Http\Resources\PlanningRecurringSlotResource::collection($recurringSlots)->resolve()
+                : $recurringSlots;
+
+            Log::info('[perf] RecurringSlotController::index', [
+                'club_id' => $club->id,
+                'context' => $planningContext ? 'planning' : 'full',
+                'count' => $recurringSlots->count(),
+                'ms' => (int) round((microtime(true) - $t0) * 1000),
+            ]);
+
             return response()->json([
                 'success' => true,
-                'data' => $recurringSlots
+                'data' => $data,
             ]);
 
         } catch (\Exception $e) {

@@ -8,8 +8,8 @@ export const CLUB_PLANNING_MONTHS_BACK = 6
 export const CLUB_PLANNING_MONTHS_FORWARD = 18
 
 /** Fenêtre initiale de chargement des cours (plus petite que la fenêtre navigable). */
-export const CLUB_PLANNING_INITIAL_WEEKS_BACK = 4
-export const CLUB_PLANNING_INITIAL_WEEKS_FORWARD = 4
+export const CLUB_PLANNING_INITIAL_WEEKS_BACK = 2
+export const CLUB_PLANNING_INITIAL_WEEKS_FORWARD = 2
 /** Taille des extensions de chargement autour d’une date (chunk). */
 export const CLUB_PLANNING_LOAD_CHUNK_WEEKS = 4
 

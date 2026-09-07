@@ -13,55 +13,35 @@ use Illuminate\Support\Facades\Log;
 class LegacyRecurringSlotService
 {
     /**
-     * Génère automatiquement les lessons pour un créneau récurrent legacy
-     * basé sur day_of_week et start_time/end_time
-     * 
-     * @param SubscriptionRecurringSlot $recurringSlot Le créneau récurrent
-     * @param Carbon|null $startDate Date de début (par défaut: maintenant)
-     * @param Carbon|null $endDate Date de fin (par défaut: +3 mois)
-     * @return array ['generated' => int, 'skipped' => int, 'errors' => int]
+     * @param  int  $reserveAttachmentSlots  Places à réserver (ex. cours déclencheur pas encore attaché)
+     * @return array{generated: int, skipped: int, errors: int}
      */
     public function generateLessonsForSlot(
         SubscriptionRecurringSlot $recurringSlot,
         ?Carbon $startDate = null,
-        ?Carbon $endDate = null
+        ?Carbon $endDate = null,
+        int $reserveAttachmentSlots = 0
     ): array {
-        // Par défaut, générer jusqu'à la fin de la période de validité de la récurrence
+        $t0 = microtime(true);
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
         $recurringStartDate = Carbon::parse($recurringSlot->start_date);
-        
-        // Dernier cours pour ce créneau récurrent uniquement (même jour de semaine + même horaire)
-        // pour éviter les décalages quand un élève a plusieurs récurrences avec le même prof
+
         $lastLesson = $this->findLastLessonForRecurringSlot($recurringSlot);
 
         if ($lastLesson) {
             $recurringInterval = $recurringSlot->recurring_interval ?? 1;
             $defaultStartDate = Carbon::parse($lastLesson->start_time)->addWeeks($recurringInterval);
-            Log::info("📅 Utilisation du dernier cours pour ce créneau (jour/heure)", [
-                'last_lesson_date' => $lastLesson->start_time,
-                'calculated_start_date' => $defaultStartDate->format('Y-m-d'),
-                'recurring_slot_id' => $recurringSlot->id,
-                'day_of_week' => $recurringSlot->day_of_week,
-                'recurring_interval' => $recurringInterval
-            ]);
         } else {
-            // Si aucun cours n'existe encore, utiliser la date de début de la récurrence
             $defaultStartDate = $recurringStartDate->copy();
-            Log::info("📅 Aucun cours précédent, utilisation de la date de début de la récurrence", [
-                'recurring_start_date' => $recurringStartDate->format('Y-m-d'),
-                'recurring_slot_id' => $recurringSlot->id
-            ]);
         }
-        
-        // S'assurer que la date de début n'est pas avant la date de début de la récurrence
+
         if ($defaultStartDate->isBefore($recurringStartDate)) {
             $defaultStartDate = $recurringStartDate->copy();
         }
-        
+
         $startDate = $startDate ?? $defaultStartDate;
         $endDate = $endDate ?? $recurringEndDate->copy();
-        
-        // Ne pas dépasser la fin de la récurrence
+
         if ($endDate->isAfter($recurringEndDate)) {
             $endDate = $recurringEndDate->copy();
         }
@@ -72,90 +52,240 @@ class LegacyRecurringSlotService
             'errors' => 0,
         ];
 
-        // Charger les relations nécessaires
         $recurringSlot->load(['subscriptionInstance', 'student', 'teacher']);
 
-        // Récupérer l'abonnement (peut être inactif, on continue quand même)
         $subscriptionInstance = $recurringSlot->subscriptionInstance;
         $isSubscriptionActive = $subscriptionInstance && $subscriptionInstance->status === 'active';
-        
-        if (!$subscriptionInstance) {
-            Log::warning("Aucun abonnement trouvé pour le créneau récurrent #{$recurringSlot->id}, génération sans consommation d'abonnement");
-        } else if (!$isSubscriptionActive) {
-            Log::info("L'abonnement #{$subscriptionInstance->id} n'est pas actif pour le créneau récurrent #{$recurringSlot->id}, génération sans consommation d'abonnement");
-        }
 
-        // Vérifier que le créneau est dans sa période de validité
-        $recurringStartDate = Carbon::parse($recurringSlot->start_date);
-        $recurringEndDate = Carbon::parse($recurringSlot->end_date);
-        
-        // Ajuster startDate si nécessaire
         if ($recurringStartDate->isAfter($startDate)) {
             $startDate = $recurringStartDate->copy();
         }
-        
-        // Ajuster endDate si nécessaire
         if ($recurringEndDate->isBefore($endDate)) {
             $endDate = $recurringEndDate->copy();
         }
 
-        // Générer les dates pour chaque semaine dans la plage
-        // On ne filtre plus par la validité de l'abonnement, on génère pour toute la période de la récurrence
         $dates = $this->generateDatesForRecurringSlot(
             $recurringSlot,
             $startDate,
             $endDate,
-            null, // Ne plus filtrer par subscriptionStartedAt
-            null  // Ne plus filtrer par subscriptionExpiresAt
+            null,
+            null
         );
 
-        Log::info("Génération de lessons pour créneau récurrent legacy #{$recurringSlot->id}", [
-            'total_dates' => count($dates),
-            'subscription_instance_id' => $subscriptionInstance?->id,
-            'day_of_week' => $recurringSlot->day_of_week,
-            'start_time' => $recurringSlot->start_time,
-            'recurring_interval' => $recurringSlot->recurring_interval ?? 1,
-        ]);
+        $templateLesson = $lastLesson
+            ?? Lesson::where('student_id', $recurringSlot->student_id)
+                ->where('teacher_id', $recurringSlot->teacher_id)
+                ->orderBy('start_time', 'desc')
+                ->first();
 
-        // Générer les lessons pour chaque date valide
-        foreach ($dates as $date) {
-            if ($isSubscriptionActive && $subscriptionInstance && ! $this->canPlanAnotherLesson($subscriptionInstance)) {
-                Log::info("Limite de cours atteinte pour abonnement #{$subscriptionInstance->id} (legacy)", [
-                    'recurring_slot_id' => $recurringSlot->id,
-                ]);
-                break;
-            }
+        if (! $templateLesson) {
+            Log::warning("Aucun cours précédent trouvé pour créneau récurrent #{$recurringSlot->id}");
 
-            try {
-                $lesson = $this->createLessonFromRecurringSlot(
-                    $recurringSlot, 
-                    $date, 
-                    $isSubscriptionActive ? $subscriptionInstance : null
-                );
-                
-                if ($lesson) {
+            return $stats;
+        }
+
+        $clubId = (int) $templateLesson->club_id;
+        $remainingSlots = PHP_INT_MAX;
+        if ($isSubscriptionActive && $subscriptionInstance) {
+            $remainingSlots = $subscriptionInstance->resolveRemainingAttachmentSlotsForPlanning();
+            $remainingSlots = max(0, $remainingSlots - max(0, $reserveAttachmentSlots));
+        }
+
+        $closureSet = $this->prefetchClosureDates($clubId, $dates);
+        $existingStartKeys = $this->prefetchExistingLessonStartKeys($recurringSlot, $dates);
+
+        $createdLessons = [];
+
+        try {
+            DB::transaction(function () use (
+                $dates,
+                &$remainingSlots,
+                &$stats,
+                &$createdLessons,
+                $existingStartKeys,
+                $closureSet,
+                $recurringSlot,
+                $templateLesson,
+                $isSubscriptionActive,
+                $subscriptionInstance
+            ) {
+                $keys = $existingStartKeys;
+
+                foreach ($dates as $date) {
+                    if ($remainingSlots <= 0) {
+                        break;
+                    }
+
+                    $startTime = Carbon::parse($date->format('Y-m-d').' '.$recurringSlot->start_time);
+                    $endTime = Carbon::parse($date->format('Y-m-d').' '.$recurringSlot->end_time);
+                    $startKey = $startTime->format('Y-m-d H:i:s');
+                    $closureYmd = LessonCalendarDate::toYmd($startTime);
+
+                    if (isset($keys[$startKey])) {
+                        $stats['skipped']++;
+
+                        continue;
+                    }
+
+                    if ($closureYmd !== null && isset($closureSet[$closureYmd])) {
+                        $stats['skipped']++;
+
+                        continue;
+                    }
+
+                    $lesson = Lesson::create([
+                        'club_id' => $templateLesson->club_id,
+                        'teacher_id' => $recurringSlot->teacher_id,
+                        'student_id' => $recurringSlot->student_id,
+                        'course_type_id' => $templateLesson->course_type_id,
+                        'location_id' => $templateLesson->location_id,
+                        'start_time' => $startTime,
+                        'end_time' => $endTime,
+                        'status' => 'confirmed',
+                        'price' => $templateLesson->price,
+                        'notes' => 'Cours généré automatiquement depuis créneau récurrent',
+                    ]);
+
+                    $createdLessons[] = $lesson;
+                    $keys[$startKey] = true;
                     $stats['generated']++;
-                } else {
-                    $stats['skipped']++;
+                    if ($remainingSlots !== PHP_INT_MAX) {
+                        $remainingSlots--;
+                    }
                 }
-            } catch (\Exception $e) {
-                $stats['errors']++;
-                Log::error("Erreur lors de la génération d'une lesson pour créneau récurrent #{$recurringSlot->id}", [
-                    'date' => $date->format('Y-m-d H:i'),
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+
+                if ($isSubscriptionActive && $subscriptionInstance && $createdLessons !== []) {
+                    $this->attachGeneratedLessonsBatch($subscriptionInstance, $createdLessons);
+                }
+            });
+        } catch (\Exception $e) {
+            $stats['errors']++;
+            $stats['generated'] = 0;
+            Log::error("Erreur transaction génération créneau récurrent #{$recurringSlot->id}", [
+                'error' => $e->getMessage(),
+            ]);
         }
 
         $recurringSlot->forceFill(['last_generated_at' => now()])->save();
+
+        Log::info('[perf] LegacyRecurringSlotService::generateLessonsForSlot', [
+            'recurring_slot_id' => $recurringSlot->id,
+            'dates' => count($dates),
+            'generated' => $stats['generated'],
+            'skipped' => $stats['skipped'],
+            'errors' => $stats['errors'],
+            'reserve_slots' => $reserveAttachmentSlots,
+            'ms' => (int) round((microtime(true) - $t0) * 1000),
+        ]);
 
         return $stats;
     }
 
     /**
+     * @param  list<Carbon>  $dates
+     * @return array<string, true>
+     */
+    private function prefetchClosureDates(int $clubId, array $dates): array
+    {
+        if ($clubId <= 0 || $dates === []) {
+            return [];
+        }
+
+        $ymds = [];
+        foreach ($dates as $date) {
+            $ymd = LessonCalendarDate::toYmd($date);
+            if ($ymd) {
+                $ymds[$ymd] = true;
+            }
+        }
+        if ($ymds === []) {
+            return [];
+        }
+
+        $keys = array_keys($ymds);
+        sort($keys);
+
+        return ClubClosureDay::query()
+            ->where('club_id', $clubId)
+            ->whereDate('closed_on', '>=', $keys[0])
+            ->whereDate('closed_on', '<=', $keys[array_key_last($keys)])
+            ->get(['closed_on'])
+            ->mapWithKeys(function (ClubClosureDay $row) {
+                $ymd = $row->closed_on instanceof Carbon
+                    ? $row->closed_on->format('Y-m-d')
+                    : substr((string) $row->closed_on, 0, 10);
+
+                return [$ymd => true];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  list<Carbon>  $dates
+     * @return array<string, true>
+     */
+    private function prefetchExistingLessonStartKeys(SubscriptionRecurringSlot $recurringSlot, array $dates): array
+    {
+        if ($dates === []) {
+            return [];
+        }
+
+        $min = $dates[0]->copy()->startOfDay();
+        $max = $dates[array_key_last($dates)]->copy()->endOfDay();
+
+        return Lesson::query()
+            ->where('student_id', $recurringSlot->student_id)
+            ->where('teacher_id', $recurringSlot->teacher_id)
+            ->where('start_time', '>=', $min)
+            ->where('start_time', '<=', $max)
+            ->pluck('start_time')
+            ->mapWithKeys(function ($start) {
+                $key = $start instanceof Carbon
+                    ? $start->format('Y-m-d H:i:s')
+                    : (string) $start;
+
+                return [$key => true];
+            })
+            ->all();
+    }
+
+    /**
+     * Attach batch + un seul recalcul (évite consumeLesson × N).
+     *
+     * @param  list<Lesson>  $lessons
+     */
+    private function attachGeneratedLessonsBatch(SubscriptionInstance $subscriptionInstance, array $lessons): void
+    {
+        $ids = array_map(static fn (Lesson $l) => (int) $l->id, $lessons);
+        $existing = $subscriptionInstance->lessons()
+            ->whereIn('lessons.id', $ids)
+            ->pluck('lessons.id')
+            ->map(static fn ($id) => (int) $id)
+            ->all();
+        $existingSet = array_fill_keys($existing, true);
+        $toAttach = [];
+        foreach ($ids as $id) {
+            if (! isset($existingSet[$id])) {
+                $toAttach[] = $id;
+            }
+        }
+
+        if ($toAttach !== []) {
+            $subscriptionInstance->lessons()->attach($toAttach);
+        }
+
+        if ($subscriptionInstance->est_legacy !== null) {
+            Lesson::query()
+                ->whereIn('id', $ids)
+                ->update(['est_legacy' => $subscriptionInstance->est_legacy]);
+        }
+
+        $subscriptionInstance->recalculateLessonsUsed();
+        $subscriptionInstance->checkAndUpdateStatus();
+    }
+
+    /**
      * Dernière lesson pour ce créneau récurrent (même student, teacher, jour de semaine, horaire).
-     * Évite d'utiliser un cours d'un autre créneau (ex. lundi 10h vs mercredi 14h).
      */
     private function findLastLessonForRecurringSlot(SubscriptionRecurringSlot $recurringSlot): ?Lesson
     {
@@ -169,11 +299,10 @@ class LegacyRecurringSlotService
             ->orderBy('start_time', 'desc');
 
         if ($driver === 'mysql') {
-            $dayOfWeekSql = ($recurringSlot->day_of_week % 7) + 1; // Carbon 0=Sun -> MySQL DAYOFWEEK 1=Sun
+            $dayOfWeekSql = ($recurringSlot->day_of_week % 7) + 1;
             $query->whereRaw('DAYOFWEEK(start_time) = ?', [$dayOfWeekSql])
                 ->whereRaw('TIME(start_time) = ?', [$timeStr]);
         } else {
-            // SQLite : strftime('%w', start_time) 0=Sun..6=Sat ; strftime('%H:%M:%S', start_time)
             $query->whereRaw("strftime('%w', start_time) = ?", [(string) ($recurringSlot->day_of_week % 7)])
                 ->whereRaw("strftime('%H:%M:%S', start_time) = ?", [substr($timeStr, 0, 8)]);
         }
@@ -182,9 +311,7 @@ class LegacyRecurringSlotService
     }
 
     /**
-     * Génère les dates pour un créneau récurrent legacy
-     * Ne filtre plus par la validité de l'abonnement, seulement par la période de la récurrence
-     * Gère l'intervalle de récurrence (1 = chaque semaine, 2 = toutes les 2 semaines, etc.)
+     * @return list<Carbon>
      */
     private function generateDatesForRecurringSlot(
         SubscriptionRecurringSlot $recurringSlot,
@@ -194,19 +321,13 @@ class LegacyRecurringSlotService
         ?Carbon $subscriptionExpiresAt = null
     ): array {
         $dates = [];
-        
-        // Récupérer l'intervalle de récurrence (par défaut 1 = chaque semaine)
         $recurringInterval = $recurringSlot->recurring_interval ?? 1;
-        
-        // Trouver le premier jour correspondant au day_of_week à partir de startDate
         $currentDate = $startDate->copy();
-        
-        // Ajuster pour trouver le prochain jour correspondant
+
         while ($currentDate->dayOfWeek != $recurringSlot->day_of_week) {
             $currentDate->addDay();
         }
-        
-        // Si on est avant la date de début du créneau récurrent, avancer d'une semaine
+
         $recurringStartDate = Carbon::parse($recurringSlot->start_date);
         if ($currentDate->isBefore($recurringStartDate)) {
             $currentDate = $recurringStartDate->copy();
@@ -217,79 +338,59 @@ class LegacyRecurringSlotService
 
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
 
-        // Générer les dates jusqu'à endDate (limité par la fin de la récurrence)
-        // En utilisant l'intervalle de récurrence (ex: toutes les 2 semaines)
         while ($currentDate->lte($endDate) && $currentDate->lte($recurringEndDate)) {
-            // Vérifier que la date est dans la période de validité du créneau récurrent
             if ($currentDate->isBefore($recurringStartDate)) {
                 $currentDate->addWeeks($recurringInterval);
+
                 continue;
             }
 
             $dates[] = $currentDate->copy();
-            $currentDate->addWeeks($recurringInterval); // Utiliser l'intervalle au lieu de addWeek()
+            $currentDate->addWeeks($recurringInterval);
         }
 
         return $dates;
     }
 
     /**
-     * Crée une lesson depuis un créneau récurrent legacy
-     * @param SubscriptionRecurringSlot $recurringSlot
-     * @param Carbon $date
-     * @param SubscriptionInstance|null $subscriptionInstance Si null, le cours est créé sans consommer l'abonnement
+     * Crée une lesson depuis un créneau récurrent legacy (chemin materialize unitaire).
      */
     private function createLessonFromRecurringSlot(
         SubscriptionRecurringSlot $recurringSlot,
         Carbon $date,
-        ?SubscriptionInstance $subscriptionInstance = null
+        ?SubscriptionInstance $subscriptionInstance = null,
+        ?Lesson $templateLesson = null
     ): ?Lesson {
-        // Vérifier si une lesson existe déjà pour cette date et ce créneau
-        $startTime = Carbon::parse($date->format('Y-m-d') . ' ' . $recurringSlot->start_time);
-        $endTime = Carbon::parse($date->format('Y-m-d') . ' ' . $recurringSlot->end_time);
+        $startTime = Carbon::parse($date->format('Y-m-d').' '.$recurringSlot->start_time);
+        $endTime = Carbon::parse($date->format('Y-m-d').' '.$recurringSlot->end_time);
 
-        // ⚠️ IMPORTANT : Vérifier si une lesson existe déjà pour cette date (passé ou futur)
-        // Cela évite de régénérer des cours qui existent déjà
         $existingLesson = Lesson::where('student_id', $recurringSlot->student_id)
             ->where('teacher_id', $recurringSlot->teacher_id)
             ->where('start_time', $startTime)
             ->first();
 
         if ($existingLesson) {
-            Log::info("Lesson déjà existante pour créneau récurrent #{$recurringSlot->id}", [
-                'lesson_id' => $existingLesson->id,
-                'date' => $date->format('Y-m-d'),
-                'start_time' => $startTime->format('Y-m-d H:i:s'),
-                'is_past' => $startTime->isPast(),
-                'note' => 'Cours déjà existant, génération ignorée'
-            ]);
             return null;
         }
 
-        // Utiliser le dernier cours de ce créneau (même jour/heure) comme modèle, sinon n'importe quel cours student+teacher
-        $lastLesson = $this->findLastLessonForRecurringSlot($recurringSlot)
+        $lastLesson = $templateLesson
+            ?? $this->findLastLessonForRecurringSlot($recurringSlot)
             ?? Lesson::where('student_id', $recurringSlot->student_id)
                 ->where('teacher_id', $recurringSlot->teacher_id)
                 ->orderBy('start_time', 'desc')
                 ->first();
 
-        if (!$lastLesson) {
+        if (! $lastLesson) {
             Log::warning("Aucun cours précédent trouvé pour créneau récurrent #{$recurringSlot->id}");
+
             return null;
         }
 
         $closureDateYmd = LessonCalendarDate::toYmd($startTime);
-        if (\App\Models\ClubClosureDay::clubIsClosedOn((int) $lastLesson->club_id, $closureDateYmd)) {
-            Log::info('Lesson non générée : jour de fermeture club (legacy récurrence)', [
-                'recurring_slot_id' => $recurringSlot->id,
-                'club_id' => $lastLesson->club_id,
-                'date' => $closureDateYmd,
-            ]);
-
+        if (ClubClosureDay::clubIsClosedOn((int) $lastLesson->club_id, $closureDateYmd ?? '')) {
             return null;
         }
 
-        // Créer la nouvelle lesson
         $lesson = Lesson::create([
             'club_id' => $lastLesson->club_id,
             'teacher_id' => $recurringSlot->teacher_id,
@@ -300,40 +401,16 @@ class LegacyRecurringSlotService
             'end_time' => $endTime,
             'status' => 'confirmed',
             'price' => $lastLesson->price,
-            'notes' => "Cours généré automatiquement depuis créneau récurrent",
+            'notes' => 'Cours généré automatiquement depuis créneau récurrent',
         ]);
 
-        // Lier la lesson à l'abonnement seulement si l'abonnement est actif
-        // ⚠️ IMPORTANT : Les cours futurs seront attachés mais ne consommeront l'abonnement qu'après leur date/heure
         if ($subscriptionInstance) {
             try {
                 $subscriptionInstance->consumeLesson($lesson);
-                $lessonStartTime = \Carbon\Carbon::parse($lesson->start_time);
-                $isPastLesson = $lessonStartTime->isPast();
-                Log::info("✅ Lesson générée et liée à l'abonnement", [
-                    'lesson_id' => $lesson->id,
-                    'subscription_instance_id' => $subscriptionInstance->id,
-                    'lesson_start_time' => $lesson->start_time,
-                    'is_past' => $isPastLesson,
-                    'consumed' => $isPastLesson ? 'Oui (cours passé)' : 'Non (cours futur, sera consommé automatiquement)',
-                ]);
             } catch (\Exception $e) {
-                // Si la consommation échoue (abonnement expiré, etc.), on continue quand même
-                Log::warning("Impossible de consommer l'abonnement pour la lesson #{$lesson->id}: " . $e->getMessage());
+                Log::warning("Impossible de consommer l'abonnement pour la lesson #{$lesson->id}: ".$e->getMessage());
             }
-        } else {
-            Log::info("✅ Lesson générée sans consommation d'abonnement (abonnement inactif ou inexistant)", [
-                'lesson_id' => $lesson->id,
-            ]);
         }
-
-        Log::info("✅ Lesson générée depuis créneau récurrent legacy", [
-            'lesson_id' => $lesson->id,
-            'recurring_slot_id' => $recurringSlot->id,
-            'date' => $date->format('Y-m-d'),
-            'subscription_instance_id' => $subscriptionInstance?->id,
-            'subscription_consumed' => $subscriptionInstance !== null,
-        ]);
 
         return $lesson;
     }
@@ -354,17 +431,9 @@ class LegacyRecurringSlotService
             'errors' => 0,
         ];
 
-        // Récupérer tous les créneaux récurrents (même si l'abonnement n'est plus actif)
-        // La récurrence reste active pour le jour et la plage horaire
         $recurringSlots = SubscriptionRecurringSlot::where('start_date', '<=', $endDate)
             ->where('end_date', '>=', $startDate)
             ->get();
-
-        Log::info("Génération de lessons pour tous les créneaux récurrents legacy", [
-            'slots_count' => $recurringSlots->count(),
-            'start_date' => $startDate->format('Y-m-d'),
-            'end_date' => $endDate->format('Y-m-d'),
-        ]);
 
         foreach ($recurringSlots as $slot) {
             try {
@@ -374,7 +443,7 @@ class LegacyRecurringSlotService
                 $totalStats['errors'] += $stats['errors'];
             } catch (\Exception $e) {
                 $totalStats['errors']++;
-                Log::error("Erreur lors de la génération pour créneau #{$slot->id}: " . $e->getMessage());
+                Log::error("Erreur lors de la génération pour créneau #{$slot->id}: ".$e->getMessage());
             }
         }
 
@@ -469,7 +538,8 @@ class LegacyRecurringSlotService
         $lesson = $this->createLessonFromRecurringSlot(
             $recurringSlot,
             $dayStart,
-            $isSubscriptionActive ? $subscriptionInstance : null
+            $isSubscriptionActive ? $subscriptionInstance : null,
+            $reference
         );
 
         if (! $lesson) {
@@ -496,4 +566,3 @@ class LegacyRecurringSlotService
         return $subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning() > 0;
     }
 }
-

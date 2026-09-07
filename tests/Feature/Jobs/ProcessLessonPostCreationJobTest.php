@@ -249,7 +249,7 @@ class ProcessLessonPostCreationJobTest extends TestCase
             'subscription_instance_id' => $instance->id,
             'lesson_id' => $lesson->id,
         ]);
-        // Cours futur : 1 place réservée (les futurs ne montent dans lessons_used qu'une fois passés).
-        $this->assertEquals(1, $instance->fresh()->getAttachedCountableLessonsCount());
+        // Cours futur : place réservée (comptage horizon, hors « maintenant »)
+        $this->assertEquals(1, $instance->fresh()->getAttachedCountableLessonsCount(now()->addYears(1)));
     }
 }

@@ -41,8 +41,8 @@ return [
         'timezone' => env('RECURRING_PLANNING_ADVICE_TIMEZONE', 'Europe/Brussels'),
         'use_ai' => env('RECURRING_PLANNING_ADVICE_USE_AI', true),
         'attach_on_validation_failure' => env('RECURRING_PLANNING_ADVICE_ATTACH_ON_422', true),
-        'max_candidates_to_validate' => (int) env('RECURRING_PLANNING_ADVICE_MAX_CANDIDATES', 120),
-        'max_alternatives_returned' => (int) env('RECURRING_PLANNING_ADVICE_MAX_ALTERNATIVES', 12),
+        'max_candidates_to_validate' => (int) env('RECURRING_PLANNING_ADVICE_MAX_CANDIDATES', 10),
+        'max_alternatives_returned' => (int) env('RECURRING_PLANNING_ADVICE_MAX_ALTERNATIVES', 5),
     ],
 
     /*

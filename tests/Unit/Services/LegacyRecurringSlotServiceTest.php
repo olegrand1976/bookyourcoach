@@ -653,7 +653,7 @@ class LegacyRecurringSlotServiceTest extends TestCase
             $instance->lessons()->attach($futureLesson->id);
         }
 
-        $this->assertEquals(0, $instance->fresh()->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $instance->fresh()->resolveRemainingAttachmentSlotsForPlanning());
 
         $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
         $recurringSlot = SubscriptionRecurringSlot::create([
@@ -737,7 +737,7 @@ class LegacyRecurringSlotServiceTest extends TestCase
             'price' => 50.00,
         ]);
         $instance->consumeLesson($attached);
-        $this->assertEquals(0, $instance->fresh()->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $instance->fresh()->resolveRemainingAttachmentSlotsForPlanning());
 
         $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
         $recurringSlot = SubscriptionRecurringSlot::create([

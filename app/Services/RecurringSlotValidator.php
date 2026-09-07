@@ -8,6 +8,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\SubscriptionInstance;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -153,44 +154,60 @@ class RecurringSlotValidator
         ?int $clubId = null,
         array $excludeRecurringSlotIds = [],
     ): array {
+        $t0 = microtime(true);
         $startDate = Carbon::parse($startDate);
         $conflicts = [];
         $recurringInterval = max(1, min(52, $recurringInterval));
 
-        Log::info("🔍 Validation récurrence (sans open_slot)", [
-            'teacher_id' => $teacherId,
-            'student_id' => $studentId,
-            'club_id' => $clubId,
-            'start_date' => $startDate->format('Y-m-d'),
-            'day_of_week' => $dayOfWeek,
-            'recurring_interval' => $recurringInterval,
-            'weeks_to_check' => self::VALIDATION_WEEKS
-        ]);
+        if ($this->shouldLogRecurringConflicts()) {
+            Log::info('🔍 Validation récurrence (sans open_slot)', [
+                'teacher_id' => $teacherId,
+                'student_id' => $studentId,
+                'club_id' => $clubId,
+                'start_date' => $startDate->format('Y-m-d'),
+                'day_of_week' => $dayOfWeek,
+                'recurring_interval' => $recurringInterval,
+                'weeks_to_check' => self::VALIDATION_WEEKS,
+            ]);
+        }
+
+        $windowStart = $startDate->copy()->startOfDay();
+        $windowEnd = $startDate->copy()->addWeeks(self::VALIDATION_WEEKS)->endOfDay();
+        [$prefetchTeacherLessons, $prefetchStudentLessons, $prefetchTeacherSlots, $prefetchStudentSlots] = $this->prefetchAvailabilityWindow(
+            $teacherId,
+            $studentId,
+            $dayOfWeek,
+            $startTime,
+            $endTime,
+            $windowStart,
+            $windowEnd,
+            $excludeLessonId,
+            $clubId,
+            $excludeRecurringSlotIds,
+        );
 
         for ($k = 0; $k * $recurringInterval < self::VALIDATION_WEEKS; $k++) {
             $occurrenceDate = $this->getNextOccurrence($startDate, $dayOfWeek, $k * $recurringInterval);
 
-            $teacherConflict = $this->checkTeacherAvailability(
+            $teacherConflict = $this->checkTeacherAvailabilityFromPrefetch(
+                $prefetchTeacherLessons,
+                $prefetchTeacherSlots,
                 $teacherId,
                 $occurrenceDate,
                 $startTime,
                 $endTime,
-                $excludeLessonId,
                 $k,
-                $clubId,
                 $studentId,
-                $excludeRecurringSlotIds,
             );
 
-            $studentConflict = $this->checkStudentAvailability(
+            $studentConflict = $this->checkStudentAvailabilityFromPrefetch(
+                $prefetchStudentLessons,
+                $prefetchStudentSlots,
                 $studentId,
                 $occurrenceDate,
                 $startTime,
                 $endTime,
-                $excludeLessonId,
                 $k,
-                $clubId,
-                $excludeRecurringSlotIds,
             );
 
             // Même cours (lesson_id) bloque enseignant et élève : un seul message (évite doublon bruyant le 1er jour)
@@ -232,7 +249,9 @@ class RecurringSlotValidator
             $sameRecurringSlot = false;
             $duplicateSlotRow = null;
             if ($teacherRid !== null && $studentRid !== null && (int) $teacherRid === (int) $studentRid) {
-                $duplicateSlotRow = SubscriptionRecurringSlot::query()->find((int) $teacherRid);
+                $duplicateSlotRow = $prefetchTeacherSlots->firstWhere('id', (int) $teacherRid)
+                    ?? $prefetchStudentSlots->firstWhere('id', (int) $teacherRid)
+                    ?? SubscriptionRecurringSlot::query()->find((int) $teacherRid);
                 if ($duplicateSlotRow !== null
                     && (int) $duplicateSlotRow->teacher_id === (int) $teacherId
                     && (int) $duplicateSlotRow->student_id === (int) $studentId) {
@@ -290,12 +309,15 @@ class RecurringSlotValidator
             }
         }
 
-        Log::info($valid ? "✅ Récurrence validée (sans open_slot)" : "❌ Récurrence invalide (sans open_slot)", [
+        Log::info('[perf] validateRecurringAvailabilityWithoutOpenSlot', [
+            'valid' => $valid,
             'conflicts_count' => count($conflicts),
-            'conflicts' => array_slice($conflicts, 0, 5)
+            'ms' => (int) round((microtime(true) - $t0) * 1000),
+            'teacher_id' => $teacherId,
+            'student_id' => $studentId,
         ]);
 
-        if (!$valid && $this->shouldLogRecurringConflicts()) {
+        if (! $valid && $this->shouldLogRecurringConflicts()) {
             $byType = [];
             foreach ($conflicts as $c) {
                 $t = (string) ($c['type'] ?? 'unknown');
@@ -323,7 +345,7 @@ class RecurringSlotValidator
             'conflicts' => array_map(fn (array $c) => $this->enrichConflictForApi($c), $conflicts),
             'message' => $valid
                 ? 'Créneau disponible pour les 6 prochains mois'
-                : 'Conflits détectés sur ' . count($conflicts) . ' occurrence(s)',
+                : 'Conflits détectés sur '.count($conflicts).' occurrence(s)',
             'hint' => $hint,
         ];
     }
@@ -655,6 +677,230 @@ class RecurringSlotValidator
         $weekIndex = (int) ($daysBetween / 7);
 
         return ($weekIndex % $interval) === 0;
+    }
+
+    /**
+     * Précharge lessons + récurrences sur la fenêtre 26 sem. (évite ~4 queries / occurrence).
+     *
+     * @return array{0: Collection<int, Lesson>, 1: Collection<int, Lesson>, 2: Collection<int, SubscriptionRecurringSlot>, 3: Collection<int, SubscriptionRecurringSlot>}
+     */
+    private function prefetchAvailabilityWindow(
+        int $teacherId,
+        int $studentId,
+        int $dayOfWeek,
+        string $startTime,
+        string $endTime,
+        Carbon $windowStart,
+        Carbon $windowEnd,
+        int|array|null $excludeLessonId,
+        ?int $clubId,
+        array $excludeRecurringSlotIds,
+    ): array {
+        $winStartStr = $windowStart->format('Y-m-d H:i:s');
+        $winEndStr = $windowEnd->format('Y-m-d H:i:s');
+        $startHis = $this->normalizeTimeToHis($startTime);
+        $endHis = $this->normalizeTimeToHis($endTime);
+
+        $teacherLessonQuery = Lesson::query()
+            ->where('teacher_id', $teacherId)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('start_time', '<', $winEndStr)
+            ->where('end_time', '>', $winStartStr);
+        if ($clubId !== null) {
+            $teacherLessonQuery->where('club_id', $clubId);
+        }
+        $this->applyExcludeLessonFilter($teacherLessonQuery, $excludeLessonId);
+        $teacherLessons = $teacherLessonQuery->get([
+            'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
+        ]);
+
+        $studentLessonQuery = Lesson::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('start_time', '<', $winEndStr)
+            ->where('end_time', '>', $winStartStr)
+            ->where(function ($q) use ($studentId) {
+                $q->where('student_id', $studentId)
+                    ->orWhereHas('students', function ($sq) use ($studentId) {
+                        $sq->where('students.id', $studentId);
+                    });
+            });
+        if ($clubId !== null) {
+            $studentLessonQuery->where('club_id', $clubId);
+        }
+        $this->applyExcludeLessonFilter($studentLessonQuery, $excludeLessonId);
+        $studentLessons = $studentLessonQuery->get([
+            'id', 'start_time', 'end_time', 'student_id', 'teacher_id', 'club_id', 'status', 'course_type_id',
+        ]);
+
+        $teacherSlotsQuery = SubscriptionRecurringSlot::query()
+            ->where('status', 'active')
+            ->where('teacher_id', $teacherId)
+            ->where('day_of_week', $dayOfWeek)
+            ->whereDate('start_date', '<=', $windowEnd->format('Y-m-d'))
+            ->whereDate('end_date', '>=', $windowStart->format('Y-m-d'))
+            ->lessonLikeTimeWindow()
+            ->byTimeRange($startHis, $endHis);
+        $this->scopeRecurringSlotsToClub($teacherSlotsQuery, $clubId);
+        if ($excludeRecurringSlotIds !== []) {
+            $teacherSlotsQuery->whereNotIn('id', array_map('intval', $excludeRecurringSlotIds));
+        }
+        $teacherSlots = $teacherSlotsQuery->get();
+
+        $studentSlotsQuery = SubscriptionRecurringSlot::query()
+            ->where('status', 'active')
+            ->where('student_id', $studentId)
+            ->where('day_of_week', $dayOfWeek)
+            ->whereDate('start_date', '<=', $windowEnd->format('Y-m-d'))
+            ->whereDate('end_date', '>=', $windowStart->format('Y-m-d'))
+            ->lessonLikeTimeWindow()
+            ->byTimeRange($startHis, $endHis);
+        $this->scopeRecurringSlotsToClub($studentSlotsQuery, $clubId);
+        if ($excludeRecurringSlotIds !== []) {
+            $studentSlotsQuery->whereNotIn('id', array_map('intval', $excludeRecurringSlotIds));
+        }
+        $studentSlots = $studentSlotsQuery->get();
+
+        return [$teacherLessons, $studentLessons, $teacherSlots, $studentSlots];
+    }
+
+    /**
+     * @param  Collection<int, Lesson>  $lessons
+     * @param  Collection<int, SubscriptionRecurringSlot>  $slots
+     * @return array{message: string, lesson_id: ?int, recurring_slot_id: ?int}|null
+     */
+    private function checkTeacherAvailabilityFromPrefetch(
+        Collection $lessons,
+        Collection $slots,
+        int $teacherId,
+        Carbon $date,
+        string $startTime,
+        string $endTime,
+        int $weekIndex,
+        ?int $contextStudentIdForLesson,
+    ): ?array {
+        [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
+
+        $conflictLesson = $lessons->first(function (Lesson $lesson) use ($winStart, $winEnd) {
+            $ls = $lesson->start_time instanceof Carbon
+                ? $lesson->start_time->format('Y-m-d H:i:s')
+                : (string) $lesson->start_time;
+            $le = $lesson->end_time instanceof Carbon
+                ? $lesson->end_time->format('Y-m-d H:i:s')
+                : (string) $lesson->end_time;
+
+            return $ls < $winEnd && $le > $winStart;
+        });
+
+        if ($conflictLesson) {
+            $resolvedLessonStudentId = $this->resolveLessonStudentIdForPayload($conflictLesson, $contextStudentIdForLesson);
+            $this->logRecurringConflict('teacher_lesson_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'teacher_id' => $teacherId,
+                'proposed_app_wall_window' => ['start' => $winStart, 'end' => $winEnd],
+                'conflicting_lesson_id' => $conflictLesson->id,
+            ]);
+
+            return [
+                'message' => 'Enseignant déjà occupé',
+                'lesson_id' => (int) $conflictLesson->id,
+                'recurring_slot_id' => null,
+                'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
+                'lesson_student_id' => $resolvedLessonStudentId,
+            ];
+        }
+
+        foreach ($slots as $slot) {
+            if (! $this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                continue;
+            }
+            $this->logRecurringConflict('teacher_subscription_recurring_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'teacher_id' => $teacherId,
+                'subscription_recurring_slot_id' => $slot->id,
+            ]);
+
+            return [
+                'message' => 'Enseignant déjà réservé (récurrence)',
+                'lesson_id' => null,
+                'recurring_slot_id' => (int) $slot->id,
+                'slot_student_id' => (int) $slot->student_id,
+                'slot_teacher_id' => (int) $slot->teacher_id,
+                'subscription_instance_id' => (int) $slot->subscription_instance_id,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, Lesson>  $lessons
+     * @param  Collection<int, SubscriptionRecurringSlot>  $slots
+     * @return array{message: string, lesson_id: ?int, recurring_slot_id: ?int}|null
+     */
+    private function checkStudentAvailabilityFromPrefetch(
+        Collection $lessons,
+        Collection $slots,
+        int $studentId,
+        Carbon $date,
+        string $startTime,
+        string $endTime,
+        int $weekIndex,
+    ): ?array {
+        [$winStart, $winEnd] = $this->occurrenceAppWallBounds($date, $startTime, $endTime);
+
+        $conflictLesson = $lessons->first(function (Lesson $lesson) use ($winStart, $winEnd) {
+            $ls = $lesson->start_time instanceof Carbon
+                ? $lesson->start_time->format('Y-m-d H:i:s')
+                : (string) $lesson->start_time;
+            $le = $lesson->end_time instanceof Carbon
+                ? $lesson->end_time->format('Y-m-d H:i:s')
+                : (string) $lesson->end_time;
+
+            return $ls < $winEnd && $le > $winStart;
+        });
+
+        if ($conflictLesson) {
+            $resolvedLessonStudentId = $this->resolveLessonStudentIdForPayload($conflictLesson, $studentId);
+            $this->logRecurringConflict('student_lesson_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'student_id' => $studentId,
+                'conflicting_lesson_id' => $conflictLesson->id,
+            ]);
+
+            return [
+                'message' => 'Élève déjà occupé (cours)',
+                'lesson_id' => (int) $conflictLesson->id,
+                'recurring_slot_id' => null,
+                'lesson_teacher_id' => (int) $conflictLesson->teacher_id,
+                'lesson_student_id' => $resolvedLessonStudentId,
+            ];
+        }
+
+        foreach ($slots as $slot) {
+            if (! $this->subscriptionRecurringSlotFiresOnDate($slot, $date)) {
+                continue;
+            }
+            $this->logRecurringConflict('student_subscription_recurring_overlap', [
+                'week_loop_index' => $weekIndex,
+                'occurrence_date' => $date->format('Y-m-d'),
+                'student_id' => $studentId,
+                'subscription_recurring_slot_id' => $slot->id,
+            ]);
+
+            return [
+                'message' => 'Élève déjà réservé (récurrence)',
+                'lesson_id' => null,
+                'recurring_slot_id' => (int) $slot->id,
+                'slot_student_id' => (int) $slot->student_id,
+                'slot_teacher_id' => (int) $slot->teacher_id,
+                'subscription_instance_id' => (int) $slot->subscription_instance_id,
+            ];
+        }
+
+        return null;
     }
 
     /**

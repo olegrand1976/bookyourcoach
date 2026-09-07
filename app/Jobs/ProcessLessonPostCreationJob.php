@@ -18,22 +18,23 @@ use Illuminate\Support\Facades\Log;
 /**
  * Job qui traite les actions post-création d'un cours de manière asynchrone
  * - Consommation d'abonnement
- * - Création de créneaux récurrents
  * - Envoi des notifications
  * - Programmation des rappels
+ *
+ * La récurrence (slot + cours futurs) est créée en sync dans LessonController::store.
  */
 class ProcessLessonPostCreationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected Lesson $lesson;
+
     protected int $recurringInterval;
+
     protected bool $deductFromSubscription;
+
     protected bool $forceSubscriptionOverride;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(
         Lesson $lesson,
         int $recurringInterval = 1,
@@ -46,62 +47,42 @@ class ProcessLessonPostCreationJob implements ShouldQueue
         $this->forceSubscriptionOverride = $forceSubscriptionOverride;
     }
 
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         try {
             Log::info("🚀 [ProcessLessonPostCreation] Début traitement asynchrone pour le cours {$this->lesson->id}");
 
-            // 1. Consommer l'abonnement seulement si demandé à la création.
-            //    Inclut les cours collectifs sans student_id mais avec participants pivot.
             if ($this->deductFromSubscription && $this->lesson->hasParticipants()) {
                 $this->tryConsumeSubscription();
             }
 
-            // 2. Créer un créneau récurrent si l'élève a un abonnement (et génère les cours suivants).
-            //    La récurrence reste réservée aux cours mono-élève (student_id requis en interne).
-            if ($this->lesson->student_id) {
-                $this->createRecurringSlotIfSubscription();
-            }
-
-            // 3. Envoyer les notifications
             $this->sendBookingNotifications();
-
-            // 4. Programmer un rappel 24h avant le cours
             $this->scheduleReminder();
 
             Log::info("✅ [ProcessLessonPostCreation] Traitement asynchrone terminé pour le cours {$this->lesson->id}");
         } catch (\Exception $e) {
-            Log::error("❌ [ProcessLessonPostCreation] Erreur lors du traitement asynchrone du cours {$this->lesson->id}: " . $e->getMessage(), [
+            Log::error("❌ [ProcessLessonPostCreation] Erreur lors du traitement asynchrone du cours {$this->lesson->id}: ".$e->getMessage(), [
                 'lesson_id' => $this->lesson->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            $this->setRecurrenceSkippedReason('Erreur lors de la création de la récurrence : ' . $e->getMessage());
+            $this->setRecurrenceSkippedReason('Erreur lors de la création de la récurrence : '.$e->getMessage());
         }
     }
 
-    /**
-     * Enregistre le motif pour lequel la récurrence n'a pas été créée (affiché à l'utilisateur via l'API).
-     */
     private function setRecurrenceSkippedReason(?string $reason): void
     {
         try {
             $this->lesson->updateQuietly(['recurrence_skipped_reason' => $reason]);
         } catch (\Throwable $e) {
-            Log::warning("Impossible d'enregistrer recurrence_skipped_reason: " . $e->getMessage());
+            Log::warning("Impossible d'enregistrer recurrence_skipped_reason: ".$e->getMessage());
         }
     }
 
-    /**
-     * Essaie de consommer un abonnement actif pour ce cours
-     */
     private function tryConsumeSubscription(): void
     {
         try {
-            if (!$this->lesson->course_type_id) {
+            if (! $this->lesson->course_type_id) {
                 return;
             }
 
@@ -119,25 +100,23 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             if ($this->lesson->student_id) {
                 $studentIds[] = $this->lesson->student_id;
             }
-            
+
             $lessonStudents = $this->lesson->students()->pluck('students.id')->toArray();
             $studentIds = array_unique(array_merge($studentIds, $lessonStudents));
-            
+
             if (empty($studentIds)) {
                 return;
             }
 
             foreach ($studentIds as $studentId) {
-                // Vérifier si le cours est déjà lié à un abonnement
                 if ($this->lesson->subscriptionInstances()->count() > 0) {
                     Log::info("⏭️ Cours {$this->lesson->id} déjà lié à un abonnement, on passe", [
-                        'student_id' => $studentId
+                        'student_id' => $studentId,
                     ]);
+
                     continue;
                 }
 
-                // Trouver le bon abonnement actif pour cet élève et ce type de cours
-                // (le plus ancien par date de création qui a encore des cours disponibles)
                 $clubId = $this->lesson->club_id ?? null;
                 $asOf = $this->lesson->start_time
                     ? Carbon::parse($this->lesson->start_time)
@@ -153,80 +132,43 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 if ($subscriptionInstance) {
                     try {
                         $subscriptionInstance->consumeLesson($this->lesson, $this->forceSubscriptionOverride);
-                        
-                        $studentNames = $subscriptionInstance->students->map(function ($student) {
-                            if ($student->user) {
-                                return $student->user->name;
-                            }
-                            $firstName = $student->first_name ?? '';
-                            $lastName = $student->last_name ?? '';
-                            $name = trim($firstName . ' ' . $lastName);
-                            return !empty($name) ? $name : 'Élève sans nom';
-                        })->filter()->join(', ');
-                        
+
                         $subscriptionInstance->refresh();
-                        
-                        // Vérifier et mettre à jour le statut (peut passer en completed si plein)
-                        // Cette méthode gère aussi la réouverture si l'abonnement redevient disponible
                         $subscriptionInstance->checkAndUpdateStatus();
-                        
-                        Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id} (ordre chronologique)", [
+
+                        Log::info("✅ Cours {$this->lesson->id} consommé depuis l'abonnement {$subscriptionInstance->id}", [
                             'lesson_id' => $this->lesson->id,
                             'subscription_instance_id' => $subscriptionInstance->id,
-                            'subscription_created_at' => $subscriptionInstance->created_at,
                             'student_id' => $studentId,
                             'lessons_used' => $subscriptionInstance->lessons_used,
-                            'remaining_lessons' => $subscriptionInstance->remaining_lessons
+                            'remaining_lessons' => $subscriptionInstance->remaining_lessons,
                         ]);
-                        
-                        // Un seul abonnement par cours, on arrête après le premier lien réussi
+
                         break;
                     } catch (\Exception $e) {
-                        Log::error("❌ Erreur lors de la consommation: " . $e->getMessage(), [
+                        Log::error('❌ Erreur lors de la consommation: '.$e->getMessage(), [
                             'lesson_id' => $this->lesson->id,
                             'student_id' => $studentId,
-                            'subscription_instance_id' => $subscriptionInstance->id ?? null
+                            'subscription_instance_id' => $subscriptionInstance->id ?? null,
                         ]);
+
                         continue;
                     }
                 } else {
                     Log::info("ℹ️ Aucun abonnement actif disponible pour le cours {$this->lesson->id}", [
                         'student_id' => $studentId,
-                        'course_type_id' => $this->lesson->course_type_id
+                        'course_type_id' => $this->lesson->course_type_id,
                     ]);
                 }
             }
         } catch (\Exception $e) {
-            Log::error("Erreur tryConsumeSubscription: " . $e->getMessage());
+            Log::error('Erreur tryConsumeSubscription: '.$e->getMessage());
         }
     }
 
-    /**
-     * Crée un créneau récurrent et génère les cours si l'élève a un abonnement.
-     * Délégué à RecurrenceCreationService (26 semaines, sans expires_at).
-     * Si le controller a déjà créé la récurrence en sync, le service ne refait rien.
-     */
-    private function createRecurringSlotIfSubscription(): void
-    {
-        if ($this->recurringInterval < 1) {
-            return;
-        }
-
-        if (!$this->lesson->student_id || !$this->lesson->teacher_id || !$this->lesson->course_type_id) {
-            return;
-        }
-
-        $service = new \App\Services\RecurrenceCreationService();
-        $service->createRecurrenceAndGenerateLessons($this->lesson, $this->recurringInterval);
-    }
-
-    /**
-     * Envoie les notifications de réservation
-     */
     private function sendBookingNotifications(): void
     {
         try {
-            // Recharger les relations pour avoir les données à jour
             $this->lesson->load(['teacher.user', 'student.user']);
 
             if ($this->lesson->teacher && $this->lesson->teacher->user) {
@@ -241,13 +183,10 @@ class ProcessLessonPostCreationJob implements ShouldQueue
 
             Log::info("✅ Notifications envoyées pour le cours {$this->lesson->id}");
         } catch (\Exception $e) {
-            Log::error("Erreur sendBookingNotifications: " . $e->getMessage());
+            Log::error('Erreur sendBookingNotifications: '.$e->getMessage());
         }
     }
 
-    /**
-     * Programme un rappel 24h avant le cours
-     */
     private function scheduleReminder(): void
     {
         try {
@@ -257,10 +196,7 @@ class ProcessLessonPostCreationJob implements ShouldQueue
                 Log::info("✅ Rappel programmé pour le cours {$this->lesson->id} à {$reminderTime}");
             }
         } catch (\Exception $e) {
-            Log::warning("Impossible de programmer le rappel pour le cours {$this->lesson->id}: " . $e->getMessage());
+            Log::warning("Impossible de programmer le rappel pour le cours {$this->lesson->id}: ".$e->getMessage());
         }
     }
 }
-
-
-
