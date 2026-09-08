@@ -2,7 +2,16 @@
  * Filtres période (trimestre) et regroupement mensuel pour l'historique cours élève (club).
  */
 
-export type LessonStatusFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'
+export type LessonStatusFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'closure'
+
+export const STUDENT_LESSON_STATUS_FILTER_OPTIONS: { value: LessonStatusFilter; label: string }[] = [
+  { value: 'all', label: 'Tous' },
+  { value: 'pending', label: 'En attente' },
+  { value: 'confirmed', label: 'Confirmés' },
+  { value: 'completed', label: 'Terminés' },
+  { value: 'cancelled', label: 'Annulés' },
+  { value: 'closure', label: 'Fermeture club' },
+]
 export type LessonPeriodMode = 'upcoming_quarter' | 'quarter_all' | 'with_previous_quarter' | 'all'
 
 /** Options UI partagées (fiche planning + panel élèves). `quarter_all` volontairement omis : même plage que `upcoming_quarter`. */
@@ -223,7 +232,14 @@ export function lessonNeedsCertificateConfirmation(lesson: {
 }
 
 export function lessonMatchesHistoryFilters(
-  lesson: { start_time: string; status: string; cancellation_reason?: string; cancellation_certificate_status?: string },
+  lesson: {
+    start_time: string
+    status: string
+    cancellation_reason?: string
+    cancellation_certificate_status?: string
+    is_on_closure_day?: boolean
+    deleted_at?: string | null
+  },
   statusFilter: LessonStatusFilter,
   from: Date,
   to: Date,
@@ -238,8 +254,14 @@ export function lessonMatchesHistoryFilters(
     return true
   }
 
-  if (statusFilter !== 'all' && lesson.status !== statusFilter) {
-    return false
+  const onClosureDay = Boolean(lesson.is_on_closure_day) && !lesson.deleted_at && lesson.status !== 'cancelled'
+
+  if (statusFilter === 'closure') {
+    if (!onClosureDay) return false
+  } else if (statusFilter !== 'all') {
+    // Les cours en congés club ne sont pas des « confirmés » / séances maintenues.
+    if (onClosureDay) return false
+    if (lesson.status !== statusFilter) return false
   }
 
   const lessonTime = new Date(lesson.start_time).getTime()

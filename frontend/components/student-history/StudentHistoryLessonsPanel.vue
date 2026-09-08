@@ -198,6 +198,7 @@
 import { ref, computed } from 'vue'
 import {
   STUDENT_LESSON_PERIOD_FILTER_OPTIONS,
+  STUDENT_LESSON_STATUS_FILTER_OPTIONS,
   compareLessonsForHistoryDisplay,
   comparePastLessonsForHistoryDisplay,
   groupLessonsByMonth,
@@ -224,13 +225,7 @@ const lessonStatusFilter = ref('all')
 const lessonPeriodMode = ref('upcoming_quarter')
 const showPastLessons = ref(true)
 
-const statusFilterOptions = [
-  { value: 'all', label: 'Tous' },
-  { value: 'pending', label: 'En attente' },
-  { value: 'confirmed', label: 'Confirmés' },
-  { value: 'completed', label: 'Terminés' },
-  { value: 'cancelled', label: 'Annulés' },
-]
+const statusFilterOptions = STUDENT_LESSON_STATUS_FILTER_OPTIONS
 
 const periodFilterOptions = STUDENT_LESSON_PERIOD_FILTER_OPTIONS
 

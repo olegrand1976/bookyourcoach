@@ -53,6 +53,40 @@ describe('useStudentLessonHistoryFilters', () => {
     ).toBe(false)
   })
 
+  it('exclut les jours de fermeture du filtre Confirmés et les isole via closure', () => {
+    const from = new Date(2026, 0, 1)
+    const to = new Date(2026, 2, 31, 23, 59, 59, 999)
+    const onClosure = {
+      start_time: '2026-02-15T10:00:00',
+      status: 'confirmed',
+      is_on_closure_day: true,
+    }
+    const confirmed = {
+      start_time: '2026-02-15T10:00:00',
+      status: 'confirmed',
+      is_on_closure_day: false,
+    }
+
+    expect(lessonMatchesHistoryFilters(onClosure, 'confirmed', from, to)).toBe(false)
+    expect(lessonMatchesHistoryFilters(onClosure, 'closure', from, to)).toBe(true)
+    expect(lessonMatchesHistoryFilters(onClosure, 'all', from, to)).toBe(true)
+    expect(lessonMatchesHistoryFilters(confirmed, 'confirmed', from, to)).toBe(true)
+    expect(lessonMatchesHistoryFilters(confirmed, 'closure', from, to)).toBe(false)
+  })
+
+  it('ne traite pas un annulé comme fermeture même si is_on_closure_day', () => {
+    const from = new Date(2026, 0, 1)
+    const to = new Date(2026, 2, 31, 23, 59, 59, 999)
+    const cancelledOnClosure = {
+      start_time: '2026-02-15T10:00:00',
+      status: 'cancelled',
+      is_on_closure_day: true,
+    }
+
+    expect(lessonMatchesHistoryFilters(cancelledOnClosure, 'closure', from, to)).toBe(false)
+    expect(lessonMatchesHistoryFilters(cancelledOnClosure, 'cancelled', from, to)).toBe(true)
+  })
+
   it('groups lessons by month and sorts past in descending order', () => {
     const groups = groupLessonsByMonth(
       [

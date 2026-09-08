@@ -2,11 +2,13 @@
   <div
     :class="[
       'rounded-lg md:rounded-none p-4 md:py-3 border-b border-gray-100 last:border-b-0 md:grid md:grid-cols-12 md:gap-2 md:items-center transition-colors',
-      uncovered
+      showAsUncovered
         ? 'bg-red-50 border-red-200 md:border-0'
-        : isPast
-          ? 'bg-gray-50/80 hover:bg-gray-100/80 md:border-0 opacity-95'
-          : 'bg-white hover:bg-purple-50/40 md:border-0',
+        : displayStatus.isClosureDay
+          ? 'bg-orange-50/40 hover:bg-orange-50/70 md:border-0'
+          : isPast
+            ? 'bg-gray-50/80 hover:bg-gray-100/80 md:border-0 opacity-95'
+            : 'bg-white hover:bg-purple-50/40 md:border-0',
     ]"
   >
     <div class="md:col-span-2 mb-2 md:mb-0">
@@ -30,15 +32,15 @@
         >✓ Abo</span>
         <span v-else class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-800 rounded">Séance libre</span>
         <span
-          v-if="uncovered"
+          v-if="showAsUncovered"
           class="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded"
         >⚠️ Non couvert</span>
         <span
           v-else-if="lesson.subscription_coverage?.is_future && lesson.subscription_coverage?.is_covered"
           class="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded"
         >✓ Couvert</span>
-        <span :class="statusBadgeClass(lesson.status)" class="px-1.5 py-0.5 text-xs rounded md:hidden">
-          {{ getLessonStatusLabel(lesson.status) }}
+        <span :class="displayStatus.class" class="px-1.5 py-0.5 text-xs rounded md:hidden">
+          {{ displayStatus.label }}
         </span>
         <span
           v-if="lesson.status === 'cancelled' && (lesson.cancellation_count_in_subscription !== undefined || lesson.cancellation_reason === 'medical')"
@@ -54,7 +56,7 @@
       <p class="text-gray-900">{{ lesson.teacher?.user?.name || '—' }}</p>
     </div>
     <div class="hidden md:block md:col-span-1">
-      <span :class="statusLessonClass(lesson.status)">{{ getLessonStatusLabel(lesson.status) }}</span>
+      <span :class="statusPillClass">{{ displayStatus.label }}</span>
     </div>
     <div class="md:col-span-1 mb-2 md:mb-0">
       <span class="text-xs text-gray-500 md:hidden">Prix</span>
@@ -109,7 +111,7 @@
       </button>
     </div>
     <div
-      v-if="uncovered"
+      v-if="showAsUncovered"
       class="md:col-span-12 mt-2 bg-red-100 border border-red-200 rounded p-2 text-red-800 text-sm"
     >
       {{ lesson.subscription_coverage?.warning || 'Cours futur non couvert par un abonnement actif.' }}
@@ -118,13 +120,19 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   getCancellationSubscriptionImpact,
   getCancellationSubscriptionImpactClass,
   getCertificateStatusLabel,
 } from '~/composables/useCancellationLabels'
+import {
+  getLessonDisplayStatus,
+  getLessonDisplayStatusPillClassFromStatus,
+  type LessonDisplayStatusInput,
+} from '~/composables/useLessonDisplayStatus'
 
-defineProps<{
+const props = defineProps<{
   lesson: Record<string, unknown>
   uncovered?: boolean
   isPast?: boolean
@@ -137,6 +145,17 @@ const emit = defineEmits<{
   'accept-certificate': [lesson: Record<string, unknown>]
   'reject-certificate': [lesson: Record<string, unknown>]
 }>()
+
+const displayStatus = computed(() =>
+  getLessonDisplayStatus(props.lesson as LessonDisplayStatusInput),
+)
+const statusPillClass = computed(() =>
+  getLessonDisplayStatusPillClassFromStatus(displayStatus.value),
+)
+/** Un jour de fermeture n'est pas une séance « non couverte » à alerter. */
+const showAsUncovered = computed(
+  () => Boolean(props.uncovered) && !displayStatus.value.isClosureDay,
+)
 
 function formatDateShort(dateTime: string) {
   return new Date(dateTime).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -153,36 +172,6 @@ function formatTimeOnly(dateTime: string) {
 function formatPrice(price: number | string) {
   const num = typeof price === 'string' ? parseFloat(price) : price
   return Number.isNaN(num) ? '0.00' : num.toFixed(2)
-}
-
-function getLessonStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending: 'En attente',
-    confirmed: 'Confirmé',
-    completed: 'Terminé',
-    cancelled: 'Annulé',
-  }
-  return labels[status] || status
-}
-
-function statusLessonClass(status: string) {
-  const map: Record<string, string> = {
-    completed: 'px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800',
-    pending: 'px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800',
-    confirmed: 'px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800',
-    cancelled: 'px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800',
-  }
-  return map[status] || 'px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800'
-}
-
-function statusBadgeClass(status: string) {
-  const map: Record<string, string> = {
-    completed: 'bg-green-100 text-green-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    confirmed: 'bg-yellow-100 text-yellow-800',
-    cancelled: 'bg-red-100 text-red-800',
-  }
-  return map[status] || 'bg-gray-100 text-gray-800'
 }
 
 function certificateStatusClass(status: string) {
