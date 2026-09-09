@@ -130,10 +130,12 @@
                       </p>
                     </div>
                     <span
+                      v-for="tag in [lessonTag(lesson)]"
+                      :key="`${lesson.id}-tag`"
                       class="inline-flex shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
-                      :class="lessonTag(lesson).class"
+                      :class="tag.class"
                     >
-                      {{ lessonTag(lesson).label }}
+                      {{ tag.label }}
                     </span>
                   </div>
                 </li>
