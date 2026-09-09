@@ -45,7 +45,7 @@ class ClubClosureDayService
 
             $lessonsQuery = Lesson::query()
                 ->where('club_id', $club->id)
-                ->whereIn('status', ['pending', 'confirmed']);
+                ->whereIn('status', ['pending', 'confirmed', 'completed']);
             LessonCalendarDate::whereOnCalendarDate($lessonsQuery, 'start_time', $dateYmd);
             $lessons = $lessonsQuery->get();
 

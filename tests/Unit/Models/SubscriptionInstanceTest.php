@@ -861,6 +861,64 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
+    public function soft_deleted_attached_lesson_is_not_counted(): void
+    {
+        $pastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->lessons()->attach($pastLesson->id);
+        // Simule un pivot orphelin : soft-delete sans passer par l'observer detach
+        \Illuminate\Support\Facades\DB::table('lessons')
+            ->where('id', $pastLesson->id)
+            ->update(['deleted_at' => now()]);
+
+        $this->subscriptionInstance->recalculateLessonsUsed();
+
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->getConsumedLessonsCount());
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->getAttachedCountableLessonsCount());
+    }
+
+    #[Test]
+    public function late_cancelled_future_lesson_counts_in_consumed_and_attachment_slots(): void
+    {
+        $futureLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDay(),
+            'end_time' => Carbon::now()->addDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $this->subscriptionInstance->consumeLesson($futureLesson);
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
+
+        $futureLesson->update([
+            'status' => 'cancelled',
+            'cancellation_count_in_subscription' => true,
+        ]);
+
+        $fresh = $this->subscriptionInstance->fresh();
+        $this->assertEquals(1, $fresh->lessons_used);
+        $this->assertEquals(1, $fresh->getConsumedLessonsCount());
+        $this->assertEquals(1, $fresh->getAttachedCountableLessonsCount());
+        $this->assertEquals(9, $fresh->getRemainingAttachmentSlots());
+    }
+
+    #[Test]
     public function cancel_then_reactivate_does_not_double_count(): void
     {
         $pastLesson = Lesson::create([

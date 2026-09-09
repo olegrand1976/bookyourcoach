@@ -1149,7 +1149,7 @@ const getManualLessonsUsed = (instance) => {
 }
 
 // Décompte automatique aligné sur le backend : lessons_used est l'autorité du total débité
-// (inclut les annulations comptées via cancellation_count_in_subscription et les futurs réservés).
+// (passés consommés + annulations tardives comptées ; les futurs attachés n'entrent pas ici).
 // La part automatique = lessons_used - manual_lessons_used ; on n'effectue plus de recalcul local divergent.
 const getConsumedLessonsCount = (instance) => {
   if (!instance) return 0
