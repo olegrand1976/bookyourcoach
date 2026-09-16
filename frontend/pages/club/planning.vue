@@ -1670,18 +1670,18 @@
                    :class="lessonToDelete?.status === 'cancelled' || lessonToDelete?.deleted_at ? 'text-orange-700' : 'text-gray-600'">
                 <template v-if="futureLessonsCountForDelete > 0">
                   <template v-if="lessonToDelete?.status === 'cancelled'">
-                    Cette séance annulée et {{ futureLessonsCountForDelete }} séance(s) future(s) également annulée(s) liée(s) au même créneau et abonnement
+                    Cette séance annulée et {{ futureLessonsCountForDelete }} séance(s) future(s) également annulée(s) liée(s) au même élève, enseignant, créneau et abonnement
                   </template>
                   <template v-else>
-                    Cette séance et {{ futureLessonsCountForDelete }} séance(s) future(s) liée(s) au même créneau et abonnement
+                    Cette séance et {{ futureLessonsCountForDelete }} séance(s) future(s) liée(s) au même élève, enseignant, créneau et abonnement
                   </template>
                 </template>
                 <template v-else>
                   <template v-if="lessonToDelete?.status === 'cancelled'">
-                    Cette séance annulée et toutes les séances futures (s'il y en a) liées au même créneau et abonnement seront supprimées définitivement
+                    Cette séance annulée et toutes les séances futures (s'il y en a) liées au même élève, enseignant, créneau et abonnement seront supprimées définitivement
                   </template>
                   <template v-else>
-                    Cette séance et toutes les séances futures (s'il y en a) liées au même créneau et abonnement
+                    Cette séance et toutes les séances futures (s'il y en a) liées au même élève, enseignant, créneau et abonnement
                   </template>
                 </template>
               </div>

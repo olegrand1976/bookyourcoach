@@ -172,6 +172,8 @@ class LessonDeletionService
 
     /**
      * Filtre les cours futurs d'une instance pour le même créneau et le même élève.
+     * Pour delete/cancel : restreint aussi au même enseignant (couple élève/moniteur).
+     * Pour update : pas de filtre enseignant (exceptions moniteur + propagation horaire).
      *
      * @return Collection<int, Lesson>
      */
@@ -206,6 +208,18 @@ class LessonDeletionService
             ->whereRaw('TIME(lessons.start_time) = ?', [$lessonStartTime])
             ->whereRaw('TIME(lessons.end_time) = ?', [$lessonEndTime])
             ->where('lessons.club_id', $referenceLesson->club_id);
+
+        // Suppression / annulation : couple élève + enseignant uniquement
+        if (in_array($action, ['delete', 'cancel'], true)) {
+            $referenceTeacherId = $referenceLesson->teacher_id !== null
+                ? (int) $referenceLesson->teacher_id
+                : null;
+            if ($referenceTeacherId !== null) {
+                $query->where('lessons.teacher_id', $referenceTeacherId);
+            } else {
+                $query->whereNull('lessons.teacher_id');
+            }
+        }
 
         $this->applyParticipantStudentFilter($query, $targetStudentId);
 
