@@ -4,11 +4,13 @@
       'rounded-lg md:rounded-none p-4 md:py-3 border-b border-gray-100 last:border-b-0 md:grid md:grid-cols-12 md:gap-2 md:items-center transition-colors',
       showAsUncovered
         ? 'bg-red-50 border-red-200 md:border-0'
-        : displayStatus.isClosureDay
-          ? 'bg-orange-50/40 hover:bg-orange-50/70 md:border-0'
-          : isPast
-            ? 'bg-gray-50/80 hover:bg-gray-100/80 md:border-0 opacity-95'
-            : 'bg-white hover:bg-purple-50/40 md:border-0',
+        : displayStatus.isDeleted
+          ? 'bg-gray-100/80 hover:bg-gray-100 md:border-0 opacity-90'
+          : displayStatus.isClosureDay
+            ? 'bg-orange-50/40 hover:bg-orange-50/70 md:border-0'
+            : isPast
+              ? 'bg-gray-50/80 hover:bg-gray-100/80 md:border-0 opacity-95'
+              : 'bg-white hover:bg-purple-50/40 md:border-0',
     ]"
   >
     <div class="md:col-span-2 mb-2 md:mb-0">
@@ -132,29 +134,47 @@ import {
   type LessonDisplayStatusInput,
 } from '~/composables/useLessonDisplayStatus'
 
+/** Cours tel qu’exposé par GET /club/students/:id/history pour la liste historique. */
+export interface StudentHistoryLessonRowModel extends LessonDisplayStatusInput {
+  id: number
+  start_time: string
+  end_time: string
+  price?: number | string | null
+  course_type?: { name?: string | null } | null
+  teacher?: { user?: { name?: string | null } | null } | null
+  location?: { name?: string | null } | null
+  subscription_instances?: unknown[] | null
+  subscription_coverage?: {
+    is_future?: boolean
+    is_covered?: boolean
+    warning?: string | null
+  } | null
+  cancellation_count_in_subscription?: boolean
+  cancellation_certificate_path?: string | null
+  cancellation_certificate_status?: string | null
+}
+
 const props = defineProps<{
-  lesson: Record<string, unknown>
+  lesson: StudentHistoryLessonRowModel
   uncovered?: boolean
   isPast?: boolean
   certificateActionLoading?: number | null
 }>()
 
 const emit = defineEmits<{
-  edit: [lesson: Record<string, unknown>]
+  edit: [lesson: StudentHistoryLessonRowModel]
   'download-certificate': [lessonId: number]
-  'accept-certificate': [lesson: Record<string, unknown>]
-  'reject-certificate': [lesson: Record<string, unknown>]
+  'accept-certificate': [lesson: StudentHistoryLessonRowModel]
+  'reject-certificate': [lesson: StudentHistoryLessonRowModel]
 }>()
 
-const displayStatus = computed(() =>
-  getLessonDisplayStatus(props.lesson as LessonDisplayStatusInput),
-)
+const displayStatus = computed(() => getLessonDisplayStatus(props.lesson))
 const statusPillClass = computed(() =>
   getLessonDisplayStatusPillClassFromStatus(displayStatus.value),
 )
 /** Un jour de fermeture n'est pas une séance « non couverte » à alerter. */
 const showAsUncovered = computed(
-  () => Boolean(props.uncovered) && !displayStatus.value.isClosureDay,
+  () => Boolean(props.uncovered) && !displayStatus.value.isClosureDay && !displayStatus.value.isDeleted,
 )
 
 function formatDateShort(dateTime: string) {
@@ -174,13 +194,13 @@ function formatPrice(price: number | string) {
   return Number.isNaN(num) ? '0.00' : num.toFixed(2)
 }
 
-function certificateStatusClass(status: string) {
+function certificateStatusClass(status: string | null | undefined) {
   const map: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800',
     accepted: 'bg-emerald-100 text-emerald-800',
     rejected: 'bg-red-100 text-red-800',
     closed: 'bg-gray-100 text-gray-700',
   }
-  return map[status] || 'bg-gray-100 text-gray-700'
+  return (status && map[status]) || 'bg-gray-100 text-gray-700'
 }
 </script>

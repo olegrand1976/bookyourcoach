@@ -284,6 +284,60 @@ class ClubClosureDayTest extends TestCase
     }
 
     #[Test]
+    public function closing_day_detaches_completed_lessons_and_refunds_credits(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00'));
+        try {
+            $user = $this->actingAsClub();
+            $club = $user->getFirstClub();
+            $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+            $student = Student::factory()->create();
+            $courseType = CourseType::factory()->create();
+            $location = Location::factory()->create();
+            $instance = $this->createSubscriptionInstanceForCourseType($club, $student, $courseType);
+
+            $closureDay = '2026-07-10';
+            $completedOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $closureDay . ' 09:00:00',
+                'end_time' => $closureDay . ' 09:20:00',
+                'status' => 'completed',
+            ]);
+            $pastOutside = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => '2026-07-03 10:00:00',
+                'end_time' => '2026-07-03 10:20:00',
+            ]);
+
+            $instance->lessons()->attach([$completedOnClosure->id, $pastOutside->id]);
+            $instance->recalculateLessonsUsed();
+            $instance->refresh();
+            $this->assertSame(2, (int) $instance->lessons_used);
+
+            $this->postJson('/api/club/closure-days', [
+                'date' => $closureDay,
+                'closed' => true,
+            ])->assertStatus(200)->assertJson(['success' => true]);
+
+            $this->assertDatabaseMissing('subscription_lessons', [
+                'subscription_instance_id' => $instance->id,
+                'lesson_id' => $completedOnClosure->id,
+            ]);
+            $this->assertDatabaseHas('subscription_lessons', [
+                'subscription_instance_id' => $instance->id,
+                'lesson_id' => $pastOutside->id,
+            ]);
+
+            $instance->refresh();
+            $this->assertSame(1, (int) $instance->lessons_used);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    #[Test]
     public function closing_day_reopens_completed_subscription(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00'));

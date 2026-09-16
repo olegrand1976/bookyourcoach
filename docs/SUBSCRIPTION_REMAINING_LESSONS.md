@@ -9,7 +9,8 @@
 
 `lessons_used = manual_lessons_used + cours passés consommés + annulations tardives comptées`.
 
-Les cours futurs attachés **bloquent** la réservation sans augmenter `lessons_used` tant qu'ils ne sont pas passés.
+Les cours futurs attachés **bloquent** la réservation (`remaining_bookable`) sans augmenter `lessons_used` tant qu'ils ne sont pas passés.
+Les soft-deleted ne comptent jamais. Une annulation tardive (`cancellation_count_in_subscription`) compte immédiatement, même si `start_time` est encore futur.
 
 ## Recalcul
 

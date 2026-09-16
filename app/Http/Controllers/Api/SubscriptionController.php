@@ -162,108 +162,17 @@ class SubscriptionController extends Controller
                 ]);
             }
 
-            if ($scope === 'active') {
-                // 🔧 Lier automatiquement les cours non liés — élèves de toutes les instances actives du club (pas seulement la page courante)
-                $allStudentIds = DB::table('subscription_instance_students as sis')
-                    ->join('subscription_instances as si', 'si.id', '=', 'sis.subscription_instance_id')
-                    ->join('subscriptions as sub', 'sub.id', '=', 'si.subscription_id')
-                    ->where('sub.club_id', $club->id)
-                    ->where('si.status', 'active')
-                    ->whereNull('sub.deleted_at')
-                    ->distinct()
-                    ->pluck('sis.student_id')
-                    ->all();
-
-                // Pour chaque élève, trouver ses cours non liés et les lier au bon abonnement
-                foreach ($allStudentIds as $studentId) {
-                    // Récupérer tous les cours non liés de cet élève
-                    $unlinkedLessons = \App\Models\Lesson::where(function ($query) use ($studentId) {
-                            $query->where('student_id', $studentId)
-                                ->orWhereHas('students', function ($q) use ($studentId) {
-                                    $q->where('students.id', $studentId);
-                                });
-                        })
-                        ->whereNotIn('status', ['cancelled'])
-                        ->whereDoesntHave('subscriptionInstances')
-                        ->get();
-
-                    foreach ($unlinkedLessons as $lesson) {
-                        if (!$lesson->course_type_id) {
-                            continue;
-                        }
-
-                        try {
-                            // Trouver le bon abonnement actif pour cet élève et ce type de cours
-                            // (le plus ancien qui a encore des cours disponibles)
-                            $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
-                                $studentId,
-                                $lesson->course_type_id,
-                                $club->id
-                            );
-
-                            if ($instance) {
-                                $instance->consumeLesson($lesson);
-                                Log::info("🔗 Cours {$lesson->id} lié automatiquement à l'abonnement {$instance->id} (le plus ancien disponible)", [
-                                    'lesson_id' => $lesson->id,
-                                    'student_id' => $studentId,
-                                    'course_type_id' => $lesson->course_type_id,
-                                    'subscription_instance_id' => $instance->id,
-                                    'subscription_created_at' => $instance->created_at
-                                ]);
-                            }
-                        } catch (\Exception $e) {
-                            Log::warning("Impossible de lier le cours {$lesson->id} à un abonnement: " . $e->getMessage(), [
-                                'lesson_id' => $lesson->id,
-                                'student_id' => $studentId,
-                                'course_type_id' => $lesson->course_type_id
-                            ]);
-                        }
+            // Lecture seule : métadonnées d'affichage. Liaison orphelins + recalcul → POST /recalculate.
+            foreach ($subscriptions as $subscription) {
+                if ($subscription->instances) {
+                    foreach ($subscription->instances as $instance) {
+                        $instance->setAttribute(
+                            'is_family_shared',
+                            $instance->students && $instance->students->count() >= 2
+                        );
                     }
                 }
-
-                // ⚠️ IMPORTANT : Recalculer lessons_used pour ne compter que les cours passés
-                // Cela garantit que seuls les cours réellement passés sont comptabilisés
-                // Les valeurs manuelles sont préservées si elles sont supérieures au nombre de cours passés
-                foreach ($subscriptions as $subscription) {
-                    if ($subscription->instances && $subscription->instances->count() > 0) {
-                        foreach ($subscription->instances as $instance) {
-                            $instance->setAttribute(
-                                'is_family_shared',
-                                $instance->students && $instance->students->count() >= 2
-                            );
-                            try {
-                                // Recalculer lessons_used pour ne compter que les cours passés
-                                $instance->recalculateLessonsUsed();
-                                // Mettre à jour le statut (expired si expires_at dépassée, completed si 100% utilisé)
-                                $instance->checkAndUpdateStatus();
-                            } catch (\Exception $e) {
-                                Log::warning('Erreur lors du recalcul pour l\'instance: ' . $e->getMessage(), [
-                                    'instance_id' => $instance->id ?? null
-                                ]);
-                            }
-                        }
-                    }
-
-                    // Ajouter l'alias subscriptionStudents pour compatibilité frontend
-                    try {
-                        $subscription->subscription_students = $subscription->instances ?? collect([]);
-                    } catch (\Exception $e) {
-                        Log::warning('Erreur lors de l\'ajout de subscription_students: ' . $e->getMessage());
-                        $subscription->subscription_students = collect([]);
-                    }
-                }
-            } else {
-                foreach ($subscriptions as $subscription) {
-                    if ($subscription->instances) {
-                        foreach ($subscription->instances as $instance) {
-                            $instance->setAttribute(
-                                'is_family_shared',
-                                $instance->students && $instance->students->count() >= 2
-                            );
-                        }
-                    }
-                    $subscription->subscription_students = $subscription->instances ?? collect([]);
-                }
+                $subscription->subscription_students = $subscription->instances ?? collect([]);
             }
 
             // Sérialiser manuellement pour éviter les problèmes avec les accesseurs

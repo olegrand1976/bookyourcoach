@@ -154,17 +154,32 @@ class SubscriptionInstance extends Model
     /**
      * Cours passés consommés + annulations tardives comptées (pivot conservé).
      * Source de vérité pour lessons_used = manual_lessons_used + ce compteur.
+     * Aligné sur {@see getAttachedCountableLessonsCount()} à « maintenant ».
      */
     public function getConsumedLessonsCount(): int
     {
-        $hasCountColumn = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
+        return $this->getAttachedCountableLessonsCount(Carbon::now());
+    }
+
+    /**
+     * Cours attachés qui comptent dans la capacité à une date de référence.
+     * - pending/confirmed/completed : uniquement si start_time <= $asOf
+     * - cancelled + cancellation_count_in_subscription : toujours (crédit déjà perdu)
+     * - soft-deleted : jamais
+     */
+    public function getAttachedCountableLessonsCount(?\Carbon\CarbonInterface $asOf = null): int
+    {
+        $asOf = $asOf ? Carbon::parse($asOf) : Carbon::now();
+        $hasCountColumn = $this->lessonsHaveCancellationCountColumn();
 
         return (int) $this->buildAttachedLessonsQuery()
-            ->where(function ($q) use ($hasCountColumn) {
-                $q->where(function ($q2) {
+            ->whereNull('lessons.deleted_at')
+            ->where(function ($q) use ($asOf, $hasCountColumn) {
+                $q->where(function ($q2) use ($asOf) {
                     $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                        ->where('lessons.start_time', '<=', Carbon::now());
+                        ->where('lessons.start_time', '<=', $asOf);
                 });
+
                 if ($hasCountColumn) {
                     $q->orWhere(function ($q2) {
                         $q2->where('lessons.status', 'cancelled')
@@ -175,28 +190,15 @@ class SubscriptionInstance extends Model
             ->count();
     }
 
-    /**
-     * Cours attachés qui comptent dans la capacité à une date de référence.
-     * Ne compte jamais le futur (start_time > $asOf) ni les soft-deleted.
-     */
-    public function getAttachedCountableLessonsCount(?\Carbon\CarbonInterface $asOf = null): int
+    private function lessonsHaveCancellationCountColumn(): bool
     {
-        $asOf = $asOf ? Carbon::parse($asOf) : Carbon::now();
+        static $cached = null;
 
-        return (int) $this->buildAttachedLessonsQuery()
-            ->whereNull('lessons.deleted_at')
-            ->where('lessons.start_time', '<=', $asOf)
-            ->where(function ($q) {
-                $q->whereIn('lessons.status', ['pending', 'confirmed', 'completed']);
+        if ($cached === null) {
+            $cached = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription');
+        }
 
-                if (\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription')) {
-                    $q->orWhere(function ($q2) {
-                        $q2->where('lessons.status', 'cancelled')
-                            ->where('lessons.cancellation_count_in_subscription', true);
-                    });
-                }
-            })
-            ->count();
+        return $cached;
     }
 
     private function resolveTotalAvailableLessons(): int

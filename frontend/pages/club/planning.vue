@@ -215,8 +215,14 @@
                   <span class="font-bold block" :class="lessonsForPlanningGrid.length > 0 ? 'text-green-600' : 'text-orange-600'">
                     {{ lessonsForPlanningGrid.length }} ligne(s) affichée(s)
                     {{ selectedDate ? `le ${formatDateFull(selectedDate)}` : 'dans ce créneau' }}
-                    <span v-if="recurringPlanningPlaceholders.length" class="font-semibold text-violet-700">
-                      ({{ filteredLessons.length }} cours + {{ recurringPlanningPlaceholders.length }} série(s) abo. sans cours ce jour)
+                    <span v-if="recurringPlanningPlaceholders.length || filteredLessons.some((l) => planningLessonIsInactive(l))" class="font-semibold text-violet-700">
+                      ({{ filteredLessons.filter((l) => !planningLessonIsInactive(l)).length }} cours actifs
+                      <template v-if="filteredLessons.some((l) => planningLessonIsInactive(l))">
+                        + {{ filteredLessons.filter((l) => planningLessonIsInactive(l)).length }} annulé(s)/supprimé(s)
+                      </template>
+                      <template v-if="recurringPlanningPlaceholders.length">
+                        + {{ recurringPlanningPlaceholders.length }} série(s) abo. sans cours ce jour
+                      </template>)
                     </span>
                   </span>
                   <span v-if="selectedSlot && selectedDate" class="block text-xs text-gray-500">
@@ -601,14 +607,20 @@
                           </template>
                           <template v-else>
                             {{ lesson.course_type?.name || 'Cours' }}
+                            <p
+                              v-if="lessonInactivityAuditLine(lesson)"
+                              class="mt-1.5 mb-0 text-xs font-medium text-red-800 leading-snug"
+                            >
+                              {{ lessonInactivityAuditLine(lesson) }}
+                            </p>
                           </template>
                         </h4>
                       </div>
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
-                            :class="getStatusBadgeClass(lesson.status)">
-                        {{ getStatusLabel(lesson.status) }}
+                            :class="getStatusBadgeClass(lesson.status, lesson)">
+                        {{ getStatusLabel(lesson.status, lesson) }}
                       </span>
-                      <span v-if="lesson.status === 'cancelled'" class="text-xs text-orange-600 font-semibold ml-1">
+                      <span v-if="planningLessonIsInactive(lesson)" class="text-xs text-orange-600 font-semibold ml-1">
                         ⚠️
                       </span>
                     </div>
@@ -907,7 +919,13 @@
                                 <div class="font-medium text-gray-900">
                                   {{ lesson.course_type?.name || 'Cours' }}
                                 </div>
-                                <div v-if="lesson.price" class="text-xs text-gray-500 mt-0.5">
+                                <p
+                                  v-if="lessonInactivityAuditLine(lesson)"
+                                  class="mt-1 mb-0 text-xs font-medium text-red-800 leading-snug"
+                                >
+                                  {{ lessonInactivityAuditLine(lesson) }}
+                                </p>
+                                <div v-if="lesson.price && !planningLessonIsInactive(lesson)" class="text-xs text-gray-500 mt-0.5">
                                   {{ formatPrice(lesson.price) }} €
                                 </div>
                               </template>
@@ -956,9 +974,15 @@
                         <td class="px-3 py-2 align-top whitespace-nowrap">
                           <span
                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                            :class="getStatusBadgeClass(lesson.status)">
-                            {{ getStatusLabel(lesson.status) }}
+                            :class="getStatusBadgeClass(lesson.status, lesson)">
+                            {{ getStatusLabel(lesson.status, lesson) }}
                           </span>
+                          <p
+                            v-if="lessonInactivityAuditLine(lesson)"
+                            class="mt-1 mb-0 text-[11px] text-red-800 leading-snug max-w-[14rem]"
+                          >
+                            {{ lessonInactivityAuditLine(lesson) }}
+                          </p>
                         </td>
                         <td class="px-2 sm:px-3 py-2 align-top min-w-0 max-w-[min(100vw,12rem)] sm:max-w-none" @click.stop>
                           <div v-if="!lesson.is_recurring_placeholder" class="flex flex-wrap justify-end gap-1">
@@ -1864,6 +1888,11 @@ interface Lesson {
   course_type?: CourseType
   location?: any
   notes?: string
+  cancelled_at?: string | null
+  cancelled_by_user_id?: number | null
+  cancelled_by_role?: string | null
+  cancelled_by_user?: { id?: number; name?: string | null } | null
+  deleted_at?: string | null
   /** Entrée virtuelle : réservation récurrente sans cours matérialisé ce jour */
   is_recurring_placeholder?: boolean
   recurring_slot_id?: number
@@ -2186,7 +2215,7 @@ const dayBroadcastRecipients = computed(() => {
   }
 
   for (const lesson of lessonsByLocalDate.value.get(selStr) ?? []) {
-    if ((lesson as any).is_recurring_placeholder || lesson.status === 'cancelled') continue
+    if ((lesson as any).is_recurring_placeholder || planningLessonIsInactive(lesson)) continue
     addLessonParticipants(lesson)
   }
 
@@ -2200,11 +2229,11 @@ const dayBroadcastRecipients = computed(() => {
 
     const alreadyMaterialized = (lessonsByLocalDate.value.get(selStr) ?? []).some(
       (l) => !(l as any).is_recurring_placeholder
-        && l.status !== 'cancelled'
+        && !planningLessonIsInactive(l)
         && lessonMaterializesRecurringOnDate(l, rs, selStr),
     )
     if (alreadyMaterialized) continue
-    if (recurringOccurrenceFreedByCancelledLesson(rs, selStr)) continue
+    if (recurringOccurrenceFreedByInactiveLesson(rs, selStr)) continue
 
     const teacherId = Number(rs.teacher_id)
     if (teacherId && !teachersMap.has(teacherId)) {
@@ -2228,7 +2257,7 @@ const dayBroadcastCount = computed(
 
 /** Intervalle temps réel du cours (ms) pour détecter double-booking enseignant */
 function planningLessonIntervalEdgeMs(lesson: Lesson): { start: number; end: number } | null {
-  if (lesson.is_recurring_placeholder || lesson.status === 'cancelled') return null
+  if (lesson.is_recurring_placeholder || planningLessonIsInactive(lesson)) return null
   if (!lesson.start_time) return null
   const start = new Date(lesson.start_time as string).getTime()
   if (Number.isNaN(start)) return null
@@ -2251,7 +2280,7 @@ function planningLessonIntervalEdgeMs(lesson: Lesson): { start: number; end: num
 const teacherParallelConflictLessonIds = computed(() => {
   const bad = new Set<number>()
   const list = filteredLessons.value.filter(
-    (l) => !l.is_recurring_placeholder && l.status !== 'cancelled' && l.id != null
+    (l) => !l.is_recurring_placeholder && !planningLessonIsInactive(l) && l.id != null
   )
   const byTeacher = new Map<number, Lesson[]>()
   for (const l of list) {
@@ -2315,7 +2344,7 @@ const hasStandaloneLessonsOnSelectedClosureDay = computed(() => {
  */
 function lessonMaterializesRecurringOnDate(lesson: any, slot: any, dateStr: string): boolean {
   if (lesson.is_recurring_placeholder) return false
-  if (lesson.status === 'cancelled') return false
+  if (planningLessonIsInactive(lesson)) return false
   const ls = new Date(lesson.start_time)
   const y = ls.getFullYear()
   const m = String(ls.getMonth() + 1).padStart(2, '0')
@@ -2342,7 +2371,7 @@ function lessonIsGeneratedFromRecurringSlot(lesson: Lesson): boolean {
  */
 function planningLessonOverlapsRecurringSeries(lesson: Lesson): boolean {
   if (lesson.is_recurring_placeholder) return true
-  if (lesson.status === 'cancelled') return false
+  if (planningLessonIsInactive(lesson)) return false
   const ls = new Date(lesson.start_time)
   const y = ls.getFullYear()
   const m = String(ls.getMonth() + 1).padStart(2, '0')
@@ -2379,7 +2408,7 @@ function planningLessonTiedToRecurring(lesson: Lesson): boolean {
 /** Cours ponctuel créé manuellement au même créneau qu’une réservation récurrente (sans pivot génération) */
 function planningLessonIsUniqueSuperposedOnRecurring(lesson: Lesson): boolean {
   if (lesson.is_recurring_placeholder) return false
-  if (lesson.status === 'cancelled') return false
+  if (planningLessonIsInactive(lesson)) return false
   return (
     planningLessonOverlapsRecurringSeries(lesson) && !lessonIsGeneratedFromRecurringSlot(lesson)
   )
@@ -2421,29 +2450,46 @@ function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
 }
 
 /**
- * Une occurrence de série est « libérée » ce jour si un cours annulé couvre le même créneau
- * (élève + enseignant + chevauchement horaire). La série reste active pour les semaines suivantes.
+ * Cours inactif sur la grille : annulé ou soft-supprimé (n'occupe pas une voie).
  */
-function recurringOccurrenceFreedByCancelledLesson(rs: { student_id?: number; teacher_id?: number; start_time?: string; end_time?: string }, dateStr: string): boolean {
+function planningLessonIsInactive(lesson: Lesson | any): boolean {
+  if (!lesson || lesson.is_recurring_placeholder) return false
+  if (lesson.status === 'cancelled') return true
+  return lesson.deleted_at != null && String(lesson.deleted_at) !== ''
+}
+
+/**
+ * Une occurrence de série est « libérée » ce jour si un cours annulé ou soft-supprimé
+ * couvre le même créneau (élève + enseignant + chevauchement horaire).
+ * La série reste active pour les semaines suivantes.
+ */
+function recurringOccurrenceFreedByInactiveLesson(rs: { student_id?: number; teacher_id?: number; start_time?: string; end_time?: string }, dateStr: string): boolean {
   const rsStart = new Date(`${dateStr}T${String(rs.start_time).substring(0, 5)}:00`)
   let rsEnd = new Date(`${dateStr}T${String(rs.end_time).substring(0, 5)}:00`)
   if (rsEnd <= rsStart) rsEnd = new Date(rsEnd.getTime() + 86400000)
-  const tid = Number(rs.teacher_id)
   const sid = Number(rs.student_id)
   if (!sid) return false
 
   const dayLessons = lessonsByLocalDate.value.get(dateStr) ?? []
   return dayLessons.some((lesson) => {
     if (lesson.is_recurring_placeholder) return false
-    if (lesson.status !== 'cancelled') return false
-    const lid = Number(lesson.teacher_id ?? lesson.teacher?.id)
+    if (!planningLessonIsInactive(lesson)) return false
     const lsid = Number(lesson.student_id ?? lesson.students?.[0]?.id)
-    if (tid !== lid || sid !== lsid) return false
+    // Élève + chevauchement horaire (le coach série peut avoir changé après soft-delete)
+    if (sid !== lsid) return false
 
     const ls = new Date(lesson.start_time)
     const le = new Date(lesson.end_time)
     return ls < rsEnd && le > rsStart
   })
+}
+
+/** @deprecated alias — même sémantique (annulé ou soft-deleted) */
+function recurringOccurrenceFreedByCancelledLesson(
+  rs: { student_id?: number; teacher_id?: number; start_time?: string; end_time?: string },
+  dateStr: string,
+): boolean {
+  return recurringOccurrenceFreedByInactiveLesson(rs, dateStr)
 }
 
 function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
@@ -2456,13 +2502,49 @@ function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
   const rs = clubRecurringSlots.value.find((r) => Number(r.id) === Number(placeholder.recurring_slot_id))
   if (!rs) return false
 
-  return recurringOccurrenceFreedByCancelledLesson(rs, dateStr)
+  return recurringOccurrenceFreedByInactiveLesson(rs, dateStr)
 }
 
 /** Texte condensé pour les placeholders récurrents (carte + liste), une seule lecture au lieu de plusieurs lignes colorées. */
 function recurringPlaceholderSummaryLine(lesson: Lesson): string {
   const id = lesson.recurring_slot_id ?? '—'
-  return `Série n°${id} — aucun cours ce jour — créneau libre pour réservation ponctuelle.`
+  return `Série n°${id} — aucun cours ce jour — créneau libre pour réservation ponctuelle (trou de génération à vérifier).`
+}
+
+/** Ligne d’audit affichée sous le titre d’un cours annulé / soft-supprimé. */
+function lessonInactivityAuditLine(lesson: Lesson): string | null {
+  if (lesson.is_recurring_placeholder || !planningLessonIsInactive(lesson)) return null
+
+  const role = lesson.cancelled_by_role
+  const who =
+    lesson.cancelled_by_user?.name
+    || (role === 'student' ? 'l\'élève' : role === 'club' ? 'le club' : role === 'teacher' ? 'l\'enseignant' : null)
+
+  const whenRaw = lesson.cancelled_at || lesson.deleted_at
+  let whenStr = ''
+  if (whenRaw) {
+    const d = new Date(whenRaw as string)
+    if (!Number.isNaN(d.getTime())) {
+      whenStr = d.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    }
+  }
+
+  if (lesson.status === 'cancelled') {
+    if (who && whenStr) return `Annulé par ${who} — ${whenStr}`
+    if (who) return `Annulé par ${who}`
+    if (whenStr) return `Annulé — ${whenStr}`
+    return 'Annulé'
+  }
+
+  // Soft-delete sans status cancelled
+  if (whenStr) return `Supprimé par le club — ${whenStr}`
+  return 'Supprimé par le club'
 }
 
 /**
@@ -2497,8 +2579,8 @@ const recurringPlanningPlaceholders = computed((): Lesson[] => {
     const candidates = byStudentId.get(Number(rs.student_id)) ?? []
     const covering = candidates.find((l) => lessonMaterializesRecurringOnDate(l, rs, dateStr))
     if (covering) continue
-    // Cours annulé ce jour : plage libérée, série inchangée pour les occurrences futures
-    if (recurringOccurrenceFreedByCancelledLesson(rs, dateStr)) continue
+    // Cours annulé / soft-supprimé ce jour : plage libérée, série inchangée pour les occurrences futures
+    if (recurringOccurrenceFreedByInactiveLesson(rs, dateStr)) continue
     out.push(buildRecurringPlaceholder(rs, dateStr))
   }
   return out
@@ -2550,7 +2632,7 @@ const maxParallelSlotsForPlanning = computed(() =>
   Math.max(1, Number(selectedSlot.value?.max_slots) || 1)
 )
 
-/** Occupe une « voie » : cours actif ou placeholder récurrent ; les cours annulés ne comptent pas. */
+/** Occupe une « voie » : cours actif ou placeholder récurrent ; annulés / soft-supprimés ne comptent pas. */
 function countOccupiedParallelLanes(lessons: Lesson[]): number {
   let n = 0
   for (const l of lessons) {
@@ -2558,7 +2640,7 @@ function countOccupiedParallelLanes(lessons: Lesson[]): number {
       if (!isPlaceholderFromCancelledLesson(l)) {
         n += 1
       }
-    } else if (l.status === 'cancelled') {
+    } else if (planningLessonIsInactive(l)) {
       continue
     } else {
       n += 1
@@ -4720,6 +4802,12 @@ async function openCreateLessonFromRecurringPlaceholder(lesson: Lesson) {
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   await openCreateLessonModalForTimeSlot(`${hh}:${mm}`)
+  // Réservation ponctuelle sur un trou de série : ne pas lancer une récurrence 26 sem. contre la série elle-même
+  lessonForm.value.recurring_interval = 0
+  const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
+  const sid = Number(lesson.student_id ?? lesson.student?.id)
+  if (tid) lessonForm.value.teacher_id = tid
+  if (sid) lessonForm.value.student_id = sid
 }
 
 function closeDeleteModal() {
@@ -4904,7 +4992,10 @@ function formatLessonTime(datetime: string): string {
   return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function getStatusLabel(status: string): string {
+function getStatusLabel(status: string, lesson?: Lesson): string {
+  if (lesson && planningLessonIsInactive(lesson) && lesson.status !== 'cancelled' && lesson.deleted_at) {
+    return '🗑 Supprimé'
+  }
   const labels: Record<string, string> = {
     'confirmed': '✓ Confirmé',
     'pending': '⏳ En attente',
@@ -4915,7 +5006,10 @@ function getStatusLabel(status: string): string {
   return labels[status] || status
 }
 
-function getStatusBadgeClass(status: string): string {
+function getStatusBadgeClass(status: string, lesson?: Lesson): string {
+  if (lesson && planningLessonIsInactive(lesson) && lesson.status !== 'cancelled' && lesson.deleted_at) {
+    return 'bg-orange-100 text-orange-900'
+  }
   const classes: Record<string, string> = {
     'confirmed': 'bg-green-100 text-green-800',
     'pending': 'bg-yellow-100 text-yellow-800',
@@ -4932,6 +5026,11 @@ function getLessonBorderClass(lesson: Lesson): string {
       return 'border-amber-500 bg-amber-50 ring-2 ring-amber-400/90 ring-offset-1 shadow-md'
     }
     return 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/80 ring-offset-1 shadow-sm'
+  }
+  if (planningLessonIsInactive(lesson)) {
+    return lesson.status === 'cancelled'
+      ? 'border-red-300 bg-red-50'
+      : 'border-orange-400 bg-orange-50'
   }
   if (
     isSelectedDateClosure.value &&
@@ -4950,7 +5049,7 @@ function getLessonBorderClass(lesson: Lesson): string {
 }
 
 function getLessonCardStyle(lesson: Lesson): Record<string, string> {
-  if (lesson.is_recurring_placeholder) {
+  if (lesson.is_recurring_placeholder || planningLessonIsInactive(lesson)) {
     return {}
   }
   // Récupérer la couleur de l'enseignant si disponible

@@ -142,6 +142,8 @@ class LessonController extends Controller
                         $q->select('subscription_instances.id');
                     },
                     'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
+                    // Qui/quand pour cartes annulées / soft-deleted (placeholders série)
+                    'cancelledByUser:id,name',
                 ]
                 : [
                     "teacher:{$teacherColumns}",
@@ -169,14 +171,20 @@ class LessonController extends Controller
             $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id',
                                    'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time',
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
-                                   'lessons.est_legacy', 'lessons.deduct_from_subscription')
+                                   'lessons.est_legacy', 'lessons.deduct_from_subscription',
+                                   'lessons.cancelled_at', 'lessons.cancelled_by_user_id', 'lessons.cancelled_by_role',
+                                   'lessons.deleted_at')
                 ->with($eager);
 
             $this->applyLessonAccessScope($query, $user);
 
-            // Planning club/enseignant : exclure les cours annulés pour libérer la plage (réutilisable par un autre élève)
+            // Planning club : inclure annulés + soft-deleted (carte « Annulé/Supprimé » vs placeholder trompeur).
+            // Enseignant / autres contextes club : exclure les annulés pour libérer la plage.
             // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
-            if (in_array($user->role, ['club', 'teacher'], true)) {
+            $includeInactiveForClubPlanning = $isPlanningContext && $user->role === 'club';
+            if ($includeInactiveForClubPlanning) {
+                $query->withTrashed();
+            } elseif (in_array($user->role, ['club', 'teacher'], true)) {
                 $query->where('status', '!=', 'cancelled');
             }
 
@@ -2072,12 +2080,52 @@ class LessonController extends Controller
             if (! $validator->subscriptionRecurringSlotFiresOnDate($slot, $occurrence)) {
                 continue;
             }
+            // Occurrence sans cours confirmé (= carte blanche planning) : créneau libre pour une réservation ponctuelle.
+            if (! $this->recurringSlotHasActiveMaterializedLessonOnDate($slot, $date)) {
+                continue;
+            }
             $slotStart = substr((string) $slot->start_time, 0, 5);
             throw new \Exception(
                 "Impossible : cet enseignant a déjà une réservation récurrente qui chevauche ce créneau (début à {$slotStart}). ".
                 'Un enseignant ne peut pas encadrer deux cours en parallèle.'
             );
         }
+    }
+
+    /**
+     * True si la série a déjà un cours non annulé / non soft-supprimé qui matérialise l'occurrence ce jour-là.
+     */
+    private function recurringSlotHasActiveMaterializedLessonOnDate(
+        \App\Models\SubscriptionRecurringSlot $slot,
+        string $dateYmd
+    ): bool {
+        $slotStart = Carbon::parse($dateYmd.' '.substr((string) $slot->start_time, 0, 8));
+        $slotEnd = Carbon::parse($dateYmd.' '.substr((string) $slot->end_time, 0, 8));
+        if ($slotEnd->lte($slotStart)) {
+            $slotEnd->addDay();
+        }
+
+        $sid = (int) $slot->student_id;
+        if ($sid <= 0) {
+            return false;
+        }
+
+        $lessons = Lesson::query()
+            ->where('student_id', $sid)
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('start_time', $dateYmd)
+            ->with('courseType')
+            ->get();
+
+        foreach ($lessons as $lesson) {
+            $lessonStart = Carbon::parse($lesson->start_time);
+            $lessonEnd = $this->computeLessonEndForOverlap($lessonStart, $lesson);
+            if ($lessonStart->lt($slotEnd) && $lessonEnd->gt($slotStart)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
