@@ -838,4 +838,70 @@ class LessonControllerTest extends TestCase
         // Path non-planning : appends historiques toujours présents (pas de régression silencieuse)
         $this->assertArrayHasKey('remaining_bookable', $instances[0]);
     }
+
+    /** @test */
+    public function planning_context_includes_cancelled_and_soft_deleted_lessons_for_club(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'PLAN-CANCEL');
+
+        $cancelled = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(1)->setTime(10, 0),
+            'end_time' => now()->addDays(1)->setTime(11, 0),
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'cancelled_by_user_id' => $user->id,
+            'cancelled_by_role' => 'club',
+        ]);
+
+        $deleted = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(1)->setTime(11, 0),
+            'end_time' => now()->addDays(1)->setTime(12, 0),
+            'status' => 'confirmed',
+        ]);
+        $deleted->delete();
+
+        $from = now()->toDateString();
+        $to = now()->addWeeks(2)->toDateString();
+
+        $response = $this->getJson("/api/lessons?context=planning&date_from={$from}&date_to={$to}");
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $rows = collect($response->json('data'));
+        $cancelledRow = $rows->firstWhere('id', $cancelled->id);
+        $this->assertNotNull($cancelledRow, 'Cancelled lesson should appear in club planning');
+        $this->assertSame('cancelled', $cancelledRow['status']);
+        $this->assertArrayHasKey('cancelled_at', $cancelledRow);
+        $this->assertArrayHasKey('cancelled_by_role', $cancelledRow);
+        $this->assertSame('club', $cancelledRow['cancelled_by_role']);
+        $this->assertSame($user->id, $cancelledRow['cancelled_by_user']['id'] ?? null);
+
+        $deletedRow = $rows->firstWhere('id', $deleted->id);
+        $this->assertNotNull($deletedRow, 'Soft-deleted lesson should appear in club planning');
+        $this->assertNotNull($deletedRow['deleted_at'] ?? null);
+    }
+
+    /** @test */
+    public function non_planning_index_still_excludes_cancelled_for_club(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'NO-PLAN-CANCEL');
+
+        $cancelled = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(1)->setTime(10, 0),
+            'end_time' => now()->addDays(1)->setTime(11, 0),
+            'status' => 'cancelled',
+        ]);
+
+        $from = now()->toDateString();
+        $to = now()->addWeeks(2)->toDateString();
+
+        $response = $this->getJson("/api/lessons?date_from={$from}&date_to={$to}");
+        $response->assertStatus(200);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($cancelled->id, $ids);
+    }
 }

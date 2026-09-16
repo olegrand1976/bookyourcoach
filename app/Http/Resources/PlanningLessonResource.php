@@ -75,6 +75,14 @@ class PlanningLessonResource extends JsonResource
             ];
         }
 
+        $cancelledByUser = null;
+        if ($lesson->relationLoaded('cancelledByUser') && $lesson->cancelledByUser) {
+            $cancelledByUser = [
+                'id' => $lesson->cancelledByUser->id,
+                'name' => $lesson->cancelledByUser->name,
+            ];
+        }
+
         return [
             'id' => $lesson->id,
             'teacher_id' => $lesson->teacher_id,
@@ -89,6 +97,11 @@ class PlanningLessonResource extends JsonResource
             'notes' => $lesson->notes,
             'est_legacy' => $lesson->est_legacy,
             'deduct_from_subscription' => $lesson->deduct_from_subscription,
+            'cancelled_at' => $lesson->cancelled_at,
+            'cancelled_by_user_id' => $lesson->cancelled_by_user_id,
+            'cancelled_by_role' => $lesson->cancelled_by_role,
+            'cancelled_by_user' => $cancelledByUser,
+            'deleted_at' => $lesson->deleted_at,
             'created_at' => $lesson->created_at,
             'updated_at' => $lesson->updated_at,
             'teacher' => $teacher,

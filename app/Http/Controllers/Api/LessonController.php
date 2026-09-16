@@ -142,6 +142,8 @@ class LessonController extends Controller
                         $q->select('subscription_instances.id');
                     },
                     'lessonRecurringSlot:id,lesson_id,recurring_slot_id',
+                    // Qui/quand pour cartes annulées / soft-deleted (placeholders série)
+                    'cancelledByUser:id,name',
                 ]
                 : [
                     "teacher:{$teacherColumns}",
@@ -169,14 +171,20 @@ class LessonController extends Controller
             $query = Lesson::select('lessons.id', 'lessons.teacher_id', 'lessons.student_id', 'lessons.course_type_id',
                                    'lessons.location_id', 'lessons.club_id', 'lessons.start_time', 'lessons.end_time',
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
-                                   'lessons.est_legacy', 'lessons.deduct_from_subscription')
+                                   'lessons.est_legacy', 'lessons.deduct_from_subscription',
+                                   'lessons.cancelled_at', 'lessons.cancelled_by_user_id', 'lessons.cancelled_by_role',
+                                   'lessons.deleted_at')
                 ->with($eager);
 
             $this->applyLessonAccessScope($query, $user);
 
-            // Planning club/enseignant : exclure les cours annulés pour libérer la plage (réutilisable par un autre élève)
+            // Planning club : inclure annulés + soft-deleted (carte « Annulé/Supprimé » vs placeholder trompeur).
+            // Enseignant / autres contextes club : exclure les annulés pour libérer la plage.
             // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
-            if (in_array($user->role, ['club', 'teacher'], true)) {
+            $includeInactiveForClubPlanning = $isPlanningContext && $user->role === 'club';
+            if ($includeInactiveForClubPlanning) {
+                $query->withTrashed();
+            } elseif (in_array($user->role, ['club', 'teacher'], true)) {
                 $query->where('status', '!=', 'cancelled');
             }
 
