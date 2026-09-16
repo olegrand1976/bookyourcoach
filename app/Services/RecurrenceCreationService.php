@@ -270,6 +270,10 @@ class RecurrenceCreationService
         $slotEnd = Carbon::parse($slot->end_date)->endOfDay();
         $anchorBase = Carbon::parse($slot->start_date)->startOfDay();
 
+        if ($slot->isOccurrenceSkipped($occurrence->toDateString())) {
+            return false;
+        }
+
         if ($occurrence->lt($anchorBase) || $occurrence->gt($slotEnd)) {
             return false;
         }

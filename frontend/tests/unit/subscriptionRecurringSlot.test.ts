@@ -30,6 +30,20 @@ describe('subscriptionRecurringSlotFiresOnDate', () => {
     expect(subscriptionRecurringSlotFiresOnDate(slot, '2026-04-11')).toBe(true)
     expect(subscriptionRecurringSlotFiresOnDate(slot, '2026-04-05')).toBe(false)
   })
+
+  it('does not fire on skipped_dates', () => {
+    const slot = {
+      recurring_interval: 2,
+      start_date: '2026-03-25',
+      end_date: '2027-06-30',
+      day_of_week: 3,
+      status: 'active',
+      skipped_dates: ['2026-04-08'],
+    }
+    expect(subscriptionRecurringSlotFiresOnDate(slot, '2026-03-25')).toBe(true)
+    expect(subscriptionRecurringSlotFiresOnDate(slot, '2026-04-08')).toBe(false)
+    expect(subscriptionRecurringSlotFiresOnDate(slot, '2026-04-22')).toBe(true)
+  })
 })
 
 describe('calendarDaysBetweenLocal', () => {

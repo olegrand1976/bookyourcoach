@@ -88,6 +88,60 @@ class RecurringSlotValidatorRecurringIntervalTest extends TestCase
     }
 
     #[Test]
+    public function subscription_recurring_slot_does_not_fire_on_skipped_date(): void
+    {
+        Config::set('app.timezone', 'Europe/Paris');
+
+        $club = Club::create([
+            'name' => 'Club Skip',
+            'email' => 'skip@club.com',
+            'phone' => '0123456789',
+            'is_active' => true,
+        ]);
+
+        $u1 = User::create(['name' => 'SSkip', 'email' => 'sskip@test.com', 'password' => bcrypt('x'), 'role' => 'student']);
+        $ut = User::create(['name' => 'TSkip', 'email' => 'tskip@test.com', 'password' => bcrypt('x'), 'role' => 'teacher']);
+
+        $student = Student::create(['user_id' => $u1->id, 'club_id' => $club->id]);
+        $teacher = Teacher::create(['user_id' => $ut->id, 'club_id' => $club->id, 'is_available' => true]);
+
+        $sub = Subscription::create([
+            'club_id' => $club->id,
+            'name' => 'Sub Skip',
+            'total_lessons' => 20,
+            'free_lessons' => 0,
+            'price' => 100,
+            'is_active' => true,
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $sub->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::parse('2026-01-01'),
+            'expires_at' => Carbon::parse('2027-12-31'),
+            'status' => 'active',
+        ]);
+
+        $slot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $instance->id,
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'day_of_week' => Carbon::WEDNESDAY,
+            'start_time' => '16:40:00',
+            'end_time' => '17:00:00',
+            'recurring_interval' => 2,
+            'start_date' => '2026-03-25',
+            'end_date' => '2027-06-30',
+            'status' => 'active',
+            'skipped_dates' => ['2026-04-08'],
+        ]);
+
+        $this->assertTrue($this->invokeFiresOnDate($slot, Carbon::parse('2026-03-25')));
+        $this->assertFalse($this->invokeFiresOnDate($slot, Carbon::parse('2026-04-08')));
+        $this->assertTrue($this->invokeFiresOnDate($slot, Carbon::parse('2026-04-22')));
+    }
+
+    #[Test]
     public function alternating_biweekly_series_should_not_be_considered_duplicate(): void
     {
         Config::set('app.timezone', 'Europe/Paris');

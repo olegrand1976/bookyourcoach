@@ -221,6 +221,11 @@ class LessonDeletionService
             }
         }
 
+        // Delete : inclure soft-deleted pour purge définitive (cartes « Supprimé »)
+        if ($action === 'delete') {
+            $query->withTrashed();
+        }
+
         $this->applyParticipantStudentFilter($query, $targetStudentId);
 
         if ($action === 'cancel') {

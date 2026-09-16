@@ -1047,11 +1047,10 @@ class LessonControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.processed_count', 0)
-            ->assertJsonPath('data.skipped_archived_count', 1);
+            ->assertJsonPath('data.processed_count', 1);
 
-        $this->assertTrue(Lesson::withTrashed()->find($lesson->id)->trashed());
-        $this->assertStringContainsString('déjà archivé', (string) $response->json('message'));
+        $this->assertDatabaseMissing('lessons', ['id' => $lesson->id]);
+        $this->assertNull(Lesson::withTrashed()->find($lesson->id));
     }
 
     /** @test */
