@@ -1757,6 +1757,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import SlotsList from '~/components/planning/SlotsList.vue'
 import {
   ymdInRange,
+  parseYmd,
   subscriptionRecurringSlotFiresOnDate,
   isLessonLikeRecurringSlot,
 } from '~/utils/subscriptionRecurringSlot'
@@ -1932,6 +1933,8 @@ interface Lesson {
   /** Entrée virtuelle : réservation récurrente sans cours matérialisé ce jour */
   is_recurring_placeholder?: boolean
   recurring_slot_id?: number
+  /** YYYY-MM-DD de l’occurrence (évite les décalages TZ via Date.parse) */
+  occurrence_date?: string
   /** Lien pivot si le cours a été généré depuis un créneau récurrent (API) */
   lesson_recurring_slot?: { id?: number; recurring_slot_id?: number } | null
   subscription_instances?: any[]
@@ -2471,6 +2474,7 @@ function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
     price: priceNum ?? 0,
     is_recurring_placeholder: true,
     recurring_slot_id: Number(rs.id),
+    occurrence_date: dateStr,
     student: rs.student,
     teacher: rs.teacher,
     course_type: {
@@ -2530,11 +2534,9 @@ function recurringOccurrenceFreedByCancelledLesson(
 
 function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
   if (!placeholder.is_recurring_placeholder) return false
-  const ps = new Date(placeholder.start_time)
-  const y = ps.getFullYear()
-  const m = String(ps.getMonth() + 1).padStart(2, '0')
-  const d = String(ps.getDate()).padStart(2, '0')
-  const dateStr = `${y}-${m}-${d}`
+  const dateStr =
+    (placeholder.occurrence_date && String(placeholder.occurrence_date).substring(0, 10))
+    || toLocalYmd(new Date(placeholder.start_time))
   const rs = clubRecurringSlots.value.find((r) => Number(r.id) === Number(placeholder.recurring_slot_id))
   if (!rs) return false
 
@@ -3347,11 +3349,71 @@ async function openPlaceholderDeleteModal(lesson: Lesson) {
   showDeleteScopeModal.value = true
 }
 
+/** Applique skip / troncature en local pour faire disparaître le placeholder immédiatement. */
+function applyLocalRecurringRelease(
+  slotId: number,
+  scope: 'single' | 'all_future',
+  fromDate: string,
+  apiSlot?: Record<string, unknown> | null,
+) {
+  const idx = clubRecurringSlots.value.findIndex((r) => Number(r.id) === slotId)
+  if (idx < 0) return
+
+  const current = clubRecurringSlots.value[idx]
+  const patch: Record<string, unknown> = {}
+
+  if (apiSlot && typeof apiSlot === 'object') {
+    if (Array.isArray(apiSlot.skipped_dates)) {
+      patch.skipped_dates = (apiSlot.skipped_dates as unknown[]).map((d) => String(d).substring(0, 10))
+    }
+    if (apiSlot.end_date != null) {
+      patch.end_date = String(apiSlot.end_date).substring(0, 10)
+    }
+    if (apiSlot.start_date != null) {
+      patch.start_date = String(apiSlot.start_date).substring(0, 10)
+    }
+    if (apiSlot.status != null) {
+      patch.status = apiSlot.status
+    }
+  } else if (scope === 'single') {
+    patch.skipped_dates = [
+      ...new Set([
+        ...(Array.isArray(current.skipped_dates)
+          ? current.skipped_dates.map((d: string) => String(d).substring(0, 10))
+          : []),
+        fromDate,
+      ]),
+    ]
+  } else {
+    const from = parseYmd(fromDate)
+    from.setDate(from.getDate() - 1)
+    patch.end_date = formatDateForInput(from)
+  }
+
+  const nextStatus = String(patch.status ?? current.status ?? 'active')
+  const nextEnd = String(patch.end_date ?? current.end_date ?? '').substring(0, 10)
+  const start = String(patch.start_date ?? current.start_date ?? '').substring(0, 10)
+
+  if (nextStatus !== 'active' || (start && nextEnd && nextEnd < start)) {
+    clubRecurringSlots.value = clubRecurringSlots.value.filter((r) => Number(r.id) !== slotId)
+    return
+  }
+
+  clubRecurringSlots.value[idx] = { ...current, ...patch }
+}
+
 async function executePlaceholderRelease(scope: 'single' | 'all_future') {
   const lesson = lessonToDelete.value
   if (!lesson?.is_recurring_placeholder || lesson.recurring_slot_id == null) return
   const id = Number(lesson.recurring_slot_id)
-  const fromDate = formatDateForInput(new Date(lesson.start_time))
+  const fromDate =
+    (lesson.occurrence_date && String(lesson.occurrence_date).substring(0, 10))
+    || (selectedDate.value ? toLocalYmd(selectedDate.value) : '')
+    || formatDateForInput(new Date(lesson.start_time))
+  if (!fromDate) {
+    showError('Date d\'occurrence manquante', 'Planning')
+    return
+  }
   releasingRecurringSlotId.value = id
   try {
     const $api = getApiClient()
@@ -3361,9 +3423,19 @@ async function executePlaceholderRelease(scope: 'single' | 'all_future') {
       reason: deleteReason.value || 'Suppression depuis le planning club',
     })
     if (response.data?.success) {
+      applyLocalRecurringRelease(id, scope, fromDate, response.data?.data?.slot ?? null)
+      const purgedIds = Array.isArray(response.data?.data?.purged_lesson_ids)
+        ? response.data.data.purged_lesson_ids.map((x: number) => Number(x))
+        : []
+      if (purgedIds.length > 0) {
+        const purged = new Set(purgedIds)
+        lessons.value = lessons.value.filter((l) => !purged.has(Number(l.id)))
+      }
       success(response.data.message || (scope === 'single' ? 'Occurrence retirée' : 'Série terminée'))
       closeDeleteModal()
-      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      const rangeStart = loadedLessonsRange.value.start ?? undefined
+      const rangeEnd = loadedLessonsRange.value.end ?? undefined
+      await loadClubRecurringSlots(rangeStart, rangeEnd)
       return
     }
     showError(response.data?.message || 'Erreur lors de la suppression', 'Planning')

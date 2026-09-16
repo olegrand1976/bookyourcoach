@@ -95,6 +95,12 @@ class RecurringSlotReleaseScopeTest extends TestCase
         $payload = collect($index->json('data'))->firstWhere('id', $slot->id);
         $this->assertNotNull($payload);
         $this->assertContains($fromDate, $payload['skipped_dates'] ?? []);
+
+        $releaseSlot = $response->json('data.slot');
+        $this->assertIsArray($releaseSlot);
+        $this->assertArrayHasKey('skipped_dates', $releaseSlot);
+        $this->assertContains($fromDate, $releaseSlot['skipped_dates']);
+        $this->assertArrayNotHasKey('notes', $releaseSlot);
     }
 
     public function test_release_all_future_truncates_series(): void

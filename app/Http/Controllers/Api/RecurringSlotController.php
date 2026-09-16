@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MaterializeRecurringSlotLessonRequest;
 use App\Http\Requests\RecurringSlotDiagnosticsRequest;
 use App\Http\Requests\RegenerateRecurringSlotLessonsRequest;
+use App\Http\Resources\PlanningRecurringSlotResource;
 use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
 use App\Services\LegacyRecurringSlotService;
@@ -255,6 +256,16 @@ class RecurringSlotController extends Controller
                 'reason' => $reason,
             ]);
 
+            $fresh = $recurringSlot->fresh([
+                'teacher:id,user_id',
+                'teacher.user:id,name',
+                'student:id,user_id,first_name,last_name',
+                'student.user:id,name',
+                'subscriptionInstance:id,subscription_id',
+                'subscriptionInstance.subscription:id,subscription_template_id',
+                'subscriptionInstance.subscription.template:id,model_number,price',
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => match ($scope) {
@@ -263,7 +274,9 @@ class RecurringSlotController extends Controller
                     default => 'Créneau libéré avec succès',
                 },
                 'data' => [
-                    'slot' => $recurringSlot->fresh(),
+                    'slot' => $fresh
+                        ? (new PlanningRecurringSlotResource($fresh))->resolve()
+                        : null,
                     'purged_lesson_ids' => $purgedLessonIds,
                     'scope' => $scope,
                 ],
