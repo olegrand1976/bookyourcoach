@@ -228,6 +228,33 @@ class SubscriptionRecurringSlotTest extends TestCase
     }
 
     #[Test]
+    public function skip_occurrence_date_hides_that_day_only(): void
+    {
+        $this->recurringSlot->skipOccurrenceDate('2026-09-19', 'Test skip');
+        $this->recurringSlot->refresh();
+
+        $this->assertTrue($this->recurringSlot->isOccurrenceSkipped('2026-09-19'));
+        $this->assertFalse($this->recurringSlot->isOccurrenceSkipped('2026-09-26'));
+        $this->assertEquals('active', $this->recurringSlot->status);
+        $this->assertContains('2026-09-19', $this->recurringSlot->skipped_dates);
+    }
+
+    #[Test]
+    public function truncate_from_date_shortens_end_date(): void
+    {
+        $this->recurringSlot->start_date = Carbon::parse('2026-09-01');
+        $this->recurringSlot->end_date = Carbon::parse('2026-12-01');
+        $this->recurringSlot->status = 'active';
+        $this->recurringSlot->save();
+
+        $this->recurringSlot->truncateFromDate(Carbon::parse('2026-09-19'), 'Fin série');
+        $this->recurringSlot->refresh();
+
+        $this->assertEquals('active', $this->recurringSlot->status);
+        $this->assertEquals('2026-09-18', $this->recurringSlot->end_date->format('Y-m-d'));
+    }
+
+    #[Test]
     public function reactivate_reactivates_cancelled_slot(): void
     {
         $this->recurringSlot->status = 'cancelled';

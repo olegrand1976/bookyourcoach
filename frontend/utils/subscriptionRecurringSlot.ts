@@ -30,6 +30,11 @@ export function subscriptionRecurringSlotFiresOnDate(slot: any, occurrenceDateSt
   const occurrence = parseYmd(occurrenceDateStr)
   const slotEnd = parseYmd(String(slot.end_date || '').substring(0, 10))
   const anchorBase = parseYmd(String(slot.start_date || '').substring(0, 10))
+  const ymd = occurrenceDateStr.substring(0, 10)
+
+  if (Array.isArray(slot.skipped_dates) && slot.skipped_dates.some((d: string) => String(d).substring(0, 10) === ymd)) {
+    return false
+  }
 
   if (occurrence.getDay() !== Number(slot.day_of_week)) return false
   if (occurrence < anchorBase || occurrence > slotEnd) return false

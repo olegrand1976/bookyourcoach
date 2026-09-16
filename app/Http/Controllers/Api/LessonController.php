@@ -3163,17 +3163,19 @@ class LessonController extends Controller
             $skippedArchivedCount = 0;
             $processedLessons = [];
             $newlyCancelledLessonIds = [];
+            // Snapshot avant forceDelete : évite qu’un placeholder réapparaisse au même créneau
+            $hardDeleteAnchor = $action === 'delete' ? [
+                'club_id' => (int) $lesson->club_id,
+                'student_id' => $lesson->student_id ? (int) $lesson->student_id : null,
+                'teacher_id' => $lesson->teacher_id ? (int) $lesson->teacher_id : null,
+                'start' => Carbon::parse($lesson->start_time),
+                'end' => Carbon::parse($lesson->end_time),
+            ] : null;
 
             foreach ($lessonsToProcess as $lessonToProcess) {
                 $isCascade = $lessonToProcess->id !== $lesson->id;
                 if ($action === 'delete') {
                     $lessonId = $lessonToProcess->id;
-                    // Déjà soft-deleted (visible planning) : idempotent, pas de 404 ni 2ᵉ delete inutile
-                    if ($lessonToProcess->trashed()) {
-                        $skippedArchivedCount++;
-                        $processedLessons[] = $lessonId;
-                        continue;
-                    }
                     $this->lessonActionLogService->log(
                         $lessonToProcess,
                         $isCascade ? LessonActionLog::ACTION_DELETED_CASCADE : LessonActionLog::ACTION_DELETED,
@@ -3181,8 +3183,11 @@ class LessonController extends Controller
                         'club',
                         meta: ['reason' => $reason, 'cancel_scope' => $cancelScope],
                     );
-                    $this->releaseSubscriptionLesson($lessonToProcess);
-                    $lessonToProcess->delete();
+                    if (! $lessonToProcess->trashed()) {
+                        $this->releaseSubscriptionLesson($lessonToProcess);
+                    }
+                    // forceDelete : disparaît du planning (plus de carte « Supprimé » résiduelle)
+                    $lessonToProcess->forceDelete();
                     $processedCount++;
                     $processedLessons[] = $lessonId;
                 } else {
@@ -3235,6 +3240,14 @@ class LessonController extends Controller
                 );
             }
 
+            if ($action === 'delete' && $processedCount > 0 && $hardDeleteAnchor !== null) {
+                $this->suppressRecurringPlaceholderAfterHardDelete(
+                    $hardDeleteAnchor,
+                    $cancelScope,
+                    $reason
+                );
+            }
+
             if ($processedCount === 0 && $skippedArchivedCount > 0) {
                 $message = $skippedArchivedCount === 1
                     ? 'Cours déjà archivé (conservé pour audit au planning)'
@@ -3279,6 +3292,48 @@ class LessonController extends Controller
                 'message' => 'Erreur lors de l\'annulation du cours',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Après forceDelete : empêche le placeholder « carte blanche » de réapparaître
+     * (skip une date, ou tronque la série pour all_future).
+     *
+     * @param  array{club_id:int,student_id:?int,teacher_id:?int,start:Carbon,end:Carbon}  $anchor
+     */
+    private function suppressRecurringPlaceholderAfterHardDelete(array $anchor, string $cancelScope, string $reason): void
+    {
+        if (! $anchor['student_id'] || ! $anchor['teacher_id']) {
+            return;
+        }
+
+        /** @var Carbon $start */
+        $start = $anchor['start'];
+        $ymd = $start->toDateString();
+        $startTime = $start->format('H:i:s');
+        $endTime = $anchor['end']->format('H:i:s');
+        $dayOfWeek = (int) $start->dayOfWeek;
+
+        $slots = SubscriptionRecurringSlot::query()
+            ->where('status', 'active')
+            ->where('student_id', $anchor['student_id'])
+            ->where('teacher_id', $anchor['teacher_id'])
+            ->where('day_of_week', $dayOfWeek)
+            ->whereTime('start_time', $startTime)
+            ->whereTime('end_time', $endTime)
+            ->whereDate('start_date', '<=', $ymd)
+            ->whereDate('end_date', '>=', $ymd)
+            ->whereHas('subscriptionInstance.subscription', function ($q) use ($anchor) {
+                $q->where('club_id', $anchor['club_id']);
+            })
+            ->get();
+
+        foreach ($slots as $slot) {
+            if ($cancelScope === 'all_future') {
+                $slot->truncateFromDate($start->copy()->startOfDay(), $reason);
+            } else {
+                $slot->skipOccurrenceDate($ymd, $reason);
+            }
         }
     }
 

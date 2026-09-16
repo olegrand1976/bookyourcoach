@@ -81,6 +81,7 @@ class SubscriptionRecurringSlot extends Model
         'end_date',    // Utilise end_date au lieu de expires_at
         'status',
         'notes',
+        'skipped_dates',
         'last_generated_at',
     ];
 
@@ -90,6 +91,7 @@ class SubscriptionRecurringSlot extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'last_generated_at' => 'datetime',
+        'skipped_dates' => 'array',
     ];
     
     // Alias pour compatibilité avec le code
@@ -276,6 +278,62 @@ class SubscriptionRecurringSlot extends Model
     public function release(string $reason = null): void
     {
         $this->cancel("Libération manuelle du créneau" . ($reason ? " - " . $reason : ""));
+    }
+
+    /**
+     * Saute une occurrence (carte blanche / trou) sans annuler la série.
+     */
+    public function skipOccurrenceDate(string $ymd, ?string $reason = null): void
+    {
+        $ymd = substr($ymd, 0, 10);
+        $dates = collect($this->skipped_dates ?? [])
+            ->map(fn ($d) => substr((string) $d, 0, 10))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if (in_array($ymd, $dates, true)) {
+            return;
+        }
+        $dates[] = $ymd;
+        sort($dates);
+        $this->skipped_dates = $dates;
+        if ($reason) {
+            $this->notes = ($this->notes ? $this->notes."\n" : '')."Occurrence sautée {$ymd} : ".$reason;
+        }
+        $this->save();
+    }
+
+    public function isOccurrenceSkipped(string $ymd): bool
+    {
+        $ymd = substr($ymd, 0, 10);
+        $dates = collect($this->skipped_dates ?? [])
+            ->map(fn ($d) => substr((string) $d, 0, 10))
+            ->all();
+
+        return in_array($ymd, $dates, true);
+    }
+
+    /**
+     * Termine la série à partir de fromDate (end_date = veille). Annule si plus aucune plage.
+     */
+    public function truncateFromDate(Carbon $fromDate, ?string $reason = null): void
+    {
+        $from = $fromDate->copy()->startOfDay();
+        $newEnd = $from->copy()->subDay();
+        $start = Carbon::parse($this->start_date)->startOfDay();
+
+        if ($newEnd->lt($start)) {
+            $this->cancel($reason ?? 'Fin de série depuis le planning');
+
+            return;
+        }
+
+        $this->end_date = $newEnd;
+        if ($reason) {
+            $this->notes = ($this->notes ? $this->notes."\n" : '')."Série tronquée au {$newEnd->format('Y-m-d')} : ".$reason;
+        }
+        $this->save();
     }
 
     /**

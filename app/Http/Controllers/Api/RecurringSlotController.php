@@ -77,6 +77,8 @@ class RecurringSlotController extends Controller
                     'start_date',
                     'end_date',
                     'status',
+                    'skipped_dates',
+                    'notes',
                 ])
                 ->orderBy('day_of_week')
                 ->orderBy('start_time');
@@ -205,8 +207,18 @@ class RecurringSlotController extends Controller
             }
 
             $validated = $request->validate([
-                'reason' => 'nullable|string|max:500'
+                'reason' => 'nullable|string|max:500',
+                'scope' => 'sometimes|in:single,all_future,entire_series',
+                'from_date' => 'nullable|date_format:Y-m-d',
             ]);
+
+            $scope = $validated['scope'] ?? 'entire_series';
+            if (in_array($scope, ['single', 'all_future'], true) && empty($validated['from_date'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'from_date est requis pour cette action',
+                ], 422);
+            }
 
             $recurringSlot = SubscriptionRecurringSlot::whereHas('subscriptionInstance', function ($query) use ($club) {
                     $query->whereHas('subscription', function ($q) use ($club) {
@@ -215,20 +227,46 @@ class RecurringSlotController extends Controller
                 })
                 ->findOrFail($id);
 
-            $recurringSlot->release($validated['reason'] ?? null);
+            $reason = $validated['reason'] ?? 'Libération depuis le planning club';
+            $purgedLessonIds = [];
+
+            if ($scope === 'single') {
+                $recurringSlot->skipOccurrenceDate($validated['from_date'], $reason);
+            } elseif ($scope === 'all_future') {
+                $from = Carbon::createFromFormat('Y-m-d', $validated['from_date'], config('app.timezone'))->startOfDay();
+                $purgedLessonIds = $this->purgeFutureLessonsForRecurringSlot($recurringSlot, $from, $club->id);
+                $recurringSlot->truncateFromDate($from, $reason);
+            } else {
+                $from = isset($validated['from_date'])
+                    ? Carbon::createFromFormat('Y-m-d', $validated['from_date'], config('app.timezone'))->startOfDay()
+                    : Carbon::today(config('app.timezone'))->startOfDay();
+                $purgedLessonIds = $this->purgeFutureLessonsForRecurringSlot($recurringSlot, $from, $club->id);
+                $recurringSlot->release($reason);
+            }
 
             Log::info("🔓 Créneau récurrent libéré manuellement", [
                 'recurring_slot_id' => $id,
                 'subscription_instance_id' => $recurringSlot->subscription_instance_id,
                 'club_id' => $club->id,
                 'user_id' => $user->id,
-                'reason' => $validated['reason'] ?? 'Non spécifiée'
+                'scope' => $scope,
+                'from_date' => $validated['from_date'] ?? null,
+                'purged_lesson_ids' => $purgedLessonIds,
+                'reason' => $reason,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Créneau libéré avec succès',
-                'data' => $recurringSlot->fresh()
+                'message' => match ($scope) {
+                    'single' => 'Occurrence retirée du planning',
+                    'all_future' => 'Série terminée à partir de cette date',
+                    default => 'Créneau libéré avec succès',
+                },
+                'data' => [
+                    'slot' => $recurringSlot->fresh(),
+                    'purged_lesson_ids' => $purgedLessonIds,
+                    'scope' => $scope,
+                ],
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -533,6 +571,56 @@ class RecurringSlotController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Supprime définitivement les cours futurs du couple élève/enseignant au même horaire (série).
+     *
+     * @return array<int>
+     */
+    private function purgeFutureLessonsForRecurringSlot(
+        SubscriptionRecurringSlot $slot,
+        Carbon $fromDate,
+        int $clubId
+    ): array {
+        $startTime = Carbon::parse($slot->start_time)->format('H:i:s');
+        $endTime = Carbon::parse($slot->end_time)->format('H:i:s');
+        $dayOfWeekCarbon = (int) $slot->day_of_week;
+        $dayOfWeekMySQL = $dayOfWeekCarbon === 0 ? 1 : ($dayOfWeekCarbon + 1);
+        $fromDateTime = $fromDate->copy()->setTimeFromTimeString($startTime);
+
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+
+        $query = Lesson::withTrashed()
+            ->where('club_id', $clubId)
+            ->where('student_id', $slot->student_id)
+            ->where('teacher_id', $slot->teacher_id)
+            ->where('start_time', '>=', $fromDateTime)
+            ->when(
+                $isSqlite,
+                fn ($q) => $q->whereRaw(
+                    "CAST(strftime('%w', start_time) AS INTEGER) = ?",
+                    [$dayOfWeekCarbon]
+                ),
+                fn ($q) => $q->whereRaw('DAYOFWEEK(start_time) = ?', [$dayOfWeekMySQL])
+            )
+            ->when(
+                $isSqlite,
+                fn ($q) => $q
+                    ->whereRaw("strftime('%H:%M:%S', start_time) = ?", [$startTime])
+                    ->whereRaw("strftime('%H:%M:%S', end_time) = ?", [$endTime]),
+                fn ($q) => $q
+                    ->whereRaw('TIME(start_time) = ?', [$startTime])
+                    ->whereRaw('TIME(end_time) = ?', [$endTime])
+            );
+
+        $ids = [];
+        foreach ($query->get() as $lesson) {
+            $ids[] = (int) $lesson->id;
+            $lesson->forceDelete();
+        }
+
+        return $ids;
     }
 }
 

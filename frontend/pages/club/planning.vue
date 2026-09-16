@@ -750,14 +750,14 @@
                           <button
                             type="button"
                             class="w-full sm:flex-1 sm:min-w-[5.5rem] justify-center px-2 py-1.5 text-xs rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Libérer cette série (annule la réservation récurrente)"
+                            title="Retirer cette occurrence ou terminer la série"
                             :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
-                            @click.stop.prevent="confirmAndReleaseRecurringPlaceholder(lesson)"
+                            @click.stop.prevent="openPlaceholderDeleteModal(lesson)"
                           >
                             <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
+                            {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Supprimer' }}
                           </button>
                         </div>
                         <NuxtLink
@@ -1021,8 +1021,8 @@
                                 type="button"
                                 class="w-full sm:w-auto justify-center px-2 py-1.5 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                                 :disabled="releasingRecurringSlotId === lesson.recurring_slot_id"
-                                @click="confirmAndReleaseRecurringPlaceholder(lesson)">
-                                {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Libérer' }}
+                                @click="openPlaceholderDeleteModal(lesson)">
+                                {{ releasingRecurringSlotId === lesson.recurring_slot_id ? '…' : 'Supprimer' }}
                               </button>
                             </div>
                             <NuxtLink
@@ -1631,7 +1631,34 @@
           
           <div class="mb-4">
             <div class="text-sm font-medium text-gray-700 mb-3">Action à effectuer :</div>
-            
+
+            <!-- Placeholder série : cette occurrence / tous les futurs -->
+            <template v-if="lessonToDelete?.is_recurring_placeholder">
+              <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="font-semibold text-gray-900 mb-1">Cette occurrence uniquement</div>
+                <p class="text-xs text-gray-600 mb-2">Retire la carte blanche de ce jour. La série continue les semaines suivantes.</p>
+                <button
+                  type="button"
+                  @click="executePlaceholderRelease('single')"
+                  class="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <span class="text-sm font-medium text-red-700">Retirer ce jour</span>
+                </button>
+              </div>
+              <div class="p-3 rounded-lg border mb-4 bg-red-50 border-red-200">
+                <div class="font-semibold text-gray-900 mb-1">Cette occurrence et toutes les futures</div>
+                <p class="text-xs text-gray-600 mb-2">Termine la série à partir de ce jour (même élève / enseignant) et supprime les cours futurs liés.</p>
+                <button
+                  type="button"
+                  @click="executePlaceholderRelease('all_future')"
+                  class="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <span class="text-sm font-medium text-red-700">Terminer la série ici</span>
+                </button>
+              </div>
+            </template>
+
+            <template v-else>
             <!-- Option 1: Cette séance uniquement -->
             <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <div class="font-semibold text-gray-900 mb-2">Cette séance uniquement</div>
@@ -1653,7 +1680,7 @@
                   <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                   </svg>
-                  <span class="text-sm font-medium text-red-700">{{ lessonToDelete?.deleted_at ? 'Confirmer (déjà archivé)' : 'Supprimer définitivement' }}</span>
+                  <span class="text-sm font-medium text-red-700">{{ lessonToDelete?.deleted_at ? 'Supprimer définitivement' : 'Supprimer définitivement' }}</span>
                 </button>
               </div>
             </div>
@@ -1707,6 +1734,7 @@
                 </button>
               </div>
             </div>
+            </template>
           </div>
           
           <div class="flex justify-end gap-2">
@@ -3308,37 +3336,46 @@ async function materializeRecurringPlaceholderLesson(lesson: Lesson): Promise<vo
   }
 }
 
-async function confirmAndReleaseRecurringPlaceholder(lesson: Lesson): Promise<boolean> {
-  if (!lesson.is_recurring_placeholder || lesson.recurring_slot_id == null) {
-    return false
-  }
+async function openPlaceholderDeleteModal(lesson: Lesson) {
+  if (!lesson.is_recurring_placeholder || lesson.recurring_slot_id == null) return
+  deleteModalStep.value = 'scope'
+  deleteReason.value = ''
+  lessonToDelete.value = lesson
+  futureLessonsCountForDelete.value = 0
+  affectedLessonsForDelete.value = []
+  siblingWarningsForDelete.value = []
+  showDeleteScopeModal.value = true
+}
+
+async function executePlaceholderRelease(scope: 'single' | 'all_future') {
+  const lesson = lessonToDelete.value
+  if (!lesson?.is_recurring_placeholder || lesson.recurring_slot_id == null) return
   const id = Number(lesson.recurring_slot_id)
-  const studentLabel = getLessonStudents(lesson)
-  const teacherLabel = lesson.teacher?.user?.name || 'Coach'
-  const msg = `Libérer la réservation récurrente #${id} ?\n\n${studentLabel} — ${teacherLabel}\n\nLa série sera annulée (comme dans Créneaux récurrents → Libérer). Les cours déjà créés ne sont pas supprimés automatiquement.`
-  if (!confirm(msg)) {
-    return false
-  }
+  const fromDate = formatDateForInput(new Date(lesson.start_time))
   releasingRecurringSlotId.value = id
   try {
     const $api = getApiClient()
     const response = await $api.post(`/club/recurring-slots/${id}/release`, {
-      reason: 'Libération depuis le planning club'
+      scope,
+      from_date: fromDate,
+      reason: deleteReason.value || 'Suppression depuis le planning club',
     })
     if (response.data?.success) {
-      success('Série récurrente libérée')
+      success(response.data.message || (scope === 'single' ? 'Occurrence retirée' : 'Série terminée'))
+      closeDeleteModal()
       await Promise.all([loadLessons(), loadClubRecurringSlots()])
-      return true
+      return
     }
-    showError(response.data?.message || 'Erreur lors de la libération', 'Libération')
-    return false
+    showError(response.data?.message || 'Erreur lors de la suppression', 'Planning')
   } catch (err: any) {
-    const m = err.response?.data?.message || err.message || 'Erreur lors de la libération'
-    showError(m, 'Libération')
-    return false
+    showError(err.response?.data?.message || err.message || 'Erreur lors de la suppression', 'Planning')
   } finally {
     releasingRecurringSlotId.value = null
   }
+}
+
+async function confirmAndReleaseRecurringPlaceholder(lesson: Lesson): Promise<void> {
+  openPlaceholderDeleteModal(lesson)
 }
 
 function closeScheduleConflictModal() {
@@ -3422,10 +3459,9 @@ async function onScheduleConflictReleaseRecurring(slotId: number) {
 }
 
 async function handleReleaseRecurringFromModal(lesson: Lesson) {
-  const ok = await confirmAndReleaseRecurringPlaceholder(lesson)
-  if (ok) {
-    closeLessonModal()
-  }
+  await confirmAndReleaseRecurringPlaceholder(lesson)
+  // Ferme la fiche détail ; la modale de scope reste ouverte jusqu’à confirmation / annulation
+  closeLessonModal()
 }
 
 // Charger les cours avec certificat médical en attente (bloc CM à valider)

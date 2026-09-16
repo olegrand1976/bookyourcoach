@@ -74,6 +74,10 @@ class PlanningRecurringSlotResource extends JsonResource
             'start_date' => $slot->start_date?->format('Y-m-d') ?? $slot->start_date,
             'end_date' => $slot->end_date?->format('Y-m-d') ?? $slot->end_date,
             'status' => $slot->status,
+            'skipped_dates' => array_values(array_map(
+                static fn ($d) => substr((string) $d, 0, 10),
+                $slot->skipped_dates ?? []
+            )),
             'subscription_instance_id' => $slot->subscription_instance_id,
             'open_slot_id' => $slot->open_slot_id,
             'teacher' => ($slot->relationLoaded('teacher') && $slot->teacher)
