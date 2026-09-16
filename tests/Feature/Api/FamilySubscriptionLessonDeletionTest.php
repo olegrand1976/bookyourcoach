@@ -180,6 +180,71 @@ class FamilySubscriptionLessonDeletionTest extends TestCase
     }
 
     #[Test]
+    public function all_future_delete_only_affects_same_student_teacher_pair(): void
+    {
+        $otherTeacher = Teacher::factory()->create();
+        $otherTeacher->clubs()->attach($this->club->id, ['is_active' => true, 'joined_at' => now()]);
+
+        $slotStart = Carbon::parse('next saturday')->setTime(8, 40, 0);
+        $slotEnd = $slotStart->copy()->addMinutes(20);
+
+        $primary = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy(),
+            'end_time' => $slotEnd->copy(),
+            'status' => 'confirmed',
+        ]);
+        $this->attachLesson($primary);
+
+        $futureSamePair = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy()->addWeek(),
+            'end_time' => $slotEnd->copy()->addWeek(),
+            'status' => 'confirmed',
+        ]);
+        $this->attachLesson($futureSamePair);
+
+        $futureOtherTeacher = Lesson::factory()->create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $otherTeacher->id,
+            'student_id' => $this->studentA->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $slotStart->copy()->addWeek(),
+            'end_time' => $slotEnd->copy()->addWeek(),
+            'status' => 'confirmed',
+        ]);
+        $this->attachLesson($futureOtherTeacher);
+
+        $response = $this->deleteJson("/api/club/lessons/{$primary->id}", [
+            'cancel_scope' => 'all_future',
+            'action' => 'delete',
+        ]);
+
+        $response->assertStatus(200);
+        $processed = $response->json('data.processed_lesson_ids');
+        $this->assertContains($primary->id, $processed);
+        $this->assertContains($futureSamePair->id, $processed);
+        $this->assertNotContains($futureOtherTeacher->id, $processed);
+
+        $this->assertSoftDeleted('lessons', ['id' => $primary->id]);
+        $this->assertSoftDeleted('lessons', ['id' => $futureSamePair->id]);
+        $this->assertDatabaseHas('lessons', [
+            'id' => $futureOtherTeacher->id,
+            'status' => 'confirmed',
+            'deleted_at' => null,
+        ]);
+    }
+
+    #[Test]
     public function deletion_preview_lists_sibling_warnings_same_day(): void
     {
         $date = '2026-05-20 09:00:00';
