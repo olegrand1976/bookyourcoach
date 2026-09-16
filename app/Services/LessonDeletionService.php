@@ -112,11 +112,28 @@ class LessonDeletionService
         $lesson->loadMissing('subscriptionInstances');
         $collection = collect([$lesson]);
 
-        if ($lesson->subscriptionInstances->isEmpty()) {
+        $subscriptionInstance = $lesson->subscriptionInstances->first();
+
+        // Soft-delete détache le pivot : retomber sur cancelled_subscription_instance_ids pour la cascade
+        if ($subscriptionInstance === null) {
+            $fallbackIds = collect($lesson->cancelled_subscription_instance_ids ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if ($fallbackIds !== []) {
+                $subscriptionInstance = SubscriptionInstance::query()
+                    ->whereIn('id', $fallbackIds)
+                    ->whereHas('subscription', fn ($q) => $q->where('club_id', $lesson->club_id))
+                    ->first();
+            }
+        }
+
+        if ($subscriptionInstance === null) {
             return $collection;
         }
 
-        $subscriptionInstance = $lesson->subscriptionInstances->first();
         $futureLessons = $this->queryFutureLessonsForSameSlot($lesson, $subscriptionInstance, $targetStudentId, $action);
 
         return $collection->merge($futureLessons)->unique('id')->values();

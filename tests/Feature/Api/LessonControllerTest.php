@@ -998,4 +998,94 @@ class LessonControllerTest extends TestCase
         $response->assertStatus(422);
         $this->assertStringContainsString('déjà', (string) $response->json('message'));
     }
+
+    /** @test */
+    public function deletion_preview_finds_soft_deleted_lesson_for_club(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'DEL-PREVIEW-TRASH');
+
+        $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(5)->setTime(8, 40),
+            'end_time' => now()->addDays(5)->setTime(9, 40),
+        ]);
+        $context['instance']->lessons()->attach($lesson->id);
+        $lesson->delete();
+
+        $this->assertNotNull($lesson->fresh());
+        $this->assertTrue($lesson->fresh()->trashed());
+
+        $response = $this->getJson(
+            "/api/club/lessons/{$lesson->id}/deletion-preview?cancel_scope=all_future&action=delete"
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.target_lesson.id', $lesson->id);
+    }
+
+    /** @test */
+    public function destroy_with_cancel_scope_accepts_soft_deleted_lesson_all_future(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'DEL-TRASH-FUTURE');
+
+        $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(6)->setTime(8, 40),
+            'end_time' => now()->addDays(6)->setTime(9, 40),
+        ]);
+        $context['instance']->lessons()->attach($lesson->id);
+        $lesson->delete();
+
+        $response = $this->deleteJson("/api/club/lessons/{$lesson->id}", [
+            'cancel_scope' => 'all_future',
+            'action' => 'delete',
+            'reason' => 'Test soft-deleted all_future',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.processed_count', 0)
+            ->assertJsonPath('data.skipped_archived_count', 1);
+
+        $this->assertTrue(Lesson::withTrashed()->find($lesson->id)->trashed());
+        $this->assertStringContainsString('déjà archivé', (string) $response->json('message'));
+    }
+
+    /** @test */
+    public function cancel_with_future_rejects_cancel_on_soft_deleted_lesson(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'CANCEL-TRASH-BLOCK');
+
+        $lesson = $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => now()->addDays(7)->setTime(8, 40),
+            'end_time' => now()->addDays(7)->setTime(9, 40),
+        ]);
+        $context['instance']->lessons()->attach($lesson->id);
+        $lesson->delete();
+
+        $this->deleteJson("/api/club/lessons/{$lesson->id}", [
+            'cancel_scope' => 'single',
+            'action' => 'cancel',
+            'reason' => 'Ne doit pas passer',
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Impossible d\'annuler un cours déjà archivé. Réactivez-le ou supprimez les séances futures encore actives.');
+    }
+
+    /** @test */
+    public function deletion_preview_still_404_for_unknown_lesson(): void
+    {
+        $this->actingAsClub();
+
+        $this->getJson('/api/club/lessons/999999999/deletion-preview?cancel_scope=single&action=delete')
+            ->assertStatus(404)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Cours non trouvé');
+    }
 }
