@@ -4802,6 +4802,12 @@ async function openCreateLessonFromRecurringPlaceholder(lesson: Lesson) {
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   await openCreateLessonModalForTimeSlot(`${hh}:${mm}`)
+  // Réservation ponctuelle sur un trou de série : ne pas lancer une récurrence 26 sem. contre la série elle-même
+  lessonForm.value.recurring_interval = 0
+  const tid = Number(lesson.teacher_id ?? lesson.teacher?.id)
+  const sid = Number(lesson.student_id ?? lesson.student?.id)
+  if (tid) lessonForm.value.teacher_id = tid
+  if (sid) lessonForm.value.student_id = sid
 }
 
 function closeDeleteModal() {

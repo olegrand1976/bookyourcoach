@@ -904,4 +904,98 @@ class LessonControllerTest extends TestCase
         $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertNotContains($cancelled->id, $ids);
     }
+
+    /** @test */
+    public function store_allows_one_off_when_teacher_active_series_has_no_lesson_that_day(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'GAP-SERIES');
+
+        $occurrence = \Carbon\Carbon::parse('2026-09-16 16:20:00'); // mercredi
+        $this->assertSame(3, $occurrence->dayOfWeek);
+
+        \App\Models\SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $context['instance']->id,
+            'teacher_id' => $context['teacher']->id,
+            'student_id' => $context['student']->id,
+            'day_of_week' => 3,
+            'start_time' => '16:20:00',
+            'end_time' => '17:20:00',
+            'recurring_interval' => 1,
+            'start_date' => '2026-09-02',
+            'end_date' => '2027-03-01',
+            'status' => 'active',
+        ]);
+
+        // Autre élève, même enseignant / horaire — doit passer (série sans cours matérialisé ce jour)
+        $otherStudent = Student::factory()->create(['club_id' => $club->id]);
+
+        $response = $this->postJson('/api/lessons', [
+            'teacher_id' => $context['teacher']->id,
+            'student_id' => $otherStudent->id,
+            'course_type_id' => $context['courseType']->id,
+            'location_id' => $context['location']->id,
+            'start_time' => '2026-09-16 16:20:00',
+            'duration' => 60,
+            'price' => 18.00,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
+        ]);
+
+        if ($response->status() !== 201) {
+            $this->fail('Expected 201, got '.$response->status().': '.json_encode($response->json(), JSON_UNESCAPED_UNICODE));
+        }
+
+        $response->assertStatus(201)->assertJsonPath('success', true);
+        $this->assertDatabaseHas('lessons', [
+            'teacher_id' => $context['teacher']->id,
+            'student_id' => $otherStudent->id,
+            'status' => 'confirmed',
+        ]);
+    }
+
+    /** @test */
+    public function store_blocks_one_off_when_teacher_series_already_has_confirmed_lesson(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $context = $this->createSubscriptionInstanceForClub($club, 'FULL-SERIES');
+
+        \App\Models\SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $context['instance']->id,
+            'teacher_id' => $context['teacher']->id,
+            'student_id' => $context['student']->id,
+            'day_of_week' => 3,
+            'start_time' => '16:20:00',
+            'end_time' => '17:20:00',
+            'recurring_interval' => 1,
+            'start_date' => '2026-09-02',
+            'end_date' => '2027-03-01',
+            'status' => 'active',
+        ]);
+
+        $this->createLessonForSubscriptionContext($context, $club, [
+            'start_time' => '2026-09-16 16:20:00',
+            'end_time' => '2026-09-16 17:20:00',
+            'status' => 'confirmed',
+        ]);
+
+        $otherStudent = Student::factory()->create(['club_id' => $club->id]);
+
+        $response = $this->postJson('/api/lessons', [
+            'teacher_id' => $context['teacher']->id,
+            'student_id' => $otherStudent->id,
+            'course_type_id' => $context['courseType']->id,
+            'location_id' => $context['location']->id,
+            'start_time' => '2026-09-16 16:20:00',
+            'duration' => 60,
+            'price' => 18.00,
+            'deduct_from_subscription' => false,
+            'recurring_interval' => 0,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('déjà', (string) $response->json('message'));
+    }
 }

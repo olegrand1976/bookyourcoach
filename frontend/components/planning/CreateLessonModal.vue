@@ -1434,9 +1434,25 @@ function recurringTimeBlocked(
 
     const sid = Number(slot.student_id)
     const tid = Number(slot.teacher_id)
-    if (sid === studentId || tid === teacherId) {
-      return true
-    }
+    if (sid !== studentId && tid !== teacherId) continue
+
+    // Série sans cours confirmé ce jour (= placeholder) : ne bloque pas la réservation ponctuelle
+    const slotHasMaterialized = existingLessons.value.some((lesson) => {
+      if (lesson.status === 'cancelled' || lesson.deleted_at) return false
+      if (!lessonIsOnPlanningDate(lesson, dateStr)) return false
+      if (Number(lesson.student_id ?? lesson.students?.[0]?.id) !== sid) return false
+      const ls = new Date(lesson.start_time)
+      const le = lesson.end_time
+        ? new Date(lesson.end_time)
+        : new Date(ls.getTime() + 60 * 60000)
+      const rs = new Date(`${dateStr}T${String(slot.start_time).substring(0, 5)}:00`)
+      let re = new Date(`${dateStr}T${String(slot.end_time).substring(0, 5)}:00`)
+      if (re <= rs) re = new Date(re.getTime() + 86400000)
+      return ls < re && le > rs
+    })
+    if (!slotHasMaterialized) continue
+
+    return true
   }
   return false
 }
@@ -1458,6 +1474,7 @@ function isTimeSlotAvailableForBooking(
   for (const lesson of existingLessons.value) {
     if (editingLessonId != null && lesson.id === editingLessonId) continue
     if (lesson.status === 'cancelled') continue
+    if (lesson.deleted_at) continue
     if (!lessonIsOnPlanningDate(lesson, date)) continue
 
     const lessonStart = new Date(lesson.start_time)
@@ -1612,6 +1629,7 @@ const availableTimes = computed(() => {
       const timeEnd = new Date(timeStart.getTime() + duration * 60000)
       for (const lesson of existingLessons.value) {
         if (lesson.status === 'cancelled') continue
+        if (lesson.deleted_at) continue
         if (!lessonIsOnPlanningDate(lesson, date)) continue
         const lessonStart = new Date(lesson.start_time)
         let lessonEnd: Date
@@ -1990,6 +2008,7 @@ function isTeacherAvailable(teacherId: number): boolean {
   // Vérifier si l'enseignant a déjà un cours qui se chevauche
   for (const lesson of existingLessons.value) {
     if (lesson.status === 'cancelled') continue
+    if (lesson.deleted_at) continue
     if (lesson.teacher_id !== teacherId) continue
     if (!lessonIsOnPlanningDate(lesson, props.form.date)) continue
 
@@ -2026,6 +2045,7 @@ function isStudentAvailable(studentId: number): boolean {
   // Vérifier si l'élève a déjà un cours qui se chevauche
   for (const lesson of existingLessons.value) {
     if (lesson.status === 'cancelled') continue
+    if (lesson.deleted_at) continue
     if (!lessonIsOnPlanningDate(lesson, props.form.date)) continue
 
     // Vérifier si l'élève est l'étudiant principal

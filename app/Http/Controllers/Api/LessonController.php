@@ -2080,12 +2080,52 @@ class LessonController extends Controller
             if (! $validator->subscriptionRecurringSlotFiresOnDate($slot, $occurrence)) {
                 continue;
             }
+            // Occurrence sans cours confirmé (= carte blanche planning) : créneau libre pour une réservation ponctuelle.
+            if (! $this->recurringSlotHasActiveMaterializedLessonOnDate($slot, $date)) {
+                continue;
+            }
             $slotStart = substr((string) $slot->start_time, 0, 5);
             throw new \Exception(
                 "Impossible : cet enseignant a déjà une réservation récurrente qui chevauche ce créneau (début à {$slotStart}). ".
                 'Un enseignant ne peut pas encadrer deux cours en parallèle.'
             );
         }
+    }
+
+    /**
+     * True si la série a déjà un cours non annulé / non soft-supprimé qui matérialise l'occurrence ce jour-là.
+     */
+    private function recurringSlotHasActiveMaterializedLessonOnDate(
+        \App\Models\SubscriptionRecurringSlot $slot,
+        string $dateYmd
+    ): bool {
+        $slotStart = Carbon::parse($dateYmd.' '.substr((string) $slot->start_time, 0, 8));
+        $slotEnd = Carbon::parse($dateYmd.' '.substr((string) $slot->end_time, 0, 8));
+        if ($slotEnd->lte($slotStart)) {
+            $slotEnd->addDay();
+        }
+
+        $sid = (int) $slot->student_id;
+        if ($sid <= 0) {
+            return false;
+        }
+
+        $lessons = Lesson::query()
+            ->where('student_id', $sid)
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('start_time', $dateYmd)
+            ->with('courseType')
+            ->get();
+
+        foreach ($lessons as $lesson) {
+            $lessonStart = Carbon::parse($lesson->start_time);
+            $lessonEnd = $this->computeLessonEndForOverlap($lessonStart, $lesson);
+            if ($lessonStart->lt($slotEnd) && $lessonEnd->gt($slotStart)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
