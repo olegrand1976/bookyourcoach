@@ -1597,6 +1597,12 @@
             <p v-if="lessonToDelete.status === 'cancelled'" class="text-sm text-red-600 mb-2 font-semibold">
               <strong>Statut:</strong> ⚠️ Ce cours est déjà annulé
             </p>
+            <p
+              v-else-if="lessonToDelete.deleted_at"
+              class="text-sm text-orange-700 mb-2 font-semibold"
+            >
+              <strong>Statut:</strong> ⚠️ Ce cours est déjà archivé (conservé au planning pour audit)
+            </p>
           </div>
           
           <div v-if="futureLessonsCountForDelete > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -1605,7 +1611,7 @@
             </p>
           </div>
           
-          <div v-else-if="futureLessonsCountForDelete === 0 && lessonToDelete?.subscription_instances && lessonToDelete.subscription_instances.length > 0 && lessonToDelete.status !== 'cancelled'" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+          <div v-else-if="futureLessonsCountForDelete === 0 && lessonToDelete?.subscription_instances && lessonToDelete.subscription_instances.length > 0 && lessonToDelete.status !== 'cancelled' && !lessonToDelete.deleted_at" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
             <p class="text-sm text-yellow-800">
               Aucun cours futur trouvé pour cet abonnement.
             </p>
@@ -1631,6 +1637,7 @@
               <div class="font-semibold text-gray-900 mb-2">Cette séance uniquement</div>
               <div class="flex gap-2">
                 <button
+                  v-if="!lessonToDelete?.deleted_at"
                   @click="confirmDeleteSingleLesson('cancel')"
                   class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors"
                 >
@@ -1646,21 +1653,21 @@
                   <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                   </svg>
-                  <span class="text-sm font-medium text-red-700">Supprimer définitivement</span>
+                  <span class="text-sm font-medium text-red-700">{{ lessonToDelete?.deleted_at ? 'Confirmer (déjà archivé)' : 'Supprimer définitivement' }}</span>
                 </button>
               </div>
             </div>
             
             <!-- Option 2: Toutes les séances futures (toujours afficher si abonnement lié) -->
             <div v-if="lessonToDelete?.subscription_instances && lessonToDelete.subscription_instances.length > 0" class="p-3 rounded-lg border mb-4" 
-                 :class="lessonToDelete?.status === 'cancelled' ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'">
+                 :class="lessonToDelete?.status === 'cancelled' || lessonToDelete?.deleted_at ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'">
               <div class="font-semibold text-gray-900 mb-2">
                 Toutes les séances futures 
                 <span v-if="futureLessonsCountForDelete > 0">({{ futureLessonsCountForDelete }} séance(s))</span>
                 <span v-else class="text-gray-500 text-sm font-normal">(aucune détectée)</span>
               </div>
               <div class="text-xs mb-2" 
-                   :class="lessonToDelete?.status === 'cancelled' ? 'text-orange-700' : 'text-gray-600'">
+                   :class="lessonToDelete?.status === 'cancelled' || lessonToDelete?.deleted_at ? 'text-orange-700' : 'text-gray-600'">
                 <template v-if="futureLessonsCountForDelete > 0">
                   <template v-if="lessonToDelete?.status === 'cancelled'">
                     Cette séance annulée et {{ futureLessonsCountForDelete }} séance(s) future(s) également annulée(s) liée(s) au même créneau et abonnement
@@ -1680,6 +1687,7 @@
               </div>
               <div class="flex gap-2">
                 <button
+                  v-if="!lessonToDelete?.deleted_at"
                   @click="confirmDeleteAllFutureLessons('cancel')"
                   class="flex-1 flex items-center justify-center gap-2 px-3 py-2 border-2 border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors"
                 >
@@ -1695,7 +1703,7 @@
                   <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                   </svg>
-                  <span class="text-sm font-medium text-red-700">Supprimer définitivement</span>
+                  <span class="text-sm font-medium text-red-700">{{ lessonToDelete?.deleted_at ? 'Traiter les futurs (cette séance déjà archivée)' : 'Supprimer définitivement' }}</span>
                 </button>
               </div>
             </div>
@@ -4866,8 +4874,12 @@ async function checkFutureLessonsForDelete(lesson: Lesson) {
     const affected = preview.affected_lessons || []
     futureLessonsCountForDelete.value = Math.max(0, affected.length - 1)
     siblingWarningsForDelete.value = preview.sibling_warnings || []
-  } catch {
+  } catch (error: any) {
     futureLessonsCountForDelete.value = 0
+    const msg = error.response?.data?.message || error.message
+    if (msg) {
+      warning(msg, 'Prévisualisation suppression')
+    }
   }
 }
 
@@ -4941,11 +4953,15 @@ async function executeDeleteLesson(
     const response = await $api.delete(`/club/lessons/${lessonId}`, { data: payload })
 
     if (response.data.success) {
-      const processed = response.data.data?.processed_count ?? 1
-      const actionLabel = action === 'delete' ? 'supprimé' : 'annulé'
-      const scopeLabel = processed === 1 ? 'Cours' : `${processed} cours`
-
-      success(`${scopeLabel} ${actionLabel} avec succès`)
+      const processed = response.data.data?.processed_count ?? 0
+      const skipped = response.data.data?.skipped_archived_count ?? 0
+      if (processed === 0 && skipped > 0) {
+        success(response.data.message || 'Cours déjà archivé')
+      } else {
+        const actionLabel = action === 'delete' ? 'supprimé' : 'annulé'
+        const scopeLabel = processed === 1 ? 'Cours' : `${processed} cours`
+        success(response.data.message || `${scopeLabel} ${actionLabel} avec succès`)
+      }
       await Promise.all([loadLessons(), loadClubRecurringSlots()])
     } else {
       showError(response.data.message || 'Erreur lors de la suppression')

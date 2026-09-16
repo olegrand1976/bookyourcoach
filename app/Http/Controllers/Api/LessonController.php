@@ -3042,8 +3042,16 @@ class LessonController extends Controller
                 ], 404);
             }
 
-            $lesson = Lesson::where('club_id', $club->id)->findOrFail($id);
+            // withTrashed : le planning club affiche les soft-deleted ; sans cela → 404 « Cours non trouvé »
+            $lesson = Lesson::withTrashed()->where('club_id', $club->id)->findOrFail($id);
             $action = $validated['action'] ?? 'delete';
+
+            if ($action === 'cancel' && $lesson->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'annuler un cours déjà archivé. Réactivez-le ou supprimez les séances futures encore actives.',
+                ], 422);
+            }
 
             $preview = $this->lessonDeletionService->previewDeletion(
                 $lesson,
@@ -3109,10 +3117,18 @@ class LessonController extends Controller
                 ], 404);
             }
 
-            $lesson = Lesson::where('club_id', $club->id)->findOrFail($id);
+            // withTrashed : aligné sur le planning club (cours soft-deleted toujours visibles)
+            $lesson = Lesson::withTrashed()->where('club_id', $club->id)->findOrFail($id);
             $cancelScope = $validated['cancel_scope'];
             $action = $validated['action'];
             $reason = $validated['reason'] ?? ($action === 'delete' ? 'Supprimé définitivement par le club' : 'Annulé par le club');
+
+            if ($action === 'cancel' && $lesson->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'annuler un cours déjà archivé. Réactivez-le ou supprimez les séances futures encore actives.',
+                ], 422);
+            }
 
             $explicitLessonIds = isset($validated['lesson_ids']) ? array_map('intval', $validated['lesson_ids']) : null;
             $targetStudentId = $this->lessonDeletionService->resolveParticipantStudentId($lesson);
@@ -3144,6 +3160,7 @@ class LessonController extends Controller
             }
 
             $processedCount = 0;
+            $skippedArchivedCount = 0;
             $processedLessons = [];
             $newlyCancelledLessonIds = [];
 
@@ -3151,6 +3168,12 @@ class LessonController extends Controller
                 $isCascade = $lessonToProcess->id !== $lesson->id;
                 if ($action === 'delete') {
                     $lessonId = $lessonToProcess->id;
+                    // Déjà soft-deleted (visible planning) : idempotent, pas de 404 ni 2ᵉ delete inutile
+                    if ($lessonToProcess->trashed()) {
+                        $skippedArchivedCount++;
+                        $processedLessons[] = $lessonId;
+                        continue;
+                    }
                     $this->lessonActionLogService->log(
                         $lessonToProcess,
                         $isCascade ? LessonActionLog::ACTION_DELETED_CASCADE : LessonActionLog::ACTION_DELETED,
@@ -3163,6 +3186,11 @@ class LessonController extends Controller
                     $processedCount++;
                     $processedLessons[] = $lessonId;
                 } else {
+                    if ($lessonToProcess->trashed()) {
+                        $skippedArchivedCount++;
+                        $processedLessons[] = $lessonToProcess->id;
+                        continue;
+                    }
                     if ($lessonToProcess->status === 'cancelled') {
                         $currentNotes = $lessonToProcess->notes ?? '';
                         $newNote = $lessonToProcess->id === $lesson->id
@@ -3207,16 +3235,23 @@ class LessonController extends Controller
                 );
             }
 
-            $actionText = $action === 'delete' ? 'supprimé' : 'annulé';
-            $message = $processedCount === 1 
-                ? "Cours {$actionText} avec succès" 
-                : "{$processedCount} cours {$actionText}s avec succès";
+            if ($processedCount === 0 && $skippedArchivedCount > 0) {
+                $message = $skippedArchivedCount === 1
+                    ? 'Cours déjà archivé (conservé pour audit au planning)'
+                    : "{$skippedArchivedCount} cours déjà archivés (conservés pour audit au planning)";
+            } else {
+                $actionText = $action === 'delete' ? 'supprimé' : 'annulé';
+                $message = $processedCount === 1
+                    ? "Cours {$actionText} avec succès"
+                    : "{$processedCount} cours {$actionText}s avec succès";
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => $message,
                 'data' => [
                     'processed_count' => $processedCount,
+                    'skipped_archived_count' => $skippedArchivedCount,
                     'processed_lesson_ids' => $processedLessons,
                     'cancelled_lesson_ids' => $action === 'cancel' ? $processedLessons : [],
                     'action' => $action,
