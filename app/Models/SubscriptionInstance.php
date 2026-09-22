@@ -710,7 +710,7 @@ class SubscriptionInstance extends Model
         ?\Carbon\CarbonInterface $asOf = null,
         bool $allowEmptyCredits = false
     ): array {
-        $activeForStudent = self::queryActiveForStudent($studentId, $clubId)
+        $activeForStudent = self::queryActiveForStudent($studentId, $clubId, $asOf)
             ->with(['subscription.template.courseTypes'])
             ->orderBy('created_at', 'asc')
             ->get();
@@ -744,9 +744,23 @@ class SubscriptionInstance extends Model
      *
      * @return \Illuminate\Database\Eloquent\Builder<static>
      */
-    private static function queryActiveForStudent(int $studentId, ?int $clubId = null)
-    {
+    private static function queryActiveForStudent(
+        int $studentId,
+        ?int $clubId = null,
+        ?\Carbon\CarbonInterface $asOf = null
+    ) {
+        // `status` ne suffit pas : aucune tâche planifiée ne bascule les instances en 'expired'
+        // (seule `subscriptions:repair-counters`, manuelle, le fait via checkAndUpdateStatus).
+        // Une instance dont expires_at est dépassé reste donc 'active' et resterait utilisable.
+        // Validité évaluée à la date du cours, comme le reste de la sélection : un cours encodé
+        // rétroactivement reste couvert s'il a eu lieu pendant la validité du carnet.
+        $validityReference = Carbon::parse($asOf ?? Carbon::now())->startOfDay();
+
         $query = self::where('status', 'active')
+            ->where(function ($q) use ($validityReference) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>=', $validityReference);
+            })
             ->whereHas('students', function ($q) use ($studentId) {
                 $q->where('students.id', $studentId);
             });

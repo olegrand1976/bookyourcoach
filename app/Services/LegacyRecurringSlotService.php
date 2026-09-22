@@ -84,9 +84,14 @@ class LegacyRecurringSlotService
             return $stats;
         }
 
+        // Une série hérite du régime de son cours source : une séance libre reste libre.
+        // Sans ce report, les cours générés reprennent le défaut `true` de la colonne et
+        // sont rattachés à l'abonnement alors que le cours d'origine ne l'est pas.
+        $deductFromSubscription = $templateLesson->deduct_from_subscription ?? true;
+
         $clubId = (int) $templateLesson->club_id;
         $remainingSlots = PHP_INT_MAX;
-        if ($isSubscriptionActive && $subscriptionInstance) {
+        if ($deductFromSubscription && $isSubscriptionActive && $subscriptionInstance) {
             $remainingSlots = $subscriptionInstance->resolveRemainingAttachmentSlotsForPlanning();
             $remainingSlots = max(0, $remainingSlots - max(0, $reserveAttachmentSlots));
         }
@@ -107,7 +112,8 @@ class LegacyRecurringSlotService
                 $recurringSlot,
                 $templateLesson,
                 $isSubscriptionActive,
-                $subscriptionInstance
+                $subscriptionInstance,
+                $deductFromSubscription
             ) {
                 $keys = $existingStartKeys;
 
@@ -143,6 +149,7 @@ class LegacyRecurringSlotService
                         'end_time' => $endTime,
                         'status' => 'confirmed',
                         'price' => $templateLesson->price,
+                        'deduct_from_subscription' => $deductFromSubscription,
                         'notes' => 'Cours généré automatiquement depuis créneau récurrent',
                     ]);
 
@@ -154,7 +161,7 @@ class LegacyRecurringSlotService
                     }
                 }
 
-                if ($isSubscriptionActive && $subscriptionInstance && $createdLessons !== []) {
+                if ($deductFromSubscription && $isSubscriptionActive && $subscriptionInstance && $createdLessons !== []) {
                     $this->attachGeneratedLessonsBatch($subscriptionInstance, $createdLessons);
                 }
             });
@@ -401,10 +408,11 @@ class LegacyRecurringSlotService
             'end_time' => $endTime,
             'status' => 'confirmed',
             'price' => $lastLesson->price,
+            'deduct_from_subscription' => $lastLesson->deduct_from_subscription ?? true,
             'notes' => 'Cours généré automatiquement depuis créneau récurrent',
         ]);
 
-        if ($subscriptionInstance) {
+        if ($subscriptionInstance && $lesson->deduct_from_subscription !== false) {
             try {
                 $subscriptionInstance->consumeLesson($lesson);
             } catch (\Exception $e) {
