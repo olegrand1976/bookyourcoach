@@ -126,16 +126,23 @@ describe('PlanningDayAnomalyBar', () => {
     expect(mount(PlanningDayAnomalyBar, { props: { anomalies: [] } }).find('[data-testid="planning-day-anomaly-bar"]').exists()).toBe(false)
   })
 
-  it('résumé compté par famille et filtres actifs seulement pour les familles présentes', async () => {
+  it('résumé compté par famille, tous les filtres sélectionnables avec leur compteur', async () => {
     const w = mount(PlanningDayAnomalyBar, { props: { anomalies } })
     expect(w.text()).toContain('3 à traiter')
     expect(w.text()).toContain('2 trous de génération')
     expect(w.text()).toContain('1 annulation élève')
-    expect((w.find('[data-filter="club_cancellation"]').element as HTMLButtonElement).disabled).toBe(true)
-    expect((w.find('[data-filter="generation_gap"]').element as HTMLButtonElement).disabled).toBe(false)
+    expect(w.find('[data-filter="all"]').text()).toBe('Tous (3)')
+    expect(w.find('[data-filter="generation_gap"]').text()).toBe('Trous (2)')
+    expect(w.find('[data-filter="club_cancellation"]').text()).toBe('Club (0)')
+    for (const kind of ['generation_gap', 'student_cancellation', 'club_cancellation', 'inconsistency']) {
+      expect((w.find(`[data-filter="${kind}"]`).element as HTMLButtonElement).disabled).toBe(false)
+    }
     await w.find('[data-filter="generation_gap"]').trigger('click')
     expect(w.emitted('update:activeFilter')?.[0]).toEqual(['generation_gap'])
+    // Incohérences : cliquable même à 0 (déclenche le chargement paresseux des diagnostics)
+    await w.find('[data-filter="inconsistency"]').trigger('click')
+    expect(w.emitted('update:activeFilter')?.[1]).toEqual(['inconsistency'])
     await w.find('[data-filter="all"]').trigger('click')
-    expect(w.emitted('update:activeFilter')?.[1]).toEqual(['all'])
+    expect(w.emitted('update:activeFilter')?.[2]).toEqual(['all'])
   })
 })

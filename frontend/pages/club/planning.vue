@@ -500,7 +500,13 @@
               v-if="displayedTimeSlots.length === 0"
               class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-8 text-center text-amber-950">
               <p class="font-semibold">Aucune plage ne correspond au filtre.</p>
-              <p class="text-sm mt-2 text-amber-900/90">
+              <p v-if="anomalyFilter === 'inconsistency' && recurringDiagnosticsLoading" class="text-sm mt-2 text-amber-900/90">
+                Recherche des incohérences en cours…
+              </p>
+              <p v-else-if="anomalyFilter !== 'all'" class="text-sm mt-2 text-amber-900/90">
+                Aucune anomalie de ce type ce jour. Choisissez « Tous » pour afficher toutes les plages.
+              </p>
+              <p v-else class="text-sm mt-2 text-amber-900/90">
                 Décochez « afficher uniquement les plages encore disponibles » pour afficher toutes les lignes.
               </p>
             </div>
@@ -2497,6 +2503,8 @@ function anomaliesForPlaceholder(p: Lesson): PlanningAnomaly[] {
  * sinon il reste replié. Un clic sur l'en-tête force l'état pour la plage.
  */
 function isAnomalyDrawerOpen(timeKey: string, anomalies: PlanningAnomaly[]): boolean {
+  // Un filtre de famille actif n'a de sens que si les lignes filtrées sont visibles.
+  if (anomalyFilter.value !== 'all') return true
   const forced = anomalyDrawerOpenByTimeKey.value[timeKey]
   if (forced !== undefined) return forced
   return anomaliesRequireAttention(anomalies)
@@ -2622,7 +2630,7 @@ const displayedTimeSlots = computed(() => {
   const filtered = showOnlyAvailablePlages.value
     ? base.filter((ts) => timeSlotHasRemainingAvailability(ts.lessons, maxSlots, placeholdersByTimeKey.value.get(ts.time) ?? []))
     : base
-  return filtered.map((ts) => {
+  const slots = filtered.map((ts) => {
     const placeholders = placeholdersByTimeKey.value.get(ts.time) ?? []
     return {
       ...ts,
@@ -2632,6 +2640,8 @@ const displayedTimeSlots = computed(() => {
       availability: buildTimeSlotAvailability(ts.lessons as any[], maxSlots, placeholders as any[]),
     }
   })
+  // Filtre de famille : seules les plages portant au moins une anomalie de cette famille restent.
+  return anomalyFilter.value === 'all' ? slots : slots.filter((ts) => ts.anomalyEntries.length > 0)
 })
 
 

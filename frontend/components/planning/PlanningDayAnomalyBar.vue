@@ -20,19 +20,19 @@
         data-filter="all"
         @click="emit('update:activeFilter', 'all')"
       >
-        Tout
+        Tous ({{ total }})
       </button>
+      <!-- Jamais désactivé : les incohérences ne sont comptées qu'après le premier clic (chargement paresseux). -->
       <button
         v-for="kind in ANOMALY_KINDS_ORDER"
         :key="kind"
         type="button"
-        class="rounded-md px-2 py-1 text-xs font-medium ring-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        class="rounded-md px-2 py-1 text-xs font-medium ring-1 transition-colors"
         :class="activeFilter === kind ? 'bg-amber-700 text-white ring-amber-700' : 'bg-white text-amber-900 ring-amber-300 hover:bg-amber-100'"
-        :disabled="!countFor(kind)"
         :data-filter="kind"
         @click="emit('update:activeFilter', kind)"
       >
-        {{ shortLabel(kind) }}
+        {{ shortLabel(kind) }} ({{ countFor(kind) }})
       </button>
     </div>
   </div>
