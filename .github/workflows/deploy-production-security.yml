@@ -128,6 +128,10 @@ jobs:
           ${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}
         cache-from: type=gha,scope=byc-backend
         cache-to: type=gha,mode=max,scope=byc-backend
+        # Secret facultatif : absent, l'image se construit sans les bases GeoLite2
+        # et la localisation des connexions reste vide.
+        build-args: |
+          MAXMIND_LICENSE_KEY=${{ secrets.MAXMIND_LICENSE_KEY }}
 
     - name: 🎨 Build + push Frontend (Nuxt)
       uses: docker/build-push-action@v5

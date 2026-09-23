@@ -87,6 +87,30 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     && chmod -R 775 storage bootstrap/cache /tmp/nginx_* /var/lib/nginx/logs /var/log/nginx \
     && chmod +x /usr/local/bin/start-workers.sh
 
+# Bases GeoLite2 pour la localisation des connexions (résolution hors ligne, aucune
+# donnée envoyée à un tiers à l'exécution). Le système de fichiers de Cloud Run étant
+# éphémère, elles doivent être embarquées dans l'image.
+#
+# Volontairement non bloquant : sans clé de licence, ou si MaxMind est indisponible,
+# l'image se construit quand même et la localisation reste vide. Un déploiement de
+# production ne doit pas échouer à cause d'un service tiers.
+ARG MAXMIND_LICENSE_KEY=""
+RUN mkdir -p storage/app/geoip \
+    && if [ -n "$MAXMIND_LICENSE_KEY" ]; then \
+        for edition in GeoLite2-City GeoLite2-ASN; do \
+            ( curl -fsSL --retry 2 --max-time 120 \
+                "https://download.maxmind.com/app/geoip_download?edition_id=${edition}&license_key=${MAXMIND_LICENSE_KEY}&suffix=tar.gz" \
+                -o /tmp/${edition}.tar.gz \
+              && tar -xzf /tmp/${edition}.tar.gz -C /tmp \
+              && find /tmp -name "${edition}.mmdb" -exec cp {} storage/app/geoip/ \; ) \
+            || echo "GeoLite2 ${edition} indisponible : la localisation restera vide."; \
+        done; \
+        rm -rf /tmp/GeoLite2-*; \
+    else \
+        echo "MAXMIND_LICENSE_KEY absent : localisation des connexions desactivee."; \
+    fi \
+    && chown -R www-data:www-data storage/app/geoip
+
 # Correction du garde d'authentification
 RUN sed -i "s/'guard' => env('AUTH_GUARD', 'web')/'guard' => 'sanctum'/" config/auth.php
 
