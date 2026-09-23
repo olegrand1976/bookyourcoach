@@ -249,8 +249,9 @@ const loadSubscriptions = async () => {
     const params = { active_student_id: studentScopeStore.apiScopeParam }
     const response = await $api.get('/student/subscriptions', { params })
     if (response.data.success) {
-      // Seuls les abonnements encore actifs sont listés (statut rafraîchi côté API)
-      subscriptions.value = (response.data.data || []).filter(s => s.status === 'active')
+      // Seuls les abonnements encore actifs sont listés. L'échéance est revérifiée : l'API
+      // ne rafraîchit pas le statut d'une instance sans total de cours (checkAndUpdateStatus)
+      subscriptions.value = (response.data.data || []).filter(isStillActive)
     } else {
       error.value = response.data.message || 'Erreur lors du chargement des abonnements'
     }
@@ -307,6 +308,10 @@ const formatDate = (date) => {
     year: 'numeric'
   })
 }
+
+const isStillActive = (subscription) =>
+  subscription.status === 'active' &&
+  (!subscription.expires_at || new Date(subscription.expires_at) > new Date())
 
 const isExpiringSoon = (expiresAt) => {
   if (!expiresAt) return false
