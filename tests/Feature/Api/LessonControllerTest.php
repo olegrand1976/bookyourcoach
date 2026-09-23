@@ -550,8 +550,8 @@ class LessonControllerTest extends TestCase
 
         $instance = $context['instance']->fresh();
         $this->assertEquals(0, $instance->lessons_used);
-        // Cours futur : n'entre pas dans le plafond à « maintenant »
-        $this->assertEquals($context['totalLessons'], $instance->getRemainingAttachmentSlots());
+        // Cours futur : rien n'est encore consommé, mais la place est réservée.
+        $this->assertEquals($context['totalLessons'] - 1, $instance->getRemainingAttachmentSlots());
         $this->assertEquals(
             $context['totalLessons'] - 1,
             $instance->getRemainingAttachmentSlots(now()->addWeek()->addMinute())

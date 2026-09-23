@@ -154,7 +154,8 @@ class SubscriptionInstance extends Model
     /**
      * Cours passés consommés + annulations tardives comptées (pivot conservé).
      * Source de vérité pour lessons_used = manual_lessons_used + ce compteur.
-     * Aligné sur {@see getAttachedCountableLessonsCount()} à « maintenant ».
+     * Borné à « maintenant », contrairement à {@see getAttachedCountableLessonsCount()} sans argument
+     * qui compte aussi les réservations futures.
      */
     public function getConsumedLessonsCount(): int
     {
@@ -162,22 +163,29 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Cours attachés qui comptent dans la capacité à une date de référence.
-     * - pending/confirmed/completed : uniquement si start_time <= $asOf
+     * Cours attachés qui comptent dans la capacité.
+     * - pending/confirmed/completed : bornés à $asOf si fourni, sinon **tous** (réservations futures incluses)
      * - cancelled + cancellation_count_in_subscription : toujours (crédit déjà perdu)
      * - soft-deleted : jamais
+     *
+     * Sans `$asOf`, la question posée est « combien de places sont prises ? » : une réservation
+     * future en occupe une (cf. docs/SUBSCRIPTION_REMAINING_LESSONS.md). Le décompte *consommé*,
+     * lui, est borné à maintenant et passe explicitement par {@see getConsumedLessonsCount()}.
      */
     public function getAttachedCountableLessonsCount(?\Carbon\CarbonInterface $asOf = null): int
     {
-        $asOf = $asOf ? Carbon::parse($asOf) : Carbon::now();
+        $asOf = $asOf !== null ? Carbon::parse($asOf) : null;
         $hasCountColumn = $this->lessonsHaveCancellationCountColumn();
 
         return (int) $this->buildAttachedLessonsQuery()
             ->whereNull('lessons.deleted_at')
             ->where(function ($q) use ($asOf, $hasCountColumn) {
                 $q->where(function ($q2) use ($asOf) {
-                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-                        ->where('lessons.start_time', '<=', $asOf);
+                    $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed']);
+
+                    if ($asOf !== null) {
+                        $q2->where('lessons.start_time', '<=', $asOf);
+                    }
                 });
 
                 if ($hasCountColumn) {
@@ -207,8 +215,10 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Places restantes pour attacher un nouveau cours à la date de référence ($asOf).
-     * Le futur par rapport à $asOf n'entre pas dans le comptage.
+     * Places restantes pour attacher un nouveau cours.
+     * Avec $asOf, seuls les cours jusqu'à cette date comptent (plafond appliqué à l'attachement :
+     * un cours du 15 mars n'entre en concurrence qu'avec ceux qui le précèdent).
+     * Sans $asOf, toutes les réservations attachées comptent, y compris futures.
      */
     public function getRemainingAttachmentSlots(?\Carbon\CarbonInterface $asOf = null): int
     {
@@ -221,7 +231,6 @@ class SubscriptionInstance extends Model
 
     /**
      * Capacité restante pour planifier des cours récurrents (génération auto).
-     * Inclut les réservations futures déjà attachées (contrairement à getRemainingAttachmentSlots() à « maintenant »).
      * Fallback illimité si le total est indéterminé (legacy sans template).
      */
     public function resolveRemainingAttachmentSlotsForPlanning(): int
@@ -237,7 +246,7 @@ class SubscriptionInstance extends Model
             return PHP_INT_MAX;
         }
 
-        return $instance->getRemainingAttachmentSlots(Carbon::now()->addYears(5));
+        return $instance->getRemainingAttachmentSlots();
     }
 
     private function buildAttachedLessonsQuery()
@@ -472,6 +481,18 @@ class SubscriptionInstance extends Model
      */
     public function consumeLesson(Lesson $lesson, bool $force = false)
     {
+        // 🚫 Séance libre : invariant, pas une politique de création. Le drapeau doit tenir quel que
+        // soit l'appelant (job de création, génération récurrente, réactivation, rattachement
+        // rétroactif, recalcul club). `null` — colonne absente — vaut « déduire », par compatibilité.
+        if ($lesson->deduct_from_subscription === false) {
+            \Log::info("🚫 Cours {$lesson->id} marqué séance libre : aucun rattachement d'abonnement", [
+                'lesson_id' => $lesson->id,
+                'subscription_instance_id' => $this->id,
+            ]);
+
+            return;
+        }
+
         // Vérifier que le cours n'est pas déjà attaché à cet abonnement
         if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
             // Le cours est déjà attaché, juste recalculer

@@ -211,7 +211,7 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
-    public function remaining_bookable_ignores_future_attached_lessons_until_as_of(): void
+    public function remaining_bookable_compte_les_reservations_futures_attachees(): void
     {
         $futureLesson = Lesson::create([
             'club_id' => $this->club->id,
@@ -229,10 +229,11 @@ class SubscriptionInstanceTest extends TestCase
 
         $fresh = $this->subscriptionInstance->fresh();
 
+        // Rien n'est encore consommé : le cours n'a pas eu lieu.
         $this->assertEquals(10, $fresh->remaining_consumed);
-        // À « maintenant », le futur ne compte pas
-        $this->assertEquals(10, $fresh->remaining_bookable);
-        $this->assertEquals(10, $fresh->getRemainingAttachmentSlots());
+        // Mais la place est prise : une réservation future n'est plus réservable.
+        $this->assertEquals(9, $fresh->remaining_bookable);
+        $this->assertEquals(9, $fresh->getRemainingAttachmentSlots());
         $this->assertEquals(9, $fresh->getRemainingAttachmentSlots(Carbon::now()->addWeek()->addMinute()));
     }
 
@@ -775,7 +776,7 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
-    public function getRemainingAttachmentSlots_ignores_future_attached_lessons(): void
+    public function getRemainingAttachmentSlots_compte_les_cours_futurs_attaches(): void
     {
         $futureLesson = Lesson::create([
             'club_id' => $this->club->id,
@@ -791,12 +792,17 @@ class SubscriptionInstanceTest extends TestCase
 
         $this->subscriptionInstance->consumeLesson($futureLesson);
 
+        // Pas encore consommé...
         $this->assertEquals(0, $this->subscriptionInstance->fresh()->lessons_used);
-        // Le futur ne réduit pas la capacité à « maintenant »
-        $this->assertEquals(10, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
-        // À la date du cours futur, ce cours compte
+        // ...mais la place est réservée : elle n'est plus disponible.
+        $this->assertEquals(9, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+        // Avec une date de référence, le plafond ne considère que les cours qui la précèdent.
         $this->assertEquals(9, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots(
             Carbon::now()->addWeek()->addMinute()
+        ));
+        // Un cours antérieur à la première réservation ne se heurte à aucune place prise.
+        $this->assertEquals(10, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots(
+            Carbon::now()->addMinute()
         ));
     }
 

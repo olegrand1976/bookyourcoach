@@ -168,13 +168,18 @@ class SubscriptionDecrementMatrixTest extends TestCase
         $this->assertSame(6, $this->used($instance));
     }
 
-    /**
-     * Séance libre créée par l'API : jamais rattachée, donc jamais décomptée.
-     *
-     * ⚠️ La garantie vient de ProcessLessonPostCreationJob, pas de consumeLesson() : un appel
-     * direct à consumeLesson() sur un cours `deduct_from_subscription = false` le rattache
-     * quand même (cf. revue — les autres appelants ne filtrent pas le drapeau).
-     */
+    /** Séance libre : le rattachement est refusé au point de passage, quel que soit l'appelant. */
+    public function test_seance_libre_n_est_jamais_rattachee_meme_en_appel_direct(): void
+    {
+        $this->instance->consumeLesson(
+            $this->makeLesson(Carbon::now()->subDay()->setTime(10, 0), ['deduct_from_subscription' => false])
+        );
+
+        $this->assertSame(0, $this->attachedCount());
+        $this->assertSame(0, $this->used());
+    }
+
+    /** Et de bout en bout, à la création par l'API. */
     public function test_seance_libre_creee_par_l_api_n_est_pas_rattachee(): void
     {
         $response = $this->postJson('/api/lessons', [

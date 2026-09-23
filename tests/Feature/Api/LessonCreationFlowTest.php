@@ -704,9 +704,14 @@ class LessonCreationFlowTest extends TestCase
         
         // Si le cours n'est pas lié automatiquement, le lier manuellement pour tester les dates
         if (!$isLinked) {
+            // lessonPayload() force deduct_from_subscription = false pour éviter le contrôle
+            // d'abonnement à la création. Ce test porte sur le recalcul de started_at, pas sur la
+            // séance libre : on repasse le cours en déductible, sinon consumeLesson() le refuse.
+            $lesson->forceFill(['deduct_from_subscription' => true])->saveQuietly();
+
             // Lier manuellement le cours à l'abonnement pour tester la logique des dates
             // Note: consumeLesson() mettra à jour started_at si c'est le premier cours
-            $subscriptionInstance->consumeLesson($lesson);
+            $subscriptionInstance->consumeLesson($lesson->fresh());
             $subscriptionInstance->refresh();
         }
         
