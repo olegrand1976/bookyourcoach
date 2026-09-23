@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Models\SubscriptionTemplate;
 use App\Models\SubscriptionInstance;
+use App\Services\SubscriptionProjectionService;
 use App\Models\SubscriptionStudent;
 use App\Models\Discipline;
 use App\Models\AuditLog;
@@ -643,9 +644,20 @@ class SubscriptionController extends Controller
                 ]);
             }
 
+            // Date de fin théorique : calculée ici seulement (fiche d'un abonnement), jamais dans
+            // la sérialisation d'une instance — la projection parcourt cours futurs et congés club.
+            $projectionService = app(SubscriptionProjectionService::class);
+            $projections = [];
+            foreach ($subscription->instances as $instance) {
+                $projections[(string) $instance->id] = $projectionService->project($instance);
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $subscription
+                'data' => $subscription,
+                'meta' => [
+                    'projections' => $projections,
+                ],
             ]);
 
         } catch (\Exception $e) {
