@@ -9,10 +9,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\ClientIpResolver;
+use App\Services\LoginAttemptRecorder;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Models\Club;
+use App\Models\LoginAttempt;
 use App\Models\Student;
 use App\Notifications\StudentWelcomeNotification;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -215,15 +218,19 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        $recorder = app(LoginAttemptRecorder::class);
+        $clientIp = app(ClientIpResolver::class)->resolve($request);
+
         if (!Auth::guard('web')->attempt($request->only('email', 'password'))) {
             // Sans cette trace, une attaque par force brute reste invisible :
             // c'est la journalisation des accès qui a permis de reconstituer
             // l'incident du 2026-09-23.
             Log::warning('Connexion refusée', [
                 'email' => $request->input('email'),
-                'ip' => $request->ip(),
+                'ip' => $clientIp,
                 'user_agent' => $request->userAgent(),
             ]);
+            $recorder->recordFailure($request, $request->input('email'), LoginAttempt::REASON_INVALID_CREDENTIALS);
 
             return response()->json([
                 'message' => 'Invalid login details'
@@ -245,9 +252,10 @@ class AuthController extends Controller
             'user_id' => $user->id,
             'email' => $user->email,
             'role' => $user->role,
-            'ip' => $request->ip(),
+            'ip' => $clientIp,
             'user_agent' => $request->userAgent(),
         ]);
+        $recorder->recordSuccess($request, $user);
 
         return response()->json([
             'message' => 'Login successful',

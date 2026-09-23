@@ -46,6 +46,9 @@ Route::prefix('auth')->group(function () {
         });
         Route::put('/profile', [AuthController::class, 'updateProfile']);
         Route::put('/change-password', [AuthController::class, 'changePassword']);
+        // Chacun voit ses propres connexions : c'est ce qui permet de repérer
+        // soi-même un accès qu'on ne reconnaît pas.
+        Route::get('/login-history', [\App\Http\Controllers\Api\LoginHistoryController::class, 'mine']);
     });
 });
 
@@ -54,6 +57,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
     Route::get('/users', [AdminDashboardController::class, 'users']); // Utilise AdminDashboardController::users au lieu de AdminController::getUsers
     Route::put('/users/{id}/status', [AdminDashboardController::class, 'updateUserStatus']);
+    // Historique des connexions d'un compte : réservé à l'enquête plateforme.
+    Route::get('/users/{id}/login-history', [\App\Http\Controllers\Api\LoginHistoryController::class, 'forUser']);
     
     // Routes AdminController (autres routes admin)
     Route::get('/stats', [AdminController::class, 'getStats']);

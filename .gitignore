@@ -134,3 +134,6 @@ playwright-report/
 # Runtime files
 *.pid
 *.sock
+# Bases GeoLite2 (volumineuses, licence MaxMind) — voir docs/TRACABILITE_CONNEXIONS.md
+/storage/app/geoip/
+*.mmdb

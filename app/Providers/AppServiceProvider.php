@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Lesson;
+use App\Services\ClientIpResolver;
 use App\Observers\LessonObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -19,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Lecteurs GeoLite2 : un seul ouvert par requête plutôt qu'un par tentative.
+        $this->app->singleton(\App\Services\GeoLocationResolver::class);
+        $this->app->singleton(\App\Services\ClientIpResolver::class);
+
         $this->app->singleton(\App\Services\Neo4jService::class, function ($app) {
             if (!filter_var(env('NEO4J_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
                 return new class {
@@ -80,20 +85,25 @@ class AppServiceProvider extends ServiceProvider
             $attempts = (int) config('bookyourcoach.auth.login_max_attempts', 5);
             $decay = (int) config('bookyourcoach.auth.login_decay_minutes', 10);
             $email = strtolower(trim((string) $request->input('email')));
+            // $request->ip() renvoie le relais interne de Cloud Run, identique pour
+            // tout le monde : le plafond « par IP » serait en réalité un plafond
+            // global, capable de bloquer toute la plateforme.
+            $ip = app(ClientIpResolver::class)->resolve($request) ?? $request->ip();
 
             return [
-                Limit::perMinutes($decay, $attempts)->by('login:' . $email . '|' . $request->ip()),
-                Limit::perMinutes($decay, $attempts * 4)->by('login:ip:' . $request->ip()),
+                Limit::perMinutes($decay, $attempts)->by('login:' . $email . '|' . $ip),
+                Limit::perMinutes($decay, $attempts * 4)->by('login:ip:' . $ip),
             ];
         });
 
         // Création de compte et parcours de réinitialisation : plus rares, donc plus stricts.
         RateLimiter::for('auth-sensitive', function (Request $request) {
             $email = strtolower(trim((string) $request->input('email')));
+            $ip = app(ClientIpResolver::class)->resolve($request) ?? $request->ip();
 
             return [
-                Limit::perMinutes(10, 3)->by('auth-sensitive:' . $email . '|' . $request->ip()),
-                Limit::perMinutes(10, 10)->by('auth-sensitive:ip:' . $request->ip()),
+                Limit::perMinutes(10, 3)->by('auth-sensitive:' . $email . '|' . $ip),
+                Limit::perMinutes(10, 10)->by('auth-sensitive:ip:' . $ip),
             ];
         });
     }

@@ -94,3 +94,11 @@ Schedule::command('auth:prune-idle-tokens')
     ->onFailure(function () {
         \Log::error('Échec de la purge des jetons dormants');
     });
+
+// Purge de l'historique des connexions (données personnelles, durée assumée)
+Schedule::command('auth:prune-login-history')
+    ->dailyAt('03:45')
+    ->timezone('Europe/Brussels')
+    ->onFailure(function () {
+        \Log::error('Échec de la purge de l\'historique de connexion');
+    });

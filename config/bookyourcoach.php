@@ -73,6 +73,26 @@ return [
         'password_uncompromised' => filter_var(env('AUTH_PASSWORD_UNCOMPROMISED', true), FILTER_VALIDATE_BOOLEAN),
         'login_max_attempts' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS', 5),
         'login_decay_minutes' => (int) env('AUTH_LOGIN_DECAY_MINUTES', 10),
+
+        /*
+        | Nombre de relais de confiance en bout de chaîne X-Forwarded-For.
+        |
+        | Derrière un load balancer Google devant Cloud Run, l'en-tête vaut
+        | « <valeur fournie par le client>, <IP client>, <IP du LB> » : la vraie
+        | adresse est donc l'avant-dernière, d'où la valeur 1. Tout ce qui est à
+        | gauche peut avoir été forgé par le client et n'est jamais utilisé comme
+        | source de vérité — seulement conservé tel quel pour vérification.
+        */
+        'trusted_proxy_hops' => (int) env('AUTH_TRUSTED_PROXY_HOPS', 1),
+
+        // Historique des connexions : les adresses IP sont des données personnelles,
+        // la purge est planifiée et la durée assumée (RGPD, minimisation).
+        'login_history_retention_days' => (int) env('AUTH_LOGIN_HISTORY_RETENTION_DAYS', 365),
+
+        // Base GeoLite2 embarquée : résolution hors ligne, aucune donnée envoyée à un tiers.
+        // Absente, la géolocalisation est simplement vide — jamais bloquante.
+        'geoip_city_database' => env('GEOIP_CITY_DATABASE', storage_path('app/geoip/GeoLite2-City.mmdb')),
+        'geoip_asn_database' => env('GEOIP_ASN_DATABASE', storage_path('app/geoip/GeoLite2-ASN.mmdb')),
     ],
 
 ];
