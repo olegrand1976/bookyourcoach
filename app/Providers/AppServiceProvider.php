@@ -125,6 +125,12 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinutes(10, 30)->by('two-factor:ip:' . $ip),
             ];
         });
+
+        // Réglages 2FA d'un compte connecté : une session volée ne doit pas pouvoir
+        // deviner le code courant pour changer de téléphone.
+        RateLimiter::for('two-factor-account', function (Request $request) {
+            return Limit::perMinutes(10, 5)->by('two-factor-account:' . optional($request->user())->id);
+        });
     }
 
     /**

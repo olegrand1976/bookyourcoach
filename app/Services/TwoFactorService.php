@@ -126,7 +126,7 @@ class TwoFactorService
             return false;
         }
 
-        $key = $this->lastTimestampKey($user);
+        $key = $this->lastTimestampKey($user, $secret);
         $lastTimestamp = (int) Cache::get($key, 0);
 
         $timestamp = $this->google2fa->verifyKeyNewer($secret, $code, $lastTimestamp, self::WINDOW);
@@ -351,8 +351,8 @@ class TwoFactorService
             $user->tokens()->delete();
         });
 
+        // L'anti-rejeu du secret supprimé expire seul en quelques minutes.
         Cache::forget($this->pendingSecretKey($user));
-        Cache::forget($this->lastTimestampKey($user));
     }
 
     // ---------------------------------------------------------------------
@@ -394,8 +394,13 @@ class TwoFactorService
         return '2fa:pending-secret:'.$user->id;
     }
 
-    private function lastTimestampKey(User $user): string
+    /**
+     * Propre au secret, pas seulement au compte : lors d'un changement de téléphone,
+     * le code de l'ancien puis celui du nouveau tombent souvent dans la même période
+     * de 30 s, et le second ne doit pas passer pour un rejeu du premier.
+     */
+    private function lastTimestampKey(User $user, string $secret): string
     {
-        return '2fa:last-timestamp:'.$user->id;
+        return '2fa:last-timestamp:'.$user->id.':'.substr(hash('sha256', $secret), 0, 16);
     }
 }

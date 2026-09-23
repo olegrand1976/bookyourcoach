@@ -57,6 +57,19 @@ Route::prefix('auth')->group(function () {
         // Chacun voit ses propres connexions : c'est ce qui permet de repérer
         // soi-même un accès qu'on ne reconnaît pas.
         Route::get('/login-history', [\App\Http\Controllers\Api\LoginHistoryController::class, 'mine']);
+
+        // Réglages 2FA de son compte. Les actions qui touchent au second facteur
+        // exigent mot de passe + code (voir TwoFactorSensitiveActionRequest).
+        Route::prefix('two-factor')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'show']);
+            Route::middleware('throttle:two-factor-account')->group(function () {
+                Route::post('/recovery-codes', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'regenerateRecoveryCodes']);
+                Route::post('/reconfigure', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'reconfigure']);
+                Route::post('/reconfigure/confirm', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'confirmReconfigure']);
+            });
+            Route::delete('/trusted-devices', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'revokeAllTrustedDevices']);
+            Route::delete('/trusted-devices/{id}', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'revokeTrustedDevice'])->whereNumber('id');
+        });
     });
 });
 
@@ -67,6 +80,8 @@ Route::middleware(['auth:sanctum', '2fa', 'admin'])->prefix('admin')->group(func
     Route::put('/users/{id}/status', [AdminDashboardController::class, 'updateUserStatus']);
     // Historique des connexions d'un compte : réservé à l'enquête plateforme.
     Route::get('/users/{id}/login-history', [\App\Http\Controllers\Api\LoginHistoryController::class, 'forUser']);
+    // Téléphone perdu : l'utilisateur refera son enrôlement à la prochaine connexion.
+    Route::post('/users/{id}/two-factor/reset', [\App\Http\Controllers\Api\TwoFactorAccountController::class, 'resetForUser'])->whereNumber('id');
     
     // Routes AdminController (autres routes admin)
     Route::get('/stats', [AdminController::class, 'getStats']);

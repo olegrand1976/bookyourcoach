@@ -65,6 +65,13 @@ class User extends Authenticatable
     ];
 
     /**
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'two_factor_enabled',
+    ];
+
+    /**
      * The attributes that should be cast.
      *
      * @var array<string, string>
@@ -422,6 +429,15 @@ class User extends Authenticatable
     public function hasTwoFactorEnabled(): bool
     {
         return $this->two_factor_confirmed_at !== null && ! empty($this->two_factor_secret);
+    }
+
+    /**
+     * Exposé dans le JSON à la place du secret, masqué : le front et l'admin savent
+     * si la 2FA est active sans jamais voir le secret.
+     */
+    public function getTwoFactorEnabledAttribute(): bool
+    {
+        return $this->hasTwoFactorEnabled();
     }
 
     public function trustedDevices(): HasMany
