@@ -362,7 +362,8 @@ class LoginHistoryTest extends TestCase
             $this->markTestSkipped('Base GeoLite2 absente — voir docs/TRACABILITE_CONNEXIONS.md');
         }
 
-        $user = $this->utilisateur();
+        // Enseignant : connexion en une étape (club et admin passent par la 2FA).
+        $user = $this->utilisateur('prof@club.test', 'teacher');
 
         $this->withHeaders([
             'X-Forwarded-For' => '87.67.110.94, 34.54.99.89',

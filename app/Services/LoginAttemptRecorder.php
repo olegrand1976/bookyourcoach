@@ -25,11 +25,12 @@ class LoginAttemptRecorder
         return $this->record($request, $user->email, true, null, $user);
     }
 
-    public function recordFailure(Request $request, ?string $email, string $reason = LoginAttempt::REASON_INVALID_CREDENTIALS): ?LoginAttempt
+    public function recordFailure(Request $request, ?string $email, string $reason = LoginAttempt::REASON_INVALID_CREDENTIALS, ?User $user = null): ?LoginAttempt
     {
         // On rattache la tentative au compte visé s'il existe : c'est ce qui permet
-        // à quelqu'un de voir qu'on a essayé d'entrer chez lui.
-        $user = $email ? User::where('email', $email)->first() : null;
+        // à quelqu'un de voir qu'on a essayé d'entrer chez lui. Compte déjà connu
+        // (échec 2FA) : le prendre tel quel, un même email pouvant porter plusieurs rôles.
+        $user ??= $email ? User::where('email', $email)->first() : null;
 
         return $this->record($request, $email, false, $reason, $user);
     }

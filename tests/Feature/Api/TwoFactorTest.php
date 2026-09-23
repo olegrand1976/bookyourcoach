@@ -136,6 +136,27 @@ class TwoFactorTest extends TestCase
     }
 
     #[Test]
+    public function a_setup_challenge_issued_before_enrolment_cannot_overwrite_the_secret(): void
+    {
+        $user = $this->account(User::ROLE_CLUB);
+        $stale = $this->login($user)->json('data.challenge_token');
+
+        // Le titulaire active sa 2FA par une autre connexion.
+        $challenge = $this->login($user)->json('data.challenge_token');
+        $secret = $this->postJson('/api/auth/two-factor/setup', ['challenge_token' => $challenge])->json('data.secret');
+        $this->postJson('/api/auth/two-factor/setup/confirm', [
+            'challenge_token' => $challenge,
+            'code' => $this->google2fa->getCurrentOtp($secret),
+        ])->assertOk();
+
+        // L'ancien challenge, encore dans sa fenêtre de validité, ne rouvre pas l'enrôlement.
+        $this->postJson('/api/auth/two-factor/setup', ['challenge_token' => $stale])->assertStatus(401);
+        $this->postJson('/api/auth/two-factor/setup/confirm', ['challenge_token' => $stale, 'code' => '123456'])
+            ->assertStatus(401);
+        $this->assertSame($secret, $user->fresh()->two_factor_secret);
+    }
+
+    #[Test]
     public function recovery_code_is_single_use(): void
     {
         $user = $this->account(User::ROLE_CLUB, $this->google2fa->generateSecretKey(32));

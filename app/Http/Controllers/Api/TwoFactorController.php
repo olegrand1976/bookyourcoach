@@ -35,7 +35,9 @@ class TwoFactorController extends Controller
     public function setup(TwoFactorSetupRequest $request): JsonResponse
     {
         $user = $this->twoFactor->challengeUser($request->input('challenge_token'), TwoFactorService::MODE_SETUP);
-        if (! $user) {
+        // Un challenge d'enrôlement émis avant l'activation ne doit jamais remplacer
+        // un secret confirmé depuis : il faut repasser par le login (mode challenge).
+        if (! $user || $user->hasTwoFactorEnabled()) {
             return $this->challengeExpired();
         }
 
@@ -59,7 +61,7 @@ class TwoFactorController extends Controller
     {
         $challengeToken = $request->input('challenge_token');
         $user = $this->twoFactor->challengeUser($challengeToken, TwoFactorService::MODE_SETUP);
-        if (! $user) {
+        if (! $user || $user->hasTwoFactorEnabled()) {
             return $this->challengeExpired();
         }
 
@@ -154,7 +156,7 @@ class TwoFactorController extends Controller
     private function invalidCode(Request $request, User $user, string $challengeToken): JsonResponse
     {
         $remaining = $this->twoFactor->recordChallengeFailure($challengeToken);
-        $this->recorder->recordFailure($request, $user->email, LoginAttempt::REASON_INVALID_TWO_FACTOR);
+        $this->recorder->recordFailure($request, $user->email, LoginAttempt::REASON_INVALID_TWO_FACTOR, $user);
 
         Log::warning('Code 2FA refusé', [
             'user_id' => $user->id,
