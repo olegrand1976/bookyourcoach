@@ -29,15 +29,34 @@ et comparer l'adresse retenue avec `httpRequest.remoteIp` des journaux Cloud Run
 La résolution est **hors ligne** : aucune adresse de vos utilisateurs n'est envoyée à
 un tiers. En l'absence des fichiers, la localisation reste vide et rien ne casse.
 
-1. Créer un compte gratuit MaxMind et générer une clé de licence.
-2. Télécharger `GeoLite2-City.mmdb` et `GeoLite2-ASN.mmdb`.
-3. Les déposer dans `storage/app/geoip/` (ou pointer `GEOIP_CITY_DATABASE` et
-   `GEOIP_ASN_DATABASE` ailleurs).
-4. En production Cloud Run, le système de fichiers est éphémère : les fichiers
-   doivent être **inclus dans l'image** (Dockerfile) ou montés depuis un bucket.
-   Sans cela, la localisation restera vide en production.
+La clé de licence MaxMind est enregistrée dans les **secrets GitHub** du dépôt, sous
+`MAXMIND_LICENSE_KEY`. Elle n'est utilisée qu'au moment du build : l'application n'en
+a pas besoin à l'exécution, seulement des fichiers `.mmdb`.
 
-Les bases se périment : prévoir une mise à jour mensuelle.
+**Production** — le `Dockerfile` racine télécharge les deux bases pendant le build et
+les dépose dans `storage/app/geoip/`. C'est nécessaire parce que le système de
+fichiers de Cloud Run est éphémère. L'étape est non bloquante : sans secret, ou si
+MaxMind ne répond pas, l'image se construit quand même et la localisation reste vide.
+
+**En local** — les fichiers ne sont pas dans le dépôt (63 Mo, licence MaxMind, et
+`storage/app/` est ignoré par git). Pour les installer ou les rafraîchir :
+
+```bash
+docker compose --profile test run --rm -e MAXMIND_KEY=<votre clé> php-test sh -c '
+mkdir -p storage/app/geoip
+for edition in GeoLite2-City GeoLite2-ASN; do
+  curl -fsSL "https://download.maxmind.com/app/geoip_download?edition_id=${edition}&license_key=${MAXMIND_KEY}&suffix=tar.gz" -o /tmp/${edition}.tar.gz \
+    && tar -xzf /tmp/${edition}.tar.gz -C /tmp \
+    && find /tmp -name "${edition}.mmdb" -exec cp {} storage/app/geoip/ \;
+done'
+```
+
+Le répertoire `storage` appartient à l'utilisateur du conteneur : lancer la commande
+depuis l'hôte échouerait sur les droits.
+
+Les bases se périment : prévoir une mise à jour mensuelle. Les deux tests de
+`LoginHistoryTest` qui interrogent la vraie base se sautent d'eux-mêmes lorsqu'elle
+est absente — la CI reste donc verte sans les fichiers.
 
 ## Ce que la localisation vaut, et ce qu'elle ne vaut pas
 

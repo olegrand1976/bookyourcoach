@@ -330,4 +330,52 @@ class LoginHistoryTest extends TestCase
             app(\App\Services\GeoLocationResolver::class)
         );
     }
+
+    #[Test]
+    public function la_base_geolite2_situe_une_adresse_publique_quand_elle_est_installee(): void
+    {
+        $geo = app(\App\Services\GeoLocationResolver::class);
+
+        if (! $geo->isAvailable()) {
+            // La base .mmdb n'est pas dans le dépôt (licence MaxMind, 63 Mo) :
+            // en CI elle est absente et le test n'a rien à vérifier.
+            $this->markTestSkipped('Base GeoLite2 absente — voir docs/TRACABILITE_CONNEXIONS.md');
+        }
+
+        // Adresse belge réelle (Proximus), celle d'où la journée du 23/09 a été rouverte.
+        $resultat = $geo->locate('87.67.110.94');
+
+        $this->assertEquals('BE', $resultat['country_code']);
+        $this->assertNotNull($resultat['country']);
+        $this->assertNotNull($resultat['organisation']);
+        // Le rayon annoncé rappelle qu'une ville reste une estimation.
+        $this->assertIsInt($resultat['accuracy_radius_km']);
+        $this->assertGreaterThan(0, $resultat['accuracy_radius_km']);
+    }
+
+    #[Test]
+    public function une_connexion_reelle_est_localisee_de_bout_en_bout(): void
+    {
+        if (! app(\App\Services\GeoLocationResolver::class)->isAvailable()) {
+            $this->markTestSkipped('Base GeoLite2 absente — voir docs/TRACABILITE_CONNEXIONS.md');
+        }
+
+        $user = $this->utilisateur();
+
+        $this->withHeaders([
+            'X-Forwarded-For' => '87.67.110.94, 34.54.99.89',
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0',
+        ])->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'MotDePasseSolide2026',
+        ])->assertStatus(200);
+
+        $attempt = LoginAttempt::where('user_id', $user->id)->firstOrFail();
+
+        $this->assertEquals('87.67.110.94', $attempt->ip_address);
+        $this->assertEquals('BE', $attempt->country_code);
+        $this->assertNotNull($attempt->location_label);
+        $this->assertEquals('Edge', $attempt->browser);
+        $this->assertEquals('Windows', $attempt->platform);
+    }
 }
