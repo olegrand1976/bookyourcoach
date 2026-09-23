@@ -137,3 +137,7 @@ playwright-report/
 # Bases GeoLite2 (volumineuses, licence MaxMind) — voir docs/TRACABILITE_CONNEXIONS.md
 /storage/app/geoip/
 *.mmdb
+
+# Arbres de travail isolés et réglages locaux de Claude Code
+.claude/worktrees/
+.claude/settings.local.json
