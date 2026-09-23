@@ -109,6 +109,21 @@ class TwoFactorServiceTest extends TestCase
     }
 
     #[Test]
+    public function a_recovery_code_consumed_by_a_parallel_request_is_refused(): void
+    {
+        $user = User::factory()->withTwoFactor()->create(['role' => User::ROLE_CLUB]);
+        $codes = $this->service->regenerateRecoveryCodes($user);
+
+        // Deux requêtes chargent le compte avant que l'une consomme le code.
+        $first = User::find($user->id);
+        $second = User::find($user->id);
+
+        $this->assertTrue($this->service->useRecoveryCode($first, $codes[0]));
+        $this->assertFalse($this->service->useRecoveryCode($second, $codes[0]), 'Le compte doit être relu sous verrou');
+        $this->assertSame(TwoFactorService::RECOVERY_CODES_COUNT - 1, $this->service->remainingRecoveryCodes($user->fresh()));
+    }
+
+    #[Test]
     public function challenge_is_bound_to_its_mode_and_dies_after_too_many_failures(): void
     {
         $user = User::factory()->create(['role' => User::ROLE_CLUB]);

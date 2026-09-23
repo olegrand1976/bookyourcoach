@@ -34,6 +34,11 @@ class TwoFactorController extends Controller
      */
     public function setup(TwoFactorSetupRequest $request): JsonResponse
     {
+        return $this->locked($request, fn () => $this->doSetup($request));
+    }
+
+    private function doSetup(TwoFactorSetupRequest $request): JsonResponse
+    {
         $user = $this->twoFactor->challengeUser($request->input('challenge_token'), TwoFactorService::MODE_SETUP);
         // Un challenge d'enrôlement émis avant l'activation ne doit jamais remplacer
         // un secret confirmé depuis : il faut repasser par le login (mode challenge).
@@ -58,6 +63,11 @@ class TwoFactorController extends Controller
      * Enrôlement : le premier code valide active la 2FA et ouvre la session.
      */
     public function confirmSetup(TwoFactorConfirmRequest $request): JsonResponse
+    {
+        return $this->locked($request, fn () => $this->doConfirmSetup($request));
+    }
+
+    private function doConfirmSetup(TwoFactorConfirmRequest $request): JsonResponse
     {
         $challengeToken = $request->input('challenge_token');
         $user = $this->twoFactor->challengeUser($challengeToken, TwoFactorService::MODE_SETUP);
@@ -86,6 +96,11 @@ class TwoFactorController extends Controller
      * Connexion : code TOTP ou code de récupération.
      */
     public function challenge(TwoFactorChallengeRequest $request): JsonResponse
+    {
+        return $this->locked($request, fn () => $this->doChallenge($request));
+    }
+
+    private function doChallenge(TwoFactorChallengeRequest $request): JsonResponse
     {
         $challengeToken = $request->input('challenge_token');
         $user = $this->twoFactor->challengeUser($challengeToken, TwoFactorService::MODE_CHALLENGE);
@@ -123,6 +138,18 @@ class TwoFactorController extends Controller
         }
 
         return $this->completeLogin($request, $user, $extra, 'Connexion réussie.');
+    }
+
+    /**
+     * Une seule vérification à la fois par challenge : la lecture du challenge, le
+     * contrôle du code et sa consommation (ou l'échec compté) forment un tout. Une
+     * requête parallèle attend puis trouve le challenge consommé — un challenge
+     * n'ouvre donc jamais deux sessions, et chaque code faux est bien compté.
+     */
+    private function locked(Request $request, callable $callback): JsonResponse
+    {
+        // Attente trop longue : LockTimeoutException, rendue en 429 (bootstrap/app.php).
+        return $this->twoFactor->withChallengeLock((string) $request->input('challenge_token'), $callback);
     }
 
     /**

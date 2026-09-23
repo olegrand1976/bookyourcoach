@@ -157,6 +157,48 @@ class TwoFactorTest extends TestCase
     }
 
     #[Test]
+    public function a_challenge_opens_only_one_session(): void
+    {
+        $secret = $this->google2fa->generateSecretKey(32);
+        $user = $this->account(User::ROLE_CLUB, $secret);
+        $codes = app(TwoFactorService::class)->regenerateRecoveryCodes($user);
+        $challenge = $this->login($user)->json('data.challenge_token');
+
+        $this->postJson('/api/auth/two-factor/challenge', [
+            'challenge_token' => $challenge,
+            'code' => $this->google2fa->getCurrentOtp($secret),
+        ])->assertOk();
+
+        // Un second facteur valide, présenté sur le même challenge, n'ouvre rien de plus.
+        $this->postJson('/api/auth/two-factor/challenge', ['challenge_token' => $challenge, 'recovery_code' => $codes[0]])
+            ->assertStatus(401);
+        $this->assertSame(1, $user->tokens()->count());
+        $this->assertSame(TwoFactorService::RECOVERY_CODES_COUNT, app(TwoFactorService::class)->remainingRecoveryCodes($user->fresh()));
+    }
+
+    #[Test]
+    public function a_verification_in_progress_on_the_same_challenge_makes_the_other_wait_then_fail_cleanly(): void
+    {
+        $user = $this->account(User::ROLE_CLUB, $this->google2fa->generateSecretKey(32));
+        $challenge = $this->login($user)->json('data.challenge_token');
+
+        // Simule une requête parallèle qui tient le verrou de ce challenge.
+        $lock = \Illuminate\Support\Facades\Cache::lock('2fa:lock:challenge:'.hash('sha256', $challenge), 30);
+        $this->assertTrue($lock->get());
+
+        try {
+            $this->postJson('/api/auth/two-factor/challenge', [
+                'challenge_token' => $challenge,
+                'code' => $this->google2fa->getCurrentOtp($user->two_factor_secret),
+            ])->assertStatus(429);
+        } finally {
+            $lock->release();
+        }
+
+        $this->assertSame(0, $user->tokens()->count());
+    }
+
+    #[Test]
     public function recovery_code_is_single_use(): void
     {
         $user = $this->account(User::ROLE_CLUB, $this->google2fa->generateSecretKey(32));

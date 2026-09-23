@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\TrustedDevice;
 use App\Models\User;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -38,6 +39,12 @@ class TwoFactorService
 
     // Durée laissée pour scanner le QR code et saisir le premier code.
     private const PENDING_SECRET_MINUTES = 15;
+
+    // Verrous : une vérification dure quelques millisecondes ; au-delà de l'attente,
+    // la requête concurrente est refusée plutôt que de s'empiler.
+    private const LOCK_SECONDS = 10;
+
+    public const LOCK_WAIT_SECONDS = 5;
 
     public function __construct(
         private readonly Google2FA $google2fa,
@@ -126,18 +133,23 @@ class TwoFactorService
             return false;
         }
 
-        $key = $this->lastTimestampKey($user, $secret);
-        $lastTimestamp = (int) Cache::get($key, 0);
+        // Lecture, vérification et écriture de l'anti-rejeu sous verrou : sans lui, deux
+        // requêtes simultanées portant le même code lisent toutes deux l'ancienne valeur
+        // et passent toutes deux.
+        return $this->withUserLock($user, function () use ($user, $secret, $code) {
+            $key = $this->lastTimestampKey($user, $secret);
+            $lastTimestamp = (int) Cache::get($key, 0);
 
-        $timestamp = $this->google2fa->verifyKeyNewer($secret, $code, $lastTimestamp, self::WINDOW);
-        if ($timestamp === false) {
-            return false;
-        }
+            $timestamp = $this->google2fa->verifyKeyNewer($secret, $code, $lastTimestamp, self::WINDOW);
+            if ($timestamp === false) {
+                return false;
+            }
 
-        // Au-delà de la fenêtre, le code est de toute façon périmé : inutile de garder plus.
-        Cache::put($key, $timestamp, now()->addMinutes(5));
+            // Au-delà de la fenêtre, le code est de toute façon périmé : inutile de garder plus.
+            Cache::put($key, $timestamp, now()->addMinutes(5));
 
-        return true;
+            return true;
+        });
     }
 
     /**
@@ -145,19 +157,25 @@ class TwoFactorService
      */
     public function useRecoveryCode(User $user, string $code): bool
     {
-        $hashes = $user->two_factor_recovery_codes ?? [];
         $candidate = $this->hashRecoveryCode($code);
 
-        foreach ($hashes as $index => $hash) {
-            if (hash_equals($hash, $candidate)) {
-                unset($hashes[$index]);
-                $user->forceFill(['two_factor_recovery_codes' => array_values($hashes)])->save();
+        return $this->withUserLock($user, function () use ($user, $candidate) {
+            // Relire sous verrou : le compte chargé en début de requête peut porter un
+            // code déjà consommé entre-temps par une requête parallèle.
+            $user->refresh();
+            $hashes = $user->two_factor_recovery_codes ?? [];
 
-                return true;
+            foreach ($hashes as $index => $hash) {
+                if (hash_equals($hash, $candidate)) {
+                    unset($hashes[$index]);
+                    $user->forceFill(['two_factor_recovery_codes' => array_values($hashes)])->save();
+
+                    return true;
+                }
             }
-        }
 
-        return false;
+            return false;
+        });
     }
 
     public function remainingRecoveryCodes(User $user): int
@@ -285,6 +303,19 @@ class TwoFactorService
         Cache::forget($this->challengeKey($token));
     }
 
+    /**
+     * Exécute toute une vérification (lecture du challenge, contrôle du code, échec ou
+     * consommation) sans qu'une autre requête sur le même challenge s'intercale : un
+     * challenge n'ouvre qu'une session, et chaque essai compte.
+     *
+     * @throws LockTimeoutException si une vérification du même challenge est déjà en cours.
+     */
+    public function withChallengeLock(string $token, callable $callback): mixed
+    {
+        return Cache::lock('2fa:lock:challenge:'.hash('sha256', $token), self::LOCK_SECONDS)
+            ->block(self::LOCK_WAIT_SECONDS, $callback);
+    }
+
     // ---------------------------------------------------------------------
     // Appareils de confiance
     // ---------------------------------------------------------------------
@@ -377,6 +408,15 @@ class TwoFactorService
         $normalized = strtolower(preg_replace('/[\s-]+/', '', $code));
 
         return hash('sha256', $normalized);
+    }
+
+    /**
+     * @throws LockTimeoutException
+     */
+    private function withUserLock(User $user, callable $callback): mixed
+    {
+        return Cache::lock('2fa:lock:user:'.$user->id, self::LOCK_SECONDS)
+            ->block(self::LOCK_WAIT_SECONDS, $callback);
     }
 
     private function issuer(): string

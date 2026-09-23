@@ -29,6 +29,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Verrou tenu trop longtemps par une requête concurrente (vérification 2FA en
+        // cours sur le même compte ou challenge) : c'est un « réessayez », pas une 500.
+        $exceptions->render(function (\Illuminate\Contracts\Cache\LockTimeoutException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Une vérification est déjà en cours : réessayez dans un instant.',
+                ], 429);
+            }
+        });
+
         // Ajouter les en-têtes CORS aux réponses d'erreur (ex. 500) pour les routes API,
         // sinon le navigateur bloque avec "Access-Control-Allow-Origin manquant" au lieu d'afficher l'erreur.
         $exceptions->respond(function ($response, $e, $request) {
