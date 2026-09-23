@@ -160,11 +160,14 @@ class LessonObserver
      */
     public function deleted(Lesson $lesson): void
     {
+        // ⚠️ Lire le pivot directement : `whereHas('lessons', …)` porte le scope SoftDeletes de
+        // Lesson, or à ce stade le cours est déjà `trashed`. La requête ne renverrait donc rien,
+        // le pivot resterait en place et lessons_used surévalué jusqu'à un recalcul fortuit.
         $instanceIds = collect($lesson->cancelled_subscription_instance_ids ?? [])
             ->merge(
-                SubscriptionInstance::whereHas('lessons', function ($query) use ($lesson) {
-                    $query->where('lesson_id', $lesson->id);
-                })->pluck('id')
+                \Illuminate\Support\Facades\DB::table('subscription_lessons')
+                    ->where('lesson_id', $lesson->id)
+                    ->pluck('subscription_instance_id')
             )
             ->map(fn ($id) => (int) $id)
             ->unique()
