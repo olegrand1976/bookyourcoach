@@ -222,21 +222,22 @@ class SubscriptionInstance extends Model
     /**
      * Capacité restante pour planifier des cours récurrents (génération auto).
      * Inclut les réservations futures déjà attachées (contrairement à getRemainingAttachmentSlots() à « maintenant »).
-     * Fallback illimité si le total est indéterminé et aucun cours attaché (legacy).
+     * Fallback illimité si le total est indéterminé (legacy sans template).
      */
     public function resolveRemainingAttachmentSlotsForPlanning(): int
     {
         $instance = $this->fresh();
-        $horizon = Carbon::now()->addYears(5);
-        $slots = $instance->getRemainingAttachmentSlots($horizon);
         $total = $instance->resolveTotalAvailableLessons();
 
-        // Legacy / total indéterminé : ne pas bloquer la génération (comportement historique)
-        if ($total <= 0 && $slots === 0 && $instance->getAttachedCountableLessonsCount($horizon) === 0) {
+        // Legacy / total indéterminé : ne pas bloquer la génération (comportement historique).
+        // Le repli doit valoir aussi quand des cours sont déjà attachés : un abonnement sans template
+        // ayant déjà servi a toujours une capacité inconnue, pas une capacité nulle — sinon toute
+        // régénération de série (changement d'intervalle, déplacement) échoue avec 0 cours généré.
+        if ($total <= 0) {
             return PHP_INT_MAX;
         }
 
-        return $slots;
+        return $instance->getRemainingAttachmentSlots(Carbon::now()->addYears(5));
     }
 
     private function buildAttachedLessonsQuery()

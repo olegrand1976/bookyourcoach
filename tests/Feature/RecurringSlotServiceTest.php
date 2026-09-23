@@ -280,6 +280,20 @@ class RecurringSlotServiceTest extends TestCase
 
     public function test_does_not_plan_generation_beyond_remaining_attachment_slots(): void
     {
+        // Le setUp passe `total_lessons` directement à Subscription::create : colonne legacy,
+        // non fillable et purgée par save(), donc capacité inconnue (0). Ce test porte sur le
+        // plafond : il lui faut une capacité réelle, portée par un template.
+        $template = \App\Models\SubscriptionTemplate::create([
+            'club_id' => $this->club->id,
+            'model_number' => 'CAP10-'.uniqid(),
+            'total_lessons' => 10,
+            'validity_months' => 12,
+            'price' => 200.00,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($this->courseType->id);
+        $this->subscription->update(['subscription_template_id' => $template->id]);
+
         for ($i = 0; $i < 10; $i++) {
             $futureLesson = Lesson::create([
                 'club_id' => $this->club->id,
@@ -295,7 +309,8 @@ class RecurringSlotServiceTest extends TestCase
             $this->subscriptionInstance->lessons()->attach($futureLesson->id);
         }
 
-        $this->assertEquals(0, $this->subscriptionInstance->fresh()->getRemainingAttachmentSlots());
+        // Capacité de planification (horizon long) : c'est le plafond qu'applique generateLessonsForSlot.
+        $this->assertEquals(0, $this->subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning());
 
         $nextSaturday = Carbon::now()->next(Carbon::SATURDAY);
         $recurringSlot = RecurringSlot::create([

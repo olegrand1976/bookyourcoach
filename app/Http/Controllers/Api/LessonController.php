@@ -2081,7 +2081,9 @@ class LessonController extends Controller
                 continue;
             }
             // Occurrence sans cours confirmé (= carte blanche planning) : créneau libre pour une réservation ponctuelle.
-            if (! $this->recurringSlotHasActiveMaterializedLessonOnDate($slot, $date)) {
+            // $excludeLessonId : en mise à jour, le cours édité matérialise lui-même sa propre série ;
+            // sans cette exclusion il se déclare en conflit avec elle.
+            if (! $this->recurringSlotHasActiveMaterializedLessonOnDate($slot, $date, $excludeLessonId)) {
                 continue;
             }
             $slotStart = substr((string) $slot->start_time, 0, 5);
@@ -2094,10 +2096,14 @@ class LessonController extends Controller
 
     /**
      * True si la série a déjà un cours non annulé / non soft-supprimé qui matérialise l'occurrence ce jour-là.
+     *
+     * @param  int|null  $excludeLessonId  Cours à ignorer (celui en cours de modification), pour qu'il ne
+     *                                     soit pas compté comme matérialisant la série à laquelle il appartient.
      */
     private function recurringSlotHasActiveMaterializedLessonOnDate(
         \App\Models\SubscriptionRecurringSlot $slot,
-        string $dateYmd
+        string $dateYmd,
+        ?int $excludeLessonId = null
     ): bool {
         $slotStart = Carbon::parse($dateYmd.' '.substr((string) $slot->start_time, 0, 8));
         $slotEnd = Carbon::parse($dateYmd.' '.substr((string) $slot->end_time, 0, 8));
@@ -2114,6 +2120,7 @@ class LessonController extends Controller
             ->where('student_id', $sid)
             ->where('status', '!=', 'cancelled')
             ->whereDate('start_time', $dateYmd)
+            ->when($excludeLessonId !== null, fn ($q) => $q->where('id', '!=', $excludeLessonId))
             ->with('courseType')
             ->get();
 

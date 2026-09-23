@@ -1127,6 +1127,41 @@ class SubscriptionInstanceTest extends TestCase
         $this->assertEquals(PHP_INT_MAX, $instance->resolveRemainingAttachmentSlotsForPlanning());
     }
 
+    /**
+     * Un abonnement sans template ayant déjà des cours attachés a une capacité inconnue, pas nulle :
+     * la génération de série ne doit pas être bloquée (sinon tout changement d'intervalle échoue).
+     */
+    #[Test]
+    public function resolveRemainingAttachmentSlotsForPlanning_returns_unlimited_when_total_unknown_even_with_attached_lessons(): void
+    {
+        $subscriptionWithoutTemplate = Subscription::create([
+            'club_id' => $this->club->id,
+        ]);
+
+        $instance = SubscriptionInstance::create([
+            'subscription_id' => $subscriptionWithoutTemplate->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now()->subMonth(),
+            'status' => 'active',
+        ]);
+        $instance->students()->attach($this->student->id);
+
+        $futureLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addWeek(),
+            'end_time' => Carbon::now()->addWeek()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $instance->lessons()->attach($futureLesson->id);
+
+        $this->assertEquals(PHP_INT_MAX, $instance->fresh()->resolveRemainingAttachmentSlotsForPlanning());
+    }
+
     #[Test]
     public function resolveRemainingAttachmentSlotsForPlanning_returns_zero_when_full(): void
     {
