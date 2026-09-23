@@ -218,6 +218,11 @@ export type ComputeRecurringPlaceholdersInput = {
    * soft-supprimé n'est pas émise. true : elle est émise avec `is_freed_occurrence = true`.
    */
   includeFreed?: boolean
+  /**
+   * Avec includeFreed : ne pas émettre une occurrence libérée par un cours soft-supprimé
+   * (suppression volontaire, rien à traiter) — seules les annulations restent visibles.
+   */
+  skipFreedByDeleted?: boolean
 }
 
 /**
@@ -254,6 +259,7 @@ export function computeRecurringPlaceholders(input: ComputeRecurringPlaceholders
     // Cours annulé / soft-supprimé ce jour : plage libérée, série inchangée pour les occurrences futures
     const freedBy = findInactiveLessonFreeingOccurrence(rs, dateStr, input.dayLessons)
     if (freedBy && !input.includeFreed) continue
+    if (freedBy && input.skipFreedByDeleted && freedBy.status !== 'cancelled') continue
     out.push(buildRecurringPlaceholder(rs, dateStr, freedBy))
   }
   return out

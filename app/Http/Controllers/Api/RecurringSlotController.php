@@ -486,13 +486,25 @@ class RecurringSlotController extends Controller
             })->findOrFail($id);
 
             $service = new LegacyRecurringSlotService;
-            $result = $service->materializeLessonForSingleDate($recurringSlot, $occurrence);
+            $result = $service->materializeLessonForSingleDate($recurringSlot, $occurrence, $user);
 
             if (! $result['success']) {
                 return response()->json([
                     'success' => false,
                     'message' => $result['message'] ?? 'Impossible de générer le cours.',
+                    'conflicts' => $result['conflicts'] ?? null,
                 ], 422);
+            }
+
+            $reactivated = (bool) ($result['reactivated'] ?? false);
+            if ($reactivated) {
+                app(\App\Services\LessonActionLogService::class)->log(
+                    $result['lesson'],
+                    \App\Models\LessonActionLog::ACTION_REACTIVATED,
+                    $user,
+                    'club',
+                    meta: ['reason' => 'Réactivé depuis le planning (cours prévu de la série)'],
+                );
             }
 
             $lesson = Lesson::with([
@@ -505,12 +517,15 @@ class RecurringSlotController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => ($result['already_existed'] ?? false)
-                    ? 'Cours déjà présent à cette date.'
-                    : 'Cours généré pour cette séance.',
+                'message' => match (true) {
+                    $reactivated => 'Cours réactivé pour cette séance.',
+                    (bool) ($result['already_existed'] ?? false) => 'Cours déjà présent à cette date.',
+                    default => 'Cours généré pour cette séance.',
+                },
                 'data' => [
                     'lesson' => $lesson,
                     'already_existed' => (bool) ($result['already_existed'] ?? false),
+                    'reactivated' => $reactivated,
                 ],
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

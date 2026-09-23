@@ -4,12 +4,25 @@
     class="border-t border-gray-200 bg-white px-3 py-2.5 sm:px-4"
     data-testid="planning-anomalies-drawer"
   >
-    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-      À traiter sur cette plage ({{ entries.length }})
+    <p v-if="actionableEntries.length" class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+      À traiter sur cette plage ({{ actionableEntries.length }})
     </p>
+    <!-- Annulations club : informatives, regroupées dans un compteur replié -->
+    <button
+      v-if="informativeEntries.length"
+      type="button"
+      class="mb-2 inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+      :aria-expanded="informativeShown"
+      data-testid="informative-toggle"
+      @click.stop="informativeOpen = !informativeOpen"
+    >
+      <span aria-hidden="true">{{ informativeShown ? '▾' : '▸' }}</span>
+      🏛 {{ informativeEntries.length }} annulation{{ informativeEntries.length > 1 ? 's' : '' }} club
+      {{ informativeShown ? '— masquer' : '— afficher' }}
+    </button>
     <ul class="flex flex-col gap-2">
       <li
-        v-for="entry in entries"
+        v-for="entry in visibleEntries"
         :key="entryKey(entry)"
         class="rounded-lg border px-3 py-2 flex flex-col gap-1.5"
         :class="rowClass(entry)"
@@ -79,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import {
   ANOMALY_LABELS,
   placeholderKey,
@@ -100,11 +114,28 @@ const props = withDefaults(defineProps<{
   isClosure?: boolean
   materializingId?: number | null
   releasingId?: number | null
+  /** Force l'affichage des annulations club (filtre « Club » actif). */
+  expandInformative?: boolean
 }>(), {
   isClosure: false,
   materializingId: null,
   releasingId: null,
+  expandInformative: false,
 })
+
+const informativeOpen = ref(false)
+
+/** Annulation club seule (sans trou ni annulation élève) : rien à traiter, juste à savoir. */
+function isInformative(entry: AnomalyDrawerEntry): boolean {
+  return primaryKind(entry) === 'club_cancellation'
+}
+
+const actionableEntries = computed(() => props.entries.filter((e) => !isInformative(e)))
+const informativeEntries = computed(() => props.entries.filter(isInformative))
+const informativeShown = computed(() => props.expandInformative || informativeOpen.value)
+const visibleEntries = computed(() =>
+  informativeShown.value ? [...actionableEntries.value, ...informativeEntries.value] : actionableEntries.value
+)
 
 const emit = defineEmits<{
   (e: 'materialize', placeholder: PlanningLessonLike): void

@@ -539,6 +539,7 @@
                 :is-closure="isSelectedDateClosure"
                 :materializing-id="materializingRecurringSlotId"
                 :releasing-id="releasingRecurringSlotId"
+                :expand-informative="anomalyFilter === 'club_cancellation'"
                 @materialize="materializeRecurringPlaceholderLesson"
                 @create-here="openCreateLessonFromRecurringPlaceholder"
                 @release="openPlaceholderDeleteModal"
@@ -546,11 +547,22 @@
 
               <!-- Grille des cours pour cette plage horaire -->
               <div class="p-3 bg-gray-50 min-w-0 overflow-x-hidden">
+                <!-- Cours annulés / supprimés : regroupés dans un compteur replié -->
+                <button
+                  v-if="timeSlot.inactiveLessons.length"
+                  type="button"
+                  class="mb-2 inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  :aria-expanded="isInactiveLessonsOpen(timeSlot.time)"
+                  @click="toggleInactiveLessons(timeSlot.time)">
+                  <span aria-hidden="true">{{ isInactiveLessonsOpen(timeSlot.time) ? '▾' : '▸' }}</span>
+                  {{ inactiveLessonsLabel(timeSlot.inactiveLessons) }}
+                  {{ isInactiveLessonsOpen(timeSlot.time) ? '— masquer' : '— afficher' }}
+                </button>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 min-w-0">
-                  <div 
-                    v-for="lesson in timeSlot.lessons" 
+                  <div
+                    v-for="lesson in lessonsShownForTimeSlot(timeSlot)"
                     :key="lesson.id"
-                    class="border-2 rounded-lg p-3 transition-all bg-white min-w-0 max-w-full flex flex-col overflow-hidden"
+                    class="border-2 rounded-lg p-3 transition-all min-w-0 max-w-full flex flex-col overflow-hidden"
                     :class="[
                       getLessonBorderClass(lesson),
                       getPlanningGridMeta(lesson)?.hasTeacherConflict ? 'ring-2 ring-red-600 ring-offset-2' : '',
@@ -737,11 +749,22 @@
                   :is-closure="isSelectedDateClosure"
                   :materializing-id="materializingRecurringSlotId"
                   :releasing-id="releasingRecurringSlotId"
+                  :expand-informative="anomalyFilter === 'club_cancellation'"
                   @materialize="materializeRecurringPlaceholderLesson"
                   @create-here="openCreateLessonFromRecurringPlaceholder"
                   @release="openPlaceholderDeleteModal"
                 />
                 <div class="overflow-x-auto bg-gray-50">
+                  <button
+                    v-if="timeSlot.inactiveLessons.length"
+                    type="button"
+                    class="mx-3 my-2 inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                    :aria-expanded="isInactiveLessonsOpen(timeSlot.time)"
+                    @click="toggleInactiveLessons(timeSlot.time)">
+                    <span aria-hidden="true">{{ isInactiveLessonsOpen(timeSlot.time) ? '▾' : '▸' }}</span>
+                    {{ inactiveLessonsLabel(timeSlot.inactiveLessons) }}
+                    {{ isInactiveLessonsOpen(timeSlot.time) ? '— masquer' : '— afficher' }}
+                  </button>
                   <table class="min-w-full text-sm text-left border-collapse">
                     <thead>
                       <tr class="bg-gray-200/80 text-gray-700 text-xs uppercase tracking-wide">
@@ -755,7 +778,7 @@
                     </thead>
                     <tbody>
                       <tr
-                        v-for="lesson in timeSlot.lessons"
+                        v-for="lesson in lessonsShownForTimeSlot(timeSlot)"
                         :key="'row-' + lesson.id"
                         class="border-t border-gray-200 transition-colors"
                         :class="[
@@ -1489,7 +1512,7 @@
             <template v-if="lessonToDelete?.is_recurring_placeholder">
               <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div class="font-semibold text-gray-900 mb-1">Cette occurrence uniquement</div>
-                <p class="text-xs text-gray-600 mb-2">Retire la carte blanche de ce jour. La série continue les semaines suivantes.</p>
+                <p class="text-xs text-gray-600 mb-2">Retire cette occurrence du planning. La série continue les semaines suivantes.</p>
                 <button
                   type="button"
                   @click="executePlaceholderRelease('single')"
@@ -2435,6 +2458,8 @@ function lessonInactivityAuditLine(lesson: Lesson): string | null {
  */
 const recurringPlanningPlaceholders = computed((): Lesson[] => {
   if (!selectedSlot.value || !selectedDate.value) return []
+  // Jour de fermeture : le bandeau « Jour fermé » suffit, pas une ligne par série.
+  if (isSelectedDateClosure.value) return []
   const dateStr = toLocalYmd(selectedDate.value)
   const slot = selectedSlot.value
   return computeRecurringPlaceholders({
@@ -2447,6 +2472,8 @@ const recurringPlanningPlaceholders = computed((): Lesson[] => {
     // Les occurrences libérées par une annulation sont émises : ce sont des anomalies à montrer
     // (annulation élève / club), signalées comme places récupérables et sans occuper de voie.
     includeFreed: true,
+    // Un cours supprimé volontairement n'est pas une anomalie à traiter.
+    skipFreedByDeleted: true,
   }) as unknown as Lesson[]
 })
 
@@ -2634,6 +2661,8 @@ const displayedTimeSlots = computed(() => {
     const placeholders = placeholdersByTimeKey.value.get(ts.time) ?? []
     return {
       ...ts,
+      activeLessons: ts.lessons.filter((l: Lesson) => !planningLessonIsInactive(l)),
+      inactiveLessons: ts.lessons.filter((l: Lesson) => planningLessonIsInactive(l)),
       placeholders,
       anomalyEntries: anomalyEntriesForTimeKey(ts.time),
       anomalies: placeholders.flatMap((p) => anomaliesForPlaceholder(p)),
@@ -2643,6 +2672,34 @@ const displayedTimeSlots = computed(() => {
   // Filtre de famille : seules les plages portant au moins une anomalie de cette famille restent.
   return anomalyFilter.value === 'all' ? slots : slots.filter((ts) => ts.anomalyEntries.length > 0)
 })
+
+/** Cours annulés / supprimés repliés par défaut, dépliables par plage horaire. */
+const inactiveLessonsOpenByTimeKey = ref<Record<string, boolean>>({})
+
+function isInactiveLessonsOpen(timeKey: string): boolean {
+  return inactiveLessonsOpenByTimeKey.value[timeKey] === true
+}
+
+function toggleInactiveLessons(timeKey: string): void {
+  inactiveLessonsOpenByTimeKey.value = {
+    ...inactiveLessonsOpenByTimeKey.value,
+    [timeKey]: !isInactiveLessonsOpen(timeKey),
+  }
+}
+
+function lessonsShownForTimeSlot(ts: { time: string; activeLessons: Lesson[]; inactiveLessons: Lesson[] }): Lesson[] {
+  return isInactiveLessonsOpen(ts.time) ? [...ts.activeLessons, ...ts.inactiveLessons] : ts.activeLessons
+}
+
+/** « 2 supprimés · 1 annulé » */
+function inactiveLessonsLabel(inactive: Lesson[]): string {
+  const cancelled = inactive.filter((l) => l.status === 'cancelled').length
+  const deleted = inactive.length - cancelled
+  const parts: string[] = []
+  if (deleted) parts.push(`${deleted} supprimé${deleted > 1 ? 's' : ''}`)
+  if (cancelled) parts.push(`${cancelled} annulé${cancelled > 1 ? 's' : ''}`)
+  return parts.join(' · ')
+}
 
 
 // Types de cours filtrés - Utilise les courseTypes du créneau sélectionné

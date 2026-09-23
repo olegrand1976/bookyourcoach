@@ -107,7 +107,7 @@ export const CURRENT_CLUB_ANNOUNCEMENT: ReleaseAnnouncement | null = {
       kind: 'change',
       title: 'Le planning distingue les anomalies',
       detail:
-        'Les cartes blanches laissent place à une jauge de places par horaire et à un tiroir qui trie ce qu’il y a à traiter : trous de génération, annulations élève, annulations club et incohérences. Les actions (réactiver, ajouter un cours, retirer) restent à portée d’un clic.',
+        'Chaque horaire affiche une jauge de places et un tiroir de ce qu’il y a à traiter : trous de génération, annulations élève et incohérences, filtrables en tête de journée. Les cours supprimés ou annulés et les annulations club sont regroupés dans un compteur replié, à déplier au besoin. « Réactiver le cours prévu » remet en place un cours annulé.',
     },
     {
       kind: 'fix',

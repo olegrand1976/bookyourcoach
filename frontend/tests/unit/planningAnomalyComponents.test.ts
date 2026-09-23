@@ -117,6 +117,23 @@ describe('PlanningSlotAnomaliesDrawer', () => {
     expect(rows[1].find('[data-action="release"]').text()).toBe('…')
     expect(rows[1].find('[data-action="materialize"]').text()).toContain('Réactiver')
   })
+
+  it('annulations club repliées dans un compteur, dépliables, forcées par le filtre « Club »', async () => {
+    const clubCancelled = { id: 11, start_time: `${DATE}T10:00:00`, status: 'cancelled', cancelled_by_role: 'club' }
+    const clubPh = buildRecurringPlaceholder(series(44, 9), DATE, clubCancelled)
+    const withClub = [...entries, { placeholder: clubPh, anomalies: classifyOccurrence(clubPh, clubCancelled, false) }]
+
+    const w = mount(PlanningSlotAnomaliesDrawer, { props: { open: true, entries: withClub }, ...opts })
+    expect(w.findAll('li')).toHaveLength(2)
+    expect(w.text()).toContain('À traiter sur cette plage (2)')
+    const toggle = w.find('[data-testid="informative-toggle"]')
+    expect(toggle.text()).toContain('1 annulation club')
+    await toggle.trigger('click')
+    expect(w.findAll('li')).toHaveLength(3)
+
+    const forced = mount(PlanningSlotAnomaliesDrawer, { props: { open: true, entries: withClub, expandInformative: true }, ...opts })
+    expect(forced.findAll('li')).toHaveLength(3)
+  })
 })
 
 describe('PlanningDayAnomalyBar', () => {

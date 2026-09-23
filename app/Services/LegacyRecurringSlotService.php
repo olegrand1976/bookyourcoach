@@ -6,6 +6,7 @@ use App\Models\ClubClosureDay;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -461,9 +462,12 @@ class LegacyRecurringSlotService
     /**
      * Crée (ou retourne) la lesson pour une occurrence précise d’un SubscriptionRecurringSlot (planning club).
      *
-     * @return array{success: bool, lesson: ?Lesson, already_existed: bool, message: ?string}
+     * Un cours annulé à cette place est réactivé (historique et rattachement abonnement conservés)
+     * au lieu d'être renvoyé comme « déjà présent ».
+     *
+     * @return array{success: bool, lesson: ?Lesson, already_existed: bool, reactivated?: bool, message: ?string, conflicts?: array}
      */
-    public function materializeLessonForSingleDate(SubscriptionRecurringSlot $recurringSlot, Carbon $occurrenceDate): array
+    public function materializeLessonForSingleDate(SubscriptionRecurringSlot $recurringSlot, Carbon $occurrenceDate, ?User $actor = null): array
     {
         $recurringSlot->loadMissing(['subscriptionInstance.subscription', 'student', 'teacher']);
 
@@ -492,27 +496,58 @@ class LegacyRecurringSlotService
             : (string) $recurringSlot->start_time;
         $startTime = Carbon::parse($dayStart->format('Y-m-d').' '.substr($timeRaw, 0, 8), config('app.timezone'));
 
-        $existingLesson = Lesson::where('student_id', $recurringSlot->student_id)
+        $clubId = (int) ($recurringSlot->subscriptionInstance?->subscription?->club_id ?? 0);
+
+        $existingLessons = Lesson::where('student_id', $recurringSlot->student_id)
             ->where('teacher_id', $recurringSlot->teacher_id)
             ->where('start_time', $startTime)
-            ->first();
+            ->when($clubId > 0, fn ($q) => $q->where('club_id', $clubId))
+            ->get();
 
-        if ($existingLesson) {
+        $activeLesson = $existingLessons->first(fn (Lesson $l) => $l->status !== 'cancelled');
+        if ($activeLesson) {
             return [
                 'success' => true,
-                'lesson' => $existingLesson,
+                'lesson' => $activeLesson,
                 'already_existed' => true,
                 'message' => null,
             ];
         }
 
-        $clubId = (int) ($recurringSlot->subscriptionInstance?->subscription?->club_id ?? 0);
         if ($clubId > 0 && ClubClosureDay::clubIsClosedOn($clubId, LessonCalendarDate::toYmd($dayStart) ?? '')) {
             return [
                 'success' => false,
                 'lesson' => null,
                 'already_existed' => false,
                 'message' => 'Impossible de créer un cours un jour de fermeture du club.',
+            ];
+        }
+
+        $cancelledLesson = $existingLessons->first();
+        if ($cancelledLesson && $actor) {
+            $result = app(LessonReactivationService::class)->reactivate($cancelledLesson, $actor, [
+                'reactivate_scope' => 'single',
+                'restore_recurring_slot' => false,
+                'reattach_subscription' => ! (bool) $cancelledLesson->cancellation_count_in_subscription,
+                'reason' => 'Réactivé depuis le planning (cours prévu de la série)',
+            ]);
+
+            if (! ($result['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'lesson' => null,
+                    'already_existed' => false,
+                    'message' => $result['message'] ?? 'Réactivation impossible.',
+                    'conflicts' => $result['conflicts'] ?? [],
+                ];
+            }
+
+            return [
+                'success' => true,
+                'lesson' => $cancelledLesson->fresh(),
+                'already_existed' => false,
+                'reactivated' => true,
+                'message' => null,
             ];
         }
 

@@ -129,6 +129,13 @@ describe('computeRecurringPlaceholders — 8 conditions d\'exclusion', () => {
     expect(out[0].is_freed_occurrence).toBe(true)
     expect(out[0].freed_by_lesson_id).toBe(100)
   })
+  it('9. skipFreedByDeleted : occurrence libérée par un cours supprimé non émise, annulation conservée', () => {
+    const deleted = lesson({ status: 'confirmed', deleted_at: '2026-09-05T15:06:00' })
+    const opts = { includeFreed: true, skipFreedByDeleted: true }
+    expect(compute([series()], [deleted], opts)).toHaveLength(0)
+    const cancelled = lesson({ status: 'cancelled', cancelled_by_role: 'club' })
+    expect(compute([series()], [cancelled], opts)).toHaveLength(1)
+  })
 })
 
 describe('findInactiveLessonFreeingOccurrence', () => {

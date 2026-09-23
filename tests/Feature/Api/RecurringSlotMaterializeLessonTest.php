@@ -112,6 +112,82 @@ class RecurringSlotMaterializeLessonTest extends TestCase
         $second->assertOk()->assertJsonPath('data.already_existed', true);
     }
 
+    public function test_materialize_reactivates_cancelled_lesson_instead_of_reporting_already_existed(): void
+    {
+        $user = $this->actingAsClub();
+        $club = Club::find($user->club_id);
+
+        $teacher = Teacher::factory()->create();
+        $teacher->clubs()->attach($club->id, ['is_active' => true, 'joined_at' => now()]);
+        $student = Student::factory()->create(['club_id' => $club->id]);
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $template = SubscriptionTemplate::create([
+            'club_id' => $club->id,
+            'model_number' => 'MAT003',
+            'total_lessons' => 20,
+            'validity_months' => 12,
+            'price' => 200.00,
+            'is_active' => true,
+        ]);
+        $template->courseTypes()->attach($courseType->id);
+
+        $subscription = Subscription::create([
+            'club_id' => $club->id,
+            'subscription_template_id' => $template->id,
+            'subscription_number' => 'SUB-MAT3-'.uniqid(),
+        ]);
+
+        $subscriptionInstance = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'started_at' => Carbon::parse('2026-01-01'),
+            'expires_at' => Carbon::parse('2027-01-01'),
+        ]);
+        $subscriptionInstance->students()->attach($student->id);
+
+        $cancelled = Lesson::create([
+            'club_id' => $club->id,
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => Carbon::parse('2026-01-12 10:00:00'),
+            'end_time' => Carbon::parse('2026-01-12 11:00:00'),
+            'status' => 'cancelled',
+            'cancelled_by_role' => 'club',
+            'price' => 50.00,
+        ]);
+
+        $slot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $subscriptionInstance->id,
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'day_of_week' => Carbon::MONDAY,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-12-31',
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson("/api/club/recurring-slots/{$slot->id}/materialize-lesson", [
+            'date' => '2026-01-12',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.reactivated', true)
+            ->assertJsonPath('data.already_existed', false)
+            ->assertJsonPath('data.lesson.id', $cancelled->id);
+
+        $this->assertSame('confirmed', $cancelled->fresh()->status);
+        $this->assertSame(1, Lesson::where('student_id', $student->id)->whereDate('start_time', '2026-01-12')->count());
+    }
+
     public function test_materialize_returns_422_when_date_not_in_series_pattern(): void
     {
         $user = $this->actingAsClub();
