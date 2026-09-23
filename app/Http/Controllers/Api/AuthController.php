@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\Rule;
 use App\Models\User;
@@ -215,6 +216,15 @@ class AuthController extends Controller
         ]);
 
         if (!Auth::guard('web')->attempt($request->only('email', 'password'))) {
+            // Sans cette trace, une attaque par force brute reste invisible :
+            // c'est la journalisation des accès qui a permis de reconstituer
+            // l'incident du 2026-09-23.
+            Log::warning('Connexion refusée', [
+                'email' => $request->input('email'),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
             return response()->json([
                 'message' => 'Invalid login details'
             ], 401);
@@ -230,6 +240,14 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        Log::info('Connexion réussie', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'role' => $user->role,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return response()->json([
             'message' => 'Login successful',
@@ -338,6 +356,14 @@ class AuthController extends Controller
 
                 $user->save();
 
+                // Réinitialisation hors session : on révoque tout, y compris les
+                // jetons d'un éventuel tiers ayant eu accès au compte.
+                $revoked = $user->tokens()->delete();
+                Log::info('Mot de passe réinitialisé, jetons révoqués', [
+                    'user_id' => $user->id,
+                    'revoked_tokens' => $revoked,
+                ]);
+
                 event(new PasswordReset($user));
             }
         );
@@ -376,6 +402,20 @@ class AuthController extends Controller
         $user->forceFill([
             'password' => Hash::make($request->password),
         ])->save();
+
+        // Un changement de mot de passe doit fermer les sessions ouvertes ailleurs :
+        // les jetons n'expirant pas d'eux-mêmes, sans cela la rotation ne reprenait
+        // aucun accès. La session courante est conservée pour ne pas déconnecter
+        // la personne au moment même où elle sécurise son compte.
+        $currentTokenId = $request->user()->currentAccessToken()?->id;
+        $revoked = $user->tokens()
+            ->when($currentTokenId, fn ($q) => $q->where('id', '!=', $currentTokenId))
+            ->delete();
+
+        Log::info('Mot de passe modifié, jetons révoqués', [
+            'user_id' => $user->id,
+            'revoked_tokens' => $revoked,
+        ]);
 
         return response()->json([
             'success' => true,

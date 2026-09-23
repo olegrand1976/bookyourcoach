@@ -56,4 +56,23 @@ return [
         'db_storage_timezone' => env('LESSON_DB_STORAGE_TIMEZONE', env('LESSON_CALENDAR_TIMEZONE', env('CLUB_DAILY_PLANNING_INSIGHT_TIMEZONE', 'Europe/Paris'))),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sécurité des connexions
+    |--------------------------------------------------------------------------
+    |
+    | idle_days : un jeton inutilisé pendant cette durée cesse d'être accepté
+    | (expiration glissante). La même valeur sert au contrôle à l'authentification
+    | et à la purge planifiée — une seule source, pour qu'elles ne divergent pas.
+    */
+    'auth' => [
+        'token_idle_days' => (int) env('AUTH_TOKEN_IDLE_DAYS', 30),
+        'password_min_length' => (int) env('AUTH_PASSWORD_MIN_LENGTH', 12),
+        // Vérification auprès de HaveIBeenPwned (k-anonymat). Désactivée hors production
+        // pour ne pas rendre la suite de tests dépendante du réseau.
+        'password_uncompromised' => filter_var(env('AUTH_PASSWORD_UNCOMPROMISED', true), FILTER_VALIDATE_BOOLEAN),
+        'login_max_attempts' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS', 5),
+        'login_decay_minutes' => (int) env('AUTH_LOGIN_DECAY_MINUTES', 10),
+    ],
+
 ];

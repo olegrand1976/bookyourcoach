@@ -19,8 +19,8 @@ class AuthControllerAlternativeTest extends TestCase
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'MotDePasseSolide2026',
+            'password_confirmation' => 'MotDePasseSolide2026',
             'role' => 'student',
         ];
 
@@ -69,8 +69,8 @@ class AuthControllerAlternativeTest extends TestCase
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'MotDePasseSolide2026',
+            'password_confirmation' => 'MotDePasseSolide2026',
             'role' => 'student', // Même rôle que l'utilisateur existant
         ];
 
@@ -94,8 +94,8 @@ class AuthControllerAlternativeTest extends TestCase
             'first_name' => 'John',
             'last_name' => 'Teacher',
             'email' => 'john@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'MotDePasseSolide2026',
+            'password_confirmation' => 'MotDePasseSolide2026',
             'role' => 'teacher', // Rôle différent
         ];
 

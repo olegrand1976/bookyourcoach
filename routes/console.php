@@ -86,3 +86,11 @@ if (config('bookyourcoach.club_daily_planning_insight.enabled', true)) {
             \Log::error('Échec de l\'envoi des rapports veille planning club');
         });
 }
+
+// Purge des jetons d'accès dormants (expiration glissante, cf. bookyourcoach.auth.token_idle_days)
+Schedule::command('auth:prune-idle-tokens')
+    ->dailyAt('03:30')
+    ->timezone('Europe/Brussels')
+    ->onFailure(function () {
+        \Log::error('Échec de la purge des jetons dormants');
+    });

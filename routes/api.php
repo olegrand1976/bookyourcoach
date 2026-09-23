@@ -25,10 +25,12 @@ Route::get('/health', function () {
 });
 
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+    // Points d'entrée non authentifiés : limités contre le brute-force et le bourrage
+    // d'identifiants (limiteurs définis dans AppServiceProvider).
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:auth-sensitive');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth-sensitive');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth-sensitive');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -40,13 +42,6 @@ Route::prefix('auth')->group(function () {
 
             return response()->json([
                 'user' => $user,
-            ]);
-        });
-        Route::get('/debug-user', function (Request $request) {
-            return response()->json([
-                'user' => $request->user(),
-                'role' => $request->user()->role,
-                'isAuthenticated' => Auth::check(),
             ]);
         });
         Route::put('/profile', [AuthController::class, 'updateProfile']);
