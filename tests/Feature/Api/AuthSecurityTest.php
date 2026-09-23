@@ -18,10 +18,10 @@ class AuthSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUser(string $password = 'MotDePasseSolide2026'): User
+    private function makeUser(string $email = 'gerant@club.test', string $password = 'MotDePasseSolide2026'): User
     {
         return User::factory()->create([
-            'email' => 'gerant@club.test',
+            'email' => $email,
             'password' => Hash::make($password),
             'role' => 'club',
             'status' => 'active',
@@ -227,5 +227,60 @@ class AuthSecurityTest extends TestCase
         $this->artisan('auth:revoke-tokens', ['user' => 'gerant@club.test'])->assertSuccessful();
 
         $this->assertEquals(0, DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->count());
+    }
+
+    #[Test]
+    public function changer_de_mot_de_passe_fonctionne_aussi_en_session(): void
+    {
+        // En production l'authentification passe par la session Sanctum :
+        // currentAccessToken() renvoie un TransientToken, sans id. Lire ->id dessus
+        // levait une ErrorException — une 500 après l'enregistrement du mot de passe.
+        $user = $this->makeUser();
+        $jetonAilleurs = $user->createToken('telephone')->plainTextToken;
+
+        // Sanctum::actingAs() poserait un mock de PersonalAccessToken et n'emprunterait
+        // donc pas ce chemin. On installe le vrai jeton de session.
+        $user->withAccessToken(new \Laravel\Sanctum\TransientToken());
+        $this->actingAs($user, 'sanctum');
+
+        $this->putJson('/api/auth/change-password', [
+            'current_password' => 'MotDePasseSolide2026',
+            'password' => 'NouveauSecret2026x',
+            'password_confirmation' => 'NouveauSecret2026x',
+        ])->assertStatus(200);
+
+        // Sans jeton courant identifiable, tout est révoqué : c'est le comportement sûr.
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$jetonAilleurs)
+            ->getJson('/api/auth/user')->assertStatus(401);
+    }
+
+    #[Test]
+    public function le_plafond_par_adresse_ip_suit_la_configuration(): void
+    {
+        // Ce plafond compte aussi les connexions réussies : derrière le wifi d'un club,
+        // il doit rester assez haut pour ne pas bloquer un début de cours.
+        $this->assertEquals(60, config('bookyourcoach.auth.login_max_attempts_per_ip'));
+
+        config(['bookyourcoach.auth.login_max_attempts_per_ip' => 2]);
+
+        foreach (['un', 'deux'] as $prenom) {
+            User::factory()->create([
+                'email' => $prenom.'@club.test',
+                'password' => Hash::make('MotDePasseSolide2026'),
+                'role' => 'club', 'status' => 'active', 'is_active' => true,
+            ]);
+            $this->postJson('/api/auth/login', [
+                'email' => $prenom.'@club.test',
+                'password' => 'MotDePasseSolide2026',
+            ])->assertStatus(200);
+        }
+
+        // Troisième adresse, même sortie réseau : le plafond par IP s'applique.
+        $this->makeUser('trois@club.test');
+        $this->postJson('/api/auth/login', [
+            'email' => 'trois@club.test',
+            'password' => 'MotDePasseSolide2026',
+        ])->assertStatus(429);
     }
 }

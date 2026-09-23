@@ -171,13 +171,15 @@ const userCookie = computed(() => {
 
 // Actions de test
 const testLogin = async () => {
-  loading.value = true
-  addLog('🔐 Début test de connexion...')
-  
+  // Garde avant le passage en chargement : un retour anticipé après loading = true
+  // laisserait les boutons désactivés définitivement (le finally n'est pas atteint).
   if (!testEmail.value || !testPassword.value) {
     addLog('⚠️ Renseignez une adresse et un mot de passe.')
     return
   }
+
+  loading.value = true
+  addLog('🔐 Début test de connexion...')
 
   try {
     const result = await authStore.login({

@@ -501,7 +501,12 @@ class LegacyRecurringSlotService
         $existingLessons = Lesson::where('student_id', $recurringSlot->student_id)
             ->where('teacher_id', $recurringSlot->teacher_id)
             ->where('start_time', $startTime)
-            ->when($clubId > 0, fn ($q) => $q->where('club_id', $clubId))
+            // lessons.club_id est nullable : des cours anciens n'en portent pas.
+            // Les exclure de cette recherche créerait un doublon sur le même créneau,
+            // alors que le triplet élève + enseignant + horaire exact les identifie déjà.
+            ->when($clubId > 0, fn ($q) => $q->where(
+                fn ($w) => $w->where('club_id', $clubId)->orWhereNull('club_id')
+            ))
             ->get();
 
         $activeLesson = $existingLessons->first(fn (Lesson $l) => $l->status !== 'cancelled');

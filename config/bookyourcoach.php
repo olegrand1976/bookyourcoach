@@ -73,6 +73,9 @@ return [
         'password_uncompromised' => filter_var(env('AUTH_PASSWORD_UNCOMPROMISED', true), FILTER_VALIDATE_BOOLEAN),
         'login_max_attempts' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS', 5),
         'login_decay_minutes' => (int) env('AUTH_LOGIN_DECAY_MINUTES', 10),
+        // Plafond par adresse IP : volontairement large, car une sortie réseau
+        // partagée (wifi de club) porte les connexions légitimes de tout le monde.
+        'login_max_attempts_per_ip' => (int) env('AUTH_LOGIN_MAX_ATTEMPTS_PER_IP', 60),
 
         /*
         | Nombre de relais de confiance en bout de chaîne X-Forwarded-For.

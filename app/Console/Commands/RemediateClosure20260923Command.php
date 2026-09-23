@@ -87,7 +87,13 @@ class RemediateClosure20260923Command extends Command
         $rows = [];
         $instanceIdsToRecalculate = [];
 
-        $actor = User::query()->where('role', User::ROLE_CLUB)->orderBy('id')->first();
+        // Acteur de l'audit : un gérant du club concerné, pas le premier compte club
+        // venu — les 22 entrées seraient attribuées à un tiers étranger au dossier.
+        $actor = User::query()
+            ->where('role', User::ROLE_CLUB)
+            ->whereHas('clubs', fn ($q) => $q->where('clubs.id', self::CLUB_ID))
+            ->orderBy('id')
+            ->first();
 
         DB::transaction(function () use ($apply, $actionLog, $actor, &$stats, &$rows, &$instanceIdsToRecalculate) {
             foreach (self::LINKS as $lessonId => $instanceId) {

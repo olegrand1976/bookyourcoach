@@ -2673,6 +2673,17 @@ const displayedTimeSlots = computed(() => {
   return anomalyFilter.value === 'all' ? slots : slots.filter((ts) => ts.anomalyEntries.length > 0)
 })
 
+// La barre de filtres disparaît quand le jour ne porte aucune anomalie : un filtre
+// resté actif viderait alors le planning sans aucun moyen de revenir à « Tous ».
+watch(
+  () => dayAnomalies.value.length,
+  (total) => {
+    if (total === 0 && anomalyFilter.value !== 'all') {
+      anomalyFilter.value = 'all'
+    }
+  }
+)
+
 /** Cours annulés / supprimés repliés par défaut, dépliables par plage horaire. */
 const inactiveLessonsOpenByTimeKey = ref<Record<string, boolean>>({})
 
@@ -3277,6 +3288,12 @@ async function onClosureToggle(ev: Event) {
           }
         } catch (retryErr: any) {
           console.error('[Planning] Reprise de la fermeture en échec:', retryErr)
+          // Sans ce message, la case revenait en arrière sans rien dire : le club
+          // pouvait croire la journée fermée.
+          showError(
+            retryErr.response?.data?.message || retryErr.message || 'La fermeture n’a pas pu être appliquée.',
+            'Jour de congés'
+          )
         }
       }
       input.checked = previous

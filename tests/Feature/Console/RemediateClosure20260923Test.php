@@ -116,14 +116,34 @@ class RemediateClosure20260923Test extends TestCase
         ]);
     }
 
+    private function premierGerantDuClub(): int
+    {
+        return (int) DB::table('club_user')->where('club_id', self::CLUB_ID)->min('user_id');
+    }
+
     /**
      * @return array{club: Club, subscription: Subscription, instance: SubscriptionInstance, lesson: Lesson}
      */
     private function seedDetachedLesson(int $clubIdForLesson = self::CLUB_ID): array
     {
         $club = Club::factory()->create();
-        DB::table('clubs')->where('id', $club->id)->update(['id' => self::CLUB_ID]);
+        $ancienId = $club->id;
+        DB::table('clubs')->where('id', $ancienId)->update(['id' => self::CLUB_ID]);
+        DB::table('club_user')->where('club_id', $ancienId)->update(['club_id' => self::CLUB_ID]);
         $club = Club::find(self::CLUB_ID);
+
+        // Gérant du club : c'est lui que la remédiation doit désigner comme auteur
+        // dans le journal d'audit.
+        $gerant = \App\Models\User::factory()->create(['role' => 'club', 'status' => 'active']);
+        DB::table('club_user')->insert([
+            'user_id' => $gerant->id,
+            'club_id' => self::CLUB_ID,
+            'role' => 'owner',
+            'is_admin' => true,
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         if ($clubIdForLesson !== self::CLUB_ID) {
             $other = Club::factory()->create();
@@ -188,5 +208,42 @@ class RemediateClosure20260923Test extends TestCase
         DB::table('subscription_instances')->where('id', $instance->id)->update(['id' => $forcedId]);
 
         return SubscriptionInstance::find($forcedId);
+    }
+
+    #[Test]
+    public function l_audit_attribue_la_remediation_a_un_gerant_du_club_concerne(): void
+    {
+        // Compte club étranger au dossier, créé EN PREMIER : sans le correctif,
+        // c'est lui que orderBy('id')->first() désignerait comme auteur.
+        $etranger = \App\Models\User::factory()->create(['role' => 'club', 'status' => 'active']);
+
+        $context = $this->seedDetachedLesson();
+
+        $this->assertLessThan(
+            $this->premierGerantDuClub(),
+            $etranger->id,
+            'Le compte étranger doit précéder le gérant pour que le test ait du sens.'
+        );
+
+        $this->artisan(self::COMMAND, ['--apply' => true, '--force' => true])->assertSuccessful();
+
+        $log = DB::table('lesson_action_logs')
+            ->where('lesson_id', self::LESSON_ID)
+            ->where('action', 'subscription_linked')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertNotEquals(
+            $etranger->id,
+            $log->performed_by_user_id,
+            'L’auteur ne doit pas être un compte club étranger au club 11.'
+        );
+        $this->assertTrue(
+            DB::table('club_user')
+                ->where('user_id', $log->performed_by_user_id)
+                ->where('club_id', self::CLUB_ID)
+                ->exists(),
+            'L’auteur doit être rattaché au club concerné.'
+        );
     }
 }

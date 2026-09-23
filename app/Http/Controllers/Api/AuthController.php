@@ -415,7 +415,12 @@ class AuthController extends Controller
         // les jetons n'expirant pas d'eux-mêmes, sans cela la rotation ne reprenait
         // aucun accès. La session courante est conservée pour ne pas déconnecter
         // la personne au moment même où elle sécurise son compte.
-        $currentTokenId = $request->user()->currentAccessToken()?->id;
+        // En production l'authentification passe par la session : currentAccessToken()
+        // renvoie alors un TransientToken, qui n'a pas d'id. Lire ->id dessus lèverait
+        // une ErrorException — une 500 juste après avoir enregistré le nouveau mot de
+        // passe. Sans jeton courant identifiable, on révoque tout.
+        $currentToken = $request->user()->currentAccessToken();
+        $currentTokenId = $currentToken instanceof PersonalAccessToken ? $currentToken->id : null;
         $revoked = $user->tokens()
             ->when($currentTokenId, fn ($q) => $q->where('id', '!=', $currentTokenId))
             ->delete();

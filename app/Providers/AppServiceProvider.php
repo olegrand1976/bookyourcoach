@@ -90,9 +90,15 @@ class AppServiceProvider extends ServiceProvider
             // global, capable de bloquer toute la plateforme.
             $ip = app(ClientIpResolver::class)->resolve($request) ?? $request->ip();
 
+            // Le plafond par IP compte aussi les connexions réussies : derrière le
+            // wifi d'un club, tout le monde partage une sortie réseau. Il doit rester
+            // assez haut pour ne pas bloquer un début de cours, tout en freinant le
+            // bourrage d'identifiants — que la limite par e-mail, elle, arrête net.
+            $parIp = (int) config('bookyourcoach.auth.login_max_attempts_per_ip', 60);
+
             return [
                 Limit::perMinutes($decay, $attempts)->by('login:' . $email . '|' . $ip),
-                Limit::perMinutes($decay, $attempts * 4)->by('login:ip:' . $ip),
+                Limit::perMinutes($decay, $parIp)->by('login:ip:' . $ip),
             ];
         });
 
