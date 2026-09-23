@@ -594,8 +594,20 @@
                     <p v-if="instance.expires_at">
                       <strong>Expiration:</strong> {{ formatDate(instance.expires_at) }}
                     </p>
+                    <p v-if="getProjectedEndLabel(instance)">
+                      <strong>Fin théorique:</strong> {{ getProjectedEndLabel(instance) }}
+                      <span
+                        v-if="getInstanceProjection(instance)?.expires_before_exhaustion"
+                        class="text-amber-600"
+                      >
+                        — l’abonnement expire avant d’être consommé
+                      </span>
+                      <span v-if="getProjectedEndDetail(instance)" class="block text-xs text-gray-500">
+                        {{ getProjectedEndDetail(instance) }}
+                      </span>
+                    </p>
                     <p>
-                      <strong>Statut:</strong> 
+                      <strong>Statut:</strong>
                       <span 
                         :class="{
                           'text-green-600': getDisplayStatus(instance) === 'active',
@@ -1119,6 +1131,8 @@ const showEditInstanceModal = ref(false)
 const showDeleteModal = ref(false)
 const selectedSubscription = ref(null)
 const subscriptionHistory = ref(null)
+// Projections de fin théorique, renvoyées par meta.projections et indexées par id d'instance.
+const instanceProjections = ref({})
 const updatingEstLegacy = ref(null)
 const editingInstance = ref(null)
 const instanceHistory = ref([])
@@ -1610,7 +1624,8 @@ const viewSubscriptionHistory = async (subscription) => {
     
     if (response.data.success) {
       selectedSubscription.value = response.data.data
-      
+      instanceProjections.value = response.data.meta?.projections || {}
+
       // Charger l'historique pour chaque instance
       if (selectedSubscription.value.instances) {
         for (const instance of selectedSubscription.value.instances) {
@@ -1643,6 +1658,52 @@ const closeHistoryModal = () => {
   subscriptionHistory.value = null
   updatingEstLegacy.value = null
   instanceHistory.value = []
+  instanceProjections.value = {}
+}
+
+/** Projection de fin théorique d'une instance, ou null si l'API ne l'a pas fournie. */
+const getInstanceProjection = (instance) => instanceProjections.value?.[String(instance?.id)] || null
+
+/**
+ * Libellé de la date de fin théorique.
+ *
+ * Elle diffère de l'expiration contractuelle : elle répond à « quand le dernier crédit
+ * sera-t-il consommé ? », congés du club et annulations rendues déduits.
+ */
+const getProjectedEndLabel = (instance) => {
+  const projection = getInstanceProjection(instance)
+  if (!projection) return null
+
+  switch (projection.status) {
+    case 'exhausted':
+      return 'Carnet épuisé'
+    case 'planned':
+      return `${formatDate(projection.projected_end_date)} (cours déjà planifiés)`
+    case 'extrapolated':
+      return `${formatDate(projection.projected_end_date)} (cadence de la récurrence prolongée)`
+    case 'no_schedule':
+      return 'Indéterminée — aucune récurrence active'
+    case 'undetermined':
+      return 'Indéterminée — la cadence actuelle n’épuise pas le carnet sous 3 ans'
+    default:
+      return null
+  }
+}
+
+/** Ce que la projection a écarté, quand il y a quelque chose à dire. */
+const getProjectedEndDetail = (instance) => {
+  const projection = getInstanceProjection(instance)
+  if (!projection) return null
+
+  const parts = []
+  if (projection.skipped_closure_days > 0) {
+    parts.push(`${projection.skipped_closure_days} jour(s) de fermeture écarté(s)`)
+  }
+  if (projection.skipped_released_cancellations > 0) {
+    parts.push(`${projection.skipped_released_cancellations} annulation(s) non décomptée(s)`)
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 // Ouvrir la modale d'édition d'une instance
