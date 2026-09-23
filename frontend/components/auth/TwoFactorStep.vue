@@ -13,21 +13,7 @@
 
     <!-- Enrôlement, étape 3 : codes de récupération -->
     <div v-if="recoveryCodes.length" class="space-y-4">
-      <div class="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 text-sm text-amber-800">
-        Conservez ces codes en lieu sûr (gestionnaire de mots de passe, papier). Chacun permet
-        <strong>une seule</strong> connexion si vous perdez votre téléphone. Ils ne seront plus affichés.
-      </div>
-      <ul class="grid grid-cols-2 gap-2 font-mono text-sm bg-gray-50 border border-gray-200 rounded-lg p-4" data-testid="recovery-codes">
-        <li v-for="c in recoveryCodes" :key="c" class="text-center text-gray-900">{{ c }}</li>
-      </ul>
-      <div class="flex gap-3">
-        <button type="button" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50" @click="copyCodes">
-          {{ copied ? 'Copié ✓' : 'Copier' }}
-        </button>
-        <button type="button" class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50" @click="downloadCodes">
-          Télécharger (.txt)
-        </button>
-      </div>
+      <RecoveryCodes :codes="recoveryCodes" />
       <label class="flex items-center cursor-pointer">
         <input v-model="codesSaved" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
         <span class="ml-2 text-sm text-gray-700">J'ai sauvegardé mes codes de récupération</span>
@@ -117,6 +103,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import RecoveryCodes from '~/components/auth/RecoveryCodes.vue'
 
 const emit = defineEmits<{
   (e: 'done'): void
@@ -138,7 +125,6 @@ const qrSvg = ref('')
 const secret = ref('')
 const recoveryCodes = ref<string[]>([])
 const codesSaved = ref(false)
-const copied = ref(false)
 
 const primaryButton = 'w-full flex items-center justify-center py-3 px-4 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg'
 
@@ -219,27 +205,6 @@ const submit = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const codesAsText = () => recoveryCodes.value.join('\n')
-
-const copyCodes = async () => {
-  try {
-    await navigator.clipboard.writeText(codesAsText())
-    copied.value = true
-  } catch {
-    copied.value = false
-  }
-}
-
-const downloadCodes = () => {
-  const blob = new Blob([`Codes de récupération activibe\n\n${codesAsText()}\n`], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'activibe-codes-recuperation.txt'
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 const finishSetup = () => {

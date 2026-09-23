@@ -173,6 +173,18 @@
                                             </svg>
                                         </button>
                                         
+                                        <!-- Réinitialiser la 2FA (téléphone perdu) -->
+                                        <button 
+                                            v-if="user.two_factor_enabled && user.id !== authStore.user?.id"
+                                            @click="resetUserTwoFactor(user)" 
+                                            class="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                            title="Réinitialiser la double authentification"
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        
                                         <!-- Activer/Désactiver -->
                                         <button 
                                             @click="toggleUserStatus(user)"
@@ -449,6 +461,7 @@ definePageMeta({
 })
 
 // Reactive data
+const authStore = useAuthStore()
 const loading = ref(true)
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -816,6 +829,22 @@ const resetUserPassword = async (user) => {
         console.error('Erreur lors de la réinitialisation du mot de passe:', error)
         console.error('Détails de l\'erreur:', error.response?.data)
         alert('Erreur lors de la réinitialisation: ' + (error.response?.data?.message || error.message))
+    }
+}
+
+const resetUserTwoFactor = async (user) => {
+    if (!confirm(`Réinitialiser la double authentification de ${user.name} (${user.email}) ?\n\nSes sessions seront fermées et la double authentification lui sera redemandée à la prochaine connexion. À réserver à une demande vérifiée (téléphone perdu).`)) {
+        return
+    }
+
+    try {
+        const { $api } = useNuxtApp()
+        await $api.post(`/admin/users/${user.id}/two-factor/reset`)
+        user.two_factor_enabled = false
+        alert('Double authentification réinitialisée.')
+    } catch (error) {
+        console.error('Erreur lors de la réinitialisation 2FA:', error)
+        alert('Erreur lors de la réinitialisation : ' + (error.response?.data?.message || error.message))
     }
 }
 

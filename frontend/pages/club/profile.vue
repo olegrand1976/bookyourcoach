@@ -515,6 +515,10 @@
       <div class="mt-6">
         <ChangePasswordForm />
       </div>
+
+      <div class="mt-6">
+        <TwoFactorSettings />
+      </div>
     </div>
   </div>
 </template>
@@ -523,6 +527,7 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useToast } from '~/composables/useToast'
 import ChangePasswordForm from '~/components/profile/ChangePasswordForm.vue'
+import TwoFactorSettings from '~/components/profile/TwoFactorSettings.vue'
 
 // ============================================================================
 // STATE
