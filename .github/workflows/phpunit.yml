@@ -7,8 +7,8 @@ on:
     branches: [main, develop]
 
 jobs:
-  phpunit-recurring:
-    name: Tests validation récurrence
+  phpunit:
+    name: Suite PHPUnit complète
     runs-on: ubuntu-latest
 
     steps:
@@ -19,6 +19,8 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, xml, ctype, fileinfo, json, tokenizer, pdo, pdo_sqlite, sqlite3
           coverage: none
+          # La suite complète dépasse la limite par défaut (128 Mo) autour du 550e test.
+          ini-values: memory_limit=1G
 
       - name: Cache Composer
         uses: actions/cache@v4
@@ -34,5 +36,7 @@ jobs:
       - name: Prepare SQLite test database
         run: mkdir -p database && touch database/testing.sqlite
 
-      - name: Run recurring validation tests
-        run: composer test:recurring
+      # Jusqu'ici la CI n'exécutait que `composer test:recurring`, soit 4 fichiers sur près de
+      # cent : des régressions sont passées au merge sans être vues. On exécute la suite entière.
+      - name: Run test suite
+        run: php -d memory_limit=1G vendor/bin/phpunit

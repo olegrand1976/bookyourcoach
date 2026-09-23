@@ -55,10 +55,12 @@ class ClubSettingsTest extends TestCase
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'general_feature',
             'feature_category' => 'general'
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'advanced_feature',
             'feature_category' => 'advanced'
         ]);
 
@@ -269,11 +271,13 @@ class ClubSettingsTest extends TestCase
         $club = Club::factory()->create();
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'general_feature',
             'feature_category' => 'general',
             'feature_name' => 'General Feature'
         ]);
         ClubSettings::factory()->create([
             'club_id' => $club->id,
+            'feature_key' => 'advanced_feature',
             'feature_category' => 'advanced',
             'feature_name' => 'Advanced Feature'
         ]);
