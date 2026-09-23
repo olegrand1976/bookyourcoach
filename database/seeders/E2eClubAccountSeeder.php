@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Club;
+use App\Models\TrustedDevice;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -33,11 +34,25 @@ class E2eClubAccountSeeder extends Seeder
 
         $email = env('E2E_CLUB_EMAIL', self::DEFAULT_EMAIL);
         $password = env('E2E_CLUB_PASSWORD');
+        // La 2FA est obligatoire pour un club : le compte e2e est enrôlé avec un secret
+        // connu des tests, et un appareil de confiance leur évite de saisir un code à
+        // chaque connexion (deux codes dans la même période de 30 s seraient refusés).
+        $totpSecret = env('E2E_CLUB_TOTP_SECRET');
+        $deviceToken = env('E2E_CLUB_DEVICE_TOKEN');
 
         if (! $password) {
             $this->command?->error(
                 'E2E_CLUB_PASSWORD doit être défini (voir frontend/.env.test.example). '
                 .'Aucun mot de passe par défaut n’est fourni volontairement.'
+            );
+
+            return;
+        }
+
+        if (! $totpSecret || ! preg_match('/^[A-Z2-7]{16,}$/', $totpSecret) || ! $deviceToken || strlen($deviceToken) < 32) {
+            $this->command?->error(
+                'E2E_CLUB_TOTP_SECRET (base32, 16 caractères min.) et E2E_CLUB_DEVICE_TOKEN (32 caractères min.) '
+                .'doivent être définis (voir frontend/.env.test.example).'
             );
 
             return;
@@ -54,6 +69,21 @@ class E2eClubAccountSeeder extends Seeder
                 'status' => 'active',
                 'is_active' => true,
                 'email_verified_at' => now(),
+            ]
+        );
+
+        $user->forceFill([
+            'two_factor_secret' => $totpSecret,
+            'two_factor_recovery_codes' => [],
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+
+        TrustedDevice::updateOrCreate(
+            ['token_hash' => hash('sha256', $deviceToken)],
+            [
+                'user_id' => $user->id,
+                'user_agent' => 'Playwright (e2e)',
+                'expires_at' => now()->addYear(),
             ]
         );
 

@@ -5,13 +5,40 @@ import { defineStore } from 'pinia'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 
+// Jeton « appareil de confiance » (2FA) : dispense du code pendant 30 jours sur ce
+// navigateur. Conservé à la déconnexion — c'est tout son intérêt.
+const TRUSTED_DEVICE_COOKIE = '2fa-device'
+const TRUSTED_DEVICE_MAX_AGE = 60 * 60 * 24 * 30
+
+const readTrustedDeviceToken = () => {
+  if (!process.client) return null
+  const match = document.cookie.split('; ').find(c => c.startsWith(`${TRUSTED_DEVICE_COOKIE}=`))
+  return match ? match.substring(TRUSTED_DEVICE_COOKIE.length + 1) : null
+}
+
+const writeTrustedDeviceToken = (token: string) => {
+  if (!process.client) return
+  const secure = location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${TRUSTED_DEVICE_COOKIE}=${token}; max-age=${TRUSTED_DEVICE_MAX_AGE}; path=/; SameSite=Lax${secure}`
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as any,
     token: null as string | null,
     isAuthenticated: false,
     isInitialized: false,
-    loading: false
+    loading: false,
+    // Seconde étape de connexion des comptes club/admin (2FA) : tant qu'elle est en
+    // cours, aucun jeton n'est détenu et isAuthenticated reste à false.
+    twoFactor: {
+      challengeToken: null as string | null,
+      mode: null as 'challenge' | 'setup' | null,
+      remember: false,
+      // Connexion obtenue à l'enrôlement, retenue tant que les codes de
+      // récupération n'ont pas été confirmés comme sauvegardés.
+      pendingLogin: null as any
+    }
   }),
 
   getters: {
@@ -31,51 +58,26 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const { $api } = useNuxtApp()
-        const response = await $api.post('/auth/login', credentials)
+        const response = await $api.post('/auth/login', {
+          ...credentials,
+          device_token: readTrustedDeviceToken()
+        })
         
         console.log('🚀 [LOGIN ULTRA SIMPLE] Réponse reçue:', response.data)
 
-        this.token = response.data.access_token
-        this.user = response.data.user
-        this.isAuthenticated = true
-
-        // Sauvegarder le token dans les cookies pour la persistance (API native)
-        if (process.client) {
-          const maxAge = credentials.remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7
-          const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
-          
-          // Utiliser l'API native pour éviter les problèmes de Nuxt
-          // Encoder en base64 pour éviter les problèmes d'encodage UTF-8
-          const setCookie = (name, value, options = {}) => {
-            // Pour les données UTF-8, encoder en base64 pour éviter les problèmes
-            const encodedValue = btoa(unescape(encodeURIComponent(value)))
-            let cookieString = `${name}=${encodedValue}`
-            if (options.expires) cookieString += `; expires=${options.expires}`
-            if (options.path) cookieString += `; path=${options.path}`
-            if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
-            document.cookie = cookieString
+        // Club / admin : le mot de passe ne suffit pas, une étape 2FA suit.
+        const step = response.data?.data
+        if (step?.challenge_token) {
+          this.twoFactor = {
+            challengeToken: step.challenge_token,
+            mode: step.two_factor_setup_required ? 'setup' : 'challenge',
+            remember: !!credentials.remember,
+            pendingLogin: null
           }
-          
-          setCookie('auth-token', this.token, {
-            expires: expires,
-            path: '/',
-            sameSite: 'Lax'
-          })
-          
-          setCookie('auth-user', JSON.stringify(this.user), {
-            expires: expires,
-            path: '/',
-            sameSite: 'Lax'
-          })
-          
-          console.log('🚀 [LOGIN ULTRA SIMPLE] Token et user sauvegardés dans les cookies (base64 UTF-8)')
-          console.log('🚀 [LOGIN ULTRA SIMPLE] Token:', this.token?.substring(0, 20) + '...')
-          console.log('🚀 [LOGIN ULTRA SIMPLE] User name:', this.user?.name)
+          return { twoFactor: this.twoFactor.mode }
         }
 
-        console.log('🚀 [LOGIN ULTRA SIMPLE] Token stocké, type:', typeof this.token)
-        console.log('🚀 [LOGIN ULTRA SIMPLE] User:', this.user?.email, 'Role:', this.user?.role)
-
+        this.completeLogin(response.data, credentials.remember)
         return response.data
       } catch (error) {
         console.error('🚀 [LOGIN ULTRA SIMPLE] Erreur:', error)
@@ -83,6 +85,109 @@ export const useAuthStore = defineStore('auth', {
       } finally {
         this.loading = false
       }
+    },
+
+    /**
+     * Enregistre la session (jeton + utilisateur) une fois l'authentification complète.
+     */
+    completeLogin(payload: { access_token: string, user: any }, remember?: boolean) {
+      this.token = payload.access_token
+      this.user = payload.user
+      this.isAuthenticated = true
+
+      // Sauvegarder le token dans les cookies pour la persistance (API native)
+      if (process.client) {
+        const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7
+        const expires = new Date(Date.now() + maxAge * 1000).toUTCString()
+        
+        // Utiliser l'API native pour éviter les problèmes de Nuxt
+        // Encoder en base64 pour éviter les problèmes d'encodage UTF-8
+        const setCookie = (name, value, options = {}) => {
+          // Pour les données UTF-8, encoder en base64 pour éviter les problèmes
+          const encodedValue = btoa(unescape(encodeURIComponent(value)))
+          let cookieString = `${name}=${encodedValue}`
+          if (options.expires) cookieString += `; expires=${options.expires}`
+          if (options.path) cookieString += `; path=${options.path}`
+          if (options.sameSite) cookieString += `; SameSite=${options.sameSite}`
+          document.cookie = cookieString
+        }
+        
+        setCookie('auth-token', this.token, {
+          expires: expires,
+          path: '/',
+          sameSite: 'Lax'
+        })
+        
+        setCookie('auth-user', JSON.stringify(this.user), {
+          expires: expires,
+          path: '/',
+          sameSite: 'Lax'
+        })
+        
+        console.log('🚀 [LOGIN ULTRA SIMPLE] Token et user sauvegardés dans les cookies (base64 UTF-8)')
+        console.log('🚀 [LOGIN ULTRA SIMPLE] Token:', this.token?.substring(0, 20) + '...')
+        console.log('🚀 [LOGIN ULTRA SIMPLE] User name:', this.user?.name)
+      }
+
+      console.log('🚀 [LOGIN ULTRA SIMPLE] Token stocké, type:', typeof this.token)
+      console.log('🚀 [LOGIN ULTRA SIMPLE] User:', this.user?.email, 'Role:', this.user?.role)
+    },
+
+    /**
+     * Enrôlement 2FA : QR code et secret à saisir dans l'application.
+     */
+    async setupTwoFactor() {
+      const { $api } = useNuxtApp()
+      const response = await $api.post('/auth/two-factor/setup', {
+        challenge_token: this.twoFactor.challengeToken
+      })
+      return response.data.data
+    },
+
+    /**
+     * Enrôlement 2FA : premier code. Renvoie les codes de récupération ; la session
+     * ne s'ouvre qu'avec finishTwoFactorSetup(), une fois les codes sauvegardés.
+     */
+    async confirmTwoFactorSetup(code: string) {
+      const { $api } = useNuxtApp()
+      const response = await $api.post('/auth/two-factor/setup/confirm', {
+        challenge_token: this.twoFactor.challengeToken,
+        code
+      })
+      this.twoFactor.pendingLogin = response.data.data
+      return response.data.data.recovery_codes as string[]
+    },
+
+    finishTwoFactorSetup() {
+      const payload = this.twoFactor.pendingLogin
+      const remember = this.twoFactor.remember
+      this.resetTwoFactor()
+      if (payload) {
+        this.completeLogin(payload, remember)
+      }
+    },
+
+    /**
+     * Connexion 2FA : code de l'application ou code de récupération.
+     */
+    async verifyTwoFactor(input: { code?: string, recovery_code?: string, remember_device?: boolean }) {
+      const { $api } = useNuxtApp()
+      const response = await $api.post('/auth/two-factor/challenge', {
+        challenge_token: this.twoFactor.challengeToken,
+        ...input
+      })
+      const data = response.data.data
+      if (data.device_token) {
+        writeTrustedDeviceToken(data.device_token)
+      }
+      const remember = this.twoFactor.remember
+      this.resetTwoFactor()
+      this.completeLogin(data, remember)
+      return data
+    },
+
+    resetTwoFactor() {
+      this.twoFactor = { challengeToken: null, mode: null, remember: false, pendingLogin: null }
     },
 
     async logout() {

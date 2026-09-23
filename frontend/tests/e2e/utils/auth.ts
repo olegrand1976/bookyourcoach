@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { totp } from './totp';
 
 /**
  * Identifiants du compte club de test, lus dans l'environnement.
@@ -35,6 +36,17 @@ export function clubCredentials(): { email: string; password: string } {
 }
 
 /**
+ * Second facteur du compte club e2e (voir E2eClubAccountSeeder) : secret TOTP et
+ * jeton d'appareil de confiance.
+ */
+export function clubTwoFactor(): { secret: string; deviceToken: string } {
+  return {
+    secret: requireEnv('E2E_CLUB_TOTP_SECRET'),
+    deviceToken: requireEnv('E2E_CLUB_DEVICE_TOKEN'),
+  };
+}
+
+/**
  * État d'authentification sauvegardé pour réutilisation
  */
 export const AUTH_STATE_PATH = 'tests/e2e/.auth/user.json';
@@ -43,6 +55,12 @@ export const AUTH_STATE_PATH = 'tests/e2e/.auth/user.json';
  * Se connecter en tant que club
  */
 export async function loginAsClub(page: Page) {
+  // Appareil de confiance : dispense du code 2FA, sans quoi deux tests connectés dans
+  // la même période de 30 s se verraient refuser le même code (anti-rejeu).
+  const { secret, deviceToken } = clubTwoFactor();
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+  await page.context().addCookies([{ name: '2fa-device', value: deviceToken, url: baseURL }]);
+
   // Naviguer vers la page de login
   await page.goto('/login', { waitUntil: 'networkidle' });
   
@@ -58,9 +76,21 @@ export async function loginAsClub(page: Page) {
   
   // Cliquer sur le bouton de connexion [[memory:8269929]]
   await page.click('button:has-text("Connexion")');
-  
+
+  // Appareil inconnu (jeton révoqué ou base réinitialisée) : saisir le code TOTP.
+  const codeInput = page.locator('#two-factor-code');
+  const dashboard = page.waitForURL(/\/club\/dashboard/, { timeout: 30000 });
+  const reached = await Promise.race([
+    dashboard.then(() => 'dashboard' as const),
+    codeInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'code' as const),
+  ]);
+  if (reached === 'code') {
+    await codeInput.fill(totp(secret));
+    await page.click('button:has-text("Vérifier")');
+  }
+
   // Attendre la redirection vers le dashboard (timeout augmenté)
-  await page.waitForURL(/\/club\/dashboard/, { timeout: 30000 });
+  await dashboard;
   
   // Attendre que le dashboard soit chargé
   await page.waitForLoadState('networkidle');

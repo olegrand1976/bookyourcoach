@@ -78,11 +78,22 @@ export default defineNuxtPlugin(() => {
         path: error.config?.url
       })
       
-      if (error.response?.status === 401) {
+      const isTwoFactorStep = (error.config?.url || '').includes('/auth/two-factor/')
+
+      if (error.response?.status === 401 && isTwoFactorStep) {
+        // Challenge 2FA expiré : aucune session à nettoyer, la page repart du mot de passe.
+        console.warn('🚨 [API INTERCEPTOR] Étape 2FA expirée')
+      } else if (error.response?.status === 401) {
         // Token expiré ou invalide - nettoyer le store
         console.warn('🚨 [API INTERCEPTOR] Token invalide détecté - nettoyage du store')
         const authStore = useAuthStore()
         authStore.clearAuth()
+      } else if (error.response?.status === 403 && error.response?.data?.code === 'two_factor_setup_required') {
+        // Jeton club/admin antérieur à la 2FA : retour au login, qui lance l'enrôlement.
+        console.warn('🚨 [API INTERCEPTOR] Double authentification à configurer')
+        const authStore = useAuthStore()
+        authStore.clearAuth()
+        navigateTo('/login?two_factor=setup')
       } else if (error.response?.status === 403) {
         // Accès interdit - log pour debugging mais ne pas déconnecter
         console.warn('🚨 [API INTERCEPTOR] Accès interdit (403):', {

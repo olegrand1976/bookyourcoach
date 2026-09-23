@@ -66,6 +66,14 @@
         <!-- Section Droite - Formulaire -->
         <div class="w-full">
           <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-10 border border-gray-100">
+            <!-- Seconde étape des comptes club / admin -->
+            <TwoFactorStep
+              v-if="authStore.twoFactor.mode"
+              @done="redirectAfterLogin"
+              @cancel="onTwoFactorCancel"
+            />
+
+            <template v-else>
             <!-- En-tête -->
             <div class="text-center mb-8">
               <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl mb-4">
@@ -75,6 +83,11 @@
               </div>
               <h2 class="text-3xl font-bold text-gray-900 mb-2">Connexion</h2>
               <p class="text-gray-600">Accédez à votre espace personnel</p>
+            </div>
+
+            <div v-if="route.query?.two_factor === 'setup'" class="mb-5 bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4 text-sm text-blue-800">
+              La double authentification est désormais obligatoire pour les comptes club et administrateur.
+              Reconnectez-vous pour la configurer.
             </div>
 
             <!-- Formulaire -->
@@ -252,6 +265,7 @@
                 </p>
               </div>
             </div>
+            </template>
           </div>
         </div>
       </div>
@@ -377,6 +391,7 @@
 
 <script setup>
 import { getSafeRedirectPath } from '~/utils/safeRedirect'
+import TwoFactorStep from '~/components/auth/TwoFactorStep.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -440,32 +455,20 @@ const handleLogin = async () => {
   }
 
   try {
-    await authStore.login({
+    const result = await authStore.login({
       email: form.email,
       password: form.password,
       remember: form.remember
     })
 
-    showToast('Connexion réussie', 'success')
-
-    const fromQuery = getSafeRedirectPath(route.query.redirect)
-    if (fromQuery) {
-      await navigateTo(fromQuery)
+    // Club / admin : l'étape 2FA prend le relais dans la carte (TwoFactorStep).
+    if (result?.twoFactor) {
+      form.password = ''
       return
     }
 
-    // Rediriger selon le rôle (admin en priorité)
-    if (authStore.isAdmin) {
-      await navigateTo('/admin')
-    } else if (authStore.isTeacher) {
-      await navigateTo('/teacher/dashboard')
-    } else if (authStore.isClub) {
-      await navigateTo('/club/dashboard')
-    } else if (authStore.isStudent) {
-      await navigateTo('/student/dashboard')
-    } else {
-      await navigateTo('/dashboard')
-    }
+    showToast('Connexion réussie', 'success')
+    await redirectAfterLogin()
   } catch (err) {
     console.error('Erreur de connexion complète:', err)
     console.error('Response data:', err.response?.data)
@@ -491,6 +494,31 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const redirectAfterLogin = async () => {
+  const fromQuery = getSafeRedirectPath(route.query.redirect)
+  if (fromQuery) {
+    await navigateTo(fromQuery)
+    return
+  }
+
+  // Rediriger selon le rôle (admin en priorité)
+  if (authStore.isAdmin) {
+    await navigateTo('/admin')
+  } else if (authStore.isTeacher) {
+    await navigateTo('/teacher/dashboard')
+  } else if (authStore.isClub) {
+    await navigateTo('/club/dashboard')
+  } else if (authStore.isStudent) {
+    await navigateTo('/student/dashboard')
+  } else {
+    await navigateTo('/dashboard')
+  }
+}
+
+const onTwoFactorCancel = (message) => {
+  error.value = message || ''
 }
 
 // Rediriger si déjà connecté (admin en priorité)

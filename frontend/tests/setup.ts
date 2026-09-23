@@ -52,6 +52,7 @@ global.useAuthStore = vi.fn(() => ({
     user: null,
     token: 'mock-token',
     isAuthenticated: false,
+    twoFactor: { challengeToken: null, mode: null, remember: false, pendingLogin: null },
     login: vi.fn(),
     logout: vi.fn(),
     register: vi.fn(),
