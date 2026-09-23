@@ -15,6 +15,10 @@ class LoginAttempt extends Model
 
     public const REASON_INVALID_CREDENTIALS = 'invalid_credentials';
 
+    // Mot de passe correct mais code 2FA faux : le mot de passe est probablement
+    // connu d'un tiers, c'est le signal le plus fort de cet historique.
+    public const REASON_INVALID_TWO_FACTOR = 'invalid_two_factor';
+
     protected $fillable = [
         'user_id',
         'email',

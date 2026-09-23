@@ -21,12 +21,12 @@ class LoginHistoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function utilisateur(string $email = 'gerant@club.test'): User
+    private function utilisateur(string $email = 'gerant@club.test', string $role = 'club'): User
     {
         return User::factory()->create([
             'email' => $email,
             'password' => Hash::make('MotDePasseSolide2026'),
-            'role' => 'club',
+            'role' => $role,
             'status' => 'active',
             'is_active' => true,
         ]);
@@ -79,7 +79,8 @@ class LoginHistoryTest extends TestCase
     #[Test]
     public function une_connexion_reussie_est_enregistree_avec_son_contexte(): void
     {
-        $user = $this->utilisateur();
+        // Enseignant : connexion en une étape (club et admin passent par la 2FA).
+        $user = $this->utilisateur('prof@club.test', 'teacher');
 
         $this->withHeaders([
             'X-Forwarded-For' => '94.109.66.137, 34.54.99.89',
@@ -303,7 +304,8 @@ class LoginHistoryTest extends TestCase
     #[Test]
     public function une_localisation_hors_norme_n_empeche_pas_la_connexion(): void
     {
-        $user = $this->utilisateur();
+        // Enseignant : connexion en une étape (club et admin passent par la 2FA).
+        $user = $this->utilisateur('prof@club.test', 'teacher');
 
         // Bout en bout, avec des valeurs extrêmes en en-tête : la connexion doit
         // aboutir et la trace exister.

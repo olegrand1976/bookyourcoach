@@ -32,6 +32,14 @@ Route::prefix('auth')->group(function () {
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth-sensitive');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth-sensitive');
 
+    // Seconde étape de connexion des comptes club et admin : le challenge_token remis
+    // par /login après le mot de passe tient lieu d'authentification.
+    Route::middleware('throttle:two-factor')->prefix('two-factor')->group(function () {
+        Route::post('/setup', [\App\Http\Controllers\Api\TwoFactorController::class, 'setup']);
+        Route::post('/setup/confirm', [\App\Http\Controllers\Api\TwoFactorController::class, 'confirmSetup']);
+        Route::post('/challenge', [\App\Http\Controllers\Api\TwoFactorController::class, 'challenge']);
+    });
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', function (Request $request) {

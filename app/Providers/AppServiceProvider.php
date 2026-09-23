@@ -112,6 +112,19 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinutes(10, 10)->by('auth-sensitive:ip:' . $ip),
             ];
         });
+
+        // Seconde étape 2FA : un code à 6 chiffres se devine en 10^6 essais, d'où un
+        // plafond serré par challenge (le service détruit en plus le challenge après
+        // 5 codes faux). Le plafond par IP reste large : wifi de club partagé.
+        RateLimiter::for('two-factor', function (Request $request) {
+            $challenge = hash('sha256', (string) $request->input('challenge_token'));
+            $ip = app(ClientIpResolver::class)->resolve($request) ?? $request->ip();
+
+            return [
+                Limit::perMinutes(10, 10)->by('two-factor:' . $challenge),
+                Limit::perMinutes(10, 30)->by('two-factor:ip:' . $ip),
+            ];
+        });
     }
 
     /**

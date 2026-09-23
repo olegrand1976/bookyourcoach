@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\ClientIpResolver;
 use App\Services\LoginAttemptRecorder;
+use App\Services\TwoFactorService;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\Rule;
 use App\Models\User;
@@ -188,6 +189,19 @@ class AuthController extends Controller
                 }
             }
 
+            // Un compte club (ou admin) ne reçoit pas de jeton à l'inscription : il doit
+            // d'abord configurer sa double authentification, comme au login.
+            $pendingStep = app(TwoFactorService::class)->pendingStepFor($user);
+            if ($pendingStep !== null) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Compte créé. Configurez la double authentification pour continuer.',
+                    'data' => $pendingStep,
+                    'user' => $user,
+                    'club' => $request->role === 'club' ? $club : null,
+                ], 201);
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
@@ -244,6 +258,24 @@ class AuthController extends Controller
 
         if ($user->role === User::ROLE_TEACHER) {
             $user->load('teacher');
+        }
+
+        // Club et admin : le mot de passe n'est que la première étape. Aucun jeton —
+        // et, si la requête porte une session, aucune session authentifiée — tant que
+        // le second facteur n'est pas vérifié.
+        $pendingStep = app(TwoFactorService::class)->pendingStepFor($user, $request->input('device_token'));
+        if ($pendingStep !== null) {
+            if ($request->hasSession()) {
+                Auth::guard('web')->logout();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $pendingStep['two_factor_required']
+                    ? 'Saisissez le code de votre application d\'authentification.'
+                    : 'Configurez la double authentification pour continuer.',
+                'data' => $pendingStep,
+            ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

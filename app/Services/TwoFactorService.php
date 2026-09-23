@@ -186,6 +186,34 @@ class TwoFactorService
     // ---------------------------------------------------------------------
 
     /**
+     * Seconde étape exigée après un mot de passe correct, ou null si le jeton peut
+     * être délivré tout de suite (rôle non concerné, ou appareil de confiance).
+     *
+     * @return array{two_factor_required: bool, two_factor_setup_required: bool, challenge_token: string}|null
+     */
+    public function pendingStepFor(User $user, ?string $deviceToken = null): ?array
+    {
+        if (! $user->requiresTwoFactor()) {
+            return null;
+        }
+
+        $enabled = $user->hasTwoFactorEnabled();
+
+        // Un appareil de confiance ne dispense que du code : jamais de l'enrôlement.
+        if ($enabled && $this->isTrustedDevice($user, $deviceToken)) {
+            return null;
+        }
+
+        $mode = $enabled ? self::MODE_CHALLENGE : self::MODE_SETUP;
+
+        return [
+            'two_factor_required' => $enabled,
+            'two_factor_setup_required' => ! $enabled,
+            'challenge_token' => $this->createChallenge($user, $mode),
+        ];
+    }
+
+    /**
      * Émis après un mot de passe correct : prouve que la première étape est franchie,
      * sans rien ouvrir d'autre que l'étape 2FA de ce compte.
      */
