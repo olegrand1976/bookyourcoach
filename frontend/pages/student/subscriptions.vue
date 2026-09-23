@@ -186,16 +186,6 @@
               </svg>
               Renouveler
             </button>
-            <button
-              v-else-if="subscription.status === 'expired' && subscription.subscription?.template?.is_active"
-              @click="renewSubscription(subscription.id)"
-              class="min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Renouveler
-            </button>
           </div>
         </div>
       </div>
@@ -205,9 +195,9 @@
         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
         </svg>
-        <h3 class="mt-4 text-lg font-medium text-gray-900">Aucun abonnement</h3>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">Aucun abonnement actif</h3>
         <p class="mt-2 text-sm text-gray-500">
-          Vous n'avez pas encore souscrit à un abonnement.
+          Vous n'avez actuellement aucun abonnement en cours.
         </p>
         <div class="mt-6">
           <button
@@ -259,7 +249,8 @@ const loadSubscriptions = async () => {
     const params = { active_student_id: studentScopeStore.apiScopeParam }
     const response = await $api.get('/student/subscriptions', { params })
     if (response.data.success) {
-      subscriptions.value = response.data.data
+      // Seuls les abonnements encore actifs sont listés (statut rafraîchi côté API)
+      subscriptions.value = (response.data.data || []).filter(s => s.status === 'active')
     } else {
       error.value = response.data.message || 'Erreur lors du chargement des abonnements'
     }
