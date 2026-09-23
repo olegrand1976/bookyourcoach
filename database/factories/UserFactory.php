@@ -5,6 +5,7 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use PragmaRX\Google2FA\Google2FA;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
@@ -41,6 +42,18 @@ class UserFactory extends Factory
     {
         return $this->state(fn(array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    /**
+     * Compte dont la double authentification est déjà configurée.
+     */
+    public function withTwoFactor(?string $secret = null): static
+    {
+        return $this->state(fn(array $attributes) => [
+            'two_factor_secret' => $secret ?? app(Google2FA::class)->generateSecretKey(32),
+            'two_factor_recovery_codes' => [],
+            'two_factor_confirmed_at' => now(),
         ]);
     }
 }

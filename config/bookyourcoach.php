@@ -96,6 +96,19 @@ return [
         // Absente, la géolocalisation est simplement vide — jamais bloquante.
         'geoip_city_database' => env('GEOIP_CITY_DATABASE', storage_path('app/geoip/GeoLite2-City.mmdb')),
         'geoip_asn_database' => env('GEOIP_ASN_DATABASE', storage_path('app/geoip/GeoLite2-ASN.mmdb')),
+
+        /*
+        | Double authentification (TOTP) des comptes club et admin.
+        |
+        | two_factor_enforced est un interrupteur de secours, pas une option métier :
+        | à false, club et admin se connectent de nouveau avec leur seul mot de passe.
+        | Il permet de débloquer la plateforme sans redéploiement si l'enrôlement
+        | échoue en masse — à remettre à true dès l'incident réglé.
+        */
+        'two_factor_enforced' => filter_var(env('AUTH_TWO_FACTOR_ENFORCED', true), FILTER_VALIDATE_BOOLEAN),
+        'two_factor_issuer' => env('AUTH_TWO_FACTOR_ISSUER', env('APP_NAME', 'activibe')),
+        'two_factor_challenge_ttl_minutes' => (int) env('AUTH_TWO_FACTOR_CHALLENGE_TTL_MINUTES', 10),
+        'two_factor_trusted_device_days' => (int) env('AUTH_TWO_FACTOR_TRUSTED_DEVICE_DAYS', 30),
     ],
 
 ];

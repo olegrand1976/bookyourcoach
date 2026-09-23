@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -73,6 +76,9 @@ class User extends Authenticatable
         // Il est géré manuellement via setBirthDateAttribute et getBirthDateAttribute
         'experience_start_date' => 'date',
         'is_active' => 'boolean',
+        'two_factor_secret' => 'encrypted',
+        'two_factor_recovery_codes' => 'encrypted:array',
+        'two_factor_confirmed_at' => 'datetime',
     ];
 
     /**
@@ -398,6 +404,29 @@ class User extends Authenticatable
     public function isClub(): bool
     {
         return $this->hasRole(self::ROLE_CLUB);
+    }
+
+    /**
+     * Les comptes club et admin donnent accès aux données de tout un club, voire de
+     * la plateforme : un mot de passe seul ne suffit pas à les ouvrir.
+     */
+    public function requiresTwoFactor(): bool
+    {
+        if (! config('bookyourcoach.auth.two_factor_enforced', true)) {
+            return false;
+        }
+
+        return $this->isClub() || $this->isAdmin();
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && ! empty($this->two_factor_secret);
+    }
+
+    public function trustedDevices(): HasMany
+    {
+        return $this->hasMany(TrustedDevice::class);
     }
 
     /**
