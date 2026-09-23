@@ -13,7 +13,7 @@ class ResetStudentPasswords extends Command
      *
      * @var string
      */
-    protected $signature = 'students:reset-passwords {password=password123}';
+    protected $signature = 'students:reset-passwords {password : Nouveau mot de passe (aucune valeur par défaut)}';
 
     /**
      * The console command description.
@@ -27,6 +27,14 @@ class ResetStudentPasswords extends Command
      */
     public function handle()
     {
+        // Commande destructive : elle réécrit le mot de passe de tous les élèves
+        // et les affiche. Elle n'a rien à faire en production.
+        if (! app()->environment(['local', 'testing', 'development'])) {
+            $this->error('Commande réservée aux environnements de développement.');
+
+            return 1;
+        }
+
         $password = $this->argument('password');
         
         $students = User::where('role', 'student')->get();

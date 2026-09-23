@@ -65,6 +65,21 @@
       <!-- Actions de test -->
       <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
         <h2 class="text-xl font-semibold mb-4">🎮 Actions de Test</h2>
+        <!-- Saisis à la main : aucun identifiant n'est embarqué dans la page. -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <input
+            v-model="testEmail"
+            type="email"
+            autocomplete="off"
+            placeholder="Adresse e-mail"
+            class="border border-gray-300 rounded px-3 py-2" />
+          <input
+            v-model="testPassword"
+            type="password"
+            autocomplete="off"
+            placeholder="Mot de passe"
+            class="border border-gray-300 rounded px-3 py-2" />
+        </div>
         <div class="grid grid-cols-2 gap-4">
           <button 
             @click="testLogin" 
@@ -127,6 +142,8 @@ definePageMeta({
 const authStore = useAuthStore()
 const loading = ref(false)
 const logs = ref([])
+const testEmail = ref('')
+const testPassword = ref('')
 
 // Fonction pour ajouter des logs
 const addLog = (message) => {
@@ -157,10 +174,15 @@ const testLogin = async () => {
   loading.value = true
   addLog('🔐 Début test de connexion...')
   
+  if (!testEmail.value || !testPassword.value) {
+    addLog('⚠️ Renseignez une adresse et un mot de passe.')
+    return
+  }
+
   try {
     const result = await authStore.login({
-      email: 'test@club.com',
-      password: 'password123'
+      email: testEmail.value,
+      password: testPassword.value
     })
     addLog('✅ Connexion réussie!')
     addLog(`👤 Utilisateur: ${authStore.user?.email} (${authStore.user?.role})`)

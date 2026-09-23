@@ -47,8 +47,8 @@
 </template>
 
 <script setup>
-const email = ref('sophie.martin@activibe.com')
-const password = ref('password')
+const email = ref('')
+const password = ref('')
 const loading = ref(false)
 const result = ref(null)
 const error = ref('')

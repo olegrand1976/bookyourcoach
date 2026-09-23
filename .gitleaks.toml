@@ -1,0 +1,20 @@
+# Détection de secrets — voir .github/workflows/secrets.yml
+#
+# Le scan porte sur le diff, pas sur l'historique : le mot de passe divulgué en 2025
+# y figure encore dans une quinzaine de commits, et le choix a été de le neutraliser
+# par rotation plutôt que de réécrire 52 branches (cf. incident du 2026-09-23).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valeurs factices assumées : jeux de données de développement et gabarits"
+paths = [
+  '''database/seeders/.*TestDataSeeder\.php''',
+  '''database/seeders/E2eClubAccountSeeder\.php''',
+  '''database/seeders/DemoProfilesSeeder\.php''',
+  '''database/seeders/UserSeeder\.php''',
+  '''frontend/\.env\.test\.example''',
+  '''\.env\.example''',
+  '''tests/.*''',
+]

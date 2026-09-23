@@ -1,22 +1,38 @@
 import { Page, expect } from '@playwright/test';
 
 /**
- * Credentials de test pour l'authentification
+ * Identifiants du compte club de test, lus dans l'environnement.
+ *
+ * Aucune valeur par défaut : un identifiant réel avait été codé en dur ici, dans un
+ * dépôt public. Mieux vaut un échec explicite qu'un repli silencieux sur un compte
+ * qui pourrait exister en production.
+ *
+ * Copier frontend/.env.test.example vers frontend/.env.test, puis créer le compte
+ * localement : php artisan db:seed --class=E2eClubAccountSeeder
  */
-export const TEST_CREDENTIALS = {
-  club: {
-    email: 'b.murgo1976@gmail.com',
-    password: 'password123', // À adapter selon votre environnement de test
-  },
-  student: {
-    email: 'test.student@example.com',
-    password: 'password123',
-  },
-  teacher: {
-    email: 'test.teacher@example.com',
-    password: 'password123',
-  },
-};
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `Variable d'environnement ${name} manquante. ` +
+        `Copiez frontend/.env.test.example vers frontend/.env.test et renseignez-la, ` +
+        `puis créez le compte avec : php artisan db:seed --class=E2eClubAccountSeeder`
+    );
+  }
+  return value;
+}
+
+/**
+ * Accesseur paresseux : évalué à l'appel, et non à l'import. Une constante de module
+ * ferait échouer la collecte de toute la suite, y compris les specs qui n'ont besoin
+ * d'aucun identifiant.
+ */
+export function clubCredentials(): { email: string; password: string } {
+  return {
+    email: requireEnv('E2E_CLUB_EMAIL'),
+    password: requireEnv('E2E_CLUB_PASSWORD'),
+  };
+}
 
 /**
  * État d'authentification sauvegardé pour réutilisation
@@ -36,8 +52,9 @@ export async function loginAsClub(page: Page) {
   await page.waitForSelector('button:has-text("Connexion")', { state: 'visible' });
   
   // Remplir le formulaire de connexion
-  await page.fill('input[type="email"]', TEST_CREDENTIALS.club.email);
-  await page.fill('input[type="password"]', TEST_CREDENTIALS.club.password);
+  const { email, password } = clubCredentials();
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', password);
   
   // Cliquer sur le bouton de connexion [[memory:8269929]]
   await page.click('button:has-text("Connexion")');

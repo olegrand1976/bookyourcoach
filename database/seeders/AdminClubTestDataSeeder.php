@@ -22,14 +22,27 @@ class AdminClubTestDataSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing', 'development'])) {
+            $this->command->error('Ce seeder est réservé aux environnements de développement.');
+
+            return;
+        }
+
         $this->command->info('🎯 Création des données de test pour le club de l\'admin...');
 
-        // 1. Trouver l'utilisateur admin
-        $adminEmail = 'b.murgo1976@gmail.com';
+        // 1. Trouver l'utilisateur cible. L'adresse n'est plus codée en dur : elle
+        // désignait un compte réel de production, dans un dépôt public.
+        $adminEmail = env('SEED_TARGET_EMAIL');
+
+        if (!$adminEmail) {
+            $this->command->error('❌ Définissez SEED_TARGET_EMAIL avec l\'adresse du compte à peupler.');
+            return;
+        }
+
         $admin = User::where('email', $adminEmail)->first();
 
         if (!$admin) {
-            $this->command->error("❌ Utilisateur admin avec l'email {$adminEmail} introuvable");
+            $this->command->error("❌ Utilisateur avec l'email {$adminEmail} introuvable");
             return;
         }
 

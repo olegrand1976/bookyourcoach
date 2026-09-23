@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'node:fs';
+
+// Identifiants et URL de test hors du dépôt : .env.test est ignoré par git.
+// En CI, les variables viennent de l'environnement et le fichier n'existe pas.
+if (existsSync('.env.test')) {
+  process.loadEnvFile('.env.test');
+}
 
 /**
  * Configuration Playwright pour les tests E2E de BookYourCoach

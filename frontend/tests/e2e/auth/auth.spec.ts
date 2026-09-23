@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAsClub, logout, TEST_CREDENTIALS } from '../utils/auth';
+import { loginAsClub, logout, clubCredentials } from '../utils/auth';
 
 /**
  * Tests d'authentification
@@ -26,7 +26,7 @@ test.describe('Authentification', () => {
     await page.goto('/login');
     
     // Remplir avec un mauvais mot de passe
-    await page.fill('input[type="email"]', TEST_CREDENTIALS.club.email);
+    await page.fill('input[type="email"]', clubCredentials().email);
     await page.fill('input[type="password"]', 'mauvais_mot_de_passe');
     
     // Cliquer sur connexion [[memory:8269929]]

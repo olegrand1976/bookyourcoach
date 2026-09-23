@@ -52,8 +52,8 @@ const apiStatus = ref('Non testé')
 const testing = ref(false)
 const loginTesting = ref(false)
 const result = ref(null)
-const email = ref('admin@activibe.com')
-const password = ref('admin123')
+const email = ref('')
+const password = ref('')
 
 const testApi = async () => {
     testing.value = true

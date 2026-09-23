@@ -97,15 +97,32 @@ export default defineConfig({
 });
 ```
 
-### **4. Variables d'environnement (optionnel)**
+### **4. Variables d'environnement (obligatoire)**
 
-Créer un fichier `.env.test` :
+Les identifiants de test ne sont **pas** dans le dépôt : un compte réel y avait été
+codé en dur. Les tests échouent explicitement si les variables manquent.
+
+```bash
+cp .env.test.example .env.test   # depuis frontend/
+```
+
+`.env.test` est ignoré par git :
 
 ```bash
 PLAYWRIGHT_BASE_URL=http://localhost:3000
-TEST_USER_EMAIL=test@example.com
-TEST_USER_PASSWORD=password123
+E2E_CLUB_EMAIL=e2e-club@example.test
+E2E_CLUB_PASSWORD=<votre valeur locale>
 ```
+
+Puis créer le compte correspondant en base de développement — jamais un compte
+existant en production :
+
+```bash
+php artisan db:seed --class=E2eClubAccountSeeder
+```
+
+En intégration continue, ces variables viennent des secrets du dépôt et le fichier
+`.env.test` n'existe pas.
 
 ---
 

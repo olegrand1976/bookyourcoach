@@ -24,7 +24,7 @@ L'endpoint `/api/subscription-instances/{instanceId}/future-lessons` a plusieurs
 
 ### Points à vérifier
 
-1. **Rôle de l'utilisateur** : L'admin `b.murgo1976@gmail.com` a-t-il aussi le rôle `'club'` ?
+1. **Rôle de l'utilisateur** : L'admin le compte gérant du club a-t-il aussi le rôle `'club'` ?
 2. **Appartenance du club** : L'abonnement ID 7 appartient-il au club ID 11 (ACTI'VIBE) ?
 3. **Erreur API** : L'appel API échoue-t-il silencieusement ?
 

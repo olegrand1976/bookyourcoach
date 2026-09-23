@@ -24,14 +24,26 @@ class CreateRecurringLessonsForTestSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing', 'development'])) {
+            $this->command->error('Ce seeder est réservé aux environnements de développement.');
+
+            return;
+        }
+
         $this->command->info('🔄 Création d\'un cours récurrent avec séances futures pour test...');
 
-        // 1. Trouver le club de l'admin
-        $adminEmail = 'b.murgo1976@gmail.com';
+        // 1. Trouver le club cible (adresse fournie par l'environnement, cf. SEED_TARGET_EMAIL)
+        $adminEmail = env('SEED_TARGET_EMAIL');
+
+        if (!$adminEmail) {
+            $this->command->error('❌ Définissez SEED_TARGET_EMAIL avec l\'adresse du compte à peupler.');
+            return;
+        }
+
         $admin = User::where('email', $adminEmail)->first();
 
         if (!$admin) {
-            $this->command->error("❌ Utilisateur admin avec l'email {$adminEmail} introuvable");
+            $this->command->error("❌ Utilisateur avec l'email {$adminEmail} introuvable");
             return;
         }
 
