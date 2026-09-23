@@ -1813,6 +1813,44 @@ const createLessonRequestedTime = ref<string | null>(null)
 /** Conflit 422 à la création (récurrence / disponibilités) — détail + actions */
 const showScheduleConflictModal = ref(false)
 const scheduleConflictPayload = ref<ScheduleConflictPayload | null>(null)
+/** D'où vient le conflit : « Appliquer au formulaire » doit rouvrir la bonne modale. */
+const scheduleConflictContext = ref<'create' | 'update'>('create')
+
+/**
+ * Ouvre la fenêtre de résolution si la réponse porte des conflits.
+ * Renvoie false quand il n'y a rien à résoudre : l'appelant affiche alors son erreur.
+ */
+function openScheduleConflictFrom(
+  data: any,
+  fallbackMessage: string,
+  context: 'create' | 'update',
+): boolean {
+  const conflicts = data?.conflicts
+  if (!Array.isArray(conflicts) || conflicts.length === 0) {
+    return false
+  }
+
+  scheduleConflictPayload.value = {
+    message: typeof data?.message === 'string' ? data.message : fallbackMessage,
+    hint: typeof data?.hint === 'string' ? data.hint : null,
+    conflicts: conflicts as Record<string, unknown>[],
+    planning_advice:
+      data?.planning_advice && typeof data.planning_advice === 'object'
+        ? (data.planning_advice as Record<string, unknown>)
+        : null,
+  }
+  scheduleConflictContext.value = context
+  showScheduleConflictModal.value = true
+
+  warning(
+    context === 'create'
+      ? 'Conflit de planification : corrigez la cause dans la fenêtre, puis réessayez la création.'
+      : 'Conflit de planification : corrigez la cause dans la fenêtre, puis réessayez la modification.',
+    'Conflit',
+  )
+
+  return true
+}
 const showHistoryModal = ref(false)
 const showBroadcastModal = ref(false)
 const showParticipantInfoModal = ref(false)
@@ -3297,8 +3335,17 @@ function onApplyPlanningAlternative(alt: PlanningAdviceAlternative) {
     }
   }
   closeScheduleConflictModal()
+
+  // Même modale pour la création et l'édition : c'est `editingLesson` qui distingue les deux.
+  // Il n'a pas été vidé (le chemin d'échec n'appelle pas closeEditLessonModal), le formulaire
+  // retrouve donc le cours en cours de modification et le créneau appliqué a une cible.
   showCreateLessonModal.value = true
-  success('Créneau suggéré appliqué. Vérifiez le formulaire puis créez le cours.', 'Planning')
+  success(
+    scheduleConflictContext.value === 'update'
+      ? 'Créneau suggéré appliqué. Vérifiez le formulaire puis enregistrez la modification.'
+      : 'Créneau suggéré appliqué. Vérifiez le formulaire puis créez le cours.',
+    'Planning',
+  )
 }
 
 /** Charge le cours puis ouvre la même modale d’édition que depuis le planning */
@@ -4275,24 +4322,7 @@ async function createLesson() {
       errorMessage = err.message
     }
 
-    const httpStatus = err.response?.status
-    const conflictList = data?.conflicts
-    if (httpStatus === 422 && Array.isArray(conflictList) && conflictList.length > 0) {
-      scheduleConflictPayload.value = {
-        message: typeof data?.message === 'string' ? data.message : errorMessage,
-        hint: typeof data?.hint === 'string' ? data.hint : null,
-        conflicts: conflictList as Record<string, unknown>[],
-        planning_advice:
-          data?.planning_advice && typeof data.planning_advice === 'object'
-            ? (data.planning_advice as Record<string, unknown>)
-            : null
-      }
-      showScheduleConflictModal.value = true
-      warning(
-        'Conflit de planification : corrigez la cause dans la fenêtre, puis réessayez la création.',
-        'Conflit'
-      )
-    } else {
+    if (!openScheduleConflictFrom(data, errorMessage, 'create')) {
       showError(errorMessage, 'Erreur de création')
     }
   } finally {
@@ -4434,12 +4464,8 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
     const response = await $api.put(`/lessons/${editingLesson.value.id}`, payloadWithScope)
     
     if (!response.data.success) {
-      if (response.data.conflicts?.length) {
-        showError(
-          response.data.message || 'Conflits sur les 26 prochaines semaines.',
-          'Conflits de récurrence',
-        )
-      } else {
+      // Ne pas fermer la modale d'édition : « Appliquer au formulaire » doit avoir une cible.
+      if (!openScheduleConflictFrom(response.data, 'Conflits sur les 26 prochaines semaines.', 'update')) {
         showError(response.data.message || 'Erreur lors de la modification', 'Erreur')
       }
       return
@@ -4481,9 +4507,7 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
   } catch (err: any) {
     console.error('Erreur modification cours:', err)
     const data = err.response?.data
-    if (data?.conflicts?.length) {
-      showError(data.message || 'Conflits sur les 26 prochaines semaines.', 'Conflits de récurrence')
-    } else {
+    if (!openScheduleConflictFrom(data, 'Conflits sur les 26 prochaines semaines.', 'update')) {
       showError(data?.message || 'Erreur lors de la modification', 'Erreur')
     }
   } finally {

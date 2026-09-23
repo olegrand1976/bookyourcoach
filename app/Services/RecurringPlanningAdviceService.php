@@ -33,8 +33,9 @@ class RecurringPlanningAdviceService
         Carbon $firstLessonStart,
         Carbon $firstLessonEnd,
         int $recurringInterval,
-        ?int $excludeLessonId = null,
+        int|array|null $excludeLessonId = null,
         ?int $courseTypeId = null,
+        array $excludeRecurringSlotIds = [],
     ): array {
         $tz = config('bookyourcoach.recurring_planning_advice.timezone', 'Europe/Brussels');
         $firstLessonStart = $firstLessonStart->copy()->timezone($tz);
@@ -58,7 +59,8 @@ class RecurringPlanningAdviceService
             $reqEndT,
             $recurringInterval,
             $excludeLessonId,
-            $clubId
+            $clubId,
+            $excludeRecurringSlotIds
         );
 
         $requestedBlock = [
@@ -115,7 +117,8 @@ class RecurringPlanningAdviceService
                     $endT,
                     $recurringInterval,
                     $excludeLessonId,
-                    $clubId
+                    $clubId,
+                    $excludeRecurringSlotIds
                 );
 
                 if ($validation['valid']) {

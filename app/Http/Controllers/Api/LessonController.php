@@ -1145,11 +1145,37 @@ class LessonController extends Controller
                             $excludeFutureIds,
                         );
                         if ($relocationConflicts !== []) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Impossible de déplacer la réservation récurrente : conflits sur les 26 prochaines semaines.',
-                                'conflicts' => $relocationConflicts,
-                            ], 422);
+                            // Mêmes alternatives qu'à la création : l'utilisateur doit pouvoir
+                            // rebondir sur un créneau libre, pas seulement constater le refus.
+                            $relocatedSlotIds = $this->recurringSlotRelocationService
+                                ->findActiveSlotsForSchedule(
+                                    $lesson->subscriptionInstances->first(),
+                                    $targetStudentId,
+                                    (int) $oldTeacherId,
+                                    $oldStartTime,
+                                    $oldEndTime,
+                                )
+                                ->pluck('id')
+                                ->map(fn ($id) => (int) $id)
+                                ->all();
+
+                            return response()->json($this->buildConflictResponse(
+                                'Impossible de déplacer la réservation récurrente : conflits sur les 26 prochaines semaines.',
+                                $relocationConflicts,
+                                clubId: $lesson->club_id ? (int) $lesson->club_id : null,
+                                teacherId: isset($validated['teacher_id']) ? (int) $validated['teacher_id'] : (int) $lesson->teacher_id,
+                                studentId: $targetStudentId,
+                                start: $newStartForValidation,
+                                end: $newEndForValidation,
+                                recurringInterval: isset($validated['recurring_interval'])
+                                    ? max(1, (int) $validated['recurring_interval'])
+                                    : 1,
+                                // Ne pas se heurter aux cours ni à la série qu'on est justement en
+                                // train de déplacer : sinon toutes les alternatives sont invalidées.
+                                excludeLessonIds: array_values(array_unique([...$excludeFutureIds, (int) $lesson->id])),
+                                excludeRecurringSlotIds: $relocatedSlotIds,
+                                courseTypeId: isset($validated['course_type_id']) ? (int) $validated['course_type_id'] : null,
+                            ), 422);
                         }
                     }
                 }
@@ -1919,6 +1945,64 @@ class LessonController extends Controller
     /**
      * Consomme un cours de l'abonnement quand le statut passe à 'completed'
      */
+    /**
+     * Réponse 422 de conflit de récurrence, avec les alternatives quand elles sont calculables.
+     *
+     * Partagé par la création et le déplacement : la même erreur doit proposer la même issue.
+     * L'appel au service d'alternatives est best-effort — il peut solliciter l'IA, et une panne
+     * de ce côté ne doit pas transformer une 422 en 500.
+     *
+     * @param  array<int, array<string, mixed>>  $conflicts
+     * @param  array<int, int>  $excludeLessonIds
+     * @param  array<int, int>  $excludeRecurringSlotIds
+     * @return array<string, mixed>
+     */
+    private function buildConflictResponse(
+        string $message,
+        array $conflicts,
+        ?int $clubId,
+        ?int $teacherId,
+        ?int $studentId,
+        Carbon $start,
+        Carbon $end,
+        int $recurringInterval,
+        array $excludeLessonIds = [],
+        array $excludeRecurringSlotIds = [],
+        ?int $courseTypeId = null,
+        ?string $hint = null,
+    ): array {
+        $payload = [
+            'success' => false,
+            'message' => $message,
+            'hint' => $hint,
+            'conflicts' => $conflicts,
+        ];
+
+        $attach = config('bookyourcoach.recurring_planning_advice.attach_on_validation_failure', true);
+
+        if ($attach && $clubId !== null && $teacherId !== null && $studentId !== null) {
+            try {
+                $payload['planning_advice'] = app(\App\Services\RecurringPlanningAdviceService::class)->buildAdvice(
+                    $clubId,
+                    $teacherId,
+                    $studentId,
+                    $start,
+                    $end,
+                    max(1, $recurringInterval),
+                    $excludeLessonIds !== [] ? $excludeLessonIds : null,
+                    $courseTypeId,
+                    $excludeRecurringSlotIds,
+                );
+            } catch (\Throwable $e) {
+                Log::warning('[LessonController] alternatives de planning indisponibles', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return array_filter($payload, fn ($v) => $v !== null);
+    }
+
     private function consumeLessonFromSubscription(Lesson $lesson): void
     {
         // Utiliser la même logique que tryConsumeSubscription
