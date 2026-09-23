@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Schema;
 
 class ClubClosureDayService
 {
-    /** Cache du contrôle de schéma (voir hasAuditColumns()). */
+    /** Mémorisation du contrôle de schéma, positive uniquement (voir hasAuditColumns()). */
     private static ?bool $hasAuditColumns = null;
 
     /**
@@ -308,10 +308,17 @@ class ClubClosureDayService
      */
     private function hasAuditColumns(): bool
     {
-        if (self::$hasAuditColumns === null) {
-            self::$hasAuditColumns = Schema::hasColumn('club_closure_days', 'detached_links')
-                && Schema::hasColumn('club_closure_days', 'closed_by_user_id');
+        // Seul le résultat positif est mémorisé. Mémoriser « absent » condamnerait le
+        // processus : les conteneurs démarrent au déploiement de l'API, donc AVANT le
+        // job de migration, et garderaient « absent » jusqu'à leur recyclage — la
+        // fermeture cesserait de relever les liens détachés, et la réouverture de les
+        // restaurer, longtemps après que les colonnes existent.
+        if (self::$hasAuditColumns === true) {
+            return true;
         }
+
+        self::$hasAuditColumns = Schema::hasColumn('club_closure_days', 'detached_links')
+            && Schema::hasColumn('club_closure_days', 'closed_by_user_id');
 
         return self::$hasAuditColumns;
     }
