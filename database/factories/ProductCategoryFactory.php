@@ -62,7 +62,9 @@ class ProductCategoryFactory extends Factory
 
         return [
             'name' => $category['name'],
-            'slug' => $categoryKey,
+            // Le slug est unique en base : deux catégories générées dans le même
+            // test tiraient la même clé une fois sur sept et cassaient l'insertion.
+            'slug' => $categoryKey.'-'.$this->faker->unique()->numberBetween(1, 999999),
             'description' => $this->generateDescription($categoryKey),
             'icon' => $category['icon'],
             'color' => $category['color'],
