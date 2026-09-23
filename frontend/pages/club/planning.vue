@@ -373,7 +373,8 @@
                     type="checkbox"
                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     :checked="isSelectedDateClosure"
-                    :disabled="closureSaving"
+                    :disabled="closureSaving || lessonsLoadFailed"
+                    :title="lessonsLoadFailed ? 'Indisponible : les cours du jour n’ont pas pu être chargés' : undefined"
                     @change="onClosureToggle" />
                   <span class="flex items-center gap-1 font-medium">
                     Congés
@@ -439,6 +440,29 @@
               role="status">
               <span class="font-medium">Jour fermé</span>
               <span>— pas de déduction abonnement pour les nouveaux cours créés ce jour. La grille est en lecture seule pour les créations.</span>
+            </div>
+
+            <!-- Chargement des cours en échec : la journée affichée est incomplète.
+                 Sans ce signal, une journée vide est indiscernable d'une journée sans cours. -->
+            <div
+              v-if="lessonsLoadFailed"
+              class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+              <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  fill-rule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd" />
+              </svg>
+              <span class="min-w-0 flex-1">
+                <span class="font-medium">Les cours n’ont pas pu être chargés.</span>
+                La journée affichée est peut-être incomplète : ne vous y fiez pas pour marquer un congé.
+              </span>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700"
+                @click="loadLessons()">
+                Réessayer
+              </button>
             </div>
 
             <!-- Résumé des anomalies du jour + filtres par famille -->
@@ -1596,6 +1620,14 @@ import {
   getQuarterBounds,
   isDateWithinClubPlanningRange,
 } from '~/composables/planning/useDateHelpers'
+import {
+  resolveClosureToggleDecision,
+  buildClosureConfirmationMessage,
+  buildClosureAbortMessage,
+  buildClosurePostPayload,
+  parseClosureConflict,
+  type ClosureImpact,
+} from '~/composables/planning/useClosureDayGuard'
 import PlanningSlotKanbanView from '~/components/planning/PlanningSlotKanbanView.vue'
 import type { KanbanLessonCard } from '~/components/planning/PlanningSlotKanbanView.vue'
 
@@ -1872,6 +1904,8 @@ const recurringSlotIssueCodes = ref<Map<number, string[]>>(new Map())
 const recurringDiagnosticsLoaded = ref(false)
 const recurringDiagnosticsLoading = ref(false)
 const closureSaving = ref(false)
+/** Les cours de la plage n'ont pas pu être chargés : le planning affiché est incomplet. */
+const lessonsLoadFailed = ref(false)
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 
@@ -2976,6 +3010,7 @@ async function loadLessons(
     })
     
     if (response.data.success) {
+      lessonsLoadFailed.value = false
       const newLessons = Array.isArray(response.data.data) ? response.data.data : []
       // Si on recharge une plage spécifique, fusionner avec les cours existants
       if (customStartDate || customEndDate) {
@@ -3030,10 +3065,15 @@ async function loadLessons(
       }
     } else {
       console.error('Erreur chargement cours:', response.data.message)
+      lessonsLoadFailed.value = true
     }
   } catch (err: any) {
     console.error('Erreur chargement cours:', err)
-    
+    // Un échec de chargement doit rester visible : une journée vide parce que la
+    // requête a échoué est indiscernable d'une journée sans cours, et c'est ce qui
+    // a permis une fermeture accidentelle le 2026-09-23.
+    lessonsLoadFailed.value = true
+
     let errorMessage = 'Erreur lors du chargement des cours'
     if (err.response?.data?.message) {
       errorMessage = err.response.data.message
@@ -3080,6 +3120,17 @@ function pruneClosureDatesToLoadedRange() {
   closureDates.value = pruneYmdListToRange(closureDates.value, loadedLessonsRange.value)
 }
 
+/** Impact d'une fermeture, demandé au serveur. null si l'appel échoue. */
+async function fetchClosureImpact(ymd: string): Promise<ClosureImpact | null> {
+  try {
+    const response = await getApiClient().get('/club/closure-days/impact', { params: { date: ymd } })
+    return response.data?.success ? (response.data.data as ClosureImpact) : null
+  } catch (err) {
+    console.error('[Planning] Impact fermeture indisponible:', err)
+    return null
+  }
+}
+
 async function onClosureToggle(ev: Event) {
   const input = ev.target as HTMLInputElement
   const wantClosed = input.checked
@@ -3088,23 +3139,43 @@ async function onClosureToggle(ev: Event) {
     return
   }
   const ymd = formatDateForInput(selectedDate.value)
+  let impact: ClosureImpact | null = null
+
+  // Fermer une journée détache des abonnements et prévient tout le monde : l'impact
+  // est demandé au serveur, jamais déduit de la liste locale — celle-ci peut être vide
+  // simplement parce que le chargement a échoué.
   if (wantClosed) {
-    const realLessons = filteredLessons.value.filter((l) => !l.is_recurring_placeholder)
-    if (realLessons.length > 0) {
-      const ok = confirm(
-        'Marquer ce jour comme congés ? Les crédits abonnement seront restitués pour les cours déjà liés à un abonnement sur cette date. Un e-mail sera envoyé aux personnes concernées.'
-      )
-      if (!ok) {
-        input.checked = false
-        return
-      }
+    closureSaving.value = true
+    impact = await fetchClosureImpact(ymd)
+    closureSaving.value = false
+
+    const context = {
+      impact,
+      impactFailed: impact === null,
+      lessonsLoadFailed: lessonsLoadFailed.value,
+    }
+    const decision = resolveClosureToggleDecision(context)
+
+    if (decision === 'abort') {
+      input.checked = false
+      showError(buildClosureAbortMessage(context), 'Jour de congés')
+      return
+    }
+
+    if (decision === 'confirm' && !confirm(buildClosureConfirmationMessage(impact!))) {
+      input.checked = false
+      return
     }
   }
+
   closureSaving.value = true
   const previous = !wantClosed
   try {
     const $api = getApiClient()
-    const response = await $api.post('/club/closure-days', { date: ymd, closed: wantClosed })
+    const payload = wantClosed && impact
+      ? buildClosurePostPayload(ymd, impact)
+      : { date: ymd, closed: wantClosed }
+    const response = await $api.post('/club/closure-days', payload)
     if (response.data?.success) {
       if (wantClosed) {
         if (!closureDates.value.includes(ymd)) {
@@ -3121,6 +3192,30 @@ async function onClosureToggle(ev: Event) {
       showError(response.data?.message || 'Erreur', 'Jour de congés')
     }
   } catch (err: any) {
+    // 409 : le serveur a refusé parce que notre vue ne correspond plus à la sienne
+    // (un cours créé entre l'aperçu et l'envoi). On reconfirme avec ses chiffres,
+    // une seule fois — jamais de boucle.
+    const conflict = err.response?.status === 409 ? parseClosureConflict(err) : null
+    if (wantClosed && conflict?.impact) {
+      const nouveau = conflict.impact
+      if (nouveau.lessons_count === 0 || confirm(buildClosureConfirmationMessage(nouveau))) {
+        try {
+          const retry = await getApiClient().post('/club/closure-days', buildClosurePostPayload(ymd, nouveau))
+          if (retry.data?.success) {
+            if (!closureDates.value.includes(ymd)) {
+              closureDates.value = [...closureDates.value, ymd].sort()
+            }
+            if (retry.data.message) success(retry.data.message)
+            return
+          }
+        } catch (retryErr: any) {
+          console.error('[Planning] Reprise de la fermeture en échec:', retryErr)
+        }
+      }
+      input.checked = previous
+      return
+    }
+
     input.checked = previous
     const msg = err.response?.data?.message || err.message || 'Erreur réseau'
     showError(msg, 'Jour de congés')

@@ -22,6 +22,26 @@ use Tests\TestCase;
 
 class ClubClosureDayTest extends TestCase
 {
+    /**
+     * Ferme une journée comme le fait le client : on demande d'abord l'impact au
+     * serveur, puis on l'annonce dans la requête. Sans cette intention explicite,
+     * la fermeture d'une journée portant des cours est refusée (409).
+     */
+    private function closeDayWithIntent(string $date, ?int $expected = null): \Illuminate\Testing\TestResponse
+    {
+        if ($expected === null) {
+            $expected = (int) $this->getJson('/api/club/closure-days/impact?date='.$date)
+                ->json('data.lessons_count');
+        }
+
+        return $this->postJson('/api/club/closure-days', [
+            'date' => $date,
+            'closed' => true,
+            'acknowledge_impact' => true,
+            'expected_impacted_lessons' => $expected,
+        ]);
+    }
+
     private function createSubscriptionInstanceForCourseType($club, Student $student, CourseType $courseType): SubscriptionInstance
     {
         $subscriptionData = [
@@ -137,10 +157,7 @@ class ClubClosureDayTest extends TestCase
         $instance->recalculateLessonsUsed();
         $instance->refresh();
 
-        $response = $this->postJson('/api/club/closure-days', [
-            'date' => $day,
-            'closed' => true,
-        ]);
+        $response = $this->closeDayWithIntent($day);
         $response->assertStatus(200)->assertJson(['success' => true]);
 
         $this->assertDatabaseMissing('subscription_lessons', [
@@ -264,10 +281,7 @@ class ClubClosureDayTest extends TestCase
             $instance->refresh();
             $this->assertSame(3, (int) $instance->lessons_used, 'Avant fermeture: passé+présent comptent, futur non.');
 
-            $response = $this->postJson('/api/club/closure-days', [
-                'date' => $closureDay,
-                'closed' => true,
-            ]);
+            $response = $this->closeDayWithIntent($closureDay);
             $response->assertStatus(200)->assertJson(['success' => true]);
 
             $this->assertDatabaseMissing('subscription_lessons', ['subscription_instance_id' => $instance->id, 'lesson_id' => $pastOnClosure->id]);
@@ -316,10 +330,7 @@ class ClubClosureDayTest extends TestCase
             $instance->refresh();
             $this->assertSame(2, (int) $instance->lessons_used);
 
-            $this->postJson('/api/club/closure-days', [
-                'date' => $closureDay,
-                'closed' => true,
-            ])->assertStatus(200)->assertJson(['success' => true]);
+            $this->closeDayWithIntent($closureDay)->assertStatus(200)->assertJson(['success' => true]);
 
             $this->assertDatabaseMissing('subscription_lessons', [
                 'subscription_instance_id' => $instance->id,
@@ -404,10 +415,7 @@ class ClubClosureDayTest extends TestCase
             $this->assertSame(3, (int) $instance->lessons_used);
             $this->assertSame('completed', $instance->status);
 
-            $response = $this->postJson('/api/club/closure-days', [
-                'date' => $closureDay,
-                'closed' => true,
-            ]);
+            $response = $this->closeDayWithIntent($closureDay);
             $response->assertStatus(200)->assertJson(['success' => true]);
 
             $instance->refresh();
@@ -467,10 +475,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -489,10 +494,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -512,10 +514,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         $this->postJson('/api/club/closure-days', [
             'date' => $seed['day'],
@@ -552,10 +551,7 @@ class ClubClosureDayTest extends TestCase
                 'end_time' => $seed['day'].' 15:00:00',
             ]);
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -573,10 +569,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         $response = $this->getJson('/api/lessons?date_from='.$seed['day'].'&date_to='.$seed['day']);
         $response->assertStatus(200);
@@ -591,10 +584,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         $teacherUser = \App\Models\User::factory()->create([
             'role' => 'teacher',
@@ -619,10 +609,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -640,10 +627,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -661,10 +645,7 @@ class ClubClosureDayTest extends TestCase
         Queue::fake();
         $seed = $this->seedStudentLessonOnFutureDay();
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -685,10 +666,7 @@ class ClubClosureDayTest extends TestCase
         $seed = $this->seedStudentLessonOnFutureDay();
         $seed['lesson']->update(['status' => 'pending']);
 
-        $this->postJson('/api/club/closure-days', [
-            'date' => $seed['day'],
-            'closed' => true,
-        ])->assertStatus(200);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
         Sanctum::actingAs($seed['studentUser']);
         $this->withHeaders(['Accept' => 'application/json']);
@@ -698,5 +676,251 @@ class ClubClosureDayTest extends TestCase
 
         $ids = collect($response->json('data'))->pluck('id')->all();
         $this->assertNotContains($seed['lesson']->id, $ids);
+    }
+
+    /**
+     * Un cours confirmé, rattaché à un carnet, sur la journée donnée.
+     *
+     * @return array{club: mixed, lesson: Lesson, instance: SubscriptionInstance, student: Student}
+     */
+    private function seedLessonOnSubscription(string $day, string $time = '10:00:00'): array
+    {
+        $user = $this->actingAsClub();
+        $club = $user->getFirstClub();
+        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+        $student = Student::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $instance = $this->seedSubscriptionForClub($club, $student, $courseType);
+
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($student)
+            ->confirmed()
+            ->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $day.' '.$time,
+                'end_time' => $day.' 11:00:00',
+            ]);
+        $instance->lessons()->attach($lesson->id);
+        $instance->recalculateLessonsUsed();
+        $instance->refresh();
+
+        return ['club' => $club, 'lesson' => $lesson, 'instance' => $instance, 'student' => $student];
+    }
+
+    #[Test]
+    public function closing_day_with_lessons_is_rejected_without_explicit_intent(): void
+    {
+        // Le test central de l'incident du 2026-09-23 : un client qui n'a pas pu
+        // charger les cours ne doit pas pouvoir fermer la journée.
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(10)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $response = $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => true,
+        ]);
+
+        $response->assertStatus(409)
+            ->assertJson(['success' => false])
+            ->assertJsonPath('data.code', 'CLOSURE_IMPACT_UNACKNOWLEDGED')
+            ->assertJsonPath('data.impact.lessons_count', 1);
+
+        $this->assertFalse(
+            ClubClosureDay::where('club_id', $seed['club']->id)->whereDate('closed_on', $day)->exists(),
+            'La journée ne doit pas avoir été fermée.'
+        );
+        $this->assertDatabaseHas('subscription_lessons', [
+            'lesson_id' => $seed['lesson']->id,
+            'subscription_instance_id' => $seed['instance']->id,
+        ]);
+        Queue::assertNotPushed(NotifyClubClosureRecipientsJob::class);
+    }
+
+    #[Test]
+    public function closing_day_is_rejected_when_expected_count_mismatches(): void
+    {
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(11)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $response = $this->closeDayWithIntent($day, 0);
+
+        $response->assertStatus(409)
+            ->assertJsonPath('data.code', 'CLOSURE_IMPACT_MISMATCH')
+            ->assertJsonPath('data.impact.lessons_count', 1);
+
+        $this->assertDatabaseHas('subscription_lessons', [
+            'lesson_id' => $seed['lesson']->id,
+            'subscription_instance_id' => $seed['instance']->id,
+        ]);
+        Queue::assertNotPushed(NotifyClubClosureRecipientsJob::class);
+    }
+
+    #[Test]
+    public function closing_empty_day_still_works_without_intent_fields(): void
+    {
+        // Compatibilité : fermer un jour sans cours reste un geste anodin.
+        Queue::fake();
+
+        $user = $this->actingAsClub();
+        $club = $user->getFirstClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => true,
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertTrue(
+            ClubClosureDay::where('club_id', $club->id)->whereDate('closed_on', $day)->exists(),
+            'La journée vide doit avoir été fermée.'
+        );
+    }
+
+    #[Test]
+    public function impact_endpoint_counts_the_whole_day_not_one_slot(): void
+    {
+        $day = Carbon::now()->addDays(12)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day, '09:00:00');
+        $teacher = Teacher::factory()->create(['club_id' => $seed['club']->id]);
+
+        foreach (['14:00:00', '18:00:00'] as $time) {
+            Lesson::factory()
+                ->forClub($seed['club'])
+                ->forTeacher($teacher)
+                ->forStudent(Student::factory()->create())
+                ->confirmed()
+                ->create([
+                    'start_time' => $day.' '.$time,
+                    'end_time' => $day.' 19:00:00',
+                ]);
+        }
+
+        // Le garde-fou historique ne regardait que le créneau sélectionné ;
+        // l'impact doit couvrir la journée entière.
+        $this->getJson('/api/club/closure-days/impact?date='.$day)
+            ->assertStatus(200)
+            ->assertJsonPath('data.lessons_count', 3)
+            ->assertJsonPath('data.subscription_links_count', 1)
+            ->assertJsonPath('data.already_closed', false);
+    }
+
+    #[Test]
+    public function impact_endpoint_is_scoped_to_club(): void
+    {
+        $day = Carbon::now()->addDays(13)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $otherClub = \App\Models\Club::factory()->create();
+        $otherTeacher = Teacher::factory()->create(['club_id' => $otherClub->id]);
+        Lesson::factory()
+            ->forClub($otherClub)
+            ->forTeacher($otherTeacher)
+            ->forStudent(Student::factory()->create())
+            ->confirmed()
+            ->create([
+                'start_time' => $day.' 10:00:00',
+                'end_time' => $day.' 11:00:00',
+            ]);
+
+        $this->getJson('/api/club/closure-days/impact?date='.$day)
+            ->assertStatus(200)
+            ->assertJsonPath('data.lessons_count', 1);
+    }
+
+    #[Test]
+    public function closing_day_records_author_and_detached_links(): void
+    {
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(14)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $this->closeDayWithIntent($day)->assertStatus(200);
+
+        $closure = ClubClosureDay::where('club_id', $seed['club']->id)
+            ->whereDate('closed_on', $day)
+            ->first();
+
+        $this->assertNotNull($closure->closed_by_user_id);
+        $this->assertEquals(
+            [['lesson_id' => $seed['lesson']->id, 'subscription_instance_id' => $seed['instance']->id]],
+            $closure->detached_links,
+        );
+    }
+
+    #[Test]
+    public function reopening_day_reattaches_detached_subscription_links(): void
+    {
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(15)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+        $lessonsUsedAvant = $seed['instance']->fresh()->lessons_used;
+
+        $this->closeDayWithIntent($day)->assertStatus(200);
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'lesson_id' => $seed['lesson']->id,
+            'subscription_instance_id' => $seed['instance']->id,
+        ]);
+
+        $response = $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => false,
+        ]);
+
+        $response->assertStatus(200)->assertJsonPath('data.restored_links', 1);
+        $this->assertDatabaseHas('subscription_lessons', [
+            'lesson_id' => $seed['lesson']->id,
+            'subscription_instance_id' => $seed['instance']->id,
+        ]);
+        $this->assertEquals($lessonsUsedAvant, $seed['instance']->fresh()->lessons_used);
+    }
+
+    #[Test]
+    public function reopening_day_skips_deleted_lesson_without_failing(): void
+    {
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(16)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $this->closeDayWithIntent($day)->assertStatus(200);
+        $seed['lesson']->forceDelete();
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => false,
+        ])->assertStatus(200)
+            ->assertJsonPath('data.restored_links', 0)
+            ->assertJsonPath('data.skipped_links', 1);
+    }
+
+    #[Test]
+    public function closure_and_reopening_are_traced_in_lesson_action_log(): void
+    {
+        Queue::fake();
+
+        $day = Carbon::now()->addDays(17)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+
+        $this->closeDayWithIntent($day)->assertStatus(200);
+        $this->postJson('/api/club/closure-days', ['date' => $day, 'closed' => false])->assertStatus(200);
+
+        $this->assertDatabaseHas('lesson_action_logs', [
+            'lesson_id' => $seed['lesson']->id,
+            'action' => \App\Models\LessonActionLog::ACTION_SUBSCRIPTION_UNLINKED,
+        ]);
+        $this->assertDatabaseHas('lesson_action_logs', [
+            'lesson_id' => $seed['lesson']->id,
+            'action' => \App\Models\LessonActionLog::ACTION_SUBSCRIPTION_LINKED,
+        ]);
     }
 }

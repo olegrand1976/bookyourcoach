@@ -21,6 +21,11 @@ class UpsertClubClosureDayRequest extends FormRequest
         return [
             'date' => ['required', 'date_format:Y-m-d'],
             'closed' => ['required', 'boolean'],
+            // Intention explicite : le client annonce ce qu'il croit impacter.
+            // Le contrôleur refuse la fermeture si ce chiffre ne correspond pas
+            // à la réalité — un client mal informé ne doit pas pouvoir agir.
+            'expected_impacted_lessons' => ['sometimes', 'integer', 'min:0'],
+            'acknowledge_impact' => ['sometimes', 'boolean'],
         ];
     }
 }
