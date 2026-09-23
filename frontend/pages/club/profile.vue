@@ -522,6 +522,7 @@
 <script setup>
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useToast } from '~/composables/useToast'
+import ChangePasswordForm from '~/components/profile/ChangePasswordForm.vue'
 
 // ============================================================================
 // STATE

@@ -217,6 +217,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useToast } from '~/composables/useToast'
+import ChangePasswordForm from '~/components/profile/ChangePasswordForm.vue'
 
 definePageMeta({
   middleware: ['auth', 'student'],

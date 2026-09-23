@@ -315,6 +315,8 @@
 </template>
 
 <script setup>
+import ChangePasswordForm from '~/components/profile/ChangePasswordForm.vue'
+
 definePageMeta({
   middleware: ['auth']
 })
