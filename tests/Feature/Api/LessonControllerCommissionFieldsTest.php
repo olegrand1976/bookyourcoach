@@ -37,7 +37,7 @@ class LessonControllerCommissionFieldsTest extends TestCase
         parent::setUp();
 
         // Créer un utilisateur club
-        $this->clubUser = User::create([
+        $this->clubUser = User::factory()->create([
             'name' => 'Club User',
             'first_name' => 'Club',
             'last_name' => 'User',

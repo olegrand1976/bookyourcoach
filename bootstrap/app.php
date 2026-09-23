@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'club' => \App\Http\Middleware\ClubMiddleware::class,
             'force.json' => \App\Http\Middleware\ForceJsonResponse::class,
             'active.student' => \App\Http\Middleware\SetActiveStudentContext::class,
+            '2fa' => \App\Http\Middleware\EnsureTwoFactorEnabled::class,
         ]);
         
         // Appliquer le middleware CORS et ForceJsonResponse à toutes les routes API

@@ -45,7 +45,7 @@ class TwoFactorServiceTest extends TestCase
     #[Test]
     public function enrolment_activates_the_secret_only_after_a_valid_code(): void
     {
-        $user = User::factory()->create(['role' => User::ROLE_CLUB]);
+        $user = User::factory()->withoutTwoFactor()->create(['role' => User::ROLE_CLUB]);
 
         $enrolment = $this->service->startEnrolment($user);
 

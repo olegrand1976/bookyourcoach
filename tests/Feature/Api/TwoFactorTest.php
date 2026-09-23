@@ -31,10 +31,7 @@ class TwoFactorTest extends TestCase
 
     private function account(string $role, ?string $secret = null): User
     {
-        $factory = User::factory();
-        if ($secret) {
-            $factory = $factory->withTwoFactor($secret);
-        }
+        $factory = $secret ? User::factory()->withTwoFactor($secret) : User::factory()->withoutTwoFactor();
 
         return $factory->create([
             'email' => $role.'@club.test',
@@ -245,6 +242,38 @@ class TwoFactorTest extends TestCase
             ->assertJsonMissingPath('access_token');
 
         $this->assertSame(0, User::where('email', 'nouveau@club.test')->firstOrFail()->tokens()->count());
+    }
+
+    #[Test]
+    public function token_issued_before_two_factor_is_refused_on_club_and_shared_routes(): void
+    {
+        // Jeton émis avant la mise en place de la 2FA.
+        $user = $this->account(User::ROLE_CLUB);
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        foreach (['/api/club/dashboard', '/api/lessons', '/api/course-types'] as $uri) {
+            $this->withToken($token)->getJson($uri)
+                ->assertStatus(403)
+                ->assertJsonPath('code', 'two_factor_setup_required');
+        }
+
+        $admin = $this->account(User::ROLE_ADMIN);
+        $this->withToken($admin->createToken('auth_token')->plainTextToken)->getJson('/api/admin/stats')
+            ->assertStatus(403)
+            ->assertJsonPath('code', 'two_factor_setup_required');
+    }
+
+    #[Test]
+    public function middleware_lets_enrolled_accounts_and_other_roles_through(): void
+    {
+        // La réponse métier importe peu ici : seul compte le fait de franchir le garde-fou.
+        $club = $this->account(User::ROLE_CLUB, $this->google2fa->generateSecretKey(32));
+        $this->assertNotSame(403, $this->withToken($club->createToken('auth_token')->plainTextToken)
+            ->getJson('/api/course-types')->status());
+
+        $teacher = $this->account(User::ROLE_TEACHER);
+        $this->assertNotSame(403, $this->withToken($teacher->createToken('auth_token')->plainTextToken)
+            ->getJson('/api/course-types')->status());
     }
 
     #[Test]

@@ -54,7 +54,7 @@ class SubscriptionInstanceUpdateTest extends TestCase
         ]);
 
         // Créer un utilisateur club
-        $this->clubUser = User::create([
+        $this->clubUser = User::factory()->create([
             'name' => 'Club User',
             'email' => 'club@test.com',
             'password' => bcrypt('password'),
@@ -609,7 +609,7 @@ class SubscriptionInstanceUpdateTest extends TestCase
             'is_active' => true,
         ]);
 
-        $otherClubUser = User::create([
+        $otherClubUser = User::factory()->create([
             'name' => 'Other Club User',
             'email' => 'otherclub@test.com',
             'password' => bcrypt('password'),

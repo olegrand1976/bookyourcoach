@@ -60,7 +60,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', '2fa', 'admin'])->prefix('admin')->group(function () {
     // Routes AdminDashboardController (priorité sur AdminController pour certaines routes)
     Route::get('/dashboard', [AdminDashboardController::class, 'dashboard']);
     Route::get('/users', [AdminDashboardController::class, 'users']); // Utilise AdminDashboardController::users au lieu de AdminController::getUsers
@@ -237,7 +237,7 @@ Route::get('/clubs/public', function() {
     ]);
 });
 
-Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
+Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(function () {
     Route::get('/dashboard', [ClubDashboardController::class, 'dashboard']);
     Route::get('/planning/opening-hours', [AdminPlanningController::class, 'openingHours']);
     Route::get('/qr-code', function(Request $request) {
@@ -388,12 +388,12 @@ Route::middleware(['auth:sanctum', 'club'])->prefix('club')->group(function () {
 });
 
 // Routes pour les types de cours - accessibles à tous les utilisateurs authentifiés
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', '2fa'])->group(function () {
     Route::get('/course-types', [App\Http\Controllers\Api\CourseTypeController::class, 'index']);
 });
 
 // Routes QR Code - accessibles aux utilisateurs authentifiés
-Route::middleware(['auth:sanctum'])->prefix('qr-code')->group(function () {
+Route::middleware(['auth:sanctum', '2fa'])->prefix('qr-code')->group(function () {
     Route::get('/user/{userId}', [App\Http\Controllers\Api\QrCodeController::class, 'getUserQrCode']);
     Route::get('/club/{clubId}', [App\Http\Controllers\Api\QrCodeController::class, 'getClubQrCode']);
     Route::post('/club/{clubId}/regenerate', [App\Http\Controllers\Api\QrCodeController::class, 'regenerateClubQrCode']);
@@ -401,7 +401,8 @@ Route::middleware(['auth:sanctum'])->prefix('qr-code')->group(function () {
 });
 
 // Routes pour les cours (lessons) - accessibles aux clubs, enseignants et étudiants
-Route::middleware(['auth:sanctum'])->group(function () {
+// « 2fa » : ces routes sont ouvertes aux clubs, un jeton club sans 2FA ne doit pas y passer.
+Route::middleware(['auth:sanctum', '2fa'])->group(function () {
     // IMPORTANT: Les routes spécifiques AVANT les routes avec paramètres dynamiques {id}
     Route::get('/lessons/slot-occupants', [App\Http\Controllers\Api\LessonController::class, 'getSlotOccupants']);
     
@@ -415,7 +416,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 
 // Routes de debug (accessibles à tous les utilisateurs authentifiés)
-Route::middleware(['auth:sanctum'])->prefix('debug')->group(function () {
+Route::middleware(['auth:sanctum', '2fa'])->prefix('debug')->group(function () {
     Route::get('/course-types-filtering', [App\Http\Controllers\Api\DebugController::class, 'checkCourseTypesFiltering']);
     Route::get('/slot/{id}', [App\Http\Controllers\Api\DebugController::class, 'checkSlot']);
 });
