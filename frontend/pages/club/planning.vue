@@ -1264,6 +1264,17 @@
       />
 
       <!-- Modale Historique complet -->
+      <ClosureDayConfirmModal
+        :show="closureConfirm !== null"
+        :action="closureConfirm?.action ?? 'close'"
+        :date-label="closureConfirm?.dateLabel ?? ''"
+        :message="closureConfirm?.message ?? ''"
+        :submitting="closureSaving"
+        :error-message="closureConfirm?.error ?? ''"
+        @confirm="onClosureConfirm"
+        @cancel="closureConfirm = null"
+      />
+
       <BroadcastDayMessageModal
         :show="showBroadcastModal"
         :date-label="formatDateFull(selectedDate)"
@@ -1654,7 +1665,10 @@ import {
   buildClosureConfirmationMessage,
   buildClosureAbortMessage,
   buildClosurePostPayload,
+  buildReopenConfirmationMessage,
+  buildReopenPostPayload,
   parseClosureConflict,
+  type ClosureConfirmation,
   type ClosureImpact,
 } from '~/composables/planning/useClosureDayGuard'
 import PlanningSlotKanbanView from '~/components/planning/PlanningSlotKanbanView.vue'
@@ -1687,6 +1701,7 @@ import type { AnomalyFilter } from '~/components/planning/PlanningDayAnomalyBar.
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 import PlanningParticipantInfoModal from '~/components/planning/PlanningParticipantInfoModal.vue'
 import BroadcastDayMessageModal from '~/components/planning/BroadcastDayMessageModal.vue'
+import ClosureDayConfirmModal from '~/components/planning/ClosureDayConfirmModal.vue'
 import {
   resolveLessonPrimaryStudentId,
   resolveLessonTeacherId,
@@ -1933,6 +1948,15 @@ const recurringSlotIssueCodes = ref<Map<number, string[]>>(new Map())
 const recurringDiagnosticsLoaded = ref(false)
 const recurringDiagnosticsLoading = ref(false)
 const closureSaving = ref(false)
+/** Demande de congés en attente de confirmation (mot de passe ou 2FA). */
+const closureConfirm = ref<{
+  ymd: string
+  dateLabel: string
+  action: 'close' | 'open'
+  impact: ClosureImpact | null
+  message: string
+  error: string
+} | null>(null)
 /** Les cours de la plage n'ont pas pu être chargés : le planning affiché est incomplet. */
 const lessonsLoadFailed = ref(false)
 const teachers = ref<any[]>([])
@@ -3212,97 +3236,76 @@ async function fetchClosureImpact(ymd: string): Promise<ClosureImpact | null> {
 async function onClosureToggle(ev: Event) {
   const input = ev.target as HTMLInputElement
   const wantClosed = input.checked
-  if (!selectedDate.value) {
-    input.checked = false
+  // La case ne bouge qu'une fois la demande confirmée et acceptée par le serveur :
+  // c'est closureDates qui la pilote ensuite.
+  input.checked = !wantClosed
+  if (!selectedDate.value) return
+  const ymd = formatDateForInput(selectedDate.value)
+  const dateLabel = formatDateFull(selectedDate.value)
+
+  if (!wantClosed) {
+    closureConfirm.value = { ymd, dateLabel, action: 'open', impact: null, message: buildReopenConfirmationMessage(), error: '' }
     return
   }
-  const ymd = formatDateForInput(selectedDate.value)
-  let impact: ClosureImpact | null = null
 
   // Fermer une journée détache des abonnements et prévient tout le monde : l'impact
   // est demandé au serveur, jamais déduit de la liste locale — celle-ci peut être vide
   // simplement parce que le chargement a échoué.
-  if (wantClosed) {
-    closureSaving.value = true
-    impact = await fetchClosureImpact(ymd)
-    closureSaving.value = false
+  closureSaving.value = true
+  const impact = await fetchClosureImpact(ymd)
+  closureSaving.value = false
 
-    const context = {
-      impact,
-      impactFailed: impact === null,
-      lessonsLoadFailed: lessonsLoadFailed.value,
-    }
-    const decision = resolveClosureToggleDecision(context)
-
-    if (decision === 'abort') {
-      input.checked = false
-      showError(buildClosureAbortMessage(context), 'Jour de congés')
-      return
-    }
-
-    if (decision === 'confirm' && !confirm(buildClosureConfirmationMessage(impact!))) {
-      input.checked = false
-      return
-    }
+  const context = {
+    impact,
+    impactFailed: impact === null,
+    lessonsLoadFailed: lessonsLoadFailed.value,
+  }
+  if (resolveClosureToggleDecision(context) === 'abort') {
+    showError(buildClosureAbortMessage(context), 'Jour de congés')
+    return
   }
 
+  closureConfirm.value = { ymd, dateLabel, action: 'close', impact, message: buildClosureConfirmationMessage(impact!), error: '' }
+}
+
+async function onClosureConfirm(confirmation: ClosureConfirmation) {
+  const pending = closureConfirm.value
+  if (!pending || closureSaving.value) return
+
   closureSaving.value = true
-  const previous = !wantClosed
+  pending.error = ''
   try {
-    const $api = getApiClient()
-    const payload = wantClosed && impact
-      ? buildClosurePostPayload(ymd, impact)
-      : { date: ymd, closed: wantClosed }
-    const response = await $api.post('/club/closure-days', payload)
-    if (response.data?.success) {
-      if (wantClosed) {
-        if (!closureDates.value.includes(ymd)) {
-          closureDates.value = [...closureDates.value, ymd].sort()
-        }
-      } else {
-        closureDates.value = closureDates.value.filter((d) => d !== ymd)
-      }
-      if (response.data.message) {
-        success(response.data.message)
-      }
-    } else {
-      input.checked = previous
-      showError(response.data?.message || 'Erreur', 'Jour de congés')
-    }
-  } catch (err: any) {
-    // 409 : le serveur a refusé parce que notre vue ne correspond plus à la sienne
-    // (un cours créé entre l'aperçu et l'envoi). On reconfirme avec ses chiffres,
-    // une seule fois — jamais de boucle.
-    const conflict = err.response?.status === 409 ? parseClosureConflict(err) : null
-    if (wantClosed && conflict?.impact) {
-      const nouveau = conflict.impact
-      if (nouveau.lessons_count === 0 || confirm(buildClosureConfirmationMessage(nouveau))) {
-        try {
-          const retry = await getApiClient().post('/club/closure-days', buildClosurePostPayload(ymd, nouveau))
-          if (retry.data?.success) {
-            if (!closureDates.value.includes(ymd)) {
-              closureDates.value = [...closureDates.value, ymd].sort()
-            }
-            if (retry.data.message) success(retry.data.message)
-            return
-          }
-        } catch (retryErr: any) {
-          console.error('[Planning] Reprise de la fermeture en échec:', retryErr)
-          // Sans ce message, la case revenait en arrière sans rien dire : le club
-          // pouvait croire la journée fermée.
-          showError(
-            retryErr.response?.data?.message || retryErr.message || 'La fermeture n’a pas pu être appliquée.',
-            'Jour de congés'
-          )
-        }
-      }
-      input.checked = previous
+    const payload = pending.action === 'close'
+      ? buildClosurePostPayload(pending.ymd, pending.impact!, confirmation)
+      : buildReopenPostPayload(pending.ymd, confirmation)
+    const response = await getApiClient().post('/club/closure-days', payload)
+    if (!response.data?.success) {
+      pending.error = response.data?.message || 'La demande n’a pas pu être appliquée.'
       return
     }
-
-    input.checked = previous
-    const msg = err.response?.data?.message || err.message || 'Erreur réseau'
-    showError(msg, 'Jour de congés')
+    if (pending.action === 'close') {
+      if (!closureDates.value.includes(pending.ymd)) {
+        closureDates.value = [...closureDates.value, pending.ymd].sort()
+      }
+    } else {
+      closureDates.value = closureDates.value.filter((d) => d !== pending.ymd)
+    }
+    closureConfirm.value = null
+    if (response.data.message) success(response.data.message)
+  } catch (err: any) {
+    const status = err.response?.status
+    // 409 : un cours a été créé ou supprimé depuis l'aperçu. On montre les nouveaux
+    // chiffres et on redemande la confirmation — jamais de reprise automatique.
+    const conflict = status === 409 ? parseClosureConflict(err) : null
+    if (pending.action === 'close' && conflict?.impact) {
+      pending.impact = conflict.impact
+      pending.message = buildClosureConfirmationMessage(conflict.impact)
+      pending.error = 'Le planning de cette journée a changé : vérifiez les nouveaux chiffres, puis confirmez à nouveau.'
+    } else if (status === 429) {
+      pending.error = 'Trop de tentatives. Réessayez dans quelques minutes.'
+    } else {
+      pending.error = err.response?.data?.message || err.message || 'Erreur réseau'
+    }
   } finally {
     closureSaving.value = false
   }

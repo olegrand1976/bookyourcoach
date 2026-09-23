@@ -5,7 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\LoginAttempt;
 use App\Models\User;
 use App\Services\ClientIpResolver;
-use App\Services\LoginAttemptRecorder;
+use App\Services\RequestOriginResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\Test;
@@ -217,7 +217,7 @@ class LoginHistoryTest extends TestCase
     #[Test]
     public function la_lecture_de_l_agent_distingue_les_navigateurs_qui_se_deguisent(): void
     {
-        $recorder = app(LoginAttemptRecorder::class);
+        $recorder = app(RequestOriginResolver::class);
 
         // Edge et Chrome se présentent tous deux comme Chrome et Safari :
         // l'ordre de détection doit les départager.
@@ -278,11 +278,7 @@ class LoginHistoryTest extends TestCase
         // En MySQL strict, une valeur plus longue que la colonne ferait échouer
         // l'insertion ; l'écriture étant silencieuse, la connexion ne serait pas
         // tracée du tout. On préfère tronquer.
-        $recorder = app(LoginAttemptRecorder::class);
-        $methode = new \ReflectionMethod($recorder, 'fitToColumns');
-        $methode->setAccessible(true);
-
-        $ajuste = $methode->invoke($recorder, [
+        $ajuste = app(RequestOriginResolver::class)->fitToColumns([
             'country_code' => 'BEL',
             'country' => str_repeat('a', 150),
             'region' => null,

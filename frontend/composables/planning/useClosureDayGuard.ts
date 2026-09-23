@@ -17,7 +17,12 @@ export type ClosureImpact = {
   recipients_count: number
 }
 
-export type ClosureToggleDecision = 'abort' | 'confirm' | 'proceed'
+export type ClosureToggleDecision = 'abort' | 'confirm'
+
+/** Toute demande de congés est validée par mot de passe ou code 2FA. */
+export type ClosureConfirmation =
+  | { method: 'password'; password: string }
+  | { method: 'totp'; code: string }
 
 export type ClosureToggleContext = {
   /** Impact renvoyé par GET /club/closure-days/impact, null si l'appel a échoué. */
@@ -30,13 +35,13 @@ export type ClosureToggleContext = {
 
 /**
  * Sans impact fiable, on n'agit pas : c'est le cœur du correctif. Un réseau dégradé
- * doit rendre l'action impossible, pas silencieuse.
+ * doit rendre l'action impossible, pas silencieuse. Sinon, on confirme toujours —
+ * même une journée sans cours : la demande passe par mot de passe ou 2FA.
  */
 export function resolveClosureToggleDecision(context: ClosureToggleContext): ClosureToggleDecision {
   if (context.impactFailed || !context.impact) return 'abort'
   if (context.lessonsLoadFailed) return 'abort'
-  if (context.impact.already_closed) return 'proceed'
-  return context.impact.lessons_count > 0 ? 'confirm' : 'proceed'
+  return 'confirm'
 }
 
 const plural = (count: number, singular: string, plural_: string) =>
@@ -44,9 +49,15 @@ const plural = (count: number, singular: string, plural_: string) =>
 
 /** Message de confirmation chiffré : le club doit voir ce qu'il déclenche. */
 export function buildClosureConfirmationMessage(impact: ClosureImpact): string {
+  if (impact.already_closed) {
+    return 'Ce jour est déjà marqué comme congés.'
+  }
+
   const parts = [
     `Marquer ce jour comme congés ?`,
-    `${plural(impact.lessons_count, 'cours est prévu', 'cours sont prévus')} ce jour-là.`,
+    impact.lessons_count > 0
+      ? `${plural(impact.lessons_count, 'cours est prévu', 'cours sont prévus')} ce jour-là.`
+      : `Aucun cours n'est prévu ce jour-là.`,
   ]
 
   if (impact.subscription_links_count > 0) {
@@ -73,12 +84,32 @@ export function buildClosureAbortMessage(context: ClosureToggleContext): string 
   return "Impossible de vérifier ce que cette fermeture entraînerait. Aucune modification n'a été faite — réessayez."
 }
 
-export function buildClosurePostPayload(ymd: string, impact: ClosureImpact) {
+/** Réouverture : pas d'aperçu serveur, mais le club doit savoir qu'il prévient du monde. */
+export function buildReopenConfirmationMessage(): string {
+  return 'Annuler le congé de ce jour ?\nLes moniteurs et élèves concernés seront prévenus par e-mail, et les séances décomptées seront rattachées à nouveau à leur carnet.'
+}
+
+function confirmationFields(confirmation: ClosureConfirmation) {
+  return confirmation.method === 'password'
+    ? { confirmation_method: 'password' as const, password: confirmation.password }
+    : { confirmation_method: 'totp' as const, code: confirmation.code.replace(/\s+/g, '') }
+}
+
+export function buildClosurePostPayload(ymd: string, impact: ClosureImpact, confirmation: ClosureConfirmation) {
   return {
     date: ymd,
     closed: true,
     acknowledge_impact: true,
     expected_impacted_lessons: impact.lessons_count,
+    ...confirmationFields(confirmation),
+  }
+}
+
+export function buildReopenPostPayload(ymd: string, confirmation: ClosureConfirmation) {
+  return {
+    date: ymd,
+    closed: false,
+    ...confirmationFields(confirmation),
   }
 }
 

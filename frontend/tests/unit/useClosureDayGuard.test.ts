@@ -4,6 +4,7 @@ import {
   buildClosureConfirmationMessage,
   buildClosureAbortMessage,
   buildClosurePostPayload,
+  buildReopenPostPayload,
   parseClosureConflict,
   type ClosureImpact,
 } from '~/composables/planning/useClosureDayGuard'
@@ -38,19 +39,20 @@ describe('resolveClosureToggleDecision', () => {
     ).toBe('confirm')
   })
 
-  it('laisse passer une journée sans cours', () => {
+  it('demande confirmation même pour une journée sans cours', () => {
+    // Toute demande de congés passe par mot de passe ou 2FA.
     expect(
       resolveClosureToggleDecision({
         impact: impact({ lessons_count: 0, subscription_links_count: 0, recipients_count: 0 }),
         impactFailed: false,
       })
-    ).toBe('proceed')
+    ).toBe('confirm')
   })
 
-  it('laisse passer une journée déjà fermée (appel idempotent)', () => {
+  it('demande confirmation pour une journée déjà fermée', () => {
     expect(
       resolveClosureToggleDecision({ impact: impact({ already_closed: true }), impactFailed: false })
-    ).toBe('proceed')
+    ).toBe('confirm')
   })
 })
 
@@ -79,6 +81,14 @@ describe('buildClosureConfirmationMessage', () => {
     expect(message).not.toContain('décomptée')
     expect(message).not.toContain('e-mail')
   })
+
+  it('ne parle pas de « 0 cours » pour une journée vide', () => {
+    const message = buildClosureConfirmationMessage(
+      impact({ lessons_count: 0, subscription_links_count: 0, recipients_count: 0 })
+    )
+    expect(message).toContain("Aucun cours n'est prévu")
+    expect(message).not.toContain('0 cours')
+  })
 })
 
 describe('buildClosureAbortMessage', () => {
@@ -94,12 +104,31 @@ describe('buildClosureAbortMessage', () => {
 })
 
 describe('buildClosurePostPayload', () => {
-  it('annonce l’impact que le client croit provoquer', () => {
-    expect(buildClosurePostPayload('2026-09-23', impact())).toEqual({
+  it('annonce l’impact que le client croit provoquer, avec le mot de passe', () => {
+    expect(buildClosurePostPayload('2026-09-23', impact(), { method: 'password', password: 's3cret' })).toEqual({
       date: '2026-09-23',
       closed: true,
       acknowledge_impact: true,
       expected_impacted_lessons: 22,
+      confirmation_method: 'password',
+      password: 's3cret',
+    })
+  })
+
+  it('envoie le code 2FA sans espaces', () => {
+    const payload = buildClosurePostPayload('2026-09-23', impact(), { method: 'totp', code: '123 456' })
+    expect(payload).toMatchObject({ confirmation_method: 'totp', code: '123456' })
+    expect(payload).not.toHaveProperty('password')
+  })
+})
+
+describe('buildReopenPostPayload', () => {
+  it('rouvre la journée avec la confirmation choisie', () => {
+    expect(buildReopenPostPayload('2026-09-23', { method: 'totp', code: '654321' })).toEqual({
+      date: '2026-09-23',
+      closed: false,
+      confirmation_method: 'totp',
+      code: '654321',
     })
   })
 })

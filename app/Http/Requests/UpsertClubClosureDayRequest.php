@@ -26,6 +26,22 @@ class UpsertClubClosureDayRequest extends FormRequest
             // à la réalité — un client mal informé ne doit pas pouvoir agir.
             'expected_impacted_lessons' => ['sometimes', 'integer', 'min:0'],
             'acknowledge_impact' => ['sometimes', 'boolean'],
+            // Fermer ou rouvrir une journée prévient tout le monde et touche aux
+            // carnets : une session laissée ouverte ne doit pas suffire. Le secret
+            // est vérifié par le contrôleur, pour que les refus soient tracés.
+            'confirmation_method' => ['required', 'string', 'in:password,totp'],
+            'password' => ['required_if:confirmation_method,password', 'nullable', 'string', 'max:255'],
+            'code' => ['required_if:confirmation_method,totp', 'nullable', 'string', 'max:10'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'confirmation_method.required' => 'Confirmez la demande par votre mot de passe ou votre code 2FA.',
+            'confirmation_method.in' => 'Méthode de confirmation inconnue.',
+            'password.required_if' => 'Saisissez votre mot de passe.',
+            'code.required_if' => 'Saisissez le code à 6 chiffres de votre application.',
         ];
     }
 }

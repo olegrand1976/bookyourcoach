@@ -131,6 +131,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('two-factor-account', function (Request $request) {
             return Limit::perMinutes(10, 5)->by('two-factor-account:' . optional($request->user())->id);
         });
+
+        // Congés du club : chaque demande exige mot de passe ou code 2FA. Le plafond
+        // laisse fermer plusieurs journées d'affilée, pas deviner un mot de passe.
+        RateLimiter::for('club-closure', function (Request $request) {
+            return Limit::perMinutes(10, 15)->by('club-closure:' . optional($request->user())->id);
+        });
     }
 
     /**

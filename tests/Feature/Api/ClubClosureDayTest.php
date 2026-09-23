@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Jobs\NotifyClubClosureRecipientsJob;
 use App\Jobs\ProcessLessonPostCreationJob;
 use App\Models\ClubClosureDay;
+use App\Models\ClubClosureRequest;
 use App\Models\CourseType;
 use App\Models\Discipline;
 use App\Models\Lesson;
@@ -22,6 +23,9 @@ use Tests\TestCase;
 
 class ClubClosureDayTest extends TestCase
 {
+    /** Confirmation par le mot de passe du compte (celui de UserFactory). */
+    private const CONFIRMED = ['confirmation_method' => 'password', 'password' => 'password'];
+
     /**
      * Ferme une journée comme le fait le client : on demande d'abord l'impact au
      * serveur, puis on l'annonce dans la requête. Sans cette intention explicite,
@@ -34,7 +38,7 @@ class ClubClosureDayTest extends TestCase
                 ->json('data.lessons_count');
         }
 
-        return $this->postJson('/api/club/closure-days', [
+        return $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $date,
             'closed' => true,
             'acknowledge_impact' => true,
@@ -183,7 +187,7 @@ class ClubClosureDayTest extends TestCase
             'closed_on' => $day,
         ]);
 
-        $response = $this->postJson('/api/club/closure-days', [
+        $response = $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $day,
             'closed' => false,
         ]);
@@ -516,7 +520,7 @@ class ClubClosureDayTest extends TestCase
 
         $this->closeDayWithIntent($seed['day'])->assertStatus(200);
 
-        $this->postJson('/api/club/closure-days', [
+        $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $seed['day'],
             'closed' => false,
         ])->assertStatus(200);
@@ -721,7 +725,7 @@ class ClubClosureDayTest extends TestCase
         $day = Carbon::now()->addDays(10)->format('Y-m-d');
         $seed = $this->seedLessonOnSubscription($day);
 
-        $response = $this->postJson('/api/club/closure-days', [
+        $response = $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $day,
             'closed' => true,
         ]);
@@ -773,7 +777,7 @@ class ClubClosureDayTest extends TestCase
         $club = $user->getFirstClub();
         $day = Carbon::now()->addDays(20)->format('Y-m-d');
 
-        $this->postJson('/api/club/closure-days', [
+        $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $day,
             'closed' => true,
         ])->assertStatus(200)->assertJson(['success' => true]);
@@ -871,7 +875,7 @@ class ClubClosureDayTest extends TestCase
             'subscription_instance_id' => $seed['instance']->id,
         ]);
 
-        $response = $this->postJson('/api/club/closure-days', [
+        $response = $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $day,
             'closed' => false,
         ]);
@@ -895,7 +899,7 @@ class ClubClosureDayTest extends TestCase
         $this->closeDayWithIntent($day)->assertStatus(200);
         $seed['lesson']->forceDelete();
 
-        $this->postJson('/api/club/closure-days', [
+        $this->postJson('/api/club/closure-days', self::CONFIRMED + [
             'date' => $day,
             'closed' => false,
         ])->assertStatus(200)
@@ -912,7 +916,7 @@ class ClubClosureDayTest extends TestCase
         $seed = $this->seedLessonOnSubscription($day);
 
         $this->closeDayWithIntent($day)->assertStatus(200);
-        $this->postJson('/api/club/closure-days', ['date' => $day, 'closed' => false])->assertStatus(200);
+        $this->postJson('/api/club/closure-days', self::CONFIRMED + ['date' => $day, 'closed' => false])->assertStatus(200);
 
         $this->assertDatabaseHas('lesson_action_logs', [
             'lesson_id' => $seed['lesson']->id,
@@ -922,5 +926,177 @@ class ClubClosureDayTest extends TestCase
             'lesson_id' => $seed['lesson']->id,
             'action' => \App\Models\LessonActionLog::ACTION_SUBSCRIPTION_LINKED,
         ]);
+    }
+
+    // ---------------------------------------------------------------------
+    // Confirmation par mot de passe ou 2FA, et traçage de la demande
+    // ---------------------------------------------------------------------
+
+    private function currentOtp(\App\Models\User $user): string
+    {
+        return app(\PragmaRX\Google2FA\Google2FA::class)->getCurrentOtp($user->two_factor_secret);
+    }
+
+    #[Test]
+    public function closure_without_confirmation_is_rejected(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+
+        $this->postJson('/api/club/closure-days', ['date' => $day, 'closed' => true])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['confirmation_method']);
+
+        $this->assertFalse(ClubClosureDay::where('club_id', $user->club_id)->exists());
+    }
+
+    #[Test]
+    public function closure_with_wrong_password_is_refused_and_traced(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+
+        $this->withHeaders(['X-Forwarded-For' => '94.109.66.137, 34.54.99.89'])
+            ->postJson('/api/club/closure-days', [
+                'date' => $day,
+                'closed' => true,
+                'confirmation_method' => 'password',
+                'password' => 'pas-le-bon',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('data.code', 'CLOSURE_CONFIRMATION_INVALID');
+
+        $this->assertFalse(ClubClosureDay::where('club_id', $user->club_id)->exists());
+        $this->assertDatabaseHas('club_closure_requests', [
+            'club_id' => $user->club_id,
+            'user_id' => $user->id,
+            'action' => ClubClosureRequest::ACTION_CLOSE,
+            'confirmation_method' => ClubClosureRequest::METHOD_PASSWORD,
+            'outcome' => ClubClosureRequest::OUTCOME_INVALID_CREDENTIAL,
+            'ip_address' => '94.109.66.137',
+        ]);
+    }
+
+    #[Test]
+    public function closure_with_password_is_applied_and_traced_with_its_origin(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+
+        $this->withHeaders([
+            'X-Forwarded-For' => '94.109.66.137, 34.54.99.89',
+            'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36',
+        ])->postJson('/api/club/closure-days', self::CONFIRMED + ['date' => $day, 'closed' => true])
+            ->assertStatus(200);
+
+        $trace = ClubClosureRequest::where('club_id', $user->club_id)->sole();
+        $this->assertSame(ClubClosureRequest::OUTCOME_SUCCESS, $trace->outcome);
+        $this->assertSame($day, $trace->closed_on->format('Y-m-d'));
+        $this->assertSame(0, $trace->impacted_lessons);
+        $this->assertSame('94.109.66.137', $trace->ip_address);
+        $this->assertSame('94.109.66.137, 34.54.99.89', $trace->forwarded_for);
+        $this->assertSame('Chrome', $trace->browser);
+        $this->assertSame('ordinateur', $trace->device_type);
+    }
+
+    #[Test]
+    public function closure_with_two_factor_code_is_applied_and_the_code_cannot_be_replayed(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+        $code = $this->currentOtp($user);
+
+        $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => true,
+            'confirmation_method' => 'totp',
+            'code' => $code,
+        ])->assertStatus(200);
+
+        $this->assertTrue(ClubClosureDay::where('club_id', $user->club_id)->whereDate('closed_on', $day)->exists());
+
+        // Même code pour rouvrir : déjà consommé, refusé.
+        $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => false,
+            'confirmation_method' => 'totp',
+            'code' => $code,
+        ])->assertStatus(422);
+
+        $this->assertTrue(ClubClosureDay::where('club_id', $user->club_id)->whereDate('closed_on', $day)->exists());
+        $this->assertSame(
+            [ClubClosureRequest::OUTCOME_SUCCESS, ClubClosureRequest::OUTCOME_INVALID_CREDENTIAL],
+            ClubClosureRequest::where('club_id', $user->club_id)->orderBy('id')->pluck('outcome')->all(),
+        );
+    }
+
+    #[Test]
+    public function reopening_requires_confirmation_too(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+        ClubClosureDay::create(['club_id' => $user->club_id, 'closed_on' => $day]);
+
+        $this->postJson('/api/club/closure-days', ['date' => $day, 'closed' => false])
+            ->assertStatus(422);
+        $this->postJson('/api/club/closure-days', [
+            'date' => $day,
+            'closed' => false,
+            'confirmation_method' => 'password',
+            'password' => 'pas-le-bon',
+        ])->assertStatus(422);
+
+        $this->assertTrue(ClubClosureDay::where('club_id', $user->club_id)->whereDate('closed_on', $day)->exists());
+    }
+
+    #[Test]
+    public function stale_impact_is_refused_before_the_two_factor_code_is_consumed(): void
+    {
+        Queue::fake();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+        $seed = $this->seedLessonOnSubscription($day);
+        $user = auth()->user();
+        $code = $this->currentOtp($user);
+
+        $payload = [
+            'date' => $day,
+            'closed' => true,
+            'acknowledge_impact' => true,
+            'confirmation_method' => 'totp',
+            'code' => $code,
+        ];
+
+        $this->postJson('/api/club/closure-days', $payload + ['expected_impacted_lessons' => 0])
+            ->assertStatus(409)
+            ->assertJsonPath('data.code', 'CLOSURE_IMPACT_MISMATCH');
+
+        $this->assertDatabaseHas('club_closure_requests', [
+            'club_id' => $seed['club']->id,
+            'outcome' => ClubClosureRequest::OUTCOME_IMPACT_MISMATCH,
+            'impacted_lessons' => 1,
+        ]);
+
+        // Le code n'a pas été brûlé par le refus : il sert encore avec les bons chiffres.
+        $this->postJson('/api/club/closure-days', $payload + ['expected_impacted_lessons' => 1])
+            ->assertStatus(200);
+    }
+
+    #[Test]
+    public function closure_requests_command_only_lists_the_given_club(): void
+    {
+        $user = $this->actingAsClub();
+        $day = Carbon::now()->addDays(20)->format('Y-m-d');
+        $this->postJson('/api/club/closure-days', self::CONFIRMED + ['date' => $day, 'closed' => true])
+            ->assertStatus(200);
+
+        $other = \App\Models\Club::factory()->create();
+
+        $this->artisan('club:closure-requests', ['club' => $user->club_id])
+            ->expectsOutputToContain('fermeture')
+            ->assertSuccessful();
+        $this->artisan('club:closure-requests', ['club' => $other->id])
+            ->expectsOutputToContain('Aucune demande')
+            ->assertSuccessful();
     }
 }

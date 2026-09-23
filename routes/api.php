@@ -328,7 +328,7 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     // Jours de fermeture / congés (planning)
     Route::get('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'index']);
     Route::get('/closure-days/impact', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'impact']);
-    Route::post('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'upsert']);
+    Route::post('/closure-days', [\App\Http\Controllers\Api\ClubClosureDayController::class, 'upsert'])->middleware('throttle:club-closure');
     
     // Planning avancé (suggestions, statistiques, vérifications)
     Route::post('/planning/suggest-optimal-slot', [App\Http\Controllers\Api\ClubPlanningController::class, 'suggestOptimalSlot']);
