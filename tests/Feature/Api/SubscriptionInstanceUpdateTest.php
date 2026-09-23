@@ -240,6 +240,128 @@ class SubscriptionInstanceUpdateTest extends TestCase
         $this->assertSame($expectedTotal, $this->instance->lessons_used);
     }
 
+    private function createAttachedLesson(Carbon $startTime, string $status = 'completed', array $extra = []): Lesson
+    {
+        $lesson = Lesson::create(array_merge([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'course_type_id' => $this->courseType->id,
+            'club_id' => $this->club->id,
+            'location_id' => $this->location->id,
+            'start_time' => $startTime,
+            'end_time' => $startTime->copy()->addHour(),
+            'status' => $status,
+            'payment_status' => 'pending',
+            'price' => 50.00,
+        ], $extra));
+
+        $this->instance->lessons()->attach($lesson->id);
+
+        return $lesson;
+    }
+
+    private function putLessonsUsed(int $lessonsUsed)
+    {
+        return $this->putJson("/api/club/subscriptions/instances/{$this->instance->id}", [
+            'started_at' => $this->instance->started_at->format('Y-m-d'),
+            'expires_at' => null,
+            'status' => 'active',
+            'lessons_used' => $lessonsUsed,
+            'est_legacy' => false,
+        ]);
+    }
+
+    /**
+     * Test : Corriger le total utilisé en dessous des cours passés — la correction fait foi à la date du jour.
+     */
+    public function test_correcting_lessons_used_resets_count_at_today()
+    {
+        $this->instance->update(['manual_lessons_used' => 0]);
+        $this->createAttachedLesson(Carbon::now()->subDays(10));
+        $this->createAttachedLesson(Carbon::now()->subDays(5));
+        $this->createAttachedLesson(Carbon::now()->subDays(2));
+        $this->instance->recalculateLessonsUsed();
+        $this->assertSame(3, $this->instance->fresh()->lessons_used);
+
+        $this->putLessonsUsed(1)->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->instance->refresh();
+        $this->assertSame(1, $this->instance->lessons_used);
+        $this->assertSame(1, $this->instance->manual_lessons_used);
+        $this->assertNotNull($this->instance->lessons_used_reset_at);
+
+        // Un recalcul ultérieur ne réintègre pas l'historique antérieur
+        $this->instance->recalculateLessonsUsed();
+        $this->assertSame(1, $this->instance->fresh()->lessons_used);
+    }
+
+    /**
+     * Test : Après correction, seuls les cours postérieurs s'ajoutent au total.
+     */
+    public function test_lessons_after_correction_are_counted()
+    {
+        $this->createAttachedLesson(Carbon::now()->subDays(3));
+        $this->putLessonsUsed(4)->assertStatus(200);
+
+        Carbon::setTestNow(Carbon::now()->addDays(3));
+        try {
+            $this->createAttachedLesson(Carbon::now()->subDay());
+            $this->createAttachedLesson(Carbon::now()->addDays(2), 'pending');
+
+            $instance = $this->instance->fresh();
+            $instance->recalculateLessonsUsed();
+            $instance->refresh();
+
+            $this->assertSame(5, $instance->lessons_used);
+            // 10 - 4 (base) - 2 (après correction, dont 1 futur réservé)
+            $this->assertSame(4, $instance->getRemainingAttachmentSlots());
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    /**
+     * Test : Une annulation tardive déjà prononcée avant la correction n'est pas recomptée.
+     */
+    public function test_late_cancellation_before_correction_is_not_counted_twice()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancellation_count_in_subscription')) {
+            $this->markTestSkipped('Colonne cancellation_count_in_subscription absente');
+        }
+
+        $this->createAttachedLesson(Carbon::now()->addDays(4), 'cancelled', [
+            'cancellation_count_in_subscription' => true,
+            'cancelled_at' => Carbon::now()->subHour(),
+        ]);
+
+        $this->putLessonsUsed(3)->assertStatus(200);
+
+        $instance = $this->instance->fresh();
+        $instance->recalculateLessonsUsed();
+        $this->assertSame(3, $instance->fresh()->lessons_used);
+        $this->assertSame(7, $instance->getRemainingAttachmentSlots());
+    }
+
+    /**
+     * Test : Renvoyer le même total (enregistrement d'un autre champ) ne réinitialise pas le décompte.
+     */
+    public function test_unchanged_lessons_used_does_not_reset()
+    {
+        $this->putLessonsUsed($this->instance->lessons_used)->assertStatus(200);
+
+        $this->assertNull($this->instance->fresh()->lessons_used_reset_at);
+    }
+
+    /**
+     * Test : La correction ne peut pas dépasser le total disponible.
+     */
+    public function test_correcting_lessons_used_above_total_is_rejected()
+    {
+        $this->putLessonsUsed(11)->assertStatus(422)->assertJson(['success' => false]);
+
+        $this->assertNull($this->instance->fresh()->lessons_used_reset_at);
+    }
+
     /**
      * Test : La valeur manuelle initiale est persistée à la création d'un abonnement.
      */

@@ -987,15 +987,15 @@
             <!-- Nombre de cours utilisés -->
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-700 mb-2">
-                Valeur manuelle initiale (cours encodés à la création)
+                Cours utilisés au {{ formatResetDate(new Date()) }}
               </label>
               <div class="mb-2 p-2 bg-gray-50 rounded border border-gray-200 space-y-1">
                 <div class="flex justify-between">
-                  <span class="text-sm text-gray-600">Valeur manuelle actuelle : </span>
+                  <span class="text-sm text-gray-600">{{ editingInstance?.lessons_used_reset_at ? `Base corrigée le ${formatResetDate(editingInstance.lessons_used_reset_at)} : ` : 'Valeur manuelle initiale : ' }}</span>
                   <span class="text-sm font-semibold text-gray-900">{{ getManualLessonsUsed(editingInstance) }} cours</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-sm text-gray-600">Cours réellement consommés (passés) : </span>
+                  <span class="text-sm text-gray-600">{{ editingInstance?.lessons_used_reset_at ? 'Cours consommés depuis : ' : 'Cours réellement consommés (passés) : ' }}</span>
                   <span class="text-sm font-semibold text-gray-900">{{ getConsumedLessonsCount(editingInstance) }} cours</span>
                 </div>
                 <div class="flex justify-between pt-1 border-t border-gray-300">
@@ -1003,19 +1003,19 @@
                   <span class="text-sm font-bold text-blue-600">{{ editingInstance?.lessons_used || 0 }} cours</span>
                 </div>
               </div>
-              <input 
-                v-model.number="editForm.manual_lessons_used"
+              <input
+                v-model.number="editForm.lessons_used"
                 type="number"
                 min="0"
                 :max="selectedSubscription?.template?.total_available_lessons || 999"
-                placeholder="Nouvelle valeur manuelle initiale"
+                placeholder="Nombre de cours utilisés à ce jour"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p class="mt-1 text-xs text-gray-500">
-                Modifiez la valeur manuelle initiale encodée à la création. Le total réellement utilisé sera recalculé automatiquement.
+                Corrigez le nombre total de cours utilisés à la date du jour. Le décompte repartira de cette valeur : seuls les cours débutant après cet enregistrement (y compris plus tard aujourd'hui) s'y ajouteront.
               </p>
-              <p v-if="editForm.manual_lessons_used !== null && editForm.manual_lessons_used !== getManualLessonsUsed(editingInstance)" class="mt-2 text-sm font-medium text-blue-600">
-                Nouveau total réellement utilisé : {{ editForm.manual_lessons_used + getConsumedLessonsCount(editingInstance) }} cours
+              <p v-if="editForm.lessons_used !== null && editForm.lessons_used !== '' && editForm.lessons_used !== (editingInstance?.lessons_used || 0)" class="mt-2 text-sm font-medium text-blue-600">
+                Nouveau total utilisé au {{ formatResetDate(new Date()) }} : {{ editForm.lessons_used }} cours (l'historique antérieur ne sera plus recompté)
               </p>
             </div>
 
@@ -1171,6 +1171,8 @@ const getConsumedLessonsCount = (instance) => {
   const manualUsed = instance.manual_lessons_used || 0
   return Math.max(0, totalUsed - manualUsed)
 }
+
+const formatResetDate = (date) => new Date(date).toLocaleDateString('fr-BE')
 
 // Formulaires
 const form = ref({
@@ -1714,8 +1716,8 @@ const openEditInstanceModal = async (instance) => {
     started_at: instance.started_at ? instance.started_at.split('T')[0] : '',
     expires_at: instance.expires_at ? instance.expires_at.split('T')[0] : '',
     status: instance.status || 'active',
-    lessons_used: 0,
-    manual_lessons_used: manualLessonsUsed, // Initialiser avec la valeur manuelle calculée
+    lessons_used: instance.lessons_used || 0, // Total utilisé à ce jour (corrigeable)
+    manual_lessons_used: manualLessonsUsed,
     est_legacy: instance.est_legacy !== null ? instance.est_legacy : false
   }
   showEditInstanceModal.value = true
@@ -1777,7 +1779,12 @@ const saveInstanceChanges = async () => {
       started_at: editForm.value.started_at,
       expires_at: null, // Toujours null pour recalcul automatique
       status: editForm.value.status,
-      manual_lessons_used: editForm.value.manual_lessons_used || 0,
+      // Champ vidé ou inchangé → null : pas de correction (évite une remise à zéro involontaire,
+      // y compris depuis une valeur périmée si le total a évolué côté serveur entre-temps)
+      lessons_used: Number.isInteger(editForm.value.lessons_used)
+        && editForm.value.lessons_used !== (editingInstance.value.lessons_used || 0)
+        ? editForm.value.lessons_used
+        : null,
       est_legacy: editForm.value.est_legacy
     })
     

@@ -15,6 +15,7 @@ class SubscriptionInstance extends Model
         'subscription_id',
         'lessons_used',
         'manual_lessons_used',
+        'lessons_used_reset_at',
         'started_at',
         'expires_at',
         'status',
@@ -29,6 +30,7 @@ class SubscriptionInstance extends Model
     protected $casts = [
         'lessons_used' => 'integer',
         'manual_lessons_used' => 'integer',
+        'lessons_used_reset_at' => 'datetime',
         'started_at' => 'date',
         'expires_at' => 'date',
         'est_legacy' => 'boolean',
@@ -165,37 +167,84 @@ class SubscriptionInstance extends Model
     /**
      * Cours attachés qui comptent dans la capacité.
      * - pending/confirmed/completed : bornés à $asOf si fourni, sinon **tous** (réservations futures incluses)
-     * - cancelled + cancellation_count_in_subscription : toujours (crédit déjà perdu)
+     * - cancelled + cancellation_count_in_subscription : toujours (crédit déjà perdu), sauf si antérieur à la correction
      * - soft-deleted : jamais
      *
      * Sans `$asOf`, la question posée est « combien de places sont prises ? » : une réservation
      * future en occupe une (cf. docs/SUBSCRIPTION_REMAINING_LESSONS.md). Le décompte *consommé*,
      * lui, est borné à maintenant et passe explicitement par {@see getConsumedLessonsCount()}.
+     *
+     * Après une correction manuelle (`lessons_used_reset_at`), seul ce qui survient ensuite compte :
+     * cours débutant après la correction, annulations tardives prononcées après elle. Le reste est
+     * déjà inclus dans manual_lessons_used.
      */
     public function getAttachedCountableLessonsCount(?\Carbon\CarbonInterface $asOf = null): int
     {
         $asOf = $asOf !== null ? Carbon::parse($asOf) : null;
         $hasCountColumn = $this->lessonsHaveCancellationCountColumn();
+        $resetAt = $this->lessons_used_reset_at;
+        $hasCancelledAtColumn = $resetAt !== null && $this->lessonsHaveCancelledAtColumn();
 
         return (int) $this->buildAttachedLessonsQuery()
             ->whereNull('lessons.deleted_at')
-            ->where(function ($q) use ($asOf, $hasCountColumn) {
-                $q->where(function ($q2) use ($asOf) {
+            ->where(function ($q) use ($asOf, $hasCountColumn, $resetAt, $hasCancelledAtColumn) {
+                $q->where(function ($q2) use ($asOf, $resetAt) {
                     $q2->whereIn('lessons.status', ['pending', 'confirmed', 'completed']);
 
                     if ($asOf !== null) {
                         $q2->where('lessons.start_time', '<=', $asOf);
                     }
+
+                    if ($resetAt !== null) {
+                        $q2->where('lessons.start_time', '>', $resetAt);
+                    }
                 });
 
                 if ($hasCountColumn) {
-                    $q->orWhere(function ($q2) {
+                    $q->orWhere(function ($q2) use ($resetAt, $hasCancelledAtColumn) {
                         $q2->where('lessons.status', 'cancelled')
                             ->where('lessons.cancellation_count_in_subscription', true);
+
+                        if ($resetAt !== null) {
+                            // Date d'annulation si connue, sinon date du cours (annulations antérieures à l'audit)
+                            $q2->where(function ($q3) use ($resetAt, $hasCancelledAtColumn) {
+                                if ($hasCancelledAtColumn) {
+                                    $q3->where('lessons.cancelled_at', '>', $resetAt)
+                                        ->orWhere(function ($q4) use ($resetAt) {
+                                            $q4->whereNull('lessons.cancelled_at')
+                                                ->where('lessons.start_time', '>', $resetAt);
+                                        });
+                                } else {
+                                    $q3->where('lessons.start_time', '>', $resetAt);
+                                }
+                            });
+                        }
                     });
                 }
             })
             ->count();
+    }
+
+    /**
+     * Corrige le nombre de cours utilisés à la date du jour : la valeur saisie devient la base,
+     * seuls les cours postérieurs s'y ajouteront (l'historique antérieur n'est plus recompté).
+     */
+    public function resetLessonsUsedAt(int $lessonsUsed, ?\Carbon\CarbonInterface $at = null): void
+    {
+        $this->manual_lessons_used = max(0, $lessonsUsed);
+        $this->lessons_used_reset_at = $at !== null ? Carbon::parse($at) : Carbon::now();
+        $this->lessons_used = $this->manual_lessons_used + $this->getConsumedLessonsCount();
+    }
+
+    private function lessonsHaveCancelledAtColumn(): bool
+    {
+        static $cached = null;
+
+        if ($cached === null) {
+            $cached = \Illuminate\Support\Facades\Schema::hasColumn('lessons', 'cancelled_at');
+        }
+
+        return $cached;
     }
 
     private function lessonsHaveCancellationCountColumn(): bool

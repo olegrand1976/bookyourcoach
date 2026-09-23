@@ -1737,15 +1737,27 @@ class SubscriptionController extends Controller
             }
             
             $instance->status = $validated['status'];
-            if (isset($validated['manual_lessons_used']) || isset($validated['lessons_used'])) {
-                $consumedLessons = $instance->getConsumedLessonsCount();
+            if (isset($validated['lessons_used'])) {
+                // Correction du total utilisé à la date du jour : nouvelle base, l'historique n'est plus recompté.
+                // Pas de réinitialisation si la valeur est inchangée (enregistrement d'un autre champ).
+                $correctedLessonsUsed = (int) $validated['lessons_used'];
+                $totalAvailable = (int) ($instance->subscription?->total_available_lessons ?? 0);
 
-                $manualLessonsUsed = isset($validated['manual_lessons_used'])
-                    ? (int) $validated['manual_lessons_used']
-                    : max(0, (int) $validated['lessons_used'] - $consumedLessons);
+                if ($totalAvailable > 0 && $correctedLessonsUsed > $totalAvailable) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Le nombre de cours utilisés ({$correctedLessonsUsed}) ne peut pas dépasser le total disponible ({$totalAvailable})"
+                    ], 422);
+                }
+
+                if ($correctedLessonsUsed !== (int) $instance->lessons_used) {
+                    $instance->resetLessonsUsedAt($correctedLessonsUsed);
+                }
+            } elseif (isset($validated['manual_lessons_used'])) {
+                $manualLessonsUsed = (int) $validated['manual_lessons_used'];
 
                 $instance->manual_lessons_used = $manualLessonsUsed;
-                $instance->lessons_used = $manualLessonsUsed + $consumedLessons;
+                $instance->lessons_used = $manualLessonsUsed + $instance->getConsumedLessonsCount();
             }
             
             // ⚠️ IMPORTANT : Mettre à jour est_legacy si fourni
