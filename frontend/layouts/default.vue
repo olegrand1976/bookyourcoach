@@ -240,11 +240,23 @@
         </div>
       </div>
     </footer>
+
+    <!-- Annonce de nouveautés, une seule fois par navigateur -->
+    <ReleaseAnnouncementModal
+      :open="showAnnouncement"
+      :announcement="announcement"
+      @close="dismissCurrentAnnouncement"
+    />
   </div>
 </template>
 
 <script setup>
 import { ChevronDownIcon } from '@heroicons/vue/24/outline'
+import {
+  CURRENT_CLUB_ANNOUNCEMENT,
+  dismissAnnouncement,
+  isAnnouncementDismissed,
+} from '~/composables/useReleaseAnnouncement'
 
 // Utiliser le store d'authentification
 const authStore = useAuthStore()
@@ -258,6 +270,43 @@ const isStudent = computed(() => authStore.isStudent)
 const isAdmin = computed(() => authStore.isAdmin)
 const isClub = computed(() => authStore.user?.role === 'club')
 const showUserMenu = computed(() => isAuthenticated.value)
+
+// Annonce de nouveautés destinée aux clubs : affichée au premier affichage après connexion,
+// puis plus jamais une fois fermée. L'état est lu côté client uniquement (SSR-safe).
+const announcement = CURRENT_CLUB_ANNOUNCEMENT
+const showAnnouncement = ref(false)
+
+onMounted(() => {
+  if (!announcement || !isAuthenticated.value || !isClub.value) {
+    return
+  }
+
+  showAnnouncement.value = !isAnnouncementDismissed(announcement.id)
+})
+
+// Un club qui se connecte après le montage du layout doit voir l'annonce sans recharger.
+watch(
+  () => [isAuthenticated.value, isClub.value],
+  ([authenticated, club]) => {
+    if (!announcement || !authenticated || !club) {
+      showAnnouncement.value = false
+
+      return
+    }
+
+    if (!isAnnouncementDismissed(announcement.id)) {
+      showAnnouncement.value = true
+    }
+  }
+)
+
+const dismissCurrentAnnouncement = () => {
+  showAnnouncement.value = false
+
+  if (announcement) {
+    dismissAnnouncement(announcement.id)
+  }
+}
 
 const toggleUserMenu = () => {
   userMenuOpen.value = !userMenuOpen.value
