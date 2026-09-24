@@ -16,6 +16,21 @@
             <!-- <LanguageSelector /> -->
             
             <template v-if="isAuthenticated">
+              <!-- Compte double club + enseignant : bascule de rôle -->
+              <div v-if="hasDualProfile" class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-0.5 text-sm"
+                role="group" aria-label="Rôle actif">
+                <button v-for="option in roleOptions" :key="option.value" type="button"
+                  class="px-3 py-1.5 rounded-md transition-colors disabled:cursor-wait"
+                  :class="authStore.user?.role === option.value
+                    ? 'bg-blue-600 text-white font-medium shadow-sm'
+                    : 'text-gray-700 hover:bg-gray-200'"
+                  :aria-pressed="authStore.user?.role === option.value"
+                  :disabled="switchingRole"
+                  @click="onSwitchRole(option.value)">
+                  {{ option.label }}
+                </button>
+              </div>
+
               <!-- Menu utilisateur authentifié -->
               <div class="relative" v-if="showUserMenu">
                 <button @click="toggleUserMenu"
@@ -252,6 +267,7 @@
 
 <script setup>
 import { ChevronDownIcon } from '@heroicons/vue/24/outline'
+import { useToast } from '~/composables/useToast'
 import {
   CURRENT_CLUB_ANNOUNCEMENT,
   dismissAnnouncement,
@@ -270,6 +286,27 @@ const isStudent = computed(() => authStore.isStudent)
 const isAdmin = computed(() => authStore.isAdmin)
 const isClub = computed(() => authStore.user?.role === 'club')
 const showUserMenu = computed(() => isAuthenticated.value)
+
+const hasDualProfile = computed(() => authStore.hasDualProfile)
+const roleOptions = [
+  { value: 'club', label: 'Club' },
+  { value: 'teacher', label: 'Enseignant' },
+]
+const switchingRole = ref(false)
+
+const onSwitchRole = async (role) => {
+  if (switchingRole.value || authStore.user?.role === role) return
+  switchingRole.value = true
+  userMenuOpen.value = false
+  try {
+    await authStore.switchRole(role)
+  } catch (error) {
+    console.error('Bascule de rôle impossible:', error)
+    useToast().error(error?.response?.data?.message || error?.message || 'Bascule de rôle impossible.')
+  } finally {
+    switchingRole.value = false
+  }
+}
 
 // Annonce de nouveautés destinée aux clubs : affichée au premier affichage après connexion,
 // puis plus jamais une fois fermée. L'état est lu côté client uniquement (SSR-safe).

@@ -59,6 +59,12 @@ export default defineNuxtPlugin(() => {
       }
     }
     
+    // Compte double club + enseignant : rôle choisi dans l'en-tête du site, propre à
+    // ce navigateur. Le serveur l'ignore pour un compte qui ne détient pas ce rôle.
+    if ((authStore.user?.available_roles?.length ?? 0) > 1 && authStore.user?.role) {
+      config.headers['X-Active-Role'] = authStore.user.role
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
       console.log('🚀 [API SIMPLIFIÉ] Token ajouté:', token.substring(0, 10) + '...', 'URL:', config.url)

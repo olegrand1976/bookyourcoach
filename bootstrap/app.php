@@ -26,7 +26,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->group('api', [
             \Illuminate\Http\Middleware\HandleCors::class,
             \App\Http\Middleware\ForceJsonResponse::class,
+            \App\Http\Middleware\ApplyActiveRole::class,
         ]);
+
+        // Le rôle actif ne peut s'appliquer qu'une fois l'utilisateur authentifié, et
+        // doit l'être avant les middlewares de rôle (club, teacher) et de 2FA.
+        $middleware->appendToPriorityList(
+            \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            \App\Http\Middleware\ApplyActiveRole::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Verrou tenu trop longtemps par une requête concurrente (vérification 2FA en

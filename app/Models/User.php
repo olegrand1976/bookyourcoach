@@ -191,6 +191,11 @@ class User extends Authenticatable
      */
     public function getFirstClub()
     {
+        // Compte double : le club géré, jamais un club où il n'est qu'enseignant.
+        if ($this->hasDualProfile()) {
+            return $this->managedClubs()->first();
+        }
+
         return $this->clubs()->first();
     }
 
@@ -234,6 +239,91 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    /**
+     * Rôle actif pour cette requête, choisi par un compte double (club + enseignant).
+     * Jamais enregistré : users.role garde le rôle principal.
+     */
+    private ?string $activeRole = null;
+
+    private ?bool $dualProfile = null;
+
+    /**
+     * $user->role renvoie le rôle actif s'il y en a un. L'attribut brut n'est pas
+     * touché : un save() ne peut pas enregistrer le rôle de la bascule.
+     */
+    public function getRoleAttribute($value)
+    {
+        return $this->activeRole ?? $value;
+    }
+
+    /** Rôle enregistré en base, indépendant de la bascule. */
+    public function primaryRole(): ?string
+    {
+        return $this->attributes['role'] ?? null;
+    }
+
+    /** Rôles club_user qui font d'un compte le gérant d'un club (même liste que Club.php). */
+    public const CLUB_MANAGER_ROLES = ['owner', 'manager', 'admin'];
+
+    /**
+     * Clubs que ce compte gère, à distinguer d'une simple appartenance comme
+     * enseignant ou élève. is_admin seul ne suffit pas : on ne rend pas un
+     * enseignant double (et soumis à la 2FA) sur un drapeau hérité.
+     */
+    public function managedClubs()
+    {
+        return $this->clubs()->wherePivotIn('role', self::CLUB_MANAGER_ROLES);
+    }
+
+    /**
+     * Compte qui est à la fois enseignant et gérant de club : il bascule de l'un à
+     * l'autre depuis l'en-tête, et la 2FA lui est imposée dans les deux rôles.
+     */
+    public function hasDualProfile(): bool
+    {
+        return $this->dualProfile ??= match ($this->primaryRole()) {
+            self::ROLE_TEACHER => $this->managedClubs()->exists(),
+            self::ROLE_CLUB => $this->teacher()->exists(),
+            default => false,
+        };
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function availableRoles(): array
+    {
+        return $this->hasDualProfile()
+            ? [self::ROLE_CLUB, self::ROLE_TEACHER]
+            : array_values(array_filter([$this->primaryRole()]));
+    }
+
+    /**
+     * Sérialisé seulement à la demande ($user->append('available_roles')), dans les
+     * réponses d'authentification : pas de requête en plus pour chaque liste d'utilisateurs.
+     *
+     * @return list<string>
+     */
+    public function getAvailableRolesAttribute(): array
+    {
+        return $this->availableRoles();
+    }
+
+    /**
+     * Bascule le rôle de cette instance pour la requête en cours. Refusée (false)
+     * pour un rôle que le compte ne détient pas.
+     */
+    public function actAs(string $role): bool
+    {
+        if (! in_array($role, $this->availableRoles(), true)) {
+            return false;
+        }
+
+        $this->activeRole = $role === $this->primaryRole() ? null : $role;
+
+        return true;
     }
 
     /**
@@ -415,7 +505,8 @@ class User extends Authenticatable
 
     /**
      * Les comptes club et admin donnent accès aux données de tout un club, voire de
-     * la plateforme : un mot de passe seul ne suffit pas à les ouvrir.
+     * la plateforme : un mot de passe seul ne suffit pas à les ouvrir. Idem pour un
+     * compte double club + enseignant.
      */
     public function requiresTwoFactor(): bool
     {
@@ -423,7 +514,9 @@ class User extends Authenticatable
             return false;
         }
 
-        return $this->isClub() || $this->isAdmin();
+        // Compte double : la 2FA vaut quel que soit le rôle actif, sans quoi il
+        // suffirait de basculer en enseignant pour s'en passer.
+        return $this->isClub() || $this->isAdmin() || $this->hasDualProfile();
     }
 
     public function hasTwoFactorEnabled(): bool

@@ -49,7 +49,7 @@ Route::prefix('auth')->group(function () {
             }
 
             return response()->json([
-                'user' => $user,
+                'user' => $user->append('available_roles'),
             ]);
         });
         Route::put('/profile', [AuthController::class, 'updateProfile']);
@@ -133,7 +133,9 @@ Route::middleware(['auth:sanctum', '2fa', 'admin'])->prefix('admin')->group(func
     });
 });
 
-Route::middleware(['auth:sanctum', 'teacher'])->prefix('teacher')->group(function () {
+// « 2fa » : sans effet pour un enseignant simple, il couvre le compte double
+// club + enseignant, qui ne doit pas échapper à la 2FA en basculant.
+Route::middleware(['auth:sanctum', '2fa', 'teacher'])->prefix('teacher')->group(function () {
     Route::get('/dashboard', [TeacherController::class, 'dashboard']);
     Route::get('/dashboard-simple', [TeacherController::class, 'dashboardSimple']);
     Route::get('/profile', [TeacherController::class, 'getProfile']); // Profil de l'enseignant

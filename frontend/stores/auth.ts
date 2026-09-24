@@ -22,6 +22,16 @@ const writeTrustedDeviceToken = (token: string) => {
   document.cookie = `${TRUSTED_DEVICE_COOKIE}=${token}; max-age=${TRUSTED_DEVICE_MAX_AGE}; path=/; SameSite=Lax${secure}`
 }
 
+// Réécrit l'utilisateur en cookie (même encodage base64 que completeLogin) : la
+// bascule de rôle doit survivre à un rechargement, SSR compris.
+const USER_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+
+const writeUserCookie = (user: any) => {
+  if (!process.client) return
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(user))))
+  document.cookie = `auth-user=${encoded}; max-age=${USER_COOKIE_MAX_AGE}; path=/; SameSite=Lax`
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as any,
@@ -48,6 +58,8 @@ export const useAuthStore = defineStore('auth', {
     isTeacher: (state) => state.user?.role === 'teacher',
     isStudent: (state) => state.user?.role === 'student',
     isClub: (state) => state.user?.role === 'club',
+    // Compte à la fois gérant de club et enseignant : bascule dans l'en-tête.
+    hasDualProfile: (state) => (state.user?.available_roles?.length ?? 0) > 1,
     userName: (state) => state.user?.name || state.user?.first_name || 'Utilisateur'
   },
 
@@ -184,6 +196,31 @@ export const useAuthStore = defineStore('auth', {
       this.resetTwoFactor()
       this.completeLogin(data, remember)
       return data
+    },
+
+    /**
+     * Compte double : passe de club à enseignant (ou l'inverse). Le serveur confirme
+     * via /auth/user, qui reçoit le rôle demandé dans l'en-tête X-Active-Role.
+     */
+    async switchRole(role: 'club' | 'teacher') {
+      if (!this.user?.available_roles?.includes(role) || this.user.role === role) return
+
+      const previous = this.user.role
+      this.user = { ...this.user, role }
+      try {
+        await this.fetchUser()
+      } catch (error) {
+        if (this.user) this.user = { ...this.user, role: previous }
+        throw error
+      }
+
+      if (this.user?.role !== role) {
+        this.user = { ...this.user, role: previous }
+        throw new Error('Ce rôle n’est pas disponible pour ce compte.')
+      }
+
+      writeUserCookie(this.user)
+      await navigateTo(role === 'club' ? '/club/dashboard' : '/teacher/dashboard')
     },
 
     resetTwoFactor() {

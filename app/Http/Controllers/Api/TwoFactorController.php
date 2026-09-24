@@ -173,7 +173,7 @@ class TwoFactorController extends Controller
             'success' => true,
             'message' => $message,
             'data' => array_merge([
-                'user' => $user->fresh(),
+                'user' => $user->fresh()->append('available_roles'),
                 'access_token' => $token,
                 'token_type' => 'Bearer',
             ], $extra),
