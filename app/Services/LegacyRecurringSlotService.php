@@ -91,36 +91,75 @@ class LegacyRecurringSlotService
         $deductFromSubscription = $templateLesson->deduct_from_subscription ?? true;
 
         $clubId = (int) $templateLesson->club_id;
+        $originalInstanceId = $subscriptionInstance?->id;
+        $usedInstanceIds = array_filter([$originalInstanceId]);
+        $rolledOver = false;
+
+        // Carnet de la série expiré/terminé : l'élève a pu en prendre un nouveau.
+        if ($deductFromSubscription && ! $isSubscriptionActive && $dates !== []) {
+            $next = $this->findRolloverInstance($recurringSlot, $templateLesson, $dates[0], $usedInstanceIds);
+            if ($next) {
+                $subscriptionInstance = $next;
+                $isSubscriptionActive = true;
+                $usedInstanceIds[] = $next->id;
+                $rolledOver = true;
+            }
+        }
+
         $remainingSlots = PHP_INT_MAX;
         if ($deductFromSubscription && $isSubscriptionActive && $subscriptionInstance) {
             $remainingSlots = $subscriptionInstance->resolveRemainingAttachmentSlotsForPlanning();
-            $remainingSlots = max(0, $remainingSlots - max(0, $reserveAttachmentSlots));
+            if (! $rolledOver) {
+                $remainingSlots = max(0, $remainingSlots - max(0, $reserveAttachmentSlots));
+            }
         }
 
         $closureSet = $this->prefetchClosureDates($clubId, $dates);
         $existingStartKeys = $this->prefetchExistingLessonStartKeys($recurringSlot, $dates);
 
-        $createdLessons = [];
+        /** @var array<int, array{instance: SubscriptionInstance, lessons: list<Lesson>}> $batches */
+        $batches = [];
 
         try {
             DB::transaction(function () use (
                 $dates,
                 &$remainingSlots,
                 &$stats,
-                &$createdLessons,
+                &$batches,
+                &$subscriptionInstance,
+                &$usedInstanceIds,
+                &$rolledOver,
                 $existingStartKeys,
                 $closureSet,
                 $recurringSlot,
                 $templateLesson,
                 $isSubscriptionActive,
-                $subscriptionInstance,
-                $deductFromSubscription
+                $deductFromSubscription,
+                $originalInstanceId
             ) {
                 $keys = $existingStartKeys;
+                $attaching = $deductFromSubscription && $isSubscriptionActive && $subscriptionInstance;
 
                 foreach ($dates as $date) {
+                    // Un carnet de repli ne couvre que sa propre période de validité.
+                    if ($attaching && $rolledOver && $subscriptionInstance->expires_at
+                        && Carbon::parse($subscriptionInstance->expires_at)->endOfDay()->lt($date)) {
+                        $remainingSlots = 0;
+                    }
+
                     if ($remainingSlots <= 0) {
-                        break;
+                        // Carnet épuisé : la série continue sur le carnet actif suivant de l'élève.
+                        $next = $attaching
+                            ? $this->findRolloverInstance($recurringSlot, $templateLesson, $date, $usedInstanceIds)
+                            : null;
+                        if (! $next) {
+                            break;
+                        }
+
+                        $subscriptionInstance = $next;
+                        $usedInstanceIds[] = $next->id;
+                        $rolledOver = true;
+                        $remainingSlots = $next->resolveRemainingAttachmentSlotsForPlanning();
                     }
 
                     $startTime = Carbon::parse($date->format('Y-m-d').' '.$recurringSlot->start_time);
@@ -154,7 +193,10 @@ class LegacyRecurringSlotService
                         'notes' => 'Cours généré automatiquement depuis créneau récurrent',
                     ]);
 
-                    $createdLessons[] = $lesson;
+                    if ($attaching) {
+                        $batches[$subscriptionInstance->id] ??= ['instance' => $subscriptionInstance, 'lessons' => []];
+                        $batches[$subscriptionInstance->id]['lessons'][] = $lesson;
+                    }
                     $keys[$startKey] = true;
                     $stats['generated']++;
                     if ($remainingSlots !== PHP_INT_MAX) {
@@ -162,8 +204,12 @@ class LegacyRecurringSlotService
                     }
                 }
 
-                if ($deductFromSubscription && $isSubscriptionActive && $subscriptionInstance && $createdLessons !== []) {
-                    $this->attachGeneratedLessonsBatch($subscriptionInstance, $createdLessons);
+                foreach ($batches as $batch) {
+                    $this->attachGeneratedLessonsBatch($batch['instance'], $batch['lessons']);
+                }
+
+                if ($attaching && $subscriptionInstance->id !== $originalInstanceId && isset($batches[$subscriptionInstance->id])) {
+                    $this->switchRecurringSlotInstance($recurringSlot, $subscriptionInstance);
                 }
             });
         } catch (\Exception $e) {
@@ -573,14 +619,32 @@ class LegacyRecurringSlotService
 
         $subscriptionInstance = $recurringSlot->subscriptionInstance;
         $isSubscriptionActive = $subscriptionInstance && $subscriptionInstance->status === 'active';
+        $rollover = null;
 
-        if ($isSubscriptionActive && $subscriptionInstance && ! $this->canPlanAnotherLesson($subscriptionInstance)) {
-            return [
-                'success' => false,
-                'lesson' => null,
-                'already_existed' => false,
-                'message' => 'Aucune place restante sur l\'abonnement pour ce cours.',
-            ];
+        if (($reference->deduct_from_subscription ?? true)
+            && ! ($isSubscriptionActive && $this->canPlanAnotherLesson($subscriptionInstance))) {
+            // Carnet de la série épuisé ou inactif : basculer sur un autre carnet actif de l'élève.
+            $rollover = $this->findRolloverInstance(
+                $recurringSlot,
+                $reference,
+                $dayStart,
+                array_filter([$subscriptionInstance?->id])
+            );
+
+            if ($rollover) {
+                $subscriptionInstance = $rollover;
+                $isSubscriptionActive = true;
+            } elseif ($isSubscriptionActive) {
+                $number = $subscriptionInstance->subscription?->subscription_number;
+
+                return [
+                    'success' => false,
+                    'lesson' => null,
+                    'already_existed' => false,
+                    'message' => 'Aucune place restante sur l\'abonnement'.($number ? " {$number}" : '')
+                        .' et aucun autre abonnement actif de l\'élève ne couvre ce cours.',
+                ];
+            }
         }
 
         $lesson = $this->createLessonFromRecurringSlot(
@@ -599,6 +663,10 @@ class LegacyRecurringSlotService
             ];
         }
 
+        if ($rollover) {
+            $this->switchRecurringSlotInstance($recurringSlot, $rollover);
+        }
+
         $recurringSlot->forceFill(['last_generated_at' => now()])->save();
 
         return [
@@ -612,5 +680,59 @@ class LegacyRecurringSlotService
     private function canPlanAnotherLesson(SubscriptionInstance $subscriptionInstance): bool
     {
         return $subscriptionInstance->fresh()->resolveRemainingAttachmentSlotsForPlanning() > 0;
+    }
+
+    /**
+     * Autre carnet actif de l'élève, valide à la date du cours, couvrant le type de cours
+     * et ayant encore une place (réservations futures comprises).
+     *
+     * @param  list<int>  $excludeInstanceIds
+     */
+    private function findRolloverInstance(
+        SubscriptionRecurringSlot $recurringSlot,
+        Lesson $templateLesson,
+        Carbon $date,
+        array $excludeInstanceIds
+    ): ?SubscriptionInstance {
+        if (! $templateLesson->course_type_id || ! $recurringSlot->student_id) {
+            return null;
+        }
+
+        // lessons.club_id est nullable : sans club, la recherche porterait sur les carnets de tous les clubs.
+        $clubId = (int) ($templateLesson->club_id ?: $recurringSlot->subscriptionInstance?->subscription?->club_id);
+        if ($clubId <= 0) {
+            return null;
+        }
+
+        // findActiveSubscriptionForLesson borne le décompte à la date : un carnet peut y sembler
+        // libre alors que ses réservations futures le remplissent déjà.
+        while ($candidate = SubscriptionInstance::findActiveSubscriptionForLesson(
+            (int) $recurringSlot->student_id,
+            (int) $templateLesson->course_type_id,
+            $clubId,
+            $date,
+            false,
+            $excludeInstanceIds
+        )) {
+            if ($this->canPlanAnotherLesson($candidate)) {
+                return $candidate;
+            }
+
+            $excludeInstanceIds[] = (int) $candidate->id;
+        }
+
+        return null;
+    }
+
+    private function switchRecurringSlotInstance(SubscriptionRecurringSlot $recurringSlot, SubscriptionInstance $instance): void
+    {
+        Log::info('Créneau récurrent rattaché au carnet suivant', [
+            'recurring_slot_id' => $recurringSlot->id,
+            'from_subscription_instance_id' => $recurringSlot->subscription_instance_id,
+            'to_subscription_instance_id' => $instance->id,
+        ]);
+
+        $recurringSlot->forceFill(['subscription_instance_id' => $instance->id])->save();
+        $recurringSlot->setRelation('subscriptionInstance', $instance);
     }
 }

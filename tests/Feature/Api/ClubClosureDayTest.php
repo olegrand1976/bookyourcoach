@@ -236,6 +236,81 @@ class ClubClosureDayTest extends TestCase
     }
 
     #[Test]
+    public function consume_lesson_does_not_reattach_a_lesson_detached_by_closure(): void
+    {
+        $user = $this->actingAsClub();
+        $club = $user->getFirstClub();
+        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+        $student = Student::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $instance = $this->createSubscriptionInstanceForCourseType($club, $student, $courseType);
+
+        $day = Carbon::now()->subDays(3)->format('Y-m-d');
+        ClubClosureDay::create(['club_id' => $club->id, 'closed_on' => $day]);
+
+        $lesson = Lesson::factory()
+            ->forClub($club)
+            ->forTeacher($teacher)
+            ->forStudent($student)
+            ->confirmed()
+            ->create([
+                'course_type_id' => $courseType->id,
+                'location_id' => $location->id,
+                'start_time' => $day.' 10:00:00',
+                'end_time' => $day.' 11:00:00',
+            ]);
+        DB::table('subscription_lessons')->where('lesson_id', $lesson->id)->delete();
+
+        // Ex. recalcul club : linkOrphanLessonsToInstance() reprend les cours sans abonnement.
+        $instance->consumeLesson($lesson);
+
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'lesson_id' => $lesson->id,
+            'subscription_instance_id' => $instance->id,
+        ]);
+    }
+
+    #[Test]
+    public function lesson_on_closure_day_still_attached_is_not_counted_as_used(): void
+    {
+        $user = $this->actingAsClub();
+        $club = $user->getFirstClub();
+        $teacher = Teacher::factory()->create(['club_id' => $club->id]);
+        $student = Student::factory()->create();
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+        $instance = $this->createSubscriptionInstanceForCourseType($club, $student, $courseType);
+
+        $closedDay = Carbon::now()->subDays(3)->format('Y-m-d');
+        $openDay = Carbon::now()->subDays(4)->format('Y-m-d');
+        ClubClosureDay::create(['club_id' => $club->id, 'closed_on' => $closedDay]);
+
+        foreach ([$closedDay, $openDay] as $day) {
+            $lesson = Lesson::factory()
+                ->forClub($club)
+                ->forTeacher($teacher)
+                ->forStudent($student)
+                ->confirmed()
+                ->create([
+                    'course_type_id' => $courseType->id,
+                    'location_id' => $location->id,
+                    'start_time' => $day.' 10:00:00',
+                    'end_time' => $day.' 11:00:00',
+                ]);
+            // Lien hérité (antérieur au correctif) : inséré sans passer par consumeLesson.
+            DB::table('subscription_lessons')->updateOrInsert(
+                ['lesson_id' => $lesson->id, 'subscription_instance_id' => $instance->id],
+                ['created_at' => now(), 'updated_at' => now()]
+            );
+        }
+
+        $instance->recalculateLessonsUsed();
+
+        $this->assertSame(1, $instance->fresh()->lessons_used);
+    }
+
+    #[Test]
     public function closing_day_recalculates_lessons_used_with_past_present_future_split(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-10 12:00:00'));

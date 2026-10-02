@@ -198,6 +198,10 @@ class SubscriptionInstance extends Model
                     if ($resetAt !== null) {
                         $q2->where('lessons.start_time', '>', $resetAt);
                     }
+
+                    // Jour de congé club : le cours n'a pas eu lieu, même si un lien a survécu
+                    // ou a été recréé après la fermeture (recalcul, rattachement rétroactif).
+                    app(\App\Services\ClubClosureDayService::class)->excludeClosedDaysFromQuery($q2);
                 });
 
                 if ($hasCountColumn) {
@@ -542,6 +546,17 @@ class SubscriptionInstance extends Model
             return;
         }
 
+        // 🏖️ Jour de congé club : closeDay() a détaché le cours, aucun appelant ne doit le
+        // rattacher (le cours devient « orphelin » et serait repris par le recalcul club).
+        if (app(\App\Services\ClubClosureDayService::class)->isLessonOnClosureDay($lesson)) {
+            \Log::info("🏖️ Cours {$lesson->id} sur un jour de congé club : aucun rattachement d'abonnement", [
+                'lesson_id' => $lesson->id,
+                'subscription_instance_id' => $this->id,
+            ]);
+
+            return;
+        }
+
         // Vérifier que le cours n'est pas déjà attaché à cet abonnement
         if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
             // Le cours est déjà attaché, juste recalculer
@@ -752,14 +767,16 @@ class SubscriptionInstance extends Model
         int $courseTypeId,
         ?int $clubId = null,
         ?\Carbon\CarbonInterface $asOf = null,
-        bool $allowEmptyCredits = false
+        bool $allowEmptyCredits = false,
+        array $excludeInstanceIds = []
     ): ?self {
         $explanation = self::explainActiveSubscriptionForLesson(
             $studentId,
             $courseTypeId,
             $clubId,
             $asOf,
-            $allowEmptyCredits
+            $allowEmptyCredits,
+            $excludeInstanceIds
         );
 
         if (! ($explanation['has_active'] ?? false)) {
@@ -779,9 +796,11 @@ class SubscriptionInstance extends Model
         int $courseTypeId,
         ?int $clubId = null,
         ?\Carbon\CarbonInterface $asOf = null,
-        bool $allowEmptyCredits = false
+        bool $allowEmptyCredits = false,
+        array $excludeInstanceIds = []
     ): array {
         $activeForStudent = self::queryActiveForStudent($studentId, $clubId, $asOf)
+            ->when($excludeInstanceIds !== [], fn ($q) => $q->whereNotIn('id', $excludeInstanceIds))
             ->with(['subscription.template.courseTypes'])
             ->orderBy('created_at', 'asc')
             ->get();

@@ -11,6 +11,7 @@ use App\Models\SubscriptionInstance;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -196,9 +197,10 @@ class ClubClosureDayService
                 );
             }
 
-            $this->recalculateInstances($instanceIds);
-
+            // Supprimer d'abord : le décompte exclut les cours des jours encore fermés.
             $closure->delete();
+
+            $this->recalculateInstances($instanceIds);
         });
 
         if ($result['reopened']) {
@@ -352,7 +354,7 @@ class ClubClosureDayService
     /**
      * Exclut les cours tombant un jour de fermeture club (même club_id, même règle date que closeDay).
      */
-    public function excludeClosedDaysFromQuery(Builder $query, string $lessonsTable = 'lessons'): void
+    public function excludeClosedDaysFromQuery(Builder|QueryBuilder $query, string $lessonsTable = 'lessons'): void
     {
         $this->applyClosureDayExistsSubquery($query, $lessonsTable, false);
     }
@@ -360,12 +362,12 @@ class ClubClosureDayService
     /**
      * Ne garde que les cours tombant un jour de fermeture club.
      */
-    public function includeOnlyClosedDaysFromQuery(Builder $query, string $lessonsTable = 'lessons'): void
+    public function includeOnlyClosedDaysFromQuery(Builder|QueryBuilder $query, string $lessonsTable = 'lessons'): void
     {
         $this->applyClosureDayExistsSubquery($query, $lessonsTable, true);
     }
 
-    private function applyClosureDayExistsSubquery(Builder $query, string $lessonsTable, bool $match): void
+    private function applyClosureDayExistsSubquery(Builder|QueryBuilder $query, string $lessonsTable, bool $match): void
     {
         $lessonDateSql = LessonCalendarDate::sqlDateExpression(
             "{$lessonsTable}.start_time",

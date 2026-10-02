@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Models\SubscriptionTemplate;
 use App\Models\SubscriptionInstance;
+use App\Services\ClubClosureDayService;
 use App\Services\SubscriptionProjectionService;
 use App\Models\SubscriptionStudent;
 use App\Models\Discipline;
@@ -612,6 +613,8 @@ class SubscriptionController extends Controller
                             'lessons' => function ($q) {
                                 $q->with(['teacher.user', 'courseType', 'location'])
                                   ->orderBy('start_time', 'desc');
+                                // Cours d'un jour de congé club : non consommés, donc non listés.
+                                app(ClubClosureDayService::class)->excludeClosedDaysFromQuery($q->getQuery());
                             },
                             'legacyRecurringSlots' => function ($q) {
                                 $q->with(['teacher.user', 'student.user'])
