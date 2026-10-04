@@ -77,16 +77,7 @@ class SubscriptionCounterRepairService
                     if ($detached !== []) {
                         $instance->lessons()->detach($detached);
                         foreach ($detached as $lessonId) {
-                            $this->actionLogService->logForClub(
-                                (int) $club->id,
-                                LessonActionLog::ACTION_SUBSCRIPTION_UNLINKED,
-                                $actor,
-                                $actor?->role,
-                                (int) $lessonId,
-                                null,
-                                (int) $instance->id,
-                                ['reason' => 'counter_repair_future_excess'],
-                            );
+                            $this->logUnlinked((int) $club->id, $actor, (int) $lessonId, (int) $instance->id);
                         }
                     }
                 }
@@ -134,12 +125,16 @@ class SubscriptionCounterRepairService
             return collect();
         }
 
-        return DB::table('subscription_lessons')
+        $query = DB::table('subscription_lessons')
             ->join('lessons', 'subscription_lessons.lesson_id', '=', 'lessons.id')
             ->where('subscription_lessons.subscription_instance_id', $instance->id)
             ->whereNull('lessons.deleted_at')
             ->whereIn('lessons.status', ['pending', 'confirmed', 'completed'])
-            ->where('lessons.start_time', '>', Carbon::now())
+            ->where('lessons.start_time', '>', Carbon::now());
+        // Un cours de jour de congé n'est pas décompté : le détacher ne résorberait pas l'excédent.
+        $this->closureDayService->excludeClosedDaysFromQuery($query);
+
+        return $query
             ->orderByDesc('lessons.start_time')
             ->limit($excess)
             ->get(['lessons.id', 'lessons.start_time'])
@@ -199,6 +194,29 @@ class SubscriptionCounterRepairService
             ->get(['lessons.id', 'lessons.start_time'])
             ->map(fn ($row) => ['id' => (int) $row->id, 'start_time' => (string) $row->start_time])
             ->all();
+    }
+
+    private function logUnlinked(int $clubId, ?User $actor, int $lessonId, int $instanceId): void
+    {
+        try {
+            $this->actionLogService->logForClub(
+                $clubId,
+                LessonActionLog::ACTION_SUBSCRIPTION_UNLINKED,
+                $actor,
+                $actor?->role,
+                $lessonId,
+                null,
+                $instanceId,
+                ['reason' => 'counter_repair_future_excess'],
+            );
+        } catch (\Throwable $e) {
+            // Le journal d'audit ne doit jamais faire échouer (ni annuler) la correction.
+            Log::warning('Correction des compteurs : journalisation du détachement impossible', [
+                'lesson_id' => $lessonId,
+                'subscription_instance_id' => $instanceId,
+                'exception' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

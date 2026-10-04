@@ -94,6 +94,21 @@ class ClubSubscriptionCounterRepairTest extends TestCase
         );
     }
 
+    public function test_future_excess_skips_closure_day_lessons_that_are_not_counted(): void
+    {
+        $instance = $this->makeInstance($this->club);
+        ClubClosureDay::create(['club_id' => $this->club->id, 'closed_on' => '2027-01-30']);
+        foreach (['2027-01-02', '2027-01-09', '2027-01-16', '2027-01-30'] as $ymd) {
+            $this->attach($instance, $this->makeLesson($ymd));
+        }
+
+        // 3 cours décomptés pour 2 places : un seul en excédent, le 16/01 (le 30/01 est un congé).
+        $this->getJson('/api/club/subscriptions/counter-repair/preview')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items.0.future_excess_lessons')
+            ->assertJsonPath('data.items.0.future_excess_lessons.0.id', Lesson::whereDate('start_time', '2027-01-16')->value('id'));
+    }
+
     public function test_apply_ignores_instances_of_another_club(): void
     {
         $otherInstance = $this->makeInstance(Club::factory()->create());
