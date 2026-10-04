@@ -363,6 +363,8 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     // Routes spécifiques AVANT les routes génériques avec {id}
     Route::post('/subscriptions/assign', [SubscriptionController::class, 'assignToStudent']);
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
+    Route::get('/subscriptions/counter-repair/preview', [App\Http\Controllers\Api\ClubSubscriptionCounterRepairController::class, 'preview']);
+    Route::post('/subscriptions/counter-repair/apply', [App\Http\Controllers\Api\ClubSubscriptionCounterRepairController::class, 'apply']);
     Route::post('/subscriptions/{instanceId}/close', [SubscriptionController::class, 'close']);
     Route::put('/subscriptions/{instanceId}/est-legacy', [SubscriptionController::class, 'updateEstLegacy']);
     Route::put('/subscriptions/instances/{instanceId}', [SubscriptionController::class, 'updateInstance']);
