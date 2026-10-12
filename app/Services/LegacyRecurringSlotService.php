@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\ClubClosureDay;
-use App\Models\SubscriptionRecurringSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionInstance;
+use App\Models\SubscriptionRecurringSlot;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -141,7 +141,8 @@ class LegacyRecurringSlotService
                         $usedInstanceIds,
                         $originalInstanceId,
                         $reserveAttachmentSlots,
-                        $rolledOver
+                        $rolledOver,
+                        $batches
                     )) {
                         break;
                     }
@@ -672,7 +673,8 @@ class LegacyRecurringSlotService
         array &$usedInstanceIds,
         ?int $originalInstanceId,
         int $reserveAttachmentSlots,
-        bool &$rolledOver
+        bool &$rolledOver,
+        array $pendingBatches = []
     ): bool {
         if (! $subscriptionInstance) {
             return false;
@@ -683,7 +685,12 @@ class LegacyRecurringSlotService
             : 0;
 
         while ($this->subscriptionInstanceExpiredBefore($subscriptionInstance, $date)
-            || $this->attachmentSlotsAvailableAt($subscriptionInstance, $date, $reserve) <= 0) {
+            || $this->effectiveAttachmentSlotsAvailableAt(
+                $subscriptionInstance,
+                $date,
+                $reserve,
+                $pendingBatches
+            ) <= 0) {
             $excludeIds = array_values(array_unique([
                 ...$usedInstanceIds,
                 (int) $subscriptionInstance->id,
@@ -724,6 +731,42 @@ class LegacyRecurringSlotService
         $slots = $instance->fresh()->getRemainingAttachmentSlots($date);
 
         return max(0, $slots - max(0, $reserveAttachmentSlots));
+    }
+
+    /**
+     * @param  array<int, array{instance: SubscriptionInstance, lessons: list<Lesson>}>  $pendingBatches
+     */
+    private function effectiveAttachmentSlotsAvailableAt(
+        SubscriptionInstance $instance,
+        Carbon $date,
+        int $reserveAttachmentSlots,
+        array $pendingBatches
+    ): int {
+        $available = $this->attachmentSlotsAvailableAt($instance, $date, $reserveAttachmentSlots);
+        $pending = $this->pendingBatchAttachmentSlots($pendingBatches, (int) $instance->id, $date);
+
+        return max(0, $available - $pending);
+    }
+
+    /**
+     * Cours générés dans la transaction mais pas encore attachés au carnet.
+     *
+     * @param  array<int, array{instance: SubscriptionInstance, lessons: list<Lesson>}>  $pendingBatches
+     */
+    private function pendingBatchAttachmentSlots(array $pendingBatches, int $instanceId, Carbon $date): int
+    {
+        if (! isset($pendingBatches[$instanceId])) {
+            return 0;
+        }
+
+        $pending = 0;
+        foreach ($pendingBatches[$instanceId]['lessons'] as $lesson) {
+            if (Carbon::parse($lesson->start_time)->lte($date)) {
+                $pending++;
+            }
+        }
+
+        return $pending;
     }
 
     private function attachLessonToSubscriptionInstance(SubscriptionInstance $instance, Lesson $lesson): bool
@@ -772,7 +815,8 @@ class LegacyRecurringSlotService
             $clubId,
             $date,
             false,
-            $excludeInstanceIds
+            $excludeInstanceIds,
+            true
         );
     }
 

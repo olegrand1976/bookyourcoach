@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
-use App\Models\CourseType;
 
 class SubscriptionInstance extends Model
 {
@@ -58,7 +57,7 @@ class SubscriptionInstance extends Model
 
         static::creating(function ($instance) {
             // Si expires_at n'est pas défini, le calculer depuis validity_months du template
-            if (!$instance->expires_at && $instance->subscription && $instance->subscription->validity_months) {
+            if (! $instance->expires_at && $instance->subscription && $instance->subscription->validity_months) {
                 $startDate = $instance->started_at ? Carbon::parse($instance->started_at) : Carbon::now();
                 $instance->expires_at = $startDate->copy()->addMonths($instance->subscription->validity_months);
             }
@@ -135,7 +134,7 @@ class SubscriptionInstance extends Model
             'new_calculated' => $newLessonsUsed,
             'will_update' => ($oldValue !== $newLessonsUsed),
             'subscription_id' => $this->subscription_id,
-            'subscription_instance_id' => $this->id
+            'subscription_instance_id' => $this->id,
         ]);
 
         if ($this->lessons_used !== $newLessonsUsed) {
@@ -387,7 +386,7 @@ class SubscriptionInstance extends Model
 
     /**
      * Pourcentage d'utilisation
-     * 
+     *
      * ⚠️ Ne recalcule PAS automatiquement pour préserver les valeurs manuelles.
      * Le recalcul se fait automatiquement lors de l'ajout/suppression de cours via les observers.
      */
@@ -408,10 +407,10 @@ class SubscriptionInstance extends Model
      */
     public function calculateExpiresAt()
     {
-        if (!$this->started_at) {
+        if (! $this->started_at) {
             $this->started_at = Carbon::now();
         }
-        
+
         $startDate = Carbon::parse($this->started_at);
         $validityMonths = $this->subscription?->validity_months ?? 12;
         $this->expires_at = $startDate->copy()->addMonths($validityMonths);
@@ -430,7 +429,10 @@ class SubscriptionInstance extends Model
      */
     public function getIsExpiringAttribute()
     {
-        if (!$this->expires_at) return false;
+        if (! $this->expires_at) {
+            return false;
+        }
+
         return Carbon::now()->diffInDays($this->expires_at, false) <= 7 && Carbon::now()->diffInDays($this->expires_at, false) >= 0;
     }
 
@@ -447,8 +449,9 @@ class SubscriptionInstance extends Model
             // Utiliser first_name et last_name de la table students si user n'existe pas
             $firstName = $student->first_name ?? '';
             $lastName = $student->last_name ?? '';
-            $name = trim($firstName . ' ' . $lastName);
-            return !empty($name) ? $name : 'Élève sans nom';
+            $name = trim($firstName.' '.$lastName);
+
+            return ! empty($name) ? $name : 'Élève sans nom';
         })->filter()->join(', ');
     }
 
@@ -460,19 +463,19 @@ class SubscriptionInstance extends Model
     public function checkAndUpdateStatus()
     {
         // Ne pas recalculer ici pour éviter la récursion (recalculé ailleurs avant l'appel)
-        
+
         $totalAvailable = $this->resolveTotalAvailableLessons();
 
         if ($totalAvailable <= 0) {
             return $this->status;
         }
-        
+
         // 🔄 RÉOUVERTURE : Si l'abonnement est completed mais qu'il redevient disponible
         // (par exemple après annulation d'un cours), le remettre en active
         if ($this->status === 'completed' && $this->lessons_used < $totalAvailable) {
             $this->status = 'active';
             $this->saveQuietly();
-            
+
             \Log::info("🔄 Abonnement {$this->id} réouvert (completed -> active)", [
                 'subscription_instance_id' => $this->id,
                 'old_status' => 'completed',
@@ -480,27 +483,29 @@ class SubscriptionInstance extends Model
                 'reason' => 'Abonnement redevient disponible après annulation',
                 'lessons_used' => $this->lessons_used,
                 'total_available' => $totalAvailable,
-                'remaining' => $totalAvailable - $this->lessons_used
+                'remaining' => $totalAvailable - $this->lessons_used,
             ]);
+
             return 'active';
         }
-        
+
         // 📦 ARCHIVAGE : Si tous les cours sont utilisés, marquer comme completed (archive)
         if ($this->lessons_used >= $totalAvailable) {
             if ($this->status !== 'completed') {
                 $oldStatus = $this->status;
                 $this->status = 'completed';
                 $this->saveQuietly();
-                
+
                 \Log::info("📦 Abonnement {$this->id} archivé automatiquement", [
                     'subscription_instance_id' => $this->id,
                     'old_status' => $oldStatus,
                     'new_status' => 'completed',
                     'reason' => '100% des cours utilisés',
                     'lessons_used' => $this->lessons_used,
-                    'total_available' => $totalAvailable
+                    'total_available' => $totalAvailable,
                 ]);
             }
+
             return 'completed';
         }
 
@@ -510,6 +515,7 @@ class SubscriptionInstance extends Model
                 $this->status = 'expired';
                 $this->saveQuietly();
             }
+
             return 'expired';
         }
 
@@ -561,6 +567,7 @@ class SubscriptionInstance extends Model
         if ($this->lessons()->where('lesson_id', $lesson->id)->exists()) {
             // Le cours est déjà attaché, juste recalculer
             $this->recalculateLessonsUsed();
+
             return;
         }
 
@@ -573,20 +580,20 @@ class SubscriptionInstance extends Model
         // Vérifier si on utilise course_type_id ou discipline_id
         $courseTypeIds = [];
         $courseTypes = $this->subscription->courseTypes;
-        
+
         foreach ($courseTypes as $courseType) {
             // Si c'est un CourseType, utiliser son id directement
             if ($courseType instanceof CourseType) {
                 $courseTypeIds[] = $courseType->id;
-            } 
+            }
             // Si c'est une Discipline (ancien système), récupérer les course_types liés
             else {
                 $disciplineCourseTypes = CourseType::where('discipline_id', $courseType->id)->pluck('id')->toArray();
                 $courseTypeIds = array_merge($courseTypeIds, $disciplineCourseTypes);
             }
         }
-        
-        if (!in_array($lesson->course_type_id, $courseTypeIds)) {
+
+        if (! in_array($lesson->course_type_id, $courseTypeIds)) {
             throw new \Exception('Ce cours n\'est pas inclus dans cet abonnement');
         }
 
@@ -629,17 +636,17 @@ class SubscriptionInstance extends Model
                 'new_started_at' => $this->started_at,
                 'based_on_lesson' => $lesson->id,
                 'lesson_date' => $lesson->start_time,
-                'is_first_lesson' => true
+                'is_first_lesson' => true,
             ]);
-            
+
             // 🔄 Recalculer expires_at à partir de la nouvelle date de début
             $this->calculateExpiresAt();
             \Log::info("🔄 Date d'expiration recalculée pour subscription_instance {$this->id}", [
                 'new_expires_at' => $this->expires_at,
-                'based_on_started_at' => $this->started_at
+                'based_on_started_at' => $this->started_at,
             ]);
         }
-        
+
         // 🔄 LOGIQUE : Si l'abonnement est completed, le réouvrir avant d'ajouter le cours
         // Cela permet de gérer les cas où un cours est annulé puis un nouveau cours est pris
         if ($this->status === 'completed') {
@@ -647,10 +654,10 @@ class SubscriptionInstance extends Model
             \Log::info("🔄 Abonnement {$this->id} réouvert (completed -> active)", [
                 'subscription_instance_id' => $this->id,
                 'reason' => 'Nouveau cours ajouté après clôture',
-                'lesson_id' => $lesson->id
+                'lesson_id' => $lesson->id,
             ]);
         }
-        
+
         $this->lessons()->attach($lesson->id);
         $this->load('lessons');
 
@@ -671,14 +678,14 @@ class SubscriptionInstance extends Model
 
         $this->recalculateLessonsUsed();
         $this->checkAndUpdateStatus();
-        
+
         \Log::info("Cours {$lesson->id} consommé depuis l'abonnement {$this->id}", [
             'lesson_id' => $lesson->id,
             'subscription_instance_id' => $this->id,
             'lessons_used_after' => $this->lessons_used,
             'remaining_lessons' => $this->remaining_lessons,
             'is_first_lesson' => $isFirstLesson,
-            'started_at' => $this->started_at
+            'started_at' => $this->started_at,
         ]);
     }
 
@@ -702,12 +709,12 @@ class SubscriptionInstance extends Model
             }
         }
 
-        \Log::info("🔄 Statut DCL/NDCL propagé aux cours associés", [
+        \Log::info('🔄 Statut DCL/NDCL propagé aux cours associés', [
             'subscription_instance_id' => $this->id,
             'est_legacy' => $this->est_legacy,
             'status' => $this->est_legacy ? 'NDCL' : 'DCL',
             'total_lessons' => $lessons->count(),
-            'updated_lessons' => $updatedCount
+            'updated_lessons' => $updatedCount,
         ]);
 
         return $updatedCount;
@@ -718,7 +725,7 @@ class SubscriptionInstance extends Model
      */
     public function addStudent(Student $student)
     {
-        if (!$this->students()->where('student_id', $student->id)->exists()) {
+        if (! $this->students()->where('student_id', $student->id)->exists()) {
             $this->students()->attach($student->id);
         }
     }
@@ -734,10 +741,10 @@ class SubscriptionInstance extends Model
     /**
      * Trouver le bon abonnement actif pour un élève et un type de cours
      * Retourne l'abonnement actif le plus ancien (par date de création) qui a encore des cours disponibles
-     * 
-     * @param int $studentId ID de l'élève
-     * @param int $courseTypeId ID du type de cours
-     * @param int|null $clubId ID du club (optionnel, pour filtrer)
+     *
+     * @param  int  $studentId  ID de l'élève
+     * @param  int  $courseTypeId  ID du type de cours
+     * @param  int|null  $clubId  ID du club (optionnel, pour filtrer)
      * @return SubscriptionInstance|null
      */
     /**
@@ -768,7 +775,8 @@ class SubscriptionInstance extends Model
         ?int $clubId = null,
         ?\Carbon\CarbonInterface $asOf = null,
         bool $allowEmptyCredits = false,
-        array $excludeInstanceIds = []
+        array $excludeInstanceIds = [],
+        bool $allowCompletedInstances = false
     ): ?self {
         $explanation = self::explainActiveSubscriptionForLesson(
             $studentId,
@@ -776,7 +784,8 @@ class SubscriptionInstance extends Model
             $clubId,
             $asOf,
             $allowEmptyCredits,
-            $excludeInstanceIds
+            $excludeInstanceIds,
+            $allowCompletedInstances
         );
 
         if (! ($explanation['has_active'] ?? false)) {
@@ -797,9 +806,10 @@ class SubscriptionInstance extends Model
         ?int $clubId = null,
         ?\Carbon\CarbonInterface $asOf = null,
         bool $allowEmptyCredits = false,
-        array $excludeInstanceIds = []
+        array $excludeInstanceIds = [],
+        bool $allowCompletedInstances = false
     ): array {
-        $activeForStudent = self::queryActiveForStudent($studentId, $clubId, $asOf)
+        $activeForStudent = self::queryActiveForStudent($studentId, $clubId, $asOf, $allowCompletedInstances)
             ->when($excludeInstanceIds !== [], fn ($q) => $q->whereNotIn('id', $excludeInstanceIds))
             ->with(['subscription.template.courseTypes'])
             ->orderBy('created_at', 'asc')
@@ -837,7 +847,8 @@ class SubscriptionInstance extends Model
     private static function queryActiveForStudent(
         int $studentId,
         ?int $clubId = null,
-        ?\Carbon\CarbonInterface $asOf = null
+        ?\Carbon\CarbonInterface $asOf = null,
+        bool $includeCompletedInstances = false
     ) {
         // `status` ne suffit pas : aucune tâche planifiée ne bascule les instances en 'expired'
         // (seule `subscriptions:repair-counters`, manuelle, le fait via checkAndUpdateStatus).
@@ -846,7 +857,9 @@ class SubscriptionInstance extends Model
         // rétroactivement reste couvert s'il a eu lieu pendant la validité du carnet.
         $validityReference = Carbon::parse($asOf ?? Carbon::now())->startOfDay();
 
-        $query = self::where('status', 'active')
+        $statuses = $includeCompletedInstances ? ['active', 'completed'] : ['active'];
+
+        $query = self::whereIn('status', $statuses)
             ->where(function ($q) use ($validityReference) {
                 $q->whereNull('expires_at')
                     ->orWhere('expires_at', '>=', $validityReference);
@@ -870,4 +883,3 @@ class SubscriptionInstance extends Model
         return $query;
     }
 }
-

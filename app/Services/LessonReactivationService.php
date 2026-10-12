@@ -211,13 +211,13 @@ class LessonReactivationService
         bool $reattachSubscription,
         ?string $reason
     ): void {
-        $noteLine = '[Réactivé par le club le ' . now()->format('d/m/Y H:i') . ']';
+        $noteLine = '[Réactivé par le club le '.now()->format('d/m/Y H:i').']';
         if ($reason) {
-            $noteLine .= ' ' . $reason;
+            $noteLine .= ' '.$reason;
         }
 
         $lesson->status = $targetStatus;
-        $lesson->notes = ($lesson->notes ? $lesson->notes . "\n" : '') . $noteLine;
+        $lesson->notes = ($lesson->notes ? $lesson->notes."\n" : '').$noteLine;
         $lesson->save();
 
         if ($reattachSubscription) {
@@ -264,7 +264,8 @@ class LessonReactivationService
             $clubId,
             $asOf,
             false,
-            $triedIds
+            $triedIds,
+            true
         )) {
             $triedIds[] = (int) $candidate->id;
             if ($this->tryConsumeLessonOnInstance($candidate, $lesson)) {
