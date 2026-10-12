@@ -141,6 +141,7 @@ class LinkExistingLessonsToSubscriptionsTest extends TestCase
         ]);
 
         $this->assertEquals(0, $instance->fresh()->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $instance->fresh()->remaining_bookable);
 
         $this->artisan('subscriptions:link-existing-lessons')
             ->assertSuccessful();

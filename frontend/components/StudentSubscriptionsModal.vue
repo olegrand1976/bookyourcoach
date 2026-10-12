@@ -78,8 +78,8 @@
                         </span>
                       </div>
                       <div>
-                        <span class="text-gray-600">Restants (réservables):</span>
-                        <span class="font-semibold text-gray-900 ml-1">{{ getRemainingBookable(subscription) }}</span>
+                        <span class="text-gray-600">Cours restants:</span>
+                        <span class="font-semibold text-gray-900 ml-1">{{ getRemainingConsumed(subscription) }}</span>
                         <span
                           v-if="hasReservedFutureSlots(subscription)"
                           class="block text-xs text-amber-600 mt-0.5"
@@ -268,7 +268,7 @@ const isExpiringSoon = (expiresAt) => {
 const canRenew = (subscription) => {
   const isNearingExpiry = subscription.expires_at && isExpiringSoon(subscription.expires_at)
   const totalLessons = getTotalLessons(subscription)
-  const isAlmostUsed = getRemainingBookable(subscription) <= (totalLessons * 0.2)
+  const isAlmostUsed = getRemainingConsumed(subscription) <= (totalLessons * 0.2)
   return isNearingExpiry || isAlmostUsed
 }
 

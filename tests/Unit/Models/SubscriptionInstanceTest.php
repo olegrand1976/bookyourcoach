@@ -238,6 +238,51 @@ class SubscriptionInstanceTest extends TestCase
     }
 
     #[Test]
+    public function pack_of_six_with_one_past_and_five_future_keeps_five_consumed_and_zero_bookable(): void
+    {
+        $this->subscription->template->update(['total_lessons' => 6]);
+        $this->subscriptionInstance->unsetRelation('subscription');
+
+        $past = Carbon::now()->subDay();
+        $pastLesson = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => $past,
+            'end_time' => $past->copy()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $this->subscriptionInstance->consumeLesson($pastLesson);
+
+        for ($i = 1; $i <= 5; $i++) {
+            $future = Carbon::now()->addWeeks($i);
+            $futureLesson = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => $future,
+                'end_time' => $future->copy()->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->subscriptionInstance->consumeLesson($futureLesson);
+        }
+
+        $fresh = $this->subscriptionInstance->fresh();
+
+        $this->assertEquals(1, $fresh->lessons_used);
+        $this->assertEquals(5, $fresh->remaining_consumed);
+        $this->assertEquals(5, $fresh->getRemainingAttachmentSlots(Carbon::now()));
+        $this->assertEquals(0, $fresh->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $fresh->remaining_bookable);
+    }
+
+    #[Test]
     public function getPastOverflowInfo_detects_excess_consumed_lessons(): void
     {
         $this->subscriptionInstance->update([

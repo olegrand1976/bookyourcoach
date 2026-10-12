@@ -57,7 +57,7 @@ class LinkExistingLessonsToSubscriptions extends Command
             $this->info("📌 Filtrage par étudiant ID: {$studentId}");
         }
         
-        $lessons = $lessonsQuery->with(['students'])->get();
+        $lessons = $lessonsQuery->with(['students'])->orderBy('start_time')->get();
         
         $this->info("📊 {$lessons->count()} cours trouvés");
         
@@ -136,7 +136,7 @@ class LinkExistingLessonsToSubscriptions extends Command
                         continue;
                     }
                     
-                    if ($subscriptionInstance->getRemainingAttachmentSlots() <= 0) {
+                    if ($subscriptionInstance->remaining_bookable <= 0) {
                         continue;
                     }
                     

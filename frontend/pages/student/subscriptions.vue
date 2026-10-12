@@ -91,29 +91,29 @@
               <div class="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   :class="{
-                    'bg-green-600': getRemainingBookable(subscription) > getTotalLessons(subscription) * 0.5,
-                    'bg-yellow-600': getRemainingBookable(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingBookable(subscription) <= getTotalLessons(subscription) * 0.5,
-                    'bg-red-600': getRemainingBookable(subscription) <= getTotalLessons(subscription) * 0.2
+                    'bg-green-600': getRemainingConsumed(subscription) > getTotalLessons(subscription) * 0.5,
+                    'bg-yellow-600': getRemainingConsumed(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingConsumed(subscription) <= getTotalLessons(subscription) * 0.5,
+                    'bg-red-600': getRemainingConsumed(subscription) <= getTotalLessons(subscription) * 0.2
                   }"
                   class="h-2 rounded-full transition-all"
                   :style="{ width: `${getUsagePercentage(subscription)}%` }"
                 ></div>
               </div>
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600">Cours restants (réservables)</span>
+                <span class="text-gray-600">Cours restants</span>
                 <span class="font-semibold" :class="{
-                  'text-green-600': getRemainingBookable(subscription) > getTotalLessons(subscription) * 0.5,
-                  'text-yellow-600': getRemainingBookable(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingBookable(subscription) <= getTotalLessons(subscription) * 0.5,
-                  'text-red-600': getRemainingBookable(subscription) <= getTotalLessons(subscription) * 0.2
+                  'text-green-600': getRemainingConsumed(subscription) > getTotalLessons(subscription) * 0.5,
+                  'text-yellow-600': getRemainingConsumed(subscription) > getTotalLessons(subscription) * 0.2 && getRemainingConsumed(subscription) <= getTotalLessons(subscription) * 0.5,
+                  'text-red-600': getRemainingConsumed(subscription) <= getTotalLessons(subscription) * 0.2
                 }">
-                  {{ getRemainingBookable(subscription) }}
+                  {{ getRemainingConsumed(subscription) }}
                 </span>
               </div>
               <p
                 v-if="hasReservedFutureSlots(subscription)"
                 class="text-xs text-amber-600"
               >
-                {{ getReservedFutureCount(subscription) }} cours futur(s) déjà réservé(s) sur cet abonnement.
+                dont {{ getReservedFutureCount(subscription) }} déjà réservé(s) à l'avance
               </p>
               <!-- Total de cours utilisés -->
               <div class="flex items-center justify-between text-sm pt-2 border-t border-gray-200">
@@ -324,7 +324,7 @@ const isExpiringSoon = (expiresAt) => {
 const canRenew = (subscription) => {
   const isNearingExpiry = subscription.expires_at && isExpiringSoon(subscription.expires_at)
   const totalLessons = getTotalLessons(subscription)
-  const remainingLessons = getRemainingBookable(subscription)
+  const remainingLessons = getRemainingConsumed(subscription)
   const isAlmostUsed = remainingLessons <= totalLessons * 0.2
   
   return isNearingExpiry || isAlmostUsed
@@ -353,8 +353,6 @@ const getRemainingBookable = (subscription) => {
   }
   return getRemainingConsumed(subscription)
 }
-
-const getRemainingLessons = (subscription) => getRemainingBookable(subscription)
 
 const getReservedFutureCount = (subscription) => {
   return Math.max(0, getRemainingConsumed(subscription) - getRemainingBookable(subscription))

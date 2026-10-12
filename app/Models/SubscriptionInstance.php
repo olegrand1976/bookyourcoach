@@ -358,7 +358,7 @@ class SubscriptionInstance extends Model
     }
 
     /**
-     * Places encore réservables (inclut les cours futurs déjà attachés).
+     * Places encore réservables : les cours futurs déjà attachés bloquent la réservation.
      */
     public function getRemainingBookableAttribute(): int
     {

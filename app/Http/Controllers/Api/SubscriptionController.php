@@ -1401,11 +1401,12 @@ class SubscriptionController extends Controller
             ->whereIn('course_type_id', $courseTypeIds)
             ->whereNotIn('status', ['cancelled'])
             ->whereDoesntHave('subscriptionInstances')
+            ->orderBy('start_time')
             ->get();
 
         foreach ($unlinkedLessons as $lesson) {
             try {
-                if ($instance->getRemainingAttachmentSlots() > 0) {
+                if ($instance->remaining_bookable > 0) {
                     $instance->consumeLesson($lesson);
                     $linked++;
 

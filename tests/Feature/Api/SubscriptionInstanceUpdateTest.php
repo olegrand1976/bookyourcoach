@@ -722,6 +722,7 @@ class SubscriptionInstanceUpdateTest extends TestCase
 
         $this->assertEquals(0, $this->instance->fresh()->lessons_used);
         $this->assertEquals(0, $this->instance->fresh()->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $this->instance->fresh()->remaining_bookable);
 
         $unlinkedPastLesson = Lesson::create([
             'club_id' => $this->club->id,
@@ -749,6 +750,67 @@ class SubscriptionInstanceUpdateTest extends TestCase
             'lesson_id' => $unlinkedPastLesson->id,
         ]);
         $this->assertEquals(0, $this->instance->fresh()->getRemainingAttachmentSlots());
+        $this->assertEquals(0, $this->instance->fresh()->remaining_bookable);
+    }
+
+    public function test_recalculate_all_links_past_orphan_before_a_later_one_when_one_slot_remains(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->update([
+            'lessons_used' => 0,
+            'manual_lessons_used' => 0,
+        ]);
+
+        for ($i = 0; $i < 9; $i++) {
+            $future = Carbon::now()->addWeeks($i + 2);
+            $attached = Lesson::create([
+                'club_id' => $this->club->id,
+                'teacher_id' => $this->teacher->id,
+                'student_id' => $this->student->id,
+                'course_type_id' => $this->courseType->id,
+                'location_id' => $this->location->id,
+                'start_time' => $future,
+                'end_time' => $future->copy()->addHour(),
+                'status' => 'confirmed',
+                'price' => 50.00,
+            ]);
+            $this->instance->consumeLesson($attached);
+        }
+
+        $pastOrphan = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDay(),
+            'end_time' => Carbon::now()->subDay()->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+        $laterOrphan = Lesson::create([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addWeeks(20),
+            'end_time' => Carbon::now()->addWeeks(20)->addHour(),
+            'status' => 'confirmed',
+            'price' => 50.00,
+        ]);
+
+        $response = $this->postJson('/api/club/subscriptions/recalculate');
+        $response->assertStatus(200)->assertJsonPath('data.lessons_linked', 1);
+
+        $this->assertDatabaseHas('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $pastOrphan->id,
+        ]);
+        $this->assertDatabaseMissing('subscription_lessons', [
+            'subscription_instance_id' => $this->instance->id,
+            'lesson_id' => $laterOrphan->id,
+        ]);
     }
 
     public function test_recalculate_all_links_unlinked_lesson_when_attachment_slots_remain(): void
