@@ -233,25 +233,60 @@ class LessonReactivationService
             $instanceIds = $this->inferSubscriptionInstanceIds($lesson);
         }
 
-        if ($instanceIds === []) {
-            return;
-        }
-
+        $triedIds = [];
         foreach ($instanceIds as $instanceId) {
+            $instanceId = (int) $instanceId;
+            if ($instanceId <= 0) {
+                continue;
+            }
+            $triedIds[] = $instanceId;
             $instance = SubscriptionInstance::query()->find($instanceId);
             if (! $instance) {
                 continue;
             }
 
-            try {
-                $instance->consumeLesson($lesson->fresh());
-            } catch (\Exception $e) {
-                Log::warning('Réactivation : impossible de rattacher l\'abonnement', [
-                    'lesson_id' => $lesson->id,
-                    'subscription_instance_id' => $instanceId,
-                    'error' => $e->getMessage(),
-                ]);
+            if ($this->tryConsumeLessonOnInstance($instance, $lesson)) {
+                return;
             }
+        }
+
+        $studentId = $this->lessonDeletionService->resolveParticipantStudentId($lesson);
+        $courseTypeId = (int) ($lesson->course_type_id ?? 0);
+        $clubId = (int) ($lesson->club_id ?? 0);
+        if (! $studentId || $courseTypeId <= 0 || $clubId <= 0) {
+            return;
+        }
+
+        $asOf = $lesson->start_time ? Carbon::parse($lesson->start_time) : Carbon::now();
+        while ($candidate = SubscriptionInstance::findActiveSubscriptionForLesson(
+            $studentId,
+            $courseTypeId,
+            $clubId,
+            $asOf,
+            false,
+            $triedIds
+        )) {
+            $triedIds[] = (int) $candidate->id;
+            if ($this->tryConsumeLessonOnInstance($candidate, $lesson)) {
+                return;
+            }
+        }
+    }
+
+    private function tryConsumeLessonOnInstance(SubscriptionInstance $instance, Lesson $lesson): bool
+    {
+        try {
+            $instance->consumeLesson($lesson->fresh());
+
+            return true;
+        } catch (\Exception $e) {
+            Log::warning('Réactivation : impossible de rattacher l\'abonnement', [
+                'lesson_id' => $lesson->id,
+                'subscription_instance_id' => $instance->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
         }
     }
 

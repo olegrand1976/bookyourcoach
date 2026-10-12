@@ -317,6 +317,39 @@ class RecurringSlotMaterializeLessonTest extends TestCase
             ->assertJsonPath('message', 'Aucune place restante sur l\'abonnement SUB-ONLY et aucun autre abonnement actif de l\'élève ne couvre ce cours.');
     }
 
+    public function test_materialize_rolls_over_when_next_subscription_is_full_only_on_future_dates(): void
+    {
+        $ctx = $this->makeSeriesContext();
+        $full = $this->makeInstance($ctx, 'SUB-FULL-FUTURE', '2026-01-01', '2027-01-01');
+        $full->resetLessonsUsedAt(2, Carbon::parse('2026-01-01'));
+        $full->save();
+
+        $next = $this->makeInstance($ctx, 'SUB-NEXT-FUTURE', '2026-11-03', '2027-03-03');
+        foreach (['2026-01-19', '2026-01-26'] as $ymd) {
+            $lesson = $this->makeLesson($ctx, $ymd);
+            DB::table('subscription_lessons')->insert([
+                'subscription_instance_id' => $next->id,
+                'lesson_id' => $lesson->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $next->recalculateLessonsUsed();
+        $this->assertSame(0, $next->fresh()->resolveRemainingAttachmentSlotsForPlanning());
+        $this->assertGreaterThan(0, $next->fresh()->getRemainingAttachmentSlots(Carbon::parse('2026-01-12')));
+
+        $slot = $this->makeSlot($ctx, $full);
+
+        $response = $this->postJson("/api/club/recurring-slots/{$slot->id}/materialize-lesson", [
+            'date' => '2026-01-12',
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $lessonId = (int) $response->json('data.lesson.id');
+        $this->assertTrue($next->lessons()->where('lessons.id', $lessonId)->exists());
+        $this->assertSame($next->id, (int) $slot->fresh()->subscription_instance_id);
+    }
+
     public function test_generation_continues_on_next_active_subscription_instead_of_leaving_holes(): void
     {
         $ctx = $this->makeSeriesContext();
