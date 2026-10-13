@@ -3369,6 +3369,16 @@ async function materializeRecurringPlaceholderLesson(lesson: Lesson): Promise<vo
       await loadLessons()
       return
     }
+    const suggested = Number(response.data?.data?.suggested_recurring_slot_id ?? response.data?.suggested_recurring_slot_id)
+    if (Number.isFinite(suggested) && suggested > 0 && suggested !== id) {
+      materializingRecurringSlotId.value = suggested
+      const retry = await $api.post(`/club/recurring-slots/${suggested}/materialize-lesson`, { date: dateStr })
+      if (retry.data?.success) {
+        success(retry.data?.message || 'Cours mis à jour')
+        await loadLessons()
+        return
+      }
+    }
     showError(response.data?.message || 'Erreur lors de la génération du cours', 'Planning')
   } catch (err: any) {
     const m = err.response?.data?.message || err.message || 'Erreur lors de la génération du cours'

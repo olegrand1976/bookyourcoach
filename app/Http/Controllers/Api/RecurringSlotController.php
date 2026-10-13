@@ -515,17 +515,29 @@ class RecurringSlotController extends Controller
                 'subscriptionInstances.subscription.template',
             ])->findOrFail($result['lesson']->id);
 
+            $resolvedSlotId = isset($result['resolved_recurring_slot_id'])
+                ? (int) $result['resolved_recurring_slot_id']
+                : null;
+            $requestedSlotId = isset($result['requested_recurring_slot_id'])
+                ? (int) $result['requested_recurring_slot_id']
+                : null;
+            $defaultMessage = match (true) {
+                $reactivated => 'Cours réactivé pour cette séance.',
+                (bool) ($result['already_existed'] ?? false) => 'Cours déjà présent à cette date.',
+                $resolvedSlotId !== null && $requestedSlotId !== null && $resolvedSlotId !== $requestedSlotId
+                    => "Cours généré pour cette séance (série n°{$resolvedSlotId}, suite de la série n°{$requestedSlotId}).",
+                default => 'Cours généré pour cette séance.',
+            };
+
             return response()->json([
                 'success' => true,
-                'message' => match (true) {
-                    $reactivated => 'Cours réactivé pour cette séance.',
-                    (bool) ($result['already_existed'] ?? false) => 'Cours déjà présent à cette date.',
-                    default => 'Cours généré pour cette séance.',
-                },
+                'message' => $result['message'] ?? $defaultMessage,
                 'data' => [
                     'lesson' => $lesson,
                     'already_existed' => (bool) ($result['already_existed'] ?? false),
                     'reactivated' => $reactivated,
+                    'requested_recurring_slot_id' => $requestedSlotId,
+                    'resolved_recurring_slot_id' => $resolvedSlotId,
                 ],
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

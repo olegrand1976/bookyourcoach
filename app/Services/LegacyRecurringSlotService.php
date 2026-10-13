@@ -493,7 +493,7 @@ class LegacyRecurringSlotService
      * Un cours annulé à cette place est réactivé (historique et rattachement abonnement conservés)
      * au lieu d'être renvoyé comme « déjà présent ».
      *
-     * @return array{success: bool, lesson: ?Lesson, already_existed: bool, reactivated?: bool, message: ?string, conflicts?: array}
+     * @return array{success: bool, lesson: ?Lesson, already_existed: bool, reactivated?: bool, message: ?string, conflicts?: array, requested_recurring_slot_id?: int, resolved_recurring_slot_id?: int, suggested_recurring_slot_id?: int}
      */
     public function materializeLessonForSingleDate(SubscriptionRecurringSlot $recurringSlot, Carbon $occurrenceDate, ?User $actor = null): array
     {
@@ -510,6 +510,21 @@ class LegacyRecurringSlotService
 
         $validator = new RecurringSlotValidator;
         if (! $validator->subscriptionRecurringSlotFiresOnDate($recurringSlot, $occurrenceDate)) {
+            $successor = $this->findSuccessorRecurringSlotForDate($recurringSlot, $occurrenceDate, $validator);
+            if ($successor) {
+                $requestedId = (int) $recurringSlot->id;
+                $result = $this->materializeLessonForSingleDate($successor, $occurrenceDate, $actor);
+                if ($result['success'] ?? false) {
+                    $result['requested_recurring_slot_id'] = $requestedId;
+                    $result['resolved_recurring_slot_id'] = (int) $successor->id;
+                    if (! ($result['already_existed'] ?? false) && ! ($result['reactivated'] ?? false)) {
+                        $result['message'] = "Cours généré pour cette séance (série n°{$successor->id}, suite de la série n°{$requestedId}).";
+                    }
+                }
+
+                return $result;
+            }
+
             return [
                 'success' => false,
                 'lesson' => null,
@@ -844,5 +859,43 @@ class LegacyRecurringSlotService
 
         $recurringSlot->forceFill(['subscription_instance_id' => $instance->id])->save();
         $recurringSlot->setRelation('subscriptionInstance', $instance);
+    }
+
+    /**
+     * Autre série active même élève / enseignant / jour / horaire, valide à la date (ex. changement de carnet).
+     */
+    private function findSuccessorRecurringSlotForDate(
+        SubscriptionRecurringSlot $requested,
+        Carbon $occurrenceDate,
+        RecurringSlotValidator $validator
+    ): ?SubscriptionRecurringSlot {
+        $clubId = (int) ($requested->subscriptionInstance?->subscription?->club_id ?? 0);
+        if ($clubId <= 0 || ! $requested->student_id || ! $requested->teacher_id) {
+            return null;
+        }
+
+        $startTime = $requested->start_time instanceof Carbon
+            ? $requested->start_time->format('H:i:s')
+            : substr((string) $requested->start_time, 0, 8);
+
+        $candidates = SubscriptionRecurringSlot::query()
+            ->where('id', '!=', $requested->id)
+            ->where('status', 'active')
+            ->where('student_id', $requested->student_id)
+            ->where('teacher_id', $requested->teacher_id)
+            ->where('day_of_week', $requested->day_of_week)
+            ->where('start_time', $startTime)
+            ->whereHas('subscriptionInstance.subscription', fn ($q) => $q->where('club_id', $clubId))
+            ->with(['subscriptionInstance.subscription'])
+            ->orderByDesc('start_date')
+            ->get();
+
+        foreach ($candidates as $slot) {
+            if ($validator->subscriptionRecurringSlotFiresOnDate($slot, $occurrenceDate)) {
+                return $slot;
+            }
+        }
+
+        return null;
     }
 }

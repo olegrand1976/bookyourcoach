@@ -259,6 +259,54 @@ class RecurringSlotMaterializeLessonTest extends TestCase
         $response->assertStatus(422)->assertJsonPath('success', false);
     }
 
+    public function test_materialize_resolves_successor_series_when_date_outside_requested_slot_range(): void
+    {
+        $ctx = $this->makeSeriesContext();
+        $firstInstance = $this->makeInstance($ctx, 'SUB-OLD', '2026-01-01', '2027-01-01');
+        $nextInstance = $this->makeInstance($ctx, 'SUB-NEW', '2026-01-01', '2027-01-01');
+        $this->makeLesson($ctx, '2026-01-05');
+
+        $oldSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $firstInstance->id,
+            'teacher_id' => $ctx['teacher']->id,
+            'student_id' => $ctx['student']->id,
+            'day_of_week' => Carbon::MONDAY,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => '2026-01-05',
+            'end_date' => '2026-01-05',
+            'status' => 'active',
+        ]);
+
+        $newSlot = SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $nextInstance->id,
+            'teacher_id' => $ctx['teacher']->id,
+            'student_id' => $ctx['student']->id,
+            'day_of_week' => Carbon::MONDAY,
+            'start_time' => '10:00:00',
+            'end_time' => '11:00:00',
+            'recurring_interval' => 1,
+            'start_date' => '2026-01-12',
+            'end_date' => '2026-12-31',
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson("/api/club/recurring-slots/{$oldSlot->id}/materialize-lesson", [
+            'date' => '2026-01-12',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.resolved_recurring_slot_id', $newSlot->id)
+            ->assertJsonPath('data.requested_recurring_slot_id', $oldSlot->id);
+
+        $lessonId = (int) $response->json('data.lesson.id');
+        $this->assertTrue(
+            Lesson::where('id', $lessonId)->whereDate('start_time', '2026-01-12')->exists()
+        );
+    }
+
     public function test_materialize_rolls_over_to_next_active_subscription_when_series_one_is_full(): void
     {
         $ctx = $this->makeSeriesContext();
