@@ -131,6 +131,7 @@ class PlanningLessonResource extends JsonResource
                     'recurring_slot_id' => $lesson->lessonRecurringSlot->recurring_slot_id,
                 ]
                 : null,
+            'is_on_closure_day' => (bool) ($lesson->is_on_closure_day ?? false),
         ];
     }
 }

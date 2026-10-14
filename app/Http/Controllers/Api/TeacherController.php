@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexParticipantClosureDaysRequest;
+use App\Services\ClubClosureDayService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Teacher;
 use App\Models\Lesson;
@@ -823,6 +826,48 @@ class TeacherController extends Controller
                 'message' => 'Erreur lors de la récupération des clubs'
             ], 500);
         }
+    }
+
+    /**
+     * Jours de fermeture club (calendrier enseignant : un club ou tous ses clubs).
+     */
+    public function closureDays(IndexParticipantClosureDaysRequest $request): JsonResponse
+    {
+        $teacher = $request->user()?->teacher;
+        if (! $teacher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil enseignant introuvable',
+            ], 404);
+        }
+
+        $teacherClubIds = $teacher->clubs()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $validated = $request->validated();
+
+        if (isset($validated['club_id'])) {
+            $clubId = (int) $validated['club_id'];
+            if (! in_array($clubId, $teacherClubIds, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Club non autorisé',
+                ], 403);
+            }
+            $clubIds = [$clubId];
+        } else {
+            $clubIds = $teacherClubIds;
+        }
+
+        $dates = app(ClubClosureDayService::class)->listClosedDatesForClubs(
+            $clubIds,
+            $validated['date_from'],
+            $validated['date_to'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => ['dates' => $dates],
+            'message' => null,
+        ]);
     }
 
     /**

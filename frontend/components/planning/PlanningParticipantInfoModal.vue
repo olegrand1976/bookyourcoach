@@ -96,7 +96,7 @@
                 {{ lessonsPeriodLabel }}
               </p>
               <p
-                v-if="type === 'student' && nonMaintainedLessonsCount > 0"
+                v-if="nonMaintainedLessonsCount > 0"
                 class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
               >
                 {{ nonMaintainedLessonsCount }} cours non maintenu{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} ou supprimé{{ nonMaintainedLessonsCount > 1 ? 's' : '' }} sur la période
@@ -318,10 +318,9 @@ const displayedLessons = computed(() => {
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 })
 
-const nonMaintainedLessonsCount = computed(() => {
-  if (props.type !== 'student') return 0
-  return displayedLessons.value.filter((lesson) => lessonIsNonMaintained(lesson) || lesson.deleted_at).length
-})
+const nonMaintainedLessonsCount = computed(() =>
+  displayedLessons.value.filter((lesson) => lessonIsNonMaintained(lesson) || lesson.deleted_at).length,
+)
 
 function lessonIsNonMaintained(lesson: { status?: string; is_on_closure_day?: boolean }) {
   return lesson.status === 'cancelled' || Boolean(lesson.is_on_closure_day)

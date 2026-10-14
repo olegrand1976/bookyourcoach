@@ -378,17 +378,6 @@
                     @change="onClosureToggle" />
                   <span class="flex items-center gap-1 font-medium">
                     Congés
-                    <span
-                      v-if="isSelectedDateClosure && hasStandaloneLessonsOnSelectedClosureDay"
-                      class="inline-flex text-amber-600"
-                      title="Des cours hors série récurrente sont prévus ce jour fermé">
-                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                        <path
-                          fill-rule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clip-rule="evenodd" />
-                      </svg>
-                    </span>
                   </span>
                 </label>
               </div>
@@ -2340,17 +2329,6 @@ const isSelectedDateClosure = computed(() => {
   return Boolean(y && closureDates.value.includes(y))
 })
 
-/** Cours réel du jour sélectionné, non rattaché visuellement à une série récurrente (hors placeholder) */
-const hasStandaloneLessonsOnSelectedClosureDay = computed(() => {
-  if (!isSelectedDateClosure.value) return false
-  return filteredLessons.value.some(
-    (l) =>
-      !l.is_recurring_placeholder &&
-      (!planningLessonOverlapsRecurringSeries(l) ||
-        planningLessonIsUniqueSuperposedOnRecurring(l))
-  )
-})
-
 /**
  * Le cours « matérialise » l’occurrence du créneau récurrent ce jour-là (donc pas de carte placeholder).
  * Même élève + chevauchement horaire : inclut le remplacement ponctuel d’enseignant sur la séance.
@@ -2419,11 +2397,29 @@ function buildRecurringPlaceholder(rs: any, dateStr: string): Lesson {
   return buildRecurringPlaceholderPure(rs, dateStr) as unknown as Lesson
 }
 
+function lessonYmdFromStartTime(startTime: string | undefined | null): string {
+  if (!startTime) return ''
+  const ls = new Date(startTime)
+  const y = ls.getFullYear()
+  const m = String(ls.getMonth() + 1).padStart(2, '0')
+  const d = String(ls.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** Cours tombant un jour marqué congés club (statut encore « confirmé » en base). */
+function planningLessonOnClubClosureDay(lesson: Lesson | any): boolean {
+  if (lesson.is_recurring_placeholder) return false
+  const ymd = lessonYmdFromStartTime(lesson.start_time)
+  return Boolean(ymd && closureDateSet.value.has(ymd))
+}
+
 /**
- * Cours inactif sur la grille : annulé ou soft-supprimé (n'occupe pas une voie).
+ * Cours inactif sur la grille : annulé, soft-supprimé, ou jour de fermeture club (non maintenu).
  */
 function planningLessonIsInactive(lesson: Lesson | any): boolean {
-  return isInactivePlanningLesson(lesson)
+  if (isInactivePlanningLesson(lesson)) return true
+  if (planningLessonOnClubClosureDay(lesson)) return true
+  return Boolean((lesson as any).is_on_closure_day)
 }
 
 /**
@@ -2443,6 +2439,10 @@ function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
 /** Ligne d’audit affichée sous le titre d’un cours annulé / soft-supprimé. */
 function lessonInactivityAuditLine(lesson: Lesson): string | null {
   if (lesson.is_recurring_placeholder || !planningLessonIsInactive(lesson)) return null
+
+  if (planningLessonOnClubClosureDay(lesson) && lesson.status !== 'cancelled' && !lesson.deleted_at) {
+    return 'Jour de fermeture du club — cours non maintenu'
+  }
 
   const role = lesson.cancelled_by_role
   const who =
@@ -5185,9 +5185,6 @@ function getLessonBorderClass(lesson: Lesson): string {
     return lesson.status === 'cancelled'
       ? 'border-red-300 bg-red-50'
       : 'border-orange-400 bg-orange-50'
-  }
-  if (isSelectedDateClosure.value && !planningLessonOverlapsRecurringSeries(lesson)) {
-    return 'border-red-500 bg-red-50 ring-2 ring-red-200/80'
   }
   const classes: Record<string, string> = {
     'confirmed': 'border-green-300 bg-green-50',

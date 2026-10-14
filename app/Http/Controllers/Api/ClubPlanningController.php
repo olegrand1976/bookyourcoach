@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Club;
-use App\Models\ClubClosureDay;
 use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\Teacher;
+use App\Services\ClubClosureDayService;
 use App\Services\RecurringPlanningAdviceService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -430,12 +430,12 @@ class ClubPlanningController extends Controller
         $rangeStart = $rangeStartYmd.' 00:00:00';
         $rangeEnd = $rangeEndYmd.' 23:59:59';
 
-        $closureDates = ClubClosureDay::query()
-            ->where('club_id', $clubId)
-            ->whereBetween('closed_on', [$rangeStartYmd, $rangeEndYmd])
-            ->get()
-            ->mapWithKeys(fn (ClubClosureDay $row) => [$row->closed_on->format('Y-m-d') => true])
-            ->all();
+        $closureYmds = app(ClubClosureDayService::class)->listClosedDatesForClubs(
+            [(int) $clubId],
+            $rangeStartYmd,
+            $rangeEndYmd,
+        );
+        $closureDates = array_fill_keys($closureYmds, true);
 
         /** @var array<string, list<array<string, mixed>>> $occupancyLessons */
         $occupancyLessons = [];

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Student;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexParticipantClosureDaysRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\StudentLessonCalendarResource;
@@ -207,6 +209,51 @@ class DashboardController extends Controller
         return response()->json([
             'success' => true,
             'data' => $lessons
+        ]);
+    }
+
+    /**
+     * Jours de fermeture club pour les calendriers élève (clubs du foyer + clubs des cours).
+     */
+    public function closureDays(IndexParticipantClosureDaysRequest $request): JsonResponse
+    {
+        $studentIds = $this->getActiveStudentIds($request);
+        if ($studentIds === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profil étudiant non trouvé',
+            ], 404);
+        }
+
+        $clubIdsFromPivot = Student::query()
+            ->whereIn('id', $studentIds)
+            ->with('clubs:id')
+            ->get()
+            ->flatMap(fn (Student $student) => $student->clubs->pluck('id'));
+
+        $clubIdsFromLessons = Lesson::query()
+            ->forParticipantStudents($studentIds)
+            ->whereNotNull('club_id')
+            ->distinct()
+            ->pluck('club_id');
+
+        $clubIds = $clubIdsFromPivot
+            ->merge($clubIdsFromLessons)
+            ->unique()
+            ->values()
+            ->all();
+
+        $validated = $request->validated();
+        $dates = app(ClubClosureDayService::class)->listClosedDatesForClubs(
+            $clubIds,
+            $validated['date_from'],
+            $validated['date_to'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => ['dates' => $dates],
+            'message' => null,
         ]);
     }
 

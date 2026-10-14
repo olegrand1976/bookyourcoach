@@ -153,6 +153,7 @@ Route::middleware(['auth:sanctum', '2fa', 'teacher'])->prefix('teacher')->group(
     Route::get('/students', [App\Http\Controllers\Api\TeacherController::class, 'getStudents']); // Liste des élèves
     Route::get('/students/{id}', [App\Http\Controllers\Api\TeacherController::class, 'getStudent']); // Détails d'un élève
     Route::get('/clubs', [App\Http\Controllers\Api\TeacherController::class, 'getClubs']); // Liste des clubs
+    Route::get('/closure-days', [App\Http\Controllers\Api\TeacherController::class, 'closureDays']);
     Route::get('/earnings', [App\Http\Controllers\Api\TeacherController::class, 'getEarnings']); // Revenus de l'enseignant
     
     // Notifications
@@ -184,6 +185,7 @@ Route::middleware(['auth:sanctum', 'student', 'active.student'])->prefix('studen
     Route::get('/lesson-history', [App\Http\Controllers\Api\Student\DashboardController::class, 'getLessonHistory']);
     
     // Réservations
+    Route::get('/closure-days', [App\Http\Controllers\Api\Student\DashboardController::class, 'closureDays']);
     Route::get('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'getBookings']);
     Route::post('/bookings', [App\Http\Controllers\Api\Student\DashboardController::class, 'createBooking']);
     Route::match(['put', 'post'], '/bookings/{id}/cancel', [App\Http\Controllers\Api\Student\DashboardController::class, 'cancelBooking']);

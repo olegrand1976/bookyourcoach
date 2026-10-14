@@ -83,7 +83,7 @@ class ClubClosureDayService
                 $this->auditAttributes(['closed_by_user_id' => $actor?->id])
             );
 
-            if (!$closure->wasRecentlyCreated) {
+            if (! $closure->wasRecentlyCreated) {
                 Log::info('Club closure: day already closed, skip', [
                     'club_id' => $club->id,
                     'closed_on' => $dateYmd,
@@ -388,6 +388,31 @@ class ClubClosureDayService
      * @param  Collection<int, Lesson>  $lessons
      * @return Collection<int, Lesson>
      */
+    /**
+     * Dates Y-m-d de fermeture pour un ou plusieurs clubs sur une plage (calendriers élève / enseignant).
+     *
+     * @param  array<int, int>  $clubIds
+     * @return list<string>
+     */
+    public function listClosedDatesForClubs(array $clubIds, string $dateFrom, string $dateTo): array
+    {
+        $clubIds = array_values(array_unique(array_filter(array_map('intval', $clubIds))));
+        if ($clubIds === []) {
+            return [];
+        }
+
+        return ClubClosureDay::query()
+            ->whereIn('club_id', $clubIds)
+            ->whereDate('closed_on', '>=', $dateFrom)
+            ->whereDate('closed_on', '<=', $dateTo)
+            ->orderBy('closed_on')
+            ->get()
+            ->map(fn (ClubClosureDay $row) => Carbon::parse($row->closed_on)->toDateString())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public function flagLessonsOnClosureDays(Collection $lessons): Collection
     {
         if ($lessons->isEmpty()) {

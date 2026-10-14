@@ -118,16 +118,22 @@
               <div v-for="day in calendarDays" :key="day.date" 
                 :class="[
                   'min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border border-gray-200 rounded',
-                  day.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
-                  day.isToday ? 'bg-blue-50 border-blue-300' : ''
+                  monthDayCellClass(day.date, day.isCurrentMonth, day.isToday),
                 ]">
-                <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+                <div class="flex items-center justify-between mb-0.5 sm:mb-1 gap-0.5">
                   <span :class="[
                     'text-xs sm:text-sm font-medium',
                     day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
                     day.isToday ? 'text-blue-600 font-bold' : ''
                   ]">
                     {{ day.day }}
+                  </span>
+                  <span
+                    v-if="day.isCurrentMonth && isClubClosureDay(day.date)"
+                    class="text-[9px] sm:text-[10px] font-semibold text-gray-600 shrink-0"
+                    title="Fermeture club"
+                  >
+                    Congé
                   </span>
                 </div>
                 <!-- Cours du jour -->
@@ -387,6 +393,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import CreateLessonModal from '~/components/planning/CreateLessonModal.vue'
+import {
+  fetchParticipantClosureDates,
+  monthRangeYmd,
+  useClubClosureCalendar,
+} from '~/composables/useClubClosureCalendar'
 
 definePageMeta({
   middleware: ['auth']
@@ -455,6 +466,8 @@ const saving = ref(false)
 const selectedCalendar = ref<string>('personal')
 const displayDate = ref(new Date())
 const teacherClubs = ref<any[]>([])
+const closureDates = ref<string[]>([])
+const { isClubClosureDay, monthDayCellClass } = useClubClosureCalendar(closureDates)
 const students = ref<any[]>([])
 const courseTypes = ref<CourseType[]>([])
 const lessonForm = ref({
@@ -586,6 +599,23 @@ function getLessonsForDay(dateStr: string): Lesson[] {
 }
 
 // Fonctions
+async function loadClosureDaysForView() {
+  const { $api } = useNuxtApp()
+  try {
+    const range = monthRangeYmd(displayDate.value)
+    const clubId =
+      selectedCalendar.value !== 'personal' ? Number(selectedCalendar.value) : null
+    closureDates.value = await fetchParticipantClosureDates(
+      (url, config) => $api.get(url, config),
+      'teacher',
+      range,
+      clubId,
+    )
+  } catch {
+    closureDates.value = []
+  }
+}
+
 async function loadLessons(options: { silent?: boolean } = {}) {
   try {
     if (!options.silent) {
@@ -595,6 +625,7 @@ async function loadLessons(options: { silent?: boolean } = {}) {
     error.value = null
 
     const { $api } = useNuxtApp()
+    await loadClosureDaysForView()
     const { date_from, date_to } = monthDateRange.value
 
     const params = {

@@ -304,6 +304,10 @@ class LessonController extends Controller
             $lessons = $lessonsQuery->get()
                 ->makeHidden(['teacher_name', 'student_name', 'duration', 'title']);
 
+            if ($user->role === 'club') {
+                app(ClubClosureDayService::class)->flagLessonsOnClosureDays($lessons);
+            }
+
             if ($isPlanningContext) {
                 // Couper les appends remaining_* (1–2 SQL / instance à la sérialisation)
                 $stripAppends = static function ($instances): void {

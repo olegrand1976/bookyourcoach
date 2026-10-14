@@ -59,7 +59,7 @@ class ClubClosureDayTest extends TestCase
             $subscriptionData['validity_months'] = 12;
         }
         $sub = Subscription::create($subscriptionData);
-        if (!$courseType->discipline_id) {
+        if (! $courseType->discipline_id) {
             $courseType->discipline_id = Discipline::factory()->create()->id;
             $courseType->save();
         }
@@ -95,7 +95,7 @@ class ClubClosureDayTest extends TestCase
             $subscriptionData['validity_months'] = 12;
         }
         $sub = Subscription::create($subscriptionData);
-        if (!$courseType->discipline_id) {
+        if (! $courseType->discipline_id) {
             $courseType->discipline_id = Discipline::factory()->create()->id;
             $courseType->save();
         }
@@ -328,20 +328,20 @@ class ClubClosureDayTest extends TestCase
             $pastOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 09:00:00',
-                'end_time' => $closureDay . ' 09:20:00',
+                'start_time' => $closureDay.' 09:00:00',
+                'end_time' => $closureDay.' 09:20:00',
             ]);
             $presentOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 12:00:00',
-                'end_time' => $closureDay . ' 12:20:00',
+                'start_time' => $closureDay.' 12:00:00',
+                'end_time' => $closureDay.' 12:20:00',
             ]);
             $futureOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 18:00:00',
-                'end_time' => $closureDay . ' 18:20:00',
+                'start_time' => $closureDay.' 18:00:00',
+                'end_time' => $closureDay.' 18:20:00',
             ]);
             $pastOutsideClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
@@ -393,8 +393,8 @@ class ClubClosureDayTest extends TestCase
             $completedOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 09:00:00',
-                'end_time' => $closureDay . ' 09:20:00',
+                'start_time' => $closureDay.' 09:00:00',
+                'end_time' => $closureDay.' 09:20:00',
                 'status' => 'completed',
             ]);
             $pastOutside = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
@@ -468,20 +468,20 @@ class ClubClosureDayTest extends TestCase
             $pastOnClosure1 = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 09:00:00',
-                'end_time' => $closureDay . ' 09:20:00',
+                'start_time' => $closureDay.' 09:00:00',
+                'end_time' => $closureDay.' 09:20:00',
             ]);
             $pastOnClosure2 = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 10:00:00',
-                'end_time' => $closureDay . ' 10:20:00',
+                'start_time' => $closureDay.' 10:00:00',
+                'end_time' => $closureDay.' 10:20:00',
             ]);
             $presentOnClosure = Lesson::factory()->forClub($club)->forTeacher($teacher)->forStudent($student)->confirmed()->create([
                 'course_type_id' => $courseType->id,
                 'location_id' => $location->id,
-                'start_time' => $closureDay . ' 12:00:00',
-                'end_time' => $closureDay . ' 12:20:00',
+                'start_time' => $closureDay.' 12:00:00',
+                'end_time' => $closureDay.' 12:20:00',
             ]);
 
             foreach ([$pastOnClosure1, $pastOnClosure2, $presentOnClosure] as $lesson) {
@@ -546,6 +546,43 @@ class ClubClosureDayTest extends TestCase
             'day' => $day,
             'lesson' => $lesson,
         ];
+    }
+
+    #[Test]
+    public function student_closure_days_endpoint_returns_club_dates_in_range(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+        $seed['club']->students()->syncWithoutDetaching([$seed['student']->id]);
+
+        Sanctum::actingAs($seed['clubUser']);
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
+
+        Sanctum::actingAs($seed['studentUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/student/closure-days?date_from='.$seed['day'].'&date_to='.$seed['day']);
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertContains($seed['day'], $response->json('data.dates') ?? []);
+    }
+
+    #[Test]
+    public function club_lessons_index_flags_is_on_closure_day(): void
+    {
+        Queue::fake();
+        $seed = $this->seedStudentLessonOnFutureDay();
+
+        $this->closeDayWithIntent($seed['day'])->assertStatus(200);
+
+        Sanctum::actingAs($seed['clubUser']);
+        $this->withHeaders(['Accept' => 'application/json']);
+
+        $response = $this->getJson('/api/lessons?date_from='.$seed['day'].'&date_to='.$seed['day']);
+        $response->assertStatus(200);
+
+        $row = collect($response->json('data'))->firstWhere('id', $seed['lesson']->id);
+        $this->assertNotNull($row);
+        $this->assertTrue((bool) ($row['is_on_closure_day'] ?? false));
     }
 
     #[Test]

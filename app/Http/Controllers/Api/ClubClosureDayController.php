@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\IndexClubClosureDayRequest;
 use App\Http\Requests\ShowClubClosureDayImpactRequest;
 use App\Http\Requests\UpsertClubClosureDayRequest;
-use App\Models\ClubClosureDay;
 use App\Models\ClubClosureRequest;
 use App\Services\ClubClosureDayService;
 use App\Services\ClubClosureRequestRecorder;
@@ -32,13 +31,11 @@ class ClubClosureDayController extends Controller
         $dateFrom = $request->validated('date_from');
         $dateTo = $request->validated('date_to');
 
-        $dates = ClubClosureDay::query()
-            ->where('club_id', $club->id)
-            ->whereBetween('closed_on', [$dateFrom, $dateTo])
-            ->orderBy('closed_on')
-            ->get()
-            ->map(fn (ClubClosureDay $row) => $row->closed_on->format('Y-m-d'))
-            ->values();
+        $dates = $this->clubClosureDayService->listClosedDatesForClubs(
+            [(int) $club->id],
+            $dateFrom,
+            $dateTo,
+        );
 
         return response()->json([
             'success' => true,

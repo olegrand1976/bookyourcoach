@@ -77,13 +77,19 @@
         <div class="grid grid-cols-7 gap-0.5 sm:gap-1">
           <div v-for="day in calendarDays" :key="day.date" 
             :class="['min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-200', 
-              day.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
-              day.isToday ? 'bg-blue-50 border-blue-300' : '']">
-            <div class="flex items-center justify-between mb-0.5 sm:mb-1">
+              monthDayCellClass(day.date, day.isCurrentMonth, day.isToday)]">
+            <div class="flex items-center justify-between mb-0.5 sm:mb-1 gap-0.5">
               <span :class="['text-xs sm:text-sm font-medium', 
                 day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
                 day.isToday ? 'text-blue-600' : '']">
                 {{ day.day }}
+              </span>
+              <span
+                v-if="day.isCurrentMonth && isClubClosureDay(day.date)"
+                class="text-[9px] sm:text-[10px] font-semibold text-gray-600 shrink-0"
+                title="Fermeture club"
+              >
+                Congé
               </span>
             </div>
             <div class="space-y-0.5 sm:space-y-1">
@@ -108,8 +114,12 @@
             :key="dayInfo.dateKey"
             class="border border-gray-200 rounded-lg overflow-hidden"
           >
-            <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
+            <div
+              class="px-3 py-2 border-b border-gray-200 text-sm font-medium text-gray-700"
+              :class="isClubClosureDay(dayInfo.dateKey) ? 'bg-gray-100' : 'bg-gray-50'"
+            >
               {{ dayInfo.dayLabel }} {{ dayInfo.dateShort }}
+              <span v-if="isClubClosureDay(dayInfo.dateKey)" class="text-xs font-semibold text-gray-500 ml-1">· Congé club</span>
             </div>
             <div class="p-2 space-y-2">
               <div
@@ -289,6 +299,11 @@ import {
   getCertificateStatusClass,
   shouldShowCertificateStatusBadge,
 } from '~/composables/useCancellationLabels'
+import {
+  fetchParticipantClosureDates,
+  monthRangeYmd,
+  useClubClosureCalendar,
+} from '~/composables/useClubClosureCalendar'
 
 const props = defineProps({
   studentId: {
@@ -306,6 +321,8 @@ const events = ref([])
 const selectedEvent = ref(null)
 const isLoading = ref(false)
 const showCancelled = ref(false)
+const closureDates = ref<string[]>([])
+const { isClubClosureDay, monthDayCellClass } = useClubClosureCalendar(closureDates)
 
 // Masquer le bouton Semaine sur mobile (largeur < 768px)
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth < 768 : false)
@@ -566,9 +583,29 @@ const resolveHouseholdNames = (lesson) => {
   return Array.from(new Set(names))
 }
 
+const loadClosureDaysForView = async () => {
+  try {
+    const range = monthRangeYmd(currentDate.value)
+    closureDates.value = await fetchParticipantClosureDates(
+      (url, config) => $api.get(url, {
+        ...config,
+        params: {
+          ...config?.params,
+          active_student_id: studentScopeStore.apiScopeParam,
+        },
+      }),
+      'student',
+      range,
+    )
+  } catch {
+    closureDates.value = []
+  }
+}
+
 const loadCalendarEvents = async () => {
   try {
     isLoading.value = true
+    await loadClosureDaysForView()
     const params = {
       active_student_id: studentScopeStore.apiScopeParam,
       include_cancelled: showCancelled.value
