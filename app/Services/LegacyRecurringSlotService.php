@@ -622,8 +622,9 @@ class LegacyRecurringSlotService
         if (($reference->deduct_from_subscription ?? true)
             && ! ($isSubscriptionActive
                 && $seriesInstanceFresh
-                && $seriesInstanceFresh->getRemainingAttachmentSlots($dayStart) > 0)) {
-            // Carnet de la série épuisé ou inactif à cette date : basculer sur un autre carnet actif de l'élève.
+                && $seriesInstanceFresh->resolveRemainingAttachmentSlotsForPlanning() > 0)) {
+            // Carnet de la série épuisé (réservations futures comprises) ou inactif : basculer sur un
+            // autre carnet actif de l'élève ayant une place à cette date.
             $rollover = $this->findRolloverInstance(
                 $recurringSlot,
                 $reference,
@@ -743,7 +744,14 @@ class LegacyRecurringSlotService
         Carbon $date,
         int $reserveAttachmentSlots = 0
     ): int {
-        $slots = $instance->fresh()->getRemainingAttachmentSlots($date);
+        // Places du carnet réservations futures comprises : la génération ne surbooke pas un carnet
+        // ($date ne sert qu'aux carnets de repli, choisis « à la date »). Capacité indéterminée
+        // (legacy sans template) = illimitée : sans ce repli, aucune série legacy ne générait plus
+        // de cours (régression du 12/10).
+        $slots = $instance->fresh()->resolveRemainingAttachmentSlotsForPlanning();
+        if ($slots === PHP_INT_MAX) {
+            return $slots;
+        }
 
         return max(0, $slots - max(0, $reserveAttachmentSlots));
     }
@@ -787,7 +795,8 @@ class LegacyRecurringSlotService
     private function attachLessonToSubscriptionInstance(SubscriptionInstance $instance, Lesson $lesson): bool
     {
         try {
-            $instance->consumeLesson($lesson->fresh());
+            // Capacité indéterminée (legacy) : rattacher sans plafond, comme avant le 12/10.
+            $instance->consumeLesson($lesson->fresh(), ! $instance->hasDeterminedCapacity());
 
             return true;
         } catch (\Exception $e) {

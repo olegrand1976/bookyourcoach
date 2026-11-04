@@ -301,6 +301,12 @@ class SubscriptionInstance extends Model
         return $instance->getRemainingAttachmentSlots();
     }
 
+    /** Capacité connue (template ou total renseigné) ; sinon abonnement legacy à capacité indéterminée. */
+    public function hasDeterminedCapacity(): bool
+    {
+        return $this->resolveTotalAvailableLessons() > 0;
+    }
+
     private function buildAttachedLessonsQuery()
     {
         $subscriptionStudentIds = $this->students()->pluck('students.id')->map(fn ($id) => (int) $id)->all();
