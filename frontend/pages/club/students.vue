@@ -192,6 +192,7 @@
             v-for="student in filteredStudents" 
             :key="student.id" 
             class="p-4 md:p-6 hover:bg-gray-50 transition-colors"
+            :class="String(panelStudentId) === String(student.id) ? 'bg-emerald-50/60' : ''"
           >
             <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
               <div class="flex items-start space-x-3 md:space-x-4 flex-1">
@@ -203,7 +204,14 @@
                 
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start flex-wrap gap-2 mb-2">
-                    <h4 class="text-base md:text-lg font-medium text-gray-900 break-words">{{ getStudentName(student) }}</h4>
+                    <h4 class="text-base md:text-lg font-medium text-gray-900 break-words">
+                      <button
+                        type="button"
+                        class="text-left hover:text-emerald-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+                        title="Ouvrir la fiche élève"
+                        @click="openStudentPanel(student, 'infos')"
+                      >{{ getStudentName(student) }}</button>
+                    </h4>
                     <span v-if="student.is_active !== false" class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex-shrink-0">
                       Actif
                     </span>
@@ -437,37 +445,22 @@
       @success="onSubscriptionCreatedForNewStudent"
     />
 
-    <!-- Modal de modification d'élève -->
-    <EditStudentModal 
-      v-if="showEditStudentModal && selectedStudent" 
-      :student="selectedStudent"
-      @close="closeEditModal" 
-      @success="loadStudents" 
-    />
-
-    <!-- Modal de gestion des abonnements -->
-    <StudentSubscriptionsModal 
-      v-if="showSubscriptionsModal && selectedStudent" 
-      :student="selectedStudent"
-      @close="showSubscriptionsModal = false" 
-      @success="loadStudents" 
-    />
-
-    <!-- Modal d'historique -->
-    <StudentHistoryModal 
-      v-if="showHistoryModal && selectedStudent" 
-      :student="selectedStudent"
-      @close="showHistoryModal = false" 
+    <!-- Fiche élève : infos, abonnements, planning et historique sans quitter la liste -->
+    <StudentPanel
+      :student-id="panelStudentId"
+      :initial-student="panelInitialStudent"
+      :tab="panelTab"
+      @update:tab="onPanelTabChange"
+      @updated="loadStudents(currentPage)"
+      @close="closeStudentPanel"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import EditStudentModal from '~/components/EditStudentModal.vue'
 import AssignSubscriptionModal from '~/components/AssignSubscriptionModal.vue'
-import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
-import StudentHistoryModal from '~/components/StudentHistoryModal.vue'
+import StudentPanel from '~/components/club/StudentPanel.vue'
 
 definePageMeta({
   middleware: ['auth']
@@ -479,10 +472,13 @@ const availableDisciplines = ref([])
 const showAddStudentModal = ref(false)
 const showAssignSubscriptionModal = ref(false)
 const studentForNewSubscription = ref(null)
-const showEditStudentModal = ref(false)
-const showSubscriptionsModal = ref(false)
-const showHistoryModal = ref(false)
-const selectedStudent = ref(null)
+// Fiche élève (panneau latéral), synchronisée avec l'URL : ?student=ID&tab=...
+const route = useRoute()
+const router = useRouter()
+const PANEL_TABS = ['infos', 'abonnements', 'planning', 'historique']
+const panelStudentId = ref(null)
+const panelInitialStudent = ref(null)
+const panelTab = ref('infos')
 const searchQuery = ref('')
 const selectedStatus = ref('active')
 const sortBy = ref('name')
@@ -737,23 +733,40 @@ const viewStudent = (student) => {
   // TODO: Implémenter la vue détaillée
 }
 
-const editStudent = (student) => {
-  console.log('📝 Modifier élève:', student)
-  selectedStudent.value = { ...student }
-  showEditStudentModal.value = true
+const openStudentPanel = (student, tab = 'infos') => {
+  panelInitialStudent.value = student?.name || student?.email ? { ...student } : null
+  panelStudentId.value = student.id
+  panelTab.value = PANEL_TABS.includes(tab) ? tab : 'infos'
+  syncPanelQuery()
 }
 
-const viewStudentHistory = (student) => {
-  console.log('👁️ Voir historique de l\'élève:', student)
-  selectedStudent.value = { ...student }
-  showHistoryModal.value = true
+const onPanelTabChange = (tab) => {
+  panelTab.value = tab
+  syncPanelQuery()
 }
 
-const viewStudentSubscriptions = (student) => {
-  console.log('📋 Voir abonnements de l\'élève:', student)
-  selectedStudent.value = { ...student }
-  showSubscriptionsModal.value = true
+const closeStudentPanel = () => {
+  panelStudentId.value = null
+  panelInitialStudent.value = null
+  syncPanelQuery()
 }
+
+function syncPanelQuery() {
+  const query = { ...route.query }
+  delete query.openStudent
+  if (panelStudentId.value) {
+    query.student = String(panelStudentId.value)
+    query.tab = panelTab.value
+  } else {
+    delete query.student
+    delete query.tab
+  }
+  router.replace({ query })
+}
+
+const editStudent = (student) => openStudentPanel(student, 'infos')
+const viewStudentHistory = (student) => openStudentPanel(student, 'historique')
+const viewStudentSubscriptions = (student) => openStudentPanel(student, 'abonnements')
 
 const onStudentCreatedWithSubscription = async (student) => {
   showAddStudentModal.value = false
@@ -773,11 +786,6 @@ const closeAssignSubscriptionModal = () => {
 const onSubscriptionCreatedForNewStudent = async () => {
   await loadStudents()
   closeAssignSubscriptionModal()
-}
-
-const closeEditModal = () => {
-  showEditStudentModal.value = false
-  selectedStudent.value = null
 }
 
 // Par défaut true si non défini (rétrocompat avant migration)
@@ -919,17 +927,16 @@ const resendInvitation = async (studentId) => {
   }
 }
 
-// Ouvrir la modale historique si l'URL contient ?openStudent=id (ex. depuis le bloc certificats du planning)
+// Ouvrir la fiche si l'URL contient ?student=id (&tab=...) ou l'ancien ?openStudent=id
+// (bloc certificats du planning → onglet historique)
 onMounted(async () => {
-  await loadStudents()
-  const route = useRoute()
-  const openId = route.query.openStudent
-  if (openId) {
-    const id = Number(openId)
-    if (id) {
-      selectedStudent.value = { id }
-      showHistoryModal.value = true
-    }
+  const fromQuery = Number(route.query.student || 0)
+  const legacy = Number(route.query.openStudent || 0)
+  if (fromQuery) {
+    openStudentPanel({ id: fromQuery }, String(route.query.tab || 'infos'))
+  } else if (legacy) {
+    openStudentPanel({ id: legacy }, 'historique')
   }
+  await loadStudents()
 })
 </script>

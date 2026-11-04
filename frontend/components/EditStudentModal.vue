@@ -1,9 +1,9 @@
 <template>
   <!-- Modal avec design moderne et responsive -->
-  <div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-      <!-- Header avec gradient et icône -->
-      <div class="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
+  <div :class="embedded ? '' : 'fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4'">
+    <div :class="embedded ? 'bg-white' : 'relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden'">
+      <!-- Header avec gradient et icône (masqué dans la fiche élève) -->
+      <div v-if="!embedded" class="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="bg-white bg-opacity-20 p-2 rounded-lg">
@@ -25,7 +25,7 @@
       </div>
 
       <!-- Contenu avec scroll -->
-      <div class="overflow-y-auto max-h-[calc(90vh-120px)]">
+      <div :class="embedded ? '' : 'overflow-y-auto max-h-[calc(90vh-120px)]'">
         <form @submit.prevent="updateStudent" class="p-6 space-y-8">
           
           <!-- Section Informations personnelles -->
@@ -414,6 +414,7 @@
           <!-- Boutons d'action -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button 
+              v-if="!embedded"
               type="button" 
               @click="$emit('close')" 
               class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors font-medium"
@@ -450,7 +451,9 @@ const onInviteCodeUpdated = (payload) => {
 }
 
 const props = defineProps({
-  student: { type: Object, required: true }
+  student: { type: Object, required: true },
+  /** Affiché dans la fiche élève (sans overlay ni en-tête de modale). */
+  embedded: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close', 'success'])

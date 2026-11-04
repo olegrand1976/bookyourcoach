@@ -220,6 +220,37 @@ class ClubStudentControllerTest extends TestCase
     }
 
     #[Test]
+    public function it_filters_club_students_by_student_id_within_club_only()
+    {
+        $user = $this->actingAsClub();
+        $otherClub = Club::factory()->create();
+
+        $mine = Student::factory()->create(['club_id' => $user->club_id]);
+        $other = Student::factory()->create(['club_id' => $user->club_id]);
+        $foreign = Student::factory()->create(['club_id' => $otherClub->id]);
+
+        foreach ([[$user->club_id, $mine], [$user->club_id, $other], [$otherClub->id, $foreign]] as [$clubId, $student]) {
+            DB::table('club_students')->insert([
+                'club_id' => $clubId,
+                'student_id' => $student->id,
+                'is_active' => true,
+                'joined_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $response = $this->getJson("/api/club/students?student_id={$mine->id}&status=all");
+        $response->assertOk();
+        $this->assertSame([$mine->id], collect($response->json('data'))->pluck('id')->all());
+
+        // Élève d'un autre club : jamais renvoyé
+        $this->getJson("/api/club/students?student_id={$foreign->id}&status=all")
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    #[Test]
     public function it_requires_club_role_to_create_student()
     {
         // Arrange

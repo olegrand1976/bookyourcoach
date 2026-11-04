@@ -34,6 +34,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Veille abonnements en fin de vie (la veille de chaque jour de cours)
+    |--------------------------------------------------------------------------
+    | Un abonnement est signalé dès qu'un seuil (cours restants OU jours avant
+    | expiration) est atteint ; le niveau le plus urgent atteint l'emporte.
+    */
+    'subscription_expiry_watch' => [
+        'enabled' => env('SUBSCRIPTION_EXPIRY_WATCH_ENABLED', true),
+        'schedule_time' => env('SUBSCRIPTION_EXPIRY_WATCH_TIME', '07:45'),
+        'timezone' => env('SUBSCRIPTION_EXPIRY_WATCH_TIMEZONE', 'Europe/Brussels'),
+        'dashboard_days' => (int) env('SUBSCRIPTION_EXPIRY_WATCH_DASHBOARD_DAYS', 7),
+        'thresholds' => [
+            'critical' => ['lessons' => 1, 'days' => 3],
+            'urgent' => ['lessons' => 2, 'days' => 7],
+            'watch' => ['lessons' => 3, 'days' => 14],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Conseil créneaux récurrents (prévisualisation + enrichissement 422)
     |--------------------------------------------------------------------------
     */

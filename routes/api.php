@@ -295,6 +295,8 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     Route::put('/students/{studentId}', [StudentController::class, 'update']);
     Route::delete('/students/{studentId}', [ClubController::class, 'removeStudent']);
     // Abonnements du club
+    // Veille abonnements en fin de vie (avant /subscriptions/{id})
+    Route::get('/subscriptions/expiring', [App\Http\Controllers\Api\ClubSubscriptionExpiryController::class, 'index']);
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);

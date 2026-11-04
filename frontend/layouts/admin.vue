@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Header Admin Unifié -->
-    <nav class="bg-white shadow-lg border-b-4 border-red-500">
+    <nav class="sticky top-0 z-40 bg-white shadow-lg border-b-4 border-red-500">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-20">
           <div class="flex items-center">

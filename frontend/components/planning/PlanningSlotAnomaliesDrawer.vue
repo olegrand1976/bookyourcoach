@@ -40,7 +40,14 @@
           </span>
           <span class="font-medium text-gray-900 tabular-nums">{{ timeRange(entry.placeholder) }}</span>
           <span class="text-gray-400">·</span>
-          <span class="font-medium text-gray-800 truncate">{{ entry.studentsLabel || 'Élève' }}</span>
+          <button
+            v-if="entry.placeholder.student_id"
+            type="button"
+            class="font-medium text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 truncate text-left"
+            :title="`Ouvrir la fiche de ${entry.studentsLabel || 'l’élève'}`"
+            @click.stop.prevent="emit('open-student', entry.placeholder)"
+          >{{ entry.studentsLabel || 'Élève' }}</button>
+          <span v-else class="font-medium text-gray-800 truncate">{{ entry.studentsLabel || 'Élève' }}</span>
           <span v-if="entry.teacherName" class="text-gray-600 truncate">· 🎓 {{ entry.teacherName }}</span>
           <span class="text-gray-500">· série n°{{ entry.placeholder.recurring_slot_id ?? '—' }}</span>
         </div>
@@ -141,6 +148,7 @@ const emit = defineEmits<{
   (e: 'materialize', placeholder: PlanningLessonLike): void
   (e: 'create-here', placeholder: PlanningLessonLike): void
   (e: 'release', placeholder: PlanningLessonLike): void
+  (e: 'open-student', placeholder: PlanningLessonLike): void
 }>()
 
 function entryKey(entry: AnomalyDrawerEntry): string {

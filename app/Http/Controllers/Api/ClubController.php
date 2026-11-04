@@ -774,6 +774,11 @@ class ClubController extends Controller
                 });
             }
             
+            // Fiche élève (planning, liste) : un seul élève, toujours limité au club courant
+            if ($request->filled('student_id')) {
+                $query->where('students.id', (int) $request->input('student_id'));
+            }
+
             // Filtrer par statut - Par défaut, seuls les élèves actifs sont retournés
             if ($status === 'active' || empty($status) || $status === null) {
                 $query->where('club_students.is_active', true);

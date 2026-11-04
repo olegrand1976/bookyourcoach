@@ -373,8 +373,8 @@
                     type="checkbox"
                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     :checked="isSelectedDateClosure"
-                    :disabled="closureSaving || lessonsLoadFailed"
-                    :title="lessonsLoadFailed ? 'Indisponible : les cours du jour n’ont pas pu être chargés' : undefined"
+                    :disabled="closureSaving || planningLoadFailed"
+                    :title="planningLoadFailed ? 'Indisponible : les cours du jour n’ont pas pu être chargés' : undefined"
                     @change="onClosureToggle" />
                   <span class="flex items-center gap-1 font-medium">
                     Congés
@@ -434,7 +434,7 @@
             <!-- Chargement des cours en échec : la journée affichée est incomplète.
                  Sans ce signal, une journée vide est indiscernable d'une journée sans cours. -->
             <div
-              v-if="lessonsLoadFailed"
+              v-if="planningLoadFailed"
               class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-800">
               <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                 <path
@@ -443,13 +443,13 @@
                   clip-rule="evenodd" />
               </svg>
               <span class="min-w-0 flex-1">
-                <span class="font-medium">Les cours n’ont pas pu être chargés.</span>
+                <span class="font-medium">{{ lessonsLoadFailed ? 'Les cours n’ont pas pu être chargés.' : 'Les élèves des créneaux récurrents n’ont pas pu être rechargés.' }}</span>
                 La journée affichée est peut-être incomplète : ne vous y fiez pas pour marquer un congé.
               </span>
               <button
                 type="button"
                 class="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700"
-                @click="loadLessons()">
+                @click="refreshPlanningData()">
                 Réessayer
               </button>
             </div>
@@ -532,6 +532,7 @@
                 @materialize="materializeRecurringPlaceholderLesson"
                 @create-here="openCreateLessonFromRecurringPlaceholder"
                 @release="openPlaceholderDeleteModal"
+                @open-student="openStudentPanelFromLesson"
               />
 
               <!-- Grille des cours pour cette plage horaire -->
@@ -742,6 +743,7 @@
                   @materialize="materializeRecurringPlaceholderLesson"
                   @create-here="openCreateLessonFromRecurringPlaceholder"
                   @release="openPlaceholderDeleteModal"
+                  @open-student="openStudentPanelFromLesson"
                 />
                 <div class="overflow-x-auto bg-gray-50">
                   <button
@@ -1244,6 +1246,15 @@
         </div>
       </div>
       
+      <!-- Fiche élève complète (infos, abonnements, planning, historique) par-dessus le planning -->
+      <StudentPanel
+        :student-id="studentPanelId"
+        :tab="studentPanelTab"
+        @update:tab="studentPanelTab = $event"
+        @updated="refreshPlanningData()"
+        @close="studentPanelId = null"
+      />
+
       <PlanningParticipantInfoModal
         :show="showParticipantInfoModal"
         :type="participantInfoType"
@@ -1689,6 +1700,7 @@ import PlanningDayAnomalyBar from '~/components/planning/PlanningDayAnomalyBar.v
 import type { AnomalyFilter } from '~/components/planning/PlanningDayAnomalyBar.vue'
 import LessonsHistoryModal from '~/components/planning/LessonsHistoryModal.vue'
 import PlanningParticipantInfoModal from '~/components/planning/PlanningParticipantInfoModal.vue'
+import StudentPanel, { type StudentPanelTab } from '~/components/club/StudentPanel.vue'
 import BroadcastDayMessageModal from '~/components/planning/BroadcastDayMessageModal.vue'
 import ClosureDayConfirmModal from '~/components/planning/ClosureDayConfirmModal.vue'
 import {
@@ -1713,6 +1725,12 @@ import {
   pruneYmdListToRange,
   unionLoadedDateRange,
 } from '~/composables/planning/usePlanningCalendar'
+import {
+  createRefreshEpoch,
+  planningRefreshRange,
+  replaceLessonsInRange,
+  upsertById,
+} from '~/composables/planning/usePlanningDataMerge'
 
 // Composable pour les toasts
 const { success, error: showError, warning } = useToast()
@@ -1919,6 +1937,9 @@ function openScheduleConflictFrom(
 const showHistoryModal = ref(false)
 const showBroadcastModal = ref(false)
 const showParticipantInfoModal = ref(false)
+/** Fiche élève (panneau latéral) ouverte depuis un cours ou un trou de série. */
+const studentPanelId = ref<number | null>(null)
+const studentPanelTab = ref<StudentPanelTab>('abonnements')
 const participantInfoType = ref<'student' | 'teacher'>('student')
 const participantInfoId = ref<number | null>(null)
 const participantInfoName = ref('')
@@ -1948,6 +1969,11 @@ const closureConfirm = ref<{
 } | null>(null)
 /** Les cours de la plage n'ont pas pu être chargés : le planning affiché est incomplet. */
 const lessonsLoadFailed = ref(false)
+/** Échec du chargement des séries récurrentes : les élèves des trous peuvent manquer. */
+const recurringSlotsLoadFailed = ref(false)
+const planningLoadFailed = computed(() => lessonsLoadFailed.value || recurringSlotsLoadFailed.value)
+/** Une réponse partie avant le dernier rafraîchissement complet est ignorée. */
+const planningRefreshEpoch = createRefreshEpoch()
 const teachers = ref<any[]>([])
 const students = ref<any[]>([])
 
@@ -3095,6 +3121,7 @@ async function loadLessons(
   options?: { loadClosures?: boolean }
 ) {
   const loadClosures = options?.loadClosures !== false
+  const epoch = planningRefreshEpoch.current()
   try {
     const $api = getApiClient()
     const today = new Date()
@@ -3111,16 +3138,18 @@ async function loadLessons(
       }
     })
     
+    // Un rafraîchissement plus récent a démarré : cette réponse peut être périmée.
+    if (!planningRefreshEpoch.isCurrent(epoch)) return
+
     if (response.data.success) {
       lessonsLoadFailed.value = false
       const newLessons = Array.isArray(response.data.data) ? response.data.data : []
-      // Si on recharge une plage spécifique, fusionner avec les cours existants
+      // Plage spécifique : remplacer les cours de cette plage (versions à jour, suppressions
+      // prises en compte) sans toucher au reste du planning déjà chargé.
       if (customStartDate || customEndDate) {
-        const existingLessonIds = new Set(lessons.value.map((l: any) => l.id))
-        const lessonsToAdd = newLessons.filter((l: any) => !existingLessonIds.has(l.id))
-        lessons.value = [...lessons.value, ...lessonsToAdd]
+        lessons.value = replaceLessonsInRange(lessons.value, newLessons, startDate, endDate)
         if (import.meta.dev) {
-          planningDevLog('✅ Cours fusionnés:', { nouveaux: lessonsToAdd.length, total: lessons.value.length })
+          planningDevLog('✅ Cours fusionnés:', { recus: newLessons.length, total: lessons.value.length })
         }
         const prevStart = loadedLessonsRange.value.start
         const prevEnd = loadedLessonsRange.value.end
@@ -3170,6 +3199,7 @@ async function loadLessons(
       lessonsLoadFailed.value = true
     }
   } catch (err: any) {
+    if (!planningRefreshEpoch.isCurrent(epoch)) return
     console.error('Erreur chargement cours:', err)
     // Un échec de chargement doit rester visible : une journée vide parce que la
     // requête a échoué est indiscernable d'une journée sans cours, et c'est ce qui
@@ -3258,7 +3288,7 @@ async function onClosureToggle(ev: Event) {
   const context = {
     impact,
     impactFailed: impact === null,
-    lessonsLoadFailed: lessonsLoadFailed.value,
+    lessonsLoadFailed: planningLoadFailed.value,
   }
   if (resolveClosureToggleDecision(context) === 'abort') {
     showError(buildClosureAbortMessage(context), 'Jour de congés')
@@ -3311,7 +3341,19 @@ async function onClosureConfirm(confirmation: ClosureConfirmation) {
   }
 }
 
-async function loadClubRecurringSlots(customStartDate?: Date, customEndDate?: Date) {
+/**
+ * Charge les séries récurrentes (elles portent les élèves placés sur les trous).
+ * - `replace: false` (extension de plage) : fusion par id, rien n'est retiré.
+ * - `replace: true` (rafraîchissement) : la liste reçue fait foi.
+ * En cas d'échec, les données déjà affichées sont conservées et un bandeau le signale.
+ */
+async function loadClubRecurringSlots(
+  customStartDate?: Date,
+  customEndDate?: Date,
+  options?: { replace?: boolean },
+) {
+  const replace = options?.replace ?? !(customStartDate || customEndDate)
+  const epoch = planningRefreshEpoch.current()
   try {
     const $api = getApiClient()
     const today = new Date()
@@ -3335,15 +3377,38 @@ async function loadClubRecurringSlots(customStartDate?: Date, customEndDate?: Da
         date_to: toLocalYmd(rangeEnd),
       },
     })
+    if (!planningRefreshEpoch.isCurrent(epoch)) return
     if (response.data?.success) {
-      clubRecurringSlots.value = Array.isArray(response.data.data) ? response.data.data : []
+      const incoming = Array.isArray(response.data.data) ? response.data.data : []
+      clubRecurringSlots.value = replace ? incoming : upsertById(clubRecurringSlots.value, incoming)
+      recurringSlotsLoadFailed.value = false
     } else {
-      clubRecurringSlots.value = []
+      console.warn('[Planning] Chargement créneaux récurrents:', response.data?.message)
+      recurringSlotsLoadFailed.value = true
     }
   } catch (err) {
+    if (!planningRefreshEpoch.isCurrent(epoch)) return
     console.warn('[Planning] Chargement créneaux récurrents:', err)
-    clubRecurringSlots.value = []
+    recurringSlotsLoadFailed.value = true
   }
+}
+
+/**
+ * Rafraîchit cours + séries après une modification, sur la plage déjà chargée (qui contient
+ * le jour affiché). Ne revient jamais à la plage initiale : avant, un jour consulté au-delà
+ * de ±2 semaines perdait tous ses élèves après une correction.
+ */
+async function refreshPlanningData() {
+  const range = planningRefreshRange(
+    loadedLessonsRange.value,
+    selectedDate.value,
+    getClubPlanningInitialRange(new Date()),
+  )
+  planningRefreshEpoch.bump()
+  await Promise.all([
+    loadLessons(range.start, range.end),
+    loadClubRecurringSlots(range.start, range.end, { replace: true }),
+  ])
 }
 
 /**
@@ -3366,7 +3431,7 @@ async function materializeRecurringPlaceholderLesson(lesson: Lesson): Promise<vo
     if (response.data?.success) {
       const msg = response.data?.message || 'Cours mis à jour'
       success(msg)
-      await loadLessons()
+      await refreshPlanningData()
       return
     }
     const suggested = Number(response.data?.data?.suggested_recurring_slot_id ?? response.data?.suggested_recurring_slot_id)
@@ -3485,7 +3550,7 @@ async function executePlaceholderRelease(scope: 'single' | 'all_future') {
       closeDeleteModal()
       const rangeStart = loadedLessonsRange.value.start ?? undefined
       const rangeEnd = loadedLessonsRange.value.end ?? undefined
-      await loadClubRecurringSlots(rangeStart, rangeEnd)
+      await loadClubRecurringSlots(rangeStart, rangeEnd, { replace: true })
       return
     }
     showError(response.data?.message || 'Erreur lors de la suppression', 'Planning')
@@ -3577,7 +3642,7 @@ async function onScheduleConflictReleaseRecurring(slotId: number) {
     })
     if (response.data?.success) {
       success('Créneau récurrent libéré')
-      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      await refreshPlanningData()
       closeScheduleConflictModal()
     } else {
       showError(response.data?.message || 'Erreur lors de la libération', 'Libération')
@@ -4426,7 +4491,7 @@ async function createLesson() {
       success('Cours créé avec succès', 'Succès')
       
       // Recharger les cours et les récurrences (affichage séries / placeholders)
-      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      await refreshPlanningData()
       
       // Conserver la date sélectionnée dans "Cours programmés" si elle existe
       // et correspond au jour du créneau sélectionné
@@ -4686,7 +4751,7 @@ async function performUpdate(updatePayload: any, scope: 'single' | 'all_future')
       }
     }
     
-    await Promise.all([loadLessons(), loadClubRecurringSlots()])
+    await refreshPlanningData()
     closeEditLessonModal()
     
     // Réinitialiser les variables
@@ -4900,7 +4965,7 @@ async function updateLessonStatus(lessonId: number, newStatus: string) {
     
     if (response.data.success) {
       success('Statut du cours mis à jour avec succès', 'Succès')
-      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      await refreshPlanningData()
       closeLessonModal()
     } else {
       showError(response.data.message || 'Erreur lors de la mise à jour du statut', 'Erreur')
@@ -5106,7 +5171,7 @@ async function executeDeleteLesson(
         const scopeLabel = processed === 1 ? 'Cours' : `${processed} cours`
         success(response.data.message || `${scopeLabel} ${actionLabel} avec succès`)
       }
-      await Promise.all([loadLessons(), loadClubRecurringSlots()])
+      await refreshPlanningData()
     } else {
       showError(response.data.message || 'Erreur lors de la suppression')
     }
@@ -5604,15 +5669,18 @@ function findSlotContainingTime(slots: { start_time?: string; end_time?: string 
 }
 
 function openStudentInfoFromLesson(lesson: Lesson) {
+  openStudentPanelFromLesson(lesson)
+}
+
+/** Ouvre la fiche élève complète sans quitter le planning (cours ou trou de série). */
+function openStudentPanelFromLesson(lesson: Lesson | any) {
   const id = resolveLessonPrimaryStudentId(lesson)
   if (!id) {
     warning('Aucun élève associé à ce cours.', 'Fiche élève')
     return
   }
-  participantInfoType.value = 'student'
-  participantInfoId.value = id
-  participantInfoName.value = getLessonStudents(lesson)
-  showParticipantInfoModal.value = true
+  studentPanelTab.value = 'abonnements'
+  studentPanelId.value = id
 }
 
 function openTeacherInfoFromLesson(lesson: Lesson) {

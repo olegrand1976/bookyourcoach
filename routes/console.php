@@ -87,6 +87,17 @@ if (config('bookyourcoach.club_daily_planning_insight.enabled', true)) {
         });
 }
 
+// Veille abonnements : la veille de chaque jour de cours, élèves du lendemain dont l'abonnement
+// arrive en fin de vie (rien n'est envoyé sans cours ni abonnement concerné)
+if (config('bookyourcoach.subscription_expiry_watch.enabled', true)) {
+    Schedule::command('subscriptions:watch-expiring')
+        ->dailyAt(config('bookyourcoach.subscription_expiry_watch.schedule_time', '07:45'))
+        ->timezone(config('bookyourcoach.subscription_expiry_watch.timezone', 'Europe/Brussels'))
+        ->onFailure(function () {
+            \Log::error('Échec de la veille des abonnements en fin de vie');
+        });
+}
+
 // Purge des jetons d'accès dormants (expiration glissante, cf. bookyourcoach.auth.token_idle_days)
 Schedule::command('auth:prune-idle-tokens')
     ->dailyAt('03:30')

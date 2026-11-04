@@ -1,11 +1,11 @@
 <template>
-  <div class="fixed inset-0 z-50 overflow-y-auto" @click.self="$emit('close')">
-    <div class="flex items-center justify-center min-h-screen px-4 py-12">
-      <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" @click="$emit('close')"></div>
+  <div :class="embedded ? '' : 'fixed inset-0 z-50 overflow-y-auto'" @click.self="!embedded && $emit('close')">
+    <div :class="embedded ? '' : 'flex items-center justify-center min-h-screen px-4 py-12'">
+      <div v-if="!embedded" class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" @click="$emit('close')"></div>
       
-      <div class="relative bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600">
+      <div :class="embedded ? 'bg-white' : 'relative bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden'">
+        <!-- Header (masqué dans la fiche élève, qui a son propre en-tête) -->
+        <div v-if="!embedded" class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600">
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-bold text-white">Historique de {{ studentDisplayName }}</h2>
@@ -23,7 +23,7 @@
         </div>
 
         <!-- Content -->
-        <div class="overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div :class="embedded ? '' : 'overflow-y-auto max-h-[calc(90vh-180px)]'">
           <!-- Loading -->
           <div v-if="loading" class="flex justify-center items-center py-12">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -241,7 +241,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+        <div v-if="!embedded" class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
           <button 
             @click="$emit('close')"
             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -675,6 +675,11 @@ const props = defineProps({
   student: {
     type: Object,
     required: true
+  },
+  /** Affiché dans la fiche élève (sans overlay ni en-tête de modale). */
+  embedded: {
+    type: Boolean,
+    default: false
   }
 })
 

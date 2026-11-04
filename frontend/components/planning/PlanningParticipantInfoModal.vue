@@ -1,17 +1,18 @@
 <template>
   <div
     v-if="show && participantId"
-    class="fixed inset-0 z-[60] overflow-y-auto"
-    role="dialog"
-    aria-modal="true"
-    :aria-labelledby="titleId"
-    @click.self="$emit('close')"
+    :class="embedded ? '' : 'fixed inset-0 z-[60] overflow-y-auto'"
+    :role="embedded ? undefined : 'dialog'"
+    :aria-modal="embedded ? undefined : 'true'"
+    :aria-labelledby="embedded ? undefined : titleId"
+    @click.self="!embedded && $emit('close')"
   >
-    <div class="flex min-h-screen items-center justify-center px-4 py-8">
-      <div class="fixed inset-0 bg-black/50" aria-hidden="true" @click="$emit('close')" />
+    <div :class="embedded ? '' : 'flex min-h-screen items-center justify-center px-4 py-8'">
+      <div v-if="!embedded" class="fixed inset-0 bg-black/50" aria-hidden="true" @click="$emit('close')" />
 
-      <div class="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-xl bg-white shadow-xl overflow-hidden">
+      <div :class="embedded ? 'bg-white' : 'relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-xl bg-white shadow-xl overflow-hidden'">
         <div
+          v-if="!embedded"
           class="px-6 py-4 border-b shrink-0"
           :class="type === 'student' ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'"
         >
@@ -54,7 +55,7 @@
           </nav>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-6 min-h-[12rem]">
+        <div :class="embedded ? 'p-6' : 'flex-1 overflow-y-auto p-6 min-h-[12rem]'">
           <div v-if="loading" class="flex justify-center py-16">
             <div
               class="animate-spin h-10 w-10 border-2 rounded-full"
@@ -237,6 +238,8 @@ const props = defineProps<{
   type: ParticipantType
   participantId: number | null
   fallbackName?: string
+  /** Fiche élève : seulement l'onglet cours, sans overlay ni en-tête. */
+  embedded?: boolean
 }>()
 
 defineEmits<{ close: [] }>()
@@ -377,6 +380,8 @@ watch(
     lessonPeriodMode.value = 'upcoming_quarter'
     loadData(type, id)
   },
+  // Immédiat : intégré dans la fiche élève, le composant est monté déjà visible.
+  { immediate: true },
 )
 
 async function loadData(type: ParticipantType, id: number) {

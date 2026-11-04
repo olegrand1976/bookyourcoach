@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Navigation -->
-    <nav class="bg-white shadow-lg border-b-4 border-blue-500">
+    <nav class="sticky top-0 z-40 bg-white shadow-lg border-b-4 border-blue-500">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-20">
           <div class="flex items-center">
@@ -41,7 +41,7 @@
                 </button>
 
                 <div v-if="userMenuOpen"
-                  class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-blue-500/20">
+                  class="absolute right-0 mt-2 w-56 max-h-[calc(100vh-6rem)] overflow-y-auto bg-white rounded-xl shadow-xl py-2 z-50 border border-blue-500/20">
                   <NuxtLink v-if="isAdmin" to="/admin" @click="userMenuOpen = false"
                     class="flex items-center space-x-2 w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
                     <span>📊</span>

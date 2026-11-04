@@ -408,6 +408,11 @@
         </div>
       </div>
 
+      <!-- Veille : élèves ayant cours prochainement avec un abonnement en fin de vie -->
+      <div class="mb-8">
+        <ExpiringSubscriptionsCard ref="expiringCard" :days="7" @open-student="openStudentPanel" />
+      </div>
+
       <!-- Abonnements en fin de parcours : section toujours visible (bouton visible dès qu'il y a des items) -->
       <div class="mb-8">
         <div class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
@@ -693,6 +698,14 @@
       </div>
     </div>
 
+    <StudentPanel
+      :student-id="panelStudentId"
+      :tab="panelTab"
+      @update:tab="panelTab = $event"
+      @updated="expiringCard?.reload()"
+      @close="panelStudentId = null"
+    />
+
     <StudentSubscriptionsModal
       v-if="showSubscriptionsModal && selectedStudentForSubscriptions"
       :student="selectedStudentForSubscriptions"
@@ -799,6 +812,8 @@
 import { ref, onMounted } from 'vue'
 import PredictiveAnalysis from '~/components/AI/PredictiveAnalysis.vue'
 import ClubNotificationBell from '~/components/club/ClubNotificationBell.vue'
+import ExpiringSubscriptionsCard from '~/components/club/ExpiringSubscriptionsCard.vue'
+import StudentPanel from '~/components/club/StudentPanel.vue'
 import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
 
 // Le middleware global 'auth.global.ts' gère déjà la protection de cette route.
@@ -813,6 +828,14 @@ const recentStudents = ref([])
 const recentLessons = ref([])
 const incompleteStudents = ref([])
 const subscriptionsNearingEnd = ref([])
+// Fiche élève ouverte depuis la veille abonnements (sans quitter le tableau de bord)
+const panelStudentId = ref(null)
+const panelTab = ref('abonnements')
+const expiringCard = ref(null)
+const openStudentPanel = (id) => {
+  panelTab.value = 'abonnements'
+  panelStudentId.value = id
+}
 const pendingCertificates = ref([])
 const isLoading = ref(true)
 const hasError = ref(false)
