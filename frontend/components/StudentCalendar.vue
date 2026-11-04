@@ -321,7 +321,7 @@ const events = ref([])
 const selectedEvent = ref(null)
 const isLoading = ref(false)
 const showCancelled = ref(false)
-const closureDates = ref<string[]>([])
+const closureDates = ref([]) // dates Y-m-d (script JS : pas de générique TS)
 const { isClubClosureDay, monthDayCellClass } = useClubClosureCalendar(closureDates)
 
 // Masquer le bouton Semaine sur mobile (largeur < 768px)
