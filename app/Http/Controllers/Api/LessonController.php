@@ -1030,6 +1030,16 @@ class LessonController extends Controller
             ];
 
             $validated = $request->validate($validationRules);
+            // Colonnes non nullables : « null » signifie « laisser le serveur décider », jamais l'écrire
+            // (est_legacy suit alors l'abonnement rattaché ; cf. SubscriptionInstance::consumeLesson).
+            foreach (['est_legacy', 'deduct_from_subscription'] as $nonNullable) {
+                if (array_key_exists($nonNullable, $validated) && $validated[$nonNullable] === null) {
+                    unset($validated[$nonNullable]);
+                }
+            }
+            $requestedDeduction = array_key_exists('deduct_from_subscription', $validated)
+                ? (bool) $validated['deduct_from_subscription']
+                : null;
             $updateScope = $validated['update_scope'] ?? 'single';
             $forceTeacherOnExceptions = (bool) ($validated['force_teacher_on_exceptions'] ?? false);
 
@@ -1520,7 +1530,15 @@ class LessonController extends Controller
             }
             }); // Fin transaction all_future / update cours
 
+            // « Déduire d'un abonnement » : le cours doit réellement être rattaché (ou détaché).
+            $subscriptionLink = $requestedDeduction !== null
+                ? $this->syncLessonSubscriptionLink($lesson->fresh(), $requestedDeduction)
+                : null;
+
             $message = 'Cours mis à jour avec succès';
+            if ($subscriptionLink && $subscriptionLink['message']) {
+                $message .= '. '.$subscriptionLink['message'];
+            }
             if ($updateScope === 'all_future' && $updatedFutureLessonsCount > 0) {
                 $message .= ". {$updatedFutureLessonsCount} cours futur(s) ont également été mis à jour.";
             }
@@ -1575,6 +1593,7 @@ class LessonController extends Controller
                     'location'
                 ]),
                 'message' => $message,
+                'subscription_link' => $subscriptionLink,
                 'updated_future_lessons_count' => $updatedFutureLessonsCount,
                 'skipped_future_lessons' => $skippedFutureLessons,
                 'skipped_future_lessons_count' => $skippedCount,
@@ -2506,55 +2525,8 @@ class LessonController extends Controller
 
             $deductFromSubscription = $validated['deduct_from_subscription'];
 
-            if ($deductFromSubscription) {
-                // Lier le cours à un abonnement si possible
-                if ($lesson->student_id) {
-                    $studentIds = [$lesson->student_id];
-                    $lessonStudents = $lesson->students()->pluck('students.id')->toArray();
-                    $studentIds = array_unique(array_merge($studentIds, $lessonStudents));
-                    
-                    foreach ($studentIds as $studentId) {
-                        // Vérifier si le cours est déjà lié à un abonnement
-                        if ($lesson->subscriptionInstances()->count() > 0) {
-                            Log::info("⏭️ Cours {$lesson->id} déjà lié à un abonnement");
-                            break;
-                        }
-
-                        // Trouver le bon abonnement actif pour cet élève et ce type de cours
-                        $clubId = $lesson->club_id ?? null;
-                        $subscriptionInstance = \App\Models\SubscriptionInstance::findActiveSubscriptionForLesson(
-                            $studentId,
-                            $lesson->course_type_id,
-                            $clubId
-                        );
-
-                        if ($subscriptionInstance) {
-                            try {
-                                // Lier le cours à l'abonnement sans consommer (car le cours existe déjà)
-                                $lesson->subscriptionInstances()->syncWithoutDetaching([$subscriptionInstance->id]);
-                                
-                                // Consommer le cours de l'abonnement
-                                $subscriptionInstance->consumeLesson($lesson);
-                                
-                                Log::info("✅ Cours {$lesson->id} lié à l'abonnement {$subscriptionInstance->id}");
-                                break; // Un seul abonnement par cours
-                            } catch (\Exception $e) {
-                                Log::error("❌ Erreur lors de la liaison: " . $e->getMessage());
-                                continue;
-                            }
-                        }
-                    }
-                }
-            } else {
-                $instanceIds = $lesson->subscriptionInstances()->pluck('subscription_instances.id')->all();
-                $lesson->subscriptionInstances()->detach();
-
-                foreach (SubscriptionInstance::whereIn('id', $instanceIds)->get() as $instance) {
-                    $instance->recalculateLessonsUsed();
-                }
-
-                Log::info("✅ Cours {$lesson->id} délié de tous les abonnements");
-            }
+            $subscriptionLink = $this->syncLessonSubscriptionLink($lesson, (bool) $deductFromSubscription);
+            Log::info('Relation cours-abonnement mise à jour', ['lesson_id' => $lesson->id] + $subscriptionLink);
 
             // Recharger les relations
             $lesson->load([
@@ -2578,7 +2550,8 @@ class LessonController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $lesson,
-                'message' => 'Relation cours-abonnement modifiée avec succès'
+                'message' => $subscriptionLink['message'] ?? 'Relation cours-abonnement modifiée avec succès',
+                'subscription_link' => $subscriptionLink,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -2593,6 +2566,73 @@ class LessonController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Aligne le rattachement d'un cours sur « déduire d'un abonnement ».
+     * - true : rattache au carnet de l'élève qui couvre le cours à sa date (ordre chronologique
+     *   des carnets, place disponible, bon type de cours) ; sans carnet possible, le cours reste
+     *   non déduit et le message l'explique ;
+     * - false : détache le cours et recalcule les carnets concernés.
+     *
+     * @return array{linked: bool, subscription_instance_id: ?int, message: ?string}
+     */
+    private function syncLessonSubscriptionLink(Lesson $lesson, bool $deduct): array
+    {
+        if (! $deduct) {
+            $instanceIds = $lesson->subscriptionInstances()->pluck('subscription_instances.id')->all();
+            if ($instanceIds !== []) {
+                $lesson->subscriptionInstances()->detach();
+                foreach (SubscriptionInstance::whereIn('id', $instanceIds)->get() as $instance) {
+                    $instance->recalculateLessonsUsed();
+                }
+            }
+
+            return ['linked' => false, 'subscription_instance_id' => null, 'message' => null];
+        }
+
+        $existing = $lesson->subscriptionInstances()->first();
+        if ($existing) {
+            return ['linked' => true, 'subscription_instance_id' => (int) $existing->id, 'message' => null];
+        }
+
+        $studentIds = array_values(array_unique(array_filter(array_map('intval', array_merge(
+            $lesson->student_id ? [(int) $lesson->student_id] : [],
+            $lesson->students()->pluck('students.id')->all()
+        )))));
+        $asOf = $lesson->start_time ? Carbon::parse($lesson->start_time) : Carbon::now();
+        $lastError = null;
+
+        foreach ($studentIds as $studentId) {
+            $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
+                $studentId,
+                (int) $lesson->course_type_id,
+                $lesson->club_id ? (int) $lesson->club_id : null,
+                $asOf
+            );
+            if (! $instance) {
+                continue;
+            }
+            try {
+                $instance->consumeLesson($lesson->fresh());
+            } catch (\Exception $e) {
+                $lastError = $e->getMessage();
+
+                continue;
+            }
+            if ($lesson->subscriptionInstances()->where('subscription_instances.id', $instance->id)->exists()) {
+                return ['linked' => true, 'subscription_instance_id' => (int) $instance->id, 'message' => null];
+            }
+            $lastError = 'Jour de fermeture du club : le cours n’est pas décompté.';
+        }
+
+        return [
+            'linked' => false,
+            'subscription_instance_id' => null,
+            'message' => $lastError
+                ? "Cours non déduit : {$lastError}"
+                : 'Cours non déduit : aucun abonnement actif avec une place disponible ne couvre ce cours.',
+        ];
     }
 
     /**

@@ -1598,6 +1598,12 @@ const performUpdate = async (updatePayload, scope) => {
       : 'Cours modifié avec succès'
     
     showSuccess(message)
+    // « Déduire d'un abonnement » demandé mais impossible (plus de place, aucun abonnement…) : le dire.
+    const link = updateResponse.data.subscription_link
+    if (link && link.linked === false && link.message) {
+      const { error: showLinkError } = useToast()
+      showLinkError(link.message)
+    }
     await loadHistory()
     closeEditLessonModal()
     

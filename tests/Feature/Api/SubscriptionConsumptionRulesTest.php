@@ -268,4 +268,62 @@ class SubscriptionConsumptionRulesTest extends TestCase
         );
         $this->assertSame($older->id, $found?->id);
     }
+
+    /**
+     * Régression prod (07/11) : « Déduire d'un abonnement » depuis la modification du cours envoie
+     * est_legacy = null → 500 (colonne non nullable). Le cours doit être rattaché, sans erreur.
+     */
+    public function test_modifier_un_cours_pour_le_deduire_le_rattache_sans_erreur(): void
+    {
+        $lesson = \App\Models\Lesson::createQuietly([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDays(3)->setTime(10, 0),
+            'end_time' => Carbon::now()->subDays(3)->setTime(11, 0),
+            'status' => 'confirmed',
+            'price' => 50.00,
+            'deduct_from_subscription' => false,
+        ]);
+
+        $this->putJson("/api/lessons/{$lesson->id}", [
+            'est_legacy' => null,
+            'deduct_from_subscription' => true,
+        ])->assertOk()->assertJsonPath('subscription_link.linked', true);
+
+        $this->assertSame(1, $this->attachedLessonCount());
+        $this->assertTrue((bool) $lesson->fresh()->deduct_from_subscription);
+        $this->assertSame(1, (int) $this->instance->fresh()->lessons_used);
+
+        // Et l'inverse : décocher détache et libère la place.
+        $this->putJson("/api/lessons/{$lesson->id}", ['deduct_from_subscription' => false])->assertOk();
+        $this->assertSame(0, $this->attachedLessonCount());
+        $this->assertSame(0, (int) $this->instance->fresh()->lessons_used);
+    }
+
+    /** Sans place disponible, le cours reste non déduit et la réponse l'explique (pas d'erreur 500). */
+    public function test_deduire_sans_place_disponible_explique_pourquoi(): void
+    {
+        $this->expireInstance();
+        $lesson = \App\Models\Lesson::createQuietly([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDays(3)->setTime(14, 0),
+            'end_time' => Carbon::now()->subDays(3)->setTime(15, 0),
+            'status' => 'confirmed',
+            'price' => 50.00,
+            'deduct_from_subscription' => false,
+        ]);
+
+        $response = $this->putJson("/api/lessons/{$lesson->id}", ['est_legacy' => null, 'deduct_from_subscription' => true])
+            ->assertOk()
+            ->assertJsonPath('subscription_link.linked', false);
+        $this->assertStringContainsString('Cours non déduit', $response->json('message'));
+        $this->assertSame(0, $this->attachedLessonCount());
+    }
 }
