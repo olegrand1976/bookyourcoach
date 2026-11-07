@@ -79,7 +79,7 @@
             <template v-else>Afficher les cours passés ({{ pastLessonsAvailableCount }})</template>
           </button>
           <button
-            v-if="lessonStatusFilter !== 'all' || lessonPeriodMode !== 'upcoming_quarter' || !showPastLessons"
+            v-if="lessonStatusFilter !== 'all' || lessonPeriodMode !== 'all' || !showPastLessons"
             type="button"
             class="w-full px-3 py-2 text-sm text-purple-700 hover:underline"
             @click="resetFilters"
@@ -222,7 +222,7 @@ const emit = defineEmits([
 ])
 
 const lessonStatusFilter = ref('all')
-const lessonPeriodMode = ref('upcoming_quarter')
+const lessonPeriodMode = ref('all')
 const showPastLessons = ref(true)
 
 const statusFilterOptions = STUDENT_LESSON_STATUS_FILTER_OPTIONS
@@ -272,7 +272,7 @@ const pastGroupedByMonth = computed(() =>
 
 function resetFilters() {
   lessonStatusFilter.value = 'all'
-  lessonPeriodMode.value = 'upcoming_quarter'
+  lessonPeriodMode.value = 'all'
   showPastLessons.value = true
 }
 

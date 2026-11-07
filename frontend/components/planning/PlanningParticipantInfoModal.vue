@@ -249,7 +249,7 @@ const { $api } = useNuxtApp()
 const loading = ref(false)
 const error = ref('')
 const activeTab = ref<TabId>('lessons')
-const lessonPeriodMode = ref<LessonPeriodMode>('upcoming_quarter')
+const lessonPeriodMode = ref<LessonPeriodMode>('all')
 
 const periodFilterOptions = STUDENT_LESSON_PERIOD_FILTER_OPTIONS
 
@@ -377,7 +377,7 @@ watch(
   ([visible, type, id]) => {
     if (!visible || !id) return
     activeTab.value = 'lessons'
-    lessonPeriodMode.value = 'upcoming_quarter'
+    lessonPeriodMode.value = 'all'
     loadData(type, id)
   },
   // Immédiat : intégré dans la fiche élève, le composant est monté déjà visible.
