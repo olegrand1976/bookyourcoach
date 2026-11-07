@@ -1024,6 +1024,8 @@ class LessonController extends Controller
                 'notes' => 'nullable|string|max:1000',
                 'est_legacy' => 'nullable|boolean',
                 'deduct_from_subscription' => 'nullable|boolean',
+                // Forçage club : déduire même sans place restante (dépassement assumé)
+                'force_deduction' => 'sometimes|boolean',
                 'update_scope' => 'sometimes|in:single,all_future',
                 'force_teacher_on_exceptions' => 'sometimes|boolean',
                 'recurring_interval' => 'sometimes|integer|min:1|max:52', // Support pour modification de l'intervalle
@@ -1040,6 +1042,9 @@ class LessonController extends Controller
             $requestedDeduction = array_key_exists('deduct_from_subscription', $validated)
                 ? (bool) $validated['deduct_from_subscription']
                 : null;
+            // Pas une colonne : ne jamais le transmettre à $lesson->update(). Forçage réservé au club.
+            $forceDeduction = (bool) ($validated['force_deduction'] ?? false) && $user->role === 'club';
+            unset($validated['force_deduction']);
             $updateScope = $validated['update_scope'] ?? 'single';
             $forceTeacherOnExceptions = (bool) ($validated['force_teacher_on_exceptions'] ?? false);
 
@@ -1532,7 +1537,7 @@ class LessonController extends Controller
 
             // « Déduire d'un abonnement » : le cours doit réellement être rattaché (ou détaché).
             $subscriptionLink = $requestedDeduction !== null
-                ? $this->syncLessonSubscriptionLink($lesson->fresh(), $requestedDeduction)
+                ? $this->syncLessonSubscriptionLink($lesson->fresh(), $requestedDeduction, $forceDeduction)
                 : null;
 
             $message = 'Cours mis à jour avec succès';
@@ -2520,12 +2525,20 @@ class LessonController extends Controller
             $lesson = $query->findOrFail($id);
 
             $validated = $request->validate([
-                'deduct_from_subscription' => 'required|boolean'
+                'deduct_from_subscription' => 'required|boolean',
+                'force_deduction' => 'sometimes|boolean',
             ]);
 
             $deductFromSubscription = $validated['deduct_from_subscription'];
 
-            $subscriptionLink = $this->syncLessonSubscriptionLink($lesson, (bool) $deductFromSubscription);
+            // Lier explicitement = déduire : sinon une ancienne « séance libre » serait refusée par consumeLesson.
+            $lesson->forceFill(['deduct_from_subscription' => (bool) $deductFromSubscription])->saveQuietly();
+
+            $subscriptionLink = $this->syncLessonSubscriptionLink(
+                $lesson,
+                (bool) $deductFromSubscription,
+                (bool) ($validated['force_deduction'] ?? false)
+            );
             Log::info('Relation cours-abonnement mise à jour', ['lesson_id' => $lesson->id] + $subscriptionLink);
 
             // Recharger les relations
@@ -2573,12 +2586,24 @@ class LessonController extends Controller
      * - true : rattache au carnet de l'élève qui couvre le cours à sa date (ordre chronologique
      *   des carnets, place disponible, bon type de cours) ; sans carnet possible, le cours reste
      *   non déduit et le message l'explique ;
+     * - true + $force (choix explicite du club) : sans place disponible, rattache quand même au
+     *   premier carnet du bon type valide à la date (même terminé), en dépassement ;
      * - false : détache le cours et recalcule les carnets concernés.
      *
-     * @return array{linked: bool, subscription_instance_id: ?int, message: ?string}
+     * Jamais de rattachement un jour de fermeture ni pour une séance libre (invariants de consumeLesson).
+     *
+     * @return array{linked: bool, forced: bool, can_force: bool, subscription_instance_id: ?int, message: ?string}
      */
-    private function syncLessonSubscriptionLink(Lesson $lesson, bool $deduct): array
+    private function syncLessonSubscriptionLink(Lesson $lesson, bool $deduct, bool $force = false): array
     {
+        $result = fn (bool $linked, ?int $instanceId = null, ?string $message = null, bool $forced = false, bool $canForce = false) => [
+            'linked' => $linked,
+            'forced' => $forced,
+            'can_force' => $canForce,
+            'subscription_instance_id' => $instanceId,
+            'message' => $message,
+        ];
+
         if (! $deduct) {
             $instanceIds = $lesson->subscriptionInstances()->pluck('subscription_instances.id')->all();
             if ($instanceIds !== []) {
@@ -2588,12 +2613,12 @@ class LessonController extends Controller
                 }
             }
 
-            return ['linked' => false, 'subscription_instance_id' => null, 'message' => null];
+            return $result(false);
         }
 
         $existing = $lesson->subscriptionInstances()->first();
         if ($existing) {
-            return ['linked' => true, 'subscription_instance_id' => (int) $existing->id, 'message' => null];
+            return $result(true, (int) $existing->id);
         }
 
         $studentIds = array_values(array_unique(array_filter(array_map('intval', array_merge(
@@ -2601,38 +2626,68 @@ class LessonController extends Controller
             $lesson->students()->pluck('students.id')->all()
         )))));
         $asOf = $lesson->start_time ? Carbon::parse($lesson->start_time) : Carbon::now();
+        // Cloisonnement : sans club sur le cours, jamais de recherche tous clubs confondus.
+        $clubId = $lesson->club_id ? (int) $lesson->club_id : (Auth::user()?->getFirstClub()?->id ?: null);
+        if ($clubId === null) {
+            return $result(false, null, 'Cours non déduit : club du cours inconnu.');
+        }
         $lastError = null;
+        $fullInstance = null;
 
         foreach ($studentIds as $studentId) {
-            $instance = SubscriptionInstance::findActiveSubscriptionForLesson(
-                $studentId,
-                (int) $lesson->course_type_id,
-                $lesson->club_id ? (int) $lesson->club_id : null,
-                $asOf
-            );
-            if (! $instance) {
-                continue;
-            }
-            try {
-                $instance->consumeLesson($lesson->fresh());
-            } catch (\Exception $e) {
-                $lastError = $e->getMessage();
+            $instance = SubscriptionInstance::findActiveSubscriptionForLesson($studentId, (int) $lesson->course_type_id, $clubId, $asOf);
+            if ($instance) {
+                $linked = $this->tryConsumeLesson($instance, $lesson, false, $lastError);
+                if ($linked) {
+                    return $result(true, (int) $instance->id);
+                }
 
                 continue;
             }
-            if ($lesson->subscriptionInstances()->where('subscription_instances.id', $instance->id)->exists()) {
-                return ['linked' => true, 'subscription_instance_id' => (int) $instance->id, 'message' => null];
-            }
-            $lastError = 'Jour de fermeture du club : le cours n’est pas décompté.';
+            // Carnet du bon type mais sans place (actif ou terminé) : candidat au forçage.
+            $fullInstance ??= SubscriptionInstance::findActiveSubscriptionForLesson($studentId, (int) $lesson->course_type_id, $clubId, $asOf, true, [], true);
         }
 
-        return [
-            'linked' => false,
-            'subscription_instance_id' => null,
-            'message' => $lastError
-                ? "Cours non déduit : {$lastError}"
-                : 'Cours non déduit : aucun abonnement actif avec une place disponible ne couvre ce cours.',
-        ];
+        if ($force && $fullInstance) {
+            if ($this->tryConsumeLesson($fullInstance, $lesson, true, $lastError)) {
+                Log::info('Déduction forcée d\'un cours (dépassement de carnet)', [
+                    'lesson_id' => $lesson->id,
+                    'subscription_instance_id' => $fullInstance->id,
+                    'user_id' => Auth::id(),
+                ]);
+
+                return $result(true, (int) $fullInstance->id, 'Cours déduit en dépassement de l’abonnement (forcé).', true);
+            }
+        }
+
+        $message = $lastError
+            ? "Cours non déduit : {$lastError}"
+            : ($fullInstance
+                ? 'Cours non déduit : l’abonnement de l’élève n’a plus de place disponible (vous pouvez forcer la déduction).'
+                : 'Cours non déduit : aucun abonnement actif ne couvre ce cours.');
+
+        return $result(false, null, $message, false, $fullInstance !== null && ! $force);
+    }
+
+    /** consumeLesson + vérification du rattachement effectif (jour de fermeture, séance libre : refus silencieux). */
+    private function tryConsumeLesson(SubscriptionInstance $instance, Lesson $lesson, bool $force, ?string &$error): bool
+    {
+        try {
+            $instance->consumeLesson($lesson->fresh(), $force);
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
+
+            return false;
+        }
+
+        if ($lesson->subscriptionInstances()->where('subscription_instances.id', $instance->id)->exists()) {
+            return true;
+        }
+        $error = $lesson->deduct_from_subscription === false
+            ? 'séance libre (non incluse dans l’abonnement).'
+            : 'jour de fermeture du club : le cours n’est pas décompté.';
+
+        return false;
     }
 
     /**

@@ -326,4 +326,87 @@ class SubscriptionConsumptionRulesTest extends TestCase
         $this->assertStringContainsString('Cours non déduit', $response->json('message'));
         $this->assertSame(0, $this->attachedLessonCount());
     }
+
+    private function fillInstance(): void
+    {
+        DB::table('subscription_instances')->where('id', $this->instance->id)->update(['manual_lessons_used' => 20, 'lessons_used' => 20]);
+    }
+
+    private function pastLesson(int $hour, bool $deduct = false): \App\Models\Lesson
+    {
+        return \App\Models\Lesson::createQuietly([
+            'club_id' => $this->club->id,
+            'teacher_id' => $this->teacher->id,
+            'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->subDays(2)->setTime($hour, 0),
+            'end_time' => Carbon::now()->subDays(2)->setTime($hour + 1, 0),
+            'status' => 'confirmed',
+            'price' => 50.00,
+            'deduct_from_subscription' => $deduct,
+        ]);
+    }
+
+    /** Carnet plein : sans forçage, refus expliqué et forçage proposé ; avec forçage, déduit en dépassement. */
+    public function test_carnet_plein_deduction_forcee_sur_demande(): void
+    {
+        $this->fillInstance();
+        $lesson = $this->pastLesson(8);
+
+        $this->putJson("/api/lessons/{$lesson->id}", ['deduct_from_subscription' => true])
+            ->assertOk()
+            ->assertJsonPath('subscription_link.linked', false)
+            ->assertJsonPath('subscription_link.can_force', true);
+        $this->assertSame(0, $this->attachedLessonCount());
+
+        $this->putJson("/api/lessons/{$lesson->id}", ['deduct_from_subscription' => true, 'force_deduction' => true])
+            ->assertOk()
+            ->assertJsonPath('subscription_link.linked', true)
+            ->assertJsonPath('subscription_link.forced', true)
+            ->assertJsonPath('subscription_link.subscription_instance_id', $this->instance->id);
+        $this->assertSame(1, $this->attachedLessonCount());
+        $this->assertSame(21, (int) $this->instance->fresh()->lessons_used);
+        $this->assertArrayNotHasKey('force_deduction', $lesson->fresh()->getAttributes());
+    }
+
+    /** Lier une ancienne séance libre via le bouton dédié la rend déductible ; forçage accepté aussi. */
+    public function test_lier_une_seance_libre_et_forcer_via_le_bouton_dedie(): void
+    {
+        $lesson = $this->pastLesson(16, false);
+        $this->putJson("/api/lessons/{$lesson->id}/subscription", ['deduct_from_subscription' => true])
+            ->assertOk()->assertJsonPath('subscription_link.linked', true);
+        $this->assertTrue((bool) $lesson->fresh()->deduct_from_subscription);
+
+        $this->fillInstance();
+        $other = $this->pastLesson(18, false);
+        $this->putJson("/api/lessons/{$other->id}/subscription", ['deduct_from_subscription' => true, 'force_deduction' => true])
+            ->assertOk()->assertJsonPath('subscription_link.forced', true);
+        $this->assertSame(2, $this->attachedLessonCount());
+    }
+
+    /** Aucun carnet du bon type : le forçage ne crée rien. */
+    public function test_forcage_sans_abonnement_ne_rattache_rien(): void
+    {
+        $this->expireInstance();
+        $lesson = $this->pastLesson(12);
+
+        $this->putJson("/api/lessons/{$lesson->id}", ['deduct_from_subscription' => true, 'force_deduction' => true])
+            ->assertOk()
+            ->assertJsonPath('subscription_link.linked', false)
+            ->assertJsonPath('subscription_link.can_force', false);
+        $this->assertSame(0, $this->attachedLessonCount());
+    }
+
+    /** Le forçage est réservé au club : un enseignant ne peut pas déduire en dépassement. */
+    public function test_forcage_ignore_pour_un_enseignant(): void
+    {
+        $this->fillInstance();
+        $lesson = $this->pastLesson(9);
+        $this->actingAs($this->teacher->user);
+
+        $this->putJson("/api/lessons/{$lesson->id}", ['deduct_from_subscription' => true, 'force_deduction' => true]);
+
+        $this->assertSame(0, $this->attachedLessonCount());
+    }
 }
