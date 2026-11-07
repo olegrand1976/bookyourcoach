@@ -174,9 +174,22 @@ class SubscriptionRebalanceService
         $moves = [];
         $uncovered = [];
         $targets = [];
+        $lessonRows = [];
+        $now = Carbon::now();
         foreach ($countable as $row) {
             $lesson = $row['lesson'];
             $target = $this->pickInstance($lesson, $row['ymd'], $instanceById, $profiles, $left, $participants[$lesson->id] ?? []);
+            $start = Carbon::parse($lesson->start_time);
+            $lessonRows[] = [
+                'lesson_id' => (int) $lesson->id,
+                'date' => $row['ymd'],
+                'time' => $start->copy()->timezone(LessonCalendarDate::timezone())->format('H:i'),
+                'status' => $lesson->status,
+                'past' => $start->lte($now),
+                'current' => $row['current'],
+                'proposed' => $target,
+                'eligible' => $this->eligibleInstanceIds($lesson, $profiles, $participants[$lesson->id] ?? []),
+            ];
             if ($target !== null) {
                 $left[$target] = $left[$target] === PHP_INT_MAX ? PHP_INT_MAX : $left[$target] - 1;
                 $profiles[$target]['linked_after']++;
@@ -207,10 +220,12 @@ class SubscriptionRebalanceService
                 'manual_after' => $p['manual_after'],
                 'manual_reason' => $p['manual_reason'],
                 'lessons_used_before' => $p['lessons_used'],
+                'had_reset' => $p['reset_at'] !== null,
                 'linked_before' => $p['linked_before'],
                 'linked_after' => $p['linked_after'],
             ], $profiles)),
             'moves' => $moves,
+            'lessons' => $lessonRows,
             'closure_detach' => $closureDetach,
             'uncovered' => $uncovered,
             'manual_changes' => count($manualChanges),
@@ -221,22 +236,69 @@ class SubscriptionRebalanceService
 
     /**
      * Applique la remise en cohérence (transaction) et enregistre l'état avant pour annulation.
+     *
+     * Ajustements optionnels depuis la fiche de cohérence (sinon : proposition telle quelle) :
+     *  - $assignments : list<array{lesson_id: int, instance_id: ?int}> — carnet choisi pour un cours
+     *    (null = aucun abonnement) ; seuls les carnets éligibles (type de cours, élève) sont acceptés ;
+     *  - $manual : list<array{instance_id: int, value: int}> — compteur manuel final d'un carnet.
+     *
+     * @throws \InvalidArgumentException ajustement portant sur un cours ou un carnet hors périmètre
      */
-    public function apply(Club $club, int $studentId, ?User $actor = null): ?SubscriptionRebalance
+    public function apply(Club $club, int $studentId, ?User $actor = null, array $assignments = [], array $manual = []): ?SubscriptionRebalance
     {
-        return DB::transaction(function () use ($club, $studentId, $actor) {
+        return DB::transaction(function () use ($club, $studentId, $actor, $assignments, $manual) {
             $plan = $this->plan($club, $studentId);
-            if (! $plan['has_changes']) {
-                return null;
-            }
 
             $instanceIds = array_map(fn ($i) => (int) $i['id'], $plan['instances']);
+            $lessonsById = [];
+            foreach ($plan['lessons'] as $row) {
+                $lessonsById[$row['lesson_id']] = $row;
+            }
+
+            $final = [];
+            foreach ($plan['lessons'] as $row) {
+                $final[$row['lesson_id']] = $row['proposed'];
+            }
+            foreach ($assignments as $a) {
+                $lessonId = (int) ($a['lesson_id'] ?? 0);
+                $instanceId = isset($a['instance_id']) && $a['instance_id'] !== null ? (int) $a['instance_id'] : null;
+                if (! isset($lessonsById[$lessonId])) {
+                    throw new \InvalidArgumentException("Le cours #{$lessonId} ne fait pas partie de cette fiche.");
+                }
+                if ($instanceId !== null && ! in_array($instanceId, $lessonsById[$lessonId]['eligible'], true)) {
+                    throw new \InvalidArgumentException("L'abonnement #{$instanceId} ne peut pas couvrir le cours du {$lessonsById[$lessonId]['date']}.");
+                }
+                $final[$lessonId] = $instanceId;
+            }
+
+            $manualAfter = [];
+            $hadReset = [];
+            foreach ($plan['instances'] as $row) {
+                $manualAfter[(int) $row['id']] = (int) $row['manual_after'];
+                $hadReset[(int) $row['id']] = (bool) $row['had_reset'];
+            }
+            $manualBefore = array_column($plan['instances'], 'manual_before', 'id');
+            foreach ($manual as $m) {
+                $instanceId = (int) ($m['instance_id'] ?? 0);
+                if (! in_array($instanceId, $instanceIds, true)) {
+                    throw new \InvalidArgumentException("L'abonnement #{$instanceId} ne fait pas partie de cette fiche.");
+                }
+                $manualAfter[$instanceId] = max(0, (int) ($m['value'] ?? 0));
+            }
+
             $changedLinks = [];
-            foreach ($plan['moves'] as $move) {
-                $changedLinks[$move['lesson_id']] = $move['to'];
+            foreach ($final as $lessonId => $target) {
+                if ($target !== $lessonsById[$lessonId]['current']) {
+                    $changedLinks[$lessonId] = $target;
+                }
             }
             foreach ($plan['closure_detach'] as $row) {
                 $changedLinks[$row['lesson_id']] = null;
+            }
+            $manualChanged = array_filter($instanceIds, fn ($id) => $hadReset[$id] || $manualAfter[$id] !== (int) $manualBefore[$id]);
+
+            if ($changedLinks === [] && $manualChanged === []) {
+                return null;
             }
 
             $before = [
@@ -256,10 +318,6 @@ class SubscriptionRebalanceService
                 }
             }
 
-            $manualAfter = [];
-            foreach ($plan['instances'] as $row) {
-                $manualAfter[(int) $row['id']] = (int) $row['manual_after'];
-            }
             foreach (SubscriptionInstance::query()->whereIn('id', $instanceIds)->get() as $instance) {
                 if ($instance->lessons_used_reset_at !== null || (int) $instance->manual_lessons_used !== $manualAfter[$instance->id]) {
                     $instance->forceFill([
@@ -285,10 +343,11 @@ class SubscriptionRebalanceService
                 'before' => $before,
                 'after' => $after,
                 'summary' => [
-                    'moved' => count($plan['moves']),
+                    'moved' => count(array_diff_key($changedLinks, array_flip(array_column($plan['closure_detach'], 'lesson_id')))),
                     'closure_detached' => count($plan['closure_detach']),
-                    'uncovered' => count($plan['uncovered']),
-                    'manual_changes' => $plan['manual_changes'],
+                    'uncovered' => count(array_filter($final, fn ($t) => $t === null)),
+                    'manual_changes' => count($manualChanged),
+                    'customized' => $assignments !== [] || $manual !== [],
                 ],
                 'applied_by' => $actor?->id,
             ]);
@@ -454,6 +513,29 @@ class SubscriptionRebalanceService
         }
 
         return $candidates[0]['id'] ?? null;
+    }
+
+    /**
+     * Carnets pouvant couvrir le cours (type de cours et élève), places restantes ignorées.
+     *
+     * @param  array<int, array<string, mixed>>  $profiles
+     * @param  list<int>  $participantIds
+     * @return list<int>
+     */
+    private function eligibleInstanceIds(Lesson $lesson, array $profiles, array $participantIds): array
+    {
+        $ids = [];
+        foreach ($profiles as $id => $p) {
+            if ($p['course_type_ids'] !== [] && ! in_array((int) $lesson->course_type_id, $p['course_type_ids'], true)) {
+                continue;
+            }
+            if ($p['student_ids'] !== [] && array_intersect($participantIds, $p['student_ids']) === []) {
+                continue;
+            }
+            $ids[] = (int) $id;
+        }
+
+        return $ids;
     }
 
     /** @return array<string, mixed> */

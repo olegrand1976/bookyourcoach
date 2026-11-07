@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ApplySubscriptionRebalanceRequest;
 use App\Models\Club;
 use App\Models\SubscriptionRebalance;
 use App\Services\SubscriptionRebalanceService;
@@ -69,7 +70,7 @@ class ClubSubscriptionRebalanceController extends Controller
         ]);
     }
 
-    public function apply(int $studentId): JsonResponse
+    public function apply(ApplySubscriptionRebalanceRequest $request, int $studentId): JsonResponse
     {
         $club = $this->club();
         if ($club instanceof JsonResponse) {
@@ -79,8 +80,18 @@ class ClubSubscriptionRebalanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Élève introuvable dans ce club'], 404);
         }
 
+        $validated = $request->validated();
+
         try {
-            $rebalance = $this->service->apply($club, $studentId, Auth::user());
+            $rebalance = $this->service->apply(
+                $club,
+                $studentId,
+                Auth::user(),
+                $validated['assignments'] ?? [],
+                $validated['manual'] ?? [],
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             Log::error('Remise en cohérence des abonnements impossible', [
                 'club_id' => $club->id,

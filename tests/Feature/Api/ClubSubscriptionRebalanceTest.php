@@ -221,4 +221,60 @@ class ClubSubscriptionRebalanceTest extends TestCase
 
         return $lesson;
     }
+
+    public function test_fiche_detaille_chaque_cours_avec_carnet_propose_et_carnets_eligibles(): void
+    {
+        $lessons = collect($this->getJson("/api/club/subscriptions/rebalance/students/{$this->student->id}")
+            ->assertOk()->json('data.plan.lessons'))->keyBy('lesson_id');
+
+        $this->assertCount(5, $lessons, 'les cours de fermeture ne font pas partie de la répartition');
+        $row = $lessons[$this->lessons['01-24']->id];
+        $this->assertSame($this->a->id, $row['current']);
+        $this->assertSame($this->b->id, $row['proposed']);
+        $this->assertEqualsCanonicalizing([$this->a->id, $this->b->id], $row['eligible']);
+        $this->assertTrue($row['past']);
+    }
+
+    public function test_application_avec_ajustements_de_la_fiche(): void
+    {
+        // Le club garde le 24/01 sur le carnet A (dépassement accepté) et fixe 1 cours manuel sur B.
+        $this->postJson("/api/club/subscriptions/rebalance/students/{$this->student->id}/apply", [
+            'assignments' => [['lesson_id' => $this->lessons['01-24']->id, 'instance_id' => $this->a->id]],
+            'manual' => [['instance_id' => $this->b->id, 'value' => 1]],
+        ])->assertOk()->assertJsonPath('data.summary.customized', true);
+
+        $this->assertSame($this->a->id, $this->linkOf('01-24'));
+        $this->assertSame($this->b->id, $this->linkOf('03-07'));
+        $this->assertNull($this->linkOf('03-21'), 'jour de fermeture toujours détaché');
+        $b = $this->b->fresh();
+        $this->assertSame(1, (int) $b->manual_lessons_used);
+        $this->assertNull($b->lessons_used_reset_at);
+
+        // Annulable comme une correction standard
+        $rebalance = SubscriptionRebalance::latest('id')->firstOrFail();
+        $this->postJson("/api/club/subscriptions/rebalance/{$rebalance->id}/revert")->assertOk();
+        $this->assertSame($this->a->id, $this->linkOf('01-24'));
+        $this->assertNull($this->linkOf('03-07'));
+    }
+
+    public function test_ajustement_hors_perimetre_refuse_sans_rien_modifier(): void
+    {
+        $foreignLesson = Lesson::createQuietly([
+            'club_id' => $this->club->id, 'teacher_id' => $this->teacher->id,
+            'student_id' => Student::factory()->create(['club_id' => $this->club->id])->id,
+            'course_type_id' => $this->courseType->id, 'location_id' => $this->location->id,
+            'start_time' => '2026-02-07 10:00:00', 'end_time' => '2026-02-07 10:20:00', 'status' => 'confirmed', 'price' => 18,
+        ]);
+
+        $this->postJson("/api/club/subscriptions/rebalance/students/{$this->student->id}/apply", [
+            'assignments' => [['lesson_id' => $foreignLesson->id, 'instance_id' => $this->a->id]],
+        ])->assertStatus(422);
+
+        $this->postJson("/api/club/subscriptions/rebalance/students/{$this->student->id}/apply", [
+            'manual' => [['instance_id' => 999999, 'value' => 2]],
+        ])->assertStatus(422);
+
+        $this->assertSame($this->a->id, $this->linkOf('01-24'));
+        $this->assertSame(0, SubscriptionRebalance::count());
+    }
 }
