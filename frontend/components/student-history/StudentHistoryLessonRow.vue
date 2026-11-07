@@ -28,8 +28,14 @@
       <span class="text-xs text-gray-500 md:hidden">Type</span>
       <p class="font-medium text-gray-900">{{ lesson.course_type?.name || 'Cours' }}</p>
       <div class="flex flex-wrap gap-1 mt-1">
+        <NuxtLink
+          v-if="firstSubscriptionInstanceId"
+          :to="subscriptionInstanceLink(firstSubscriptionInstanceId)"
+          class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded hover:bg-green-200 hover:underline"
+          title="Ouvrir l'abonnement qui couvre ce cours"
+        >✓ Abo</NuxtLink>
         <span
-          v-if="lesson.subscription_instances?.length"
+          v-else-if="lesson.subscription_instances?.length"
           class="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded"
         >✓ Abo</span>
         <span v-else class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-800 rounded">Séance libre</span>
@@ -123,6 +129,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { subscriptionInstanceLink } from '~/utils/subscriptionLink'
 import {
   getCancellationSubscriptionImpact,
   getCancellationSubscriptionImpactClass,
@@ -143,7 +150,7 @@ export interface StudentHistoryLessonRowModel extends LessonDisplayStatusInput {
   course_type?: { name?: string | null } | null
   teacher?: { user?: { name?: string | null } | null } | null
   location?: { name?: string | null } | null
-  subscription_instances?: unknown[] | null
+  subscription_instances?: Array<{ id?: number | string } | unknown> | null
   subscription_coverage?: {
     is_future?: boolean
     is_covered?: boolean
@@ -169,6 +176,11 @@ const emit = defineEmits<{
 }>()
 
 const displayStatus = computed(() => getLessonDisplayStatus(props.lesson))
+/** Abonnement qui couvre le cours (premier rattachement), pour ouvrir sa fiche. */
+const firstSubscriptionInstanceId = computed(() => {
+  const first = props.lesson.subscription_instances?.[0] as { id?: number | string } | undefined
+  return first?.id ?? null
+})
 const statusPillClass = computed(() =>
   getLessonDisplayStatusPillClassFromStatus(displayStatus.value),
 )

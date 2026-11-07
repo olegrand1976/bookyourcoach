@@ -12,24 +12,30 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Worker de veille : la veille de chaque jour de cours, signale aux responsables du club
- * les élèves qui ont cours le lendemain avec un abonnement en fin de vie.
- * Rien n'est envoyé si le club n'a pas cours (ou est en congé) le lendemain, ni si aucun
- * abonnement n'est concerné.
+ * Worker de veille : N jours avant chaque jour de cours (config lead_days, défaut 2), signale
+ * aux responsables du club les élèves qui ont cours ce jour-là avec un abonnement en fin de vie
+ * (dès 3 séances restantes). Rien n'est envoyé si le club n'a pas cours (ou est en congé) ce
+ * jour-là, ni si aucun abonnement n'est concerné.
  */
 class WatchExpiringSubscriptionsCommand extends Command
 {
     protected $signature = 'subscriptions:watch-expiring
                             {--club= : Limiter à un club_id}
-                            {--date= : Jour de cours ciblé (Y-m-d), défaut = lendemain}
+                            {--date= : Jour de cours ciblé (Y-m-d), défaut = aujourd’hui + lead_days (2)}
                             {--dry-run : Afficher le rapport sans envoyer d’e-mail}
                             {--force : Ignorer le cache d’idempotence}';
 
-    protected $description = 'Veille : abonnements en fin de vie des élèves ayant cours le lendemain (e-mail par urgence).';
+    protected $description = 'Veille : abonnements en fin de vie des élèves ayant cours dans N jours (défaut 2, e-mail par urgence).';
 
     public function __construct(private readonly SubscriptionExpiryWatchService $watchService)
     {
         parent::__construct();
+    }
+
+    /** Nombre de jours entre l'envoi de l'e-mail et le jour de cours signalé. */
+    public static function leadDays(): int
+    {
+        return max(1, (int) config('bookyourcoach.subscription_expiry_watch.lead_days', 2));
     }
 
     public function handle(): int
@@ -37,7 +43,7 @@ class WatchExpiringSubscriptionsCommand extends Command
         $tz = (string) config('bookyourcoach.subscription_expiry_watch.timezone', 'Europe/Brussels');
         $target = $this->option('date')
             ? Carbon::parse((string) $this->option('date'), $tz)->startOfDay()
-            : now($tz)->addDay()->startOfDay();
+            : now($tz)->addDays(self::leadDays())->startOfDay();
 
         $clubs = Club::query()->where('is_active', true)
             ->when($this->option('club'), fn ($q) => $q->where('id', (int) $this->option('club')))

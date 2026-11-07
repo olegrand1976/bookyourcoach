@@ -96,6 +96,24 @@
               <p v-else class="text-sm text-gray-600">
                 {{ lessonsPeriodLabel }}
               </p>
+              <!-- Planifier l'avenir : prolonge les séries tant qu'un abonnement est actif -->
+              <div
+                v-if="type === 'student'"
+                class="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2"
+              >
+                <button
+                  type="button"
+                  class="px-3 py-1.5 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                  :disabled="planningFuture"
+                  data-testid="plan-future"
+                  @click="planFuture"
+                >
+                  {{ planningFuture ? 'Planification…' : 'Planifier l’avenir' }}
+                </button>
+                <p class="text-xs text-emerald-900 flex-1 min-w-[12rem]">
+                  {{ planFutureMessage || 'Génère les prochains cours des séries de l’élève tant qu’un abonnement est actif (fait aussi automatiquement chaque nuit).' }}
+                </p>
+              </div>
               <p
                 v-if="nonMaintainedLessonsCount > 0"
                 class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
@@ -171,8 +189,14 @@
                 class="rounded-lg border border-gray-200 bg-gray-50 p-4"
               >
                 <div class="flex flex-wrap items-center gap-2 mb-2">
-                  <h4 class="font-semibold text-gray-900">
-                    {{ sub.subscription?.template?.name || sub.subscription?.name || `Abonnement #${sub.id}` }}
+                  <h4>
+                    <NuxtLink
+                      :to="subscriptionInstanceLink(sub.id)"
+                      class="font-semibold text-blue-700 hover:text-blue-900 hover:underline underline-offset-2"
+                      title="Ouvrir l'abonnement"
+                    >
+                      {{ sub.subscription?.template?.name || sub.subscription?.name || `Abonnement #${sub.id}` }} ›
+                    </NuxtLink>
                   </h4>
                   <span
                     class="px-2 py-0.5 text-xs font-medium rounded-full"
@@ -212,6 +236,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { subscriptionInstanceLink } from '~/utils/subscriptionLink'
 import {
   type LessonPeriodMode,
   STUDENT_LESSON_PERIOD_FILTER_OPTIONS,
@@ -248,6 +273,8 @@ const { $api } = useNuxtApp()
 
 const loading = ref(false)
 const error = ref('')
+const planningFuture = ref(false)
+const planFutureMessage = ref('')
 const activeTab = ref<TabId>('lessons')
 const lessonPeriodMode = ref<LessonPeriodMode>('all')
 
@@ -383,6 +410,21 @@ watch(
   // Immédiat : intégré dans la fiche élève, le composant est monté déjà visible.
   { immediate: true },
 )
+
+async function planFuture() {
+  if (props.type !== 'student' || !props.participantId) return
+  planningFuture.value = true
+  planFutureMessage.value = ''
+  try {
+    const res = await $api.post(`/club/students/${props.participantId}/plan-future`)
+    planFutureMessage.value = res.data?.message || 'Planning mis à jour.'
+    await loadData('student', Number(props.participantId))
+  } catch (e: any) {
+    planFutureMessage.value = e?.response?.data?.message || 'La planification a échoué.'
+  } finally {
+    planningFuture.value = false
+  }
+}
 
 async function loadData(type: ParticipantType, id: number) {
   loading.value = true

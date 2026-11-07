@@ -231,4 +231,41 @@ class SubscriptionConsumptionRulesTest extends TestCase
         $this->assertNotNull($found);
         $this->assertSame($this->instance->id, $found->id);
     }
+
+    /**
+     * Carnets consommés dans l'ordre : à la date du cours, un carnet déjà commencé passe avant
+     * un carnet plus ancien en création mais qui ne commence qu'après (cas Liam : cours d'été
+     * rattachés au carnet de septembre).
+     */
+    public function test_choisit_le_carnet_commence_a_la_date_du_cours(): void
+    {
+        $this->instance->forceFill(['started_at' => Carbon::now()->addDays(60), 'created_at' => Carbon::now()->subDays(90)])->saveQuietly();
+
+        $older = SubscriptionInstance::create([
+            'subscription_id' => $this->instance->subscription_id,
+            'status' => 'active',
+            'lessons_used' => 0,
+            'manual_lessons_used' => 0,
+            'started_at' => Carbon::now()->subDays(20),
+            'expires_at' => Carbon::now()->addDays(100),
+        ]);
+        $older->students()->attach($this->student->id);
+
+        $found = SubscriptionInstance::findActiveSubscriptionForLesson(
+            $this->student->id,
+            $this->courseType->id,
+            $this->club->id,
+            Carbon::now()->addDays(7)
+        );
+        $this->assertSame($older->id, $found?->id);
+
+        // Après le début du carnet le plus récent : le plus ancien début reste prioritaire.
+        $found = SubscriptionInstance::findActiveSubscriptionForLesson(
+            $this->student->id,
+            $this->courseType->id,
+            $this->club->id,
+            Carbon::now()->addDays(70)
+        );
+        $this->assertSame($older->id, $found?->id);
+    }
 }

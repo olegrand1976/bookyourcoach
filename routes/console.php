@@ -31,10 +31,11 @@ Schedule::command('recurring-slots:generate-lessons')
         \Log::error('Échec de la génération automatique des lessons depuis les créneaux récurrents');
     });
 
-// Prolonger les récurrences des abonnements actifs (horizon 26 semaines)
-// Exécuté chaque dimanche à 3h du matin
+// Planifier l'avenir : prolonger les récurrences des élèves ayant un abonnement actif
+// (horizon 26 semaines, borné à l'expiration des abonnements) et générer les cours.
+// Quotidien : une série ne doit plus s'arrêter tant que l'abonnement est actif.
 Schedule::command('recurring-slots:prolong')
-    ->weeklyOn(0, '03:00')
+    ->dailyAt('02:30')
     ->timezone('Europe/Brussels')
     ->onSuccess(function () {
         \Log::info('Prolongation automatique des récurrences (horizon 26 semaines) terminée');
@@ -87,8 +88,9 @@ if (config('bookyourcoach.club_daily_planning_insight.enabled', true)) {
         });
 }
 
-// Veille abonnements : la veille de chaque jour de cours, élèves du lendemain dont l'abonnement
-// arrive en fin de vie (rien n'est envoyé sans cours ni abonnement concerné)
+// Veille abonnements : e-mail au responsable du club 2 jours avant chaque jour de cours
+// (config lead_days), élèves dont l'abonnement arrive en fin de vie — dès 3 séances restantes
+// (rien n'est envoyé sans cours ni abonnement concerné)
 if (config('bookyourcoach.subscription_expiry_watch.enabled', true)) {
     Schedule::command('subscriptions:watch-expiring')
         ->dailyAt(config('bookyourcoach.subscription_expiry_watch.schedule_time', '07:45'))

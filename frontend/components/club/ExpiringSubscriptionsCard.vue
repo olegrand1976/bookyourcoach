@@ -1,6 +1,6 @@
 <template>
   <!-- Veille abonnements : élèves qui ont cours prochainement avec un abonnement en fin de vie,
-       classés par urgence (mêmes règles que l'e-mail envoyé la veille). -->
+       classés par urgence (mêmes règles que l'e-mail envoyé 2 jours avant les cours). -->
   <section class="bg-white rounded-lg border border-gray-200 shadow-sm" aria-labelledby="expiring-subs-title">
     <header class="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
       <div>

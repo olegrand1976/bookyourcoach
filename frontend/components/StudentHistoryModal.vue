@@ -181,8 +181,14 @@
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center space-x-3 mb-2">
-                        <h4 class="font-semibold text-gray-900">
-                          {{ subscription.subscription?.template?.model_number || subscription.subscription?.name || 'Abonnement' }}
+                        <h4>
+                          <NuxtLink
+                            :to="subscriptionInstanceLink(subscription.id)"
+                            class="font-semibold text-blue-700 hover:text-blue-900 hover:underline underline-offset-2"
+                            title="Ouvrir l'abonnement"
+                          >
+                            {{ subscription.subscription?.template?.model_number || subscription.subscription?.name || 'Abonnement' }} ›
+                          </NuxtLink>
                         </h4>
                         <span 
                           :class="{
@@ -663,6 +669,7 @@
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { subscriptionInstanceLink } from '~/utils/subscriptionLink'
 import SlotConflictModal from '~/components/planning/SlotConflictModal.vue'
 import {
   getCancellationSubscriptionImpact,

@@ -2,10 +2,11 @@
   <Teleport to="body">
     <!-- Fiche élève : modale centrée sous l'en-tête du site, par-dessus la page courante
          (liste, planning). Le scroll de la page est bloqué tant qu'elle est ouverte.
-         Sur grand écran, « Vue scindée » affiche 2 onglets côte à côte, chacun scrollable. -->
+         Sur grand écran, « Vue scindée » affiche 2 onglets côte à côte, chacun scrollable.
+         z-[39] : juste sous l'en-tête du site (z-40), dont le menu déroulant doit rester au-dessus. -->
     <div
       v-if="studentId"
-      class="fixed inset-x-0 bottom-0 top-[84px] z-[55] flex items-center justify-center p-2 sm:p-4"
+      class="fixed inset-x-0 bottom-0 top-[84px] z-[39] flex items-center justify-center p-2 sm:p-4"
       data-testid="student-panel"
     >
       <div class="absolute inset-0 bg-gray-900/40" aria-hidden="true" @click="close" />
@@ -120,7 +121,8 @@
                 <EditStudentModal :key="`edit-${formKey}-${i}`" :student="student" embedded @success="onEdited" />
               </div>
               <div v-if="pane.visited.has('abonnements')" v-show="pane.tab === 'abonnements'">
-                <StudentSubscriptionsModal :student="student" embedded @success="emit('updated')" />
+                <SubscriptionCoherencePanel :key="`coh-${i}`" :student-id="Number(studentId)" @changed="onCoherenceChanged" />
+                <StudentSubscriptionsModal :key="`subs-${coherenceKey}`" :student="student" embedded @success="emit('updated')" />
               </div>
               <div v-if="pane.visited.has('planning')" v-show="pane.tab === 'planning'">
                 <PlanningParticipantInfoModal
@@ -133,7 +135,7 @@
                 />
               </div>
               <div v-if="pane.visited.has('historique')" v-show="pane.tab === 'historique'">
-                <StudentHistoryModal :student="student" embedded />
+                <StudentHistoryModal :key="`hist-${coherenceKey}`" :student="student" embedded />
               </div>
             </div>
           </div>
@@ -157,6 +159,7 @@ import EditStudentModal from '~/components/EditStudentModal.vue'
 import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
 import StudentHistoryModal from '~/components/StudentHistoryModal.vue'
 import PlanningParticipantInfoModal from '~/components/planning/PlanningParticipantInfoModal.vue'
+import SubscriptionCoherencePanel from '~/components/club/SubscriptionCoherencePanel.vue'
 
 const props = withDefaults(defineProps<{
   studentId: number | string | null
@@ -198,6 +201,8 @@ const isWide = ref(false)
 const isSplit = computed(() => split.value && isWide.value)
 const visiblePanes = computed(() => (isSplit.value ? panes : [panes[0]]))
 const formKey = ref(0)
+/** Incrémenté après une remise en cohérence : recharge abonnements / historique (et l'autre volet). */
+const coherenceKey = ref(0)
 const closeButton = ref<HTMLButtonElement | null>(null)
 const panelEl = ref<HTMLElement | null>(null)
 
@@ -273,6 +278,11 @@ async function loadStudent(id: number | string) {
   } finally {
     if (String(id) === String(props.studentId)) loading.value = false
   }
+}
+
+function onCoherenceChanged() {
+  coherenceKey.value++
+  emit('updated')
 }
 
 async function onEdited() {

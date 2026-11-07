@@ -50,7 +50,8 @@ class WatchExpiringSubscriptionsTest extends TestCase
         $this->teacher->clubs()->attach($this->club->id, ['is_active' => true, 'joined_at' => now()]);
         $this->courseType = CourseType::factory()->create();
         $this->location = Location::factory()->create();
-        $this->tomorrow = now('Europe/Brussels')->addDay()->startOfDay();
+        // Jour de cours ciblé par défaut : aujourd'hui + lead_days (2 jours avant les cours).
+        $this->tomorrow = now('Europe/Brussels')->addDays(\App\Console\Commands\WatchExpiringSubscriptionsCommand::leadDays())->startOfDay();
     }
 
     private function studentWithSubscription(string $lastName, int $totalLessons, int $used, ?Carbon $expiresAt, string $status = 'active'): Student

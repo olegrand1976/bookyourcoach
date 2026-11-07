@@ -8,6 +8,7 @@ const stubs = {
   EditStudentModal: { name: 'EditStudentModal', props: ['student', 'embedded'], template: '<div data-tab="infos">{{ student.name }}</div>' },
   StudentSubscriptionsModal: { name: 'StudentSubscriptionsModal', props: ['student', 'embedded'], template: '<div data-tab="abonnements" />' },
   StudentHistoryModal: { name: 'StudentHistoryModal', props: ['student', 'embedded'], template: '<div data-tab="historique" />' },
+  SubscriptionCoherencePanel: { name: 'SubscriptionCoherencePanel', props: ['studentId'], template: '<div data-coherence />' },
   PlanningParticipantInfoModal: { name: 'PlanningParticipantInfoModal', props: ['show', 'type', 'participantId', 'fallbackName', 'embedded'], template: '<div data-tab="planning" />' },
 }
 
