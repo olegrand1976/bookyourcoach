@@ -159,6 +159,62 @@ class FamilyLinkService
     }
 
     /**
+     * Rattache un élève au compte élève existant qui porte l'email saisi par le club :
+     * même user_id = même foyer (le titulaire du compte voit les deux élèves). Le lien
+     * student_family_links rend le rattachement visible dans la fiche côté club.
+     * Les liens avec les élèves de l'ancien compte éventuel sont retirés.
+     */
+    public function attachToAccount(Student $student, User $account, User $by): void
+    {
+        if ($account->primaryRole() !== User::ROLE_STUDENT) {
+            throw new RuntimeException('account_role_invalid');
+        }
+
+        $previousUserId = $student->user_id;
+
+        $student->update([
+            'user_id' => $account->id,
+            'invite_code' => null,
+            'invite_code_expires_at' => null,
+            'linked_by_user_id' => $by->id,
+            'linked_at' => now(),
+        ]);
+
+        if ($previousUserId && (int) $previousUserId !== (int) $account->id) {
+            $this->detachFamilyLinks($student->id, (int) $previousUserId);
+        }
+
+        $holder = Student::where('user_id', $account->id)
+            ->where('id', '!=', $student->id)
+            ->orderBy('id')
+            ->first();
+
+        if ($holder) {
+            $this->insertFamilyLinkIfMissing($holder, $student, null, $by);
+        }
+
+        Log::info('Élève rattaché à un compte existant (même email)', [
+            'student_id' => $student->id,
+            'account_user_id' => $account->id,
+            'previous_user_id' => $previousUserId,
+            'by_user_id' => $by->id,
+        ]);
+    }
+
+    /**
+     * Sort un élève d'un compte partagé avant de lui en donner un propre : retire
+     * les liens famille avec les autres élèves de ce compte.
+     */
+    public function detachFromSharedAccount(Student $student): void
+    {
+        if ($student->user_id === null) {
+            return;
+        }
+
+        $this->detachFamilyLinks($student->id, (int) $student->user_id);
+    }
+
+    /**
      * Normalise un code saisi (uppercase, suppression espaces/tirets).
      */
     public function normalizeCode(string $code): string
@@ -232,14 +288,19 @@ class FamilyLinkService
             return;
         }
 
+        $this->insertFamilyLinkIfMissing($parentStudent, $child, 'parent', $parent);
+    }
+
+    private function insertFamilyLinkIfMissing(Student $primary, Student $linked, ?string $relationshipType, User $by): void
+    {
         $alreadyLinked = DB::table('student_family_links')
-            ->where(function ($q) use ($parentStudent, $child) {
-                $q->where('primary_student_id', $parentStudent->id)
-                    ->where('linked_student_id', $child->id);
+            ->where(function ($q) use ($primary, $linked) {
+                $q->where('primary_student_id', $primary->id)
+                    ->where('linked_student_id', $linked->id);
             })
-            ->orWhere(function ($q) use ($parentStudent, $child) {
-                $q->where('primary_student_id', $child->id)
-                    ->where('linked_student_id', $parentStudent->id);
+            ->orWhere(function ($q) use ($primary, $linked) {
+                $q->where('primary_student_id', $linked->id)
+                    ->where('linked_student_id', $primary->id);
             })
             ->exists();
 
@@ -248,10 +309,10 @@ class FamilyLinkService
         }
 
         DB::table('student_family_links')->insert([
-            'primary_student_id' => $parentStudent->id,
-            'linked_student_id' => $child->id,
-            'relationship_type' => 'parent',
-            'created_by' => $parent->id,
+            'primary_student_id' => $primary->id,
+            'linked_student_id' => $linked->id,
+            'relationship_type' => $relationshipType,
+            'created_by' => $by->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

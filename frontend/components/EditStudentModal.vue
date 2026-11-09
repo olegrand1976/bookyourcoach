@@ -76,9 +76,10 @@
                 >
                 <p class="text-xs text-gray-500 mt-1">
                   Si aucun email n'est fourni, un compte utilisateur ne sera pas créé. Vous pourrez compléter ces informations plus tard.
+                  L'email d'un autre élève rattache cet élève au même compte : ils seront accessibles depuis la même connexion.
                 </p>
               </div>
-              
+
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">Téléphone</label>
                 <input 

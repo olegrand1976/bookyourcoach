@@ -440,18 +440,22 @@ class StudentController extends Controller
                 'medical_documents' => 'nullable|array', // Documents médicaux (pour futur usage)
             ];
             
-            // Email optionnel - si fourni, doit être valide et libre : users.email est
-            // unique tous rôles confondus (un email d'enseignant ferait échouer la base).
-            if ($request->has('email') && $request->email !== null) {
-                $rules['email'] = ['required', 'email', Rule::unique('users', 'email')];
-            } else {
-                $rules['email'] = 'nullable|email';
-            }
+            // Email optionnel. S'il est déjà celui d'un compte élève, le nouvel élève est
+            // rattaché à ce compte (foyer) ; celui d'un enseignant/club est refusé.
+            $rules['email'] = 'nullable|email';
 
             $validated = $request->validate($rules, [
                 'email.email' => 'L\'adresse email n\'est pas valide.',
-                'email.unique' => 'Cette adresse email est déjà utilisée par un autre compte.',
             ]);
+
+            $existingAccount = !empty($validated['email'])
+                ? $this->findAccountByEmail($validated['email'])
+                : null;
+            if ($existingAccount && $existingAccount->primaryRole() !== User::ROLE_STUDENT) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Cette adresse email est celle d\'un compte enseignant ou club : elle ne peut pas être partagée avec un élève.',
+                ]);
+            }
             
             \Log::info('Données validées pour création élève', [
                 'validated' => $validated,
@@ -464,8 +468,8 @@ class StudentController extends Controller
             $student = null;
             $emailSent = false;
 
-            // Créer un utilisateur UNIQUEMENT si un email est fourni
-            if (!empty($validated['email'])) {
+            // Créer un utilisateur UNIQUEMENT si un email nouveau est fourni
+            if (!empty($validated['email']) && !$existingAccount) {
                 // Construire le nom (utiliser "Élève" si pas de nom fourni)
                 $firstName = $validated['first_name'] ?? 'Élève';
                 $lastName = $validated['last_name'] ?? '';
@@ -540,7 +544,9 @@ class StudentController extends Controller
 
             $inviteCode = null;
             $inviteCodeExpiresAt = null;
-            if ($newUser === null) {
+            if ($existingAccount) {
+                app(FamilyLinkService::class)->attachToAccount($student, $existingAccount, $user);
+            } elseif ($newUser === null) {
                 $familyLinkService = app(FamilyLinkService::class);
                 $inviteCode = $familyLinkService->generateInviteCode($student);
                 $student->refresh();
@@ -571,7 +577,10 @@ class StudentController extends Controller
 
             // Message de succès adapté
             $message = 'Élève créé avec succès !';
-            if ($emailSent && $newUser) {
+            if ($existingAccount) {
+                $message .= ' Il est rattaché au compte de ' . $existingAccount->email
+                    . ' : les élèves de ce compte sont accessibles depuis la même connexion.';
+            } elseif ($emailSent && $newUser) {
                 $message .= ' Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.';
             } elseif (!$newUser) {
                 $message .= ' Un code d\'invitation a été généré pour que le parent puisse rattacher cet enfant à son compte.';
@@ -582,6 +591,7 @@ class StudentController extends Controller
                 'data' => $student,
                 'student' => $student,
                 'user_created' => $newUser !== null,
+                'attached_to_account' => $existingAccount !== null,
                 'email_sent' => $emailSent,
                 'invite_code' => $inviteCode,
                 'invite_code_expires_at' => $inviteCodeExpiresAt,
@@ -592,7 +602,7 @@ class StudentController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur de validation',
+                'message' => collect($e->errors())->flatten()->first() ?? 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
@@ -603,6 +613,15 @@ class StudentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Compte portant cet email, sans tenir compte de la casse (comme la collation MySQL,
+     * et quel que soit le driver) : la même adresse doit toujours retrouver le même compte.
+     */
+    private function findAccountByEmail(string $email): ?User
+    {
+        return User::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($email))])->first();
     }
 
     /**
@@ -642,34 +661,60 @@ class StudentController extends Controller
                 'disciplines.*' => 'integer|exists:disciplines,id',
             ];
             
-            // users.email est unique tous rôles confondus (et non nul) : un email déjà pris
-            // par un enseignant ou un club doit être refusé ici, pas par la base (500).
-            if (!$student->user_id) {
-                // Sans compte : l'email est facultatif ; s'il est fourni, le compte est créé.
-                $validationRules['email'] = ['nullable', 'email', Rule::unique('users', 'email')];
-            } else {
-                // Avec compte : l'email peut changer mais pas être vidé.
-                $validationRules['email'] = [
-                    'sometimes',
-                    'required',
-                    'email',
-                    Rule::unique('users', 'email')->ignore($student->user_id),
-                ];
-            }
+            // L'email porte le compte de connexion (users.email, unique et non nul) :
+            // le même email sur plusieurs élèves = un seul compte partagé (foyer).
+            $validationRules['email'] = ['sometimes', 'nullable', 'email'];
 
             $validated = $request->validate($validationRules, [
-                'email.required' => 'L\'email ne peut pas être vidé : cet élève a un compte utilisateur.',
                 'email.email' => 'L\'adresse email n\'est pas valide.',
-                'email.unique' => 'Cette adresse email est déjà utilisée par un autre compte.',
             ]);
+
+            $currentAccount = $student->user_id ? $student->user : null;
+            $sharedAccount = $currentAccount
+                && Student::where('user_id', $currentAccount->id)->where('id', '!=', $student->id)->exists();
+            $newEmail = array_key_exists('email', $validated) ? ($validated['email'] ?: null) : false;
+            $emailChanged = $newEmail !== false
+                && mb_strtolower((string) $newEmail) !== mb_strtolower((string) $currentAccount?->email);
+            $existingAccount = $emailChanged && $newEmail
+                ? $this->findAccountByEmail($newEmail)
+                : null;
+
+            if ($emailChanged && $newEmail === null && $currentAccount && !$sharedAccount) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'L\'email ne peut pas être vidé : cet élève a un compte utilisateur.',
+                ]);
+            }
+            if ($existingAccount && $existingAccount->primaryRole() !== User::ROLE_STUDENT) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Cette adresse email est celle d\'un compte enseignant ou club : elle ne peut pas être partagée avec un élève.',
+                ]);
+            }
 
             DB::beginTransaction();
 
             $emailSent = false;
             $userCreated = false;
+            $attachedToAccount = false;
+            $detachedFromAccount = false;
+            $familyLinkService = app(FamilyLinkService::class);
+
+            if ($existingAccount) {
+                // Email d'un autre compte élève : rattacher l'élève à ce compte.
+                $familyLinkService->attachToAccount($student, $existingAccount, $user);
+                $attachedToAccount = true;
+            } elseif ($emailChanged && $newEmail === null && $sharedAccount) {
+                // Email retiré d'un élève d'un compte partagé : il quitte ce compte.
+                $familyLinkService->unlinkChildFromParent($student, $user);
+                $detachedFromAccount = true;
+            } elseif ($emailChanged && $newEmail && $sharedAccount) {
+                // Nouvel email pour un élève d'un compte partagé : il reçoit son propre
+                // compte au lieu de changer l'identifiant de connexion des autres.
+                $familyLinkService->detachFromSharedAccount($student);
+                $student->forceFill(['user_id' => null, 'linked_by_user_id' => null, 'linked_at' => null]);
+            }
 
             // Si l'élève n'a pas de compte utilisateur ET qu'un email est fourni, créer le compte
-            if (!$student->user_id && !empty($validated['email'])) {
+            if (!$student->user_id && $newEmail && !$attachedToAccount) {
                 $firstName = $validated['first_name'] ?? 'Élève';
                 $lastName = $validated['last_name'] ?? '';
                 $fullName = trim($firstName . ' ' . $lastName);
@@ -701,10 +746,15 @@ class StudentController extends Controller
                 }
                 
                 $userCreated = true;
-            } elseif ($student->user_id) {
-                // Mettre à jour l'utilisateur existant
+            } elseif (
+                $student->user_id
+                && !$attachedToAccount
+                && (int) Student::where('user_id', $student->user_id)->orderBy('id')->value('id') === (int) $student->id
+            ) {
+                // Mettre à jour le compte dont l'élève est le titulaire (premier élève du
+                // compte) : un élève rattaché ne renomme pas le compte partagé.
                 $studentUser = $student->user;
-                
+
                 if (isset($validated['first_name']) || isset($validated['last_name'])) {
                     $firstName = $validated['first_name'] ?? $studentUser->first_name;
                     $lastName = $validated['last_name'] ?? $studentUser->last_name;
@@ -715,11 +765,9 @@ class StudentController extends Controller
                     ]);
                 }
                 
-                // Gérer l'email : accepter les chaînes vides pour permettre l'effacement
-                if (array_key_exists('email', $validated)) {
-                    $emailValue = $validated['email'];
-                    // Convertir les chaînes vides en null pour la base de données
-                    $studentUser->update(['email' => $emailValue === '' ? null : $emailValue]);
+                // Nouvel email libre : changer l'identifiant du compte (non partagé ici).
+                if ($emailChanged && $newEmail && !$sharedAccount) {
+                    $studentUser->update(['email' => $newEmail]);
                 }
                 
                 // Gérer le téléphone : accepter les chaînes vides pour permettre l'effacement
@@ -767,7 +815,12 @@ class StudentController extends Controller
             $student->load('user');
 
             $message = 'Élève mis à jour avec succès';
-            if ($userCreated && $emailSent) {
+            if ($attachedToAccount) {
+                $message .= '. Il est rattaché au compte de ' . $existingAccount->email
+                    . ' : les élèves de ce compte sont accessibles depuis la même connexion.';
+            } elseif ($detachedFromAccount) {
+                $message .= '. Il ne fait plus partie du compte partagé.';
+            } elseif ($userCreated && $emailSent) {
                 $message .= '. Un compte utilisateur a été créé et un email de bienvenue a été envoyé.';
             } elseif ($userCreated) {
                 $message .= '. Un compte utilisateur a été créé.';
@@ -777,6 +830,7 @@ class StudentController extends Controller
                 'success' => true,
                 'data' => $student,
                 'user_created' => $userCreated,
+                'attached_to_account' => $attachedToAccount,
                 'email_sent' => $emailSent,
                 'message' => $message
             ]);

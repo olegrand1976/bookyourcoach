@@ -1,0 +1,82 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
+import EditStudentModal from '~/components/EditStudentModal.vue'
+
+/**
+ * Fiche élève (onglet Infos) : modification de l'email.
+ * Le même email qu'un autre élève rattache l'élève à ce compte ; l'API renvoie le
+ * message à afficher, y compris en cas de refus (422).
+ */
+enableAutoUnmount(afterEach)
+
+const student = {
+  id: 12,
+  user_id: 40,
+  first_name: 'Léa',
+  last_name: 'Martin',
+  email: 'lea@example.be',
+  phone: '0470000000',
+  date_of_birth: '',
+  goals: '',
+  medical_info: '',
+}
+
+describe('EditStudentModal — email de l’élève', () => {
+  const get = vi.fn()
+  const put = vi.fn()
+  const post = vi.fn()
+  const success = vi.fn()
+  const error = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    get.mockResolvedValue({ data: { success: true, data: [] } })
+    ;(globalThis as any).useNuxtApp = () => ({ $api: { get, put, post, delete: vi.fn() } })
+    ;(globalThis as any).useToast = () => ({ success, error, info: vi.fn(), warning: vi.fn() })
+  })
+
+  const mountModal = () =>
+    mount(EditStudentModal, {
+      props: { student, embedded: true },
+      global: { stubs: { StudentInviteCodeCard: true } },
+    })
+
+  const submitWithEmail = async (w: ReturnType<typeof mountModal>, email: string) => {
+    await flushPromises()
+    await w.find('input[type="email"]').setValue(email)
+    await w.find('form').trigger('submit')
+    await flushPromises()
+  }
+
+  it('envoie le nouvel email et affiche le message de rattachement renvoyé par l’API', async () => {
+    const message = 'Élève mis à jour avec succès. Il est rattaché au compte de parent@example.be : les élèves de ce compte sont accessibles depuis la même connexion.'
+    put.mockResolvedValue({ data: { success: true, attached_to_account: true, message, data: student } })
+    const w = mountModal()
+
+    await submitWithEmail(w, '  parent@example.be ')
+
+    expect(put).toHaveBeenCalledWith('/club/students/12', expect.objectContaining({ email: 'parent@example.be' }))
+    expect(success).toHaveBeenCalledWith(message, 'Succès')
+    expect(w.emitted('success')?.[0]?.[0]).toMatchObject({ attached_to_account: true })
+  })
+
+  it('affiche le motif précis d’un refus (email d’un compte enseignant)', async () => {
+    const message = 'Cette adresse email est celle d\'un compte enseignant ou club : elle ne peut pas être partagée avec un élève.'
+    put.mockRejectedValue({ response: { status: 422, data: { message, errors: { email: [message] } } } })
+    const w = mountModal()
+
+    await submitWithEmail(w, 'coach@example.be')
+
+    expect(error).toHaveBeenCalledWith(message, 'Erreur')
+    expect(w.emitted('success')).toBeUndefined()
+  })
+
+  it('envoie une chaîne vide quand l’email est effacé (détachement d’un compte partagé)', async () => {
+    put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
+    const w = mountModal()
+
+    await submitWithEmail(w, '')
+
+    expect(put).toHaveBeenCalledWith('/club/students/12', expect.objectContaining({ email: '' }))
+  })
+})
