@@ -440,20 +440,18 @@ class StudentController extends Controller
                 'medical_documents' => 'nullable|array', // Documents médicaux (pour futur usage)
             ];
             
-            // Email optionnel - si fourni, doit être valide et unique pour le rôle student
+            // Email optionnel - si fourni, doit être valide et libre : users.email est
+            // unique tous rôles confondus (un email d'enseignant ferait échouer la base).
             if ($request->has('email') && $request->email !== null) {
-                $rules['email'] = [
-                    'required',
-                    'email',
-                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    }),
-                ];
+                $rules['email'] = ['required', 'email', Rule::unique('users', 'email')];
             } else {
                 $rules['email'] = 'nullable|email';
             }
-            
-            $validated = $request->validate($rules);
+
+            $validated = $request->validate($rules, [
+                'email.email' => 'L\'adresse email n\'est pas valide.',
+                'email.unique' => 'Cette adresse email est déjà utilisée par un autre compte.',
+            ]);
             
             \Log::info('Données validées pour création élève', [
                 'validated' => $validated,
@@ -644,29 +642,26 @@ class StudentController extends Controller
                 'disciplines.*' => 'integer|exists:disciplines,id',
             ];
             
-            // Si l'élève n'a pas de user_id, l'email devient requis si fourni
+            // users.email est unique tous rôles confondus (et non nul) : un email déjà pris
+            // par un enseignant ou un club doit être refusé ici, pas par la base (500).
             if (!$student->user_id) {
-                $validationRules['email'] = [
-                    'nullable',
-                    'email',
-                    // Vérifier l'unicité uniquement pour le rôle student
-                    Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    }),
-                ];
+                // Sans compte : l'email est facultatif ; s'il est fourni, le compte est créé.
+                $validationRules['email'] = ['nullable', 'email', Rule::unique('users', 'email')];
             } else {
+                // Avec compte : l'email peut changer mais pas être vidé.
                 $validationRules['email'] = [
                     'sometimes',
-                    'nullable',
+                    'required',
                     'email',
-                    // Vérifier l'unicité uniquement pour le rôle student (ignorer si email est vide)
-                    Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    })->ignore($student->user_id),
+                    Rule::unique('users', 'email')->ignore($student->user_id),
                 ];
             }
-            
-            $validated = $request->validate($validationRules);
+
+            $validated = $request->validate($validationRules, [
+                'email.required' => 'L\'email ne peut pas être vidé : cet élève a un compte utilisateur.',
+                'email.email' => 'L\'adresse email n\'est pas valide.',
+                'email.unique' => 'Cette adresse email est déjà utilisée par un autre compte.',
+            ]);
 
             DB::beginTransaction();
 
@@ -786,6 +781,9 @@ class StudentController extends Controller
                 'message' => $message
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Laisser Laravel répondre en 422 avec le détail des champs.
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Erreur lors de la mise à jour de l\'élève', [
