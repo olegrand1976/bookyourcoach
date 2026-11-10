@@ -34,13 +34,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Veille abonnements en fin de vie (la veille de chaque jour de cours)
+    | Veille abonnements en fin de vie (e-mail N jours avant chaque jour de cours)
     |--------------------------------------------------------------------------
     | Un abonnement est signalé dès qu'un seuil (cours restants OU jours avant
     | expiration) est atteint ; le niveau le plus urgent atteint l'emporte.
+    | lead_days : l'e-mail part N jours avant les cours concernés (défaut 2), pour
+    | laisser au responsable le temps de prévenir les familles (dès 3 séances restantes).
     */
     'subscription_expiry_watch' => [
         'enabled' => env('SUBSCRIPTION_EXPIRY_WATCH_ENABLED', true),
+        'lead_days' => max(1, (int) env('SUBSCRIPTION_EXPIRY_WATCH_LEAD_DAYS', 2)),
         'schedule_time' => env('SUBSCRIPTION_EXPIRY_WATCH_TIME', '07:45'),
         'timezone' => env('SUBSCRIPTION_EXPIRY_WATCH_TIMEZONE', 'Europe/Brussels'),
         'dashboard_days' => (int) env('SUBSCRIPTION_EXPIRY_WATCH_DASHBOARD_DAYS', 7),

@@ -45,7 +45,7 @@
     @endphp
 
     <div class="header">
-        <p>Veille abonnements — élèves ayant cours le lendemain</p>
+        <p>Veille abonnements — élèves ayant cours prochainement</p>
         <h1>{{ $clubName }}</h1>
         <p style="margin-top:10px;font-size:15px;">Cours du {{ $targetDateLabel }}</p>
     </div>
@@ -98,7 +98,7 @@
     @endif
 
     <div class="footer">
-        E-mail automatique envoyé la veille de chaque jour de cours. Les jours de congé du club sont ignorés.
+        E-mail automatique envoyé {{ (int) config('bookyourcoach.subscription_expiry_watch.lead_days', 2) }} jour(s) avant chaque jour de cours. Les jours de congé du club sont ignorés.
     </div>
 </body>
 </html>

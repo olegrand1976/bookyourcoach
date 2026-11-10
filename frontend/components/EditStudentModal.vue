@@ -26,7 +26,7 @@
 
       <!-- Contenu avec scroll -->
       <div :class="embedded ? '' : 'overflow-y-auto max-h-[calc(90vh-120px)]'">
-        <form @submit.prevent="updateStudent" class="p-6 space-y-8">
+        <form @submit.prevent="updateStudent()" class="p-6 space-y-8">
           
           <!-- Section Informations personnelles -->
           <div class="bg-gray-50 rounded-xl p-6">
@@ -76,9 +76,10 @@
                 >
                 <p class="text-xs text-gray-500 mt-1">
                   Si aucun email n'est fourni, un compte utilisateur ne sera pas créé. Vous pourrez compléter ces informations plus tard.
+                  L'email d'un autre élève relie les deux : ils seront accessibles depuis la même connexion (un élève qui a déjà son compte le garde, les deux comptes sont fusionnés).
                 </p>
               </div>
-              
+
               <div class="space-y-2">
                 <label class="block text-sm font-medium text-gray-700">Téléphone</label>
                 <input 
@@ -333,6 +334,26 @@
               </div>
             </div>
 
+            <!-- Compte fusionné avec d'autres comptes élèves : possibilité de le séparer -->
+            <div
+              v-if="accountMerged && !loadingLinked"
+              data-testid="merged-account-notice"
+              class="mb-4 flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-lg border border-purple-200"
+            >
+              <p class="text-sm text-gray-700">
+                Le compte de cet élève est <strong>fusionné</strong> avec d'autres comptes : chaque connexion voit tous les élèves du foyer.
+              </p>
+              <button
+                type="button"
+                data-testid="separate-account"
+                :disabled="loadingLinkAction"
+                class="px-3 py-2 text-sm font-medium text-purple-700 border border-purple-300 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+                @click="separateAccount"
+              >
+                Séparer ce compte
+              </button>
+            </div>
+
             <div v-if="loadingLinked" class="flex justify-center py-4">
               <svg class="animate-spin h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -411,6 +432,71 @@
             @updated="onInviteCodeUpdated"
           />
 
+          <!-- Email d'un compte partagé : pour tous les élèves du compte, ou seulement celui-ci -->
+          <div
+            v-if="emailScopePrompt"
+            data-testid="email-scope-prompt"
+            role="alertdialog"
+            aria-labelledby="email-scope-title"
+            class="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3"
+          >
+            <p id="email-scope-title" class="text-sm font-semibold text-amber-900">
+              {{ emailScopePrompt.account_email }} sert à la connexion de plusieurs élèves
+            </p>
+            <ul class="text-sm text-amber-900 list-disc pl-5">
+              <li v-for="s in emailScopePrompt.students" :key="s.id">
+                {{ s.name }}<span v-if="s.is_current" class="text-amber-700"> (cette fiche)</span>
+              </li>
+              <li v-if="emailScopePrompt.other_students_count > 0">
+                {{ emailScopePrompt.other_students_count }} autre(s) élève(s) d'un autre club
+              </li>
+            </ul>
+            <p class="text-sm text-amber-900">
+              <template v-if="emailScopePrompt.kind === 'link'">
+                <strong>{{ emailScopePrompt.new_email }}</strong> est l'email d'un autre compte élève.
+              </template>
+              <template v-else>
+                Nouvel email : <strong>{{ emailScopePrompt.new_email }}</strong>
+              </template>
+            </p>
+            <p v-if="emailScopePrompt.household_allowed === false" class="text-xs text-amber-800">
+              Le compte de cet élève compte des élèves d'un autre club : il ne peut pas être fusionné entier, seul cet élève peut être rattaché.
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-if="emailScopePrompt.household_allowed !== false"
+                type="button"
+                data-testid="email-scope-household"
+                :disabled="loading"
+                class="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+                @click="updateStudent('household')"
+              >
+                {{ emailScopePrompt.kind === 'link'
+                  ? `Fusionner tout le compte avec celui de ${emailScopePrompt.new_email}`
+                  : 'Changer l\'email du compte pour tous' }}
+              </button>
+              <button
+                type="button"
+                data-testid="email-scope-student"
+                :disabled="loading"
+                class="px-4 py-2 rounded-lg border border-amber-600 text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50"
+                @click="updateStudent('student')"
+              >
+                {{ emailScopePrompt.kind === 'link'
+                  ? `Rattacher seulement cet élève à ${emailScopePrompt.new_email}`
+                  : 'Seulement pour cet élève (compte séparé)' }}
+              </button>
+              <button
+                type="button"
+                data-testid="email-scope-cancel"
+                class="px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
+                @click="emailScopePrompt = null"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+
           <!-- Boutons d'action -->
           <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button 
@@ -459,6 +545,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'success'])
 
 const loading = ref(false)
+// Réponse 409 de l'API : le nouvel email touche un compte partagé par plusieurs élèves.
+const emailScopePrompt = ref(null)
 const availableDisciplines = ref([])
 const selectedDisciplines = ref([])
 const medicalDocuments = ref([])
@@ -466,6 +554,7 @@ const medicalDocuments = ref([])
 // Élèves liés (section visible si élève a un compte)
 const hasStudentAccount = computed(() => !!(props.student?.user_id))
 const linkedStudents = ref([])
+const accountMerged = ref(false)
 const loadingLinked = ref(false)
 const loadingLinkAction = ref(false)
 const linkSearchQuery = ref('')
@@ -489,6 +578,9 @@ const form = ref({
   goals: '',
   medical_info: ''
 })
+
+// La confirmation vaut pour l'email affiché : toute nouvelle saisie l'annule.
+watch(() => form.value.email, () => { emailScopePrompt.value = null })
 
 // Date maximale (aujourd'hui)
 const maxDate = computed(() => {
@@ -591,6 +683,7 @@ const loadLinkedStudents = async () => {
     const response = await $api.get(`/club/students/${props.student.id}/linked`)
     if (response.data.success) {
       linkedStudents.value = response.data.data || []
+      accountMerged.value = !!response.data.account_merged
     }
   } catch (e) {
     console.error('Erreur chargement élèves liés:', e)
@@ -635,6 +728,28 @@ const linkStudent = async (s) => {
     }
   } catch (e) {
     const msg = e?.response?.data?.message || 'Erreur lors de la liaison'
+    const { error: showError } = useToast()
+    showError(msg, 'Erreur')
+  } finally {
+    loadingLinkAction.value = false
+  }
+}
+
+// Défait la fusion : ce compte et les autres comptes du foyer restent, mais chacun
+// ne voit plus que ses propres élèves.
+const separateAccount = async () => {
+  if (!props.student?.id || !confirm('Séparer ce compte des autres comptes du foyer ? Chaque connexion ne verra plus que ses propres élèves.')) return
+  loadingLinkAction.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/students/${props.student.id}/separate-account`)
+    if (response.data.success) {
+      const { success } = useToast()
+      success(response.data.message, 'Compte séparé')
+      await loadLinkedStudents()
+    }
+  } catch (e) {
+    const msg = e?.response?.data?.message || 'Erreur lors de la séparation du compte'
     const { error: showError } = useToast()
     showError(msg, 'Erreur')
   } finally {
@@ -758,7 +873,9 @@ watch(() => props.student, (newStudent) => {
   }
 }, { immediate: true })
 
-const updateStudent = async () => {
+// emailScope : 'household' (email du compte pour tous) ou 'student' (compte séparé),
+// choisi après la confirmation demandée par l'API.
+const updateStudent = async (emailScope = null) => {
   loading.value = true
   try {
     const { $api } = useNuxtApp()
@@ -789,8 +906,13 @@ const updateStudent = async () => {
       studentData.phone = phoneTrimmed
     }
     
+    if (emailScope) {
+      studentData.email_scope = emailScope
+    }
+
     // Mettre à jour l'étudiant
     const response = await $api.put(`/club/students/${props.student.id}`, studentData)
+    emailScopePrompt.value = null
     
     // Gérer les documents médicaux - nouveaux fichiers à uploader
     const newDocuments = medicalDocuments.value.filter(doc => doc.file && !doc.id)
@@ -835,6 +957,10 @@ const updateStudent = async () => {
     emit('success', response.data)
     emit('close')
   } catch (error) {
+    if (error?.response?.status === 409 && error.response.data?.requires_confirmation) {
+      emailScopePrompt.value = error.response.data.data
+      return
+    }
     console.error('❌ [EditStudentModal] Erreur lors de la mise à jour:', error)
     const { error: showError } = useToast()
     const errorMessage = error?.response?.data?.message || 'Erreur lors de la mise à jour de l\'élève'

@@ -181,8 +181,14 @@
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center space-x-3 mb-2">
-                        <h4 class="font-semibold text-gray-900">
-                          {{ subscription.subscription?.template?.model_number || subscription.subscription?.name || 'Abonnement' }}
+                        <h4>
+                          <NuxtLink
+                            :to="subscriptionInstanceLink(subscription.id)"
+                            class="font-semibold text-blue-700 hover:text-blue-900 hover:underline underline-offset-2"
+                            title="Ouvrir l'abonnement"
+                          >
+                            {{ subscription.subscription?.template?.model_number || subscription.subscription?.name || 'Abonnement' }} ›
+                          </NuxtLink>
                         </h4>
                         <span 
                           :class="{
@@ -495,6 +501,22 @@
                     Séance non incluse dans l'abonnement
                   </label>
                 </div>
+                <!-- Forçage : déduire même si l'abonnement n'a plus de place (dépassement assumé par le club) -->
+                <label
+                  v-if="editLessonForm.deduct_from_subscription === true && !selectedLesson?.subscription_instances?.length"
+                  class="ml-6 flex items-start gap-2 text-sm text-gray-700"
+                >
+                  <input
+                    v-model="editLessonForm.force_deduction"
+                    type="checkbox"
+                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    data-testid="edit-force-deduction"
+                  />
+                  <span>
+                    Forcer la déduction
+                    <span class="block text-xs text-gray-500">Même si l'abonnement n'a plus de place : le cours est déduit en dépassement.</span>
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -663,6 +685,7 @@
 
 <script setup>
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { subscriptionInstanceLink } from '~/utils/subscriptionLink'
 import SlotConflictModal from '~/components/planning/SlotConflictModal.vue'
 import {
   getCancellationSubscriptionImpact,
@@ -704,6 +727,7 @@ const editLessonForm = ref({
   date: '',
   time: '',
   deduct_from_subscription: true,
+  force_deduction: false,
   est_legacy: false,
   slot_id: null,
   teacher_id: null
@@ -1363,6 +1387,7 @@ const openEditLessonModal = async (lesson) => {
   
   // Déduction d'abonnement
   editLessonForm.value.deduct_from_subscription = lesson.subscription_instances && lesson.subscription_instances.length > 0
+  editLessonForm.value.force_deduction = false
   
   // DCL/NDCL : initialiser selon le choix de déduction
   if (editLessonForm.value.deduct_from_subscription) {
@@ -1413,6 +1438,7 @@ const closeEditLessonModal = () => {
     date: '',
     time: '',
     deduct_from_subscription: true,
+    force_deduction: false,
     est_legacy: false,
     slot_id: null
   }
@@ -1527,6 +1553,7 @@ const saveLessonChanges = async () => {
     end_time: endTimeFormatted,
     est_legacy: editLessonForm.value.est_legacy,
     deduct_from_subscription: editLessonForm.value.deduct_from_subscription,
+    force_deduction: editLessonForm.value.deduct_from_subscription === true && editLessonForm.value.force_deduction === true,
     teacher_id: editLessonForm.value.teacher_id
   }
   
@@ -1591,6 +1618,12 @@ const performUpdate = async (updatePayload, scope) => {
       : 'Cours modifié avec succès'
     
     showSuccess(message)
+    // « Déduire d'un abonnement » demandé mais impossible (plus de place, aucun abonnement…) : le dire.
+    const link = updateResponse.data.subscription_link
+    if (link && link.linked === false && link.message) {
+      const { error: showLinkError } = useToast()
+      showLinkError(link.message)
+    }
     await loadHistory()
     closeEditLessonModal()
     

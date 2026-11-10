@@ -49,6 +49,9 @@
         </div>
       </div>
 
+      <!-- Contrôle de cohérence cours ↔ abonnements (correction par élève, annulable) -->
+      <SubscriptionCoherenceAudit @changed="loadSubscriptions" />
+
       <!-- Filtres -->
       <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <div class="flex flex-wrap items-end gap-4">
@@ -1089,6 +1092,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useNuxtApp } from '#app'
 import { useRoute } from 'vue-router'
 import { useToast } from '~/composables/useToast'
+import SubscriptionCoherenceAudit from '~/components/club/SubscriptionCoherenceAudit.vue'
 
 const route = useRoute()
 

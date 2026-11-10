@@ -22,6 +22,12 @@ class FamilyLinkService
     public const DEFAULT_TTL_DAYS = 30;
 
     /**
+     * Type des liens famille créés par une fusion de comptes : seuls ceux-là sont
+     * retirés quand on sépare les comptes (les liens posés à la main restent).
+     */
+    public const MERGE_RELATIONSHIP = 'account_merge';
+
+    /**
      * Longueur du code généré.
      */
     public const CODE_LENGTH = 10;
@@ -144,6 +150,7 @@ class FamilyLinkService
             $newCode = $this->assignFreshCode($child);
 
             $this->detachFamilyLinks($child->id, $previousParentId);
+            $this->detachMergeLinksFromGroup($child->id, (int) $previousParentId);
 
             Log::info('Enfant dissocié du compte parent', [
                 'student_id' => $child->id,
@@ -156,6 +163,156 @@ class FamilyLinkService
 
             return $child;
         });
+    }
+
+    /**
+     * Rattache un élève au compte élève existant qui porte l'email saisi par le club :
+     * même user_id = même foyer (le titulaire du compte voit les deux élèves). Le lien
+     * student_family_links rend le rattachement visible dans la fiche côté club.
+     * Les liens avec les élèves de l'ancien compte éventuel sont retirés.
+     */
+    public function attachToAccount(Student $student, User $account, User $by): void
+    {
+        if ($account->primaryRole() !== User::ROLE_STUDENT) {
+            throw new RuntimeException('account_role_invalid');
+        }
+
+        $previousUserId = $student->user_id;
+
+        $student->update([
+            'user_id' => $account->id,
+            'invite_code' => null,
+            'invite_code_expires_at' => null,
+            'linked_by_user_id' => $by->id,
+            'linked_at' => now(),
+        ]);
+
+        if ($previousUserId && (int) $previousUserId !== (int) $account->id) {
+            $this->detachFamilyLinks($student->id, (int) $previousUserId);
+            $this->detachMergeLinksFromGroup($student->id, (int) $previousUserId);
+        }
+
+        $holder = Student::where('user_id', $account->id)
+            ->where('id', '!=', $student->id)
+            ->orderBy('id')
+            ->first();
+
+        if ($holder) {
+            $this->insertFamilyLinkIfMissing($holder, $student, null, $by);
+        }
+
+        Log::info('Élève rattaché à un compte existant (même email)', [
+            'student_id' => $student->id,
+            'account_user_id' => $account->id,
+            'previous_user_id' => $previousUserId,
+            'by_user_id' => $by->id,
+        ]);
+    }
+
+    /**
+     * Fusionne le compte d'un élève avec un autre compte élève : les deux comptes
+     * restent (email et mot de passe propres) mais partagent un seul foyer. Les
+     * groupes déjà fusionnés de part et d'autre se rejoignent. L'élève reste sur son
+     * compte ; le lien famille avec le titulaire de l'autre compte le rend visible
+     * dans la fiche côté club.
+     */
+    public function mergeAccounts(Student $student, User $target, User $by): void
+    {
+        $source = $student->user;
+
+        if (! $source || $source->primaryRole() !== User::ROLE_STUDENT || $target->primaryRole() !== User::ROLE_STUDENT) {
+            throw new RuntimeException('account_role_invalid');
+        }
+
+        $sourceRoot = (int) ($source->household_root_id ?? $source->id);
+        $targetRoot = (int) ($target->household_root_id ?? $target->id);
+
+        if ($sourceRoot !== $targetRoot) {
+            // Tout le groupe source passe sous la référence du groupe cible.
+            User::query()
+                ->where('id', $sourceRoot)
+                ->orWhere('household_root_id', $sourceRoot)
+                ->update(['household_root_id' => $targetRoot]);
+        }
+
+        $holder = Student::where('user_id', $target->id)->orderBy('id')->first();
+        if ($holder && $holder->id !== $student->id) {
+            $this->insertFamilyLinkIfMissing($holder, $student, self::MERGE_RELATIONSHIP, $by);
+        }
+
+        Log::info('Comptes élèves fusionnés (même foyer)', [
+            'student_id' => $student->id,
+            'source_user_id' => $source->id,
+            'target_user_id' => $target->id,
+            'household_root_id' => $targetRoot,
+            'by_user_id' => $by->id,
+        ]);
+    }
+
+    /**
+     * Défait la fusion pour ce compte : il quitte le groupe et retrouve un foyer à lui
+     * seul. Si c'était le compte de référence, le plus ancien des autres comptes le
+     * devient. Les liens famille créés par la fusion sont retirés ; ceux posés à la main
+     * (fratrie liée par le club, etc.) restent.
+     *
+     * @throws RuntimeException('not_merged') si le compte n'est fusionné avec aucun autre.
+     */
+    public function separateAccount(User $account, User $by): void
+    {
+        $groupIds = $account->householdAccountIds();
+        $remainingIds = array_values(array_diff($groupIds, [(int) $account->id]));
+
+        if ($remainingIds === []) {
+            throw new RuntimeException('not_merged');
+        }
+
+        DB::transaction(function () use ($account, $remainingIds, $by) {
+            if ($account->household_root_id === null) {
+                $account->promoteNextHouseholdRoot();
+            } else {
+                User::query()->where('id', $account->id)->update(['household_root_id' => null]);
+            }
+
+            $ownStudentIds = Student::where('user_id', $account->id)->pluck('id')->all();
+            $otherStudentIds = Student::whereIn('user_id', $remainingIds)->pluck('id')->all();
+
+            if ($ownStudentIds !== [] && $otherStudentIds !== []) {
+                DB::table('student_family_links')
+                    ->where('relationship_type', self::MERGE_RELATIONSHIP)
+                    ->where(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                        $q->where(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                            $q->whereIn('primary_student_id', $ownStudentIds)
+                                ->whereIn('linked_student_id', $otherStudentIds);
+                        })->orWhere(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                            $q->whereIn('primary_student_id', $otherStudentIds)
+                                ->whereIn('linked_student_id', $ownStudentIds);
+                        });
+                    })
+                    ->delete();
+            }
+
+            Log::info('Compte élève séparé du foyer fusionné', [
+                'account_user_id' => $account->id,
+                'remaining_user_ids' => $remainingIds,
+                'by_user_id' => $by->id,
+            ]);
+        });
+
+        $account->refresh();
+    }
+
+    /**
+     * Sort un élève d'un compte partagé avant de lui en donner un propre : retire
+     * les liens famille avec les autres élèves de ce compte.
+     */
+    public function detachFromSharedAccount(Student $student): void
+    {
+        if ($student->user_id === null) {
+            return;
+        }
+
+        $this->detachFamilyLinks($student->id, (int) $student->user_id);
+        $this->detachMergeLinksFromGroup($student->id, (int) $student->user_id);
     }
 
     /**
@@ -232,14 +389,19 @@ class FamilyLinkService
             return;
         }
 
+        $this->insertFamilyLinkIfMissing($parentStudent, $child, 'parent', $parent);
+    }
+
+    private function insertFamilyLinkIfMissing(Student $primary, Student $linked, ?string $relationshipType, User $by): void
+    {
         $alreadyLinked = DB::table('student_family_links')
-            ->where(function ($q) use ($parentStudent, $child) {
-                $q->where('primary_student_id', $parentStudent->id)
-                    ->where('linked_student_id', $child->id);
+            ->where(function ($q) use ($primary, $linked) {
+                $q->where('primary_student_id', $primary->id)
+                    ->where('linked_student_id', $linked->id);
             })
-            ->orWhere(function ($q) use ($parentStudent, $child) {
-                $q->where('primary_student_id', $child->id)
-                    ->where('linked_student_id', $parentStudent->id);
+            ->orWhere(function ($q) use ($primary, $linked) {
+                $q->where('primary_student_id', $linked->id)
+                    ->where('linked_student_id', $primary->id);
             })
             ->exists();
 
@@ -248,13 +410,45 @@ class FamilyLinkService
         }
 
         DB::table('student_family_links')->insert([
-            'primary_student_id' => $parentStudent->id,
-            'linked_student_id' => $child->id,
-            'relationship_type' => 'parent',
-            'created_by' => $parent->id,
+            'primary_student_id' => $primary->id,
+            'linked_student_id' => $linked->id,
+            'relationship_type' => $relationshipType,
+            'created_by' => $by->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * L'élève quitte un compte : retire ses liens de fusion avec les élèves de tous les
+     * comptes du groupe fusionné de ce compte (sinon ces foyers le verraient encore).
+     */
+    private function detachMergeLinksFromGroup(int $studentId, int $previousUserId): void
+    {
+        $previous = User::find($previousUserId);
+        if (! $previous) {
+            return;
+        }
+
+        $groupStudentIds = Student::whereIn('user_id', $previous->householdAccountIds())
+            ->where('id', '!=', $studentId)
+            ->pluck('id')
+            ->all();
+
+        if ($groupStudentIds === []) {
+            return;
+        }
+
+        DB::table('student_family_links')
+            ->where('relationship_type', self::MERGE_RELATIONSHIP)
+            ->where(function ($q) use ($studentId, $groupStudentIds) {
+                $q->where(function ($q) use ($studentId, $groupStudentIds) {
+                    $q->whereIn('primary_student_id', $groupStudentIds)->where('linked_student_id', $studentId);
+                })->orWhere(function ($q) use ($studentId, $groupStudentIds) {
+                    $q->where('primary_student_id', $studentId)->whereIn('linked_student_id', $groupStudentIds);
+                });
+            })
+            ->delete();
     }
 
     /**

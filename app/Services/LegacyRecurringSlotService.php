@@ -21,7 +21,8 @@ class LegacyRecurringSlotService
         SubscriptionRecurringSlot $recurringSlot,
         ?Carbon $startDate = null,
         ?Carbon $endDate = null,
-        int $reserveAttachmentSlots = 0
+        int $reserveAttachmentSlots = 0,
+        ?Carbon $notBefore = null
     ): array {
         $t0 = microtime(true);
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
@@ -41,6 +42,10 @@ class LegacyRecurringSlotService
         }
 
         $startDate = $startDate ?? $defaultStartDate;
+        // Planification de l'avenir : ne jamais recréer de cours dans le passé (semaines manquées).
+        if ($notBefore !== null && $startDate->lt($notBefore)) {
+            $startDate = $notBefore->copy();
+        }
         $endDate = $endDate ?? $recurringEndDate->copy();
 
         if ($endDate->isAfter($recurringEndDate)) {

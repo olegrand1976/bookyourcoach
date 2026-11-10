@@ -285,6 +285,7 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     Route::get('/students/{studentId}/linked', [StudentController::class, 'getLinkedForClub']);
     Route::post('/students/{studentId}/link', [StudentController::class, 'linkForClub']);
     Route::delete('/students/{studentId}/unlink/{linkedStudentId}', [StudentController::class, 'unlinkForClub']);
+    Route::post('/students/{studentId}/separate-account', [StudentController::class, 'separateAccountForClub']);
     // Code d'invitation parent (enfants sans email)
     Route::get('/students/{studentId}/invite-code', [StudentController::class, 'getInviteCode']);
     Route::post('/students/{studentId}/invite-code/regenerate', [StudentController::class, 'regenerateInviteCode']);
@@ -369,6 +370,13 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     Route::post('/subscriptions/recalculate', [SubscriptionController::class, 'recalculateAll']);
     Route::get('/subscriptions/counter-repair/preview', [App\Http\Controllers\Api\ClubSubscriptionCounterRepairController::class, 'preview']);
     Route::post('/subscriptions/counter-repair/apply', [App\Http\Controllers\Api\ClubSubscriptionCounterRepairController::class, 'apply']);
+    // Remise en cohérence cours ↔ abonnements (carnets consommés dans l'ordre), annulable par élève
+    Route::get('/subscriptions/rebalance/audit', [App\Http\Controllers\Api\ClubSubscriptionRebalanceController::class, 'audit']);
+    Route::get('/subscriptions/rebalance/students/{studentId}', [App\Http\Controllers\Api\ClubSubscriptionRebalanceController::class, 'show']);
+    Route::post('/subscriptions/rebalance/students/{studentId}/apply', [App\Http\Controllers\Api\ClubSubscriptionRebalanceController::class, 'apply']);
+    Route::post('/subscriptions/rebalance/{rebalanceId}/revert', [App\Http\Controllers\Api\ClubSubscriptionRebalanceController::class, 'revert']);
+    // Fiche élève : planifier l'avenir (séries prolongées tant qu'un abonnement est actif)
+    Route::post('/students/{studentId}/plan-future', [App\Http\Controllers\Api\ClubStudentFuturePlanningController::class, 'store']);
     Route::post('/subscriptions/{instanceId}/close', [SubscriptionController::class, 'close']);
     Route::put('/subscriptions/{instanceId}/est-legacy', [SubscriptionController::class, 'updateEstLegacy']);
     Route::put('/subscriptions/instances/{instanceId}', [SubscriptionController::class, 'updateInstance']);

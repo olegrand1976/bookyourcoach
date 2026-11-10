@@ -399,9 +399,57 @@ class User extends Authenticatable
      */
     private const HOUSEHOLD_SUBSCRIPTION_INSTANCE_MAX_STUDENTS = 24;
 
+    protected static function booted(): void
+    {
+        // Suppression du compte de référence d'un groupe fusionné : le plus ancien des
+        // autres comptes le remplace, sinon la clé (nullOnDelete) défusionnerait tout le groupe.
+        static::deleting(function (User $user) {
+            if ($user->household_root_id === null) {
+                $user->promoteNextHouseholdRoot();
+            }
+        });
+    }
+
+    /**
+     * Ce compte (de référence) quitte son groupe fusionné : le plus ancien des autres
+     * comptes devient la référence, les autres pointent vers lui. Sans effet hors groupe.
+     */
+    public function promoteNextHouseholdRoot(): void
+    {
+        $memberIds = static::query()->where('household_root_id', $this->id)->orderBy('id')->pluck('id');
+        if ($memberIds->isEmpty()) {
+            return;
+        }
+
+        $newRootId = $memberIds->first();
+        static::query()->where('id', $newRootId)->update(['household_root_id' => null]);
+        static::query()->whereIn('id', $memberIds->slice(1)->all())->update(['household_root_id' => $newRootId]);
+    }
+
+    /**
+     * Comptes du groupe fusionné de ce compte (lui compris) : le compte de référence
+     * (household_root_id) et tous ceux qui pointent vers lui. Chacun garde sa connexion.
+     *
+     * @return array<int>
+     */
+    public function householdAccountIds(): array
+    {
+        $rootId = (int) ($this->household_root_id ?? $this->id);
+
+        return static::query()
+            ->where('id', $rootId)
+            ->orWhere('household_root_id', $rootId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->push((int) $this->id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /**
      * IDs de tous les élèves « du foyer » :
-     * - profils students avec ce user_id ;
+     * - profils students de ce compte et des comptes fusionnés avec lui ;
      * - élèves liés student_family_links ;
      * - co-bénéficiaires sur les mêmes instances d'abonnement (abonnement familial sans lien famille explicite).
      *
@@ -413,7 +461,7 @@ class User extends Authenticatable
             return [];
         }
 
-        $profiles = Student::query()->where('user_id', $this->id)->get();
+        $profiles = Student::query()->whereIn('user_id', $this->householdAccountIds())->get();
         if ($profiles->isEmpty()) {
             return [];
         }

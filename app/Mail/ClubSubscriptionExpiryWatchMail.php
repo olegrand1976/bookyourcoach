@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Veille abonnements : élèves qui ont cours le lendemain et dont l'abonnement arrive
+ * Veille abonnements : élèves qui ont cours prochainement (J-2 par défaut) et dont l'abonnement arrive
  * en fin de vie, regroupés par urgence (critique → urgent → à surveiller).
  */
 class ClubSubscriptionExpiryWatchMail extends Mailable

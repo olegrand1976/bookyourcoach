@@ -10,23 +10,32 @@
             Calendrier des cours
           </h3>
           <p class="text-sm text-gray-600 mt-1">
-            {{ upcomingPeriod.label }}
-            <span v-if="showPastLessons && pastPeriod"> · {{ pastPeriod.label }}</span>
+            {{ lessonsView === 'upcoming' ? upcomingPeriod.label : pastPeriod?.label }}
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2 text-sm">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-purple-200 text-purple-900 font-medium">
-            <span class="w-2 h-2 rounded-full bg-purple-500" aria-hidden="true"></span>
-            À venir : {{ upcomingLessonsSorted.length }}
-          </span>
-          <span
-            v-if="pastLessonsAvailableCount > 0"
-            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700"
-          >
-            Passés : {{ showPastLessons ? pastLessonsSorted.length : pastLessonsAvailableCount }}
-          </span>
-        </div>
       </div>
+      <!-- Cours à venir / passés : deux onglets distincts -->
+      <nav class="mt-4 -mb-4 flex gap-1" role="tablist" aria-label="Cours à venir ou passés">
+        <button
+          v-for="tab in lessonsTabs"
+          :key="tab.id"
+          type="button"
+          role="tab"
+          :aria-selected="lessonsView === tab.id"
+          :data-testid="`lessons-tab-${tab.id}`"
+          :class="[
+            'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-t-lg border border-b-0 transition-colors',
+            lessonsView === tab.id
+              ? 'bg-white text-purple-900 border-gray-200'
+              : 'bg-transparent text-gray-600 border-transparent hover:text-gray-900 hover:bg-white/60',
+          ]"
+          @click="selectLessonsView(tab.id)"
+        >
+          <span :class="['w-2 h-2 rounded-full', tab.id === 'upcoming' ? 'bg-purple-500' : 'bg-gray-400']" aria-hidden="true"></span>
+          {{ tab.label }}
+          <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">{{ tab.count }}</span>
+        </button>
+      </nav>
     </div>
 
     <div class="sticky top-0 z-10 px-4 py-4 sm:px-5 bg-white/95 backdrop-blur border-b border-gray-100 space-y-4">
@@ -64,22 +73,7 @@
         </div>
         <div class="flex flex-col justify-end gap-2">
           <button
-            v-if="pastLessonsAvailableCount > 0"
-            type="button"
-            :class="[
-              'w-full px-4 py-2.5 text-sm font-medium rounded-lg border transition-colors',
-              showPastLessons
-                ? 'bg-gray-800 text-white border-gray-800 hover:bg-gray-900'
-                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
-            ]"
-            :aria-expanded="showPastLessons"
-            @click="showPastLessons = !showPastLessons"
-          >
-            <template v-if="showPastLessons">Masquer les cours passés ({{ pastLessonsSorted.length }})</template>
-            <template v-else>Afficher les cours passés ({{ pastLessonsAvailableCount }})</template>
-          </button>
-          <button
-            v-if="lessonStatusFilter !== 'all' || lessonPeriodMode !== 'upcoming_quarter' || !showPastLessons"
+            v-if="lessonStatusFilter !== 'all' || lessonPeriodMode !== 'all'"
             type="button"
             class="w-full px-3 py-2 text-sm text-purple-700 hover:underline"
             @click="resetFilters"
@@ -95,13 +89,6 @@
         <p class="text-gray-500">Aucun cours pour cet élève</p>
       </div>
 
-      <div
-        v-else-if="upcomingLessonsSorted.length === 0 && (!showPastLessons || pastLessonsSorted.length === 0)"
-        class="rounded-lg bg-gray-50 py-10 text-center"
-      >
-        <p class="text-gray-500">Aucun cours ne correspond aux filtres sélectionnés.</p>
-      </div>
-
       <template v-else>
         <div
           v-if="subscriptionsEarliestEndFormatted"
@@ -110,12 +97,7 @@
           Fin théorique des abonnements à partir du <strong>{{ subscriptionsEarliestEndFormatted }}</strong>.
         </div>
 
-        <div>
-          <h4 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-purple-500" aria-hidden="true"></span>
-            Cours à venir
-            <span class="text-sm font-normal text-gray-500">({{ upcomingLessonsSorted.length }})</span>
-          </h4>
+        <div v-if="lessonsView === 'upcoming'" role="tabpanel" data-testid="lessons-panel-upcoming">
           <p class="text-sm text-gray-500 mb-4">Prochaines séances dans la période sélectionnée</p>
 
           <div
@@ -156,12 +138,7 @@
           </template>
         </div>
 
-        <div v-if="showPastLessons" class="pt-6 border-t border-gray-200">
-          <h4 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-gray-400" aria-hidden="true"></span>
-            Cours passés
-            <span class="text-sm font-normal text-gray-500">({{ pastLessonsSorted.length }})</span>
-          </h4>
+        <div v-else role="tabpanel" data-testid="lessons-panel-past">
           <p v-if="pastPeriod" class="text-sm text-gray-500 mb-4">{{ pastPeriod.label }} — du plus récent au plus ancien</p>
 
           <div
@@ -195,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   STUDENT_LESSON_PERIOD_FILTER_OPTIONS,
   STUDENT_LESSON_STATUS_FILTER_OPTIONS,
@@ -222,8 +199,10 @@ const emit = defineEmits([
 ])
 
 const lessonStatusFilter = ref('all')
-const lessonPeriodMode = ref('upcoming_quarter')
-const showPastLessons = ref(true)
+const lessonPeriodMode = ref('all')
+/** Onglet affiché : cours à venir ou cours passés. */
+const lessonsView = ref('upcoming')
+let lessonsViewChosen = false
 
 const statusFilterOptions = STUDENT_LESSON_STATUS_FILTER_OPTIONS
 
@@ -242,7 +221,6 @@ const upcomingLessonsSorted = computed(() => {
 })
 
 const pastLessonsSorted = computed(() => {
-  if (!showPastLessons.value) return []
   const period = pastPeriod.value
   if (!period) return []
   return props.lessons
@@ -250,14 +228,6 @@ const pastLessonsSorted = computed(() => {
       lessonMatchesHistoryFilters(lesson, lessonStatusFilter.value, period.from, period.to, filterOptions),
     )
     .sort(comparePastLessonsForHistoryDisplay)
-})
-
-const pastLessonsAvailableCount = computed(() => {
-  const period = pastPeriod.value
-  if (!period) return 0
-  return props.lessons.filter((lesson) =>
-    lessonMatchesHistoryFilters(lesson, lessonStatusFilter.value, period.from, period.to, filterOptions),
-  ).length
 })
 
 const upcomingGroupedByMonth = computed(() =>
@@ -270,10 +240,30 @@ const pastGroupedByMonth = computed(() =>
   }),
 )
 
+const lessonsTabs = computed(() => [
+  { id: 'upcoming', label: 'À venir', count: upcomingLessonsSorted.value.length },
+  { id: 'past', label: 'Passés', count: pastLessonsSorted.value.length },
+])
+
+function selectLessonsView(id) {
+  lessonsView.value = id
+  lessonsViewChosen = true
+}
+
+// Aucun cours à venir mais un historique : ouvrir directement l'onglet « Passés »
+// (tant que l'utilisateur n'a pas choisi d'onglet lui-même).
+watch(
+  () => [upcomingLessonsSorted.value.length, pastLessonsSorted.value.length],
+  ([upcoming, past]) => {
+    if (lessonsViewChosen) return
+    lessonsView.value = upcoming === 0 && past > 0 ? 'past' : 'upcoming'
+  },
+  { immediate: true },
+)
+
 function resetFilters() {
   lessonStatusFilter.value = 'all'
-  lessonPeriodMode.value = 'upcoming_quarter'
-  showPastLessons.value = true
+  lessonPeriodMode.value = 'all'
 }
 
 defineExpose({ resetFilters })

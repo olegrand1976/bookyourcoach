@@ -440,23 +440,30 @@ class StudentController extends Controller
                 'medical_documents' => 'nullable|array', // Documents médicaux (pour futur usage)
             ];
             
-            // Email optionnel - si fourni, doit être valide et unique pour le rôle student
-            if ($request->has('email') && $request->email !== null) {
-                $rules['email'] = [
-                    'required',
-                    'email',
-                    \Illuminate\Validation\Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    }),
-                ];
-            } else {
-                $rules['email'] = 'nullable|email';
+            // Email optionnel. S'il est déjà celui d'un compte élève, le nouvel élève est
+            // rattaché à ce compte (foyer) ; celui d'un enseignant/club est refusé.
+            $rules['email'] = 'nullable|email';
+
+            $validated = $request->validate($rules, [
+                'email.email' => 'L\'adresse email n\'est pas valide.',
+            ]);
+
+            $existingAccount = !empty($validated['email'])
+                ? $this->findAccountByEmail($validated['email'])
+                : null;
+            if ($existingAccount && $existingAccount->primaryRole() !== User::ROLE_STUDENT) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Cette adresse email est celle d\'un compte enseignant ou club : elle ne peut pas être partagée avec un élève.',
+                ]);
             }
-            
-            $validated = $request->validate($rules);
-            
+            if ($existingAccount && !$this->householdWithinClub($existingAccount, $club)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
+                ]);
+            }
+
             \Log::info('Données validées pour création élève', [
-                'validated' => $validated,
+                'validated' => \Illuminate\Support\Arr::except($validated, ['password']),
                 'club_id' => $club->id
             ]);
 
@@ -466,8 +473,8 @@ class StudentController extends Controller
             $student = null;
             $emailSent = false;
 
-            // Créer un utilisateur UNIQUEMENT si un email est fourni
-            if (!empty($validated['email'])) {
+            // Créer un utilisateur UNIQUEMENT si un email nouveau est fourni
+            if (!empty($validated['email']) && !$existingAccount) {
                 // Construire le nom (utiliser "Élève" si pas de nom fourni)
                 $firstName = $validated['first_name'] ?? 'Élève';
                 $lastName = $validated['last_name'] ?? '';
@@ -542,7 +549,9 @@ class StudentController extends Controller
 
             $inviteCode = null;
             $inviteCodeExpiresAt = null;
-            if ($newUser === null) {
+            if ($existingAccount) {
+                app(FamilyLinkService::class)->attachToAccount($student, $existingAccount, $user);
+            } elseif ($newUser === null) {
                 $familyLinkService = app(FamilyLinkService::class);
                 $inviteCode = $familyLinkService->generateInviteCode($student);
                 $student->refresh();
@@ -573,7 +582,10 @@ class StudentController extends Controller
 
             // Message de succès adapté
             $message = 'Élève créé avec succès !';
-            if ($emailSent && $newUser) {
+            if ($existingAccount) {
+                $message .= ' Il est rattaché au compte de ' . $existingAccount->email
+                    . ' : les élèves de ce compte sont accessibles depuis la même connexion.';
+            } elseif ($emailSent && $newUser) {
                 $message .= ' Un email a été envoyé à ' . $newUser->email . ' pour définir son mot de passe.';
             } elseif (!$newUser) {
                 $message .= ' Un code d\'invitation a été généré pour que le parent puisse rattacher cet enfant à son compte.';
@@ -584,6 +596,7 @@ class StudentController extends Controller
                 'data' => $student,
                 'student' => $student,
                 'user_created' => $newUser !== null,
+                'attached_to_account' => $existingAccount !== null,
                 'email_sent' => $emailSent,
                 'invite_code' => $inviteCode,
                 'invite_code_expires_at' => $inviteCodeExpiresAt,
@@ -594,7 +607,7 @@ class StudentController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur de validation',
+                'message' => collect($e->errors())->flatten()->first() ?? 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
@@ -608,6 +621,92 @@ class StudentController extends Controller
     }
 
     /**
+     * Compte portant cet email, sans tenir compte de la casse (comme la collation MySQL,
+     * et quel que soit le driver) : la même adresse doit toujours retrouver le même compte.
+     */
+    private function findAccountByEmail(string $email): ?User
+    {
+        $email = trim($email);
+
+        // MySQL compare déjà sans la casse (collation *_ci) et utilise ainsi l'index unique.
+        return DB::connection()->getDriverName() === 'mysql'
+            ? User::where('email', $email)->first()
+            : User::whereRaw('LOWER(email) = ?', [mb_strtolower($email)])->first();
+    }
+
+    private const FOREIGN_HOUSEHOLD_MESSAGE = 'Cette adresse email appartient à un compte élève qui n\'est pas entièrement suivi par votre club '
+        . '(élèves d\'un autre club, ou aucun élève chez vous) : pour relier ces élèves, le titulaire du compte doit utiliser le code d\'invitation famille.';
+
+    /**
+     * Cloisonnement : rattacher ou fusionner donne accès à tout le foyer du compte.
+     * Un club ne le fait que si tous les élèves de ce foyer (comptes fusionnés compris)
+     * sont inscrits chez lui ; sinon c'est au titulaire de consentir (code d'invitation).
+     */
+    private function householdWithinClub(User $account, $club): bool
+    {
+        if (!$club) {
+            return false;
+        }
+
+        // Le foyer tel que les connexions le voient : comptes fusionnés, liens famille
+        // et co-bénéficiaires d'abonnements compris. Un compte sans élève est inconnu du club.
+        $studentIds = $account->getHouseholdStudentIds();
+        if ($studentIds === []) {
+            return false;
+        }
+
+        $activeInClub = DB::table('club_students')
+            ->where('club_id', $club->id)
+            ->where('is_active', true)
+            ->whereIn('student_id', $studentIds)
+            ->distinct()
+            ->count('student_id');
+
+        return $activeInClub === count($studentIds);
+    }
+
+    /**
+     * 409 : le nouvel email touche un compte partagé ; la fiche demande au club s'il
+     * s'applique à tous les élèves du compte ou seulement à celui-ci. Seuls les élèves
+     * du club sont nommés (cloisonnement), les autres sont comptés.
+     */
+    private function emailScopeConfirmation(
+        User $account,
+        Student $student,
+        string $newEmail,
+        User $by,
+        ?User $target = null,
+        bool $householdAllowed = true,
+    ): JsonResponse {
+        $club = $by->getFirstClub();
+        $students = Student::where('user_id', $account->id)->orderBy('id')->get();
+        $visible = $students->filter(fn (Student $s) => $club && $this->studentBelongsToClub((int) $s->id, $club));
+
+        return response()->json([
+            'success' => false,
+            'requires_confirmation' => true,
+            'message' => $target
+                ? 'Cet email est celui d\'un autre compte. Fusionner tout le compte de cet élève avec lui, ou y rattacher seulement cet élève ?'
+                : 'Cet email sert à la connexion de plusieurs élèves. Le changer pour tous, ou seulement pour cet élève ?',
+            'data' => [
+                // change : nouvel email libre ; link : email d'un autre compte élève.
+                'kind' => $target ? 'link' : 'change',
+                'account_email' => $account->email,
+                'new_email' => $newEmail,
+                'target_email' => $target?->email,
+                // false : fusionner tout le compte serait refusé (élève d'un autre club).
+                'household_allowed' => $householdAllowed,
+                'students' => $visible->map(fn (Student $s) => [
+                    'id' => $s->id,
+                    'name' => $s->name,
+                    'is_current' => $s->id === $student->id,
+                ])->values(),
+                'other_students_count' => $students->count() - $visible->count(),
+            ],
+        ], 409);
+    }
+
+    /**
      * Mettre à jour un élève
      */
     public function update(Request $request, $studentId): JsonResponse
@@ -616,10 +715,10 @@ class StudentController extends Controller
             $user = Auth::user();
             
             $student = Student::findOrFail($studentId);
+            $club = $user->getFirstClub();
 
             // Vérifier les permissions
             if ($user->role === 'club') {
-                $club = $user->getFirstClub();
                 if (!$club || !DB::table('club_students')
                     ->where('club_id', $club->id)
                     ->where('student_id', $student->id)
@@ -644,37 +743,107 @@ class StudentController extends Controller
                 'disciplines.*' => 'integer|exists:disciplines,id',
             ];
             
-            // Si l'élève n'a pas de user_id, l'email devient requis si fourni
-            if (!$student->user_id) {
-                $validationRules['email'] = [
-                    'nullable',
-                    'email',
-                    // Vérifier l'unicité uniquement pour le rôle student
-                    Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    }),
-                ];
-            } else {
-                $validationRules['email'] = [
-                    'sometimes',
-                    'nullable',
-                    'email',
-                    // Vérifier l'unicité uniquement pour le rôle student (ignorer si email est vide)
-                    Rule::unique('users')->where(function ($query) {
-                        return $query->where('role', 'student');
-                    })->ignore($student->user_id),
-                ];
+            // L'email porte le compte de connexion (users.email, unique et non nul) :
+            // le même email sur plusieurs élèves = un seul compte partagé (foyer).
+            $validationRules['email'] = ['sometimes', 'nullable', 'email'];
+            // Compte partagé par plusieurs élèves : changer l'email pour tous (household)
+            // ou donner à cet élève son propre compte (student). Sans choix → 409.
+            $validationRules['email_scope'] = 'nullable|in:household,student';
+
+            $validated = $request->validate($validationRules, [
+                'email.email' => 'L\'adresse email n\'est pas valide.',
+            ]);
+
+            $currentAccount = $student->user_id ? $student->user : null;
+            $sharedAccount = $currentAccount
+                && Student::where('user_id', $currentAccount->id)->where('id', '!=', $student->id)->exists();
+            $newEmail = array_key_exists('email', $validated) ? ($validated['email'] ?: null) : false;
+            $emailChanged = $newEmail !== false
+                && mb_strtolower((string) $newEmail) !== mb_strtolower((string) $currentAccount?->email);
+            $existingAccount = $emailChanged && $newEmail
+                ? $this->findAccountByEmail($newEmail)
+                : null;
+
+            if ($emailChanged && $newEmail === null && $currentAccount && !$sharedAccount) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'L\'email ne peut pas être vidé : cet élève a un compte utilisateur.',
+                ]);
             }
-            
-            $validated = $request->validate($validationRules);
+            if ($emailChanged && $currentAccount && $currentAccount->primaryRole() !== User::ROLE_STUDENT) {
+                // Fiche reliée à un compte enseignant/club (données anciennes) : son
+                // identifiant de connexion ne se change pas depuis une fiche élève.
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Le compte de connexion de cet élève est un compte enseignant ou club : son email se modifie depuis ce compte.',
+                ]);
+            }
+            if ($existingAccount && $existingAccount->primaryRole() !== User::ROLE_STUDENT) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => 'Cette adresse email est celle d\'un compte enseignant ou club : elle ne peut pas être partagée avec un élève.',
+                ]);
+            }
+
+            // Cloisonnement, vérifié avant toute confirmation pour ne jamais proposer un
+            // choix que le serveur refuserait : le compte visé doit être entièrement du club ;
+            // fusionner tout le compte actuel exige qu'il le soit aussi.
+            if ($existingAccount && !$this->householdWithinClub($existingAccount, $club)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
+                ]);
+            }
+            $canMergeCurrent = $existingAccount && $currentAccount && $this->householdWithinClub($currentAccount, $club);
+
+            $emailScope = $validated['email_scope'] ?? null;
+            if ($emailChanged && $newEmail && $sharedAccount && $emailScope === null) {
+                return $this->emailScopeConfirmation(
+                    $currentAccount, $student, $newEmail, $user, $existingAccount,
+                    householdAllowed: !$existingAccount || $canMergeCurrent,
+                );
+            }
+            // Le choix vaut pour tout le compte actuel : seul élève, ou « pour tous ».
+            $wholeAccount = !$sharedAccount || $emailScope === 'household';
+            // Email d'un autre compte : fusion si l'élève a un compte, sinon rattachement.
+            $mergeWholeAccount = $existingAccount && $currentAccount && $wholeAccount;
+            if ($mergeWholeAccount && !$canMergeCurrent) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
+                ]);
+            }
+            // Nouvel email libre appliqué au compte lui-même.
+            $updateAccountEmail = $emailChanged && $newEmail && !$existingAccount && $currentAccount && $wholeAccount;
 
             DB::beginTransaction();
 
             $emailSent = false;
             $userCreated = false;
+            $attachedToAccount = false;
+            $mergedAccounts = false;
+            $detachedFromAccount = false;
+            $familyLinkService = app(FamilyLinkService::class);
+
+            if ($mergeWholeAccount) {
+                // L'élève a déjà son compte : les deux comptes restent, fusionnés en un foyer.
+                $familyLinkService->mergeAccounts($student, $existingAccount, $user);
+                $mergedAccounts = true;
+            } elseif ($existingAccount) {
+                // Élève sans compte, ou choix « seulement cet élève » sur un compte partagé :
+                // il est rattaché au compte qui porte cet email.
+                $familyLinkService->attachToAccount($student, $existingAccount, $user);
+                $attachedToAccount = true;
+            } elseif ($updateAccountEmail) {
+                $currentAccount->update(['email' => $newEmail]);
+            } elseif ($emailChanged && $newEmail === null && $sharedAccount) {
+                // Email retiré d'un élève d'un compte partagé : il quitte ce compte.
+                $familyLinkService->unlinkChildFromParent($student, $user);
+                $detachedFromAccount = true;
+            } elseif ($emailChanged && $newEmail && $sharedAccount) {
+                // Choix « seulement cet élève » : il reçoit son propre compte, la
+                // connexion des autres élèves du compte ne change pas.
+                $familyLinkService->detachFromSharedAccount($student);
+                $student->forceFill(['user_id' => null, 'linked_by_user_id' => null, 'linked_at' => null]);
+            }
 
             // Si l'élève n'a pas de compte utilisateur ET qu'un email est fourni, créer le compte
-            if (!$student->user_id && !empty($validated['email'])) {
+            if (!$student->user_id && $newEmail && !$attachedToAccount && !$mergedAccounts) {
                 $firstName = $validated['first_name'] ?? 'Élève';
                 $lastName = $validated['last_name'] ?? '';
                 $fullName = trim($firstName . ' ' . $lastName);
@@ -698,7 +867,6 @@ class StudentController extends Controller
                 // Générer un token et envoyer l'email
                 $resetToken = Password::broker()->createToken($newUser);
                 try {
-                    $club = $user->getFirstClub();
                     $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
                     $emailSent = true;
                 } catch (\Exception $e) {
@@ -706,10 +874,15 @@ class StudentController extends Controller
                 }
                 
                 $userCreated = true;
-            } elseif ($student->user_id) {
-                // Mettre à jour l'utilisateur existant
+            } elseif (
+                $student->user_id
+                && !$attachedToAccount
+                && (int) Student::where('user_id', $student->user_id)->orderBy('id')->value('id') === (int) $student->id
+            ) {
+                // Mettre à jour le compte dont l'élève est le titulaire (premier élève du
+                // compte) : un élève rattaché ne renomme pas le compte partagé.
                 $studentUser = $student->user;
-                
+
                 if (isset($validated['first_name']) || isset($validated['last_name'])) {
                     $firstName = $validated['first_name'] ?? $studentUser->first_name;
                     $lastName = $validated['last_name'] ?? $studentUser->last_name;
@@ -719,14 +892,7 @@ class StudentController extends Controller
                         'last_name' => $lastName
                     ]);
                 }
-                
-                // Gérer l'email : accepter les chaînes vides pour permettre l'effacement
-                if (array_key_exists('email', $validated)) {
-                    $emailValue = $validated['email'];
-                    // Convertir les chaînes vides en null pour la base de données
-                    $studentUser->update(['email' => $emailValue === '' ? null : $emailValue]);
-                }
-                
+
                 // Gérer le téléphone : accepter les chaînes vides pour permettre l'effacement
                 if (array_key_exists('phone', $validated)) {
                     $phoneValue = $validated['phone'];
@@ -772,7 +938,17 @@ class StudentController extends Controller
             $student->load('user');
 
             $message = 'Élève mis à jour avec succès';
-            if ($userCreated && $emailSent) {
+            if ($attachedToAccount) {
+                $message .= '. Il est rattaché au compte de ' . $existingAccount->email
+                    . ' : les élèves de ce compte sont accessibles depuis la même connexion.';
+            } elseif ($mergedAccounts) {
+                $message .= '. Son compte est fusionné avec celui de ' . $existingAccount->email
+                    . ' : chaque connexion garde son email et voit les élèves des deux comptes.';
+            } elseif ($updateAccountEmail && $sharedAccount) {
+                $message .= '. L\'email de connexion est modifié pour tous les élèves de ce compte.';
+            } elseif ($detachedFromAccount) {
+                $message .= '. Il ne fait plus partie du compte partagé.';
+            } elseif ($userCreated && $emailSent) {
                 $message .= '. Un compte utilisateur a été créé et un email de bienvenue a été envoyé.';
             } elseif ($userCreated) {
                 $message .= '. Un compte utilisateur a été créé.';
@@ -782,10 +958,15 @@ class StudentController extends Controller
                 'success' => true,
                 'data' => $student,
                 'user_created' => $userCreated,
+                'attached_to_account' => $attachedToAccount,
+                'merged_accounts' => $mergedAccounts,
                 'email_sent' => $emailSent,
                 'message' => $message
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Laisser Laravel répondre en 422 avec le détail des champs.
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Erreur lors de la mise à jour de l\'élève', [
@@ -1968,7 +2149,10 @@ class StudentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $formatted
+                'data' => $formatted,
+                // Compte fusionné avec d'autres comptes élèves (foyer commun) : la fiche
+                // propose alors de séparer ce compte.
+                'account_merged' => $student->user !== null && count($student->user->householdAccountIds()) > 1,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -1983,6 +2167,50 @@ class StudentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * POST /api/club/students/{studentId}/separate-account — Défaire la fusion du compte
+     * de cet élève (fiche élève, côté club). Les deux comptes restent ; chacun retrouve
+     * son propre foyer.
+     */
+    public function separateAccountForClub(Request $request, $studentId, FamilyLinkService $service): JsonResponse
+    {
+        $user = Auth::user();
+        $club = $user->getFirstClub();
+        if (!$club || !$this->studentBelongsToClub((int) $studentId, $club)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet élève n\'appartient pas à votre club'
+            ], 404);
+        }
+
+        $student = Student::with('user')->findOrFail($studentId);
+        if (!$student->user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet élève n\'a pas de compte utilisateur.'
+            ], 422);
+        }
+
+        try {
+            $service->separateAccount($student->user, $user);
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'not_merged') {
+                throw $e;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Le compte de cet élève n\'est fusionné avec aucun autre compte.'
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => ['account_merged' => false],
+            'message' => 'Le compte de ' . $student->user->email . ' est séparé du foyer : il ne voit plus que ses propres élèves.',
+        ]);
     }
 
     /**
@@ -2002,7 +2230,7 @@ class StudentController extends Controller
 
             $validated = $request->validate([
                 'linked_student_id' => 'required|integer|exists:students,id',
-                'relationship_type' => 'nullable|string|max:50',
+                'relationship_type' => ['nullable', 'string', 'max:50', Rule::notIn([FamilyLinkService::MERGE_RELATIONSHIP])],
             ]);
 
             $primaryStudent = Student::findOrFail($studentId);

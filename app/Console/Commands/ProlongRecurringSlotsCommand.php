@@ -6,15 +6,16 @@ use App\Services\ProlongRecurringSlotsService;
 use Illuminate\Console\Command;
 
 /**
- * Prolonge d'une semaine les récurrences des abonnements actifs pour maintenir
- * un horizon de 26 semaines. À exécuter chaque dimanche.
+ * Planifie l'avenir : prolonge les récurrences des élèves ayant un abonnement actif jusqu'à
+ * l'horizon de 26 semaines (borné à l'expiration de leurs abonnements) et génère les cours.
+ * Exécuté chaque jour.
  */
 class ProlongRecurringSlotsCommand extends Command
 {
     protected $signature = 'recurring-slots:prolong
                             {--dry-run : Afficher ce qui serait prolongé sans le faire}';
 
-    protected $description = 'Prolonge les récurrences des abonnements actifs d\'une semaine (horizon 26 semaines)';
+    protected $description = 'Prolonge les récurrences des élèves ayant un abonnement actif (horizon 26 semaines) et génère les cours';
 
     public function handle(ProlongRecurringSlotsService $service): int
     {
@@ -26,35 +27,9 @@ class ProlongRecurringSlotsCommand extends Command
         if ($dryRun) {
             $this->warn('⚠️  Mode DRY-RUN activé - Aucune modification ne sera effectuée');
             $this->newLine();
-            $slots = \App\Models\SubscriptionRecurringSlot::query()
-                ->where('status', 'active')
-                ->whereHas('subscriptionInstance', function ($q) {
-                    $q->where('status', 'active');
-                    $q->where(function ($q2) {
-                        $q2->whereNull('expires_at')
-                            ->orWhere('expires_at', '>=', now()->toDateString());
-                    });
-                })
-                ->with('subscriptionInstance')
-                ->get();
-            $today = now()->startOfDay();
-            $horizonEnd = $today->copy()->addWeeks(ProlongRecurringSlotsService::HORIZON_WEEKS);
-            $wouldProlong = 0;
-            foreach ($slots as $slot) {
-                $instance = $slot->subscriptionInstance;
-                $targetEnd = $horizonEnd->copy();
-                if ($instance && $instance->expires_at) {
-                    $expires = \Carbon\Carbon::parse($instance->expires_at)->endOfDay();
-                    if ($expires->isBefore($targetEnd)) {
-                        $targetEnd = $expires;
-                    }
-                }
-                $currentEnd = \Carbon\Carbon::parse($slot->end_date)->startOfDay();
-                if ($currentEnd->lt($targetEnd)) {
-                    $wouldProlong++;
-                }
-            }
-            $this->info("📊 Récurrences qui seraient prolongées : {$wouldProlong}");
+            $result = $service->prolongActiveRecurrences(null, null, true);
+            $this->info("📊 Récurrences qui seraient prolongées : {$result['prolonged']}");
+
             return Command::SUCCESS;
         }
 
@@ -75,9 +50,11 @@ class ProlongRecurringSlotsCommand extends Command
             } else {
                 $this->info('ℹ️  Aucune récurrence à prolonger');
             }
+
             return Command::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error('❌ Erreur : ' . $e->getMessage());
+            $this->error('❌ Erreur : '.$e->getMessage());
+
             return Command::FAILURE;
         }
     }

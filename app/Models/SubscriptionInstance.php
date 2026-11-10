@@ -301,6 +301,12 @@ class SubscriptionInstance extends Model
         return $instance->getRemainingAttachmentSlots();
     }
 
+    /** Nombre total de cours du carnet (cours offerts compris) ; 0 si indéterminé (legacy). */
+    public function getTotalCapacity(): int
+    {
+        return $this->resolveTotalAvailableLessons();
+    }
+
     /** Capacité connue (template ou total renseigné) ; sinon abonnement legacy à capacité indéterminée. */
     public function hasDeterminedCapacity(): bool
     {
@@ -815,11 +821,14 @@ class SubscriptionInstance extends Model
         array $excludeInstanceIds = [],
         bool $allowCompletedInstances = false
     ): array {
-        $activeForStudent = self::queryActiveForStudent($studentId, $clubId, $asOf, $allowCompletedInstances)
-            ->when($excludeInstanceIds !== [], fn ($q) => $q->whereNotIn('id', $excludeInstanceIds))
-            ->with(['subscription.template.courseTypes'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $activeForStudent = self::sortChronologicallyForDate(
+            self::queryActiveForStudent($studentId, $clubId, $asOf, $allowCompletedInstances)
+                ->when($excludeInstanceIds !== [], fn ($q) => $q->whereNotIn('id', $excludeInstanceIds))
+                ->with(['subscription.template.courseTypes'])
+                ->orderBy('created_at', 'asc')
+                ->get(),
+            $asOf
+        );
 
         if ($activeForStudent->isEmpty()) {
             return ['has_active' => false, 'reason' => 'no_subscription', 'instance' => null];
@@ -843,6 +852,32 @@ class SubscriptionInstance extends Model
 
         // Premier abo du bon type (sans crédit) — utile pour l'UI (n° + 0/total)
         return ['has_active' => false, 'reason' => 'no_credits', 'instance' => $matchingType->first()];
+    }
+
+    /**
+     * Ordre de consommation des carnets : ils se consomment l'un après l'autre.
+     * 1. carnets déjà commencés à la date du cours (début ≤ date) avant ceux qui commencent après ;
+     * 2. puis le plus ancien début ; 3. puis la plus ancienne création.
+     * Sans date de début, un carnet est considéré comme commencé à sa création.
+     *
+     * @param  \Illuminate\Support\Collection<int, self>  $instances
+     * @return \Illuminate\Support\Collection<int, self>
+     */
+    public static function sortChronologicallyForDate(\Illuminate\Support\Collection $instances, ?\Carbon\CarbonInterface $asOf = null): \Illuminate\Support\Collection
+    {
+        $reference = Carbon::parse($asOf ?? Carbon::now())->endOfDay();
+
+        return $instances
+            ->sort(function (self $a, self $b) use ($reference) {
+                $startA = $a->started_at ? Carbon::parse($a->started_at) : ($a->created_at ? Carbon::parse($a->created_at) : null);
+                $startB = $b->started_at ? Carbon::parse($b->started_at) : ($b->created_at ? Carbon::parse($b->created_at) : null);
+                $laterA = $startA !== null && $startA->gt($reference) ? 1 : 0;
+                $laterB = $startB !== null && $startB->gt($reference) ? 1 : 0;
+
+                return [$laterA, $startA?->getTimestamp() ?? 0, $a->created_at?->getTimestamp() ?? 0, (int) $a->id]
+                    <=> [$laterB, $startB?->getTimestamp() ?? 0, $b->created_at?->getTimestamp() ?? 0, (int) $b->id];
+            })
+            ->values();
     }
 
     /**
