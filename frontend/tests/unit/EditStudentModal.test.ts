@@ -125,6 +125,24 @@ describe('EditStudentModal — email de l’élève', () => {
       expect(success).toHaveBeenCalledWith('ok', 'Succès')
     })
 
+    it('propose fusion ou rattachement quand l’email est celui d’un autre compte', async () => {
+      const linkConflict = JSON.parse(JSON.stringify(conflict))
+      linkConflict.response.data.data = { ...linkConflict.response.data.data, kind: 'link', new_email: 'autre@example.be', target_email: 'autre@example.be' }
+      put.mockRejectedValueOnce(linkConflict)
+      put.mockResolvedValueOnce({ data: { success: true, message: 'ok', data: student } })
+      const w = mountModal()
+      await submitWithEmail(w, 'autre@example.be')
+
+      const prompt = w.find('[data-testid="email-scope-prompt"]')
+      expect(prompt.text()).toContain('est l\'email d\'un autre compte élève')
+      expect(w.find('[data-testid="email-scope-household"]').text()).toBe('Fusionner tout le compte avec celui de autre@example.be')
+      expect(w.find('[data-testid="email-scope-student"]').text()).toBe('Rattacher seulement cet élève à autre@example.be')
+
+      await w.find('[data-testid="email-scope-student"]').trigger('click')
+      await flushPromises()
+      expect(put).toHaveBeenLastCalledWith('/club/students/12', expect.objectContaining({ email: 'autre@example.be', email_scope: 'student' }))
+    })
+
     it('n’envoie pas de choix lors d’un enregistrement normal', async () => {
       put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
       const w = mountModal()

@@ -22,6 +22,12 @@ class FamilyLinkService
     public const DEFAULT_TTL_DAYS = 30;
 
     /**
+     * Type des liens famille créés par une fusion de comptes : seuls ceux-là sont
+     * retirés quand on sépare les comptes (les liens posés à la main restent).
+     */
+    public const MERGE_RELATIONSHIP = 'account_merge';
+
+    /**
      * Longueur du code généré.
      */
     public const CODE_LENGTH = 10;
@@ -229,7 +235,7 @@ class FamilyLinkService
 
         $holder = Student::where('user_id', $target->id)->orderBy('id')->first();
         if ($holder && $holder->id !== $student->id) {
-            $this->insertFamilyLinkIfMissing($holder, $student, null, $by);
+            $this->insertFamilyLinkIfMissing($holder, $student, self::MERGE_RELATIONSHIP, $by);
         }
 
         Log::info('Comptes élèves fusionnés (même foyer)', [
@@ -244,7 +250,8 @@ class FamilyLinkService
     /**
      * Défait la fusion pour ce compte : il quitte le groupe et retrouve un foyer à lui
      * seul. Si c'était le compte de référence, le plus ancien des autres comptes le
-     * devient. Les liens famille entre ses élèves et ceux du reste du groupe sont retirés.
+     * devient. Les liens famille créés par la fusion sont retirés ; ceux posés à la main
+     * (fratrie liée par le club, etc.) restent.
      *
      * @throws RuntimeException('not_merged') si le compte n'est fusionné avec aucun autre.
      */
@@ -274,13 +281,15 @@ class FamilyLinkService
 
             if ($ownStudentIds !== [] && $otherStudentIds !== []) {
                 DB::table('student_family_links')
+                    ->where('relationship_type', self::MERGE_RELATIONSHIP)
                     ->where(function ($q) use ($ownStudentIds, $otherStudentIds) {
-                        $q->whereIn('primary_student_id', $ownStudentIds)
-                            ->whereIn('linked_student_id', $otherStudentIds);
-                    })
-                    ->orWhere(function ($q) use ($ownStudentIds, $otherStudentIds) {
-                        $q->whereIn('primary_student_id', $otherStudentIds)
-                            ->whereIn('linked_student_id', $ownStudentIds);
+                        $q->where(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                            $q->whereIn('primary_student_id', $ownStudentIds)
+                                ->whereIn('linked_student_id', $otherStudentIds);
+                        })->orWhere(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                            $q->whereIn('primary_student_id', $otherStudentIds)
+                                ->whereIn('linked_student_id', $ownStudentIds);
+                        });
                     })
                     ->delete();
             }

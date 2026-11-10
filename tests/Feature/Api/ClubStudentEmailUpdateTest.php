@@ -254,6 +254,201 @@ class ClubStudentEmailUpdateTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $foreignUser->id, 'household_root_id' => $holder->user_id]);
     }
 
+    /** Élève avec compte, inscrit uniquement dans un autre club. */
+    private function foreignStudentWithAccount(string $email, array $userAttributes = []): Student
+    {
+        $otherClub = Club::factory()->create();
+        $account = User::factory()->create(array_merge(['role' => 'student', 'email' => $email, 'first_name' => 'Inconnu', 'phone' => '0499999999'], $userAttributes));
+        $student = Student::factory()->create(['club_id' => $otherClub->id, 'user_id' => $account->id]);
+        DB::table('club_students')->insert(['club_id' => $otherClub->id, 'student_id' => $student->id, 'is_active' => true, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        return $student;
+    }
+
+    #[Test]
+    public function fusionner_avec_le_compte_d_un_autre_club_est_refuse()
+    {
+        $foreign = $this->foreignStudentWithAccount('ailleurs@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'ailleurs@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertDatabaseHas('users', ['id' => $student->user_id, 'household_root_id' => null]);
+        $this->assertNotContains($foreign->id, User::find($student->user_id)->getHouseholdStudentIds());
+        $this->assertFalse($this->linked($foreign, $student));
+    }
+
+    #[Test]
+    public function fusionner_quand_mon_foyer_contient_un_eleve_d_un_autre_club_est_refuse()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+        // Le compte de l'élève est déjà fusionné avec un compte d'un autre club.
+        $foreign = $this->foreignStudentWithAccount('ailleurs@example.com', ['household_root_id' => null]);
+        User::where('id', $foreign->user_id)->update(['household_root_id' => $student->user_id]);
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'parent@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertNotContains($foreign->id, User::find($holder->user_id)->getHouseholdStudentIds());
+    }
+
+    #[Test]
+    public function rattacher_un_eleve_sans_compte_au_compte_d_un_autre_club_est_refuse()
+    {
+        $foreign = $this->foreignStudentWithAccount('ailleurs@example.com');
+        $student = $this->studentWithoutAccount();
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'ailleurs@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertNull($student->fresh()->user_id);
+        $this->assertNotContains($student->id, User::find($foreign->user_id)->getHouseholdStudentIds());
+    }
+
+    #[Test]
+    public function creer_un_eleve_avec_l_email_d_un_compte_d_un_autre_club_est_refuse_sans_fuite()
+    {
+        $this->foreignStudentWithAccount('ailleurs@example.com');
+
+        // Refus avant toute écriture (aucune transaction ouverte). Le catch de store fait
+        // un rollBack qui, en test, annule aussi la transaction du test : on ne vérifie
+        // donc que la réponse, qui ne doit rien révéler du titulaire.
+        $response = $this->postJson('/api/club/students', ['first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'ailleurs@example.com'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertStringNotContainsString('0499999999', $response->getContent());
+        $this->assertStringNotContainsString('Inconnu', $response->getContent());
+    }
+
+    #[Test]
+    public function la_separation_garde_les_liens_poses_a_la_main()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+        // Fratrie liée par le club avant la fusion.
+        $this->postJson("/api/club/students/{$holder->id}/link", ['linked_student_id' => $student->id])->assertOk();
+        $this->merge($student, 'parent@example.com');
+
+        $this->postJson("/api/club/students/{$student->id}/separate-account")->assertOk();
+
+        $this->assertTrue($this->linked($holder, $student));
+        $this->assertSame(0, DB::table('student_family_links')->where('relationship_type', \App\Services\FamilyLinkService::MERGE_RELATIONSHIP)->count());
+    }
+
+    #[Test]
+    public function un_compte_partage_et_l_email_d_un_autre_compte_demande_confirmation()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        $other = $this->studentWithAccount('autre@example.com');
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com'))
+            ->assertStatus(409)
+            ->assertJson(['requires_confirmation' => true, 'data' => ['kind' => 'link', 'target_email' => 'autre@example.com']]);
+
+        $this->assertSame($holder->user_id, $child->fresh()->user_id);
+        $this->assertDatabaseHas('users', ['id' => $holder->user_id, 'household_root_id' => null]);
+        $this->assertNotContains($other->id, User::find($holder->user_id)->getHouseholdStudentIds());
+    }
+
+    #[Test]
+    public function rattacher_seulement_cet_eleve_au_compte_existant()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        $other = $this->studentWithAccount('autre@example.com');
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com', ['email_scope' => 'student']))
+            ->assertOk()
+            ->assertJson(['attached_to_account' => true, 'merged_accounts' => false]);
+
+        $this->assertSame($other->user_id, $child->fresh()->user_id);
+        $this->assertFalse($this->linked($holder, $child));
+        // Le compte du parent n'est pas fusionné : il ne voit plus l'enfant ni l'autre compte.
+        $household = User::find($holder->user_id)->getHouseholdStudentIds();
+        $this->assertNotContains($child->id, $household);
+        $this->assertNotContains($other->id, $household);
+    }
+
+    #[Test]
+    public function fusionner_tout_le_compte_partage_avec_le_compte_existant()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        $other = $this->studentWithAccount('autre@example.com');
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com', ['email_scope' => 'household']))
+            ->assertOk()
+            ->assertJson(['merged_accounts' => true]);
+
+        $this->assertSame($holder->user_id, $child->fresh()->user_id);
+        foreach ([$holder->user_id, $other->user_id] as $accountId) {
+            $household = User::find($accountId)->getHouseholdStudentIds();
+            $this->assertContains($holder->id, $household);
+            $this->assertContains($child->id, $household);
+            $this->assertContains($other->id, $household);
+        }
+    }
+
+    #[Test]
+    public function l_email_d_un_compte_enseignant_relie_a_une_fiche_n_est_pas_modifiable()
+    {
+        $teacherAccount = User::factory()->create(['role' => 'teacher', 'email' => 'coach@example.com']);
+        $student = $this->enroll(Student::factory()->create(['club_id' => $this->club->id, 'user_id' => $teacherAccount->id]));
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'pirate@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertDatabaseHas('users', ['id' => $teacherAccount->id, 'email' => 'coach@example.com']);
+    }
+
+    #[Test]
+    public function supprimer_le_compte_de_reference_garde_les_autres_comptes_fusionnes()
+    {
+        $a = $this->studentWithAccount('a@example.com');
+        $b = $this->studentWithAccount('b@example.com');
+        $c = $this->studentWithAccount('c@example.com');
+        $this->merge($a, 'b@example.com');
+        $this->merge($c, 'b@example.com');
+
+        User::find($b->user_id)->delete();
+
+        $newRoot = min($a->user_id, $c->user_id);
+        $this->assertDatabaseHas('users', ['id' => $newRoot, 'household_root_id' => null]);
+        $this->assertDatabaseHas('users', ['id' => max($a->user_id, $c->user_id), 'household_root_id' => $newRoot]);
+        $household = User::find($a->user_id)->getHouseholdStudentIds();
+        $this->assertContains($c->id, $household);
+    }
+
+    #[Test]
+    public function le_mot_de_passe_saisi_a_la_creation_n_est_pas_journalise()
+    {
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->postJson('/api/club/students', [
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
+            'email' => 'jane@example.com',
+            'password' => 'MotDePasseSecret2026',
+        ])->assertStatus(201);
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('info')
+            ->withArgs(fn ($message, $context = []) => $message === 'Données validées pour création élève'
+                && ! array_key_exists('password', $context['validated'] ?? []))
+            ->once();
+        \Illuminate\Support\Facades\Log::shouldNotHaveReceived('info', fn ($message, $context = []) => str_contains(json_encode($context), 'MotDePasseSecret2026'));
+    }
+
     #[Test]
     public function un_eleve_sans_compte_est_rattache_au_compte_existant_sans_nouveau_compte()
     {
@@ -302,7 +497,7 @@ class ClubStudentEmailUpdateTest extends TestCase
             ->assertJson([
                 'success' => false,
                 'requires_confirmation' => true,
-                'data' => ['account_email' => 'parent@example.com', 'new_email' => 'nouveau@example.com', 'other_students_count' => 1],
+                'data' => ['kind' => 'change', 'account_email' => 'parent@example.com', 'new_email' => 'nouveau@example.com', 'other_students_count' => 1],
             ]);
 
         $this->assertEqualsCanonicalizing([$holder->id, $child->id], collect($response->json('data.students'))->pluck('id')->all());

@@ -452,7 +452,12 @@
               </li>
             </ul>
             <p class="text-sm text-amber-900">
-              Nouvel email : <strong>{{ emailScopePrompt.new_email }}</strong>
+              <template v-if="emailScopePrompt.kind === 'link'">
+                <strong>{{ emailScopePrompt.new_email }}</strong> est l'email d'un autre compte élève.
+              </template>
+              <template v-else>
+                Nouvel email : <strong>{{ emailScopePrompt.new_email }}</strong>
+              </template>
             </p>
             <div class="flex flex-wrap gap-2">
               <button
@@ -462,7 +467,9 @@
                 class="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
                 @click="updateStudent('household')"
               >
-                Changer l'email du compte pour tous
+                {{ emailScopePrompt.kind === 'link'
+                  ? `Fusionner tout le compte avec celui de ${emailScopePrompt.new_email}`
+                  : 'Changer l\'email du compte pour tous' }}
               </button>
               <button
                 type="button"
@@ -471,7 +478,9 @@
                 class="px-4 py-2 rounded-lg border border-amber-600 text-amber-800 text-sm font-medium hover:bg-amber-100 disabled:opacity-50"
                 @click="updateStudent('student')"
               >
-                Seulement pour cet élève (compte séparé)
+                {{ emailScopePrompt.kind === 'link'
+                  ? `Rattacher seulement cet élève à ${emailScopePrompt.new_email}`
+                  : 'Seulement pour cet élève (compte séparé)' }}
               </button>
               <button
                 type="button"

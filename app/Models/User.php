@@ -399,6 +399,26 @@ class User extends Authenticatable
      */
     private const HOUSEHOLD_SUBSCRIPTION_INSTANCE_MAX_STUDENTS = 24;
 
+    protected static function booted(): void
+    {
+        // Suppression du compte de référence d'un groupe fusionné : le plus ancien des
+        // autres comptes le remplace, sinon la clé (nullOnDelete) défusionnerait tout le groupe.
+        static::deleting(function (User $user) {
+            if ($user->household_root_id !== null) {
+                return;
+            }
+
+            $memberIds = static::query()->where('household_root_id', $user->id)->orderBy('id')->pluck('id');
+            if ($memberIds->isEmpty()) {
+                return;
+            }
+
+            $newRootId = $memberIds->first();
+            static::query()->where('id', $newRootId)->update(['household_root_id' => null]);
+            static::query()->whereIn('id', $memberIds->slice(1)->all())->update(['household_root_id' => $newRootId]);
+        });
+    }
+
     /**
      * Comptes du groupe fusionné de ce compte (lui compris) : le compte de référence
      * (household_root_id) et tous ceux qui pointent vers lui. Chacun garde sa connexion.
