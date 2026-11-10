@@ -2067,7 +2067,10 @@ class StudentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $formatted
+                'data' => $formatted,
+                // Compte fusionné avec d'autres comptes élèves (foyer commun) : la fiche
+                // propose alors de séparer ce compte.
+                'account_merged' => $student->user !== null && count($student->user->householdAccountIds()) > 1,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -2082,6 +2085,50 @@ class StudentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * POST /api/club/students/{studentId}/separate-account — Défaire la fusion du compte
+     * de cet élève (fiche élève, côté club). Les deux comptes restent ; chacun retrouve
+     * son propre foyer.
+     */
+    public function separateAccountForClub(Request $request, $studentId, FamilyLinkService $service): JsonResponse
+    {
+        $user = Auth::user();
+        $club = $user->getFirstClub();
+        if (!$club || !$this->studentBelongsToClub((int) $studentId, $club)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet élève n\'appartient pas à votre club'
+            ], 404);
+        }
+
+        $student = Student::with('user')->findOrFail($studentId);
+        if (!$student->user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet élève n\'a pas de compte utilisateur.'
+            ], 422);
+        }
+
+        try {
+            $service->separateAccount($student->user, $user);
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'not_merged') {
+                throw $e;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Le compte de cet élève n\'est fusionné avec aucun autre compte.'
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => ['account_merged' => false],
+            'message' => 'Le compte de ' . $student->user->email . ' est séparé du foyer : il ne voit plus que ses propres élèves.',
+        ]);
     }
 
     /**

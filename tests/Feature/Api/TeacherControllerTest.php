@@ -23,6 +23,10 @@ class TeacherControllerTest extends TestCase
     #[Test]
     public function it_can_get_teacher_dashboard()
     {
+        // Date figée un jeudi : les cours « de la semaine » (mardi) et « futurs » (samedi)
+        // ne tombent jamais le jour même. Sans cela, le test échoue chaque mardi.
+        Carbon::setTestNow(Carbon::parse('2026-11-12 08:00:00'));
+
         // Arrange
         $user = $this->actingAsTeacher();
         $teacher = $user->teacher;

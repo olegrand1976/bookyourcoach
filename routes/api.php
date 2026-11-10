@@ -285,6 +285,7 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     Route::get('/students/{studentId}/linked', [StudentController::class, 'getLinkedForClub']);
     Route::post('/students/{studentId}/link', [StudentController::class, 'linkForClub']);
     Route::delete('/students/{studentId}/unlink/{linkedStudentId}', [StudentController::class, 'unlinkForClub']);
+    Route::post('/students/{studentId}/separate-account', [StudentController::class, 'separateAccountForClub']);
     // Code d'invitation parent (enfants sans email)
     Route::get('/students/{studentId}/invite-code', [StudentController::class, 'getInviteCode']);
     Route::post('/students/{studentId}/invite-code/regenerate', [StudentController::class, 'regenerateInviteCode']);

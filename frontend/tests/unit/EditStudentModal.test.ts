@@ -146,6 +146,58 @@ describe('EditStudentModal — email de l’élève', () => {
     })
   })
 
+  describe('compte fusionné : séparation', () => {
+    const linkedResponse = (merged: boolean) => ({ data: { success: true, data: [], account_merged: merged } })
+
+    beforeEach(() => {
+      get.mockImplementation((url: string) =>
+        Promise.resolve(url.endsWith('/linked') ? linkedResponse(true) : { data: { success: true, data: [] } }),
+      )
+    })
+
+    it('n’affiche le bouton que si le compte est fusionné', async () => {
+      const merged = mountModal()
+      await flushPromises()
+      expect(merged.find('[data-testid="separate-account"]').exists()).toBe(true)
+
+      get.mockImplementation(() => Promise.resolve(linkedResponse(false)))
+      const notMerged = mountModal()
+      await flushPromises()
+      expect(notMerged.find('[data-testid="merged-account-notice"]').exists()).toBe(false)
+    })
+
+    it('demande confirmation, sépare le compte puis recharge la fiche', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      post.mockResolvedValue({ data: { success: true, message: 'Le compte de lea@example.be est séparé du foyer.' } })
+      const w = mountModal()
+      await flushPromises()
+      get.mockImplementation((url: string) =>
+        Promise.resolve(url.endsWith('/linked') ? linkedResponse(false) : { data: { success: true, data: [] } }),
+      )
+
+      await w.find('[data-testid="separate-account"]').trigger('click')
+      await flushPromises()
+
+      expect(confirmSpy).toHaveBeenCalled()
+      expect(post).toHaveBeenCalledWith('/club/students/12/separate-account')
+      expect(success).toHaveBeenCalledWith('Le compte de lea@example.be est séparé du foyer.', 'Compte séparé')
+      expect(w.find('[data-testid="merged-account-notice"]').exists()).toBe(false)
+      confirmSpy.mockRestore()
+    })
+
+    it('ne fait rien si la confirmation est refusée', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const w = mountModal()
+      await flushPromises()
+
+      await w.find('[data-testid="separate-account"]').trigger('click')
+      await flushPromises()
+
+      expect(post).not.toHaveBeenCalled()
+      confirmSpy.mockRestore()
+    })
+  })
+
   it('envoie une chaîne vide quand l’email est effacé (détachement d’un compte partagé)', async () => {
     put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
     const w = mountModal()

@@ -150,6 +150,110 @@ class ClubStudentEmailUpdateTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $student->user_id, 'household_root_id' => $holder->user_id]);
     }
 
+    private function merge(Student $student, string $targetEmail): void
+    {
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student->fresh(), $targetEmail))
+            ->assertOk()
+            ->assertJson(['merged_accounts' => true]);
+    }
+
+    #[Test]
+    public function la_fiche_indique_si_le_compte_est_fusionne()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+
+        $this->getJson("/api/club/students/{$student->id}/linked")->assertOk()->assertJson(['account_merged' => false]);
+        $this->merge($student, 'parent@example.com');
+
+        $this->getJson("/api/club/students/{$student->id}/linked")->assertOk()->assertJson(['account_merged' => true]);
+        $this->getJson("/api/club/students/{$holder->id}/linked")->assertOk()->assertJson(['account_merged' => true]);
+    }
+
+    #[Test]
+    public function separer_un_compte_fusionne_rend_a_chacun_son_foyer()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+        $this->merge($student, 'parent@example.com');
+
+        $this->postJson("/api/club/students/{$student->id}/separate-account")
+            ->assertOk()
+            ->assertJson(['success' => true, 'data' => ['account_merged' => false]]);
+
+        $this->assertDatabaseHas('users', ['id' => $student->user_id, 'email' => 'eleve@example.com', 'household_root_id' => null]);
+        $this->assertDatabaseHas('users', ['id' => $holder->user_id, 'email' => 'parent@example.com', 'household_root_id' => null]);
+        $this->assertFalse($this->linked($holder, $student));
+        $this->assertNotContains($holder->id, User::find($student->user_id)->getHouseholdStudentIds());
+        $this->assertNotContains($student->id, User::find($holder->user_id)->getHouseholdStudentIds());
+        $this->getJson("/api/club/students/{$student->id}/linked")->assertOk()->assertJson(['account_merged' => false]);
+    }
+
+    #[Test]
+    public function separer_le_compte_de_reference_laisse_les_autres_comptes_fusionnes()
+    {
+        $a = $this->studentWithAccount('a@example.com');
+        $b = $this->studentWithAccount('b@example.com');
+        $c = $this->studentWithAccount('c@example.com');
+        $this->merge($a, 'b@example.com');
+        $this->merge($c, 'b@example.com');
+
+        // B est le compte de référence du groupe : on le sépare depuis la fiche de B.
+        $this->postJson("/api/club/students/{$b->id}/separate-account")->assertOk();
+
+        $this->assertSame([$b->id], array_values(array_intersect([$a->id, $b->id, $c->id], User::find($b->user_id)->getHouseholdStudentIds())));
+        foreach ([$a, $c] as $s) {
+            $household = User::find($s->user_id)->getHouseholdStudentIds();
+            $this->assertContains($a->id, $household);
+            $this->assertContains($c->id, $household);
+            $this->assertNotContains($b->id, $household);
+        }
+        $newRoot = min($a->user_id, $c->user_id);
+        $this->assertDatabaseHas('users', ['id' => $newRoot, 'household_root_id' => null]);
+        $this->assertDatabaseHas('users', ['id' => max($a->user_id, $c->user_id), 'household_root_id' => $newRoot]);
+        $this->assertDatabaseHas('users', ['id' => $b->user_id, 'household_root_id' => null]);
+    }
+
+    #[Test]
+    public function un_compte_separe_peut_etre_fusionne_a_nouveau()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $student = $this->studentWithAccount('eleve@example.com');
+        $this->merge($student, 'parent@example.com');
+        $this->postJson("/api/club/students/{$student->id}/separate-account")->assertOk();
+
+        $this->merge($student, 'parent@example.com');
+
+        $this->assertContains($holder->id, User::find($student->user_id)->getHouseholdStudentIds());
+        $this->assertTrue($this->linked($holder, $student));
+    }
+
+    #[Test]
+    public function separer_un_compte_non_fusionne_ou_sans_compte_est_refuse()
+    {
+        $student = $this->studentWithAccount('eleve@example.com');
+        $this->postJson("/api/club/students/{$student->id}/separate-account")
+            ->assertStatus(422)
+            ->assertJson(['success' => false]);
+
+        $noAccount = $this->studentWithoutAccount();
+        $this->postJson("/api/club/students/{$noAccount->id}/separate-account")->assertStatus(422);
+    }
+
+    #[Test]
+    public function separer_le_compte_d_un_eleve_d_un_autre_club_est_refuse()
+    {
+        $otherClub = Club::factory()->create();
+        $holder = $this->studentWithAccount('parent@example.com');
+        $foreignUser = User::factory()->create(['role' => 'student', 'email' => 'ailleurs@example.com', 'household_root_id' => $holder->user_id]);
+        $foreign = Student::factory()->create(['club_id' => $otherClub->id, 'user_id' => $foreignUser->id]);
+        DB::table('club_students')->insert(['club_id' => $otherClub->id, 'student_id' => $foreign->id, 'is_active' => true, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->postJson("/api/club/students/{$foreign->id}/separate-account")->assertStatus(404);
+
+        $this->assertDatabaseHas('users', ['id' => $foreignUser->id, 'household_root_id' => $holder->user_id]);
+    }
+
     #[Test]
     public function un_eleve_sans_compte_est_rattache_au_compte_existant_sans_nouveau_compte()
     {

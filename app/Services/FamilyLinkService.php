@@ -242,6 +242,60 @@ class FamilyLinkService
     }
 
     /**
+     * Défait la fusion pour ce compte : il quitte le groupe et retrouve un foyer à lui
+     * seul. Si c'était le compte de référence, le plus ancien des autres comptes le
+     * devient. Les liens famille entre ses élèves et ceux du reste du groupe sont retirés.
+     *
+     * @throws RuntimeException('not_merged') si le compte n'est fusionné avec aucun autre.
+     */
+    public function separateAccount(User $account, User $by): void
+    {
+        $groupIds = $account->householdAccountIds();
+        $remainingIds = array_values(array_diff($groupIds, [(int) $account->id]));
+
+        if ($remainingIds === []) {
+            throw new RuntimeException('not_merged');
+        }
+
+        DB::transaction(function () use ($account, $remainingIds, $by) {
+            if ($account->household_root_id === null) {
+                $newRootId = min($remainingIds);
+                User::query()->where('id', $newRootId)->update(['household_root_id' => null]);
+                User::query()
+                    ->whereIn('id', $remainingIds)
+                    ->where('id', '!=', $newRootId)
+                    ->update(['household_root_id' => $newRootId]);
+            } else {
+                User::query()->where('id', $account->id)->update(['household_root_id' => null]);
+            }
+
+            $ownStudentIds = Student::where('user_id', $account->id)->pluck('id')->all();
+            $otherStudentIds = Student::whereIn('user_id', $remainingIds)->pluck('id')->all();
+
+            if ($ownStudentIds !== [] && $otherStudentIds !== []) {
+                DB::table('student_family_links')
+                    ->where(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                        $q->whereIn('primary_student_id', $ownStudentIds)
+                            ->whereIn('linked_student_id', $otherStudentIds);
+                    })
+                    ->orWhere(function ($q) use ($ownStudentIds, $otherStudentIds) {
+                        $q->whereIn('primary_student_id', $otherStudentIds)
+                            ->whereIn('linked_student_id', $ownStudentIds);
+                    })
+                    ->delete();
+            }
+
+            Log::info('Compte élève séparé du foyer fusionné', [
+                'account_user_id' => $account->id,
+                'remaining_user_ids' => $remainingIds,
+                'by_user_id' => $by->id,
+            ]);
+        });
+
+        $account->refresh();
+    }
+
+    /**
      * Sort un élève d'un compte partagé avant de lui en donner un propre : retire
      * les liens famille avec les autres élèves de ce compte.
      */

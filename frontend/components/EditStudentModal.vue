@@ -334,6 +334,26 @@
               </div>
             </div>
 
+            <!-- Compte fusionné avec d'autres comptes élèves : possibilité de le séparer -->
+            <div
+              v-if="accountMerged && !loadingLinked"
+              data-testid="merged-account-notice"
+              class="mb-4 flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-lg border border-purple-200"
+            >
+              <p class="text-sm text-gray-700">
+                Le compte de cet élève est <strong>fusionné</strong> avec d'autres comptes : chaque connexion voit tous les élèves du foyer.
+              </p>
+              <button
+                type="button"
+                data-testid="separate-account"
+                :disabled="loadingLinkAction"
+                class="px-3 py-2 text-sm font-medium text-purple-700 border border-purple-300 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+                @click="separateAccount"
+              >
+                Séparer ce compte
+              </button>
+            </div>
+
             <div v-if="loadingLinked" class="flex justify-center py-4">
               <svg class="animate-spin h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -521,6 +541,7 @@ const medicalDocuments = ref([])
 // Élèves liés (section visible si élève a un compte)
 const hasStudentAccount = computed(() => !!(props.student?.user_id))
 const linkedStudents = ref([])
+const accountMerged = ref(false)
 const loadingLinked = ref(false)
 const loadingLinkAction = ref(false)
 const linkSearchQuery = ref('')
@@ -649,6 +670,7 @@ const loadLinkedStudents = async () => {
     const response = await $api.get(`/club/students/${props.student.id}/linked`)
     if (response.data.success) {
       linkedStudents.value = response.data.data || []
+      accountMerged.value = !!response.data.account_merged
     }
   } catch (e) {
     console.error('Erreur chargement élèves liés:', e)
@@ -693,6 +715,28 @@ const linkStudent = async (s) => {
     }
   } catch (e) {
     const msg = e?.response?.data?.message || 'Erreur lors de la liaison'
+    const { error: showError } = useToast()
+    showError(msg, 'Erreur')
+  } finally {
+    loadingLinkAction.value = false
+  }
+}
+
+// Défait la fusion : ce compte et les autres comptes du foyer restent, mais chacun
+// ne voit plus que ses propres élèves.
+const separateAccount = async () => {
+  if (!props.student?.id || !confirm('Séparer ce compte des autres comptes du foyer ? Chaque connexion ne verra plus que ses propres élèves.')) return
+  loadingLinkAction.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api.post(`/club/students/${props.student.id}/separate-account`)
+    if (response.data.success) {
+      const { success } = useToast()
+      success(response.data.message, 'Compte séparé')
+      await loadLinkedStudents()
+    }
+  } catch (e) {
+    const msg = e?.response?.data?.message || 'Erreur lors de la séparation du compte'
     const { error: showError } = useToast()
     showError(msg, 'Erreur')
   } finally {
