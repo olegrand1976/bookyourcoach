@@ -5,8 +5,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-# shellcheck source=lib/gcp-env.sh
-source "${SCRIPT_DIR}/lib/gcp-env.sh"
+# shellcheck source=lib/gcp-env-prod.sh
+source "${SCRIPT_DIR}/lib/gcp-env-prod.sh"
 
 gcloud config set project "$GCP_PROJECT_ID" >/dev/null
 
@@ -34,4 +34,4 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
   --member="serviceAccount:${CB_SA}" --role=roles/run.admin --quiet >/dev/null
 
 echo "MySQL : ../../infra/shared-mysql/setup-gcp.sh"
-echo "Deploy : gcloud builds submit --config=infra/gcp/cloudbuild.yaml"
+echo "Deploy : push sur main (workflow deploy-production-security.yml)"

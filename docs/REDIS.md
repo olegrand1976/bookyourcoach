@@ -29,18 +29,9 @@ REDIS_CACHE_DB=4
 
 Préfixe recommandé : slug `APP_NAME` / `byc:`.
 
-## Production GCP (Cloud Run staging)
+## Production GCP (Cloud Run)
 
-```bash
-../../infra/shared-mysql/setup-gcp.sh
-../../infra/shared-mysql/import-database.sh bookyourcoach_prod /path/dump.sql
-./infra/gcp/predeploy.sh
-gcloud builds submit --config=infra/gcp/cloudbuild.yaml
-# Queue worker : ../../infra/shared-workers/setup-gcp.sh
-```
-
-Services : `bookyourcoach-api-staging`, `bookyourcoach-web-staging` (`min-instances=0`).
-
-Déploiement actuel (legacy) : serveur dédié SSH — migration vers GCP ci-dessus.
+Services : `bookyourcoach-api-prod`, `bookyourcoach-web-prod` (activibe.be), déployés par push sur `main`
+(`.github/workflows/deploy-production-security.yml`). Voir [infra/gcp/README.md](../infra/gcp/README.md).
 
 → [`../../infra/shared-redis/README.md`](../../infra/shared-redis/README.md)

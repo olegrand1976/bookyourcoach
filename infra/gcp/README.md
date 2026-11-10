@@ -9,8 +9,9 @@ Une instance **`ll-it-mysql`** (Infiswap + bookyourcoach). Ne pas créer `byc-db
 ../../infra/shared-mysql/setup-backups.sh
 ```
 
-Bases : `bookyourcoach_prod`, `bookyourcoach_staging`  
-Secret prod : `bookyourcoach-database-url`
+Base : `bookyourcoach_prod` — secret `bookyourcoach-database-url`.
+Pas d'environnement staging (abandonné le 10/11/2026 : jamais déployé ; la base
+`bookyourcoach_staging` et ses secrets `*-staging` ne servent plus).
 
 Import depuis serveur dédié :
 
@@ -34,8 +35,9 @@ Phase ultérieure : Neo4j Aura Free ou VM dédiée — activer `NEO4J_ENABLED=tr
 
 ```bash
 ./infra/gcp/predeploy.sh
-gcloud builds submit --config=infra/gcp/cloudbuild.yaml       # staging ll-it-sc.be
-gcloud builds submit --config=infra/gcp/cloudbuild-prod.yaml  # prod activibe.be
+# Déploiement courant : push sur main → .github/workflows/deploy-production-security.yml
+# (build, déploiement, puis job Cloud Run bookyourcoach-migrate).
+gcloud builds submit --config=infra/gcp/cloudbuild-prod.yaml  # amorçage manuel prod activibe.be
 ./infra/gcp/setup-prod-custom-domain.sh
 ./infra/gcp/print-ovh-dns-prod.sh
 ```
