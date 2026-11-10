@@ -71,6 +71,81 @@ describe('EditStudentModal — email de l’élève', () => {
     expect(w.emitted('success')).toBeUndefined()
   })
 
+  describe('compte partagé : confirmation du changement d’email', () => {
+    const conflict = {
+      response: {
+        status: 409,
+        data: {
+          success: false,
+          requires_confirmation: true,
+          message: 'Cet email sert à la connexion de plusieurs élèves.',
+          data: {
+            account_email: 'famille@example.be',
+            new_email: 'nouveau@example.be',
+            students: [
+              { id: 11, name: 'Paul Martin', is_current: false },
+              { id: 12, name: 'Léa Martin', is_current: true },
+            ],
+            other_students_count: 1,
+          },
+        },
+      },
+    }
+
+    it('affiche la confirmation avec les élèves concernés, sans toast d’erreur', async () => {
+      put.mockRejectedValueOnce(conflict)
+      const w = mountModal()
+
+      await submitWithEmail(w, 'nouveau@example.be')
+
+      const prompt = w.find('[data-testid="email-scope-prompt"]')
+      expect(prompt.exists()).toBe(true)
+      expect(prompt.text()).toContain('famille@example.be')
+      expect(prompt.text()).toContain('Paul Martin')
+      expect(prompt.text()).toContain('Léa Martin (cette fiche)')
+      expect(prompt.text()).toContain('1 autre(s) élève(s)')
+      expect(error).not.toHaveBeenCalled()
+      expect(w.emitted('success')).toBeUndefined()
+    })
+
+    it.each([
+      ['email-scope-household', 'household'],
+      ['email-scope-student', 'student'],
+    ])('renvoie la mise à jour avec le choix (%s)', async (testId, scope) => {
+      put.mockRejectedValueOnce(conflict)
+      put.mockResolvedValueOnce({ data: { success: true, message: 'ok', data: student } })
+      const w = mountModal()
+      await submitWithEmail(w, 'nouveau@example.be')
+
+      await w.find(`[data-testid="${testId}"]`).trigger('click')
+      await flushPromises()
+
+      expect(put).toHaveBeenLastCalledWith('/club/students/12', expect.objectContaining({ email: 'nouveau@example.be', email_scope: scope }))
+      expect(w.find('[data-testid="email-scope-prompt"]').exists()).toBe(false)
+      expect(success).toHaveBeenCalledWith('ok', 'Succès')
+    })
+
+    it('n’envoie pas de choix lors d’un enregistrement normal', async () => {
+      put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
+      const w = mountModal()
+
+      await submitWithEmail(w, 'lea@example.be')
+
+      expect(put.mock.calls[0][1]).not.toHaveProperty('email_scope')
+    })
+
+    it('annule la confirmation si l’email est de nouveau modifié', async () => {
+      put.mockRejectedValueOnce(conflict)
+      const w = mountModal()
+      await submitWithEmail(w, 'nouveau@example.be')
+      expect(w.find('[data-testid="email-scope-prompt"]').exists()).toBe(true)
+
+      await w.find('input[type="email"]').setValue('autre@example.be')
+
+      expect(w.find('[data-testid="email-scope-prompt"]').exists()).toBe(false)
+    })
+  })
+
   it('envoie une chaîne vide quand l’email est effacé (détachement d’un compte partagé)', async () => {
     put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
     const w = mountModal()

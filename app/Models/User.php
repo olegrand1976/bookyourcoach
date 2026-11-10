@@ -400,8 +400,29 @@ class User extends Authenticatable
     private const HOUSEHOLD_SUBSCRIPTION_INSTANCE_MAX_STUDENTS = 24;
 
     /**
+     * Comptes du groupe fusionné de ce compte (lui compris) : le compte de référence
+     * (household_root_id) et tous ceux qui pointent vers lui. Chacun garde sa connexion.
+     *
+     * @return array<int>
+     */
+    public function householdAccountIds(): array
+    {
+        $rootId = (int) ($this->household_root_id ?? $this->id);
+
+        return static::query()
+            ->where('id', $rootId)
+            ->orWhere('household_root_id', $rootId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->push((int) $this->id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * IDs de tous les élèves « du foyer » :
-     * - profils students avec ce user_id ;
+     * - profils students de ce compte et des comptes fusionnés avec lui ;
      * - élèves liés student_family_links ;
      * - co-bénéficiaires sur les mêmes instances d'abonnement (abonnement familial sans lien famille explicite).
      *
@@ -413,7 +434,7 @@ class User extends Authenticatable
             return [];
         }
 
-        $profiles = Student::query()->where('user_id', $this->id)->get();
+        $profiles = Student::query()->whereIn('user_id', $this->householdAccountIds())->get();
         if ($profiles->isEmpty()) {
             return [];
         }

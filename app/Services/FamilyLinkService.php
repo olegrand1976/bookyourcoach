@@ -202,6 +202,46 @@ class FamilyLinkService
     }
 
     /**
+     * Fusionne le compte d'un élève avec un autre compte élève : les deux comptes
+     * restent (email et mot de passe propres) mais partagent un seul foyer. Les
+     * groupes déjà fusionnés de part et d'autre se rejoignent. L'élève reste sur son
+     * compte ; le lien famille avec le titulaire de l'autre compte le rend visible
+     * dans la fiche côté club.
+     */
+    public function mergeAccounts(Student $student, User $target, User $by): void
+    {
+        $source = $student->user;
+
+        if (! $source || $source->primaryRole() !== User::ROLE_STUDENT || $target->primaryRole() !== User::ROLE_STUDENT) {
+            throw new RuntimeException('account_role_invalid');
+        }
+
+        $sourceRoot = (int) ($source->household_root_id ?? $source->id);
+        $targetRoot = (int) ($target->household_root_id ?? $target->id);
+
+        if ($sourceRoot !== $targetRoot) {
+            // Tout le groupe source passe sous la référence du groupe cible.
+            User::query()
+                ->where('id', $sourceRoot)
+                ->orWhere('household_root_id', $sourceRoot)
+                ->update(['household_root_id' => $targetRoot]);
+        }
+
+        $holder = Student::where('user_id', $target->id)->orderBy('id')->first();
+        if ($holder && $holder->id !== $student->id) {
+            $this->insertFamilyLinkIfMissing($holder, $student, null, $by);
+        }
+
+        Log::info('Comptes élèves fusionnés (même foyer)', [
+            'student_id' => $student->id,
+            'source_user_id' => $source->id,
+            'target_user_id' => $target->id,
+            'household_root_id' => $targetRoot,
+            'by_user_id' => $by->id,
+        ]);
+    }
+
+    /**
      * Sort un élève d'un compte partagé avant de lui en donner un propre : retire
      * les liens famille avec les autres élèves de ce compte.
      */
