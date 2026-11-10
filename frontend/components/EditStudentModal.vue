@@ -459,8 +459,12 @@
                 Nouvel email : <strong>{{ emailScopePrompt.new_email }}</strong>
               </template>
             </p>
+            <p v-if="emailScopePrompt.household_allowed === false" class="text-xs text-amber-800">
+              Le compte de cet élève compte des élèves d'un autre club : il ne peut pas être fusionné entier, seul cet élève peut être rattaché.
+            </p>
             <div class="flex flex-wrap gap-2">
               <button
+                v-if="emailScopePrompt.household_allowed !== false"
                 type="button"
                 data-testid="email-scope-household"
                 :disabled="loading"

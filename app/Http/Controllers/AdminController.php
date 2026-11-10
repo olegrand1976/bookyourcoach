@@ -1666,7 +1666,7 @@ class AdminController extends BaseController
         try {
             $validator = Validator::make($request->all(), [
                 'linked_student_id' => 'required|integer|exists:students,id',
-                'relationship_type' => 'nullable|string|max:50',
+                'relationship_type' => ['nullable', 'string', 'max:50', \Illuminate\Validation\Rule::notIn([\App\Services\FamilyLinkService::MERGE_RELATIONSHIP])],
             ]);
 
             if ($validator->fails()) {

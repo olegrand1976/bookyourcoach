@@ -143,6 +143,18 @@ describe('EditStudentModal — email de l’élève', () => {
       expect(put).toHaveBeenLastCalledWith('/club/students/12', expect.objectContaining({ email: 'autre@example.be', email_scope: 'student' }))
     })
 
+    it('masque « fusionner tout le compte » quand le serveur le refuserait', async () => {
+      const linkConflict = JSON.parse(JSON.stringify(conflict))
+      linkConflict.response.data.data = { ...linkConflict.response.data.data, kind: 'link', new_email: 'autre@example.be', household_allowed: false }
+      put.mockRejectedValueOnce(linkConflict)
+      const w = mountModal()
+      await submitWithEmail(w, 'autre@example.be')
+
+      expect(w.find('[data-testid="email-scope-household"]').exists()).toBe(false)
+      expect(w.find('[data-testid="email-scope-student"]').exists()).toBe(true)
+      expect(w.find('[data-testid="email-scope-prompt"]').text()).toContain('élèves d\'un autre club')
+    })
+
     it('n’envoie pas de choix lors d’un enregistrement normal', async () => {
       put.mockResolvedValue({ data: { success: true, message: 'ok', data: student } })
       const w = mountModal()

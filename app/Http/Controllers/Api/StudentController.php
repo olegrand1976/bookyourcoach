@@ -634,8 +634,8 @@ class StudentController extends Controller
             : User::whereRaw('LOWER(email) = ?', [mb_strtolower($email)])->first();
     }
 
-    private const FOREIGN_HOUSEHOLD_MESSAGE = 'Cette adresse email appartient à un compte élève dont tous les élèves ne sont pas inscrits dans votre club : '
-        . 'pour relier ces élèves, le titulaire du compte doit utiliser le code d\'invitation famille.';
+    private const FOREIGN_HOUSEHOLD_MESSAGE = 'Cette adresse email appartient à un compte élève qui n\'est pas entièrement suivi par votre club '
+        . '(élèves d\'un autre club, ou aucun élève chez vous) : pour relier ces élèves, le titulaire du compte doit utiliser le code d\'invitation famille.';
 
     /**
      * Cloisonnement : rattacher ou fusionner donne accès à tout le foyer du compte.
@@ -648,18 +648,21 @@ class StudentController extends Controller
             return false;
         }
 
-        $studentIds = Student::whereIn('user_id', $account->householdAccountIds())->pluck('id');
-        if ($studentIds->isEmpty()) {
+        // Le foyer tel que les connexions le voient : comptes fusionnés, liens famille
+        // et co-bénéficiaires d'abonnements compris. Un compte sans élève est inconnu du club.
+        $studentIds = $account->getHouseholdStudentIds();
+        if ($studentIds === []) {
             return false;
         }
 
-        $inClub = DB::table('club_students')
+        $activeInClub = DB::table('club_students')
             ->where('club_id', $club->id)
+            ->where('is_active', true)
             ->whereIn('student_id', $studentIds)
             ->distinct()
             ->count('student_id');
 
-        return $inClub === $studentIds->count();
+        return $activeInClub === count($studentIds);
     }
 
     /**
@@ -667,8 +670,14 @@ class StudentController extends Controller
      * s'applique à tous les élèves du compte ou seulement à celui-ci. Seuls les élèves
      * du club sont nommés (cloisonnement), les autres sont comptés.
      */
-    private function emailScopeConfirmation(User $account, Student $student, string $newEmail, User $by, ?User $target = null): JsonResponse
-    {
+    private function emailScopeConfirmation(
+        User $account,
+        Student $student,
+        string $newEmail,
+        User $by,
+        ?User $target = null,
+        bool $householdAllowed = true,
+    ): JsonResponse {
         $club = $by->getFirstClub();
         $students = Student::where('user_id', $account->id)->orderBy('id')->get();
         $visible = $students->filter(fn (Student $s) => $club && $this->studentBelongsToClub((int) $s->id, $club));
@@ -685,6 +694,8 @@ class StudentController extends Controller
                 'account_email' => $account->email,
                 'new_email' => $newEmail,
                 'target_email' => $target?->email,
+                // false : fusionner tout le compte serait refusé (élève d'un autre club).
+                'household_allowed' => $householdAllowed,
                 'students' => $visible->map(fn (Student $s) => [
                     'id' => $s->id,
                     'name' => $s->name,
@@ -704,10 +715,10 @@ class StudentController extends Controller
             $user = Auth::user();
             
             $student = Student::findOrFail($studentId);
+            $club = $user->getFirstClub();
 
             // Vérifier les permissions
             if ($user->role === 'club') {
-                $club = $user->getFirstClub();
                 if (!$club || !DB::table('club_students')
                     ->where('club_id', $club->id)
                     ->where('student_id', $student->id)
@@ -771,26 +782,34 @@ class StudentController extends Controller
                 ]);
             }
 
+            // Cloisonnement, vérifié avant toute confirmation pour ne jamais proposer un
+            // choix que le serveur refuserait : le compte visé doit être entièrement du club ;
+            // fusionner tout le compte actuel exige qu'il le soit aussi.
+            if ($existingAccount && !$this->householdWithinClub($existingAccount, $club)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
+                ]);
+            }
+            $canMergeCurrent = $existingAccount && $currentAccount && $this->householdWithinClub($currentAccount, $club);
+
             $emailScope = $validated['email_scope'] ?? null;
             if ($emailChanged && $newEmail && $sharedAccount && $emailScope === null) {
-                return $this->emailScopeConfirmation($currentAccount, $student, $newEmail, $user, $existingAccount);
+                return $this->emailScopeConfirmation(
+                    $currentAccount, $student, $newEmail, $user, $existingAccount,
+                    householdAllowed: !$existingAccount || $canMergeCurrent,
+                );
             }
-            // Fusion de comptes (élève avec compte, seul ou choix « pour tous ») sinon rattachement.
-            $mergeWholeAccount = $existingAccount && $currentAccount && (!$sharedAccount || $emailScope === 'household');
-
-            if ($existingAccount) {
-                $club = $user->getFirstClub();
-                $allowed = $this->householdWithinClub($existingAccount, $club)
-                    && (!$mergeWholeAccount || $this->householdWithinClub($currentAccount, $club));
-                if (!$allowed) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
-                    ]);
-                }
+            // Le choix vaut pour tout le compte actuel : seul élève, ou « pour tous ».
+            $wholeAccount = !$sharedAccount || $emailScope === 'household';
+            // Email d'un autre compte : fusion si l'élève a un compte, sinon rattachement.
+            $mergeWholeAccount = $existingAccount && $currentAccount && $wholeAccount;
+            if ($mergeWholeAccount && !$canMergeCurrent) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => self::FOREIGN_HOUSEHOLD_MESSAGE,
+                ]);
             }
-            // Nouvel email libre appliqué au compte lui-même (seul élève, ou choix « pour tous »).
-            $updateAccountEmail = $emailChanged && $newEmail && !$existingAccount && $currentAccount
-                && (!$sharedAccount || $emailScope === 'household');
+            // Nouvel email libre appliqué au compte lui-même.
+            $updateAccountEmail = $emailChanged && $newEmail && !$existingAccount && $currentAccount && $wholeAccount;
 
             DB::beginTransaction();
 
@@ -848,7 +867,6 @@ class StudentController extends Controller
                 // Générer un token et envoyer l'email
                 $resetToken = Password::broker()->createToken($newUser);
                 try {
-                    $club = $user->getFirstClub();
                     $newUser->notify(new StudentWelcomeNotification($club->name, $resetToken));
                     $emailSent = true;
                 } catch (\Exception $e) {
@@ -2212,7 +2230,7 @@ class StudentController extends Controller
 
             $validated = $request->validate([
                 'linked_student_id' => 'required|integer|exists:students,id',
-                'relationship_type' => 'nullable|string|max:50',
+                'relationship_type' => ['nullable', 'string', 'max:50', Rule::notIn([FamilyLinkService::MERGE_RELATIONSHIP])],
             ]);
 
             $primaryStudent = Student::findOrFail($studentId);

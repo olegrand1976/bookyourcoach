@@ -404,19 +404,26 @@ class User extends Authenticatable
         // Suppression du compte de référence d'un groupe fusionné : le plus ancien des
         // autres comptes le remplace, sinon la clé (nullOnDelete) défusionnerait tout le groupe.
         static::deleting(function (User $user) {
-            if ($user->household_root_id !== null) {
-                return;
+            if ($user->household_root_id === null) {
+                $user->promoteNextHouseholdRoot();
             }
-
-            $memberIds = static::query()->where('household_root_id', $user->id)->orderBy('id')->pluck('id');
-            if ($memberIds->isEmpty()) {
-                return;
-            }
-
-            $newRootId = $memberIds->first();
-            static::query()->where('id', $newRootId)->update(['household_root_id' => null]);
-            static::query()->whereIn('id', $memberIds->slice(1)->all())->update(['household_root_id' => $newRootId]);
         });
+    }
+
+    /**
+     * Ce compte (de référence) quitte son groupe fusionné : le plus ancien des autres
+     * comptes devient la référence, les autres pointent vers lui. Sans effet hors groupe.
+     */
+    public function promoteNextHouseholdRoot(): void
+    {
+        $memberIds = static::query()->where('household_root_id', $this->id)->orderBy('id')->pluck('id');
+        if ($memberIds->isEmpty()) {
+            return;
+        }
+
+        $newRootId = $memberIds->first();
+        static::query()->where('id', $newRootId)->update(['household_root_id' => null]);
+        static::query()->whereIn('id', $memberIds->slice(1)->all())->update(['household_root_id' => $newRootId]);
     }
 
     /**

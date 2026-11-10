@@ -150,6 +150,7 @@ class FamilyLinkService
             $newCode = $this->assignFreshCode($child);
 
             $this->detachFamilyLinks($child->id, $previousParentId);
+            $this->detachMergeLinksFromGroup($child->id, (int) $previousParentId);
 
             Log::info('Enfant dissocié du compte parent', [
                 'student_id' => $child->id,
@@ -188,6 +189,7 @@ class FamilyLinkService
 
         if ($previousUserId && (int) $previousUserId !== (int) $account->id) {
             $this->detachFamilyLinks($student->id, (int) $previousUserId);
+            $this->detachMergeLinksFromGroup($student->id, (int) $previousUserId);
         }
 
         $holder = Student::where('user_id', $account->id)
@@ -266,12 +268,7 @@ class FamilyLinkService
 
         DB::transaction(function () use ($account, $remainingIds, $by) {
             if ($account->household_root_id === null) {
-                $newRootId = min($remainingIds);
-                User::query()->where('id', $newRootId)->update(['household_root_id' => null]);
-                User::query()
-                    ->whereIn('id', $remainingIds)
-                    ->where('id', '!=', $newRootId)
-                    ->update(['household_root_id' => $newRootId]);
+                $account->promoteNextHouseholdRoot();
             } else {
                 User::query()->where('id', $account->id)->update(['household_root_id' => null]);
             }
@@ -315,6 +312,7 @@ class FamilyLinkService
         }
 
         $this->detachFamilyLinks($student->id, (int) $student->user_id);
+        $this->detachMergeLinksFromGroup($student->id, (int) $student->user_id);
     }
 
     /**
@@ -419,6 +417,38 @@ class FamilyLinkService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * L'élève quitte un compte : retire ses liens de fusion avec les élèves de tous les
+     * comptes du groupe fusionné de ce compte (sinon ces foyers le verraient encore).
+     */
+    private function detachMergeLinksFromGroup(int $studentId, int $previousUserId): void
+    {
+        $previous = User::find($previousUserId);
+        if (! $previous) {
+            return;
+        }
+
+        $groupStudentIds = Student::whereIn('user_id', $previous->householdAccountIds())
+            ->where('id', '!=', $studentId)
+            ->pluck('id')
+            ->all();
+
+        if ($groupStudentIds === []) {
+            return;
+        }
+
+        DB::table('student_family_links')
+            ->where('relationship_type', self::MERGE_RELATIONSHIP)
+            ->where(function ($q) use ($studentId, $groupStudentIds) {
+                $q->where(function ($q) use ($studentId, $groupStudentIds) {
+                    $q->whereIn('primary_student_id', $groupStudentIds)->where('linked_student_id', $studentId);
+                })->orWhere(function ($q) use ($studentId, $groupStudentIds) {
+                    $q->where('primary_student_id', $studentId)->whereIn('linked_student_id', $groupStudentIds);
+                });
+            })
+            ->delete();
     }
 
     /**

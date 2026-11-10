@@ -327,6 +327,125 @@ class ClubStudentEmailUpdateTest extends TestCase
     }
 
     #[Test]
+    public function un_eleve_d_un_autre_club_lie_au_foyer_vise_bloque_la_fusion()
+    {
+        // Le foyer visé contient, par un lien famille, un élève d'un autre club.
+        $holder = $this->studentWithAccount('parent@example.com');
+        $foreign = $this->foreignStudentWithAccount('ailleurs@example.com');
+        DB::table('student_family_links')->insert(['primary_student_id' => $holder->id, 'linked_student_id' => $foreign->id, 'relationship_type' => 'sibling', 'created_at' => now(), 'updated_at' => now()]);
+        $student = $this->studentWithAccount('eleve@example.com');
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'parent@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertNotContains($foreign->id, User::find($student->user_id)->getHouseholdStudentIds());
+    }
+
+    #[Test]
+    public function une_inscription_inactive_ne_compte_pas_comme_suivie_par_le_club()
+    {
+        // L'élève du compte visé a quitté ce club (inscription inactive) et suit un autre club.
+        $foreign = $this->foreignStudentWithAccount('ailleurs@example.com');
+        DB::table('club_students')->insert(['club_id' => $this->club->id, 'student_id' => $foreign->id, 'is_active' => false, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $student = $this->studentWithAccount('eleve@example.com');
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'ailleurs@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    #[Test]
+    public function un_compte_sans_eleve_est_refuse_avec_un_message_explicite()
+    {
+        User::factory()->create(['role' => 'student', 'email' => 'orphelin@example.com']);
+        $student = $this->studentWithoutAccount();
+
+        $this->putJson("/api/club/students/{$student->id}", $this->payload($student, 'orphelin@example.com'))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.email.0', fn ($message) => str_contains($message, 'aucun élève chez vous'));
+    }
+
+    #[Test]
+    public function un_compte_d_un_autre_club_est_refuse_sans_proposer_de_confirmation()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        $this->foreignStudentWithAccount('ailleurs@example.com');
+
+        // Compte partagé, mais aucun des deux choix ne pourrait aboutir : refus direct.
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'ailleurs@example.com'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    #[Test]
+    public function la_fusion_du_compte_entier_n_est_pas_proposee_si_un_eleve_est_d_un_autre_club()
+    {
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        // Un troisième élève du même compte suit un autre club.
+        $otherClub = Club::factory()->create();
+        $foreign = Student::factory()->create(['club_id' => $otherClub->id, 'user_id' => $holder->user_id]);
+        DB::table('club_students')->insert(['club_id' => $otherClub->id, 'student_id' => $foreign->id, 'is_active' => true, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $other = $this->studentWithAccount('autre@example.com');
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com'))
+            ->assertStatus(409)
+            ->assertJson(['data' => ['kind' => 'link', 'household_allowed' => false]]);
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com', ['email_scope' => 'household']))
+            ->assertStatus(422);
+        $this->assertNotContains($foreign->id, User::find($other->user_id)->getHouseholdStudentIds());
+
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'autre@example.com', ['email_scope' => 'student']))
+            ->assertOk()
+            ->assertJson(['attached_to_account' => true]);
+        $this->assertSame($other->user_id, $child->fresh()->user_id);
+    }
+
+    #[Test]
+    public function rattacher_seulement_cet_eleve_retire_ses_liens_de_fusion_avec_l_ancien_groupe()
+    {
+        // Compte partagé A (titulaire + enfant), fusionné entier avec B depuis la fiche de l'enfant.
+        $holder = $this->studentWithAccount('parent@example.com');
+        $child = $this->studentWithoutAccount();
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child, 'parent@example.com'))->assertOk();
+        $b = $this->studentWithAccount('b@example.com');
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'b@example.com', ['email_scope' => 'household']))
+            ->assertOk()
+            ->assertJson(['merged_accounts' => true]);
+        $this->assertTrue($this->linked($b, $child));
+
+        // L'enfant seul part vers un troisième compte C.
+        $c = $this->studentWithAccount('c@example.com');
+        $this->putJson("/api/club/students/{$child->id}", $this->payload($child->fresh(), 'c@example.com', ['email_scope' => 'student']))
+            ->assertOk()
+            ->assertJson(['attached_to_account' => true]);
+
+        $this->assertFalse($this->linked($b, $child));
+        $this->assertNotContains($child->id, User::find($b->user_id)->getHouseholdStudentIds());
+        $this->assertNotContains($child->id, User::find($holder->user_id)->getHouseholdStudentIds());
+        $this->assertContains($child->id, User::find($c->user_id)->getHouseholdStudentIds());
+    }
+
+    #[Test]
+    public function le_type_de_lien_reserve_a_la_fusion_ne_peut_pas_etre_saisi()
+    {
+        $a = $this->studentWithAccount('a@example.com');
+        $b = $this->studentWithAccount('b@example.com');
+
+        $this->postJson("/api/club/students/{$a->id}/link", [
+            'linked_student_id' => $b->id,
+            'relationship_type' => \App\Services\FamilyLinkService::MERGE_RELATIONSHIP,
+        ])->assertStatus(422);
+
+        $this->assertFalse($this->linked($a, $b));
+    }
+
+    #[Test]
     public function la_separation_garde_les_liens_poses_a_la_main()
     {
         $holder = $this->studentWithAccount('parent@example.com');
