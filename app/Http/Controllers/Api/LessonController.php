@@ -173,6 +173,9 @@ class LessonController extends Controller
                                    'lessons.status', 'lessons.price', 'lessons.notes', 'lessons.created_at', 'lessons.updated_at',
                                    'lessons.est_legacy', 'lessons.deduct_from_subscription',
                                    'lessons.cancelled_at', 'lessons.cancelled_by_user_id', 'lessons.cancelled_by_role',
+                                   // Annulation : déduite ou non de l'abonnement (tag « Déduit / Non déduit »)
+                                   'lessons.cancellation_reason', 'lessons.cancellation_count_in_subscription',
+                                   'lessons.cancellation_certificate_status',
                                    'lessons.deleted_at')
                 ->with($eager);
 

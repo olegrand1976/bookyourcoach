@@ -390,6 +390,53 @@ class LessonControllerTest extends TestCase
     }
 
     /** @test */
+    public function it_lists_whether_cancelled_lessons_are_deducted_from_subscription(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+
+        $teacher = $this->teacherAttachedToClub($club);
+        $courseType = CourseType::factory()->create();
+        $location = Location::factory()->create();
+
+        $make = fn (string $start) => Lesson::factory()->create([
+            'club_id' => $club->id,
+            'teacher_id' => $teacher->id,
+            'course_type_id' => $courseType->id,
+            'location_id' => $location->id,
+            'start_time' => $start,
+            'end_time' => \Carbon\Carbon::parse($start)->addHour(),
+            'status' => 'confirmed',
+        ]);
+        $deducted = $make('2025-10-15 10:00:00');
+        $notDeducted = $make('2025-10-16 10:00:00');
+        $medical = $make('2025-10-17 10:00:00');
+
+        // Écriture directe : on teste la lecture, pas les observers d'annulation.
+        \Illuminate\Support\Facades\DB::table('lessons')->where('id', $deducted->id)
+            ->update(['status' => 'cancelled', 'cancellation_count_in_subscription' => true]);
+        \Illuminate\Support\Facades\DB::table('lessons')->where('id', $notDeducted->id)
+            ->update(['status' => 'cancelled', 'cancellation_count_in_subscription' => false]);
+        \Illuminate\Support\Facades\DB::table('lessons')->where('id', $medical->id)
+            ->update([
+                'status' => 'cancelled',
+                'cancellation_reason' => 'medical',
+                'cancellation_certificate_status' => 'pending',
+                'cancellation_count_in_subscription' => false,
+            ]);
+
+        // Planning club : seul contexte club où les cours annulés sont listés.
+        $rows = collect($this->getJson('/api/lessons?date_from=2025-10-14&date_to=2025-10-18&context=planning')
+            ->assertOk()
+            ->json('data'))->keyBy('id');
+
+        $this->assertTrue($rows[$deducted->id]['cancellation_count_in_subscription']);
+        $this->assertFalse($rows[$notDeducted->id]['cancellation_count_in_subscription']);
+        $this->assertSame('medical', $rows[$medical->id]['cancellation_reason']);
+        $this->assertSame('pending', $rows[$medical->id]['cancellation_certificate_status']);
+    }
+
+    /** @test */
     public function it_can_filter_lessons_by_date_range()
     {
         // Arrange

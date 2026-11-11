@@ -606,6 +606,12 @@
                           >
                             {{ lessonInactivityAuditLine(lesson) }}
                           </p>
+                          <span
+                            v-if="planningCancellationImpact(lesson)"
+                            class="mt-1 inline-flex max-w-full px-2 py-0.5 rounded-full text-xs font-semibold"
+                            :class="planningCancellationImpact(lesson)!.class"
+                            data-test="planning-cancel-impact"
+                          >{{ planningCancellationImpact(lesson)!.label }}</span>
                         </h4>
                       </div>
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
@@ -824,6 +830,12 @@
                               >
                                 {{ lessonInactivityAuditLine(lesson) }}
                               </p>
+                              <span
+                                v-if="planningCancellationImpact(lesson)"
+                                class="mt-1 inline-flex max-w-full px-2 py-0.5 rounded-full text-xs font-semibold"
+                                :class="planningCancellationImpact(lesson)!.class"
+                                data-test="planning-cancel-impact"
+                              >{{ planningCancellationImpact(lesson)!.label }}</span>
                               <div v-if="lesson.price && !planningLessonIsInactive(lesson)" class="text-xs text-gray-500 mt-0.5">
                                 {{ formatPrice(lesson.price) }} €
                               </div>
@@ -881,6 +893,12 @@
                           >
                             {{ lessonInactivityAuditLine(lesson) }}
                           </p>
+                          <span
+                            v-if="planningCancellationImpact(lesson)"
+                            class="mt-1 inline-flex max-w-full px-2 py-0.5 rounded-full text-xs font-semibold whitespace-normal"
+                            :class="planningCancellationImpact(lesson)!.class"
+                            data-test="planning-cancel-impact"
+                          >{{ planningCancellationImpact(lesson)!.label }}</span>
                         </td>
                         <td class="px-2 sm:px-3 py-2 align-top min-w-0 max-w-[min(100vw,12rem)] sm:max-w-none" @click.stop>
                           <div class="flex flex-wrap justify-end gap-1">
@@ -1672,6 +1690,10 @@ import {
   type ClosureImpact,
 } from '~/composables/planning/useClosureDayGuard'
 import PlanningSlotKanbanView from '~/components/planning/PlanningSlotKanbanView.vue'
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+} from '~/composables/useCancellationLabels'
 import type { KanbanLessonCard } from '~/components/planning/PlanningSlotKanbanView.vue'
 
 const route = useRoute()
@@ -2463,6 +2485,15 @@ function isPlaceholderFromCancelledLesson(placeholder: Lesson): boolean {
 }
 
 /** Ligne d’audit affichée sous le titre d’un cours annulé / soft-supprimé. */
+/** Cours annulé (non supprimé) : déduit ou non de l'abonnement — tag rouge / vert / ambre. */
+function planningCancellationImpact(lesson: Lesson | any): { label: string; class: string } | null {
+  if (lesson?.status !== 'cancelled' || lesson?.deleted_at || lesson?.is_recurring_placeholder) return null
+  return {
+    label: getCancellationSubscriptionImpact(lesson),
+    class: getCancellationSubscriptionImpactClass(lesson),
+  }
+}
+
 function lessonInactivityAuditLine(lesson: Lesson): string | null {
   if (lesson.is_recurring_placeholder || !planningLessonIsInactive(lesson)) return null
 
