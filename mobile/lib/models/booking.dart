@@ -36,23 +36,35 @@ class Booking {
     this.cancellationCertificateStatus,
   });
 
+  /// Deux formats acceptés :
+  /// - API actuelle (/student/bookings, /student/lesson-history) : le cours lui-même
+  ///   (StudentLessonCalendarResource) — id = id du cours, pas de lesson_id ni de dates de réservation ;
+  /// - ancien format : réservation avec lesson_id et un objet `lesson` imbriqué.
   factory Booking.fromJson(Map<String, dynamic> json) {
+    final nested = json['lesson'] is Map<String, dynamic> ? json['lesson'] as Map<String, dynamic> : null;
+    final lessonJson = nested ?? json;
+    dynamic field(String key) => json[key] ?? lessonJson[key];
+
     return Booking(
-      id: json['id'],
-      studentId: json['student_id'],
-      lessonId: json['lesson_id'],
-      status: json['status'],
-      bookedAt: json['booked_at'] != null ? DateTime.parse(json['booked_at']) : null,
-      notes: json['notes'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
-      lesson: json['lesson'] != null ? Lesson.fromJson(json['lesson']) : null,
-      student: json['student'] != null ? User.fromJson(json['student']) : null,
-      cancellationReason: json['cancellation_reason']?.toString(),
-      cancellationCountInSubscription: _parseBool(json['cancellation_count_in_subscription']),
-      cancellationCertificateStatus: json['cancellation_certificate_status']?.toString(),
+      id: _parseInt(json['id']),
+      studentId: _parseInt(json['student_id']),
+      lessonId: _parseInt(json['lesson_id'] ?? lessonJson['id']),
+      status: json['status']?.toString() ?? 'pending',
+      bookedAt: _parseDate(json['booked_at']),
+      notes: json['notes']?.toString(),
+      createdAt: _parseDate(json['created_at']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updated_at']) ?? DateTime.now(),
+      lesson: Lesson.fromJson(lessonJson),
+      student: json['student'] is Map<String, dynamic> ? User.fromJson(json['student']) : null,
+      cancellationReason: field('cancellation_reason')?.toString(),
+      cancellationCountInSubscription: _parseBool(field('cancellation_count_in_subscription')),
+      cancellationCertificateStatus: field('cancellation_certificate_status')?.toString(),
     );
   }
+
+  static int _parseInt(dynamic value) => value is int ? value : int.tryParse('${value ?? ''}') ?? 0;
+
+  static DateTime? _parseDate(dynamic value) => value == null ? null : DateTime.tryParse(value.toString());
 
   /// L'API peut renvoyer true/false, 1/0 ou "1"/"0".
   static bool _parseBool(dynamic value) =>
