@@ -176,6 +176,14 @@
                     <span :class="getStatusClass(lesson.status)" class="px-2 py-1 rounded-full text-xs font-medium">
                       {{ getStatusLabel(lesson.status) }}
                     </span>
+                    <span
+                      v-if="lesson.status === 'cancelled'"
+                      :class="getCancellationSubscriptionImpactClass(lesson)"
+                      class="block w-fit mt-1 px-2 py-0.5 rounded-full text-xs"
+                      data-test="history-cancel-impact"
+                    >
+                      {{ getCancellationSubscriptionImpact(lesson) }}
+                    </span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap text-sm">
                     <div class="flex items-center gap-2">
@@ -247,6 +255,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+} from '~/composables/useCancellationLabels'
 
 interface Lesson {
   id: number
@@ -354,7 +366,9 @@ async function loadHistory() {
     const params: Record<string, string | number> = {
       limit: perPage.value,
       offset: (currentPage.value - 1) * perPage.value,
-      order: filters.value.order === 'asc' ? 'asc' : 'desc'
+      order: filters.value.order === 'asc' ? 'asc' : 'desc',
+      // Historique complet : inclure les cours annulés (exclus par défaut côté club)
+      include_cancelled: 1,
     }
     
     if (filters.value.dateFrom) {

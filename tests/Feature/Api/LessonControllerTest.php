@@ -437,6 +437,44 @@ class LessonControllerTest extends TestCase
     }
 
     /** @test */
+    public function club_full_history_includes_cancelled_lessons_only_on_request(): void
+    {
+        $user = $this->actingAsClub();
+        $club = \App\Models\Club::find($user->club_id);
+        $teacher = $this->teacherAttachedToClub($club);
+
+        $make = fn (string $start) => Lesson::factory()->create([
+            'club_id' => $club->id,
+            'teacher_id' => $teacher->id,
+            'start_time' => $start,
+            'end_time' => \Carbon\Carbon::parse($start)->addHour(),
+            'status' => 'confirmed',
+        ]);
+        $active = $make('2025-10-15 10:00:00');
+        $cancelled = $make('2025-10-16 10:00:00');
+        $deleted = $make('2025-10-17 10:00:00');
+        \Illuminate\Support\Facades\DB::table('lessons')->where('id', $cancelled->id)
+            ->update(['status' => 'cancelled', 'cancellation_count_in_subscription' => true]);
+        \Illuminate\Support\Facades\DB::table('lessons')->where('id', $deleted->id)
+            ->update(['status' => 'cancelled', 'deleted_at' => now()]);
+
+        $url = '/api/lessons?date_from=2025-10-14&date_to=2025-10-18';
+
+        // Par défaut (club hors planning) : annulés exclus
+        $ids = collect($this->getJson($url)->assertOk()->json('data'))->pluck('id');
+        $this->assertEqualsCanonicalizing([$active->id], $ids->all());
+
+        // Historique complet : annulés inclus avec l'impact abonnement, supprimés toujours exclus
+        $rows = collect($this->getJson($url.'&include_cancelled=1')->assertOk()->json('data'))->keyBy('id');
+        $this->assertEqualsCanonicalizing([$active->id, $cancelled->id], $rows->keys()->all());
+        $this->assertTrue((bool) $rows[$cancelled->id]['cancellation_count_in_subscription']);
+
+        // Filtre « Annulé » de l'historique
+        $ids = collect($this->getJson($url.'&include_cancelled=1&status=cancelled')->assertOk()->json('data'))->pluck('id');
+        $this->assertEqualsCanonicalizing([$cancelled->id], $ids->all());
+    }
+
+    /** @test */
     public function it_can_filter_lessons_by_date_range()
     {
         // Arrange

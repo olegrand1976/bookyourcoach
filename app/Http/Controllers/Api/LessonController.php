@@ -185,9 +185,11 @@ class LessonController extends Controller
             // Enseignant / autres contextes club : exclure les annulés pour libérer la plage.
             // L'historique élève inclut les annulés (StudentController::history, getLessonHistory)
             $includeInactiveForClubPlanning = $isPlanningContext && $user->role === 'club';
+            // Club : l'historique complet des cours (include_cancelled=1) liste aussi les annulés (pas les supprimés).
+            $includeCancelledForClub = $user->role === 'club' && $request->boolean('include_cancelled');
             if ($includeInactiveForClubPlanning) {
                 $query->withTrashed();
-            } elseif (in_array($user->role, ['club', 'teacher'], true)) {
+            } elseif (in_array($user->role, ['club', 'teacher'], true) && ! $includeCancelledForClub) {
                 $query->where('status', '!=', 'cancelled');
             }
 
