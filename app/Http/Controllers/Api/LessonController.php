@@ -1347,9 +1347,7 @@ class LessonController extends Controller
                             ]);
                         } else {
                             $recurringStartDate = $newStartTime->copy()->startOfDay();
-                            $subscriptionExpiresAt = $subscriptionInstance->expires_at
-                                ? Carbon::parse($subscriptionInstance->expires_at)
-                                : null;
+                            $subscriptionExpiresAt = $subscriptionInstance->recurrenceEndBoundary();
                             $recurringEndDate = SubscriptionRecurringSlot::resolveEndDate(
                                 $recurringStartDate,
                                 $subscriptionExpiresAt

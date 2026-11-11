@@ -98,6 +98,19 @@
             <p class="mt-2 text-xs text-gray-500">
               ⓘ Cette classification détermine le type de commission pour l'enseignant dans les rapports de paie.
             </p>
+            <label class="mt-4 flex items-start gap-2">
+              <input
+                v-model="form.is_last_subscription"
+                type="checkbox"
+                class="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span class="text-sm text-gray-700">
+                <span class="font-medium">Dernier abonnement</span> — la récurrence s'arrête à la fin de cet abonnement
+              </span>
+            </label>
+            <p class="mt-1 ml-6 text-xs text-gray-500">
+              Sans cette mention, la récurrence continue sans fin (prévisualisation au-delà des abonnements).
+            </p>
           </div>
 
           <!-- Sélection du modèle d'abonnement -->
@@ -323,6 +336,7 @@ const form = ref({
   lessons_used: 0,
   // Champs pour les commissions
   est_legacy: false, // Par défaut DCL (false)
+  is_last_subscription: false,
   date_paiement: null,
   montant: null
 })
@@ -680,6 +694,7 @@ const assignSubscription = async () => {
       manual_lessons_used: form.value.lessons_used || 0,
       // Champs pour les commissions
       est_legacy: form.value.est_legacy === true || form.value.est_legacy === 'true',
+      is_last_subscription: form.value.is_last_subscription === true,
       date_paiement: form.value.date_paiement || null,
       montant: form.value.montant ? parseFloat(form.value.montant) : null
     }

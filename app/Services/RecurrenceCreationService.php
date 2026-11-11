@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Service unique pour la création d'un créneau récurrent et la génération des cours.
- * Horizon : 26 semaines, borné par expires_at abo si celui-ci est >= start_date.
+ * Horizon : 26 semaines, borné par expires_at abo seulement pour un « dernier abonnement » (si >= start_date).
  */
 class RecurrenceCreationService
 {
@@ -89,9 +89,7 @@ class RecurrenceCreationService
             $timeEnd = $startTime->copy()->addMinutes($durationMinutes)->format('H:i:s');
 
             $recurringStartDate = Carbon::parse($lesson->start_time)->startOfDay();
-            $subscriptionExpiresAt = $activeSubscription->expires_at
-                ? Carbon::parse($activeSubscription->expires_at)
-                : null;
+            $subscriptionExpiresAt = $activeSubscription->recurrenceEndBoundary();
             $recurringEndDate = SubscriptionRecurringSlot::resolveEndDate(
                 $recurringStartDate,
                 $subscriptionExpiresAt

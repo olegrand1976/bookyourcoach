@@ -29,6 +29,7 @@ class ProlongRecurringSlotsCommand extends Command
             $this->newLine();
             $result = $service->prolongActiveRecurrences(null, null, true);
             $this->info("📊 Récurrences qui seraient prolongées : {$result['prolonged']}");
+            $this->info("📊 Récurrences qui seraient arrêtées (dernier abonnement) : {$result['trimmed']}");
 
             return Command::SUCCESS;
         }
@@ -39,6 +40,7 @@ class ProlongRecurringSlotsCommand extends Command
                 ['Métrique', 'Valeur'],
                 [
                     ['Récurrences prolongées', $result['prolonged']],
+                    ['Récurrences arrêtées (dernier abonnement)', $result['trimmed']],
                     ['Lessons générées', $result['lessons_generated']],
                     ['Lessons ignorées', $result['lessons_skipped']],
                     ['Erreurs', $result['errors']],

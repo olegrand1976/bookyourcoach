@@ -298,6 +298,7 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     // Abonnements du club
     // Veille abonnements en fin de vie (avant /subscriptions/{id})
     Route::get('/subscriptions/expiring', [App\Http\Controllers\Api\ClubSubscriptionExpiryController::class, 'index']);
+    Route::get('/subscriptions/end-tracking', [App\Http\Controllers\Api\ClubSubscriptionEndTrackingController::class, 'index']);
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store']);
     Route::get('/subscriptions/{id}', [SubscriptionController::class, 'show']);
@@ -379,6 +380,7 @@ Route::middleware(['auth:sanctum', '2fa', 'club'])->prefix('club')->group(functi
     Route::post('/students/{studentId}/plan-future', [App\Http\Controllers\Api\ClubStudentFuturePlanningController::class, 'store']);
     Route::post('/subscriptions/{instanceId}/close', [SubscriptionController::class, 'close']);
     Route::put('/subscriptions/{instanceId}/est-legacy', [SubscriptionController::class, 'updateEstLegacy']);
+    Route::put('/subscriptions/{instanceId}/last-subscription', [App\Http\Controllers\Api\ClubSubscriptionEndTrackingController::class, 'updateLastSubscription'])->whereNumber('instanceId');
     Route::put('/subscriptions/instances/{instanceId}', [SubscriptionController::class, 'updateInstance']);
     Route::get('/subscriptions/instances/{instanceId}/history', [SubscriptionController::class, 'getInstanceHistory']);
     Route::get('/subscription-instances/{instanceId}/future-lessons', [SubscriptionController::class, 'getFutureLessons']);

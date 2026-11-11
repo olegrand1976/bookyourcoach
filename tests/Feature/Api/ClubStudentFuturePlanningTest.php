@@ -87,7 +87,8 @@ class ClubStudentFuturePlanningTest extends TestCase
         $response = $this->postJson("/api/club/students/{$this->student->id}/plan-future")->assertOk();
 
         $this->assertSame(1, $response->json('data.prolonged'));
-        $this->assertSame('2026-12-31', $slot->fresh()->end_date->format('Y-m-d'));
+        // Sans « dernier abonnement » : horizon glissant de 26 semaines, au-delà de l'expiration du carnet.
+        $this->assertSame('2027-05-05', $slot->fresh()->end_date->format('Y-m-d'));
 
         $dates = Lesson::where('student_id', $this->student->id)->where('id', '!=', $last->id)
             ->orderBy('start_time')->pluck('start_time')->map(fn ($d) => Carbon::parse($d)->format('Y-m-d'))->all();
@@ -98,19 +99,85 @@ class ClubStudentFuturePlanningTest extends TestCase
         $this->assertSame(count($dates), DB::table('subscription_lessons')->where('subscription_instance_id', $active->id)->count() - 1);
     }
 
-    public function test_sans_abonnement_actif_rien_n_est_planifie(): void
+    public function test_sans_abonnement_actif_la_serie_reste_ouverte_sans_creer_de_cours(): void
     {
         $old = $this->makeInstance('completed', '2026-03-13', '2026-07-13', 11);
-        SubscriptionRecurringSlot::create([
-            'subscription_instance_id' => $old->id, 'teacher_id' => $this->teacher->id, 'student_id' => $this->student->id,
-            'day_of_week' => Carbon::SATURDAY, 'start_time' => '10:00:00', 'end_time' => '10:20:00',
-            'start_date' => '2026-04-11', 'end_date' => '2026-10-10', 'status' => 'active',
-        ]);
+        $slot = $this->makeSlot($old, '2026-04-11', '2026-10-10');
+        $this->makeTemplateLesson('2026-10-10');
+
+        $this->postJson("/api/club/students/{$this->student->id}/plan-future")
+            ->assertOk()
+            ->assertJsonPath('data.prolonged', 1)
+            ->assertJsonPath('data.lessons_generated', 0);
+
+        // Prévisualisation : série ouverte, aucun cours non couvert par un abonnement.
+        $this->assertSame('2027-05-05', $slot->fresh()->end_date->format('Y-m-d'));
+        $this->assertSame(1, Lesson::where('student_id', $this->student->id)->count());
+    }
+
+    public function test_sans_abonnement_actif_apres_un_dernier_abonnement_la_serie_s_arrete(): void
+    {
+        $old = $this->makeInstance('completed', '2026-03-13', '2026-07-13', 11, true);
+        $slot = $this->makeSlot($old, '2026-04-11', '2026-07-11');
 
         $this->postJson("/api/club/students/{$this->student->id}/plan-future")
             ->assertOk()
             ->assertJsonPath('data.prolonged', 0)
             ->assertJsonPath('data.lessons_generated', 0);
+
+        $this->assertSame('2026-07-11', $slot->fresh()->end_date->format('Y-m-d'));
+    }
+
+    public function test_dernier_abonnement_la_serie_s_arrete_a_son_expiration(): void
+    {
+        $active = $this->makeInstance('active', '2026-09-03', '2026-12-31', 30, true);
+        $slot = $this->makeSlot($active, '2026-09-05', '2026-10-10');
+        $this->makeTemplateLesson('2026-10-10');
+
+        $this->postJson("/api/club/students/{$this->student->id}/plan-future")
+            ->assertOk()
+            ->assertJsonPath('data.prolonged', 1);
+
+        $this->assertSame('2026-12-31', $slot->fresh()->end_date->format('Y-m-d'));
+        $this->assertFalse(Lesson::where('student_id', $this->student->id)->where('start_time', '>', '2027-01-01')->exists());
+    }
+
+    public function test_cocher_dernier_abonnement_raccourcit_une_serie_deja_ouverte(): void
+    {
+        $active = $this->makeInstance('active', '2026-09-03', '2026-12-31', 30);
+        $slot = $this->makeSlot($active, '2026-09-05', '2027-05-01');
+
+        $this->putJson("/api/club/subscriptions/{$active->id}/last-subscription", ['is_last_subscription' => true])
+            ->assertOk()
+            ->assertJsonPath('data.is_last_subscription', true);
+
+        $this->assertTrue($active->fresh()->is_last_subscription);
+        $this->assertSame('2026-12-31', $slot->fresh()->end_date->format('Y-m-d'));
+
+        // Décocher : la série redevient ouverte sans fin.
+        $this->putJson("/api/club/subscriptions/{$active->id}/last-subscription", ['is_last_subscription' => false])
+            ->assertOk();
+        $this->assertSame('2027-05-05', $slot->fresh()->end_date->format('Y-m-d'));
+    }
+
+    public function test_dernier_abonnement_d_un_autre_club_refuse(): void
+    {
+        $otherClub = Club::factory()->create();
+        $template = SubscriptionTemplate::create([
+            'club_id' => $otherClub->id, 'model_number' => 'TPL-X', 'total_lessons' => 10,
+            'free_lessons' => 0, 'validity_months' => 4, 'price' => 100, 'is_active' => true,
+        ]);
+        $subscription = Subscription::create([
+            'club_id' => $otherClub->id, 'subscription_template_id' => $template->id, 'subscription_number' => 'SUB-X',
+        ]);
+        $foreign = SubscriptionInstance::create([
+            'subscription_id' => $subscription->id, 'status' => 'active', 'lessons_used' => 0, 'manual_lessons_used' => 0,
+            'started_at' => now(), 'expires_at' => now()->addMonths(4),
+        ]);
+
+        $this->putJson("/api/club/subscriptions/{$foreign->id}/last-subscription", ['is_last_subscription' => true])
+            ->assertNotFound();
+        $this->assertFalse((bool) $foreign->fresh()->is_last_subscription);
     }
 
     public function test_eleve_d_un_autre_club_refuse(): void
@@ -119,7 +186,26 @@ class ClubStudentFuturePlanningTest extends TestCase
         $this->postJson("/api/club/students/{$foreign->id}/plan-future")->assertNotFound();
     }
 
-    private function makeInstance(string $status, string $start, string $end, int $total): SubscriptionInstance
+    private function makeSlot(SubscriptionInstance $instance, string $start, string $end): SubscriptionRecurringSlot
+    {
+        return SubscriptionRecurringSlot::create([
+            'subscription_instance_id' => $instance->id, 'teacher_id' => $this->teacher->id, 'student_id' => $this->student->id,
+            'day_of_week' => Carbon::SATURDAY, 'start_time' => '10:00:00', 'end_time' => '10:20:00',
+            'start_date' => $start, 'end_date' => $end, 'status' => 'active',
+        ]);
+    }
+
+    private function makeTemplateLesson(string $date): Lesson
+    {
+        return Lesson::createQuietly([
+            'club_id' => $this->club->id, 'teacher_id' => $this->teacher->id, 'student_id' => $this->student->id,
+            'course_type_id' => $this->courseType->id, 'location_id' => $this->location->id,
+            'start_time' => $date.' 10:00:00', 'end_time' => $date.' 10:20:00',
+            'status' => 'confirmed', 'price' => 18,
+        ]);
+    }
+
+    private function makeInstance(string $status, string $start, string $end, int $total, bool $isLast = false): SubscriptionInstance
     {
         $template = SubscriptionTemplate::create([
             'club_id' => $this->club->id, 'model_number' => 'TPL-'.uniqid(), 'total_lessons' => $total,
@@ -132,6 +218,7 @@ class ClubStudentFuturePlanningTest extends TestCase
         $instance = SubscriptionInstance::create([
             'subscription_id' => $subscription->id, 'status' => $status, 'lessons_used' => 0, 'manual_lessons_used' => 0,
             'started_at' => Carbon::parse($start), 'expires_at' => Carbon::parse($end),
+            'is_last_subscription' => $isLast,
         ]);
         $instance->students()->attach($this->student->id);
 

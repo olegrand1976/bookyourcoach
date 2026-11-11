@@ -93,6 +93,27 @@
         @endif
     @endforeach
 
+    @php $planned = $report['planned_endings'] ?? []; @endphp
+    @if (count($planned) > 0)
+        <div class="group g-watch">
+            <h2>Fins prévues — dernier abonnement ({{ count($planned) }})</h2>
+            <p class="lead">Pas de renouvellement à proposer : la récurrence s’arrête à la fin de l’abonnement.</p>
+            <table>
+                <tbody>
+                    @foreach ($planned as $e)
+                        <tr>
+                            <td><span class="student">{{ $e['student_name'] }}</span></td>
+                            <td>{{ $e['subscription_label'] ?? '—' }}
+                                @if (!empty($e['expires_at']))<br><span class="muted">expire le {{ \Carbon\Carbon::parse($e['expires_at'])->format('d/m/Y') }}</span>@endif
+                            </td>
+                            <td class="reasons">{{ implode(' · ', $e['reasons'] ?? []) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     @if ($manageUrl)
         <p><a class="cta" href="{{ $manageUrl }}">Ouvrir les abonnements du club</a></p>
     @endif

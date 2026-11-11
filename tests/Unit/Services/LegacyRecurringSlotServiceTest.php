@@ -284,27 +284,17 @@ class LegacyRecurringSlotServiceTest extends TestCase
     }
 
     /**
-     * Test : Génération même avec abonnement inactif
-     * 
-     * BUT : Vérifier que generateLessonsForSlot() génère des lessons même si l'abonnement associé est inactif
-     * 
-     * ENTRÉE :
-     * - Un cours de référence
-     * - Un abonnement avec status = 'expired' (inactif)
-     * - Un créneau récurrent lié à cet abonnement inactif
-     * 
-     * SORTIE ATTENDUE :
-     * - stats['generated'] > 0 (lessons générées quand même)
-     * - stats['errors'] = 0
-     * - Les lessons sont créées mais ne consomment pas l'abonnement (car inactif)
-     * 
-     * POURQUOI : La récurrence peut continuer même si l'abonnement expire. Les lessons doivent être
-     *            générées pour maintenir la continuité du planning, mais elles ne consommeront pas
-     *            l'abonnement. Cela permet de gérer les cas où un abonnement expire mais que les
-     *            créneaux récurrents doivent continuer (ex: transition vers un nouvel abonnement).
+     * Test : Aucune génération sans abonnement actif
+     *
+     * BUT : Vérifier que generateLessonsForSlot() ne crée aucun cours quand le carnet de la série
+     *       est inactif et qu'aucun autre carnet ne prend le relais.
+     *
+     * POURQUOI : hors « dernier abonnement », une série reste ouverte sans fin ; au-delà des
+     *            carnets, les occurrences ne sont qu'une prévisualisation (règle produit du
+     *            2026-11-11). Le renouvellement relance la génération (bascule sur le nouveau carnet).
      */
     #[Test]
-    public function it_generates_lessons_without_active_subscription(): void
+    public function it_does_not_generate_lessons_without_active_subscription(): void
     {
         // Créer un cours de référence
         $referenceLesson = Lesson::create([
@@ -346,8 +336,9 @@ class LegacyRecurringSlotServiceTest extends TestCase
 
         $stats = $this->service->generateLessonsForSlot($recurringSlot, $startDate, $endDate);
 
-        // Les lessons doivent être générées même si l'abonnement est inactif
-        $this->assertGreaterThan(0, $stats['generated']);
+        // Prévisualisation : sans carnet pour les couvrir, aucun cours réel n'est créé
+        // (la série, ouverte sans fin hors « dernier abonnement », créerait sinon des cours non rattachés).
+        $this->assertSame(0, $stats['generated']);
         $this->assertEquals(0, $stats['errors']);
     }
 

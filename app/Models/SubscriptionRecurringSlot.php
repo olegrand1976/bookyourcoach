@@ -26,8 +26,8 @@ class SubscriptionRecurringSlot extends Model
     /**
      * Calcule end_date d'une série.
      *
-     * Règle : start + RECURRENCE_WEEKS, éventuellement borné par expires_at de l'abonnement
-     * si expires_at >= start. Si expires_at < start (abo déjà expiré à la date du créneau),
+     * Règle : start + RECURRENCE_WEEKS, éventuellement borné par la fin d'un « dernier abonnement »
+     * (SubscriptionInstance::recurrenceEndBoundary) si elle est >= start. Si expires_at < start (abo déjà expiré à la date du créneau),
      * on conserve l'horizon 26 semaines (jamais end < start) et on journalise un warning.
      *
      * @return array{0: Carbon, 1: bool} [endDate, ignoredExpiredExpiresAt]

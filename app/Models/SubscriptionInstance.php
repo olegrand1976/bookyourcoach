@@ -18,6 +18,7 @@ class SubscriptionInstance extends Model
         'started_at',
         'expires_at',
         'status',
+        'is_last_subscription',
         'stripe_checkout_session_id',
         // Champs pour le calcul des commissions
         'est_legacy',
@@ -33,6 +34,7 @@ class SubscriptionInstance extends Model
         'started_at' => 'date',
         'expires_at' => 'date',
         'est_legacy' => 'boolean',
+        'is_last_subscription' => 'boolean',
         'date_paiement' => 'date',
         'montant' => 'decimal:2',
     ];
@@ -412,6 +414,20 @@ class SubscriptionInstance extends Model
         }
 
         return round(($this->lessons_used / $total) * 100, 1);
+    }
+
+    /**
+     * Borne de fin des séries récurrentes rattachées à cet abonnement.
+     *
+     * Seul un « dernier abonnement » arrête la récurrence à son expiration. Sinon : aucune borne,
+     * la série reste ouverte (horizon glissant) et seuls les cours couverts par un abonnement
+     * sont créés — le reste n'est qu'une prévisualisation.
+     */
+    public function recurrenceEndBoundary(): ?Carbon
+    {
+        return $this->is_last_subscription && $this->expires_at
+            ? Carbon::parse($this->expires_at)
+            : null;
     }
 
     /**

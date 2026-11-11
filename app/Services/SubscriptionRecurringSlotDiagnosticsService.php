@@ -292,9 +292,7 @@ class SubscriptionRecurringSlotDiagnosticsService
             $slot->load('subscriptionInstance');
         }
 
-        $subscriptionExpiresAt = $slot->subscriptionInstance?->expires_at
-            ? Carbon::parse($slot->subscriptionInstance->expires_at)
-            : null;
+        $subscriptionExpiresAt = $slot->subscriptionInstance?->recurrenceEndBoundary();
 
         $oldEnd = $end->format('Y-m-d');
         $newEnd = SubscriptionRecurringSlot::resolveEndDate($start, $subscriptionExpiresAt);

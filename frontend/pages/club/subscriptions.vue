@@ -10,6 +10,12 @@
           </div>
           <div class="flex space-x-3">
             <NuxtLink
+              to="/club/subscription-endings"
+              class="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors flex items-center"
+            >
+              Fins d'abonnement
+            </NuxtLink>
+            <NuxtLink
               to="/club/subscription-templates"
               class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
             >
@@ -298,15 +304,24 @@
                   <span class="font-medium">
                     {{ getInstanceStudentNames(instance) }}
                   </span>
-                  <span 
-                    :class="{
-                      'bg-green-100 text-green-800': getDisplayStatus(instance) === 'active',
-                      'bg-gray-100 text-gray-800': getDisplayStatus(instance) === 'completed',
-                      'bg-red-100 text-red-800': getDisplayStatus(instance) === 'expired'
-                    }"
-                    class="px-2 py-1 rounded text-xs"
-                  >
-                    {{ getStatusLabel(getDisplayStatus(instance)) }}
+                  <span class="flex items-center gap-1">
+                    <span
+                      v-if="instance.is_last_subscription"
+                      class="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800"
+                      title="La récurrence s'arrête à la fin de cet abonnement"
+                    >
+                      Dernier abonnement
+                    </span>
+                    <span
+                      :class="{
+                        'bg-green-100 text-green-800': getDisplayStatus(instance) === 'active',
+                        'bg-gray-100 text-gray-800': getDisplayStatus(instance) === 'completed',
+                        'bg-red-100 text-red-800': getDisplayStatus(instance) === 'expired'
+                      }"
+                      class="px-2 py-1 rounded text-xs"
+                    >
+                      {{ getStatusLabel(getDisplayStatus(instance)) }}
+                    </span>
                   </span>
                 </div>
                 
@@ -1058,6 +1073,23 @@
               </p>
             </div>
 
+            <!-- Dernier abonnement : arrête la récurrence à la fin de cet abonnement -->
+            <div class="mb-6">
+              <label class="flex items-start gap-2">
+                <input
+                  v-model="editForm.is_last_subscription"
+                  type="checkbox"
+                  class="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span class="text-sm text-gray-700">
+                  <span class="font-medium">Dernier abonnement</span> — la récurrence de l'élève s'arrête à la fin de cet abonnement
+                </span>
+              </label>
+              <p class="mt-1 ml-6 text-xs text-gray-500">
+                Sans cette mention, la récurrence continue sans fin (prévisualisation au-delà des abonnements).
+              </p>
+            </div>
+
             <!-- Boutons -->
             <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
@@ -1152,7 +1184,8 @@ const editForm = ref({
   status: 'active',
   lessons_used: 0,
   manual_lessons_used: 0, // Valeur manuelle initiale
-  est_legacy: false
+  est_legacy: false,
+  is_last_subscription: false
 })
 
 // Calculer la valeur manuelle initiale (lessons_used - cours passés réellement consommés)
@@ -1722,7 +1755,8 @@ const openEditInstanceModal = async (instance) => {
     status: instance.status || 'active',
     lessons_used: instance.lessons_used || 0, // Total utilisé à ce jour (corrigeable)
     manual_lessons_used: manualLessonsUsed,
-    est_legacy: instance.est_legacy !== null ? instance.est_legacy : false
+    est_legacy: instance.est_legacy !== null ? instance.est_legacy : false,
+    is_last_subscription: instance.is_last_subscription === true
   }
   showEditInstanceModal.value = true
   
@@ -1752,7 +1786,8 @@ const closeEditInstanceModal = () => {
     status: 'active',
     lessons_used: 0,
     manual_lessons_used: 0,
-    est_legacy: false
+    est_legacy: false,
+    is_last_subscription: false
   }
 }
 
@@ -1789,7 +1824,8 @@ const saveInstanceChanges = async () => {
         && editForm.value.lessons_used !== (editingInstance.value.lessons_used || 0)
         ? editForm.value.lessons_used
         : null,
-      est_legacy: editForm.value.est_legacy
+      est_legacy: editForm.value.est_legacy,
+      is_last_subscription: editForm.value.is_last_subscription === true
     })
     
     if (response.data.success) {

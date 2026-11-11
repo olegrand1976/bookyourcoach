@@ -1223,9 +1223,7 @@ class RecurringSlotValidator
     ): SubscriptionRecurringSlot {
         $openSlot = ClubOpenSlot::findOrFail($openSlotId);
         $startDate = Carbon::parse($startDate)->startOfDay();
-        $subscriptionExpiresAt = $subscriptionInstance->expires_at
-            ? Carbon::parse($subscriptionInstance->expires_at)
-            : null;
+        $subscriptionExpiresAt = $subscriptionInstance->recurrenceEndBoundary();
         $expiresAt = SubscriptionRecurringSlot::resolveEndDate($startDate, $subscriptionExpiresAt);
 
         $recurringSlot = SubscriptionRecurringSlot::create([

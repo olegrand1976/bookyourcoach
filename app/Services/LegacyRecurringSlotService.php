@@ -111,6 +111,15 @@ class LegacyRecurringSlotService
             }
         }
 
+        // Aucun carnet pour couvrir ces cours : les occurrences restent une prévisualisation.
+        // (Une série est ouverte sans fin hors « dernier abonnement » : générer ici créerait
+        // indéfiniment des cours non rattachés.)
+        if ($deductFromSubscription && ! $isSubscriptionActive) {
+            $recurringSlot->forceFill(['last_generated_at' => now()])->save();
+
+            return $stats;
+        }
+
         $closureSet = $this->prefetchClosureDates($clubId, $dates);
         $existingStartKeys = $this->prefetchExistingLessonStartKeys($recurringSlot, $dates);
 

@@ -250,6 +250,59 @@ class WatchExpiringSubscriptionsTest extends TestCase
         });
     }
 
+    public function test_last_subscription_is_a_planned_ending_not_an_alert(): void
+    {
+        Mail::fake();
+        $leaving = $this->studentWithSubscription('Depart', 10, 9, null); // 1 cours restant
+        SubscriptionInstance::whereHas('students', fn ($q) => $q->where('students.id', $leaving->id))
+            ->update(['is_last_subscription' => true]);
+        $this->lessonTomorrow($leaving);
+
+        $report = $this->report();
+
+        $this->assertSame(['critical' => 0, 'urgent' => 0, 'watch' => 0], $report['counts']);
+        $this->assertSame(['Enfant Depart'], collect($report['planned_endings'])->pluck('student_name')->all());
+        $this->assertTrue($report['planned_endings'][0]['is_last_subscription']);
+
+        // Fin prévue seule : pas d'e-mail de relance.
+        $this->artisan('subscriptions:watch-expiring', ['--club' => $this->club->id])->assertSuccessful();
+        Mail::assertNothingSent();
+    }
+
+    public function test_end_tracking_lists_all_endings_of_the_club_without_lesson_condition(): void
+    {
+        $this->studentWithSubscription('Critique', 10, 9, null);            // 1 restant, pas de cours prévu
+        $this->studentWithSubscription('Large', 10, 1, null);               // RAS
+        $leaving = $this->studentWithSubscription('Depart', 10, 8, null);  // dernier abonnement
+        SubscriptionInstance::whereHas('students', fn ($q) => $q->where('students.id', $leaving->id))
+            ->update(['is_last_subscription' => true]);
+        $this->studentWithSubscription('Fini', 10, 10, now()->subDays(5), 'completed'); // terminé, non renouvelé
+        $this->studentWithSubscription('Ancien', 10, 10, now()->subDays(200), 'completed'); // trop ancien
+
+        // Autre club : jamais listé
+        $otherClub = Club::factory()->create();
+        $foreignTpl = SubscriptionTemplate::create([
+            'club_id' => $otherClub->id, 'model_number' => 'X', 'total_lessons' => 10, 'free_lessons' => 0,
+            'validity_months' => 12, 'price' => 100, 'is_active' => true,
+        ]);
+        $foreignSub = Subscription::create(['club_id' => $otherClub->id, 'subscription_template_id' => $foreignTpl->id, 'subscription_number' => 'SUB-F']);
+        $foreign = SubscriptionInstance::create([
+            'subscription_id' => $foreignSub->id, 'status' => 'active', 'lessons_used' => 9, 'manual_lessons_used' => 9,
+            'started_at' => now()->subMonth(), 'expires_at' => now()->addMonths(3),
+        ]);
+        $foreign->students()->attach(Student::factory()->create(['last_name' => 'Etranger'])->id);
+
+        $response = $this->getJson('/api/club/subscriptions/end-tracking')->assertOk();
+
+        $byCategory = collect($response->json('data.items'))->groupBy('category')
+            ->map(fn ($items) => $items->pluck('student_name')->all())->all();
+        $this->assertSame(['Enfant Critique'], $byCategory['critical'] ?? []);
+        $this->assertSame(['Enfant Depart'], $byCategory['last'] ?? []);
+        $this->assertSame(['Enfant Fini'], $byCategory['ended'] ?? []);
+        $this->assertSame(1, $response->json('data.counts.last'));
+        $this->assertStringNotContainsString('Etranger', json_encode($response->json('data.items')));
+    }
+
     public function test_no_mail_when_nothing_to_report(): void
     {
         Mail::fake();

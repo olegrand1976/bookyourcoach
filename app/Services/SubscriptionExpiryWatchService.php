@@ -45,7 +45,8 @@ class SubscriptionExpiryWatchService
      *     skipped_closure_days: list<string>,
      *     students_with_lessons: int,
      *     counts: array<string, int>,
-     *     groups: array<string, list<array<string, mixed>>>
+     *     groups: array<string, list<array<string, mixed>>>,
+     *     planned_endings: list<array<string, mixed>>
      * }
      */
     public function buildReport(Club $club, CarbonInterface $from, CarbonInterface $to, string $timezone = 'Europe/Brussels'): array
@@ -91,6 +92,8 @@ class SubscriptionExpiryWatchService
         }
 
         $groups = array_fill_keys(self::LEVELS, []);
+        // « Dernier abonnement » en fin de vie : fin prévue, pas de renouvellement à relancer.
+        $plannedEndings = [];
         $studentIds = array_keys($nextLessonByStudent);
 
         if ($studentIds !== []) {
@@ -143,6 +146,11 @@ class SubscriptionExpiryWatchService
                     if ($level === null || isset($healthyTemplates[(int) $instance->subscription?->subscription_template_id])) {
                         continue;
                     }
+                    if ($instance->is_last_subscription) {
+                        $plannedEndings[] = $this->entry($students->get($sid), $sid, $lesson, $instance, $lessonDay, $timezone, 'last_subscription') + ['level' => $level];
+
+                        continue;
+                    }
                     $groups[$level][] = $this->entry($students->get($sid), $sid, $lesson, $instance, $lessonDay, $timezone, null);
                 }
             }
@@ -162,6 +170,7 @@ class SubscriptionExpiryWatchService
             'students_with_lessons' => count($studentIds),
             'counts' => array_map('count', $groups),
             'groups' => $groups,
+            'planned_endings' => $plannedEndings,
         ];
     }
 
@@ -201,6 +210,9 @@ class SubscriptionExpiryWatchService
         $days = $this->daysUntilExpiry($instance, $lessonDay);
 
         $reasons = [];
+        if ($reason === 'last_subscription') {
+            $reasons[] = 'Dernier abonnement : fin prévue, pas de renouvellement';
+        }
         if ($reason === 'no_active_subscription') {
             $reasons[] = 'Plus aucun abonnement actif';
         } else {
@@ -223,6 +235,7 @@ class SubscriptionExpiryWatchService
             'subscription_instance_id' => $instance?->id,
             'subscription_label' => $instance ? $this->subscriptionLabel($instance) : null,
             'status' => $instance?->status,
+            'is_last_subscription' => (bool) $instance?->is_last_subscription,
             'remaining_lessons' => $remaining,
             'expires_at' => $instance?->expires_at?->toDateString(),
             'days_until_expiry' => $days,
@@ -253,6 +266,145 @@ class SubscriptionExpiryWatchService
         ]);
 
         return $parts !== [] ? implode(' — ', $parts) : 'Abonnement #'.$instance->id;
+    }
+
+    /** Catégories du suivi des fins d'abonnement (écran club + indicateur du tableau de bord). */
+    public const TRACKING_ENDED = 'ended';
+
+    public const TRACKING_LAST = 'last';
+
+    /**
+     * Suivi des fins d'abonnement de tout le club, que l'élève ait cours prochainement ou non :
+     * - abonnements actifs en fin de vie (mêmes seuils que la veille), hors élèves déjà renouvelés ;
+     * - « dernier abonnement » en fin de vie : fin prévue, rangée à part (pas de relance) ;
+     * - élèves dont le dernier abonnement s'est terminé récemment sans renouvellement.
+     *
+     * @return array{date: string, counts: array<string, int>, items: list<array<string, mixed>>}
+     */
+    public function buildEndTracking(Club $club, string $timezone = 'Europe/Brussels', int $endedLookbackDays = 30): array
+    {
+        $today = Carbon::now($timezone)->startOfDay();
+
+        // Cloisonnement par club via subscriptions.club_id
+        $instances = SubscriptionInstance::query()
+            ->whereHas('subscription', fn ($q) => $q->where('club_id', $club->id))
+            ->where('status', '!=', 'cancelled')
+            ->with(['subscription.template', 'students:id'])
+            ->get();
+
+        $byStudent = [];
+        foreach ($instances as $instance) {
+            foreach ($instance->students as $s) {
+                $byStudent[(int) $s->id][] = $instance;
+            }
+        }
+
+        $raw = [];
+        foreach ($byStudent as $sid => $studentInstances) {
+            $active = array_values(array_filter($studentInstances, fn ($i) => $i->status === 'active'
+                && (! $i->expires_at || $i->expires_at->copy()->endOfDay()->gte($today))));
+
+            if ($active === []) {
+                $latest = collect($studentInstances)->sortByDesc(fn ($i) => $i->expires_at?->timestamp ?? $i->updated_at?->timestamp ?? 0)->first();
+                $endedOn = $latest->expires_at && $latest->expires_at->lt($today) ? $latest->expires_at : $latest->updated_at;
+                if (! $latest->is_last_subscription && $endedOn && $endedOn->gte($today->copy()->subDays($endedLookbackDays))) {
+                    $raw[] = [$sid, $latest, self::TRACKING_ENDED, $endedOn->toDateString()];
+                }
+
+                continue;
+            }
+
+            $healthyTemplates = [];
+            foreach ($active as $instance) {
+                if ($this->levelFor($instance, $today) === null) {
+                    $healthyTemplates[(int) $instance->subscription?->subscription_template_id] = true;
+                }
+            }
+            foreach ($active as $instance) {
+                $level = $this->levelFor($instance, $today);
+                if ($level === null || isset($healthyTemplates[(int) $instance->subscription?->subscription_template_id])) {
+                    continue;
+                }
+                $raw[] = [$sid, $instance, $instance->is_last_subscription ? self::TRACKING_LAST : $level, null];
+            }
+        }
+
+        $studentIds = array_values(array_unique(array_map(fn ($r) => $r[0], $raw)));
+        $students = Student::query()->with('user:id,name,first_name,last_name')
+            ->whereIn('id', $studentIds)->get()->keyBy('id');
+        $nextLessons = $this->nextLessonsByStudent($club, $studentIds, $timezone);
+
+        $categories = [...self::LEVELS, self::TRACKING_LAST, self::TRACKING_ENDED];
+        $items = [];
+        foreach ($raw as [$sid, $instance, $category, $endedOn]) {
+            $remaining = (int) $instance->remaining_consumed;
+            $days = $this->daysUntilExpiry($instance, $today);
+            $items[] = [
+                'category' => $category,
+                'student_id' => $sid,
+                'student_name' => $this->studentName($students->get($sid), $sid),
+                'subscription_instance_id' => $instance->id,
+                'subscription_label' => $this->subscriptionLabel($instance),
+                'status' => $instance->status,
+                'is_last_subscription' => (bool) $instance->is_last_subscription,
+                'remaining_lessons' => $remaining,
+                'expires_at' => $instance->expires_at?->toDateString(),
+                'days_until_expiry' => $days,
+                'ended_on' => $endedOn,
+                'next_lesson_at' => $nextLessons[$sid] ?? null,
+                'level' => $category === self::TRACKING_LAST ? $this->levelFor($instance, $today) : null,
+            ];
+        }
+
+        $rank = array_flip($categories);
+        usort($items, fn ($a, $b) => [$rank[$a['category']], $a['remaining_lessons'], $a['days_until_expiry'] ?? PHP_INT_MAX, $a['student_name']]
+            <=> [$rank[$b['category']], $b['remaining_lessons'], $b['days_until_expiry'] ?? PHP_INT_MAX, $b['student_name']]);
+
+        $counts = array_fill_keys($categories, 0);
+        foreach ($items as $item) {
+            $counts[$item['category']]++;
+        }
+
+        return ['date' => $today->toDateString(), 'counts' => $counts, 'items' => $items];
+    }
+
+    /**
+     * Prochain cours (60 jours) de chaque élève dans le club, heure locale.
+     *
+     * @param  list<int>  $studentIds
+     * @return array<int, string>
+     */
+    private function nextLessonsByStudent(Club $club, array $studentIds, string $timezone): array
+    {
+        if ($studentIds === []) {
+            return [];
+        }
+
+        $lessons = Lesson::query()
+            ->where('club_id', $club->id)
+            ->whereNotIn('status', ['cancelled'])
+            ->whereBetween('start_time', [now(), now()->addDays(60)])
+            ->where(fn ($q) => $q->whereIn('student_id', $studentIds)
+                ->orWhereHas('students', fn ($s) => $s->whereIn('students.id', $studentIds)))
+            ->with(['students' => fn ($q) => $q->select('students.id')])
+            ->orderBy('start_time')
+            ->get(['id', 'student_id', 'start_time']);
+
+        $wanted = array_flip($studentIds);
+        $next = [];
+        foreach ($lessons as $lesson) {
+            $ids = $lesson->students->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if ($lesson->student_id) {
+                $ids[] = (int) $lesson->student_id;
+            }
+            foreach ($ids as $sid) {
+                if (isset($wanted[$sid]) && ! isset($next[$sid])) {
+                    $next[$sid] = $lesson->start_time->copy()->timezone($timezone)->format('Y-m-d H:i');
+                }
+            }
+        }
+
+        return $next;
     }
 
     /** Liste à plat triée par urgence (pour le tableau de bord). */

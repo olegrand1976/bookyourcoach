@@ -282,6 +282,11 @@
         </div>
       </div>
 
+      <!-- Indicateur : fins d'abonnement à traiter (détail : /club/subscription-endings) -->
+      <div class="mb-8">
+        <SubscriptionEndingsKpi ref="endingsKpi" />
+      </div>
+
       <!-- Cours annulés -->
       <div class="mb-6">
         <NuxtLink
@@ -702,7 +707,7 @@
       :student-id="panelStudentId"
       :tab="panelTab"
       @update:tab="panelTab = $event"
-      @updated="expiringCard?.reload()"
+      @updated="expiringCard?.reload(); endingsKpi?.reload()"
       @close="panelStudentId = null"
     />
 
@@ -813,6 +818,7 @@ import { ref, onMounted } from 'vue'
 import PredictiveAnalysis from '~/components/AI/PredictiveAnalysis.vue'
 import ClubNotificationBell from '~/components/club/ClubNotificationBell.vue'
 import ExpiringSubscriptionsCard from '~/components/club/ExpiringSubscriptionsCard.vue'
+import SubscriptionEndingsKpi from '~/components/club/SubscriptionEndingsKpi.vue'
 import StudentPanel from '~/components/club/StudentPanel.vue'
 import StudentSubscriptionsModal from '~/components/StudentSubscriptionsModal.vue'
 
@@ -832,6 +838,7 @@ const subscriptionsNearingEnd = ref([])
 const panelStudentId = ref(null)
 const panelTab = ref('abonnements')
 const expiringCard = ref(null)
+const endingsKpi = ref(null)
 const openStudentPanel = (id) => {
   panelTab.value = 'abonnements'
   panelStudentId.value = id

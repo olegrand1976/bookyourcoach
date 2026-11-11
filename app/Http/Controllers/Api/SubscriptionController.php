@@ -892,6 +892,7 @@ class SubscriptionController extends Controller
             'manual_lessons_used' => 'nullable|integer|min:0',
             // Champs pour les commissions
             'est_legacy' => 'nullable|boolean',      // false = DCL (Déclaré), true = NDCL (Non Déclaré)
+            'is_last_subscription' => 'nullable|boolean', // true = la récurrence s'arrête à la fin de cet abonnement
             'date_paiement' => 'nullable|date',      // Date de paiement (détermine le mois de commission)
             'montant' => 'nullable|numeric|min:0',   // Montant réellement payé (peut différer du prix du template)
         ]);
@@ -958,6 +959,10 @@ class SubscriptionController extends Controller
                 'status' => 'active'
             ];
             
+            if (isset($validated['is_last_subscription'])) {
+                $subscriptionInstanceData['is_last_subscription'] = (bool) $validated['is_last_subscription'];
+            }
+
             // Ajouter les champs de commission si fournis
             if (isset($validated['est_legacy'])) {
                 $subscriptionInstanceData['est_legacy'] = $validated['est_legacy'];
@@ -1679,6 +1684,7 @@ class SubscriptionController extends Controller
                 'lessons_used' => 'nullable|integer|min:0',
                 'manual_lessons_used' => 'nullable|integer|min:0',
                 'est_legacy' => 'nullable|boolean',
+                'is_last_subscription' => 'nullable|boolean',
             ]);
 
             // Récupérer l'instance d'abonnement avec les cours pour calculer la valeur manuelle
@@ -1702,6 +1708,7 @@ class SubscriptionController extends Controller
                 'lessons_used' => $instance->lessons_used,
                 'manual_lessons_used' => $instance->manual_lessons_used,
                 'est_legacy' => $instance->est_legacy,
+                'is_last_subscription' => $instance->is_last_subscription,
             ];
 
             // Mettre à jour les valeurs
@@ -1764,6 +1771,12 @@ class SubscriptionController extends Controller
                 $instance->lessons_used = $manualLessonsUsed + $instance->getConsumedLessonsCount();
             }
             
+            $lastSubscriptionChanged = isset($validated['is_last_subscription'])
+                && (bool) $validated['is_last_subscription'] !== (bool) $instance->is_last_subscription;
+            if ($lastSubscriptionChanged) {
+                $instance->is_last_subscription = (bool) $validated['is_last_subscription'];
+            }
+
             // ⚠️ IMPORTANT : Mettre à jour est_legacy si fourni
             $estLegacyChanged = false;
             if (isset($validated['est_legacy'])) {
@@ -1773,6 +1786,20 @@ class SubscriptionController extends Controller
             }
             
             $instance->save();
+
+            // « Dernier abonnement » modifié : réappliquer tout de suite la fin des séries de l'élève.
+            if ($lastSubscriptionChanged) {
+                foreach ($instance->students as $student) {
+                    try {
+                        app(\App\Services\ProlongRecurringSlotsService::class)
+                            ->prolongActiveRecurrences((int) $student->id, (int) $club->id);
+                    } catch (\Throwable $e) {
+                        Log::warning('Dernier abonnement : réapplication des récurrences impossible', [
+                            'instance_id' => $instance->id, 'student_id' => $student->id, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
             
             // ⚠️ IMPORTANT : Si est_legacy a changé, propager aux cours sauf ceux déjà payés
             if ($estLegacyChanged) {

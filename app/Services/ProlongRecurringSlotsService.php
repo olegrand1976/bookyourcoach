@@ -9,9 +9,10 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Planification de l'avenir : tant que l'élève a un abonnement actif, ses séries récurrentes
- * restent ouvertes jusqu'à l'horizon (26 semaines), borné à l'expiration de ses abonnements,
- * et les cours correspondants sont générés (dans la limite des places des carnets).
+ * Planification de l'avenir : les séries récurrentes restent ouvertes jusqu'à l'horizon glissant
+ * (26 semaines, prolongé chaque jour), sauf quand l'élève est sur son « dernier abonnement » : la
+ * série s'arrête alors à son expiration. Les cours ne sont générés que dans la limite des places
+ * des carnets ; au-delà, les occurrences restent une prévisualisation.
  *
  * Exécuté chaque jour par le planificateur, et à la demande depuis la fiche élève.
  */
@@ -32,7 +33,7 @@ class ProlongRecurringSlotsService
      * Une série remplacée par une série plus récente (même élève, enseignant, jour et heure)
      * n'est pas prolongée.
      *
-     * @return array{prolonged: int, lessons_generated: int, lessons_skipped: int, errors: int}
+     * @return array{prolonged: int, trimmed: int, lessons_generated: int, lessons_skipped: int, errors: int}
      */
     public function prolongActiveRecurrences(?int $studentId = null, ?int $clubId = null, bool $dryRun = false): array
     {
@@ -41,6 +42,7 @@ class ProlongRecurringSlotsService
 
         $result = [
             'prolonged' => 0,
+            'trimmed' => 0,
             'lessons_generated' => 0,
             'lessons_skipped' => 0,
             'errors' => 0,
@@ -67,14 +69,32 @@ class ProlongRecurringSlotsService
 
             $currentEnd = Carbon::parse($slot->end_date)->endOfDay();
             $needsProlong = $currentEnd->lt($targetEnd->copy()->startOfDay());
+            // « Dernier abonnement » : une série déjà ouverte plus loin s'arrête à sa fin (aucun cours supprimé).
+            $needsTrim = $targetEnd->lt($horizonEnd->copy()->startOfDay())
+                && $currentEnd->gt($targetEnd)
+                && $targetEnd->gte(Carbon::parse($slot->start_date)->startOfDay());
 
             if ($dryRun) {
                 $result['prolonged'] += $needsProlong ? 1 : 0;
+                $result['trimmed'] += $needsTrim ? 1 : 0;
 
                 continue;
             }
 
             try {
+                if ($needsTrim) {
+                    $previous = Carbon::parse($slot->end_date)->format('Y-m-d');
+                    $slot->end_date = $targetEnd->copy()->startOfDay();
+                    $slot->save();
+                    $result['trimmed']++;
+
+                    Log::info('ProlongRecurringSlotsService: récurrence arrêtée à la fin du dernier abonnement', [
+                        'subscription_recurring_slot_id' => $slot->id,
+                        'previous_end' => $previous,
+                        'new_end' => Carbon::parse($slot->end_date)->format('Y-m-d'),
+                    ]);
+                }
+
                 if ($needsProlong) {
                     $previous = Carbon::parse($slot->end_date)->format('Y-m-d');
                     $slot->end_date = $targetEnd->copy()->startOfDay();
@@ -111,24 +131,35 @@ class ProlongRecurringSlotsService
     }
 
     /**
-     * Fin cible : horizon, bornée à la plus lointaine expiration des carnets actifs de l'élève
-     * (dans le club de la série). Null si l'élève n'a plus aucun carnet actif.
+     * Fin cible de la série (carnets de l'élève dans le club de la série) :
+     * - un carnet actif sans mention « dernier abonnement » → horizon glissant (récurrence sans fin) ;
+     * - tous les carnets actifs sont des « derniers abonnements » → leur plus lointaine expiration ;
+     * - aucun carnet actif → horizon si le plus récent n'est pas un « dernier abonnement »
+     *   (prévisualisation en attendant un renouvellement), sinon null (la série s'arrête).
+     *
+     * Ouvrir la série ne crée aucun cours non couvert : la génération s'arrête faute de carnet.
      */
     private function targetEndFor(SubscriptionRecurringSlot $slot, Carbon $horizonEnd, Carbon $today): ?Carbon
     {
         $clubId = $slot->subscriptionInstance?->subscription?->club_id;
 
-        $active = SubscriptionInstance::query()
-            ->where('status', 'active')
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', $today))
+        $instances = SubscriptionInstance::query()
             ->whereHas('students', fn ($q) => $q->where('students.id', $slot->student_id))
             ->when($clubId, fn ($q) => $q->whereHas('subscription', fn ($s) => $s->forClub($clubId)))
-            ->get(['id', 'expires_at']);
+            ->get(['id', 'status', 'expires_at', 'is_last_subscription']);
 
-        if ($active->isEmpty()) {
+        if ($instances->isEmpty()) {
             return null;
         }
-        if ($active->contains(fn ($i) => $i->expires_at === null)) {
+
+        $active = $instances->filter(fn ($i) => $i->status === 'active'
+            && ($i->expires_at === null || Carbon::parse($i->expires_at)->endOfDay()->gte($today)));
+
+        if ($active->isEmpty()) {
+            return $instances->sortByDesc('id')->first()->is_last_subscription ? null : $horizonEnd->copy();
+        }
+
+        if ($active->contains(fn ($i) => ! $i->is_last_subscription || $i->expires_at === null)) {
             return $horizonEnd->copy();
         }
 
