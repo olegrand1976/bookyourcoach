@@ -29,7 +29,7 @@ export function getCertificateStatusClass(status: string | null | undefined): st
 }
 
 /**
- * Impact abonnement : Déduit / Non déduit / En attente de validation.
+ * Impact abonnement : ✗ Déduit / ✓ Non déduit / ⏳ En attente de validation (icône incluse).
  * Quand medical + certificat pas encore accepté → "En attente de validation du certificat" uniquement.
  */
 export function getCancellationSubscriptionImpact(lesson: {
@@ -39,9 +39,9 @@ export function getCancellationSubscriptionImpact(lesson: {
 } | null): string {
   if (!lesson) return ''
   if (lesson.cancellation_reason === 'medical' && lesson.cancellation_certificate_status !== 'accepted') {
-    return IMPACT_PENDING_VALIDATION
+    return `⏳ ${IMPACT_PENDING_VALIDATION}`
   }
-  return lesson.cancellation_count_in_subscription ? IMPACT_DEDUCTED : IMPACT_NOT_DEDUCTED
+  return lesson.cancellation_count_in_subscription ? `✗ ${IMPACT_DEDUCTED}` : `✓ ${IMPACT_NOT_DEDUCTED}`
 }
 
 export function getCancellationSubscriptionImpactClass(lesson: {
@@ -50,10 +50,13 @@ export function getCancellationSubscriptionImpactClass(lesson: {
   cancellation_count_in_subscription?: boolean
 } | null): string {
   if (!lesson) return 'bg-gray-100 text-gray-800'
+  // Couleurs franches : rouge = déduit, vert = non déduit, ambre = décision en attente.
   if (lesson.cancellation_reason === 'medical' && lesson.cancellation_certificate_status !== 'accepted') {
-    return 'bg-red-600 text-white'
+    return 'bg-amber-300 text-amber-950 font-semibold'
   }
-  return lesson.cancellation_count_in_subscription ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+  return lesson.cancellation_count_in_subscription
+    ? 'bg-red-600 text-white font-semibold'
+    : 'bg-emerald-600 text-white font-semibold'
 }
 
 /**

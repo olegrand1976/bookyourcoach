@@ -148,14 +148,26 @@
                         Élève : {{ lessonStudentLabel(lesson) }}
                       </p>
                     </div>
-                    <span
-                      v-for="tag in [lessonTag(lesson)]"
-                      :key="`${lesson.id}-tag`"
-                      class="inline-flex shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
-                      :class="tag.class"
-                    >
-                      {{ tag.label }}
-                    </span>
+                    <div class="flex flex-col items-start sm:items-end gap-1 min-w-0 max-w-full">
+                      <span
+                        v-for="tag in [lessonTag(lesson)]"
+                        :key="`${lesson.id}-tag`"
+                        class="inline-flex shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
+                        :class="tag.class"
+                      >
+                        {{ tag.label }}
+                      </span>
+                      <!-- Annulation : déduit ou non de l'abonnement (bien visible) -->
+                      <span
+                        v-for="impact in cancellationImpactTags(lesson)"
+                        :key="`${lesson.id}-impact`"
+                        class="inline-flex max-w-full px-2 py-0.5 rounded-full text-xs font-semibold"
+                        :class="impact.class"
+                        :data-test="`cancel-impact-${impact.kind}`"
+                      >
+                        {{ impact.label }}
+                      </span>
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -253,6 +265,10 @@ import {
   formatParticipantPhone,
 } from '~/composables/planning/usePlanningParticipant'
 import { getLessonDisplayStatus, type LessonDisplayStatusInput } from '~/composables/useLessonDisplayStatus'
+import {
+  getCancellationSubscriptionImpact,
+  getCancellationSubscriptionImpactClass,
+} from '~/composables/useCancellationLabels'
 
 type ParticipantType = 'student' | 'teacher'
 
@@ -496,6 +512,29 @@ function lessonStudentLabel(lesson: { student?: { user?: { name?: string } }; st
 function lessonTag(lesson: LessonDisplayStatusInput): { label: string; class: string } {
   const status = getLessonDisplayStatus(lesson)
   return { label: status.label, class: status.class }
+}
+
+/**
+ * Cours annulé (fiche élève) : tag « Déduit » (rouge) / « Non déduit » (vert) de l'abonnement,
+ * ou « En attente » (ambre) tant qu'un certificat médical n'est pas accepté.
+ * Tableau vide ou d'un seul élément, pour un v-for sans balise conteneur.
+ */
+function cancellationImpactTags(lesson: {
+  status?: string
+  deleted_at?: string | null
+  cancellation_reason?: string
+  cancellation_certificate_status?: string
+  cancellation_count_in_subscription?: boolean
+}): { kind: 'deducted' | 'not-deducted' | 'pending'; label: string; class: string }[] {
+  if (props.type !== 'student' || lesson.status !== 'cancelled' || lesson.deleted_at) return []
+  const kind = lesson.cancellation_reason === 'medical' && lesson.cancellation_certificate_status !== 'accepted'
+    ? 'pending'
+    : (lesson.cancellation_count_in_subscription ? 'deducted' : 'not-deducted')
+  return [{
+    kind,
+    label: getCancellationSubscriptionImpact(lesson),
+    class: getCancellationSubscriptionImpactClass(lesson),
+  }]
 }
 
 function subscriptionStatusLabel(status: string): string {
