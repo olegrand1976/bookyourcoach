@@ -43,7 +43,7 @@ describe('SubscriptionCoherencePanel — fiche de cohérence', () => {
     const w = await mountPanel()
     expect(get).toHaveBeenCalledWith('/club/subscriptions/rebalance/students/83')
     expect(w.text()).toContain('1 cours à réaffecter')
-    expect(w.find('[data-testid="coherence-instance-16"]').text()).toContain('Après : 2 / 2')
+    expect(w.find('[data-testid="coherence-instance-16"]').text()).toContain('Après correction : 2 / 2')
 
     await w.find('[data-testid="coherence-apply"]').trigger('click')
     expect(post).not.toHaveBeenCalled()
@@ -58,7 +58,7 @@ describe('SubscriptionCoherencePanel — fiche de cohérence', () => {
     const w = await mountPanel()
 
     await w.find('[data-testid="coherence-select-3"]').setValue('16') // garder sur le 1er carnet
-    expect(w.find('[data-testid="coherence-instance-16"]').text()).toContain('Après : 3 / 2')
+    expect(w.find('[data-testid="coherence-instance-16"]').text()).toContain('Après correction : 3 / 2')
     await w.find('[data-testid="coherence-manual-97"]').setValue('1')
     expect(w.find('[data-testid="coherence-apply"]').text()).toContain('mes modifications (2)')
 
@@ -70,6 +70,23 @@ describe('SubscriptionCoherencePanel — fiche de cohérence', () => {
       assignments: [{ lesson_id: 3, instance_id: 16 }],
       manual: [{ instance_id: 97, value: 1 }],
     })
+  })
+
+  it('explique la proposition en clair et ne montre d’abord que les cours qui changent', async () => {
+    const w = await mountPanel()
+
+    expect(w.text()).toContain('Comment fonctionne cette vérification ?')
+    const summary = w.find('[data-testid="coherence-summary"]').text()
+    expect(summary).toContain('1 cours à réaffecter')
+    expect(summary).toContain('jour de fermeture')
+    expect(w.find('[data-testid="coherence-lesson-1"]').exists()).toBe(false)
+    expect(w.find('[data-testid="coherence-lesson-3"]').exists()).toBe(true)
+
+    // Garder le cours 3 sur le 1er carnet : il reste affiché pendant la saisie, et le carnet déborde.
+    await w.find('[data-testid="coherence-select-3"]').setValue('16')
+    expect(w.find('[data-testid="coherence-lesson-3"]').exists()).toBe(true)
+    expect(w.find('[data-testid="coherence-instance-16"]').text()).toContain('dépassé de 1')
+    expect(w.text()).toContain('3 cours réaffectés')
   })
 
   it('revient à la proposition et annule la dernière correction', async () => {

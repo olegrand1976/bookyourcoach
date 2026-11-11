@@ -1,43 +1,78 @@
 <template>
-  <!-- Fiche de cohérence cours ↔ abonnements d'un élève : état, proposition modifiable, application, annulation -->
+  <!-- Fiche de cohérence cours ↔ abonnements d'un élève : état, proposition modifiable, application, annulation.
+       Rédigée pour le responsable du club : chaque étape dit ce qu'elle montre et ce qui va se passer. -->
   <section class="mx-5 mt-5 rounded-lg border bg-white" :class="borderClass" data-testid="subscription-coherence">
     <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div class="min-w-0">
-        <p class="text-sm font-semibold text-gray-900">Cohérence des abonnements</p>
-        <p v-if="loading" class="text-sm text-gray-500">Vérification…</p>
-        <p v-else-if="loadError" class="text-sm text-red-700">{{ loadError }}</p>
-        <p v-else-if="plan && !plan.has_changes && !plan.uncovered.length" class="text-sm text-green-700">
-          ✓ Les cours sont correctement répartis sur les abonnements.
+        <p class="text-sm font-semibold text-gray-900">Vérification des abonnements</p>
+        <p class="text-xs text-gray-500">Chaque cours de l'élève doit être décompté sur le bon abonnement.</p>
+        <p v-if="loading" class="mt-1 text-sm text-gray-500">Vérification…</p>
+        <p v-else-if="loadError" class="mt-1 text-sm text-red-700">{{ loadError }}</p>
+        <p v-else-if="isClean" class="mt-1 text-sm text-green-700">
+          ✓ Tout est en ordre : chaque cours est décompté sur le bon abonnement.
         </p>
-        <p v-else-if="plan" class="text-sm text-amber-800">
-          <template v-if="plan.has_changes">{{ changesLabel }}</template>
-          <template v-if="plan.uncovered.length">
-            <span v-if="plan.has_changes"> · </span>
-            <strong>{{ plan.uncovered.length }} cours sans abonnement</strong> (capacité dépassée : un nouvel abonnement est nécessaire)
-          </template>
+        <p v-else-if="plan" class="mt-1 text-sm text-amber-800">
+          <strong>À vérifier :</strong> {{ issueSummary }}
         </p>
         <p v-if="plan && plan.students.length > 1" class="text-xs text-gray-500 mt-0.5">
-          Abonnement partagé : {{ plan.students.map((s) => s.name).join(', ') }}
+          Abonnement partagé entre : {{ plan.students.map((s) => s.name).join(', ') }}
         </p>
       </div>
       <button
         v-if="plan"
         type="button"
         class="px-3 py-1.5 text-sm font-medium rounded-lg border"
-        :class="showSheet ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-amber-500 text-amber-800 bg-amber-50 hover:bg-amber-100'"
+        :class="showSheet || isClean ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-amber-500 text-amber-800 bg-amber-50 hover:bg-amber-100'"
         data-testid="coherence-open-sheet"
         @click="showSheet = !showSheet"
       >
-        {{ showSheet ? 'Fermer la fiche' : 'Ouvrir la fiche de cohérence' }}
+        {{ showSheet ? 'Masquer le détail' : (isClean ? 'Voir le détail' : 'Voir le détail et corriger') }}
       </button>
     </div>
 
     <p v-if="message" class="px-4 pb-3 text-sm" :class="messageIsError ? 'text-red-700' : 'text-green-700'">{{ message }}</p>
 
-    <!-- Fiche : abonnements (compteurs recalculés en direct) + répartition des cours modifiable -->
-    <div v-if="showSheet && plan" class="border-t border-gray-100 px-4 py-4 space-y-5 text-sm" data-testid="coherence-sheet">
+    <div v-if="showSheet && plan" class="border-t border-gray-100 px-4 py-4 space-y-6 text-sm" data-testid="coherence-sheet">
+      <!-- Mode d'emploi -->
+      <details class="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-blue-900">
+        <summary class="cursor-pointer font-medium">Comment fonctionne cette vérification ?</summary>
+        <ul class="mt-2 ml-4 list-disc space-y-1 text-xs leading-relaxed">
+          <li>Les abonnements se consomment <strong>l'un après l'autre</strong> : chaque cours est décompté sur le plus ancien abonnement qui a encore de la place et qui couvre ce type de cours.</li>
+          <li>Un cours qui tombe un <strong>jour de fermeture</strong> du club n'est jamais décompté.</li>
+          <li><strong>Séances ajoutées à la main</strong> : séances décomptées sans cours dans le planning (par exemple la reprise d'un ancien carnet). Si elles font doublon avec des cours enregistrés, la vérification propose de les remettre à zéro.</li>
+          <li>Un cours <strong>sans abonnement</strong> n'est décompté nulle part : il faut ajouter ou renouveler un abonnement pour le couvrir.</li>
+          <li><strong>Rien n'est modifié</strong> tant que vous n'avez pas cliqué sur « Appliquer ». Vous pouvez ajuster la proposition, et chaque correction appliquée reste annulable.</li>
+        </ul>
+      </details>
+
+      <!-- Étape 1 : ce qui va changer -->
       <div>
-        <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Abonnements</p>
+        <p class="font-semibold text-gray-900 mb-2"><span class="step">1</span> Ce que la vérification propose</p>
+        <ul v-if="!isClean" class="space-y-1.5" data-testid="coherence-summary">
+          <li v-if="plan.moves.length" class="flex gap-2">
+            <span aria-hidden="true">↔</span>
+            <span><strong>{{ plan.moves.length }} cours à réaffecter</strong> : {{ plural(plan.moves.length, 'il sera décompté', 'ils seront décomptés') }} sur un autre abonnement, dans l'ordre de consommation.</span>
+          </li>
+          <li v-if="plan.closure_detach.length" class="flex gap-2">
+            <span aria-hidden="true">🚫</span>
+            <span><strong>{{ plan.closure_detach.length }} {{ plural(plan.closure_detach.length, 'cours tombe', 'cours tombent') }} un jour de fermeture</strong> ({{ plan.closure_detach.map((c) => fmt(c.date)).join(', ') }}) : {{ plural(plan.closure_detach.length, 'il ne sera plus décompté', 'ils ne seront plus décomptés') }}.</span>
+          </li>
+          <li v-if="plan.manual_changes" class="flex gap-2">
+            <span aria-hidden="true">✎</span>
+            <span><strong>{{ plan.manual_changes }} {{ plural(plan.manual_changes, 'compteur', 'compteurs') }} de séances ajoutées à la main à corriger</strong> (détail sur l'abonnement concerné ci-dessous).</span>
+          </li>
+          <li v-if="plan.uncovered.length" class="flex gap-2 text-red-700">
+            <span aria-hidden="true">⚠</span>
+            <span><strong>{{ plan.uncovered.length }} cours sans abonnement</strong> : les abonnements de l'élève sont pleins. Ajoutez ou renouvelez un abonnement pour {{ plural(plan.uncovered.length, 'le', 'les') }} décompter.</span>
+          </li>
+        </ul>
+        <p v-else class="text-gray-600">Aucune correction nécessaire. Vous pouvez tout de même consulter ou ajuster la répartition ci-dessous.</p>
+      </div>
+
+      <!-- Étape 2 : abonnements -->
+      <div>
+        <p class="font-semibold text-gray-900"><span class="step">2</span> Les abonnements de l'élève</p>
+        <p class="text-xs text-gray-500 mb-2">Nombre de séances décomptées sur chaque abonnement, aujourd'hui et après la correction.</p>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <div
             v-for="inst in plan.instances"
@@ -50,52 +85,73 @@
               <NuxtLink :to="subscriptionInstanceLink(inst.id)" class="font-medium text-blue-700 hover:underline" :title="inst.number || undefined">
                 {{ instanceLabel(inst) }}
               </NuxtLink>
-              <span class="text-xs text-gray-500 whitespace-nowrap">{{ statusLabel(inst.status) }}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" :class="statusClass(inst.status)">{{ statusLabel(inst.status) }}</span>
             </div>
-            <p class="text-xs text-gray-600 mt-0.5">{{ fmt(inst.started_at) }} → {{ fmt(inst.expires_at) }}</p>
-            <div class="mt-2 flex items-end justify-between gap-2">
-              <div>
-                <p class="text-xs text-gray-500">Avant : {{ inst.manual_before + inst.linked_before }} / {{ capLabel(inst) }}</p>
-                <p class="text-base font-semibold tabular-nums" :class="overCapacity(inst) ? 'text-red-700' : 'text-gray-900'" data-testid="coherence-instance-total">
-                  Après : {{ totalAfter(inst) }} / {{ capLabel(inst) }}
-                </p>
+            <p class="text-xs text-gray-600 mt-0.5">
+              <template v-if="inst.expires_at">Valable du {{ fmt(inst.started_at) }} au {{ fmt(inst.expires_at) }}</template>
+              <template v-else>Commencé le {{ fmt(inst.started_at) }}, sans date de fin</template>
+            </p>
+
+            <div class="mt-3">
+              <div class="flex items-baseline justify-between text-xs text-gray-600">
+                <span>Aujourd'hui : {{ inst.manual_before + inst.linked_before }} / {{ capLabel(inst) }}</span>
+                <span :class="capacityHintClass(inst)">{{ capacityHint(inst) }}</span>
               </div>
-              <label class="text-xs text-gray-600 text-right">
-                Cours manuels
-                <input
-                  v-model.number="manualEdits[inst.id]"
-                  type="number"
-                  min="0"
-                  max="1000"
-                  class="mt-0.5 w-16 rounded border border-gray-300 px-2 py-1 text-right text-sm"
-                  :data-testid="`coherence-manual-${inst.id}`"
-                >
-              </label>
+              <div v-if="inst.capacity > 0" class="mt-1 h-2 rounded-full bg-gray-200 overflow-hidden" aria-hidden="true">
+                <div class="h-full rounded-full" :class="overCapacity(inst) ? 'bg-red-500' : 'bg-emerald-500'" :style="{ width: `${fillPercent(inst)}%` }" />
+              </div>
+              <p class="mt-1 text-base font-semibold tabular-nums" :class="overCapacity(inst) ? 'text-red-700' : 'text-gray-900'" data-testid="coherence-instance-total">
+                Après correction : {{ totalAfter(inst) }} / {{ capLabel(inst) }}
+              </p>
+              <p class="text-xs text-gray-500">
+                dont {{ assignedCount(inst.id) }} {{ plural(assignedCount(inst.id), 'cours du planning', 'cours du planning') }}
+                et {{ normalizedManual(inst.id) }} {{ plural(normalizedManual(inst.id), 'séance ajoutée', 'séances ajoutées') }} à la main
+              </p>
             </div>
+
+            <label class="mt-2 flex items-center justify-between gap-2 text-xs text-gray-600">
+              <span title="Séances décomptées sans cours dans le planning (ex. reprise d'un ancien carnet)">Séances ajoutées à la main</span>
+              <input
+                v-model.number="manualEdits[inst.id]"
+                type="number"
+                min="0"
+                max="1000"
+                class="w-16 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                :data-testid="`coherence-manual-${inst.id}`"
+              >
+            </label>
             <p v-if="inst.manual_reason" class="mt-1 text-xs text-amber-800">
-              Manuel proposé : {{ inst.manual_before }} → {{ inst.manual_after }} ({{ manualReasonLabel(inst.manual_reason) }})
+              Proposition : passer de {{ inst.manual_before }} à {{ inst.manual_after }}, {{ manualReasonLabel(inst.manual_reason) }}.
             </p>
           </div>
         </div>
       </div>
 
+      <!-- Étape 3 : répartition des cours -->
       <div>
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <p class="text-xs font-semibold uppercase text-gray-500">
-            Répartition des cours ({{ plan.lessons.length }}) · {{ uncoveredCount }} sans abonnement
-          </p>
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p class="font-semibold text-gray-900"><span class="step">3</span> Les cours ({{ plan.lessons.length }})</p>
+            <p class="text-xs text-gray-500">Pour chaque cours, l'abonnement sur lequel il est décompté. Vous pouvez choisir un autre abonnement dans la liste.</p>
+          </div>
           <label class="flex items-center gap-2 text-xs text-gray-700">
             <input v-model="onlyChanges" type="checkbox" class="rounded border-gray-300">
             Seulement les cours qui changent
           </label>
         </div>
+        <div class="mt-2 mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-300" />change d'abonnement</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-red-100 border border-red-300" />aucun abonnement (non décompté)</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-white border border-gray-300" />inchangé</span>
+          <span v-if="uncoveredCount" class="text-red-700 font-medium">{{ uncoveredCount }} {{ plural(uncoveredCount, 'cours', 'cours') }} sans abonnement après correction</span>
+        </div>
         <div class="overflow-x-auto rounded-lg border border-gray-200">
           <table class="w-full text-left">
-            <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+            <thead class="bg-gray-50 text-xs text-gray-600">
               <tr>
-                <th class="px-3 py-2 font-medium">Date</th>
-                <th class="px-3 py-2 font-medium">Actuellement</th>
-                <th class="px-3 py-2 font-medium">Abonnement retenu</th>
+                <th class="px-3 py-2 font-medium">Cours</th>
+                <th class="px-3 py-2 font-medium">Décompté aujourd'hui sur</th>
+                <th class="px-3 py-2 font-medium">Sera décompté sur</th>
               </tr>
             </thead>
             <tbody>
@@ -115,77 +171,88 @@
                   <select
                     v-model="assignmentEdits[row.lesson_id]"
                     class="rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                    :aria-label="`Abonnement pour le cours du ${fmt(row.date)}`"
                     :data-testid="`coherence-select-${row.lesson_id}`"
                   >
                     <option v-for="id in row.eligible" :key="id" :value="id">{{ shortLabel(id) }}</option>
-                    <option :value="null">Aucun abonnement</option>
+                    <option :value="null">Aucun abonnement (non décompté)</option>
                   </select>
                   <span v-if="assignmentEdits[row.lesson_id] !== row.proposed" class="ml-2 text-xs text-blue-700">
-                    modifié (proposé : {{ shortLabel(row.proposed) }})
+                    modifié par vous (proposé : {{ shortLabel(row.proposed) }})
                   </span>
                 </td>
               </tr>
               <tr v-if="!visibleLessons.length">
-                <td colspan="3" class="px-3 py-4 text-center text-gray-500">Aucun cours ne change.</td>
+                <td colspan="3" class="px-3 py-4 text-center text-gray-500">
+                  Aucun cours ne change. Décochez « Seulement les cours qui changent » pour voir tous les cours.
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p v-if="plan.closure_detach.length" class="mt-2 text-xs text-gray-600">
-          {{ plan.closure_detach.length }} cours de jours de fermeture seront détachés de leur abonnement
-          ({{ plan.closure_detach.map((c) => fmt(c.date)).join(', ') }}).
-        </p>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <template v-if="canApply">
-          <button
-            v-if="!confirming"
-            type="button"
-            class="px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
-            :disabled="busy"
-            data-testid="coherence-apply"
-            @click="confirming = true"
-          >
-            {{ editCount ? `Appliquer avec mes modifications (${editCount})` : 'Appliquer la proposition' }}
-          </button>
-          <template v-else>
+      <!-- Étape 4 : appliquer -->
+      <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <p class="font-semibold text-gray-900"><span class="step">4</span> Appliquer</p>
+        <p v-if="!canApply" class="mt-1 text-gray-600">Rien à appliquer.</p>
+        <template v-else>
+          <p class="mt-1 text-xs text-gray-600">
+            Les cours seront décomptés comme indiqué à l'étape 3 et les compteurs des abonnements recalculés.
+            Vous pourrez annuler cette correction ensuite.
+          </p>
+          <p v-if="confirming" class="mt-2 text-sm text-amber-900 font-medium">
+            Confirmez-vous la correction<template v-if="editCount"> avec vos {{ editCount }} {{ plural(editCount, 'modification', 'modifications') }}</template> ?
+          </p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <button
+              v-if="!confirming"
               type="button"
-              class="px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
               :disabled="busy"
-              data-testid="coherence-confirm"
-              @click="apply"
+              data-testid="coherence-apply"
+              @click="confirming = true"
             >
-              {{ busy ? 'Application…' : 'Confirmer' }}
+              {{ editCount ? `Appliquer avec mes modifications (${editCount})` : 'Appliquer la proposition' }}
             </button>
-            <button type="button" class="px-2 py-1.5 text-sm text-gray-600 hover:underline" :disabled="busy" @click="confirming = false">
-              Annuler
+            <template v-else>
+              <button
+                type="button"
+                class="px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50"
+                :disabled="busy"
+                data-testid="coherence-confirm"
+                @click="apply"
+              >
+                {{ busy ? 'Application…' : 'Oui, appliquer' }}
+              </button>
+              <button type="button" class="px-2 py-1.5 text-sm text-gray-600 hover:underline" :disabled="busy" @click="confirming = false">
+                Non, revenir
+              </button>
+            </template>
+            <button
+              v-if="editCount"
+              type="button"
+              class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              :disabled="busy"
+              data-testid="coherence-reset"
+              @click="resetEdits"
+            >
+              Effacer mes modifications
             </button>
-          </template>
+          </div>
         </template>
-        <button
-          v-if="editCount"
-          type="button"
-          class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-          :disabled="busy"
-          data-testid="coherence-reset"
-          @click="resetEdits"
-        >
-          Revenir à la proposition
-        </button>
-        <span class="text-xs text-gray-500">Chaque application reste annulable ci-dessous.</span>
       </div>
     </div>
 
     <!-- Historique des corrections, annulables -->
     <div v-if="history.length" class="border-t border-gray-100 px-4 py-3 text-sm">
-      <p class="text-xs font-semibold uppercase text-gray-500 mb-1">Corrections appliquées</p>
+      <p class="text-xs font-semibold uppercase text-gray-500">Corrections déjà appliquées</p>
+      <p class="text-xs text-gray-500 mb-1">Seule la plus récente peut être annulée : les cours et compteurs reviennent alors à leur état d'avant.</p>
       <ul class="space-y-1">
         <li v-for="(h, i) in history" :key="h.id" class="flex flex-wrap items-center gap-2 text-gray-700">
-          <span>{{ fmtDateTime(h.created_at) }}<template v-if="h.applied_by"> par {{ h.applied_by }}</template> —
-            {{ h.summary?.moved ?? 0 }} réaffecté(s), {{ h.summary?.closure_detached ?? 0 }} fermeture(s)<template v-if="h.summary?.customized">, ajustée</template></span>
-          <span v-if="h.reverted_at" class="text-xs text-gray-500">annulée le {{ fmtDateTime(h.reverted_at) }}</span>
+          <span>Le {{ fmtDateTime(h.created_at) }}<template v-if="h.applied_by"> par {{ h.applied_by }}</template> :
+            {{ historySummary(h) }}</span>
+          <span v-if="h.reverted_at" class="text-xs text-gray-500">(annulée le {{ fmtDateTime(h.reverted_at) }})</span>
           <button
             v-else-if="i === firstActiveIndex"
             type="button"
@@ -259,7 +326,7 @@ const loadError = ref('')
 const busy = ref(false)
 const confirming = ref(false)
 const showSheet = ref(false)
-const onlyChanges = ref(false)
+const onlyChanges = ref(true)
 const message = ref('')
 const messageIsError = ref(false)
 /** Carnet retenu par cours (initialisé sur la proposition) et compteurs manuels par carnet. */
@@ -270,13 +337,16 @@ const borderClass = computed(() => {
   if (!plan.value) return 'border-gray-200'
   return plan.value.has_changes || plan.value.uncovered.length ? 'border-amber-300' : 'border-green-200'
 })
-const changesLabel = computed(() => {
+const isClean = computed(() => Boolean(plan.value && !plan.value.has_changes && !plan.value.uncovered.length))
+/** Résumé d'une ligne pour l'en-tête (le détail est à l'étape 1). */
+const issueSummary = computed(() => {
   const p = plan.value
   if (!p) return ''
   const parts: string[] = []
   if (p.moves.length) parts.push(`${p.moves.length} cours à réaffecter`)
-  if (p.closure_detach.length) parts.push(`${p.closure_detach.length} cours de fermeture encore rattaché(s)`)
-  if (p.manual_changes) parts.push(`${p.manual_changes} compteur(s) manuel(s) à corriger`)
+  if (p.closure_detach.length) parts.push(`${p.closure_detach.length} cours un jour de fermeture`)
+  if (p.manual_changes) parts.push(`${p.manual_changes} ${plural(p.manual_changes, 'compteur', 'compteurs')} à corriger`)
+  if (p.uncovered.length) parts.push(`${p.uncovered.length} cours sans abonnement`)
   return parts.join(' · ')
 })
 const firstActiveIndex = computed(() => history.value.findIndex((h) => !h.reverted_at))
@@ -294,10 +364,13 @@ const manualOverrides = computed(() =>
 const editCount = computed(() => assignmentOverrides.value.length + manualOverrides.value.length)
 const canApply = computed(() => Boolean(plan.value && (plan.value.has_changes || editCount.value > 0)))
 const uncoveredCount = computed(() => (plan.value?.lessons ?? []).filter((row) => assignmentEdits[row.lesson_id] == null).length)
+/** Un cours « change » s'il est proposé ailleurs, modifié à la main ou sans abonnement : la liste ne bouge pas pendant la saisie. */
 const visibleLessons = computed(() => {
   const rows = plan.value?.lessons ?? []
   if (!onlyChanges.value) return rows
-  return rows.filter((row) => assignmentEdits[row.lesson_id] !== row.current)
+  return rows.filter((row) => row.proposed !== row.current
+    || assignmentEdits[row.lesson_id] !== row.proposed
+    || assignmentEdits[row.lesson_id] == null)
 })
 
 function normalizedManual(id: number): number {
@@ -315,6 +388,31 @@ function overCapacity(inst: PlanInstance): boolean {
 }
 function capLabel(inst: PlanInstance): string {
   return inst.capacity > 0 ? String(inst.capacity) : '∞'
+}
+function fillPercent(inst: PlanInstance): number {
+  return inst.capacity > 0 ? Math.min(100, Math.round((totalAfter(inst) / inst.capacity) * 100)) : 0
+}
+function capacityHint(inst: PlanInstance): string {
+  if (inst.capacity <= 0) return 'sans limite'
+  const free = inst.capacity - totalAfter(inst)
+  if (free < 0) return `dépassé de ${-free}`
+  if (free === 0) return 'complet'
+  return `${free} ${plural(free, 'place libre', 'places libres')}`
+}
+function capacityHintClass(inst: PlanInstance): string {
+  if (overCapacity(inst)) return 'font-semibold text-red-700'
+  return inst.capacity > 0 && totalAfter(inst) === inst.capacity ? 'text-gray-700' : 'text-emerald-700'
+}
+function plural(n: number, one: string, many: string): string {
+  return n > 1 ? many : one
+}
+function historySummary(h: HistoryRow): string {
+  const moved = Number(h.summary?.moved ?? 0)
+  const closure = Number(h.summary?.closure_detached ?? 0)
+  const parts = [`${moved} ${plural(moved, 'cours réaffecté', 'cours réaffectés')}`]
+  if (closure) parts.push(`${closure} ${plural(closure, 'cours de fermeture détaché', 'cours de fermeture détachés')}`)
+  if (h.summary?.customized) parts.push('proposition ajustée à la main')
+  return parts.join(', ')
 }
 function rowClass(row: PlanLesson): string {
   const chosen = assignmentEdits[row.lesson_id]
@@ -390,7 +488,7 @@ async function revert(id: number) {
 }
 
 function instanceLabel(inst: PlanInstance): string {
-  return `Abonnement du ${fmt(inst.started_at)}`
+  return inst.name ? `${inst.name} du ${fmt(inst.started_at)}` : `Abonnement du ${fmt(inst.started_at)}`
 }
 function shortLabel(id: number | null): string {
   if (id == null) return 'Aucun abonnement'
@@ -400,8 +498,13 @@ function shortLabel(id: number | null): string {
 function statusLabel(status?: string | null): string {
   return { active: 'Actif', completed: 'Terminé', expired: 'Expiré', cancelled: 'Annulé' }[status ?? ''] ?? (status ?? '')
 }
+function statusClass(status?: string | null): string {
+  return { active: 'bg-green-100 text-green-800', expired: 'bg-red-100 text-red-800' }[status ?? ''] ?? 'bg-gray-100 text-gray-700'
+}
 function manualReasonLabel(reason: string): string {
-  return reason === 'doublon' ? 'doublon avec les cours enregistrés' : 'issu d’une correction manuelle'
+  return reason === 'doublon'
+    ? 'car ces séances font doublon avec des cours déjà enregistrés dans le planning'
+    : 'car ce nombre venait d’une correction manuelle du compteur'
 }
 function fmt(ymd: string | null): string {
   if (!ymd) return '—'
@@ -423,3 +526,18 @@ watch(() => props.studentId, () => {
 
 defineExpose({ reload: load })
 </script>
+
+<style scoped>
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.375rem;
+  border-radius: 9999px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 0.7rem;
+}
+</style>
