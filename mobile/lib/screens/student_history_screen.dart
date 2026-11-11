@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/student_provider.dart';
 import '../models/booking.dart';
+import '../widgets/cancellation_impact_tag.dart';
 
 class StudentHistoryScreen extends ConsumerStatefulWidget {
   const StudentHistoryScreen({super.key});
@@ -203,6 +204,10 @@ class _StudentHistoryScreenState extends ConsumerState<StudentHistoryScreen> {
                 ),
               ],
             ),
+            if (booking.isCancelled) ...[
+              const SizedBox(height: 8),
+              CancellationImpactTag(booking: booking),
+            ],
             const SizedBox(height: 8),
             Text(
               lesson.description,

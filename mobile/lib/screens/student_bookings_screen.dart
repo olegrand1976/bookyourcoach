@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/student_provider.dart';
 import '../models/booking.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/cancellation_impact_tag.dart';
 
 class StudentBookingsScreen extends ConsumerStatefulWidget {
   const StudentBookingsScreen({super.key});
@@ -206,6 +207,13 @@ class _StudentBookingsScreenState extends ConsumerState<StudentBookingsScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
+                if (booking.isCancelled) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: CancellationImpactTag(booking: booking),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 _buildDetailRow(Icons.access_time, 'Horaires', lesson.formattedTime),
                 const SizedBox(height: 8),
                 _buildDetailRow(Icons.calendar_today, 'Date', lesson.formattedDate),

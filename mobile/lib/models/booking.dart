@@ -1,6 +1,9 @@
 import 'lesson.dart';
 import 'user.dart';
 
+/// Effet d'une annulation sur l'abonnement.
+enum CancellationImpact { deducted, notDeducted, pending }
+
 class Booking {
   final int id;
   final int studentId;
@@ -12,6 +15,10 @@ class Booking {
   final DateTime updatedAt;
   final Lesson? lesson;
   final User? student;
+  // Annulation : motif, déduite ou non de l'abonnement, état du certificat médical
+  final String? cancellationReason;
+  final bool cancellationCountInSubscription;
+  final String? cancellationCertificateStatus;
 
   Booking({
     required this.id,
@@ -24,6 +31,9 @@ class Booking {
     required this.updatedAt,
     this.lesson,
     this.student,
+    this.cancellationReason,
+    this.cancellationCountInSubscription = false,
+    this.cancellationCertificateStatus,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -38,8 +48,15 @@ class Booking {
       updatedAt: DateTime.parse(json['updated_at']),
       lesson: json['lesson'] != null ? Lesson.fromJson(json['lesson']) : null,
       student: json['student'] != null ? User.fromJson(json['student']) : null,
+      cancellationReason: json['cancellation_reason']?.toString(),
+      cancellationCountInSubscription: _parseBool(json['cancellation_count_in_subscription']),
+      cancellationCertificateStatus: json['cancellation_certificate_status']?.toString(),
     );
   }
+
+  /// L'API peut renvoyer true/false, 1/0 ou "1"/"0".
+  static bool _parseBool(dynamic value) =>
+      value == true || value == 1 || value == '1' || value == 'true';
 
   Map<String, dynamic> toJson() {
     return {
@@ -59,6 +76,16 @@ class Booking {
   bool get isConfirmed => status == 'confirmed';
   bool get isCancelled => status == 'cancelled';
   bool get isCompleted => status == 'completed';
+
+  /// Médical sans certificat accepté → en attente ; sinon déduit / non déduit.
+  CancellationImpact get cancellationImpact {
+    if (cancellationReason == 'medical' && cancellationCertificateStatus != 'accepted') {
+      return CancellationImpact.pending;
+    }
+    return cancellationCountInSubscription
+        ? CancellationImpact.deducted
+        : CancellationImpact.notDeducted;
+  }
 
   String get statusDisplay {
     switch (status) {
@@ -99,6 +126,9 @@ class Booking {
       updatedAt: updatedAt ?? this.updatedAt,
       lesson: lesson ?? this.lesson,
       student: student ?? this.student,
+      cancellationReason: cancellationReason,
+      cancellationCountInSubscription: cancellationCountInSubscription,
+      cancellationCertificateStatus: cancellationCertificateStatus,
     );
   }
 
