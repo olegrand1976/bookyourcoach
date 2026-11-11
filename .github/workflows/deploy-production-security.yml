@@ -228,6 +228,22 @@ jobs:
           --wait \
           --quiet
 
+    - name: ⏰ Tâches planifiées (image des jobs bookyourcoach-cron-*)
+      run: |
+        # Jobs créés par infra/gcp/setup-scheduler-jobs.sh ; ici on ne change que l'image.
+        IMAGE="${{ env.AR_REPO }}/api:${{ needs.prepare.outputs.image_tag }}"
+        for job in $(gcloud run jobs list \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --filter="metadata.name~^bookyourcoach-cron-" \
+            --format="value(metadata.name)"); do
+          gcloud run jobs update "$job" \
+            --image="$IMAGE" \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT }} \
+            --quiet
+        done
+
   # ─── 5. Tests post-déploiement ────────────────────────────────────────────
   test-deployment:
     name: 🧪 Tests Post-Déploiement

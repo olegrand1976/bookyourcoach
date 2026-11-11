@@ -29,18 +29,23 @@ class Neo4jSyncCommand extends Command
     protected Neo4jSyncService $syncService;
     protected Neo4jService $neo4jService;
 
-    public function __construct(Neo4jSyncService $syncService, Neo4jService $neo4jService)
-    {
-        parent::__construct();
-        $this->syncService = $syncService;
-        $this->neo4jService = $neo4jService;
-    }
-
     /**
      * Execute the console command.
      */
     public function handle()
     {
+        // Services résolus ici et non au constructeur : artisan instancie toutes les commandes au
+        // démarrage, et Neo4j désactivé (NEO4J_ENABLED=false, prod) remplace Neo4jService par un
+        // mock : l'injection échouait alors pour TOUTES les commandes artisan.
+        $neo4jService = app(Neo4jService::class);
+        if (! $neo4jService instanceof Neo4jService) {
+            $this->error('Neo4j est désactivé ou indisponible.');
+
+            return self::FAILURE;
+        }
+        $this->neo4jService = $neo4jService;
+        $this->syncService = app(Neo4jSyncService::class);
+
         $this->info('🔄 Synchronisation MySQL → Neo4j');
         $this->newLine();
 
