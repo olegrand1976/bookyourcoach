@@ -361,6 +361,34 @@ class RecurringNightRunSafeguardsTest extends TestCase
     }
 
     #[Test]
+    public function consistency_check_does_not_flag_a_move_to_another_teacher_at_the_same_time(): void
+    {
+        $other = $this->makeTeacher('Enseignant B', 'b@test.com');
+        $log = LessonActionLog::create([
+            'club_id' => $this->club->id, 'student_id' => $this->student->id, 'teacher_id' => $this->teacher->id,
+            'action' => LessonActionLog::ACTION_DELETED_CASCADE,
+            'meta' => ['lesson_start_time' => '2026-11-14T09:00:00+01:00', 'teacher_id' => $this->teacher->id],
+        ]);
+        DB::table('lesson_action_logs')->where('id', $log->id)->update(['created_at' => '2026-09-07 19:58:00']);
+        $moved = $this->lesson('2026-11-14 09:00', $other, notes: PlanningConsistencyCheckService::GENERATED_NOTE);
+        $recreated = $this->lesson('2026-11-14 09:00', notes: PlanningConsistencyCheckService::GENERATED_NOTE);
+
+        $report = app(PlanningConsistencyCheckService::class)->checkDay($this->club, Carbon::parse('2026-11-14'));
+        $flagged = array_merge(...array_map(
+            fn ($i) => $i['lesson_ids'],
+            array_filter($report['issues'], fn ($i) => $i['type'] === 'recreated_after_deletion')
+        ));
+
+        $this->assertNotContains((int) $moved->id, $flagged);
+        $this->assertContains((int) $recreated->id, $flagged);
+
+        // Le club recrée ensuite une série à cet horaire : la réapparition devient voulue.
+        $this->slot();
+        $report = app(PlanningConsistencyCheckService::class)->checkDay($this->club, Carbon::parse('2026-11-14'));
+        $this->assertNotContains('recreated_after_deletion', array_column($report['issues'], 'type'));
+    }
+
+    #[Test]
     public function planning_issue_contains_no_personal_data(): void
     {
         $this->lesson('2026-11-14 09:00');

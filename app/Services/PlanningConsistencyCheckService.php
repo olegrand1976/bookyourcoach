@@ -266,7 +266,7 @@ class PlanningConsistencyCheckService
             ->where('club_id', $club->id)
             ->whereIn('action', [LessonActionLog::ACTION_DELETED, LessonActionLog::ACTION_DELETED_CASCADE])
             ->whereIn('student_id', $studentIds)
-            ->get(['student_id', 'meta', 'created_at']);
+            ->get(['student_id', 'teacher_id', 'meta', 'created_at']);
 
         foreach ($items as $item) {
             $lesson = $item['lesson'];
@@ -278,10 +278,25 @@ class PlanningConsistencyCheckService
             $deletedBefore = $deletions->first(function (LessonActionLog $log) use ($lesson, $startKey) {
                 $meta = is_array($log->meta) ? $log->meta : (json_decode((string) $log->meta, true) ?: []);
 
+                // Même élève, même enseignant, même horaire : un déplacement vers un autre enseignant est voulu.
+                $teacherId = $log->teacher_id ?? ($meta['teacher_id'] ?? null);
+
                 return (int) $log->student_id === (int) $lesson->student_id
+                    && (int) $teacherId === (int) $lesson->teacher_id
                     && substr((string) ($meta['lesson_start_time'] ?? ''), 0, 16) === $startKey
                     && Carbon::parse($log->created_at)->lt(Carbon::parse($lesson->created_at));
             });
+            // Série recréée par le club après la suppression : la réapparition est voulue.
+            if ($deletedBefore && SubscriptionRecurringSlot::query()
+                ->where('status', 'active')
+                ->where('student_id', $lesson->student_id)
+                ->where('teacher_id', $lesson->teacher_id)
+                ->where('day_of_week', (int) $item['start']->dayOfWeek)
+                ->whereTime('start_time', $item['start']->format('H:i:s'))
+                ->where('created_at', '>', $deletedBefore->created_at)
+                ->exists()) {
+                $deletedBefore = null;
+            }
             if ($deletedBefore) {
                 $issues[] = $this->issue('critical', 'recreated_after_deletion', $item['start']->format('H:i'),
                     'Cours réapparu après une suppression par le club',
