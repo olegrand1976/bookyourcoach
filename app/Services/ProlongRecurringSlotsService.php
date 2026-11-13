@@ -21,6 +21,14 @@ class ProlongRecurringSlotsService
     /** Nombre de semaines à garder ouverts devant l'élève (règle métier). */
     public const HORIZON_WEEKS = 26;
 
+    /**
+     * Une série déjà terminée n'est rouverte que si elle s'est arrêtée il y a au plus ce nombre de semaines
+     * (série coupée par l'ancien horizon ou l'expiration d'un carnet alors que l'élève continue).
+     * Au-delà, l'élève a arrêté ou changé de cours : la rouvrir ressusciterait une série morte
+     * (incident du 12/11/2026 : séries finies en janvier–mars rouvertes jusqu'en 2027).
+     */
+    public const REOPEN_MAX_WEEKS_AFTER_END = 8;
+
     public function __construct(
         protected LegacyRecurringSlotService $legacyRecurringSlotService
     ) {}
@@ -33,7 +41,12 @@ class ProlongRecurringSlotsService
      * Une série remplacée par une série plus récente (même élève, enseignant, jour et heure)
      * n'est pas prolongée.
      *
-     * @return array{prolonged: int, trimmed: int, lessons_generated: int, lessons_skipped: int, errors: int}
+     * Série déjà terminée : rouverte seulement si sa fin est récente (REOPEN_MAX_WEEKS_AFTER_END) et
+     * que l'élève n'a pas, depuis, une autre série active (changement d'enseignant ou d'horaire).
+     * Jamais rouverte : une série dont la fin a été voulue (end_locked_at : tronquée depuis le planning,
+     * suppression « toutes les suivantes »).
+     *
+     * @return array{prolonged: int, trimmed: int, lessons_generated: int, lessons_skipped: int, lessons_conflicts: int, errors: int, details: list<array<string, mixed>>, conflicts: list<array<string, mixed>>}
      */
     public function prolongActiveRecurrences(?int $studentId = null, ?int $clubId = null, bool $dryRun = false): array
     {
@@ -45,12 +58,17 @@ class ProlongRecurringSlotsService
             'trimmed' => 0,
             'lessons_generated' => 0,
             'lessons_skipped' => 0,
+            'lessons_conflicts' => 0,
             'errors' => 0,
+            'details' => [],
+            'conflicts' => [],
         ];
 
         $slots = SubscriptionRecurringSlot::query()
             ->where('status', 'active')
             ->whereNotNull('student_id')
+            ->whereDate('end_date', '>=', $today->copy()->subWeeks(self::REOPEN_MAX_WEEKS_AFTER_END)->toDateString())
+            ->whereNull('end_locked_at')
             ->when($studentId !== null, fn ($q) => $q->where('student_id', $studentId))
             ->when($clubId !== null, fn ($q) => $q->whereHas('subscriptionInstance.subscription', fn ($s) => $s->forClub($clubId)))
             ->with('subscriptionInstance.subscription')
@@ -59,6 +77,10 @@ class ProlongRecurringSlotsService
 
         foreach ($slots as $slot) {
             if ($this->hasSuccessor($slot, $slots)) {
+                continue;
+            }
+
+            if (Carbon::parse($slot->end_date)->lt($today) && $this->wasReplacedAfterEnd($slot)) {
                 continue;
             }
 
@@ -73,6 +95,17 @@ class ProlongRecurringSlotsService
             $needsTrim = $targetEnd->lt($horizonEnd->copy()->startOfDay())
                 && $currentEnd->gt($targetEnd)
                 && $targetEnd->gte(Carbon::parse($slot->start_date)->startOfDay());
+
+            if ($needsProlong || $needsTrim) {
+                $result['details'][] = [
+                    'subscription_recurring_slot_id' => (int) $slot->id,
+                    'student_id' => (int) $slot->student_id,
+                    'teacher_id' => $slot->teacher_id !== null ? (int) $slot->teacher_id : null,
+                    'action' => $needsTrim ? 'trim' : 'prolong',
+                    'previous_end' => $currentEnd->format('Y-m-d'),
+                    'new_end' => $targetEnd->format('Y-m-d'),
+                ];
+            }
 
             if ($dryRun) {
                 $result['prolonged'] += $needsProlong ? 1 : 0;
@@ -110,11 +143,12 @@ class ProlongRecurringSlotsService
                 }
 
                 // Toujours (re)générer : une série déjà ouverte peut avoir des semaines sans cours
-                // (carnet plein au moment de la génération, nouveau carnet depuis).
                 // (carnet plein au moment de la génération, nouveau carnet depuis). Jamais dans le passé.
                 $stats = $this->legacyRecurringSlotService->generateLessonsForSlot($slot, null, null, 0, $today);
                 $result['lessons_generated'] += $stats['generated'];
                 $result['lessons_skipped'] += $stats['skipped'];
+                $result['lessons_conflicts'] += count($stats['conflicts'] ?? []);
+                array_push($result['conflicts'], ...($stats['conflicts'] ?? []));
                 $result['errors'] += $stats['errors'];
             } catch (\Throwable $e) {
                 $result['errors']++;
@@ -125,7 +159,7 @@ class ProlongRecurringSlotsService
             }
         }
 
-        Log::info('ProlongRecurringSlotsService: exécution terminée', $result + ['student_id' => $studentId, 'club_id' => $clubId]);
+        Log::info('ProlongRecurringSlotsService: exécution terminée', array_diff_key($result, ['details' => true, 'conflicts' => true]) + ['student_id' => $studentId, 'club_id' => $clubId]);
 
         return $result;
     }
@@ -166,6 +200,20 @@ class ProlongRecurringSlotsService
         $latest = $active->map(fn ($i) => Carbon::parse($i->expires_at)->endOfDay())->max();
 
         return $latest->lt($horizonEnd) ? $latest : $horizonEnd->copy();
+    }
+
+    /**
+     * Série terminée remplacée : l'élève a, depuis sa fin, une autre série active
+     * (autre enseignant, jour ou horaire). Ne pas la rouvrir.
+     */
+    private function wasReplacedAfterEnd(SubscriptionRecurringSlot $slot): bool
+    {
+        return SubscriptionRecurringSlot::query()
+            ->where('student_id', $slot->student_id)
+            ->where('id', '!=', $slot->id)
+            ->where('status', 'active')
+            ->whereDate('start_date', '>', Carbon::parse($slot->end_date)->subWeek()->toDateString())
+            ->exists();
     }
 
     /**

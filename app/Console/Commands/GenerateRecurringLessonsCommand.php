@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\SimulatesInTransaction;
 use App\Jobs\GenerateRecurringLessonsJob;
 use App\Services\RecurringSlotService;
 use App\Services\LegacyRecurringSlotService;
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 class GenerateRecurringLessonsCommand extends Command
 {
+    use SimulatesInTransaction;
+
     /**
      * The name and signature of the console command.
      *
@@ -28,7 +31,7 @@ class GenerateRecurringLessonsCommand extends Command
                             {--start-date= : Date de début (format: Y-m-d, par défaut: aujourd\'hui)}
                             {--end-date= : Date de fin (format: Y-m-d, par défaut: +3 mois)}
                             {--async : Exécuter en mode asynchrone via queue}
-                            {--dry-run : Afficher ce qui serait généré sans le faire}';
+                            {--dry-run : Simuler (transaction annulée) et lister les cours qui seraient créés}';
 
     /**
      * The console command description.
@@ -61,11 +64,20 @@ class GenerateRecurringLessonsCommand extends Command
             $this->info("📅 Période : {$startDate->format('Y-m-d')} → {$endDate->format('Y-m-d')}");
             
             if ($slotId) {
-                $this->info("🎯 Créneau spécifique : #{$slotId}");
-            } else {
-                $this->info("🎯 Tous les créneaux actifs");
+                $this->error('❌ --dry-run ne gère que la génération globale');
+
+                return Command::FAILURE;
             }
-            
+
+            [$legacyStats, $created] = $this->simulate(function () use ($service, $legacyService, $startDate, $endDate) {
+                $service->generateLessonsForAllActiveSlots($startDate, $endDate);
+
+                return $legacyService->generateLessonsForAllActiveSlots($startDate, $endDate);
+            });
+
+            $this->printConflicts($legacyStats['conflicts'] ?? []);
+            $this->printSimulatedLessons($created);
+
             return Command::SUCCESS;
         }
 
@@ -120,9 +132,11 @@ class GenerateRecurringLessonsCommand extends Command
                         [
                             ['Lessons générées', $legacyStats['generated']],
                             ['Lessons ignorées', $legacyStats['skipped']],
+                            ['Conflits (non générées)', count($legacyStats['conflicts'])],
                             ['Erreurs', $legacyStats['errors']],
                         ]
                     );
+                    $this->printConflicts($legacyStats['conflicts']);
                     
                     // Combiner les stats
                     $stats['lessons_generated'] += $legacyStats['generated'];

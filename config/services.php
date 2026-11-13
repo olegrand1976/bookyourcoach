@@ -54,6 +54,14 @@ return [
         ],
     ],
 
+    // Veille planning : une issue GitHub par jour signalé, pour analyse et correction (dépôt public :
+    // jamais de nom ni de donnée personnelle, seulement des identifiants). Inactif sans jeton.
+    'github_planning_issues' => [
+        'token' => env('GITHUB_PLANNING_ISSUES_TOKEN'),
+        'repo' => env('GITHUB_PLANNING_ISSUES_REPO', 'olegrand1976/bookyourcoach'),
+        'label' => env('GITHUB_PLANNING_ISSUES_LABEL', 'veille-planning'),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),

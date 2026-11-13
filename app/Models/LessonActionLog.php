@@ -33,6 +33,9 @@ class LessonActionLog extends Model
 
     public const ACTION_STUDENT_CANCELLED = 'student_cancelled';
 
+    /** Cours créé par la génération automatique d'une série (tâche de nuit, « Planifier l'avenir »). */
+    public const ACTION_GENERATED = 'generated';
+
     /** Filtre API : toutes les variantes d'annulation. */
     public const ACTION_FILTER_ALL_CANCELLATIONS = 'all_cancellations';
 
@@ -58,6 +61,7 @@ class LessonActionLog extends Model
         self::ACTION_CERTIFICATE_REJECTED => 'Certificat refusé',
         self::ACTION_CERTIFICATE_CLOSED => 'Certificat clôturé',
         self::ACTION_STUDENT_CANCELLED => 'Annulation par l\'élève',
+        self::ACTION_GENERATED => 'Génération automatique',
     ];
 
     protected $fillable = [

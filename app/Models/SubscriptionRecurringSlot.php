@@ -83,6 +83,7 @@ class SubscriptionRecurringSlot extends Model
         'notes',
         'skipped_dates',
         'last_generated_at',
+        'end_locked_at',
     ];
 
     protected $casts = [
@@ -91,6 +92,7 @@ class SubscriptionRecurringSlot extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'last_generated_at' => 'datetime',
+        'end_locked_at' => 'datetime',
         'skipped_dates' => 'array',
     ];
     
@@ -330,6 +332,8 @@ class SubscriptionRecurringSlot extends Model
         }
 
         $this->end_date = $newEnd;
+        // Fin voulue : la prolongation automatique ne doit plus repousser cette date.
+        $this->end_locked_at = now();
         if ($reason) {
             $this->notes = ($this->notes ? $this->notes."\n" : '')."Série tronquée au {$newEnd->format('Y-m-d')} : ".$reason;
         }

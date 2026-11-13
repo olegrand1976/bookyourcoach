@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\ClubClosureDay;
+use App\Models\ClubOpenSlot;
 use App\Models\Lesson;
+use App\Models\LessonActionLog;
 use App\Models\SubscriptionInstance;
 use App\Models\SubscriptionRecurringSlot;
 use App\Models\User;
@@ -14,8 +16,14 @@ use Illuminate\Support\Facades\Log;
 class LegacyRecurringSlotService
 {
     /**
+     * Ne crée jamais un cours :
+     * - pour une série non active (annulée, libérée…) ;
+     * - à une date sautée (skipped_dates) ou déjà occupée par un cours de la série ;
+     * - en conflit : élève ou enseignant déjà pris, créneau du club complet (max_slots).
+     * Les conflits sont renvoyés dans `conflicts` (type, date, message) au lieu de bloquer la série.
+     *
      * @param  int  $reserveAttachmentSlots  Places à réserver (ex. cours déclencheur pas encore attaché)
-     * @return array{generated: int, skipped: int, errors: int}
+     * @return array{generated: int, skipped: int, errors: int, conflicts: list<array<string, mixed>>}
      */
     public function generateLessonsForSlot(
         SubscriptionRecurringSlot $recurringSlot,
@@ -25,6 +33,11 @@ class LegacyRecurringSlotService
         ?Carbon $notBefore = null
     ): array {
         $t0 = microtime(true);
+
+        if ($recurringSlot->status !== 'active') {
+            return ['generated' => 0, 'skipped' => 0, 'errors' => 0, 'conflicts' => []];
+        }
+
         $recurringEndDate = Carbon::parse($recurringSlot->end_date);
         $recurringStartDate = Carbon::parse($recurringSlot->start_date);
 
@@ -56,6 +69,7 @@ class LegacyRecurringSlotService
             'generated' => 0,
             'skipped' => 0,
             'errors' => 0,
+            'conflicts' => [],
         ];
 
         $recurringSlot->load(['subscriptionInstance', 'student', 'teacher']);
@@ -122,6 +136,13 @@ class LegacyRecurringSlotService
 
         $closureSet = $this->prefetchClosureDates($clubId, $dates);
         $existingStartKeys = $this->prefetchExistingLessonStartKeys($recurringSlot, $dates);
+        $occupancy = $this->prefetchOccupancy($clubId, $recurringSlot, $dates);
+        $openSlots = ClubOpenSlot::query()
+            ->where('club_id', $clubId)
+            ->orderBy('id')
+            ->get(['id', 'club_id', 'day_of_week', 'start_time', 'end_time', 'max_slots']);
+        /** @var list<Lesson> $createdLessons */
+        $createdLessons = [];
 
         /** @var array<int, array{instance: SubscriptionInstance, lessons: list<Lesson>}> $batches */
         $batches = [];
@@ -136,6 +157,9 @@ class LegacyRecurringSlotService
                 &$rolledOver,
                 $existingStartKeys,
                 $closureSet,
+                &$occupancy,
+                $openSlots,
+                &$createdLessons,
                 $recurringSlot,
                 $templateLesson,
                 $isSubscriptionActive,
@@ -178,6 +202,22 @@ class LegacyRecurringSlotService
                         continue;
                     }
 
+                    // Occurrence sautée par le club (suppression d'un seul cours, carte blanche…).
+                    if ($recurringSlot->isOccurrenceSkipped($startTime->format('Y-m-d'))) {
+                        $stats['skipped']++;
+
+                        continue;
+                    }
+
+                    $conflict = $this->detectOccurrenceConflict($recurringSlot, $startTime, $endTime, $occupancy, $openSlots);
+                    if ($conflict !== null) {
+                        $stats['skipped']++;
+                        $stats['conflicts'][] = $conflict;
+                        Log::warning('LegacyRecurringSlotService: occurrence non générée (conflit)', $conflict);
+
+                        continue;
+                    }
+
                     $lesson = Lesson::create([
                         'club_id' => $templateLesson->club_id,
                         'teacher_id' => $recurringSlot->teacher_id,
@@ -197,11 +237,23 @@ class LegacyRecurringSlotService
                         $batches[$subscriptionInstance->id]['lessons'][] = $lesson;
                     }
                     $keys[$startKey] = true;
+                    $occupancy[] = [
+                        'club_id' => (int) $lesson->club_id,
+                        'teacher_id' => (int) $lesson->teacher_id,
+                        'student_id' => (int) $lesson->student_id,
+                        'start' => $startTime->copy(),
+                        'end' => $endTime->copy(),
+                    ];
+                    $createdLessons[] = $lesson;
                     $stats['generated']++;
                 }
 
                 foreach ($batches as $batch) {
                     $this->attachGeneratedLessonsBatch($batch['instance'], $batch['lessons']);
+                }
+
+                foreach ($createdLessons as $created) {
+                    $this->logGeneratedLesson($created, $recurringSlot);
                 }
 
                 if ($attaching && $subscriptionInstance->id !== $originalInstanceId && isset($batches[$subscriptionInstance->id])) {
@@ -211,6 +263,7 @@ class LegacyRecurringSlotService
         } catch (\Exception $e) {
             $stats['errors']++;
             $stats['generated'] = 0;
+            $stats['conflicts'] = [];
             Log::error("Erreur transaction génération créneau récurrent #{$recurringSlot->id}", [
                 'error' => $e->getMessage(),
             ]);
@@ -223,6 +276,7 @@ class LegacyRecurringSlotService
             'dates' => count($dates),
             'generated' => $stats['generated'],
             'skipped' => $stats['skipped'],
+            'conflicts' => count($stats['conflicts']),
             'errors' => $stats['errors'],
             'reserve_slots' => $reserveAttachmentSlots,
             'ms' => (int) round((microtime(true) - $t0) * 1000),
@@ -283,6 +337,8 @@ class LegacyRecurringSlotService
         $min = $dates[0]->copy()->startOfDay();
         $max = $dates[array_key_last($dates)]->copy()->endOfDay();
 
+        // Cours supprimés ignorés : le changement d'intervalle archive puis régénère la série.
+        // Une suppression club est protégée par skipped_dates / la troncature de la série.
         return Lesson::query()
             ->where('student_id', $recurringSlot->student_id)
             ->where('teacher_id', $recurringSlot->teacher_id)
@@ -297,6 +353,145 @@ class LegacyRecurringSlotService
                 return [$key => true];
             })
             ->all();
+    }
+
+    /**
+     * Cours actifs qui peuvent entrer en conflit avec les occurrences : ceux du club (capacité),
+     * de l'enseignant et de l'élève (quel que soit le club).
+     *
+     * @param  list<Carbon>  $dates
+     * @return list<array{club_id: int, teacher_id: int, student_id: int, start: Carbon, end: Carbon}>
+     */
+    private function prefetchOccupancy(int $clubId, SubscriptionRecurringSlot $recurringSlot, array $dates): array
+    {
+        if ($dates === []) {
+            return [];
+        }
+
+        $min = $dates[0]->copy()->startOfDay();
+        $max = $dates[array_key_last($dates)]->copy()->endOfDay();
+
+        return Lesson::query()
+            ->where('start_time', '>=', $min)
+            ->where('start_time', '<=', $max)
+            ->whereNotIn('status', ['cancelled'])
+            ->where(function ($q) use ($clubId, $recurringSlot) {
+                $q->where('club_id', $clubId)
+                    ->orWhere('teacher_id', $recurringSlot->teacher_id)
+                    ->orWhere('student_id', $recurringSlot->student_id);
+            })
+            ->get(['id', 'club_id', 'teacher_id', 'student_id', 'start_time', 'end_time'])
+            ->map(function (Lesson $l) {
+                $start = Carbon::parse($l->start_time);
+
+                return [
+                    'club_id' => (int) $l->club_id,
+                    'teacher_id' => (int) $l->teacher_id,
+                    'student_id' => (int) $l->student_id,
+                    'start' => $start,
+                    'end' => $l->end_time ? Carbon::parse($l->end_time) : $start->copy()->addMinutes(20),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @param  list<array{club_id: int, teacher_id: int, student_id: int, start: Carbon, end: Carbon}>  $occupancy
+     * @param  \Illuminate\Support\Collection<int, ClubOpenSlot>  $openSlots
+     * @return array{type: string, date: string, time: string, message: string, recurring_slot_id: int, student_id: int, teacher_id: int}|null
+     */
+    private function detectOccurrenceConflict(
+        SubscriptionRecurringSlot $recurringSlot,
+        Carbon $start,
+        Carbon $end,
+        array $occupancy,
+        $openSlots
+    ): ?array {
+        $overlapping = array_values(array_filter(
+            $occupancy,
+            static fn (array $o) => $o['start']->lt($end) && $o['end']->gt($start)
+        ));
+
+        $conflict = static fn (string $type, string $message) => [
+            'type' => $type,
+            'date' => $start->format('Y-m-d'),
+            'time' => $start->format('H:i'),
+            'message' => $message,
+            'recurring_slot_id' => (int) $recurringSlot->id,
+            'student_id' => (int) $recurringSlot->student_id,
+            'teacher_id' => (int) $recurringSlot->teacher_id,
+        ];
+
+        foreach ($overlapping as $o) {
+            if ($o['student_id'] === (int) $recurringSlot->student_id) {
+                return $conflict('student_busy', "L'élève a déjà un cours à cette heure.");
+            }
+        }
+
+        foreach ($overlapping as $o) {
+            if ($o['teacher_id'] === (int) $recurringSlot->teacher_id) {
+                return $conflict('teacher_busy', "L'enseignant a déjà un cours à cette heure.");
+            }
+        }
+
+        $time = $start->format('H:i:s');
+        $openSlot = $recurringSlot->open_slot_id
+            ? $openSlots->firstWhere('id', (int) $recurringSlot->open_slot_id)
+            : null;
+        $openSlot ??= $openSlots->first(function (ClubOpenSlot $os) use ($start, $time) {
+            $osStart = strlen((string) $os->start_time) === 5 ? $os->start_time.':00' : (string) $os->start_time;
+            $osEnd = strlen((string) $os->end_time) === 5 ? $os->end_time.':00' : (string) $os->end_time;
+
+            return (int) $os->day_of_week === (int) $start->dayOfWeek
+                && $osStart <= $time
+                && $osEnd > $time;
+        });
+
+        // max_slots = cours simultanés (même règle que la création manuelle). On compte le pic de
+        // cours en même temps sur la durée du nouveau cours, pas tous les cours qui la touchent.
+        if ($openSlot && (int) $openSlot->max_slots > 0) {
+            $clubId = (int) $openSlot->club_id;
+            $inClub = array_values(array_filter($overlapping, static fn (array $o) => $o['club_id'] === $clubId));
+            $points = [$start];
+            foreach ($inClub as $o) {
+                if ($o['start']->gt($start)) {
+                    $points[] = $o['start'];
+                }
+            }
+            $peak = 0;
+            foreach ($points as $p) {
+                $peak = max($peak, count(array_filter($inClub, static fn (array $o) => $o['start']->lte($p) && $o['end']->gt($p))));
+            }
+            if ($peak >= (int) $openSlot->max_slots) {
+                return $conflict(
+                    'capacity_full',
+                    'Créneau complet ('.$peak.'/'.(int) $openSlot->max_slots.' cours simultanés).'
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Trace le cours généré dans l'historique (sans bloquer la génération en cas d'échec).
+     */
+    private function logGeneratedLesson(Lesson $lesson, SubscriptionRecurringSlot $recurringSlot): void
+    {
+        try {
+            app(LessonActionLogService::class)->log(
+                $lesson,
+                LessonActionLog::ACTION_GENERATED,
+                null,
+                'system',
+                meta: ['recurring_slot_id' => (int) $recurringSlot->id, 'source' => 'recurring_slot'],
+            );
+        } catch (\Throwable $e) {
+            Log::warning('LegacyRecurringSlotService: trace de génération impossible', [
+                'lesson_id' => $lesson->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -480,9 +675,12 @@ class LegacyRecurringSlotService
             'generated' => 0,
             'skipped' => 0,
             'errors' => 0,
+            'conflicts' => [],
         ];
 
-        $recurringSlots = SubscriptionRecurringSlot::where('start_date', '<=', $endDate)
+        $recurringSlots = SubscriptionRecurringSlot::where('status', 'active')
+            ->whereNotNull('student_id')
+            ->where('start_date', '<=', $endDate)
             ->where('end_date', '>=', $startDate)
             ->get();
 
@@ -492,6 +690,7 @@ class LegacyRecurringSlotService
                 $totalStats['generated'] += $stats['generated'];
                 $totalStats['skipped'] += $stats['skipped'];
                 $totalStats['errors'] += $stats['errors'];
+                array_push($totalStats['conflicts'], ...($stats['conflicts'] ?? []));
             } catch (\Exception $e) {
                 $totalStats['errors']++;
                 Log::error("Erreur lors de la génération pour créneau #{$slot->id}: ".$e->getMessage());

@@ -19,17 +19,9 @@ Schedule::command('volunteer:fetch-expense-limits')
         \Log::error('Échec de la mise à jour automatique des plafonds de défraiement pour ' . now()->year);
     });
 
-// Générer automatiquement les lessons à partir des créneaux récurrents
-// Exécuté quotidiennement à 2h du matin pour générer les lessons des 3 prochains mois
-Schedule::command('recurring-slots:generate-lessons')
-    ->dailyAt('02:00')
-    ->timezone('Europe/Brussels')
-    ->onSuccess(function () {
-        \Log::info('Génération automatique des lessons depuis les créneaux récurrents terminée');
-    })
-    ->onFailure(function () {
-        \Log::error('Échec de la génération automatique des lessons depuis les créneaux récurrents');
-    });
+// La génération des cours des séries est faite par recurring-slots:prolong (02:30), qui ne traite que les séries
+// en cours. recurring-slots:generate-lessons n'est plus planifiée (doublon ; à l'origine de l'incident du 12/11/2026) :
+// elle reste disponible à la main, avec un --dry-run qui simule réellement.
 
 // Planifier l'avenir : prolonger les récurrences des élèves ayant un abonnement actif
 // (horizon 26 semaines, borné à l'expiration des abonnements) et générer les cours.
@@ -99,6 +91,16 @@ if (config('bookyourcoach.subscription_expiry_watch.enabled', true)) {
             \Log::error('Échec de la veille des abonnements en fin de vie');
         });
 }
+
+// Veille planning : la veille de chaque jour de cours, contrôle de cohérence du planning du lendemain
+// (capacité, doubles réservations, cours générés ou réapparus à tort…) ; e-mail aux responsables du club
+// uniquement en cas d'incohérence.
+Schedule::command('planning:check-consistency')
+    ->dailyAt('18:00')
+    ->timezone('Europe/Brussels')
+    ->onFailure(function () {
+        \Log::error('Échec de la veille planning');
+    });
 
 // Purge des jetons d'accès dormants (expiration glissante, cf. bookyourcoach.auth.token_idle_days)
 Schedule::command('auth:prune-idle-tokens')

@@ -56,10 +56,12 @@ TASKS=(
   "expense-limits|artisan,volunteer:fetch-expense-limits|0 6 1 1 *|ENABLED"
   # Jamais exécutées en prod jusqu'ici : premier passage = rattrapage. En pause jusqu'à validation.
   "planning-insights|artisan,club:send-daily-planning-insights|0 8 * * *|PAUSED"
-  "generate-lessons|artisan,recurring-slots:generate-lessons|0 2 * * *|PAUSED"
+  # generate-lessons retirée (doublon de prolong, incident du 12/11/2026) : le déclencheur existant reste en pause.
   "prolong|artisan,recurring-slots:prolong|30 2 * * *|PAUSED"
   "expire-links|artisan,recurring-slots:expire-subscriptions|0 3 * * *|PAUSED"
   "consume-past-lessons|artisan,subscriptions:consume-past-lessons|5 * * * *|PAUSED"
+  # Veille planning (e-mail aux responsables la veille) : en pause jusqu'à validation d'un --dry-run.
+  "planning-consistency|artisan,planning:check-consistency|0 18 * * *|PAUSED"
 )
 
 WORK_DIR="$(mktemp -d)"
