@@ -1,10 +1,14 @@
 name: PHPUnit
 
 on:
+  # Sur main, la suite est lancée par le workflow de déploiement (deploy-production-security.yml,
+  # via workflow_call) qui attend son succès avant de déployer : la lancer aussi ici la ferait
+  # tourner deux fois sur le même commit.
   push:
-    branches: [main, develop]
+    branches: [develop]
   pull_request:
     branches: [main, develop]
+  workflow_call:
 
 jobs:
   phpunit:
