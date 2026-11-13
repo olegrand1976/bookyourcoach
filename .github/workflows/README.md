@@ -139,7 +139,7 @@ Le build frontend utilise un **cache Docker dont le scope dépend du hash du cod
 
 - **Déploiement automatique (push sur `main`)** : le workflow **🚀 Déploiement GCP Cloud Run** (`deploy-production-security.yml`) build puis déploie ; avec le nouveau scope de cache, chaque modification du frontend reconstruit le bundle (`npm run build`).
   - Seule exception : la couche `npm ci` est reprise d’un second scope indexé sur `frontend/package-lock.json` tant que ce fichier ne change pas. Le cache BuildKit étant adressé par contenu, le bundle n’est jamais repris d’un autre code que celui du commit.
-  - Ordre du workflow : préparation et contrôle de sécurité en parallèle ; images API et web construites en parallèle ; le déploiement attend les deux images.
+  - Ordre du workflow : préparation, contrôle de sécurité et **PHPUnit** en parallèle ; images API et web construites en parallèle ; le déploiement attend PHPUnit, le contrôle de sécurité et les deux images. Un seul déploiement à la fois (groupe de concurrence `deploy-production-gcp`).
 - **Si la prod affiche encore l’ancien comportement** : faire un **hard refresh** (Ctrl+Shift+R) ou vider le cache navigateur ; si le problème persiste, lancer le workflow en manuel avec **Forcer la reconstruction des images** (`force_rebuild=true`) pour ignorer tout cache.
 
 ### En cas d'échec de build :

@@ -31,9 +31,17 @@ env:
   WEB_SERVICE: bookyourcoach-web-prod
   MIGRATE_JOB: bookyourcoach-migrate
 
+# Un seul déploiement de production à la fois, dans l'ordre des pushs : sans ce groupe,
+# deux pushs rapprochés pouvaient se déployer dans le désordre (le build le plus lent
+# écrasant en production le commit le plus récent). Un run en cours n'est jamais annulé ;
+# un run en attente est remplacé par le plus récent, qui contient ses commits.
+concurrency:
+  group: deploy-production-gcp
+  cancel-in-progress: false
+
 jobs:
   # ─── 1. Préparation ───────────────────────────────────────────────────────
-  # Parallèle à la vérification de sécurité : rien ici ne lit le code.
+  # Parallèle à la vérification de sécurité et à PHPUnit : rien ici ne lit le code.
   prepare:
     name: 🔍 Préparation & Validation
     runs-on: ubuntu-latest
@@ -93,6 +101,14 @@ jobs:
         [ "$manual_auth" -gt 0 ] && echo "❌ Auth manuelle détectée" && exit 1
         [ "$role_checks" -gt 0 ] && echo "❌ Vérification de rôle en dur détectée" && exit 1
         echo "✅ Sécurité OK (auth_manuelle=$manual_auth role_checks=$role_checks)"
+
+  # ─── 2 bis. Suite PHPUnit complète (garde-fou avant déploiement) ──────────
+  # Même workflow que pour les pull requests (phpunit.yml, appelé ici) : sur main, la suite
+  # ne tourne plus qu'une fois, ici, et le déploiement l'attend. Elle tourne en parallèle des
+  # builds (≈ 1 min 30 contre ≈ 1 min 40 pour l'image web) : le garde-fou ne coûte presque rien.
+  phpunit:
+    name: 🧪 PHPUnit
+    uses: ./.github/workflows/phpunit.yml
 
   # ─── 3. Build + push Artifact Registry (API et web en parallèle) ─────────
   build-api:
@@ -187,7 +203,9 @@ jobs:
   deploy:
     name: 🚀 Cloud Run Deploy
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-web]
+    # PHPUnit et la vérification de sécurité doivent être vertes : aucun déploiement
+    # d'un commit dont la suite de tests échoue.
+    needs: [prepare, security-check, phpunit, build-api, build-web]
     if: needs.prepare.outputs.should_deploy == 'true'
 
     steps:
@@ -350,7 +368,7 @@ jobs:
   notify:
     name: 📧 Notification
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-web, deploy, test-deployment]
+    needs: [prepare, phpunit, build-api, build-web, deploy, test-deployment]
     if: always()
 
     steps:
@@ -362,6 +380,12 @@ jobs:
         echo "  Web  : https://bookyourcoach-web-prod-a7ako2njea-od.a.run.app"
         echo "  Tag  : ${{ needs.prepare.outputs.image_tag }}"
         echo "  Date : $(date)"
+
+    - name: ⛔ Déploiement bloqué par PHPUnit
+      if: needs.phpunit.result == 'failure'
+      run: |
+        echo "⛔ PHPUnit en échec sur ${{ github.sha }} : la production n'a pas été modifiée."
+        exit 1
 
     - name: ❌ Échec
       if: needs.deploy.result == 'failure' || needs.test-deployment.result == 'failure'
