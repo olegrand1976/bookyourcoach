@@ -1046,4 +1046,43 @@ class SubscriptionInstanceUpdateTest extends TestCase
 
         $this->assertSame('expired', $this->instance->fresh()->status);
     }
+
+    /**
+     * Test : Les cours à venir liés à un abonnement expiré passent sur l'abonnement valide tant qu'il
+     * reste une place (base manuelle conservée), les suivants restent sans abonnement ; le passé ne bouge pas.
+     */
+    public function test_relink_future_lessons_moves_them_off_expired_instance(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $this->instance->resetLessonsUsedAt(9);
+        $this->instance->save();
+
+        $old = SubscriptionInstance::create([
+            'subscription_id' => $this->subscription->id,
+            'lessons_used' => 0,
+            'started_at' => Carbon::now()->subMonths(8),
+            'expires_at' => Carbon::now()->subMonths(4),
+            'status' => 'expired',
+        ]);
+        $old->students()->attach($this->student->id);
+
+        $past = $this->createAttachedLesson(Carbon::now()->subDays(3)->setTime(10, 0), 'confirmed');
+        $first = $this->createAttachedLesson(Carbon::now()->addDays(7)->setTime(10, 0), 'confirmed');
+        $second = $this->createAttachedLesson(Carbon::now()->addDays(14)->setTime(10, 0), 'confirmed');
+        foreach ([$past, $first, $second] as $lesson) {
+            $this->instance->lessons()->detach($lesson->id);
+            $old->lessons()->attach($lesson->id);
+        }
+
+        $this->artisan('subscriptions:relink-future-lessons', ['--student' => $this->student->id])->assertSuccessful();
+        $this->assertSame(3, $old->lessons()->count());
+
+        $this->artisan('subscriptions:relink-future-lessons', ['--student' => $this->student->id, '--apply' => true])
+            ->assertSuccessful();
+
+        $this->assertSame([$past->id], $old->lessons()->pluck('lessons.id')->all());
+        $this->assertSame([$first->id], $this->instance->lessons()->pluck('lessons.id')->all());
+        $this->assertFalse(\Illuminate\Support\Facades\DB::table('subscription_lessons')->where('lesson_id', $second->id)->exists());
+        $this->assertSame(9, $this->instance->fresh()->manual_lessons_used);
+    }
 }
