@@ -403,8 +403,8 @@ class LegacyRecurringSlotServiceTest extends TestCase
         // Vérifier que les lessons générées respectent la période de la récurrence
         $lessons = Lesson::where('teacher_id', $this->teacher->id)
             ->where('student_id', $this->student->id)
-            ->where('start_time', '>=', $recurringStartDate)
-            ->where('start_time', '<=', $recurringEndDate)
+            ->whereDate('start_time', '>=', $recurringStartDate->toDateString())
+            ->whereDate('start_time', '<=', $recurringEndDate->toDateString())
             ->get();
 
         $this->assertGreaterThan(0, $lessons->count());

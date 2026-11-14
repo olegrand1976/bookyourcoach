@@ -70,3 +70,20 @@ gcloud run jobs execute bookyourcoach-cron-prolong --region=europe-west9 --wait 
 ```
 
 Toujours faire une sauvegarde avant `--apply` (`gcloud sql export sql …`).
+
+## Rappels de la veille au soir (21h30)
+
+Commande `lessons:send-eve-reminders` (Cloud Run Job `bookyourcoach-cron-eve-reminders`, 21:30 Europe/Brussels) :
+
+- **Moniteurs** : chaque moniteur actif dans le club reçoit ses cours du lendemain (heure, élèves). Si un seul cours
+  est prévu au premier horaire de la journée, son moniteur est prévenu qu'il sera seul : arriver un peu plus tôt pour
+  ouvrir et préparer (objet préfixé « [Ouverture] »).
+- **Élèves** : un e-mail par adresse (foyer regroupé) avec chaque cours du lendemain, l'heure et le moniteur. Les élèves
+  ayant désactivé les notifications (`notifications_enabled = false`) ne reçoivent rien.
+- Rien un jour de congé du club ni pour les cours annulés ; un destinataire n'est servi qu'une fois par jour (cache 36 h,
+  `--force` pour renvoyer).
+- `--dry-run` liste les destinataires (adresses masquées) sans rien envoyer ; `--date=AAAA-MM-JJ`, `--club=`,
+  `--only=teachers|students`.
+
+Remplace l'ancien rappel « 24 h avant » programmé à la création du cours : avec la file `sync` de la prod, il partait en
+réalité au moment de la réservation.

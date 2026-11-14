@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Log;
  * Job qui traite les actions post-création d'un cours de manière asynchrone
  * - Consommation d'abonnement
  * - Envoi des notifications
- * - Programmation des rappels
+ * (Rappel de la veille : commande lessons:send-eve-reminders, 21h30.)
  *
  * La récurrence (slot + cours futurs) est créée en sync dans LessonController::store.
  */
@@ -57,7 +57,6 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             }
 
             $this->sendBookingNotifications();
-            $this->scheduleReminder();
 
             Log::info("✅ [ProcessLessonPostCreation] Traitement asynchrone terminé pour le cours {$this->lesson->id}");
         } catch (\Exception $e) {
@@ -184,19 +183,6 @@ class ProcessLessonPostCreationJob implements ShouldQueue
             Log::info("✅ Notifications envoyées pour le cours {$this->lesson->id}");
         } catch (\Exception $e) {
             Log::error('Erreur sendBookingNotifications: '.$e->getMessage());
-        }
-    }
-
-    private function scheduleReminder(): void
-    {
-        try {
-            $reminderTime = Carbon::parse($this->lesson->start_time)->subHours(24);
-            if ($reminderTime->isFuture()) {
-                SendLessonReminderJob::dispatch($this->lesson)->delay($reminderTime);
-                Log::info("✅ Rappel programmé pour le cours {$this->lesson->id} à {$reminderTime}");
-            }
-        } catch (\Exception $e) {
-            Log::warning("Impossible de programmer le rappel pour le cours {$this->lesson->id}: ".$e->getMessage());
         }
     }
 }

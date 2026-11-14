@@ -62,6 +62,8 @@ TASKS=(
   "consume-past-lessons|artisan,subscriptions:consume-past-lessons|5 * * * *|PAUSED"
   # Veille planning (e-mail aux responsables la veille) : en pause jusqu'à validation d'un --dry-run.
   "planning-consistency|artisan,planning:check-consistency|0 18 * * *|PAUSED"
+  # Rappels de la veille (e-mails moniteurs et élèves) : en pause jusqu'à validation d'un --dry-run.
+  "eve-reminders|artisan,lessons:send-eve-reminders|30 21 * * *|PAUSED"
 )
 
 WORK_DIR="$(mktemp -d)"

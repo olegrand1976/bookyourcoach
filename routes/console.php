@@ -102,6 +102,15 @@ Schedule::command('planning:check-consistency')
         \Log::error('Échec de la veille planning');
     });
 
+// Rappels de la veille au soir : cours du lendemain aux moniteurs (alerte « ouverture » si seul au
+// premier horaire) et aux élèves (heure et moniteur).
+Schedule::command('lessons:send-eve-reminders')
+    ->dailyAt('21:30')
+    ->timezone('Europe/Brussels')
+    ->onFailure(function () {
+        \Log::error('Échec des rappels de la veille');
+    });
+
 // Purge des jetons d'accès dormants (expiration glissante, cf. bookyourcoach.auth.token_idle_days)
 Schedule::command('auth:prune-idle-tokens')
     ->dailyAt('03:30')
