@@ -1085,4 +1085,36 @@ class SubscriptionInstanceUpdateTest extends TestCase
         $this->assertFalse(\Illuminate\Support\Facades\DB::table('subscription_lessons')->where('lesson_id', $second->id)->exists());
         $this->assertSame(9, $this->instance->fresh()->manual_lessons_used);
     }
+
+    /**
+     * Test : Le premier cours rattaché ne remplace pas la date de début d'un carnet avec base manuelle.
+     */
+    public function test_first_linked_lesson_keeps_start_date_when_manual_base_exists(): void
+    {
+        $this->template->courseTypes()->attach($this->courseType->id);
+        $startedAt = $this->instance->started_at->format('Y-m-d');
+        $expiresAt = $this->instance->expires_at->format('Y-m-d');
+        $this->instance->resetLessonsUsedAt(4);
+        $this->instance->save();
+
+        $lesson = Lesson::create([
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'course_type_id' => $this->courseType->id,
+            'club_id' => $this->club->id,
+            'location_id' => $this->location->id,
+            'start_time' => Carbon::now()->addDays(7)->setTime(10, 0),
+            'end_time' => Carbon::now()->addDays(7)->setTime(11, 0),
+            'status' => 'confirmed',
+            'payment_status' => 'pending',
+            'price' => 50.00,
+        ]);
+
+        $this->instance->fresh()->consumeLesson($lesson);
+
+        $instance = $this->instance->fresh();
+        $this->assertTrue($instance->lessons()->where('lesson_id', $lesson->id)->exists());
+        $this->assertSame($startedAt, $instance->started_at->format('Y-m-d'));
+        $this->assertSame($expiresAt, $instance->expires_at->format('Y-m-d'));
+    }
 }

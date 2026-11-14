@@ -672,8 +672,11 @@ class SubscriptionInstance extends Model
 
         // 📅 LOGIQUE : Mettre à jour started_at si c'est le premier cours réellement pris
         // La date de début doit être basée sur le premier cours, pas sur la création de l'abonnement
+        // Sauf si le club a saisi des cours déjà pris (base manuelle) : le carnet a commencé avant,
+        // sa date de début (souvent corrigée à la main) ne doit pas être écrasée.
         $isFirstLesson = $this->lessons()->count() === 0;
-        if ($isFirstLesson && $lesson->start_time) {
+        $hasManualBase = (int) $this->manual_lessons_used > 0 || $this->lessons_used_reset_at !== null;
+        if ($isFirstLesson && ! $hasManualBase && $lesson->start_time) {
             $lessonDate = Carbon::parse($lesson->start_time)->startOfDay();
             // Pour le premier cours, toujours mettre à jour started_at avec la date du cours
             // (peu importe si c'est dans le passé ou le futur)
