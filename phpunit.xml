@@ -28,6 +28,8 @@
         </exclude>
     </source>
     <php>
+        <!-- Suite complète ≈ 240 Mo : le défaut PHP (128 Mo) du runner php-test la fait planter. Aligné sur la CI. -->
+        <ini name="memory_limit" value="1G"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:NF8zLNLx17Ldvoq5Ki+aXvDhV95Jfcfo4T1NA8xND+E="/>
         <env name="APP_DEBUG" value="true"/>
