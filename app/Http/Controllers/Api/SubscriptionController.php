@@ -1784,8 +1784,19 @@ class SubscriptionController extends Controller
                 $instance->est_legacy = $validated['est_legacy'];
                 $estLegacyChanged = ($oldEstLegacy !== $instance->est_legacy);
             }
-            
+
+            // Date de fin repoussée sur un abonnement expiré : le formulaire renvoie le statut affiché
+            // (« expiré »), qui ne doit pas survivre à la nouvelle échéance.
+            if ($oldValues['status'] === 'expired' && $instance->isDirty('expires_at')) {
+                $instance->reopenIfNotYetExpired();
+            }
+
             $instance->save();
+
+            // Statut cohérent avec les nouvelles dates et le compteur (épuisé → completed, échéance passée → expired).
+            if ($instance->status === 'active') {
+                $instance->checkAndUpdateStatus();
+            }
 
             // « Dernier abonnement » modifié : réappliquer tout de suite la fin des séries de l'élève.
             if ($lastSubscriptionChanged) {

@@ -561,6 +561,26 @@ class SubscriptionInstance extends Model
     }
 
     /**
+     * Abonnement « expiré » dont la date de fin est à venir (dates repoussées par le club) :
+     * il redevient actif s'il lui reste des cours. Ne sauvegarde pas.
+     */
+    public function reopenIfNotYetExpired(): bool
+    {
+        if ($this->status !== 'expired' || $this->expires_at === null || Carbon::now()->isAfter($this->expires_at)) {
+            return false;
+        }
+
+        $totalAvailable = $this->resolveTotalAvailableLessons();
+        if ($totalAvailable > 0 && $this->lessons_used >= $totalAvailable) {
+            return false;
+        }
+
+        $this->status = 'active';
+
+        return true;
+    }
+
+    /**
      * Consommer un cours (attacher au abonnement)
      * Le compteur lessons_used sera recalculé automatiquement par l'observer
      *

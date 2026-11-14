@@ -1745,13 +1745,23 @@ const getProjectedEndDetail = (instance) => {
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
+// Date de l'API (minuit local sérialisé en UTC, ex. 2026-09-08T22:00:00Z pour le 09/09) → AAAA-MM-JJ local.
+// Un simple split('T') recule d'un jour à chaque enregistrement.
+const toLocalDateInput = (value) => {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return String(value).split('T')[0]
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Ouvrir la modale d'édition d'une instance
 const openEditInstanceModal = async (instance) => {
   editingInstance.value = instance
   const manualLessonsUsed = getManualLessonsUsed(instance)
   editForm.value = {
-    started_at: instance.started_at ? instance.started_at.split('T')[0] : '',
-    expires_at: instance.expires_at ? instance.expires_at.split('T')[0] : '',
+    started_at: toLocalDateInput(instance.started_at),
+    expires_at: toLocalDateInput(instance.expires_at),
     status: instance.status || 'active',
     lessons_used: instance.lessons_used || 0, // Total utilisé à ce jour (corrigeable)
     manual_lessons_used: manualLessonsUsed,

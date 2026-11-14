@@ -966,5 +966,84 @@ class SubscriptionInstanceUpdateTest extends TestCase
         $this->assertEquals(1, $this->instance->fresh()->lessons_used);
         $this->assertEquals(9, $this->instance->fresh()->remaining_bookable);
     }
-}
 
+    /**
+     * Test : Repousser la date de fin d'un abonnement expiré le réactive, même si le formulaire
+     * renvoie le statut affiché (« expiré »).
+     */
+    public function test_postponing_expiry_of_expired_instance_reopens_it(): void
+    {
+        $this->instance->update([
+            'status' => 'expired',
+            'started_at' => Carbon::now()->subMonths(5),
+            'expires_at' => Carbon::now()->subMonth(),
+        ]);
+
+        $this->putJson("/api/club/subscriptions/instances/{$this->instance->id}", [
+            'started_at' => Carbon::now()->subMonths(2)->format('Y-m-d'),
+            'expires_at' => Carbon::now()->addMonths(2)->format('Y-m-d'),
+            'status' => 'expired',
+            'lessons_used' => $this->instance->lessons_used,
+            'est_legacy' => false,
+        ])->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertSame('active', $this->instance->fresh()->status);
+    }
+
+    /**
+     * Test : Sans nouvelle date de fin, un abonnement expiré le reste.
+     */
+    public function test_expired_instance_stays_expired_when_expiry_is_unchanged(): void
+    {
+        $this->instance->update(['status' => 'expired', 'expires_at' => Carbon::now()->subMonth()]);
+
+        $this->putJson("/api/club/subscriptions/instances/{$this->instance->id}", [
+            'expires_at' => $this->instance->fresh()->expires_at->format('Y-m-d'),
+            'status' => 'expired',
+            'lessons_used' => 6,
+            'est_legacy' => false,
+        ])->assertStatus(200);
+
+        $this->assertSame('expired', $this->instance->fresh()->status);
+    }
+
+    /**
+     * Test : La commande de remise en état ne réactive que les expirés à échéance future, et seulement avec --apply.
+     */
+    public function test_reopen_expired_command_reactivates_only_future_expiry(): void
+    {
+        $this->instance->update(['status' => 'expired', 'expires_at' => Carbon::now()->addMonth()]);
+        $past = SubscriptionInstance::create([
+            'subscription_id' => $this->subscription->id,
+            'lessons_used' => 2,
+            'started_at' => Carbon::now()->subMonths(6),
+            'expires_at' => Carbon::now()->subMonths(2),
+            'status' => 'expired',
+        ]);
+
+        $this->artisan('subscriptions:reopen-expired')->assertSuccessful();
+        $this->assertSame('expired', $this->instance->fresh()->status);
+
+        $this->artisan('subscriptions:reopen-expired', ['--apply' => true])->assertSuccessful();
+        $this->assertSame('active', $this->instance->fresh()->status);
+        $this->assertSame('expired', $past->fresh()->status);
+        $this->assertTrue(AuditLog::where('model_id', $this->instance->id)
+            ->where('action', 'subscription_instance_updated')->exists());
+    }
+
+    /**
+     * Test : Une date de début reculée dont l'échéance recalculée est passée rend l'abonnement expiré.
+     */
+    public function test_moving_active_instance_expiry_into_past_expires_it(): void
+    {
+        $this->putJson("/api/club/subscriptions/instances/{$this->instance->id}", [
+            'started_at' => Carbon::now()->subMonths(8)->format('Y-m-d'),
+            'expires_at' => null,
+            'status' => 'active',
+            'lessons_used' => $this->instance->lessons_used,
+            'est_legacy' => false,
+        ])->assertStatus(200);
+
+        $this->assertSame('expired', $this->instance->fresh()->status);
+    }
+}
